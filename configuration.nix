@@ -8,6 +8,8 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./main-user.nix
+      inputs.home-manager.nixosModules.default
     ];
 
   # Bootloader.
@@ -16,6 +18,8 @@
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
+
+  nix.settings.experimentimentalFeatures = [ "nix-command" "flakes" ];
 
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
@@ -58,6 +62,9 @@
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
+  # Enable bluetooth
+  hardware.bluetooth.enable = true;
+
   # Enable sound with pipewire.
   sound.enable = true;
   hardware.pulseaudio.enable = false;
@@ -79,17 +86,15 @@
   # services.xserver.libinput.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.erik = {
-    isNormalUser = true;
-    description = "erik";
-    extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [
-      firefox
-      vscode
-    #  thunderbird
-    ];
+ main-user.enable = true;
+ main-user.userName = "erik";
+
+ home-manager = {
+  extraSpecialArgs = {inherit inputs; };
+  users = {
+    "erik" = import ./home.nix;
   };
-  nixpkgs.config.allowUnfree = true;
+ };
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
