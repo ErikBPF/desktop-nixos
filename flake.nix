@@ -1,18 +1,22 @@
 {
-  description = "A simple flake with 1 template";
+  description = "Nixos config flake";
 
-  outputs = { self }: {
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    templates = {
-
-      default = {
-        path = ./default;
-        description = "Basic NixOS config flake";
-      };
-
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+  };
 
-    defaultTemplate = self.templates.default;
-
+  outputs = { self, nixpkgs, ... }@inputs: {
+    nixosConfigurations.default = nixpkgs.lib.nixosSystem {
+      specialArgs = {inherit inputs;};
+      modules = [
+        ./configuration.nix
+        inputs.home-manager.nixosModules.default
+      ];
+    };
   };
 }
