@@ -15,3 +15,4 @@
     defaultTemplate = self.templates.example;
 
   };
+}
