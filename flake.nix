@@ -5,14 +5,14 @@
 
     templates = {
 
-      example = {
+      default = {
         path = ./default;
         description = "Basic NixOS config flake";
       };
 
     };
 
-    defaultTemplate = self.templates.example;
+    defaultTemplate = self.templates.default;
 
   };
 }
