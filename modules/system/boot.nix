@@ -12,24 +12,9 @@
     consoleLogLevel = 3;
     initrd.verbose = false;
     initrd.systemd.enable = true;
-
-  fileSystems."/" = {
-    device = "none";
-    fsType = "tmpfs";
-    options = [ "noatime" "nodiratime" "mode=755" ];
+    plymouth.enable = false;
   };
 
-  fileSystems."/perm" = {
-    neededForBoot = true;
-    device = "/dev/disk/by-label/NIX-ROOT";
-    fsType = "f2fs";
-    options = [ "noatime" "nodiratime" "atgc" "gc_merge" "discard" ];
-  };
-
-  fileSystems."/boot" = {
-    device = "/dev/disk/by-label/NIX-BOOT";
-    fsType = "vfat";
-  };
 
   systemd.services = {
     NetworkManager-wait-online.enable = false;

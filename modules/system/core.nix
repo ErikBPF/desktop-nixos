@@ -1,6 +1,5 @@
 { config, lib, pkgs, ... }:
 
-let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
 {
   imports = [
     ./boot.nix
@@ -35,10 +34,7 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
     firewall.enable = true;
     dhcpcd.enable = false;
   };
-  services.nextdns = {
-    enable = true;
-    arguments = [ "-profile" secrets.misc.nextdns ];
-  };
+
 
   environment.persistence."/perm" = {
     hideMounts = true;
@@ -52,7 +48,7 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
   };
 
   users.mutableUsers = false;
-  users.users.root.hashedPassword = "!";
+  users.users.root.password = "test";
   environment.binsh = "${pkgs.dash}/bin/dash";
   system.stateVersion = "unstable";
 }

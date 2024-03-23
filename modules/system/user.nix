@@ -1,6 +1,5 @@
 { config, lib, pkgs, ... }:
 
-let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
 {
   users.users.erik = {
     isNormalUser = true;
@@ -11,7 +10,7 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
 
   programs.git.config = {
     user.name = "Erik Bogado";
-    user.email = secrets.misc.email;
+    user.email = "test@test.com";
   };
 
   # services.syncthing = {
@@ -41,24 +40,24 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
   #   };
   # };
 
-  environment.persistence."/perm".users.erik = {
-    directories = [
-      "Dots/"
-      "Code/"
-      "Documents/"
-      "Camera/"
-      ".local/share/nvim/"
-      ".local/state/nvim/"
-      ".local/share/zoxide/"
-      ".cache/zellij/"
-      ".cache/rclone/"
-      { directory = ".config/syncthing"; mode = "0700"; }
-      { directory = ".ssh"; mode = "0700"; }
-    ];
-    files = [
-      ".config/nushell/history.txt"
-    ];
-  };
+  # environment.persistence."/perm".users.erik = {
+  #   directories = [
+  #     "Dots/"
+  #     "Code/"
+  #     "Documents/"
+  #     "Camera/"
+  #     ".local/share/nvim/"
+  #     ".local/state/nvim/"
+  #     ".local/share/zoxide/"
+  #     ".cache/zellij/"
+  #     ".cache/rclone/"
+  #     { directory = ".config/syncthing"; mode = "0700"; }
+  #     { directory = ".ssh"; mode = "0700"; }
+  #   ];
+  #   files = [
+  #     ".config/nushell/history.txt"
+  #   ];
+  # };
 
   security.sudo.extraRules = [{ users = [ "erik" ]; commands = [{ command = "/home/erik/.config/hypr/scripts/sync.nu"; options = [ "NOPASSWD" ]; }]; }];
 
