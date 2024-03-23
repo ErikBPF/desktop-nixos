@@ -1,7 +1,8 @@
  { lib, config, pkgs, ... }:
  
 let
-    cfg = config.main-user
+    cfg = config.main-user;
+in
 {
     options = {
         main-user.enable
@@ -16,7 +17,6 @@ let
             isNormalUser = true;
             initialPassword = "test";
             extraGroups = [ "networkmanager" "wheel" ];
-            shell = pkgs.zsh;
             packages = with pkgs; [
             firefox
             git
