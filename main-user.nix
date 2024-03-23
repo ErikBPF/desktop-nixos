@@ -19,6 +19,7 @@ let
             shell = pkgs.zsh;
             packages = with pkgs; [
             firefox
+            git
             #  thunderbird
             ];
         };
