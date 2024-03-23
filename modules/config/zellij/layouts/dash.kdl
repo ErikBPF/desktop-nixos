@@ -1,0 +1,16 @@
+layout {
+    pane split_direction="vertical" {
+        pane command="btm" borderless=true
+        pane split_direction="horizontal" size="35%" {
+            pane name="" focus=true {
+                command "nu"
+                args "-e" "macchina; printf '\\033[A'"
+            } 
+            pane command="tty-clock" {
+                size "25%"
+                args "-s" "-c"
+            }
+            pane command="pulsemixer" size="25%"
+        }
+    }
+}

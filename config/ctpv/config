@@ -1,0 +1,11 @@
+preview eza inode/directory {{
+    eza --color=always --tree --icons "${f}" -L 2
+}}
+
+preview viu image/* {{
+    viu -b "${f}" 2>/dev/null
+}}
+
+preview bat text/* {{
+    bat --theme=base16 --color=always --style=numbers --line-range=:500 "${f}"
+}}
