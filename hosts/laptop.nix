@@ -1,6 +1,5 @@
 { config, lib, pkgs, modulesPath, ... }:
 
-let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
 {
 users.users.erik.password = "test";
 imports =
