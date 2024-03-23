@@ -1,0 +1,17 @@
+*/target/
+*/nimcache/
+*/zig-cache/
+*/zig-out/
+*/node_modules/
+*/__pycache__/
+*/bin/
+*/packages/
+*/obj/
+*/cache/
+*/libraries/
+*/Cargo.lock
+*tmp*
+*temp*
+*.out
+*.class
+*.git/    
