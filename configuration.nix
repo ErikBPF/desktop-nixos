@@ -89,12 +89,12 @@
  main-user.enable = true;
  main-user.userName = "erik";
 
- home-manager = {
-  extraSpecialArgs = {inherit inputs; };
-  users = {
-    "erik" = import ./home.nix;
-  };
- };
+#  home-manager = {
+#   extraSpecialArgs = {inherit inputs; };
+#   users = {
+#     "erik" = import ./home.nix;
+#   };
+#  };
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
