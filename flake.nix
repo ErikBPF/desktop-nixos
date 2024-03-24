@@ -11,7 +11,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, impermanence }: {
+  outputs = { self, nixpkgs, impermanence, disko }: {
     nixosConfigurations = {
       laptop = nixpkgs.lib.nixosSystem {
         modules = [
@@ -20,7 +20,7 @@
             networking.hostName = "nixos-laptop";
           })
 
-        inputs.disko.nixosModules.default
+        disko.nixosModules.default
         (import ./laptop/disk.nix { device = "/dev/sdb"; })
 
           ./hosts/laptop/hadware-configuration.nix
