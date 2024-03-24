@@ -1,0 +1,1 @@
+nixos-install --root /mnt --flake ./#laptop
