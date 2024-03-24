@@ -7,3 +7,4 @@
     ./wm/default.nix
     ./user/user.nix
   ];
+}
