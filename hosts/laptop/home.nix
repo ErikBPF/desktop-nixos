@@ -74,7 +74,7 @@
   programs.home-manager.enable = true;
 
   wayland.windowManager.hyprland = {
-    enabled = true;
+    enable = true;
     settings = {
 
     };
