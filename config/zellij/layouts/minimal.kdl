@@ -1,0 +1,6 @@
+layout {
+    pane name="" {
+        command "nu"
+        args "-e" "macchina; printf '\\033[A'"
+    }
+}
