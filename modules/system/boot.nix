@@ -29,7 +29,7 @@
   fileSystems."/perm" = {
     neededForBoot = true;
     device = "/dev/disk/by-label/NIXOS";
-    fsType = "f2fs";
+    fsType = "ext4";
     options = [ "noatime" "nodiratime" "atgc" "gc_merge" "discard" ];
   };
 
