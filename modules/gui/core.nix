@@ -27,11 +27,11 @@
   systemd.tmpfiles.rules = [
     "d '/var/cache/tuigreet' - greeter greeter - -"
   ];
-  environment.persistence."/persist" = {
-    directories = [
-      "/var/cache/tuigreet"
-    ];
-  };
+  # environment.persistence."/persist" = {
+  #   directories = [
+  #     "/var/cache/tuigreet"
+  #   ];
+  # };
 
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.greetd.enableGnomeKeyring = true;

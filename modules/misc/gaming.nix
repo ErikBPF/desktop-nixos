@@ -11,10 +11,10 @@
     steam.enable = true;
   };
 
-  environment.persistence."/persist".users.erik = {
-    directories = [
-      ".local/share/Steam"
-      ".cache/mesa_shader_cache"
-    ];
-  };
+  # environment.persistence."/persist".users.erik = {
+  #   directories = [
+  #     ".local/share/Steam"
+  #     ".cache/mesa_shader_cache"
+  #   ];
+  # };
 }

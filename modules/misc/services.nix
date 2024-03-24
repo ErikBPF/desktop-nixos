@@ -98,18 +98,18 @@ backup	/home/erik/Code	localhost/
 
   networking.firewall.allowedTCPPorts = [ 80 443 8096 8384 ];
   systemd.services.NetworkManager-wait-online.enable = lib.mkForce true;
-  environment.persistence."/persist" = {
-    directories = [
-      "/mnt"
-  #    "/var/lib/nextcloud"
-      "/var/lib/redis-nextcloud"
-      "/var/lib/acme"
-      "/var/lib/jellyfin"
-      "/var/cache/jellyfin"
-      "/run/acme"
-  #    "/run/redis-nextcloud"
-      "/run/nginx"
-      "/run/searx"
-    ];
-  };
+  # environment.persistence."/persist" = {
+  #   directories = [
+  #     "/mnt"
+  # #    "/var/lib/nextcloud"
+  #     "/var/lib/redis-nextcloud"
+  #     "/var/lib/acme"
+  #     "/var/lib/jellyfin"
+  #     "/var/cache/jellyfin"
+  #     "/run/acme"
+  # #    "/run/redis-nextcloud"
+  #     "/run/nginx"
+  #     "/run/searx"
+  #   ];
+  # };
 }

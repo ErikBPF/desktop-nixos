@@ -39,16 +39,16 @@
   #   arguments = [ "-profile" secrets.misc.nextdns ];
   # };
 
-  environment.persistence."/persist" = {
-    hideMounts = true;
-    directories = [
-      "/etc/NetworkManager/system-connections"
-      "/var/lib/iwd"
-      "/var/lib/nixos"
-      "/var/db/sudo"
-      "/nix"
-    ];
-  };
+  # environment.persistence."/persist" = {
+  #   hideMounts = true;
+  #   directories = [
+  #     "/etc/NetworkManager/system-connections"
+  #     "/var/lib/iwd"
+  #     "/var/lib/nixos"
+  #     "/var/db/sudo"
+  #     "/nix"
+  #   ];
+  # };
 
   users.mutableUsers = true;
   users.users.root.password = "test";
