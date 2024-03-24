@@ -12,11 +12,11 @@
     consoleLogLevel = 3;
     initrd.verbose = false;
     initrd.systemd.enable = true;
-    initrd.luks.devices."cryptroot" = {
-      allowDiscards = true;
-      keyFileSize = 4096;
-      bypassWorkqueues = true;
-    };
+    # initrd.luks.devices."cryptroot" = {
+    #   allowDiscards = true;
+    #   keyFileSize = 4096;
+    #   bypassWorkqueues = true;
+    # };
     plymouth.enable = false;
   };
 
