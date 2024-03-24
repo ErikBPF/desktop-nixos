@@ -10,7 +10,7 @@
   system.activationScripts.dotfiles.text = ''
     #!/bin/sh
     mkdir -p /home/erik/.config
-    cp -rf /perm/home/erik/Dots/config/* /home/erik/.config
+    cp -rf /persist/home/erik/Dots/config/* /home/erik/.config
   '';
 
   system.activationScripts.colors = {
@@ -22,8 +22,8 @@
             (template:
               ''
                 ${pkgs.mustache-go}/bin/mustache \
-                /perm/home/erik/Dots/config/colors.yml \
-                /perm/home/erik/Dots/config/${template}.mustache > \
+                /persist/home/erik/Dots/config/colors.yml \
+                /persist/home/erik/Dots/config/${template}.mustache > \
                 /home/erik/.config/${template} ; 
               ''
             )

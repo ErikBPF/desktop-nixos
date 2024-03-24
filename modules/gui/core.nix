@@ -27,7 +27,7 @@
   systemd.tmpfiles.rules = [
     "d '/var/cache/tuigreet' - greeter greeter - -"
   ];
-  environment.persistence."/perm" = {
+  environment.persistence."/persist" = {
     directories = [
       "/var/cache/tuigreet"
     ];

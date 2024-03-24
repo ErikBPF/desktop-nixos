@@ -98,7 +98,7 @@ backup	/home/erik/Code	localhost/
 
   networking.firewall.allowedTCPPorts = [ 80 443 8096 8384 ];
   systemd.services.NetworkManager-wait-online.enable = lib.mkForce true;
-  environment.persistence."/perm" = {
+  environment.persistence."/persist" = {
     directories = [
       "/mnt"
   #    "/var/lib/nextcloud"

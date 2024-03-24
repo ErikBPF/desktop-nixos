@@ -44,8 +44,8 @@
     plymouth.enable = false;
   };
 
-  fileSystems."/perm".neededForBoot = true;
-  environment.persistence."/perm/system" = {
+  fileSystems."/persist".neededForBoot = true;
+  environment.persistence."/persist/system" = {
     hideMounts = true;
     directories = [
       "/etc/nixos"

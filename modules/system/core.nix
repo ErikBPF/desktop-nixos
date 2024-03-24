@@ -39,7 +39,7 @@
   #   arguments = [ "-profile" secrets.misc.nextdns ];
   # };
 
-  environment.persistence."/perm" = {
+  environment.persistence."/persist" = {
     hideMounts = true;
     directories = [
       "/etc/NetworkManager/system-connections"

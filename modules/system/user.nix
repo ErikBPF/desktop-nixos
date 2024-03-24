@@ -14,7 +14,7 @@
   };
 
 
-  environment.persistence."/perm".users.erik = {
+  environment.persistence."/persist".users.erik = {
     directories = [
       "Dots/"
       "Code/"

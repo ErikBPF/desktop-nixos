@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 {
-  environment.persistence."/perm".users.erik = {
+  environment.persistence."/persist".users.erik = {
     directories = [
       ".cache/keepassxc"
       ".config/keepassxc"

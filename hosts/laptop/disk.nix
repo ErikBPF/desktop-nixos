@@ -50,9 +50,9 @@
                   mountpoint = "/";
                 };
 
-                "/perm" = {
-                  mountOptions = ["subvol=perm" "noatime"];
-                  mountpoint = "/perm";
+                "/persist" = {
+                  mountOptions = ["subvol=persist" "noatime"];
+                  mountpoint = "/persist";
                 };
 
                 "/nix" = {
