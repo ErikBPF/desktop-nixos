@@ -14,6 +14,6 @@
 
   programs.git.config = {
     user.name = "Erik Bogado";
-    user.email = secrets.misc.email;
+    user.email = "test@test.com";
   };
 }
