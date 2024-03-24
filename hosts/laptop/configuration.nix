@@ -58,7 +58,7 @@
     ];
   };
 
-  programs.fuse.userAllowOther = true;
+  
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -128,7 +128,7 @@
 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
-
+  programs.fuse.userAllowOther = true;
  home-manager = {
   extraSpecialArgs = {inherit inputs; };
   users = {
