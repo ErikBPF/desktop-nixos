@@ -22,6 +22,15 @@
     };
   };
 
+  disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    impermanence = {
+      url = "github:nix-community/impermanence";
+    };
+
   outputs = { self, nixpkgs, ... }@inputs: {
     nixosConfigurations = {
       laptop = nixpkgs.lib.nixosSystem {
@@ -29,6 +38,9 @@
         modules = [
           ./hosts/laptop/configuration.nix
           inputs.home-manager.nixosModules.default
+          inputs.impermanence.nixosModules.impermanence
+          inputs.disko.nixosModules.default
+        (import ./hosts/laptop/disko.nix { device = "/dev/sda"; })
         ];
       };
       # workstation = nixpkgs.lib.nixosSystem {
