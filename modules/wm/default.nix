@@ -6,3 +6,4 @@
   imports = [
     ./hyprland/hyprland.nix
   ];
+}
