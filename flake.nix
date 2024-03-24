@@ -11,16 +11,17 @@
     };
   };
 
-  outputs = { self, nixpkgs, impermanence, disko }: {
+  outputs = { self, nixpkgs, ... }: {
     nixosConfigurations = {
       laptop = nixpkgs.lib.nixosSystem {
+        specialArgs = {inherit inputs;};
         modules = [
-          impermanence.nixosModule
+          inputs.impermanence.nixosModule
           ({ config, ... }: {
             networking.hostName = "nixos-laptop";
           })
 
-        disko.nixosModules.default
+        inputs.disko.nixosModules.default
         (import ./laptop/disk.nix { device = "/dev/sdb"; })
 
           ./hosts/laptop/hadware-configuration.nix
