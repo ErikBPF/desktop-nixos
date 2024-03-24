@@ -20,9 +20,8 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-  };
 
-  disko = {
+      disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -30,6 +29,8 @@
     impermanence = {
       url = "github:nix-community/impermanence";
     };
+
+  };
 
   outputs = { self, nixpkgs, ... }@inputs: {
     nixosConfigurations = {
