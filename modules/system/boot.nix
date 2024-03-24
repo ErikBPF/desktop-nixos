@@ -11,7 +11,7 @@
     kernelParams = [ "fastboot" ];
     consoleLogLevel = 3;
     initrd.verbose = false;
-    initrd.systemd.enable = true;
+    # initrd.systemd.enable = true;
     initrd.postDeviceCommands = lib.mkAfter ''
     mkdir /btrfs_tmp
     mount /dev/root_vg/root /btrfs_tmp
