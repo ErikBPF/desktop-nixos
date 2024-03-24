@@ -34,10 +34,10 @@
     firewall.enable = true;
     dhcpcd.enable = false;
   };
-  services.nextdns = {
-    enable = true;
-    arguments = [ "-profile" secrets.misc.nextdns ];
-  };
+  # services.nextdns = {
+  #   enable = true;
+  #   arguments = [ "-profile" secrets.misc.nextdns ];
+  # };
 
   environment.persistence."/perm" = {
     hideMounts = true;
