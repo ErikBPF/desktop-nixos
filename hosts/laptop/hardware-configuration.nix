@@ -15,7 +15,7 @@
   boot.extraModulePackages = [ ];
 
   swapDevices = [ ];
-  
+
     services.logind = {
     lidSwitch = "ignore";
     powerKey = "poweroff";

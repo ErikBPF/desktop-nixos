@@ -15,6 +15,9 @@
             networking.hostName = "nixos-laptop";
           })
 
+        inputs.disko.nixosModules.default
+        (import ./disko.nix { device = "/dev/sdb"; })
+
           ./hosts/laptop.nix
           ./modules/system/core.nix
           ./modules/gui/core.nix
