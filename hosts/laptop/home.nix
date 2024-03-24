@@ -1,10 +1,37 @@
 { config, pkgs, ... }:
 
 {
+
+  imports = [
+    inputs.impermanence.nixosModules.home-manager.impermanence
+  ];
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   home.username = "erik";
   home.homeDirectory = "/home/erik";
+  home.persistence."/persist/home" = {
+    directories = [
+      "Downloads"
+      "Music"
+      "Pictures"
+      "Documents"
+      "Videos"
+      "VirtualBox VMs"
+      ".gnupg"
+      ".ssh"
+      ".nixops"
+      ".local/share/keyrings"
+      ".local/share/direnv"
+      {
+        directory = ".local/share/Steam";
+        method = "symlink";
+      }
+    ];
+    files = [
+      ".screenrc"
+    ];
+    allowOther = true;
+  };
 
   # This value determines the Home Manager release that your configuration is
   # compatible with. This helps avoid breakage when a new Home Manager release
@@ -69,6 +96,7 @@
   home.sessionVariables = {
     # EDITOR = "emacs";
   };
+  
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
