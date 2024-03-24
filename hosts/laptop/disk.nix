@@ -16,19 +16,12 @@
           };
           esp = {
             name = "ESP";
-            size = "1024";
+            size = "1024M";
             type = "EF00";
             content = {
               type = "filesystem";
               format = "vfat";
               mountpoint = "/boot";
-            };
-          };
-          swap = {
-            size = "4G";
-            content = {
-              type = "swap";
-              resumeDevice = true;
             };
           };
           root = {
