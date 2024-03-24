@@ -16,9 +16,9 @@
           })
 
         inputs.disko.nixosModules.default
-        (import ./disko.nix { device = "/dev/sdb"; })
+        (import ./laptop/disk.nix { device = "/dev/sdb"; })
 
-          ./hosts/laptop.nix
+          ./hosts/laptop/hadware-configuration.nix
           ./modules/system/core.nix
           ./modules/gui/core.nix
         ];
