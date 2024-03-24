@@ -8,7 +8,7 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ./main-user.nix
+      ./modules/default.nix
       inputs.home-manager.nixosModules.default
     ];
 
@@ -84,10 +84,6 @@
 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
-
-  # Define a user account. Don't forget to set a password with ‘passwd’.
- main-user.enable = true;
- main-user.userName = "erik";
 
  home-manager = {
   extraSpecialArgs = {inherit inputs; };
