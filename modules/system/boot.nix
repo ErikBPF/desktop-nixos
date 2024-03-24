@@ -28,13 +28,13 @@
 
   fileSystems."/perm" = {
     neededForBoot = true;
-    device = "/dev/disk/by-label/NIX-ROOT";
+    device = "/dev/disk/by-label/NIXOS";
     fsType = "f2fs";
     options = [ "noatime" "nodiratime" "atgc" "gc_merge" "discard" ];
   };
 
   fileSystems."/boot" = {
-    device = "/dev/disk/by-label/NIX-BOOT";
+    device = "/dev/disk/by-label/EFI";
     fsType = "vfat";
   };
 
