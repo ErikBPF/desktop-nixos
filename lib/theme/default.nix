@@ -12,7 +12,7 @@
 
   launcher = "anyrun";
 
-  # linuxmobile font -> AestheticIosevka Nerd Font Mono
+  # erik font -> AestheticIosevka Nerd Font Mono
   terminal = {
     font = "Maple Mono SC NF";
     name = "wezterm";
