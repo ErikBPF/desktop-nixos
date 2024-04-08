@@ -17,7 +17,7 @@
       variant = config.theme.name;
       c = xcolors.colors.${variant};
     in {
-      author = " linuxmobile";
+      author = " erik";
       # copy = true;
       colors = {
         background = c.on_secondary_fixed;

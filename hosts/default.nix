@@ -26,8 +26,8 @@
           "${mod}/services/location.nix"
           {
             home-manager = {
-              users.linuxmobile.imports =
-                homeImports."linuxmobile@aesthetic";
+              users.erik.imports =
+                homeImports."erik@aesthetic";
               extraSpecialArgs = specialArgs;
             };
           }

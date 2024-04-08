@@ -49,7 +49,7 @@
   Minimalist and functional!
 - **Launcher** • [AnyRun](https://github.com/Kirottu/anyrun) 🚀 Fast AnyRunner!
 - **File Manager** • [Ranger](https://github.com/ranger/ranger)🔖 custom!
-- **GUI Basic-IDE** • [NvChad-V2](https://github.com/linuxmobile/nvchad-v2) Rice
+- **GUI Basic-IDE** • [NvChad-V2](https://github.com/erik/nvchad-v2) Rice
   IDE!
 
 ### 🍂  <samp>CHANGELOGS</samp>
@@ -106,7 +106,7 @@ nix-shell -p nixFlakes git
 - Clone my Dotfiles 
 
 ```bash 
-git clone --depth 1 https://github.com/linuxmobile/kaku /mnt/etc/nixos
+git clone --depth 1 https://github.com/erik/kaku /mnt/etc/nixos
 ```
 
 - Generate your Own Nix Hardware Settings:
@@ -142,7 +142,7 @@ passwd YourUser
 - Install w/ Home-Manager the config
 
 ```bash
-home-manager switch --flake 'github:linuxmobile/kaku#linudev@aesthetic'
+home-manager switch --flake 'github:erik/kaku#linudev@aesthetic'
 ```
 
 ### 🌸 <samp>DOTFILES EXPLAIN</samp>
