@@ -3,8 +3,15 @@
 {
   imports = [
     ./pkgs.nix
-    ./user.nix
   ];
+
+  programs.fuse.userAllowOther = true;
+  home-manager = {
+   extraSpecialArgs = {inherit inputs;};
+   users = {
+     "erik" = import ./user.nix;
+   };
+  };
 
   security.rtkit.enable = true;
   services.pipewire = {
