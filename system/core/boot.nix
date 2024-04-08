@@ -1,7 +1,4 @@
-{
-  pkgs,
-  ...
-}: {
+{ config, lib, inputs, pkgs, ... }: {
   boot = {
     # bootspec.enable = true;
 
