@@ -39,29 +39,6 @@
       "rd.udev.log_level=3"
     ];
 
-    systemd.tmpfiles.rules = [
-  "d /persist/home/ 0777 root root -" # create /persist/home owned by root
-  "d /persist/home/erik 0700 erik users -" # /persist/home/erik owned by that user
-  ];
-
-  fileSystems."/persist".neededForBoot = true;
-  environment.persistence."/persist/system" = {
-   hideMounts = true;
-   directories = [
-     "/etc/nixos"
-     "/var/log"
-     "/var/lib/bluetooth"
-     "/var/lib/nixos"
-     "/var/lib/systemd/coredump"
-     "/etc/NetworkManager/system-connections"
-     { directory = "/var/lib/colord"; user = "colord"; group = "colord"; mode = "u=rwx,g=rx,o="; }
-   ];
-   files = [
-     "/etc/machine-id"
-     { file = "/var/keys/secret_file"; parentDirectory = { mode = "u=rwx,g=,o="; }; }
-   ];
-  };
-
     loader = {
       # systemd-boot on UEFI
       systemd-boot.enable = true;
@@ -73,4 +50,26 @@
 
     tmp.cleanOnBoot = true;
   };
+  systemd.tmpfiles.rules = [
+    "d /persist/home/ 0777 root root -" # create /persist/home owned by root
+    "d /persist/home/erik 0700 erik users -" # /persist/home/erik owned by that user
+    ];
+
+    fileSystems."/persist".neededForBoot = true;
+    environment.persistence."/persist/system" = {
+    hideMounts = true;
+    directories = [
+      "/etc/nixos"
+      "/var/log"
+      "/var/lib/bluetooth"
+      "/var/lib/nixos"
+      "/var/lib/systemd/coredump"
+      "/etc/NetworkManager/system-connections"
+      { directory = "/var/lib/colord"; user = "colord"; group = "colord"; mode = "u=rwx,g=rx,o="; }
+    ];
+    files = [
+      "/etc/machine-id"
+      { file = "/var/keys/secret_file"; parentDirectory = { mode = "u=rwx,g=,o="; }; }
+    ];
+    };
 }
