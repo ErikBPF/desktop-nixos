@@ -4,7 +4,7 @@
   ...
 }: let
   SilentFox = pkgs.fetchFromGitHub {
-    owner = "linuxmobile";
+    owner = "erik";
     repo = "SilentFox";
     rev = "45ad3cb7c26c79831786a11387e21788edd84fe6";
     sha256 = "sha256-9Bj0M0CAch4CenM9TFXUkGa6nHwC6y24azCXcUFtU6M=";

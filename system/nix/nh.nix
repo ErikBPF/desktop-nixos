@@ -4,7 +4,7 @@
   ];
 
   # nh default flake
-  environment.variables.FLAKE = "/home/linuxmobile/Dev/nixland";
+  environment.variables.FLAKE = "/home/erik/Dev/nixland";
 
   nh = {
     enable = true;
