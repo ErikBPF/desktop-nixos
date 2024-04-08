@@ -18,7 +18,5 @@
   programs.git.config = {
     user.name = "erik";
     user.email = "erikbogado@gmail.com";
-  };
-  home.stateVersion = "23.11"; # Please read the comment before changing.
- 
+  }; 
 }
