@@ -18,32 +18,7 @@
         astro-build.astro-vscode
         bradlc.vscode-tailwindcss
       ]
-      ++ pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-        {
-          name = "catppuccin-perfect-icons";
-          publisher = "thang-nm";
-          version = "0.21.31";
-          sha256 = "sha256-ax2n0YyO7q4LkrPBbik2P+s/s3tZZick91kvZsfWsVc=";
-        }
-        {
-          name = "tsuki";
-          publisher = "re1san";
-          version = "0.6.0";
-          sha256 = "sha256-AP3RnO3v0OfO3d3bHRy5sjHEjwLGUxI/sEdLtGOxE2c=";
-        }
-        {
-          name = "copilot-chat";
-          publisher = "GitHub";
-          version = "0.13.2024020701";
-          sha256 = "sha256-srhMLmLil6qgeAxJRMKz+MmqVJeX8N5f7WYN+CrV9B0=";
-        }
-        {
-          name = "unocss";
-          publisher = "antfu";
-          version = "0.58.5";
-          sha256 = "sha256-diwvMl88Nfq3QPm6AygiQpoFm82hSelpnU5KCOSU0pE=";
-        }
-      ];
+      ++ pkgs.vscode-utils.extensionsFromVscodeMarketplace [];
     userSettings = {
       "workbench.iconTheme" = "catppuccin-perfect-mocha";
       "workbench.colorTheme" = "Tsuki";
