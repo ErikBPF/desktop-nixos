@@ -6,7 +6,7 @@
   imports = [
     ./anyrun
     ./browsers/brave.nix
-    ./browsers/firefox.nix
+    #./browsers/firefox.nix
     ./browsers/qutebrowser.nix
     ./gtk.nix
     ./media
