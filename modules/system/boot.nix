@@ -62,14 +62,6 @@
    ];
   };
 
-  programs.fuse.userAllowOther = true;
-  home-manager = {
-   extraSpecialArgs = {inherit inputs;};
-   users = {
-     "erik" = import ./gui/user.nix;
-   };
-  };
-
   systemd.services = {
     NetworkManager-wait-online.enable = false;
     systemd-udev-settle.enable = false;
