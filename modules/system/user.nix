@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, inputs, pkgs, ... }:
 
 let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
 {
