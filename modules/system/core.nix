@@ -40,17 +40,6 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
     arguments = [ "-profile" secrets.misc.nextdns ];
   };
 
-  environment.persistence."/persist" = {
-    hideMounts = true;
-    directories = [
-      "/etc/NetworkManager/system-connections"
-      "/var/lib/iwd"
-      "/var/lib/nixos"
-      "/var/db/sudo"
-      "/nix"
-    ];
-  };
-
   users.mutableUsers = false;
   users.users.root.hashedPassword = "!";
   environment.binsh = "${pkgs.dash}/bin/dash";
