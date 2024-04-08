@@ -11,6 +11,7 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
        firefox
        vscodium
      ];
+  };
 
   programs.git.config = {
     user.name = "erik";
