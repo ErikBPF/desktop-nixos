@@ -31,7 +31,7 @@
           inputs.home-manager.nixosModules.default
           inputs.impermanence.nixosModules.impermanence
 
-          (import ./hosts/laptop-disko.nix { device = "/dev/sda"; })                  
+          (import ./hosts/laptop_disko.nix { device = "/dev/sda"; })                  
           ./hosts/laptop.nix
           ./modules/system/core.nix
           ./modules/gui/core.nix
