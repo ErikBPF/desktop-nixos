@@ -1,6 +1,5 @@
 { config, lib, pkgs, ... }:
 
-let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
 {
   imports = [
     ./boot.nix
@@ -34,10 +33,6 @@ let secrets = builtins.fromTOML (builtins.readFile "/tmp/secrets.toml"); in
     networkmanager.wifi.backend = "iwd";
     firewall.enable = true;
     dhcpcd.enable = false;
-  };
-  services.nextdns = {
-    enable = true;
-    arguments = [ "-profile" secrets.misc.nextdns ];
   };
 
   users.mutableUsers = false;
