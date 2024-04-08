@@ -21,7 +21,6 @@
       ".local/share/keyrings"
       ".local/share/direnv"
       ".local/state/wireplumber"
-      { directory = ".config/BraveSoftware"; mode = "0700"; }
       {
         directory = ".local/share/Steam";
         method = "symlink";
