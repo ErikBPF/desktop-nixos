@@ -35,7 +35,7 @@
           inputs.home-manager.nixosModules.default
           inputs.impermanence.nixosModules.impermanence
 
-          (import ./hosts/aesthetic/laptop_disko.nix { device = "/dev/sda"; })  
+          (import ./aesthetic/laptop_disko.nix { device = "/dev/sda"; })  
 
           inputs.agenix.nixosModules.default
         ];
