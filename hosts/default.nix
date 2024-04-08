@@ -32,7 +32,6 @@
             };
           }
           inputs.disko.nixosModules.default
-          inputs.home-manager.nixosModules.default
           inputs.impermanence.nixosModules.impermanence
 
           (import ./aesthetic/laptop_disko.nix { device = "/dev/sda"; })  
