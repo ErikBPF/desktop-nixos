@@ -1,0 +1,70 @@
+configuration {
+	font: "VictorMono NF SemiBold 20";
+	disable-history: false;
+	fullscreen: false;
+	hide-scrollbar: true;
+	sidebar-mode: false;
+}
+
+@import "./colors.rasi"
+
+* {
+	background-color: @background-alt;
+	text-color: @foreground;
+}
+
+window {
+	transparency: "real";
+	border-radius: 11px;
+    border: 2px;
+	width: 100px;
+	location: west;
+	x-offset: 14px;
+	y-offset: 0px;
+}
+
+listview {
+	lines: 5;
+	margin: 10px;
+	spacing: 10px;
+	cycle: true;
+	dynamic: true;
+	layout: vertical;
+}
+
+mainbox {
+	background-color: @background;
+	children: [ listview];
+}
+
+element {
+	text-color: @foreground;
+	orientation: vertical;
+	border-radius: 11px;
+}
+
+element-text {
+	background-color: @background-alt;
+	expand: true;
+	horizontal-align: 0.5;
+	vertical-align: 0;
+	margin: 15px 10px 15px 10px;
+}
+
+element normal.active,
+element alternate.active {
+	background-color: @background-alt;
+	text-color: @foreground;
+}
+
+element selected {
+	background-color: @backgroundAdditional;
+	text-color: @background;
+	border: 0px;
+	border-radius: 11px;
+}
+
+element selected.active {
+	background-color: @background-alt;
+	color: @foreground;
+}

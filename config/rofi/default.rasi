@@ -1,0 +1,99 @@
+@import "./colors.rasi"
+
+configuration {
+	font: "VictorMono NF SemiBold 11";
+	show-icons: true;
+	icon-theme: "Papirus";
+	display-window: "";
+	sidebar-mode: false;
+}
+
+window {
+	transparency: "real";
+	background-color: @background;
+	text-color: @foreground;
+	border: 2px;
+	width: 400px;
+    location: northwest;
+    x-offset: 14;
+	y-offset: 14;
+	border-radius: 11px;
+}
+
+prompt {
+	enabled: false;
+}
+
+entry {
+	background-color: @background-alt;
+	text-color: @foreground;
+	placeholder-color: @foreground;
+	expand: true;
+	horizontal-align: 0;
+	placeholder: "Search";
+	padding: 0.00% 0% 0% 0%;
+	blink: true;
+}
+
+inputbar {
+	children: [ prompt, entry];
+	background-color: @backgroundAdditional;
+	text-color: @foreground;
+	expand: false;
+	border: 0% 0% 0% 0%;
+	border-radius: 11px;
+	margin: 0% 0% 0% 0%;
+	padding: 20px 38px 20px 30px;
+}
+
+listview {
+	background-color: @background-alt;
+	columns: 1;
+	lines: 3;
+	spacing: 12px;
+	cycle: false;
+	dynamic: true;
+	layout: vertical;
+}
+
+mainbox {
+	background-color: @background-alt;
+	border: 0% 0% 0% 0%;
+	border-radius: 0% 0% 0% 0%;
+	children: [ inputbar, listview];
+	spacing: 12px;
+	padding: 12px 10px 12px 10px;
+}
+
+element {
+	background-color: @background-alt;
+	text-color: @foreground;
+	orientation: horizontal;
+	border-radius: 0%;
+	padding: 12px 0% 12px 0%;
+}
+
+element-icon {
+	background-color: @background-alt;
+	text-color: inherit;
+	horizontal-align: 1;
+	vertical-align: 1;
+	margin: 0px 0px 6px 16px;
+	size: 28px;
+	border: 0px;
+}
+
+element-text {
+	background-color: @background-alt;
+	text-color: inherit;
+	expand: true;
+	margin: 10px 12px 10px 20px;
+}
+
+element selected {
+	background-color: @selected;
+	text-color: @foreground;
+	border: 0% 0% 0% 0%;
+	border-radius: 11px;
+	border-color: @selected;
+}
