@@ -15,8 +15,6 @@
     self.nixosModules.theme
   ];
   home = {
-    username = "erik";
-    homeDirectory = "/home/erik";
     stateVersion = "23.11";
     persistence."/persist/home/erik" = {
       directories = [
