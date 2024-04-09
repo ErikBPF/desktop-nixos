@@ -31,9 +31,9 @@ in {
       input = {
         kb_layout = "us";
         kb_variant = "qwerty-fr";
-        kb_model = ;
-        kb_options = ;
-        kb_rules = ;
+        kb_model = "";
+        kb_options = "";
+        kb_rules = "";
         follow_mouse = 2;
         sensitivity = 0;
         force_no_accel = 1;
