@@ -132,6 +132,7 @@ in {
         "$MOD, Return, exec, run-as-service foot"
         "CTRL_ALT, L, exec, loginctl lock-session"
 
+        "$MOD, T, exec, wezterm"
         "$MOD, Q, killactive"
         "$MODSHIFT, Q, exit"
         "$MOD, F, fullscreen"
