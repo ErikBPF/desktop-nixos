@@ -2,6 +2,7 @@
 {
   users.users.erik = {
     isNormalUser = true;
+    initialPassword = "1045";
     shell = pkgs.zsh;
     extraGroups = [
       "adbusers"
