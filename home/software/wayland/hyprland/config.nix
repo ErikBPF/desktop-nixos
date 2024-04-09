@@ -29,11 +29,13 @@ in {
       ];
       xwayland = {force_zero_scaling = true;};
       input = {
-        kb_layout = "latam";
+        kb_layout = "us";
+        kb_variant = "qwerty-fr";
         follow_mouse = 2;
         sensitivity = 0;
         force_no_accel = 1;
         accel_profile = "flat";
+        numlock_by_default = true;
       };
       misc = {
         disable_autoreload = true;
@@ -47,8 +49,7 @@ in {
       };
       general = {
         monitor = [
-          "HDMI-A-2,1920x1080@75,1366x0,1"
-          "DP-1,1366x768@60,0x0,1"
+          "DP-1,preferred,0x0,1"
         ];
         gaps_in = 5;
         gaps_out = 5;
@@ -133,7 +134,7 @@ in {
         "CTRL_ALT, L, exec, loginctl lock-session"
 
         "$MOD, T, exec, wezterm"
-        "$MOD, Q, killactive"
+        "$MOD, W, killactive"
         "$MODSHIFT, Q, exit"
         "$MOD, F, fullscreen"
         "$MOD, Space, togglefloating"
