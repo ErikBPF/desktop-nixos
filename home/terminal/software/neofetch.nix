@@ -3,14 +3,14 @@
   home.file.".config/neofetch/config.conf".text = ''
     print_info() {
     	prin ""
-    	prin "$(color 1)L I N U X  |  M O B I L E"
+    	prin "$(color 1)L I N U X  |  E R I K B P F"
     	prin _____________________
       info "\e[34m  " distro
       info "\e[31m " kernel
     	info "\e[33m󰍛 " memory
     	info "\e[32m " term
     	info "\e[35m " de
-    	prin "" "github.com/erik"
+    	prin "" "github.com/ErikBPF"
       prin "$(mypad) $(color 1)▂▂ $(color 2)▂▂ $(color 3)▂▂ $(color 4)▂▂ $(color 5)▂▂ $(color 6)▂▂ $(color 7)▂▂ "
       prin _____________________
       }

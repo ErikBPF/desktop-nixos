@@ -57,7 +57,7 @@
       "security.workspace.trust.untrustedFiles" = "open";
       "security.workspace.trust.banner" = "never";
       "security.workspace.trust.startupPrompt" = "never";
-      "workbench.sideBar.location" = "right";
+      "workbench.sideBar.location" = "left";
       "editor.tabSize" = 2;
       "editor.wordWrap" = "on";
       "workbench.editor.tabActionLocation" = "left";
