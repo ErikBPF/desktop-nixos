@@ -1,4 +1,10 @@
-{ config, lib, pkgs, inputs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  inputs,
+  ...
+}:
 # default configuration shared by all hosts
 {
   imports = [
@@ -29,5 +35,5 @@
   time.timeZone = lib.mkDefault "America/Argentina/Buenos_Aires";
 
   # compresses half the ram for use as swap
-  zramSwap.enable = true;
+  zramSwap.enable = false;
 }

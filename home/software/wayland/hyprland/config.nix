@@ -29,7 +29,7 @@ in {
       ];
       xwayland = {force_zero_scaling = true;};
       input = {
-        kb_layout = "us";
+        kb_layout = "qwerty-fr";
         kb_variant = "qwerty-fr";
         kb_model = "";
         kb_options = "";
@@ -133,13 +133,13 @@ in {
         "$MODSHIFT, X, exec, $COLORPICKER"
 
         "$MOD, D, exec, pkill .anyrun-wrapped || run-as-service anyrun"
-        "$MOD, Return, exec, run-as-service foot"
-        "CTRL_ALT, L, exec, loginctl lock-session"
+        "$MOD, T, exec, run-as-service foot"
+        "CTRL_SHIFT, L, exec, loginctl lock-session"
 
-        "$MOD, T, exec, wezterm"
         "$MOD, W, killactive"
         "$MODSHIFT, Q, exit"
         "$MOD, F, fullscreen"
+        "$MOD, F, fullscreen, 1"
         "$MOD, Space, togglefloating"
         "$MOD, P, pseudo"
         "$MOD, S, togglesplit"
