@@ -1,48 +1,58 @@
-{
-  pkgs,
-  inputs,
-  ...
-}: {
+{pkgs, ...}: {
   imports = [
     ./anyrun
-    ./browsers/brave.nix
-    #./browsers/firefox.nix
+    ./browsers/chromium.nix
+    ./browsers/edge.nix
+    ./browsers/firefox.nix
+    # ./browsers/epiphany.nix
+    # ./browsers/qutebrowser.nix
     ./gtk.nix
     ./media
-    ./tools/vencord.nix
   ];
 
   home.packages = with pkgs; [
     # messaging
     tdesktop
-
-    xfce.thunar
-    xfce.thunar-archive-plugin
-    ps_mem
-
     vesktop
-    inputs.self.packages.${pkgs.system}.discordo
 
     # misc
+    ps_mem
     pciutils
     nixos-icons
     colord
     ffmpegthumbnailer
     imagemagick
-    xfce.tumbler
-    xdotool
     cliphist
-    rizin
-    xcolor
     nodejs
     nodePackages.pnpm
-    jq
-    socat
     catimg
     bun
 
-    gnome.file-roller
+    # gnome
+    dconf-editor
+    file-roller
+    nautilus
+    # amberol
+    # blanket
+    # cavalier
+    celluloid
+    # contrast
+    # eyedropper
+    # gnome-solanum
+    # keypunch
+    kooha
+    loupe
+    overskride
+    # paleta
+    # paper-plane
+    papers
+    # parabolic
+    # planify
+    pwvucontrol
+    resources
 
-    inputs.matugen.packages.${pkgs.system}.default
+    inkscape
+    # gimp
+    scrcpy
   ];
 }

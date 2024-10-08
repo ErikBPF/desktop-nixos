@@ -1,8 +1,4 @@
-{
-  inputs,
-  pkgs,
-  ...
-}: {
+_: {
   programs.wezterm = {
     enable = true;
     # package = inputs.self.packages.${pkgs.system}.wezterm;
@@ -14,7 +10,7 @@
         return wezterm.font_with_fallback(names, params)
       end
 
-      local font_name = "AestheticIosevka NF"
+      local font_name = "GeistMono Nerd Font"
 
       return {
 

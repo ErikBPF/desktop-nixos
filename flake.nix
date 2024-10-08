@@ -19,9 +19,6 @@
             name = "nixland";
             DIRENV_LOG_FORMAT = "";
           };
-          tauri = import ./shell/tauri.nix {inherit inputs system;};
-          rust = import ./shell/rust.nix {inherit inputs system;};
-          leptos = import ./shell/leptos.nix {inherit inputs system;};
         };
         # Nix Formatter
         formatter = pkgs.alejandra;
@@ -29,14 +26,24 @@
     };
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # global, so they can be `.follow`ed
+    systems.url = "github:nix-systems/default-linux";
+
+    flake-compat.url = "github:edolstra/flake-compat";
+
+    flake-utils = {
+      url = "github:numtide/flake-utils";
+      inputs.systems.follows = "systems";
+    };
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
 
-    disko = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -44,17 +51,13 @@
     impermanence = {
       url = "github:nix-community/impermanence";
     };
-   home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
 
-    aesthetic-iosevka.url = "github:alphatechnolog/aesthetic-iosevka";
-
+    # rest of inputs, alphabetical order
     agenix = {
       url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "hm";
+      inputs.systems.follows = "systems";
     };
 
     ags = {
@@ -67,18 +70,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    fenix.url = "github:nix-community/fenix/monthly";
-
     firefox-addons = {
       url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    fu.url = "github:numtide/flake-utils";
-
     helix = {
-      url = "github:helix-editor/helix";
-      inputs.flake-utils.follows = "fu";
+      url = "github:SoraTenshi/helix/new-daily-driver";
+      inputs.flake-utils.follows = "flake-utils";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -87,26 +86,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    hypridle.url = "github:hyprwm/hypridle";
-
-    hyprland.url = "github:hyprwm/Hyprland";
-
-    hyprland-contrib = {
-      url = "github:hyprwm/contrib";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    hyprlock.url = "github:hyprwm/hyprlock";
-
-    hyprpaper.url = "github:hyprwm/hyprpaper";
+    lanzaboote.url = "github:nix-community/lanzaboote";
 
     matugen = {
       url = "github:InioX/matugen";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nh = {
-      url = "github:viperML/nh";
+    niri = {
+      url = "github:sodiboo/niri-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -115,18 +103,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    spicetify-nix = {
-      url = "github:MichaelPachec0/spicetify-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+    nix-gaming = {
+      url = "github:fufexan/nix-gaming";
+      inputs.flake-parts.follows = "flake-parts";
     };
 
-    sss = {
-      url = "github:SergioRibera/sss/";
+    nix-vscode-extensions = {
+      url = "github:nix-community/nix-vscode-extensions";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
     };
-
-    twitch-hls-client.url = "github:2bc4/twitch-hls-client/";
-
-    xdg-portal-hyprland.url = "github:hyprwm/xdg-desktop-portal-hyprland";
   };
 }

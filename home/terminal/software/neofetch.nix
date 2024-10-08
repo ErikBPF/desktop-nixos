@@ -3,14 +3,14 @@
   home.file.".config/neofetch/config.conf".text = ''
     print_info() {
     	prin ""
-    	prin "$(color 1)L I N U X  |  E R I K B P F"
+    	prin "$(color 1)L I N U X  |  M O B I L E"
     	prin _____________________
       info "\e[34m  " distro
       info "\e[31m " kernel
     	info "\e[33m󰍛 " memory
     	info "\e[32m " term
     	info "\e[35m " de
-    	prin "" "github.com/ErikBPF"
+    	prin "" "github.com/erik"
       prin "$(mypad) $(color 1)▂▂ $(color 2)▂▂ $(color 3)▂▂ $(color 4)▂▂ $(color 5)▂▂ $(color 6)▂▂ $(color 7)▂▂ "
       prin _____________________
       }
@@ -70,7 +70,7 @@
     # Flag:     --backend
     image_backend="sixel"
     #image_source="auto"
-    image_source="$HOME/.config/neofetch/images/plants.png"
+    image_source="$HOME/.config/neofetch/images/nix.jpg"
     ascii_distro="auto"
     ascii_colors=(distro)
     ascii_bold="on"

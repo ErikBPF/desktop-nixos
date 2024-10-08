@@ -14,23 +14,9 @@
   # we need git for flakes
   environment.systemPackages = [pkgs.git];
 
-  services.xserver = {
-    # ...
-
-    xkb = {
-      layout = "qwerty-fr";
-      variant = "qwerty-fr";
-      extraLayouts = {
-        qwerty-fr = {
-          description = "QWERTY with French symbols and diacritics";
-          languages = ["eng"];
-          symbolsFile = /home/erik/desktop-nixos/system/nix/us_qwerty-fr;
-        };
-      };
-    };
-  };
-
   nix = {
+    package = pkgs.lix;
+
     # pin the registry to avoid downloading and evaling a new nixpkgs version every time
     registry = lib.mapAttrs (_: v: {flake = v;}) inputs;
 

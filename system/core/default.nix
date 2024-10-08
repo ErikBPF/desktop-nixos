@@ -1,10 +1,4 @@
-{
-  config,
-  lib,
-  pkgs,
-  inputs,
-  ...
-}:
+{lib, ...}:
 # default configuration shared by all hosts
 {
   imports = [
@@ -29,11 +23,17 @@
     };
   };
 
+  console.keyMap = "la-latin1";
+
   # don't touch this
   system.stateVersion = lib.mkDefault "23.11";
 
   time.timeZone = lib.mkDefault "America/Argentina/Buenos_Aires";
+  time.hardwareClockInLocalTime = lib.mkDefault true;
 
   # compresses half the ram for use as swap
-  zramSwap.enable = false;
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+  };
 }
