@@ -1,6 +1,5 @@
 {
   pkgs,
-  config,
   ...
 }: {
   home.packages = [pkgs.gh];
@@ -11,20 +10,36 @@
   programs.git = {
     enable = true;
     lfs.enable = true;
-    userName = "Erik Bogado";
-    userEmail = "erikbogado@gmail.com";
-
-    delta = {
-      enable = true;
-      options.${config.theme.name} = true;
+    userName = "Braian A. Diez";
+    userEmail = "bdiez19@gmail.com";
+    signing = {
+      key = "17EA20FCAAFB3342";
+      signByDefault = true;
     };
 
+    # delta = {
+    #   enable = true;
+    # };
+
     extraConfig = {
-      init = {defaultBranch = "main";};
+      init.defaultBranch = "main";
       diff.colorMoved = "default";
       merge.conflictstyle = "diff3";
       push.autoSetupRemote = true;
       core.editor = "hx";
+      push.default = "current";
+      merge.stat = "true";
+      core.whitespace = "fix,-indent-with-non-tab,trailing-space,cr-at-eol";
+      repack.usedeltabaseoffset = "true";
+      pull.ff = "only";
+      rebase = {
+        autoSquash = true;
+        autoStash = true;
+      };
+      rerere = {
+        enabled = true;
+        autoupdate = true;
+      };
     };
 
     aliases = {

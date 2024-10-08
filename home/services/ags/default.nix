@@ -6,23 +6,30 @@
   ...
 }: let
   requiredDeps = with pkgs; [
-    config.wayland.windowManager.hyprland.package
     bash
+    brightnessctl
+    bun
     coreutils
     dart-sass
+    fd
+    fzf
     gawk
+    gtk3
     imagemagick
-    procps
+    inputs.matugen.packages.${pkgs.system}.default
+    networkmanager
+    niri
     ripgrep
-    util-linux
-
-    sassc
-    inotify-tools
     swww
+    util-linux
+    which
+    wl-clipboard
+    glib
+    cliphist
   ];
 
   guiDeps = with pkgs; [
-    wlogout
+    gnome.gnome-control-center
   ];
 
   dependencies = requiredDeps ++ guiDeps;
@@ -39,12 +46,13 @@ in {
     Unit = {
       Description = "Aylur's Gtk Shell";
       PartOf = [
+        "tray.target"
         "graphical-session.target"
       ];
     };
     Service = {
       Environment = "PATH=/run/wrappers/bin:${lib.makeBinPath dependencies}";
-      ExecStart = "${cfg.package}/bin/ags";
+      ExecStart = "${cfg.package}/bin/ags -c ${config.xdg.configHome}/ags/config.js";
       Restart = "on-failure";
     };
     Install.WantedBy = ["graphical-session.target"];

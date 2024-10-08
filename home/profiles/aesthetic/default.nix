@@ -1,7 +1,9 @@
 {
   imports = [
     # editors
-    ../../editors/vscode
+    ../../editors/helix
+    # ../../editors/vscode
+    ../../editors/zed
 
     # services
     ../../services/ags
@@ -16,15 +18,9 @@
     # system services
     ../../services/system/gpg-agent.nix
     ../../services/system/polkit-agent.nix
-    ../../services/system/screensht.nix
     ../../services/system/syncthing.nix
-
-    # wayland specific
-    ../../services/wayland/hyprpaper.nix
-    ../../services/wayland/hypridle.nix
 
     # terminal emulators
     ../../terminal/emulators/foot.nix
-    ../../terminal/emulators/wezterm.nix
   ];
 }

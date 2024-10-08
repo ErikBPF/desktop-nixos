@@ -3,42 +3,48 @@
   lib,
   ...
 }: let
-  c = config.programs.matugen.theme.colors.colors.${config.theme.name};
   pointer = config.home.pointerCursor;
   homeDir = config.home.homeDirectory;
+
+  toggle = program: service: let
+    prog = builtins.substring 0 14 program;
+    runserv = lib.optionalString service "run-as-service";
+  in "pkill ${prog} || ${runserv} ${program}";
+  # runOnce = program: "pgrep ${program} || ${program}";
 in {
   wayland.windowManager.hyprland = {
     settings = {
       "$MOD" = "SUPER";
       env = [
-        "QT_QPA_PLATFORM,wayland"
-        "QT_QPA_PLATFORMTHEME,qt5ct"
         "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
-        "QT_AUTO_SCREEN_SCALE_FACTOR,1"
+        "HYPRCURSOR_SIZE,20"
       ];
       exec-once = [
         "hyprctl setcursor ${pointer.name} ${toString pointer.size}"
+        "systemctl --user start clight"
         "hyprlock"
-        "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-        "echo latam > /tmp/kb_layout"
-        "wlsunset -t 5200 -S 9:00 -s 19:30"
         "wl-paste --type text --watch cliphist store"
         "wl-paste --type image --watch cliphist store"
-        "xprop -root -f _XWAYLAND_GLOBAL_OUTPUT_SCALE 32c -set _XWAYLAND_GLOBAL_OUTPUT_SCALE 1"
-        "hyprctl dispatcher focusmonitor 1"
       ];
-      xwayland = {force_zero_scaling = true;};
+      xwayland.force_zero_scaling = true;
       input = {
-        kb_layout = "qwerty-fr";
-        kb_variant = "qwerty-fr";
-        kb_model = "";
-        kb_options = "";
-        kb_rules = "";
+        kb_layout = "latam";
         follow_mouse = 2;
         sensitivity = 0;
         force_no_accel = 1;
         accel_profile = "flat";
-        numlock_by_default = true;
+        touchpad = {
+          disable_while_typing = true;
+          natural_scroll = true;
+        };
+      };
+      gestures = {
+        workspace_swipe = true;
+        workspace_swipe_fingers = 3;
+        workspace_swipe_use_r = true;
+      };
+      cursor = {
+        no_warps = true;
       };
       misc = {
         disable_autoreload = true;
@@ -49,34 +55,39 @@ in {
         disable_splash_rendering = true;
         disable_hyprland_logo = true;
         force_default_wallpaper = 0;
+        initial_workspace_tracking = false;
       };
       general = {
         monitor = [
-          "DP-1,preferred,0x0,1"
+          "eDP-1,1920x1080@60,0x0, 1.0"
+          "HDMI-A-1,1920x1080@75,0x-1080, 1.0"
         ];
         gaps_in = 5;
         gaps_out = 5;
         border_size = 1;
-        "col.active_border" = "rgb(${c.on_primary})";
-        "col.inactive_border" = "rgb(${c.primary});";
+        # "col.active_border" = "rgb(${c.on_primary})";
+        # "col.inactive_border" = "rgb(${c.primary});";
         "no_border_on_floating" = false;
+        allow_tearing = true;
         layout = "dwindle";
-        no_cursor_warps = true;
       };
       decoration = {
-        rounding = 1;
+        rounding = 8;
         blur = {
-          size = 6;
+          enabled = true;
+          size = 10;
           passes = 3;
           new_optimizations = true;
           ignore_opacity = true;
           noise = "0.1";
-          contrast = "1.1";
-          brightness = "1.2";
+          contrast = "1.0";
+          brightness = "1.0";
           xray = true;
+          vibrancy = "0.5";
+          vibrancy_darkness = "0.1";
+          popups = true;
+          popups_ignorealpha = "0.2";
         };
-        dim_inactive = true;
-        dim_strength = "0.3";
         fullscreen_opacity = 1;
         drop_shadow = true;
         shadow_ignore_window = true;
@@ -114,7 +125,6 @@ in {
         pseudotile = true;
         preserve_split = true;
       };
-      master = {new_is_master = true;};
 
       "$VIDEODIR" = "$HOME/Videos";
       "$NOTIFY" = "notify-send -h string:x-canonical-private-synchronouse:hypr-cfg -u low";
@@ -122,24 +132,26 @@ in {
       "$LAYERS" = "^(eww-.+|bar|system-menu|anyrun|gtk-layer-shell|osd[0-9]|dunst)$";
 
       bind = [
-        "$MOD, Escape, exec, wlogout -p layer-shell"
-        ", F9, exec, wl-screenrec -f $VIDEODIR/$(date +%Y-%m-%d_%H-%M-%S).mp4"
-        ", F9, exec, $NOTIFY 'Recording started'"
-        ", F10, exec, killall -s SIGINT wl-screenrec"
-        ", F10, exec, $NOTIFY 'Recording stopped'"
+        "$MOD, Escape, exec, ${toggle "wlogout" true} -p layer-shell"
+        "$MOD, Tab, exec, overview:toggle"
+        "$MOD, XF86Calculator, exec, ags -r 'recorder.start()'"
 
-        ", Print, exec, screenshot-full"
-        "$MODSHIFT, S, exec, screenshot-area"
+        # SSS
+        "ALT, Print, exec, screenshot-full"
+        "ALTSHIFT, S, exec, screenshot-area"
+        # Normal Screenshot
+        ", Print, exec, ags -r 'recorder.screenshot(true)'"
+        "$MODSHIFT, S, exec, ags -r 'recorder.screenshot()'"
+
         "$MODSHIFT, X, exec, $COLORPICKER"
 
-        "$MOD, D, exec, pkill .anyrun-wrapped || run-as-service anyrun"
-        "$MOD, T, exec, run-as-service foot"
-        "CTRL_SHIFT, L, exec, loginctl lock-session"
+        "$MOD, D, exec, ${toggle "anyrun" true}"
+        "$MOD, Return, exec, run-as-service foot"
+        "CTRL_ALT, L, exec, pgrep hyprlock || hyprlock"
 
-        "$MOD, W, killactive"
+        "$MOD, Q, killactive"
         "$MODSHIFT, Q, exit"
         "$MOD, F, fullscreen"
-        "$MOD, F, fullscreen, 1"
         "$MOD, Space, togglefloating"
         "$MOD, P, pseudo"
         "$MOD, S, togglesplit"
@@ -148,11 +160,9 @@ in {
         "$MODSHIFT, Space, workspaceopt, allfloat"
         "$MODSHIFT, P, workspaceopt, allpseudotile"
 
-        "$MOD, Tab, cyclenext"
-        "$MOD, Tab, bringactivetotop"
+        "ALT, Tab, cyclenext"
+        "ALT, Tab, bringactivetotop"
 
-        "$MOD, A, togglespecialworkspace"
-        "$MODSHIFT, A, movetoworkspace, special"
         "$MOD, C, exec, hyprctl dispatch centerwindow"
 
         "$MOD, K, movefocus, u"
@@ -185,9 +195,23 @@ in {
       bindl = let
         e = "exec, wpctl";
       in [
-        "$MOD, F3, ${e} set-mute @DEFAULT_AUDIO_SINK@ toggle"
-        "$MOD, F4, ${e} set-volume @DEFAULT_AUDIO_SINK@ 5%+"
-        "$MOD, F5, ${e} set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+        ", XF86AudioMute, ${e} set-mute @DEFAULT_AUDIO_SINK@ toggle"
+        ", XF86AudioMicMute, ${e} set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+
+        ", XF86AudioPlay, exec, playerctl play-pause"
+        ", XF86AudioStop, exec, playerctl pause"
+        ", XF86AudioPrev, exec, playerctl previous"
+        ", XF86AudioNext, exec, playerctl next"
+      ];
+
+      bindle = let
+        e = "exec, wpctl";
+      in [
+        ", XF86AudioRaiseVolume, ${e} set-volume -l '1.0' @DEFAULT_AUDIO_SINK@ 5%+"
+        ", XF86AudioLowerVolume, ${e} set-volume -l '1.0' @DEFAULT_AUDIO_SINK@ 5%-"
+        # backlight
+        ", XF86MonBrightnessUp, exec, brillo -q -u 300000 -A 5"
+        ", XF86MonBrightnessDown, exec, brillo -q -u 300000 -U 5"
       ];
 
       bindm = ["$MOD, mouse:272, movewindow" "$MOD, mouse:273, resizewindow"];
@@ -207,7 +231,7 @@ in {
         # "opacity 0.80 0.80,class:^(nwg-look)$"
         # "opacity 0.80 0.80,class:^(qt5ct)$"
         # "opacity 0.80 0.80,class:^(VencordDesktop|Webcord|discord|Discord)"
-        # "opacity 0.80 0.70,class:^(pavucontrol)$"
+        # "opacity 0.80 0.70,class:^(pwvucontrol)$"
         # "opacity 0.80 0.70,class:^(org.kde.polkit-kde-authentication-agent-1)$"
         # "opacity 0.80 0.80,class:^(org.telegram.desktop)$"
         # "opacity 0.80 0.80,class:^(code-url-handler)$"
@@ -217,7 +241,7 @@ in {
         # "opacity 0.90 0.90, class:^(org.qutebrowser.qutebrowser)$"
 
         "float,class:^(org.kde.polkit-kde-authentication-agent-1)$"
-        "float,class:^(pavucontrol)$"
+        "float,class:^(pwvucontrol)$"
         "float,title:^(Media viewer)$"
         "float,title:^(Volume Control)$"
         "float,class:^(Viewnior)$"
@@ -235,6 +259,10 @@ in {
         "float,title:^(File Operation Progress)$"
         "float,class:^(com.github.Aylur.ags)$"
         "float,class:^(mpv)$"
+        "float,class:^(org.telegram.desktop)"
+        "size 380 690,class:^(org.telegram.desktop)"
+        "float,class:^(app.drey.PaperPlane)"
+        "size 450 760,class:^(app.drey.PaperPlane)"
 
         "float, title:^(Picture-in-Picture)$"
         "pin, title:^(Picture-in-Picture)$"
@@ -256,28 +284,49 @@ in {
         "noinitialfocus,class:^(xwaylandvideobridge)$"
         "noblur,class:^(xwaylandvideobridge)$"
         "noshadow,class:^(xwaylandvideobridge)$"
+        "rounding 0, xwayland:1"
       ];
       layerrule = let
         toRegex = list: let
           elements = lib.concatStringsSep "|" list;
         in "^(${elements})$";
 
-        ignorealpha = [
+        lowopacity = [
+          "bar"
           "calendar"
           "notifications"
           "osd"
           "system-menu"
-
-          "anyrun"
-          "popups"
         ];
-        layers = ignorealpha ++ ["bar" "gtk-layer-shell"];
+
+        highopacity = [
+          "anyrun"
+          "logout_dialog"
+        ];
+
+        blurred = lib.concatLists [
+          lowopacity
+          highopacity
+        ];
       in [
-        "blur, ${toRegex layers}"
-        "xray 1, ${toRegex ["bar" "gtk-layer-shell"]}"
-        "ignorealpha 0.2, ${toRegex ["bar" "gtk-layer-shell"]}"
-        "ignorealpha 0.5, ${toRegex (ignorealpha ++ ["music"])}"
+        "blur, ${toRegex blurred}"
+        "xray 1, ${toRegex ["bar"]}"
+        "ignorealpha 0.5, ${toRegex (highopacity ++ ["music"])}"
+        "ignorealpha 0.2, ${toRegex lowopacity}"
       ];
+
+      plugin = {
+        overview = {
+          centerAligned = true;
+          hideTopLayers = true;
+          hideOverlayLayers = true;
+          showNewWorkspace = true;
+          exitOnClick = true;
+          exitOnSwitch = true;
+          drawActiveWorkspace = true;
+          reverseSwipe = true;
+        };
+      };
     };
   };
 }

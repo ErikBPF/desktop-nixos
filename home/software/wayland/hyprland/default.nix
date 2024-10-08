@@ -3,15 +3,13 @@
   pkgs,
   ...
 }: {
-  imports = [./config.nix];
+  imports = [inputs.hyprland.homeManagerModules.default ./config.nix];
 
   home = {
     packages = with pkgs; [
       seatd
       jaq
-      xorg.xprop
-      inputs.hyprland-contrib.packages.${pkgs.system}.grimblast
-      xwaylandvideobridge
+      # inputs.hyprland-contrib.packages.${pkgs.system}.grimblast
     ];
     file = {
       ".config/hypr/scripts/colorpicker" = {

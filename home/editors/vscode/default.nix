@@ -1,32 +1,50 @@
-{pkgs, ...}: {
+{
+  inputs,
+  pkgs,
+  ...
+}: let
+  marketplace = inputs.nix-vscode-extensions.extensions.${pkgs.system}.vscode-marketplace;
+  marketplace-release = inputs.nix-vscode-extensions.extensions.${pkgs.system}.vscode-marketplace-release;
+in {
   programs.vscode = {
     enable = true;
     enableExtensionUpdateCheck = true;
     enableUpdateCheck = false;
-    extensions = with pkgs.vscode-extensions;
-      [
+    mutableExtensionsDir = true;
+    extensions =
+      (with pkgs.vscode-extensions; [
+        astro-build.astro-vscode
         bbenoist.nix
-
-        formulahendry.auto-close-tag
+        bradlc.vscode-tailwindcss
         christian-kohler.path-intellisense
+        eamodio.gitlens
+        esbenp.prettier-vscode
+        formulahendry.auto-close-tag
+        kamadorueda.alejandra
         naumovs.color-highlight
         usernamehw.errorlens
-        eamodio.gitlens
-
-        esbenp.prettier-vscode
-        kamadorueda.alejandra
-        astro-build.astro-vscode
-        bradlc.vscode-tailwindcss
-      ]
-      ++ pkgs.vscode-utils.extensionsFromVscodeMarketplace [];
+      ])
+      ++ (with marketplace; [
+        catppuccin.catppuccin-vsc-icons
+        github.copilot
+        mvllow.rose-pine
+        re1san.tsuki
+        vue.volar
+      ])
+      ++ (with marketplace-release; [
+        github.copilot-chat
+      ]);
     userSettings = {
-      "workbench.iconTheme" = "catppuccin-perfect-mocha";
+      "workbench.iconTheme" = "catppuccin-mocha";
       "workbench.colorTheme" = "Tsuki";
-      "editor.fontFamily" = "AestheticIosevka Nerd Font, Catppuccin Perfect Mocha, 'monospace', monospace";
-      "editor.fontSize" = 13;
+      "window.autoDetectColorScheme" = true;
+      "workbench.preferredDarkColorTheme" = "Tsuki";
+      "workbench.preferredLightColorTheme" = "Rosé Pine Dawn";
+      "editor.fontFamily" = "GeistMono Nerd Font, Catppuccin Mocha, 'monospace', monospace";
+      "editor.fontSize" = 14;
       "editor.fontLigatures" = true;
       "files.trimTrailingWhitespace" = true;
-      "terminal.integrated.fontFamily" = "AestheticIosevka Nerd Font Mono";
+      "terminal.integrated.fontFamily" = "GeistMono Nerd Font";
       "window.titleBarStyle" = "custom";
       "terminal.integrated.defaultProfile.linux" = "zsh";
       "terminal.integrated.cursorBlinking" = true;
@@ -57,10 +75,15 @@
       "security.workspace.trust.untrustedFiles" = "open";
       "security.workspace.trust.banner" = "never";
       "security.workspace.trust.startupPrompt" = "never";
-      "workbench.sideBar.location" = "left";
+      "workbench.sideBar.location" = "right";
       "editor.tabSize" = 2;
       "editor.wordWrap" = "on";
       "workbench.editor.tabActionLocation" = "left";
+      "window.dialogStyle" = "native";
     };
+  };
+  home.file.".vscode/argv.json".text = builtins.toJSON {
+    enable-crash-reporter = false;
+    password-store = "gnome-libsecret";
   };
 }

@@ -1,4 +1,8 @@
-{pkgs, inputs, ...}: {
+{
+  pkgs,
+  inputs,
+  ...
+}: {
   fonts = {
     packages = with pkgs; [
       # icon fonts
@@ -9,15 +13,12 @@
       noto-fonts-emoji
       roboto
 
-      maple-mono
-      maple-mono-NF
-      maple-mono-SC-NF
+      # maple-mono-SC-NF
 
-      inputs.aesthetic-iosevka.packages.${pkgs.system}.default
+      inputs.self.packages.${pkgs.system}.SF-Pro
 
-      lexend
       # nerdfonts
-      (nerdfonts.override {fonts = ["NerdFontsSymbolsOnly"];})
+      (nerdfonts.override {fonts = ["GeistMono" "ZedMono" "NerdFontsSymbolsOnly"];})
     ];
 
     # causes more issues than it solves
@@ -26,11 +27,28 @@
     # user defined fonts
     # the reason there's Noto Color Emoji everywhere is to override DejaVu's
     # B&W emojis that would sometimes show instead of some Color emojis
-    fontconfig.defaultFonts = {
-      serif = ["AestheticIosevka Nerd Font"];
-      sansSerif = ["AestheticIosevka Nerd Font"];
-      monospace = ["AestheticIosevka Nerd Font Mono"];
-      # emoji = ["Noto Color Emoji"];
+    fontconfig = {
+      enable = true;
+      antialias = true;
+      hinting = {
+        enable = true;
+        autohint = false;
+        style = "full";
+      };
+      subpixel = {
+        lcdfilter = "default";
+        rgba = "rgb";
+      };
+      defaultFonts = {
+        serif = ["SF Pro Text" "Noto Color Emoji"];
+        sansSerif = ["SF Pro DIsplay" "Noto Color Emoji"];
+        monospace = ["GeistMono Nerd Font" "Noto Color Emoji"];
+        emoji = ["Noto Color Emoji"];
+      };
+    };
+    fontDir = {
+      enable = true;
+      decompressFonts = true;
     };
   };
 }
