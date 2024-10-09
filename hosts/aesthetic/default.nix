@@ -1,5 +1,5 @@
 {config, ...}: {
-  imports = [./hardware-configuration.nix];
+  imports = [./hardware-configuration.nix ./laptop_disko.nix];
 
   # boot = {
     # load modules on boot
