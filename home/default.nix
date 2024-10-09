@@ -7,10 +7,7 @@
   imports = [
     ./specialisations.nix
     ./terminal
-    inputs.matugen.nixosModules.default
     inputs.nix-index-db.hmModules.nix-index
-    inputs.hyprlock.homeManagerModules.default
-    inputs.hypridle.homeManagerModules.default
     inputs.impermanence.nixosModules.home-manager.impermanence
     self.nixosModules.theme
   ];
