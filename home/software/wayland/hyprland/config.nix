@@ -60,7 +60,7 @@ in {
       general = {
         monitor = [
           "eDP-1,1920x1080@60,0x0, 1.0"
-          "HDMI-A-1,1920x1080@75,0x-1080, 1.0"
+          # "HDMI-A-1,1920x1080@75,0x-1080, 1.0"
         ];
         gaps_in = 5;
         gaps_out = 5;
@@ -150,7 +150,7 @@ in {
         "CTRL_ALT, L, exec, pgrep hyprlock || hyprlock"
 
         "$MOD, Q, killactive"
-        "$MODSHIFT, Q, exit"
+        # "$MODSHIFT, Q, exit"
         "$MOD, F, fullscreen"
         "$MOD, Space, togglefloating"
         "$MOD, P, pseudo"

@@ -14,6 +14,22 @@
   # we need git for flakes
   environment.systemPackages = [pkgs.git];
 
+  services.xserver = {
+    # ...
+
+    xkb = {
+      layout = "qwerty-fr";
+      variant = "qwerty-fr";
+      extraLayouts = {
+        qwerty-fr = {
+          description = "QWERTY with French symbols and diacritics";
+          languages = ["eng"];
+          symbolsFile = /home/erik/desktop-nixos/system/nix/us_qwerty-fr;
+        };
+      };
+    };
+  };
+
   nix = {
     package = pkgs.lix;
 
