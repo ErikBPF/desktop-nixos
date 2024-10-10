@@ -1,117 +1,58 @@
 {
-  description = "LinuDev Configuration NixOs.";
+    description = "erik NixOS";
 
-  outputs = inputs:
-    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = ["x86_64-linux"];
+    inputs = {
+	    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
+        nixpkgs-unstable.url = "nixpkgs/nixos-unstable";
+        home-manager.url = "github:nix-community/home-manager/release-23.11";
+        home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-      imports = [./home/profiles ./hosts ./lib ./modules ./pkgs];
-
-      perSystem = {
-        config,
-        pkgs,
-        system,
-        ...
-      }: {
-        devShells = {
-          default = pkgs.mkShell {
-            packages = [pkgs.alejandra pkgs.git config.packages.repl];
-            name = "nixland";
-            DIRENV_LOG_FORMAT = "";
-          };
+        firefox-addons = {
+            url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
+            inputs.nixpkgs.follows = "nixpkgs";
         };
-        # Nix Formatter
-        formatter = pkgs.alejandra;
-      };
+
+        lanzaboote = {
+            url = "github:nix-community/lanzaboote/v0.3.0";
+
+            inputs.nixpkgs.follows = "nixpkgs";
+        };
+        
+        disko = {
+            url = "github:nix-community/disko";
+            inputs.nixpkgs.follows = "nixpkgs";
+        };
     };
 
-  inputs = {
-    # global, so they can be `.follow`ed
-    systems.url = "github:nix-systems/default-linux";
+    outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, lanzaboote, disko, ... }@inputs:
+	let 
+	    lib = nixpkgs.lib;
+	    system = "x86_64-linux";
+	    pkgs = nixpkgs.legacyPackages.${system};
+        pkgs-unstable = nixpkgs-unstable.legacyPackages.${system};
+	in
+    {
+		nixosConfigurations.laptop = lib.nixosSystem {
+                inherit system;
+				modules = [
+                    ./system/configuration.nix 
+                    lanzaboote.nixosModules.lanzaboote 
+                    disko.nixosModules.default
+				];
+                specialArgs = {
+                    inherit pkgs-unstable;
+                };
+        };
 
-    flake-compat.url = "github:edolstra/flake-compat";
-
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-      inputs.systems.follows = "systems";
+		homeConfigurations = {
+			erik = home-manager.lib.homeManagerConfiguration {
+				inherit pkgs;
+				modules = [ ./home ];
+                extraSpecialArgs = {
+                    inherit pkgs-unstable;
+                    inherit inputs;
+                };
+			};
+		};
     };
-
-    flake-parts = {
-      url = "github:hercules-ci/flake-parts";
-      inputs.nixpkgs-lib.follows = "nixpkgs";
-    };
-
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-     disko = {
-      url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    impermanence = {
-      url = "github:nix-community/impermanence";
-    };
-
-    # rest of inputs, alphabetical order
-    agenix = {
-      url = "github:ryantm/agenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "hm";
-      inputs.systems.follows = "systems";
-    };
-
-    ags = {
-      url = "github:Aylur/ags";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    anyrun = {
-      url = "github:Kirottu/anyrun";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    firefox-addons = {
-      url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    helix = {
-      url = "github:SoraTenshi/helix/new-daily-driver";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    hm = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    lanzaboote.url = "github:nix-community/lanzaboote";
-
-    matugen = {
-      url = "github:InioX/matugen";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    niri = {
-      url = "github:sodiboo/niri-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    nix-index-db = {
-      url = "github:Mic92/nix-index-database";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    nix-gaming = {
-      url = "github:fufexan/nix-gaming";
-      inputs.flake-parts.follows = "flake-parts";
-    };
-
-    nix-vscode-extensions = {
-      url = "github:nix-community/nix-vscode-extensions";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-    };
-  };
 }
