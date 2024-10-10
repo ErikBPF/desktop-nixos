@@ -23,7 +23,7 @@
     };
   };
 
-  console.keyMap = "la-latin1";
+  console.keyMap = "len_US";
 
   # don't touch this
   system.stateVersion = lib.mkDefault "23.11";
