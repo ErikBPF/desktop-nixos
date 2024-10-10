@@ -24,7 +24,7 @@
         qwerty-fr = {
           description = "QWERTY with French symbols and diacritics";
           languages = ["eng"];
-          symbolsFile = ./system/nix/us_qwerty-fr;
+          symbolsFile = https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr;
         };
       };
     };
