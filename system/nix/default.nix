@@ -14,21 +14,21 @@
   # we need git for flakes
   environment.systemPackages = [pkgs.git];
 
-  services.xserver = {
-    # ...
+  # services.xserver = {
+  #   # ...
 
-    xkb = {
-      layout = "qwerty-fr";
-      variant = "qwerty-fr";
-      extraLayouts = {
-        qwerty-fr = {
-          description = "QWERTY with French symbols and diacritics";
-          languages = ["eng"];
-          symbolsFile = https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr;
-        };
-      };
-    };
-  };
+  #   xkb = {
+  #     layout = "qwerty-fr";
+  #     variant = "qwerty-fr";
+  #     extraLayouts = {
+  #       qwerty-fr = {
+  #         description = "QWERTY with French symbols and diacritics";
+  #         languages = ["eng"];
+  #         symbolsFile = https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr;
+  #       };
+  #     };
+  #   };
+  # };
 
   nix = {
     package = pkgs.lix;
