@@ -8,7 +8,6 @@
     ./specialisations.nix
     ./terminal
     inputs.nix-index-db.hmModules.nix-index
-    inputs.impermanence.nixosModules.home-manager.impermanence
     self.nixosModules.theme
   ];
   home = {
