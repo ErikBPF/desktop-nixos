@@ -12,31 +12,6 @@
   ];
   home = {
     stateVersion = "23.11";
-    persistence."/persist/home/erik" = {
-      directories = [
-        "Downloads"
-        "Music"
-        "Pictures"
-        "Documents"
-        "Videos"
-        "VirtualBox VMs"
-        "desktop-nixos"
-        ".gnupg"
-        ".ssh"
-        ".nixops"
-        ".local/share/keyrings"
-        ".local/share/direnv"
-        ".local/state/wireplumber"
-        {
-          directory = ".local/share/Steam";
-          method = "symlink";
-        }
-      ];
-      files = [
-        ".screenrc"
-      ];
-      allowOther = true;
-    };  
   };
 
   # disable manuals as nmd fails to build often
