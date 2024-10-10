@@ -2,7 +2,55 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ ... }:
+{
+  self,
+  inputs,
+  lib,
+  ...
+}: let
+  inherit
+    (self.inputs)
+    disko
+    ;
+
+ nixosSystem = args:
+    (lib.makeOverridable lib.nixosSystem)
+    (lib.recursiveUpdate args {
+      modules =
+        args.modules
+        ++ [
+          {
+            config.nixpkgs.pkgs = lib.mkDefault args.pkgs;
+            config.nixpkgs.localSystem = lib.mkDefault args.pkgs.stdenv.hostPlatform;
+          }
+        ];
+    });
+
+  # hosts = lib.rakeLeaves ./hosts;
+  # modules = lib.rakeLeaves ./modules;
+
+  defaultModules = [
+    # make flake inputs accessible in NixOS
+    {
+      # module.args.self = self;
+      # module.args.inputs = inputs;
+    }
+    # load common modules
+    ({...}: {
+      imports = [
+        # impermanence.nixosModules.impermanence
+        disko.nixosModules.disko
+
+        # modules.i18n
+        # modules.minimal-docs
+        # modules.nix
+        # modules.openssh
+        # modules.pgweb
+        # modules.server
+        # modules.tailscale
+      ];
+    })
+  ];
 
 {
 

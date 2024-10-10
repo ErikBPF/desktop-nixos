@@ -17,7 +17,6 @@
     nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
       specialArgs = { inherit inputs; };
       modules = [
-        inputs.disko.nixosModules.default
         ./configuration.nix
         ./hardware-configuration.nix
         ./laptop_disko.nix
