@@ -1,180 +1,138 @@
-<p align="center"><img src="https://i.imgur.com/X5zKxvp.png" width=300px></p>
-
-<p align="center">
-  <a href="https://hyprland.org/">
-    <img src="https://img.shields.io/static/v1?label=Hyprland&message=latest&style=flat&logo=hyprland&colorA=24273A&colorB=8AADF4&logoColor=CAD3F5"/>
-  </a>
-   <a href="https://github.com/zemmsoares/awesome-rices">
-    <img src="https://raw.githubusercontent.com/zemmsoares/awesome-rices/main/assets/awesome-rice-badge.svg" alt="awesome-rice-badge">
-  </a>
-  <a href="https://nixos.wiki/wiki/Flakes">
-    <img src="https://img.shields.io/static/v1?label=Nix Flake&message=check&style=flat&logo=nixos&colorA=24273A&colorB=9173ff&logoColor=CAD3F5">
-  </a>
+<div align="center">
+<h1>
+<img width="96" src="./images/logo.png"></img> <br>
+  Nixicle
+</h1>
+</h2><img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/palette/macchiato.png" width="500" />
+<img src="./images/terminal.png"></img>
+<p>
+  Screenshot updated: 2024-07-15
 </p>
+<h4>
+  :warning: This config repo is constantly changing,
+  Let me know if you see something that can be improved or done better :smile: .</h4>
+</div>
 
+## 💽 Usage
 
-<p align="center">
-<a href="https://nixos.org/"><img src="https://img.shields.io/badge/NixOS-unstable-informational.svg?style=flat&logo=nixos&logoColor=CAD3F5&colorA=24273A&colorB=8AADF4"></a> 
+<details>
+  <summary>Install</summary>
 
-
-<p align="center"><img src="https://i.imgur.com/NbxQ8MY.png" width=600px></p>
-
-<h2 align="center">革 | kaku</h2>
-
-###  ⚠ <sup><sub><samp>PLEASE RESPECT THE CREDITS IF YOU USE SOMETHING FROM MY DESKTOP/SETUP.</samp></sub></sup>
-
----
-
-<pre align="center">
-<a href="#seedling--setup">SETUP</a> • <a href="#herb--guides">GUIDES</a> • <a href="#four_leaf_clover--key-bindings">KEYBINDS</a> • <a href="https://linu.dev/kaku">GALLERY</a>
-</pre>
-
----
-
-<a href="#octocat--hi-there-thanks-for-dropping-by">
-  <picture>
-    <img alt="" align="right" width="400px" src="https://i.imgur.com/wxN00dP.png"/>
-  </picture>
-</a>
-
-- **Window Manager** • [Hyprland](https://github.com/hyprwm/Hyprland)🎨 Tiles
-  Everywhere!
-- **Shell** • [Zsh](https://www.zsh.org) 🐚 with
-  [starship](https://github.com/starship/starship) Cross Shell Platform!
-- **Terminal** • [WezTerm](https://github.com/wez/wezterm) 💻 A powerful term
-  with gpu support!
-- **Panel** • [AGS](https://github.com/Aylur/ags)🍧
-  Patched waybar following hyprland faq!
-- **Notify Daemon** • [Dunst](https://github.com/dunst-project/dunst) 🍃
-  Minimalist and functional!
-- **Launcher** • [AnyRun](https://github.com/Kirottu/anyrun) 🚀 Fast AnyRunner!
-- **File Manager** • [Ranger](https://github.com/ranger/ranger)🔖 custom!
-- **GUI Basic-IDE** • [NvChad-V2](https://github.com/erik/nvchad-v2) Rice
-  IDE!
-
-### 🍂  <samp>CHANGELOGS</samp>
-
-> From the previous major versions (0-1.x).
-
-## 🌼 <samp>INSTALLATION (NixOS)</samp>
-
-> Request: [NixOs](https://channels.nixos.org/nixos-23.05/latest-nixos-minimal-x86_64-linux.iso)
-
-- Download ISO.
-```bash
-wget -O https://channels.nixos.org/nixos-23.05/latest-nixos-minimal-x86_64-linux.iso
-```
-
-- Boot Into the Installer.
-
-- Switch to Root: `sudo -i`
-
-- Partitions:
-
-*I prefer to use 1GB on the EFI partition. Specifically because the 'generations' list may become very long, and to avoid overloading the partition.*
+To install NixOS on any of my devices I now use [nixos-anywhere](https://github.com/nix-community/nixos-anywhere/blob/main/docs/howtos/no-os.md).
+You will need to be able to SSH to the target machine from where this command will be run. Load nix installer ISO if
+no OS on the device. You need to copy ssh keys onto the target machine
+`mkdir -p ~/.ssh && curl https://github.com/hmajid2301.keys > ~/.ssh/authorized_keys` in my case I can copy them from GitHub.
 
 ```bash
-# Replace nvme with your disk partition
-gdisk /dev/nvme0n1
-```
-	- `o` (create new partition table)
-	- `n` (add partition, 512M, type ef00 EFI)
-	- `n` (add partition, remaining space, type 8300 Linux)
-	`w` (write partition table and exit)
+git clone git@github.com:hmajid2301/nixicle.git ~/nixicle/
+cd nixcile
 
-- Format Partitions:
+nix develop
+
+nixos-anywhere --flake '.#workstation' nixos@192.168.1.8 # Replace with your IP
+```
+
+After building it you can copy the ISO from the `result` folder to your USB.
+Then run `nix_installer`, which will then ask you which host you would like to install.
+
+</details>
+
+### Building
+
+To build my config for a specific host you can do something like:
 
 ```bash
-mkfs.fat -F 32 -n EFI /dev/nvme0n1p1
-mkfs.xfs -L NIXOS /dev/nvme0n1p2
+git clone git@github.com:hmajid2301/nixicle.git ~/nixicle/
+cd nixicle
+
+nix develop
+
+# To build system configuration (uses hostname to build flake)
+nh os switch
+
+# To build user configuration (uses hostname and username to build flake)
+nh home switch
+
+# Build ISO in result/ folder
+nix build .#install-isoConfigurations.graphical
+
+# Deploy my to remote server i.e. Home Lab (using SSH)
+deploy .#ms01 --hostname ms01 --ssh-user nixos --skip-checks
+
+# Build Home Lab diagram using nix-topology
+nix build .#topology.config.output
 ```
 
-- Mount Partitions:
+## 🚀 Features
 
-```bash
-mount /dev/disk/by-label/NIXOS /mnt
-mkdir -p /mnt/boot
-mount /dev/disk/by-label/EFI /mnt/boot
-```
+Some features of my config:
 
-- Enable nixFlakes
+- Structured to allow multiple **NixOS configurations**, including **desktop**, **laptop** and **homelab**
+- **Custom** live ISO for installing NixOS
+- **Styling** with stylix
+- **Opt-in persistance** through impermanence + blank snapshot
+- **Encrypted BTRFS partition**
+- **sops-nix** for secrets management
+- Different environments like **hyprland** and **gnome**
+- Custom **Neovim** setup declaratively using **nixvim**
+- Homelab all configured in nix.
 
-```bash
-nix-shell -p nixFlakes git
-```
+## 🏠 Configurations
 
-- Clone my Dotfiles 
 
-```bash 
-git clone --depth 1 https://github.com/erik/kaku /mnt/etc/nixos
-```
+|   Hostname                                   |            Board                                          |               CPU                                                   |  RAM          |         Primary GPU                                    |  Role | OS  | State |
+| :---------:                                  | :-------------------------:                               | :----------------------------:                                      | :---:         | :-------------------------:                            |  :--: | :-: | :---: |
+| `workstation`                                | X671E AORUS PRO X                                         | AMD Ryzen 9 7950X                                                   | 64GB          | AMD Spectral White 7900 XTX                            | 🖥️     | ❄️   | ✅    |
+| `framework`                                  | Framework 13th Gen AMD                                    | Intel® Core™ i7-1370P                                               | 32GB          | Intel Iris Graphics                                    | 💻️    | ❄️   | ✅    |
+| `frandecpa63294006a`                         | Framework 13th Gen Intel                                  | AMD Ryzen™ 7 7840U                                                  | 32GB          | Intel Iris Graphics                                    | 💻️    | 🐧  | ✅    |
+| `vm`                                         | QEMU                                                      | -                                                                   | -             | VirGL                                                  |  🐄   | ❄️   | ✅    |
+| `steamdeck`                                  | -                                                         | Zen 2                                                               | 16GB          | 8 RDNA 2 CUs                                           |  🎮️   | 🐧  | ✅    |
+| `um790`                                      |  UM790                                                    |  AMD Ryzen 9 7940HS                                                 | 64GB          | AMD Radeon™ 780M                                       |  ☁️    | ❄️   | ✅    |
+| `ms01`                                       |  MS-01                                                    |  i9-13900H                                                          | 64GB          | Iris Xe Graphics                                       |  ☁️    | ❄️   | ✅    |
+| `s100`                                       |  S100                                                     |  N100                                                               | 8GB           | Iris Xe Graphics                                       |  ☁️    | ❄️   | ✅    |
+| `vps`                                        | QEMU (Hetzner shared)                                     | 2 VCPU                                                              | 2GB           | VirGL                                                  |  🐄   | ❄️   | ✅    |
 
-- Generate your Own Nix Hardware Settings:
-### ⚠ <sup><sub><samp>DON'T FORGET IT</samp></sub></sup>
+**Key**
 
-```bash
-sudo nixos-generate-config --dir --force /mnt/etc/nixos/hosts/aesthetic
+- 🖥️ : Desktop
+- 💻️ : Laptop
+- 🎮️ : Games Machine
+- 🐄 : Virtual Machine
+- ☁️ : Server
 
-# Remove configuration.nix 
-rm -rf /mnt/etc/nixos/hosts/aesthetic/configuration.nix
-```
 
-- Install Dotfiles Using Flake
+## 🖼️ Showcase
 
-```bash
-# Move to folder
-cd mnt/etc/nixos/
+### Desktop
 
-# Install
-nixos-install --flake .#aesthetic
-```
+![terminal](images/terminal.png)
+![swaync](images/swaync.png)
+![wallpaper](images/wallpaper.png)
+![monkeytype](images/monkeytype.png)
 
-- Reboot
+### Neovim
 
-### 🐙  <sup><sub><samp>Remember <strong>Default</strong> User & password are: nixos</samp></sub></sup>
+![Telescope](images/nvim/telescope.png)
+![Editor](images/nvim/editor.png)
+![Go Code](images/nvim/go-code.png)
+![CMP](images/nvim/cmp.png)
 
-- Change Default password for User.
+## Appendix
 
-```bash
-passwd YourUser
-```
+- <a href="https://www.flaticon.com/free-icons/dot" title="dot icons">Dot icons created by Roundicons - Flaticon</a>
+-  You can read more about my dotfiles and development workflows on my [blog here](https://erikmajid.dev/series/my-development-workflow/) (#ShamelessPlug).
+- [Wallpaper From Catppuccin Discord](https://discord.com/channels/907385605422448742/1199293891392852009)
+  - Galaxy: https://discord.com/channels/907385605422448742/1199293891392852009
+  - Old Catppuccin wallpaper: https://github.com/Gingeh/wallpapers
+  - Catppuccino: https://discord.com/channels/907385605422448742/1130546126374838342
+  - Catppuccino: https://discord.com/channels/907385605422448742/1130546126374838342
 
-- Install w/ Home-Manager the config
+### Inspired By
 
-```bash
-home-manager switch --flake 'github:erik/kaku#linudev@aesthetic'
-```
-
-### 🌸 <samp>DOTFILES EXPLAIN</samp>
-
-### 🌻 <samp>TODO LIST</samp>
-
-### 🎋 <samp>ADDITIONALS</samp>
-
-## 🍀 <samp>KEY BINDINGS</samp>
-
-## 💐 <samp>ACKNOWLEDGEMENTS</samp>
-
-|           |   | Inspiration and Resources                                   |                                                                                                                                                              |            |
-|:---------:|:-:|:------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------:|
-|           | 1 | [owl4ce](https://github.com/owl4ce)                        |                                                                                                                                                              |            |
-|           | 2 | [Ilham25](https://github.com/ilham25)              |                                                                                                                                                              |            |
-|           | 3 | [Siduck](https://github.com/siduck)                |                                                                                                                                                              |            |
-|           | 4 | [NvChad](https://github.com/NvChad)         |                                                                                                                                                              |            |
-|           | 5 | [Rxyhn](https://github.com/rxyhn)         |                                                                                                                                                              |            |
-|           | 6 | [HeinzDev](https://github.com/HeinzDev)                        |                                                                                                                                                              |            |
-|           | 7 | [fufexan](https://github.com/fufexan)                        |                                                                                                                                                              |            |
-|           | 8 | [AmitGolden](https://github.com/AmitGolden)               |                                                                                                                                                              |            |
-|           |   |                                                             |                                                                                                                                                              |            |
-| **Based** |   | **Community**                                               | **Membership Status**                                                                                                                                        |            |
-|🗺| 3 | [r/unixp*rn](https://reddit.com/r/unixporn)                 | Not working there anymore.                                                                                                                                    |            |
-
-## 🌳 <samp>CONTRIBUTING</samp>
-
-WIP
-
-## 🎃 <samp>SECURITY POLICY</samp>
-
-<pre align="center">
-<a href="#readme">BACK TO TOP</a>
-</pre>
+- Snowfall config: https://github.com/jakehamilton/config?tab=readme-ov-file
+- More snowfall config: https://github.dev/khaneliman/khanelinix/blob/f4f4149dd8a0fda1c01fa7b14894b2bcf5653572/flake.nix
+- My original structure and nixlang code: https://github.com/Misterio77/nix-config
+- Waybar & scripts: https://github.dev/yurihikari/garuda-sway-config
+- Neovim UI: https://github.com/NvChad/nvchad
+- README: https://github.com/notohh/snowflake/tree/master
+- README table: https://github.com/wimpysworld/nix-config

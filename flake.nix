@@ -1,113 +1,197 @@
 {
-  description = "LinuDev Configuration NixOs.";
-
-  outputs = inputs:
-    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = ["x86_64-linux"];
-
-      imports = [./home/profiles ./hosts ./lib ./modules ./pkgs];
-
-      perSystem = {
-        config,
-        pkgs,
-        system,
-        ...
-      }: {
-        devShells = {
-          default = pkgs.mkShell {
-            packages = [pkgs.alejandra pkgs.git config.packages.repl];
-            name = "nixland";
-            DIRENV_LOG_FORMAT = "";
-          };
-        };
-        # Nix Formatter
-        formatter = pkgs.alejandra;
-      };
-    };
+  description = "erik's Nix/NixOS Config";
 
   inputs = {
-    # global, so they can be `.follow`ed
-    systems.url = "github:nix-systems/default-linux";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    flake-compat.url = "github:edolstra/flake-compat";
-
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-      inputs.systems.follows = "systems";
-    };
-
-    flake-parts = {
-      url = "github:hercules-ci/flake-parts";
-      inputs.nixpkgs-lib.follows = "nixpkgs";
-    };
-
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-     disko = {
-      url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # rest of inputs, alphabetical order
-    agenix = {
-      url = "github:ryantm/agenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "hm";
-      inputs.systems.follows = "systems";
-    };
-
-    ags = {
-      url = "github:Aylur/ags";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    anyrun = {
-      url = "github:Kirottu/anyrun";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    firefox-addons = {
-      url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    helix = {
-      url = "github:SoraTenshi/helix/new-daily-driver";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    hm = {
+    home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nur = {
+      url = "github:nix-community/NUR";
+    };
+
+    snowfall-lib = {
+      url = "github:snowfallorg/lib";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    deploy-rs = {
+      url = "github:serokell/deploy-rs";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nixos-hardware = {
+      url = "github:nixos/nixos-hardware";
+    };
+
+    sops-nix = {
+      url = "github:mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    impermanence.url = "github:nix-community/impermanence";
     lanzaboote.url = "github:nix-community/lanzaboote";
 
-    matugen = {
-      url = "github:InioX/matugen";
+    nixgl.url = "github:nix-community/nixGL";
+    stylix.url = "github:danth/stylix";
+    catppuccin.url = "github:catppuccin/nix";
+    nix-index-database.url = "github:nix-community/nix-index-database";
+
+    disko = {
+      url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    niri = {
-      url = "github:sodiboo/niri-flake";
+    nixos-anywhere = {
+      url = "github:numtide/nixos-anywhere";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.disko.follows = "disko";
+    };
+
+    nixos-generators = {
+      url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-index-db = {
-      url = "github:Mic92/nix-index-database";
+    comma = {
+      url = "github:nix-community/comma";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-gaming = {
-      url = "github:fufexan/nix-gaming";
-      inputs.flake-parts.follows = "flake-parts";
+    hypr-contrib = {
+      url = "github:hyprwm/contrib";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-vscode-extensions = {
-      url = "github:nix-community/nix-vscode-extensions";
+    hyprcursor = {
+      url = "github:hyprwm/Hyprcursor";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
+    };
+
+    pyprland = {
+      url = "github:hyprland-community/pyprland";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    hyprland-git.url = "github:hyprwm/hyprland";
+    hyprland-xdph-git.url = "github:hyprwm/xdg-desktop-portal-hyprland";
+    hyprland-protocols-git.url = "github:hyprwm/xdg-desktop-portal-hyprland";
+    hyprland-nix.url = "github:spikespaz/hyprland-nix";
+    hyprland-nix.inputs = {
+      hyprland.follows = "hyprland-git";
+      hyprland-xdph.follows = "hyprland-xdph-git";
+      hyprland-protocols.follows = "hyprland-protocols-git";
+    };
+    hyprpanel.url = "github:Jas-SinghFSU/HyprPanel";
+
+    nixvim = {
+      url = "github:nix-community/nixvim";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    attic = {
+      url = "github:zhaofengli/attic";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    firefox-gnome-theme = {
+      url = "github:rafaelmardojai/firefox-gnome-theme";
+      flake = false;
+    };
+
+    zjstatus = {
+      url = "github:dj95/zjstatus";
+    };
+
+    nix-topology = {
+      url = "github:oddlama/nix-topology";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    poetry2nix.url = "github:nix-community/poetry2nix";
+    authentik-nix = {
+      url = "github:nix-community/authentik-nix";
+    };
+    authentik-nix.inputs.poetry2nix.follows = "poetry2nix";
+
+    catppuccin-obs = {
+      url = "github:catppuccin/obs";
+      flake = false;
+    };
+    gx-nvim = {
+      url = "github:chrishrb/gx.nvim";
+      flake = false;
+    };
+    maximize-nvim = {
+      url = "github:declancm/maximize.nvim";
+      flake = false;
     };
   };
+
+  outputs = inputs: let
+    lib = inputs.snowfall-lib.mkLib {
+      inherit inputs;
+      src = ./.;
+
+      snowfall = {
+        metadata = "nixicle";
+        namespace = "nixicle";
+        meta = {
+          name = "nixicle";
+          title = "erik's Nix Flake";
+        };
+      };
+    };
+  in
+    lib.mkFlake {
+      channels-config = {
+        allowUnfree = true;
+      };
+
+      systems.modules.nixos = with inputs; [
+        stylix.nixosModules.stylix
+        home-manager.nixosModules.home-manager
+        disko.nixosModules.disko
+        lanzaboote.nixosModules.lanzaboote
+        impermanence.nixosModules.impermanence
+        sops-nix.nixosModules.sops
+        nix-topology.nixosModules.default
+        authentik-nix.nixosModules.default
+      ];
+
+
+      # homes.modules = with inputs; [
+      #   impermanence.nixosModules.home-manager.impermanence
+      # ];
+
+      overlays = with inputs; [
+        nixgl.overlay
+        nur.overlay
+        nix-topology.overlays.default
+      ];
+
+      deploy = lib.mkDeploy {inherit (inputs) self;};
+
+      checks =
+        builtins.mapAttrs
+        (system: deploy-lib:
+          deploy-lib.deployChecks inputs.self.deploy)
+        inputs.deploy-rs.lib;
+
+      topology = with inputs; let
+        host = self.nixosConfigurations.${builtins.head (builtins.attrNames self.nixosConfigurations)};
+      in
+        import nix-topology {
+          inherit (host) pkgs; # Only this package set must include nix-topology.overlays.default
+          modules = [
+            (import ./topology {
+              inherit (host) config;
+            })
+            {inherit (self) nixosConfigurations;}
+          ];
+        };
+    };
 }
