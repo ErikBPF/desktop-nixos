@@ -11,14 +11,14 @@
   };
 
   services.nixicle = {
-    syncthing.enable = true;
+    syncthing.enable = false;
   };
 
   roles = {
     desktop.enable = true;
     social.enable = true;
-    gaming.enable = true;
-    video.enable = true;
+    gaming.enable = false;
+    video.enable = false;
   };
 
   nixicle.user = {
