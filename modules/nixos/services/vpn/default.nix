@@ -14,7 +14,7 @@ in {
   config = mkIf cfg.enable {
     networking.wireguard.enable = true;
     services.mullvad-vpn = {
-      enable = true;
+      enable = false;
       package = pkgs.mullvad-vpn;
     };
     services.tailscale.enable = true;
