@@ -47,7 +47,7 @@ in {
 
     user = {
       name = "erik";
-      initialPassword = "1";
+      initialPassword = "1045";
     };
   };
 }
