@@ -13,9 +13,9 @@ in {
   };
 
   config = mkIf cfg.enable {
-    sops.secrets.netrc = {
-      sopsFile = ../../../secrets.yaml;
-    };
+    # sops.secrets.netrc = {
+    #   sopsFile = ../../../secrets.yaml;
+    # };
 
     home.packages = with pkgs; [
       attic-client
@@ -30,7 +30,7 @@ in {
         "attic-ci:U5Sey4mUxwBXM3iFapmP0/ogODXywKLRNgRPQpEXxbo="
         "system:DdaMnHcRKtgaov3GCR8mlrFuX90ShC2LkHv6kC7nluo="
       ];
-      netrc-file = config.sops.secrets."netrc".path;
+      # netrc-file = config.sops.secrets."netrc".path;
     };
   };
 }
