@@ -61,9 +61,9 @@ in {
   config = mkIf cfg.enable {
     wayland.windowManager.hyprland.keyBinds = {
       bind = {
-        "SUPER, Return" = "exec, foot";
-        "SUPER, B" = "exec, ${config.desktops.addons.rofi.package}/bin/rofi -show drun -mode drun";
-        "SUPER, Q" = "killactive,";
+        "SUPER, T" = "exec, foot";
+        "SUPER, D" = "exec, ${config.desktops.addons.rofi.package}/bin/rofi -show drun -mode drun";
+        "SUPER, W" = "killactive,";
         "SUPER, F" = "Fullscreen,0";
         "SUPER, R" = "exec, ${resize}/bin/resize";
         "SUPER, Space" = "togglefloating,";
@@ -149,9 +149,9 @@ in {
         ",XF86AudioPlay" = "exec,playerctl play-pause";
         ",XF86AudioStop" = "exec,playerctl stop";
       };
-      bindl = {
-        ",switch:Lid Switch" = "exec, ${laptop_lid_switch}/bin/laptop_lid_switch";
-      };
+      # bindl = {
+      #   ",switch:Lid Switch" = "exec, ${laptop_lid_switch}/bin/laptop_lid_switch";
+      # };
       binde = {
         "SUPERALT, h" = "resizeactive, -20 0";
         "SUPERALT, l" = "resizeactive, 20 0";
