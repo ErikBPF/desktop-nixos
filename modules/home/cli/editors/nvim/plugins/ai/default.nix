@@ -30,12 +30,12 @@
     ];
 
     plugins = {
-      chatgpt = {
-        enable = true;
-        settings = {
-          api_key_cmd = "cat ${config.sops.secrets.chatgpt_api_key.path}";
-        };
-      };
+      # chatgpt = {
+      #   enable = true;
+      #   settings = {
+      #     api_key_cmd = "cat ${config.sops.secrets.chatgpt_api_key.path}";
+      #   };
+      # };
 
       ollama = {
         enable = true;
@@ -59,7 +59,7 @@
     };
   };
 
-  sops.secrets.chatgpt_api_key = {
-    sopsFile = ../../../../../secrets.yaml;
-  };
+  # sops.secrets.chatgpt_api_key = {
+  #   sopsFile = ../../../../../secrets.yaml;
+  # };
 }

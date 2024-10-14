@@ -20,7 +20,7 @@ in {
     };
 
     security = {
-      sops.enable = true;
+      sops.enable = false;
       yubikey.enable = true;
     };
 

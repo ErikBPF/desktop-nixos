@@ -28,7 +28,7 @@ in {
     };
 
     security = {
-      sops.enable = true;
+      sops.enable = false;
     };
     styles.stylix.enable = true;
 
