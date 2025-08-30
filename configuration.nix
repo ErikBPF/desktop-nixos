@@ -1,8 +1,10 @@
 {
-  modulesPath,
+  inputs,
+  outputs,
   lib,
-  pkgs,
   config,
+  pkgs,
+  modulesPath,
   ...
 } @ args:
 {
@@ -10,6 +12,7 @@
     (modulesPath + "/installer/scan/not-detected.nix")
     (modulesPath + "/profiles/qemu-guest.nix")
     inputs.home-manager.nixosModules.default
+    ./modules/users/erik.nix
     ./disk-config.nix
   ];
 boot.loader = {
@@ -27,7 +30,7 @@ boot.loader = {
   home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
   home-manager.extraSpecialArgs = {inherit inputs outputs;};
-  home-manager.users.erik = import ../../home/henry;
+  home-manager.users.erik = import ./home/erik;
 
 
   environment.systemPackages = with pkgs; [
@@ -49,21 +52,6 @@ boot.loader = {
 	fonts.packages = with pkgs; [
 		jetbrains-mono
 	];
-
-  users.users."erik" = {
-    isNormalUser = true;
-    initialPassword = "1045";
-    extraGroups = [ "networkmanager" "wheel" ]; # Enable ‘sudo’ for the user.
-    packages = with pkgs; [
-       firefox
-       vscodium
-     ];
-     openssh.authorizedKeys.keys =
-  [
-    # change this to your ssh key
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com"
-  ] ++ (args.extraPublicKeys or []); # this
-  };
 
   programs.git.config = {
     user.name = "erik";
