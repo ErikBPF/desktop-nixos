@@ -1,3 +1,3 @@
 {
-#   omarchy-config = import ./omarchy-config.nix;
+  omarchy-config = import ./omarchy-config.nix;
 }

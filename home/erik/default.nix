@@ -4,13 +4,32 @@
   pkgs,
   lib,
   ...
-  }:
-
-{
+}: {
+  imports = [
+    # inputs.omarchy.homeManagerModules.default
+  ];
   home.username = "erik";
   home.homeDirectory = "/home/erik";
   home.stateVersion = "25.05";
+
   programs.home-manager.enable = true;
+
+  programs.ssh = {
+    enable = true;
+    # extraConfig = ''
+    #   Host *
+    #     IdentityAgent ~/.1password/agent.sock
+    # '';
+  };
+
+  programs.git = {
+    enable = true;
+    userName = "erikbpf";
+    userEmail = "erikbogado@gmail.com";
+    extraConfig = {
+      credential.helper = "store";
+    };
+  };
 
   programs.bash = {
     enable = true;

@@ -14,7 +14,12 @@ inputs = {
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
-    hyprland.url = "github:hyprwm/Hyprland";
+    omarchy-nix = {
+        url = "github:henrysipp/omarchy-nix";
+        inputs.nixpkgs.follows = "nixpkgs";
+        inputs.home-manager.follows = "home-manager";
+    };
+
 
   };
 
@@ -23,6 +28,7 @@ inputs = {
      self,
       nixpkgs,
       disko,
+      omarchy-nix,
       home-manager,
       ...
     }@ inputs: let
@@ -41,6 +47,7 @@ inputs = {
     nixosConfigurations = {
       workstation = nixpkgs.lib.nixosSystem {
         specialArgs = {inherit inputs outputs;};
+        system = "x86_64-linux";
         modules = [./hosts/workstation];
       };
 
