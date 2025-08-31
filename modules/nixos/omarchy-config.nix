@@ -29,6 +29,7 @@
         natural_scroll = false;
       };
     };
+  };
 
   omarchy = {
     full_name = "Erik Bogado";
