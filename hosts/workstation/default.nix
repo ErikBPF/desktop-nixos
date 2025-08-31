@@ -12,7 +12,7 @@
     (modulesPath + "/installer/scan/not-detected.nix")
     (modulesPath + "/profiles/qemu-guest.nix")
     inputs.home-manager.nixosModules.default
-    ./modules/users/erik.nix
+    ../../modules/users/erik.nix
     ./disk-config.nix
   ];
 boot.loader = {

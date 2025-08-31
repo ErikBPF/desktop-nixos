@@ -11,7 +11,7 @@ develop:
 	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command develop
 
 any-install-nixos:
-	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command  run nixpkgs#nixos-anywhere --  --flake .#generic --generate-hardware-config nixos-generate-config ./hardware-configuration.nix nixos@192.168.10.125
+	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command  run nixpkgs#nixos-anywhere --  --flake .#workstation --generate-hardware-config nixos-generate-config ./hosts/workstation/hardware-configuration.nix nixos@192.168.10.125
 
 gc:
 	sudo nix store gc --extra-experimental-features nix-command
