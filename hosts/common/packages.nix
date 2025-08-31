@@ -6,6 +6,8 @@
     brightnessctl
     ffmpeg
     alejandra
+    qwerty-fr
+
 
     # Shell tools
     fzf
