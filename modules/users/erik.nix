@@ -17,6 +17,9 @@
         "tty"
         "wheel"
         "docker"
+        "qemu"
+        "kvm"
+        "libvirtd"
       ];
     };
   };

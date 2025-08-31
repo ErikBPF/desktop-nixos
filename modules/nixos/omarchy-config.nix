@@ -4,7 +4,7 @@
   ...
 }: {
   imports = [
-    inputs.omarchy.nixosModules.default
+    inputs.omarchy-nix.nixosModules.default
   ];
 
   omarchy = {

@@ -24,7 +24,7 @@
 
   programs.git = {
     enable = true;
-    userName = "erikbpf";
+    userName = "Erik Bogado";
     userEmail = "erikbogado@gmail.com";
     extraConfig = {
       credential.helper = "store";
@@ -64,5 +64,6 @@
   home.packages = with pkgs; [
     bat
     neofetch
+    fastfetch
   ];
 }

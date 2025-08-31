@@ -16,6 +16,9 @@
     outputs.nixosModules.omarchy-config
     ../../modules/users/erik.nix
     ./disk-config.nix
+
+    ../common/global.nix
+    ../common/packages.nix
   ];
 boot = {
     kernelParams = ["nohibernate"];
@@ -39,7 +42,13 @@ boot = {
   home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
   home-manager.extraSpecialArgs = {inherit inputs outputs;};
-  home-manager.users.erik = import ../../home/erik;
+  
+  home-manager.users.erik = {
+    imports = [
+      ../../home/erik
+      inputs.omarchy-nix.homeManagerModules.default
+    ];
+  };
 
 
   environment.systemPackages = with pkgs; [
