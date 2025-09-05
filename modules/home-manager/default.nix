@@ -11,6 +11,7 @@ inputs: {
 in {
   imports = [
     (import ./window-manager/default.nix inputs)
+    import ./terminal/default.nix
   ];
 
 
