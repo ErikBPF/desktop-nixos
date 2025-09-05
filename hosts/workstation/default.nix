@@ -13,6 +13,7 @@
     (modulesPath + "/profiles/qemu-guest.nix")
     inputs.home-manager.nixosModules.default
     inputs.disko.nixosModules.disko
+    inputs.nix-colors.homeManagerModules.default
     ../../modules/users/erik.nix
     ./disk-config.nix
 
@@ -45,6 +46,7 @@ boot = {
   home-manager.users.erik = {
     imports = [
       ../../home/erik
+      (import ../../../modules/home-manager/default.nix inputs)
     ];
   };
 
