@@ -47,7 +47,7 @@ boot = {
   home-manager.users.erik = {
     imports = [
       ../../home/erik
-      inputs.homeManagerModules.default
+      (import ../../modules/home-manager/default.nix inputs)
     ];
   };
 
