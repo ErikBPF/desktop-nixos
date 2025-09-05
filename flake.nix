@@ -14,7 +14,6 @@ inputs = {
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
-    hyprland.url = "github:hyprwm/Hyprland";
     nix-colors.url = "github:misterio77/nix-colors";
 
   };
@@ -25,7 +24,6 @@ inputs = {
       nixpkgs,
       disko,
       home-manager,
-      hyprland,
       nix-colors,
       ...
     }@ inputs: let
@@ -39,32 +37,6 @@ inputs = {
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     overlays = import ./overlays {inherit inputs;};
-    nixosModules = {
-      default = {
-        config,
-        lib,
-        pkgs,
-        ...
-      }: {
-        imports = [
-          (import ./modules/nixos/default.nix inputs)
-        ];
-      };
-    };
-    homeManagerModules = import {
-      default = {
-        config,
-        lib,
-        pkgs,
-        osConfig ? {},
-        ...
-      }: {
-        imports = [
-          nix-colors.homeManagerModules.default
-          (import ./modules/home-manager/default.nix inputs)
-        ];
-      };
-    };
     nixosConfigurations = {
       workstation = nixpkgs.lib.nixosSystem {
         specialArgs = {inherit inputs outputs;};

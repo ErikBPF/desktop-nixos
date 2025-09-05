@@ -2,6 +2,7 @@
 let
   # Essential Hyprland packages - cannot be excluded
   hyprlandPackages = with pkgs; [
+    hyprland
     hyprshot
     hyprpicker
     hyprsunset
