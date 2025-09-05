@@ -13,7 +13,6 @@
     (modulesPath + "/profiles/qemu-guest.nix")
     inputs.home-manager.nixosModules.default
     inputs.disko.nixosModules.disko
-    outputs.nixosModules.omarchy-config
     ../../modules/users/erik.nix
     ./disk-config.nix
 

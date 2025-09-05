@@ -22,3 +22,6 @@ store-repair:
 
 check:
 	sudo nix  config check --extra-experimental-features flakes --extra-experimental-features nix-command 
+
+any-update:
+	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command run github:serokell/deploy-rs .#workstation#192.168.10.125

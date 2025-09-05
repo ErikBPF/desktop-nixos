@@ -14,12 +14,8 @@ inputs = {
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
-    omarchy-nix = {
-        url = "github:henrysipp/omarchy-nix";
-        inputs.nixpkgs.follows = "nixpkgs";
-        inputs.home-manager.follows = "home-manager";
-    };
-
+    hyprland.url = "github:hyprwm/Hyprland";
+    nix-colors.url = "github:misterio77/nix-colors";
 
   };
 
@@ -28,8 +24,9 @@ inputs = {
      self,
       nixpkgs,
       disko,
-      omarchy-nix,
       home-manager,
+      hyprland,
+      nix-colors,
       ...
     }@ inputs: let
     inherit (self) outputs;
