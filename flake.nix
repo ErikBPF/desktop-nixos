@@ -39,8 +39,32 @@ inputs = {
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
     overlays = import ./overlays {inherit inputs;};
-    nixosModules = import ./modules/nixos;
-    homeManagerModules = import ./modules/home-manager;
+    nixosModules = {
+      default = {
+        config,
+        lib,
+        pkgs,
+        ...
+      }: {
+        imports = [
+          (import ./modules/nixos/default.nix inputs)
+        ];
+      };
+    };
+    homeManagerModules = import {
+      default = {
+        config,
+        lib,
+        pkgs,
+        osConfig ? {},
+        ...
+      }: {
+        imports = [
+          nix-colors.homeManagerModules.default
+          (import ./modules/home-manager/default.nix inputs)
+        ];
+      };
+    };
     nixosConfigurations = {
       workstation = nixpkgs.lib.nixosSystem {
         specialArgs = {inherit inputs outputs;};
