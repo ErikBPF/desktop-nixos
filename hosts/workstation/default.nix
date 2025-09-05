@@ -45,7 +45,6 @@ boot = {
   home-manager.users.erik = {
     imports = [
       ../../home/erik
-      inputs.omarchy-nix.homeManagerModules.default
     ];
   };
 
