@@ -14,7 +14,6 @@
     inputs.home-manager.nixosModules.default
     inputs.disko.nixosModules.disko
     (import ../../modules/nixos/default.nix inputs)
-    inputs.nix-colors.homeManagerModules.default
     ./hardware-configuration.nix
     ../../modules/users/erik.nix
     ./disk-config.nix
@@ -48,6 +47,7 @@ boot = {
   home-manager.users.erik = {
     imports = [
       ../../home/erik
+      inputs.nix-colors.homeManagerModules.default
       ../../modules/home-manager/default.nix
     ];
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
