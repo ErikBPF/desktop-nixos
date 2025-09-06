@@ -5,7 +5,6 @@
   osConfig ? {},
   ...
 }: let
-  cfg = config.omarchy;
   hasNvidiaDrivers = builtins.elem "nvidia" osConfig.services.xserver.videoDrivers;
   nvidiaEnv = [
     "NVD_BACKEND,direct"
@@ -18,7 +17,7 @@ in {
     env =
       (lib.optionals hasNvidiaDrivers nvidiaEnv)
       ++ [
-        "GDK_SCALE,${toString cfg.scale}"
+        "GDK_SCALE,1"
 
         # Cursor size
         "XCURSOR_SIZE,24"
@@ -48,7 +47,7 @@ in {
         "EDITOR,nvim"
         
         # GTK theme
-        "GTK_THEME,${if cfg.theme == "generated_light" then "Adwaita" else "Adwaita:dark"}"
+        "GTK_THEME,Adwaita:dark"
 
         # Podman compatibility. Probably need to add cfg.env?
         # "DOCKER_HOST,unix://$XDG_RUNTIME_DIR/podman/podman.sock"
