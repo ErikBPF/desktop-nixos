@@ -4,7 +4,7 @@ inputs: {
   lib,
   ...
 }: let
-  packages = import ../packages.nix {inherit pkgs lib;};
+  # packages = import ../packages.nix {inherit pkgs lib;};
 
   themes = import ../themes.nix;
   
