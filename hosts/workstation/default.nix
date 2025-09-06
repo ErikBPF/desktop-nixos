@@ -50,6 +50,7 @@ boot = {
       ../../home/erik
       ../../modules/home-manager/default.nix
     ];
+    colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
 
 
