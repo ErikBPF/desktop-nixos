@@ -1,16 +1,16 @@
-inputs: {
+{
   config,
   inputs,
   pkgs,
   ...
-}:{
+}: {
   imports = [
-    (import ./hyprland.nix inputs)
-    (import ./hyprlock.nix inputs)
-    (import ./hyprpaper.nix)
-    (import ./hypridle.nix)
-    (import ./mako.nix)
-    (import ./waybar.nix inputs)
-    (import ./wofi.nix)
+    ./hyprland.nix
+    ./hyprlock.nix
+    ./hyprpaper.nix
+    ./hypridle.nix
+    ./mako.nix
+    ./waybar.nix
+    ./wofi.nix
   ];
 }

@@ -1,15 +1,15 @@
-inputs: {
+{
   config,
   pkgs,
   lib,
+  inputs,
   ...
 }: let
   packages = import ../packages.nix {inherit pkgs lib;};
-  
 in {
   imports = [
-    (import ./window-manager/default.nix inputs)
-    import ./terminal/default.nix
+    ./window-manager
+    ./terminal
   ];
 
 
