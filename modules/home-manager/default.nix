@@ -6,7 +6,7 @@ inputs: {
 }: let
   # packages = import ../packages.nix {inherit pkgs lib;};
 
-  themes = import ../themes.nix;
+  # themes = import ../themes.nix;
   
 in {
   imports = [
