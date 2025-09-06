@@ -15,8 +15,6 @@ in {
 
   home.packages = packages.homePackages;
 
-  colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
-
   gtk = {
     enable = true;
     theme = {
