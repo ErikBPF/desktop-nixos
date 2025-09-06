@@ -1,6 +1,7 @@
-inputs: {
+{
   config,
   pkgs,
+  inputs,
   ...
 }: let
   palette = config.colorScheme.palette;
