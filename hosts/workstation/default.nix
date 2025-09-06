@@ -42,7 +42,7 @@ boot = {
 
   home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
-  home-manager.extraSpecialArgs = {inherit inputs outputs;};
+  # home-manager.extraSpecialArgs = {inherit inputs outputs;};
   
   home-manager.users.erik = {
     imports = [
@@ -71,11 +71,6 @@ boot = {
 	fonts.packages = with pkgs; [
 		jetbrains-mono
 	];
-
-  programs.git.config = {
-    user.name = "erik";
-    user.email = "erikbogado@gmail.com";
-  };
 
   system.stateVersion = "25.05";
 }
