@@ -42,7 +42,7 @@ boot = {
 
   # home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
-  home-manager.extraSpecialArgs = {inherit inputs outputs;};
+  # home-manager.extraSpecialArgs = {inherit inputs outputs;};
   
   home-manager.users.erik = {
     imports = [
