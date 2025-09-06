@@ -15,6 +15,7 @@
     inputs.disko.nixosModules.disko
     (import ../../modules/nixos/default.nix inputs)
     inputs.nix-colors.homeManagerModules.default
+    ./hardware-configuration.nix
     ../../modules/users/erik.nix
     ./disk-config.nix
 
@@ -47,30 +48,10 @@ boot = {
   home-manager.users.erik = {
     imports = [
       ../../home/erik
-      (import ../../modules/home-manager/default.nix inputs)
+      ../../modules/home-manager/default.nix
     ];
   };
 
-
-  environment.systemPackages = with pkgs; [
-    vim
-    wget
-    curl
-		neovim
-		alacritty
-		btop
-		gedit
-		xwallpaper
-		pcmanfm
-		rofi
-		git
-		pfetch
-        neovim
-  ];
-
-	fonts.packages = with pkgs; [
-		jetbrains-mono
-	];
 
   system.stateVersion = "25.05";
 }
