@@ -4,26 +4,24 @@ inputs: {
   lib,
   ...
 }: let
-  # packages = import ../packages.nix {inherit pkgs lib;};
-
-  # themes = import ../themes.nix;
+  packages = import ../packages.nix {inherit pkgs lib;};
   
 in {
   imports = [
-    # (import ./window-manager/default.nix inputs)
+    (import ./window-manager/default.nix inputs)
     import ./terminal/default.nix
   ];
 
 
-  # home.packages = packages.homePackages;
+  home.packages = packages.homePackages;
 
-  # colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
+  colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
 
-  # gtk = {
-  #   enable = true;
-  #   theme = {
-  #     name = "Adwaita:dark";
-  #     package = pkgs.gnome-themes-extra;
-  #   };
-  # };
+  gtk = {
+    enable = true;
+    theme = {
+      name = "Adwaita:dark";
+      package = pkgs.gnome-themes-extra;
+    };
+  };
 }
