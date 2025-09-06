@@ -1,6 +1,8 @@
 {
-  direnv = import ./direnv.nix;
-  btop = import ./btop.nix;
-  starship = import ./starship.nix;
-  zoxide = import ./zoxide.nix;
+  imports = [
+    ./direnv.nix
+    ./btop.nix
+    ./starship.nix
+    ./zoxide.nix
+  ];
 }
