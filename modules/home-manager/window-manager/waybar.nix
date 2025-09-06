@@ -11,7 +11,7 @@
 in {
   home.file = {
     ".config/waybar/" = {
-      source = ../../config/waybar;
+      source = ../../../config/waybar;
       recursive = true;
     };
     ".config/waybar/theme.css" = {
