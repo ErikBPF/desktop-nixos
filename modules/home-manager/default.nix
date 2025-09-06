@@ -15,15 +15,15 @@ in {
   ];
 
 
-  home.packages = packages.homePackages;
+  # home.packages = packages.homePackages;
 
-  colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
+  # colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
 
-  gtk = {
-    enable = true;
-    theme = {
-      name = "Adwaita:dark";
-      package = pkgs.gnome-themes-extra;
-    };
-  };
+  # gtk = {
+  #   enable = true;
+  #   theme = {
+  #     name = "Adwaita:dark";
+  #     package = pkgs.gnome-themes-extra;
+  #   };
+  # };
 }
