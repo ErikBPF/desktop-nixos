@@ -4,7 +4,7 @@ inputs: {
   lib,
   ...
 }: let
-  packages = import ../packages.nix {inherit pkgs lib;};
+  # packages = import ../packages.nix {inherit pkgs lib;};
 
   themes = import ../themes.nix;
   
@@ -15,7 +15,7 @@ in {
   ];
 
 
-  home.packages = packages.homePackages;
+  # home.packages = packages.homePackages;
 
   colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
 
