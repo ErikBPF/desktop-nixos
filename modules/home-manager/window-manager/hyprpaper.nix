@@ -7,7 +7,7 @@
 in {
   home.file = {
     "Pictures/Wallpapers" = {
-      source = ../../config/themes/wallpapers;
+      source = ../../../config/themes/wallpapers;
       recursive = true;
     };
   };
