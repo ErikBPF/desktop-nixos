@@ -4,7 +4,7 @@
   inputs,
   ...
 }: {
-  imports = [./hyprland/default.nix]
+  imports = [./hyprland/configuration.nix]
 ;
   wayland.windowManager.hyprland = {
     enable = true;
