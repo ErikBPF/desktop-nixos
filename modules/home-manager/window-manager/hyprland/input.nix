@@ -9,7 +9,7 @@
     # https://wiki.hyprland.org/Configuring/Variables/#input
     input = lib.mkDefault {
       kb_layout = "us";
-      kb_variant = "querty-fr";
+      kb_variant = "qwerty-fr";
       # kb_model =
       kb_options = compose:caps;
       # kb_rules =

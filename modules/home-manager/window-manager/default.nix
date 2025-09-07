@@ -10,7 +10,7 @@
     ./hyprpaper.nix
     ./hypridle.nix
     ./mako.nix
-    ./waybar.nix
+    # ./waybar.nix
     ./wofi.nix
   ];
 }
