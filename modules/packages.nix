@@ -17,6 +17,8 @@ let
   systemPackages = with pkgs; [
     git
     vim
+    kitty
+    ghostty
     libnotify
     nautilus
     alejandra
