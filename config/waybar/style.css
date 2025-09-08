@@ -1,43 +1,151 @@
-
-@import "./theme.css";
 * {
   border: none;
   border-radius: 0;
+  font-family: "JetBrainsMono Nerd Font";
+  font-weight: bold;
+  font-size: 12px;
   min-height: 0;
-  font-family: CaskaydiaMono Nerd Font;
-  font-size: 14px;
-  /* background-color: transparent; */
+}
+
+window#waybar {
+  background: rgba(21, 18, 27, 0);
+  color: #cdd6f4;
+}
+
+tooltip {
+  background: #1e1e2e;
+  opacity: 0.8;
+  border-radius: 10px;
+  border-width: 2px;
+  border-style: solid;
+  border-color: #11111b;
+}
+
+tooltip label {
+  color: #cdd6f4;
+}
+
+#workspaces button {
+  padding: 5px;
+  color: #313244;
+  margin-right: 5px;
+}
+
+#workspaces button.active {
+  color: #a6adc8;
+}
+
+#workspaces button.focused {
+  color: #a6adc8;
+  background: #eba0ac;
+  border-radius: 10px;
+}
+
+#workspaces button.urgent {
+  color: #11111b;
+  background: #a6e3a1;
+  border-radius: 10px;
+}
+
+#workspaces button:hover {
+  background: #11111b;
+  color: #cdd6f4;
+  border-radius: 10px;
+}
+
+#custom-launch_wofi,
+#custom-lock_screen,
+#custom-light_dark,
+#custom-power_btn,
+#custom-power_profile,
+#custom-weather,
+#window,
+#cpu,
+#disk,
+#custom-updates,
+#memory,
+#clock,
+#battery,
+#pulseaudio,
+#network,
+#tray,
+#temperature,
+#workspaces,
+#backlight {
+  background: #1e1e2e;
+  opacity: 0.8;
+  padding: 0px 5px;
+  margin: 3px 0px;
+  margin-top: 5px;
+  border: 0px;
+}
+
+#cpu,
+#custom-lock_screen,
+#temperature,
+#custom-launch_wofi {
+  border-radius: 10px 0px 0px 10px;
+  margin-left: 10px;
+}
+
+#custom-light_dark,
+#custom-power_btn,
+#pulseaudio.microphone,
+#clock {
+  border-radius: 0px 10px 10px 0px;
+  margin-right: 10px;
+}
+
+#temperature.critical {
+  color: #e92d4d;
+}
+
+#custom-power_btn {
+  padding-right: 10px;
 }
 
 
 #workspaces {
-  margin-left: 7px;
+  padding-right: 0px;
+  padding-left: 5px;
 }
 
-#workspaces button {
-  all: initial;
-  padding: 2px 6px;
-  margin-right: 3px;
+#custom-power_profile {
+  color: #a6e3a1;
+  border-left: 0px;
+  border-right: 0px;
 }
 
-#custom-dropbox,
-#cpu,
-#power-profiles-daemon,
-#battery,
-#network,
-#bluetooth,
-#wireplumber,
-#tray,
-#clock {
-  background-color: transparent;
-  min-width: 12px;
-  margin-right: 13px;
+#window {
+  border-radius: 0px 10px 10px 0px;
+  /* border-radius: 10px; */
+  /* margin-left: 20px; */
+
+  margin-right: 20px;
 }
 
-tooltip {
-  padding: 2px;
+#custom-launch_wofi {
+  color: #89b4fa;
+  margin-left: 10px;
+  border-right: 0px;
 }
 
-tooltip label {
-  padding: 2px;
+#pulseaudio {
+  color: #89b4fa;
+  border-left: 0px;
+  border-right: 0px;
+}
+
+#pulseaudio.microphone {
+  color: #cba6f7;
+  border-left: 0px;
+  border-right: 0px;
+}
+
+#battery {
+  color: #a6e3a1;
+  border-left: 0px;
+  border-right: 0px;
+  margin-left: 0px;
+
 }
