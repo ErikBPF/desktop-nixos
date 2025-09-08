@@ -45,6 +45,19 @@ in {
     };
   };
 
+
+
+  security.sudo = {
+    enable = true;
+    extraRules = [{
+      groups = [ "wheel" ];
+      commands = [{
+        command = "ALL";
+        options = [ "NOPASSWD" ];
+      }];
+    }];
+  };
+
   # Networking
   services.resolved.enable = true;
   hardware.bluetooth.enable = true;
