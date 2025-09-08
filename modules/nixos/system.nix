@@ -33,13 +33,13 @@ in {
     xkb = {
       layout = "us";
       variant = "qwerty-fr";
-      extraLayouts = {
-        qwerty-fr = {
-          description = "QWERTY with French symbols and diacritics";
-          languages = ["eng"];
-          symbolsFile = /home/erik/.config/keyboard/us_qwerty-fr;
-        };
-      };
+      # extraLayouts = {
+      #   qwerty-fr = {
+      #     description = "QWERTY with French symbols and diacritics";
+      #     languages = ["eng"];
+      #     symbolsFile = /home/erik/.config/keyboard/us_qwerty-fr;
+      #   };
+      # };
     };
   };
 
