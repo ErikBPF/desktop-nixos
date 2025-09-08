@@ -34,7 +34,7 @@ in {
       {
         layer = "top";
         position = "top";
-        height = 28;
+        height = 26;
         spacing = 0; # To match style.css
         modules-left = [
           "custom/launch_wofi"
@@ -64,7 +64,7 @@ in {
         };
 
         "custom/launch_wofi" = {
-          format = "";
+          format = "";
           on-click = "pkill wofi; wofi -n";
           tooltip = false;
         };
@@ -146,7 +146,7 @@ in {
         backlight = {
           device = "intel_backlight";
           format = "{icon} {percent}%";
-          "format-icons" = [ "" "" "" ];
+          "format-icons" = [ "󰃞" "󰃟" "󰃠"];
           "on-scroll-up" = "brightnessctl set 1%+";
           "on-scroll-down" = "brightnessctl set 1%-";
           "min-length" = 6;
@@ -214,8 +214,8 @@ in {
 
         "pulseaudio#microphone" = {
           format = "{format_source}";
-          "format-source" = " {volume}%";
-          "format-source-muted" = "";
+          "format-source" = "";
+          "format-source-muted" = "󰍭";
           "on-click" = "pamixer --default-source -t";
           "on-click-right" = "pavucontrol";
           "on-scroll-up" = "pamixer --default-source -i 5";
