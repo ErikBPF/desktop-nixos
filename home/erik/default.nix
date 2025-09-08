@@ -60,10 +60,4 @@
     --style="numbers,changes,grid"
     --paging=auto
   '';
-
-  home.packages = with pkgs; [
-    bat
-    neofetch
-    fastfetch
-  ];
 }

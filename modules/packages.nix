@@ -33,7 +33,6 @@ let
     unzip
     wget
     gnumake
-    qwerty-fr
   ];
 
   # Discretionary packages - can be excluded by user
@@ -57,6 +56,13 @@ let
     # Containers
     docker-compose
     ffmpeg
+    kubectl
+    kubelogin
+    kubectx
+    k9s
+    lens
+    dbeaver-bin
+    azure-cli
   ] ++ lib.optionals (pkgs.system == "x86_64-linux") [
     typora
     spotify
@@ -70,5 +76,9 @@ in {
   systemPackages = allSystemPackages;
 
   homePackages = with pkgs; [
+    bat
+    neofetch
+    fastfetch
+    nordpass
   ];
 }
