@@ -31,15 +31,17 @@ in {
     # ...
 
     xkb = {
-      layout = "us";
+      layout = "qwerty-fr";
       variant = "qwerty-fr";
-      # extraLayouts = {
-      #   qwerty-fr = {
-      #     description = "QWERTY with French symbols and diacritics";
-      #     languages = ["eng"];
-      #     symbolsFile = /home/erik/.config/keyboard/us_qwerty-fr;
-      #   };
-      # };
+      extraLayouts = {
+        qwerty-fr = {
+          description = "QWERTY with French symbols and diacritics";
+          languages = ["eng"];
+          symbolsFile = builtins.fetchurl {
+        url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr";
+      };
+        };
+      };
     };
   };
 
