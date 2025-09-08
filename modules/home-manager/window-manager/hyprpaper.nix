@@ -18,7 +18,7 @@ in {
         selected_wallpaper_path
       ];
       wallpaper = [
-        "${selected_wallpaper_path}"
+        ",${selected_wallpaper_path}"
       ];
     };
   };
