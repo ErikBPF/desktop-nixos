@@ -16,7 +16,7 @@
     ];
 
     exec = [
-      "pkill -SIGUSR2 waybar || waybar"
+      # "pkill -SIGUSR2 waybar || waybar"
     ];
   };
 }
