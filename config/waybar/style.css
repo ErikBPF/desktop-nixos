@@ -69,7 +69,10 @@ tooltip label {
 #battery,
 #pulseaudio,
 #network,
-#tray,
+#tray {
+  border-radius: 0px 0px 0px 0px;
+}
+
 #temperature,
 #workspaces,
 #backlight {
@@ -83,7 +86,10 @@ tooltip label {
 
 #cpu,
 #custom-lock_screen,
-#temperature,
+#temperature {
+  border-radius: 00px 0px 0px 00px;
+}
+
 #custom-launch_wofi {
   border-radius: 10px 0px 0px 10px;
   margin-left: 10px;
