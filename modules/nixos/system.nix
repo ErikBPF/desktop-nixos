@@ -26,6 +26,23 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs.direnv.enable = true;
 
+
+    services.xserver = {
+    # ...
+
+    xkb = {
+      layout = "us";
+      variant = "qwerty-fr";
+      extraLayouts = {
+        qwerty-fr = {
+          description = "QWERTY with French symbols and diacritics";
+          languages = ["eng"];
+          symbolsFile = /home/erik/.config/keyboard/us_querty-fr;
+        };
+      };
+    };
+  };
+
   # Networking
   services.resolved.enable = true;
   hardware.bluetooth.enable = true;
