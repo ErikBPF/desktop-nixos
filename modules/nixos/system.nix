@@ -14,6 +14,7 @@ in {
     pulse.enable = true;
     jack.enable = true;
   };
+  
 
   # Initial login experience
   services.greetd = {
@@ -24,6 +25,22 @@ in {
   # Install packages
   environment.systemPackages = packages.systemPackages;
   programs.direnv.enable = true;
+
+  services.xserver = {
+    # ...
+
+    xkb = {
+      layout = "qwerty-fr";
+      variant = "qwerty-fr";
+      extraLayouts = {
+        qwerty-fr = {
+          description = "QWERTY with French symbols and diacritics";
+          languages = ["eng"];
+          symbolsFile = https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr;
+        };
+      };
+    };
+  };
 
   # Networking
   services.resolved.enable = true;
