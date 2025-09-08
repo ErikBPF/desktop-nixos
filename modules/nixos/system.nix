@@ -37,7 +37,7 @@ in {
         qwerty-fr = {
           description = "QWERTY with French symbols and diacritics";
           languages = ["eng"];
-          symbolsFile = /home/erik/.config/keyboard/us_querty-fr;
+          symbolsFile = /home/erik/.config/keyboard/us_qwerty-fr;
         };
       };
     };
