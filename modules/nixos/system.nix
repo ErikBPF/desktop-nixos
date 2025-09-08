@@ -36,7 +36,7 @@ in {
         qwerty-fr = {
           description = "QWERTY with French symbols and diacritics";
           languages = ["eng"];
-          symbolsFile = https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr;
+          symbolsFile = /home/erik/Documents/erik/desktop-nixos/modules/nixos/us_qwerty-fr;
         };
       };
     };
