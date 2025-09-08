@@ -133,7 +133,7 @@ in {
         };
 
         tray = {
-          "icon-size" = 18;
+          "icon-size" = 14;
           spacing = 10;
         };
 
