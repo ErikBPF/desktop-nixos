@@ -1,7 +1,8 @@
 * {
   border: none;
   border-radius: 0;
-  font-family: "JetBrainsMono Nerd Font";
+  min-height: 0;
+  font-family: "CaskaydiaMono Nerd Font";
   font-weight: bold;
   font-size: 12px;
   min-height: 0;
