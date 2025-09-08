@@ -11,6 +11,7 @@ let
     playerctl
     gnome-themes-extra
     pavucontrol
+    easyeffects
   ];
 
   # Essential system packages - cannot be excluded
@@ -43,6 +44,8 @@ let
     wf-recorder
     grim
     slurp
+    nfs-utils
+    gparted
 
 
     # TUIs
@@ -81,6 +84,7 @@ let
     opencode
     gemini-cli
     ngrok
+    postman
     # Containers
     docker-compose
     ffmpeg
@@ -89,6 +93,8 @@ let
     kubectx
     k9s
     lens
+    kubernetes-helm
+    helmfile
     dbeaver-bin
     azure-cli
     azure-storage-azcopy
@@ -137,9 +143,6 @@ in {
     ethtool
     pciutils  # lspci
     usbutils  # lsusb
-    
-    # Calculator
-    wofi-calc
 
         # Archive utilities
     zip
@@ -174,5 +177,9 @@ in {
     gawk
     zstd
     gnupg
+
+    #printers
+    cups
+    hplip
   ];
 }
