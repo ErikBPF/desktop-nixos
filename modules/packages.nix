@@ -9,6 +9,7 @@ let
     brightnessctl
     pamixer
     playerctl
+    networkmanagerapplet
     gnome-themes-extra
     pavucontrol
     easyeffects
