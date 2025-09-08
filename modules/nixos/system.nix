@@ -30,7 +30,7 @@ in {
     # ...
 
     xkb = {
-      layout = "qwerty-fr";
+      layout = "us";
       variant = "qwerty-fr";
       extraLayouts = {
         qwerty-fr = {
