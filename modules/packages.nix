@@ -126,7 +126,6 @@ in {
     neofetch
     fastfetch
     nordpass
-    tailscale
     ente-auth
 
 
