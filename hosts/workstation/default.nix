@@ -54,5 +54,25 @@ boot = {
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
 
+    sops = {
+    age= {
+      keyFile = "/home/erik/.config/sops/age/keys.txt";
+      generateKey = true;
+    };
+    defaultSopsFormat = "yaml";
+    defaultSopsFile = ../../secrets/secrets.yaml;
+    secrets = {
+      password ={
+      sopsFile = ../../secrets/secrets.yaml;
+      };
+      id_ed25519 ={
+      sopsFile = ../../secrets/secrets.yaml;
+      };
+      id_rsa = {
+      sopsFile = ../../secrets/secrets.yaml;
+      };
+    };
+  };
+  
   system.stateVersion = "25.05";
 }

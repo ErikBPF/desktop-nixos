@@ -60,8 +60,10 @@
   };
 
   sops = {
-    age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-    age.generateKey = true;
+    age= {
+      keyFile = "/home/erik/.config/sops/age/keys.txt";
+      generateKey = true;
+    };
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
