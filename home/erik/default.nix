@@ -59,7 +59,12 @@
     };
   };
 
-
+  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  sops.secrets = {
+    password ={
+      sopsFile = ../../secrets/secrets.yaml;
+    };
+    };
 
   home.file = {
   ".config/bat/config".text = ''
@@ -81,6 +86,5 @@
     #     chmod 0400 ~/.ssh/id_*
     #   '';
     # };
-  };
   };
 }
