@@ -55,12 +55,12 @@ boot = {
   };
 
 
-    sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-  sops.secrets = {
-    password ={
-      sopsFile = ../../secrets/secrets.yaml;
-    };
-    };
+  #   sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  # sops.secrets = {
+  #   password ={
+  #     sopsFile = ../../secrets/secrets.yaml;
+  #   };
+  #   };
 
     # systemd.services."test" = {
     # script = ''
