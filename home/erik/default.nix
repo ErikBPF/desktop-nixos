@@ -83,7 +83,7 @@
     --paging=auto
   '';
   ".ssh/ro_id_ed25519" = {
-    source = config.sops.secrets.password.path;
+    source = config.sops.secrets.id_ed25519.path;
     onChange = ''
       cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
         chmod 0400 ~/.ssh/id_ed25519
