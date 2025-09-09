@@ -145,7 +145,7 @@ in {
 
         backlight = {
           device = "intel_backlight";
-          format = "{icon} {percent}%";
+          format = "{icon} "; #{percent}%
           "format-icons" = [ "󰃞" "󰃟" "󰃠"];
           "on-scroll-up" = "brightnessctl set 1%+";
           "on-scroll-down" = "brightnessctl set 1%-";
@@ -184,7 +184,7 @@ in {
               "󰁹"
             ];
           };
-          format-full = "Charged ";
+          # format-full = "Charged ";
           tooltip-format-discharging = "{power:>1.0f}W↓ {capacity}%";
           tooltip-format-charging = "{power:>1.0f}W↑ {capacity}%";
           states = {
@@ -194,7 +194,7 @@ in {
         };
 
         pulseaudio = {
-          format = "{icon} {volume}%";
+          format = "{icon}"; # {volume}%
           "format-muted" = "";
           "on-click" = "pamixer -t";
           "on-click-right" = "pavucontrol";
