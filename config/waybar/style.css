@@ -1,11 +1,12 @@
+@import "./theme.css";
+
 * {
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: "CaskaydiaMono Nerd Font";
-  font-weight: bold;
-  font-size: 12px;
-  min-height: 0;
+  font-family: CaskaydiaMono Nerd Font;
+  font-size: 14px;
+  /* background-color: transparent; */
 }
 
 window#waybar {
@@ -85,9 +86,12 @@ tooltip label {
 }
 
 #cpu,
-#custom-lock_screen,
+#custom-lock_screen {
+  border-radius: 10px 0px 0px 10px;
+}
+
 #temperature {
-  border-radius: 00px 0px 0px 00px;
+  border-radius: 0px 0px 0px 0px;
 }
 
 #custom-launch_wofi {
@@ -147,6 +151,7 @@ tooltip label {
   color: #cba6f7;
   border-left: 0px;
   border-right: 0px;
+  border-radius: 0px 0px 0px 0px;
 }
 
 #battery {
