@@ -63,7 +63,6 @@
   sops.secrets = {
     password ={
       sopsFile = ../../secrets/secrets.yaml;
-      owner = "erik";
     };
     };
 
