@@ -67,7 +67,17 @@
   '';
   ".ssh/id_ed25519" = {
     text = " ${config.sops.secrets.password.path}";
-    mode = "0700";
+    onChange = ''
+        chmod 0400 ~/.ssh/id_ed25519
+      '';
+
+    #     ".ssh/dummy" = {
+    #   text = "dummy";
+    #   onChange = ''
+    #     cp /mnt/c/Users/MyUserName/.ssh/id_* ~/.ssh/
+    #     chmod 0400 ~/.ssh/id_*
+    #   '';
+    # };
   };
   };
 }
