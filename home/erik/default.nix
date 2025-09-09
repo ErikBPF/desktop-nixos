@@ -92,13 +92,13 @@
       chmod 0400 ~/.ssh/id_ed25519
       '';
     };
-    ".ssh/ro_id_rsa" = {
-    source = config.sops.secrets.id_rsa.path;
-    onChange = ''
-      cp ~/.ssh/ro_id_rsa ~/.ssh/id_rsa
-      chmod 0400 ~/.ssh/id_rsa
-      '';
-    };
+    # ".ssh/ro_id_rsa" = {
+    # source = config.sops.secrets.id_rsa.path;
+    # onChange = ''
+    #   cp ~/.ssh/ro_id_rsa ~/.ssh/id_rsa
+    #   chmod 0400 ~/.ssh/id_rsa
+    #   '';
+    # };
 # ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
     #     ".ssh/dummy" = {
     #   text = "dummy";
