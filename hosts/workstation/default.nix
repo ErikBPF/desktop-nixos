@@ -62,17 +62,17 @@ boot = {
     };
     };
 
-    systemd.services."test" = {
-    script = ''
-        echo "
-        Hey bro! I'm a service, and imma send this secure password:
-        $(cat ${config.sops.secrets.password.path})
-        located in:
-        ${config.sops.secrets.password.path}
-        to database and hack the mainframe
-        " > /home/erik/Downloads/test
-      '';
-    };
+    # systemd.services."test" = {
+    # script = ''
+    #     echo "
+    #     Hey bro! I'm a service, and imma send this secure password:
+    #     $(cat ${config.sops.secrets.password.path})
+    #     located in:
+    #     ${config.sops.secrets.password.path}
+    #     to database and hack the mainframe
+    #     " > /home/erik/Downloads/test
+    #   '';
+    # };
 
   system.stateVersion = "25.05";
 }
