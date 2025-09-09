@@ -85,10 +85,7 @@ tooltip label {
 }
 
 #cpu,
-#custom-lock_screen {
-  border-radius: 10px 0px 0px 10px;
-}
-
+#custom-lock_screen,
 #temperature {
   border-radius: 00px 0px 0px 00px;
 }
@@ -150,7 +147,6 @@ tooltip label {
   color: #cba6f7;
   border-left: 0px;
   border-right: 0px;
-  border-radius: 0px 0px 0px 0px;
 }
 
 #battery {
