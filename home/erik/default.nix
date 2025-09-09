@@ -90,18 +90,16 @@
     onChange = ''
       cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
       chmod 0400 ~/.ssh/id_ed25519
-      ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
       '';
     };
-      ".ssh/ro_id_rsa" = {
-    source = config.sops.secrets.id_ed25519.path;
+    ".ssh/ro_id_rsa" = {
+    source = config.sops.secrets.id_rsa.path;
     onChange = ''
       cp ~/.ssh/ro_id_rsa ~/.ssh/id_rsa
       chmod 0400 ~/.ssh/id_rsa
-      ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
       '';
     };
-
+# ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
     #     ".ssh/dummy" = {
     #   text = "dummy";
     #   onChange = ''
