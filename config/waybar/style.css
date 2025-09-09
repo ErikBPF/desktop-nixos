@@ -6,7 +6,7 @@
   min-height: 0;
   font-family: CaskaydiaMono Nerd Font;
   font-size: 14px;
-  /* background-color: transparent; */
+  background-color: transparent;
 }
 
 window#waybar {
@@ -71,6 +71,8 @@ tooltip label {
 #pulseaudio,
 #network,
 #tray {
+  border-left: 0px;
+  border-right: 0px;
   border-radius: 0px 0px 0px 0px;
 }
 
