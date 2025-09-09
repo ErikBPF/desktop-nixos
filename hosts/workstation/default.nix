@@ -48,7 +48,7 @@ boot = {
     imports = [
       ../../home/erik
       inputs.nix-colors.homeManagerModules.default
-      inputs.sops-nix.nixosModules.sops
+      inputs.sops-nix.homeManagerModules.sops
       ../../modules/home-manager/default.nix
     ];
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
