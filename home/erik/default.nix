@@ -59,9 +59,21 @@
     };
   };
 
-  home.file.".config/bat/config".text = ''
+  sops.secrets = {
+    id_ed25519 ={
+      sopsFile = ../../secrets/secrets.yaml;
+    };
+    };
+
+  home.file = {
+  ".config/bat/config".text = ''
     --theme="Nord"
     --style="numbers,changes,grid"
     --paging=auto
   '';
+  ".ssh/id_ed25519" = {
+    text = " ${config.sops.secrets.id_ed25519.path}";
+    mode = 0700;
+  };
+  };
 }

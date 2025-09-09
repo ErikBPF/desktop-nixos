@@ -15,6 +15,7 @@ inputs = {
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
     nix-colors.url = "github:misterio77/nix-colors";
+    sops-nix.url = "github:Mic92/sops-nix";
 
   };
 
@@ -25,6 +26,7 @@ inputs = {
       disko,
       home-manager,
       nix-colors,
+      sops-nix,
       ...
     }@ inputs: let
     inherit (self) outputs;
