@@ -6,7 +6,7 @@
   ...
 }: {
   imports = [
-    # inputs.sops-nix.nixosModules.sops
+    inputs.sops-nix.nixosModules.sops
   ];
 
   time.timeZone = "America/Sao_Paulo";
@@ -61,6 +61,6 @@
   environment.systemPackages = [pkgs.sops pkgs.btop];
 
   # sops configuration
-#   sops.defaultSopsFile = ../../secrets/example.yaml;
-#   sops.age.keyFile = "/home/henry/.config/sops/age/keys.txt";
+  sops.defaultSopsFile = ../../secrets/secrets.yaml;
+  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
 }
