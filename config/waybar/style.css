@@ -95,6 +95,24 @@ tooltip label {
   /* margin-left: 10px; */
 }
 
+#cpu {
+  /* border-radius: 0px 0px 0px 0px; */
+  margin-right: 0px;
+  margin-left: 0px;
+}
+
+#custom-lock_screen {
+  /* border-radius: 0px 0px 0px 0px; */
+  margin-right: 0px;
+  margin-left: 0px;
+}
+
+#custom-launch_wofi {
+  /* border-radius: 0px 0px 0px 0px; */
+  margin-right: 0px;
+  margin-left: 0px;
+}
+
 #custom-light_dark,
 #custom-power_btn,
 #pulseaudio.microphone,
@@ -130,7 +148,7 @@ tooltip label {
   /* border-radius: 10px; */
   /* margin-left: 20px; */
 
-  margin-right: 0px;
+  margin-right: 20px;
 }
 
 #custom-launch_wofi {
@@ -162,7 +180,7 @@ tooltip label {
 }
 
 #battery {
-  color: #a6e3a1;
+  /* color: #a6e3a1; */
   border-left: 0px;
   border-right: 0px;
   margin-left: 0px;
