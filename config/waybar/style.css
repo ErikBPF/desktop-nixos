@@ -1,8 +1,7 @@
 * {
   border: none;
   border-radius: 0;
-  min-height: 0;
-  font-family: "CaskaydiaMono Nerd Font";
+  font-family: "JetBrainsMono Nerd Font";
   font-weight: bold;
   font-size: 12px;
   min-height: 0;
@@ -69,10 +68,7 @@ tooltip label {
 #battery,
 #pulseaudio,
 #network,
-#tray {
-  border-radius: 0px 0px 0px 0px;
-}
-
+#tray,
 #temperature,
 #workspaces,
 #backlight {
@@ -86,10 +82,7 @@ tooltip label {
 
 #cpu,
 #custom-lock_screen,
-#temperature {
-  border-radius: 00px 0px 0px 00px;
-}
-
+#temperature,
 #custom-launch_wofi {
   border-radius: 10px 0px 0px 10px;
   margin-left: 10px;
