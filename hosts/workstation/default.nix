@@ -54,41 +54,41 @@ boot = {
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
 
-    sops = {
-    age= {
-      keyFile = "/home/erik/.config/sops/age/keys.txt";
-      generateKey = true;
-    };
-    defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
-    secrets = {
-      password ={
-      sopsFile = ../../secrets/secrets.yaml;
-      };
-      id_ed25519 ={
-      sopsFile = ../../secrets/secrets.yaml;
-      };
-      id_rsa = {
-      sopsFile = ../../secrets/secrets.yaml;
-      };
-    };
-  };
+  #   sops = {
+  #   age= {
+  #     keyFile = "/home/erik/.config/sops/age/keys.txt";
+  #     generateKey = true;
+  #   };
+  #   defaultSopsFormat = "yaml";
+  #   defaultSopsFile = ../../secrets/secrets.yaml;
+  #   secrets = {
+  #     password ={
+  #     sopsFile = ../../secrets/secrets.yaml;
+  #     };
+  #     id_ed25519 ={
+  #     sopsFile = ../../secrets/secrets.yaml;
+  #     };
+  #     id_rsa = {
+  #     sopsFile = ../../secrets/secrets.yaml;
+  #     };
+  #   };
+  # };
 
-  systemd.services."sometestservice" = {
-    script = ''
-        echo "
-        Hey bro! I'm a service, and imma send this secure password:
-        $(cat ${config.sops.secrets.id_ed25519.path})
-        located in:
-        ${config.sops.secrets.id_ed25519.path}
-        to database and hack the mainframe
-        " > /var/lib/sometestservice/testfile
-      '';
-    serviceConfig = {
-      User = "erik";
-      WorkingDirectory = "/var/lib/sometestservice";
-    };
-  };
+  # systemd.services."sometestservice" = {
+  #   script = ''
+  #       echo "
+  #       Hey bro! I'm a service, and imma send this secure password:
+  #       $(cat ${config.sops.secrets.id_ed25519.path})
+  #       located in:
+  #       ${config.sops.secrets.id_ed25519.path}
+  #       to database and hack the mainframe
+  #       " > /var/lib/sometestservice/testfile
+  #     '';
+  #   serviceConfig = {
+  #     User = "erik";
+  #     WorkingDirectory = "/var/lib/sometestservice";
+  #   };
+  # };
 
   system.stateVersion = "25.05";
 }

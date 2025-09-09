@@ -40,7 +40,7 @@ let
 
   # Discretionary packages - can be excluded by user
   discretionaryPackages = with pkgs; [
-
+    sops
     swappy
     wf-recorder
     grim
