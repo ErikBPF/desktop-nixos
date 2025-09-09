@@ -2,14 +2,13 @@
   border: none;
   border-radius: 0;
   font-family: "JetBrainsMono Nerd Font";
-  font-weight: bold;
+  /* font-weight: bold; */
   font-size: 12px;
   min-height: 0;
 }
 
 window#waybar {
-  /* background: rgba(21, 18, 27, 0); */
-  background-color: transparent;
+  background: rgba(21, 18, 27, 0);
   color: #cdd6f4;
 }
 
