@@ -59,25 +59,25 @@
     };
   };
 
-  sops = {
-    age= {
-      keyFile = "/home/erik/.config/sops/age/keys.txt";
-      generateKey = true;
-    };
-    defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
-    secrets = {
-      password ={
-      # path = "%r/password.txt";
-      };
-      id_ed25519 ={
-      # path = "%r/id_ed25519.txt";
-      };
-      id_rsa = {
-      # path = "%r/id_rsa.txt";
-      };
-    };
-  };
+  # sops = {
+  #   age= {
+  #     keyFile = "/home/erik/.config/sops/age/keys.txt";
+  #     generateKey = true;
+  #   };
+  #   defaultSopsFormat = "yaml";
+  #   defaultSopsFile = ../../secrets/secrets.yaml;
+  #   secrets = {
+  #     password ={
+  #     # path = "%r/password.txt";
+  #     };
+  #     id_ed25519 ={
+  #     # path = "%r/id_ed25519.txt";
+  #     };
+  #     id_rsa = {
+  #     # path = "%r/id_rsa.txt";
+  #     };
+  #   };
+  # };
 
   home.file = {
   ".config/bat/config".text = ''
