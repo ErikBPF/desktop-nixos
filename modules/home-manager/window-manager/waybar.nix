@@ -151,6 +151,8 @@ in {
           device = "intel_backlight";
           format = "{icon}"; #{percent}%
           format-icons = ["󰃞" "󰃟" "󰃠"];
+          tooltip = true;
+          tooltip-format = "Brightness: {percent}%";
           on-scroll-up = "brightnessctl set 1%+";
           on-scroll-down = "brightnessctl set 1%-";
           # min-length = 6;
