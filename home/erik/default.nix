@@ -75,7 +75,7 @@
   ".ssh/id_ed25519" = {
     text = "${config.sops.secrets.password.path}";
     onChange = ''
-        chmod 0400 ~/.ssh/id_ed25519
+        sudo chmod 0400 ~/.ssh/id_ed25519
       '';
 
     #     ".ssh/dummy" = {
