@@ -63,6 +63,12 @@ boot = {
     password ={
      sopsFile = ../../secrets/secrets.yaml;
     };
+    id_ed25519 ={
+     sopsFile = ../../secrets/secrets.yaml;
+    };
+    id_rsa = {
+     sopsFile = ../../secrets/secrets.yaml;
+    };
     };
   };
 
@@ -70,9 +76,9 @@ boot = {
     script = ''
         echo "
         Hey bro! I'm a service, and imma send this secure password:
-        $(cat ${config.sops.secrets.password.path})
+        $(cat ${config.sops.secrets.id_ed25519.path})
         located in:
-        ${config.sops.secrets.password.path}
+        ${config.sops.secrets.id_ed25519.path}
         to database and hack the mainframe
         " > /home/erik/Downloads/test
       '';
