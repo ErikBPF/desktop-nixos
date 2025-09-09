@@ -72,10 +72,11 @@
     --style="numbers,changes,grid"
     --paging=auto
   '';
-  ".ssh/id_ed25519" = {
-    text = "$__file{${config.sops.secrets.password.path}}";
+  ".ssh/ro_id_ed25519" = {
+    source = "${config.sops.secrets.password.path}";
     onChange = ''
-        sudo chmod 0400 ~/.ssh/id_ed25519
+      cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
+        chmod 0400 ~/.ssh/id_ed25519
       '';
 
     #     ".ssh/dummy" = {
