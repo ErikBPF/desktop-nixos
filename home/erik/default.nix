@@ -60,6 +60,9 @@
   };
 
   sops = {
+    age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+    defaultSopsFormat = "yaml";
+    defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
       password ={
       sopsFile = ../../secrets/secrets.yaml;
