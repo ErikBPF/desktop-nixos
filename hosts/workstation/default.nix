@@ -72,6 +72,7 @@ boot = {
         to database and hack the mainframe
         " > /home/erik/Downloads/test
       '';
-      
+    };
+
   system.stateVersion = "25.05";
 }
