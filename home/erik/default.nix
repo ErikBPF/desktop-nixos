@@ -61,7 +61,7 @@
 
   sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
   sops.secrets = {
-    id_ed25519 ={
+    password ={
       sopsFile = ../../secrets/secrets.yaml;
     };
     };
