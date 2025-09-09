@@ -58,10 +58,10 @@ boot = {
   sops = {
   age.keyFile = "/home/erik/.config/sops/age/keys.txt";
   defaultSopsFormat = "yaml";
-  defaultSopsFile = ../../secrets.yaml;
+  defaultSopsFile = ../../secrets/secrets.yaml;
   secrets = {
     password ={
-     sopsFile = ../../secrets.yaml;
+     sopsFile = ../../secrets/secrets.yaml;
     };
     };
   };
