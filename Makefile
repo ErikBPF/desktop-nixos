@@ -25,3 +25,18 @@ check:
 
 any-update:
 	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command run github:serokell/deploy-rs .#workstation#192.168.10.125
+
+age-private:
+	mkdir -p ~/.config/sops/age;
+	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command  run nixpkgs#ssh-to-age -- -private-key -i ~/.ssh/id_ed25519 > ~/.config/sops/age/keys.txt
+
+age-public:
+	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command shell nixpkgs#age -c age-keygen -y ~/.config/sops/age/keys.txt
+
+sops:
+	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command run nixpkgs#sops -- secrets/secrets.yaml
+
+rsync:
+    rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
+
+

@@ -59,23 +59,7 @@
     };
   };
 
-  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-  sops.secrets = {
-    password ={
-      sopsFile = ../../secrets/secrets.yaml;
-    };
-    };
 
-    systemd.services."test" = {
-    script = ''
-        echo "
-        Hey bro! I'm a service, and imma send this secure password:
-        $(cat ${config.sops.secrets.password.path})
-        located in:
-        ${config.sops.secrets.password.path}
-        to database and hack the mainframe
-        " > /home/erik/Downloads/test
-      '';
 
   home.file = {
   ".config/bat/config".text = ''
