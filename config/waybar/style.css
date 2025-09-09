@@ -85,7 +85,7 @@ tooltip label {
 #temperature,
 #custom-launch_wofi {
   border-radius: 10px 0px 0px 10px;
-  margin-left: 10px;
+  margin-right: 10px;
 }
 
 #temperature {
@@ -146,7 +146,7 @@ tooltip label {
   color: #cba6f7;
   border-left: 0px;
   border-right: 0px;
-  margin-left: 0px;
+  margin-right: 0px;
   border-radius: 0px 0px 0px 0px;
 }
 
