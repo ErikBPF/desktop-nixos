@@ -35,6 +35,10 @@ in {
         layer = "top";
         position = "top";
         height = 26;
+        mod = "dock";
+        exclusive = true;
+        passthrough = false;
+        gtk-layer-shell = true;
         spacing = 0; # To match style.css
         modules-left = [
           "custom/launch_wofi"
