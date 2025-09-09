@@ -6,7 +6,7 @@
   ...
 }: {
   imports = [
-    # inputs.omarchy.homeManagerModules.default
+    inputs.sops-nix.nixosModules.sops
   ];
   home.username = "erik";
   home.homeDirectory = "/home/erik";
@@ -59,6 +59,13 @@
     };
   };
 
+  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  sops.secrets = {
+    id_ed25519 ={
+      sopsFile = ../../secrets/secrets.yaml;
+    };
+    };
+
   home.file = {
   ".config/bat/config".text = ''
     --theme="Nord"
@@ -66,7 +73,7 @@
     --paging=auto
   '';
   ".ssh/id_ed25519" = {
-    text = " ${config.sops.secrets.password.path}";
+    text = "${config.sops.secrets.password.path}";
     onChange = ''
         chmod 0400 ~/.ssh/id_ed25519
       '';

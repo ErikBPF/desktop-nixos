@@ -48,16 +48,11 @@ boot = {
     imports = [
       ../../home/erik
       inputs.nix-colors.homeManagerModules.default
+      inputs.sops-nix.nixosModules.sops
       ../../modules/home-manager/default.nix
     ];
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
-
-  sops.secrets = {
-    id_ed25519 ={
-      sopsFile = ../../secrets/secrets.yaml;
-    };
-    };
 
   system.stateVersion = "25.05";
 }
