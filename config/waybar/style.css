@@ -88,6 +88,7 @@ tooltip label {
   margin-right: 10px;
 }
 
+
 #temperature {
   border-radius: 0px 0px 0px 0px;
   margin-right: 0px;
@@ -99,6 +100,7 @@ tooltip label {
 #pulseaudio.microphone,
 #clock {
   border-radius: 0px 10px 10px 0px;
+  margin-left: 0px;
   margin-right: 10px;
 }
 
@@ -112,12 +114,13 @@ tooltip label {
 
 
 #workspaces {
+  margin-left: 0px;
   padding-right: 0px;
   padding-left: 5px;
 }
 
 #custom-power_profile {
-  color: #a6e3a1;
+  /* color: #a6e3a1; */
   border-left: 0px;
   border-right: 0px;
 }
@@ -127,23 +130,31 @@ tooltip label {
   /* border-radius: 10px; */
   /* margin-left: 20px; */
 
-  margin-right: 20px;
+  margin-right: 0px;
 }
 
 #custom-launch_wofi {
-  color: #89b4fa;
+  /* color: #89b4fa; */
   margin-left: 10px;
   border-right: 0px;
 }
 
 #pulseaudio {
-  color: #89b4fa;
+  /* color: #89b4fa; */
   border-left: 0px;
   border-right: 0px;
 }
 
+#memory {
+  /* color: #cba6f7; */
+  border-left: 0px;
+  border-right: 0px;
+  margin-right: 0px;
+  border-radius: 0px 0px 0px 0px;
+}
+
 #pulseaudio.microphone {
-  color: #cba6f7;
+  /* color: #cba6f7; */
   border-left: 0px;
   border-right: 0px;
   margin-right: 0px;
