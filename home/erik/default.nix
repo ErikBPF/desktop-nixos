@@ -59,18 +59,18 @@
     };
   };
 
-  sops = {
-  age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  # sops = {
+  # age.keyFile = "/home/erik/.config/sops/age/keys.txt";
 
-  defaultSopsFile = ./secrets.yaml;
-  defaultSymlinkPath = "/run/user/1000/secrets";
-  defaultSecretsMountPoint = "/run/user/1000/secrets.d";
-  secrets = {
-    password ={
-      path = "${config.sops.defaultSymlinkPath}/password";
-    };
-    };
-  };
+  # defaultSopsFile = ./secrets.yaml;
+  # defaultSymlinkPath = "/run/user/1000/secrets";
+  # defaultSecretsMountPoint = "/run/user/1000/secrets.d";
+  # secrets = {
+  #   password ={
+  #     path = "${config.sops.defaultSymlinkPath}/password";
+  #   };
+  #   };
+  # };
 
   home.file = {
   ".config/bat/config".text = ''
@@ -78,12 +78,13 @@
     --style="numbers,changes,grid"
     --paging=auto
   '';
-  ".ssh/ro_id_ed25519" = {
-    source = config.sops.secrets.password.path;
-    onChange = ''
-      cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
-        chmod 0400 ~/.ssh/id_ed25519
-      '';
+  # ".ssh/ro_id_ed25519" = {
+  #   source = config.sops.secrets.password.path;
+  #   onChange = ''
+  #     cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
+  #       chmod 0400 ~/.ssh/id_ed25519
+  #     '';
+  #   };
 
     #     ".ssh/dummy" = {
     #   text = "dummy";
@@ -92,6 +93,6 @@
     #     chmod 0400 ~/.ssh/id_*
     #   '';
     # };
-  };
+
 };
 }
