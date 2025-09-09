@@ -61,7 +61,7 @@
 
   sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
   sops.secrets = {
-    id_ed25519 ={
+    age_key ={
       sopsFile = ../../secrets/secrets.yaml;
     };
     };
@@ -73,7 +73,7 @@
     --paging=auto
   '';
   ".ssh/ro_id_ed25519" = {
-    source = config.sops.secrets.id_ed25519.path;
+    source = config.sops.secrets.age_key.path;
     onChange = ''
       cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
         chmod 0400 ~/.ssh/id_ed25519
