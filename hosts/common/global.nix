@@ -6,7 +6,7 @@
   ...
 }: {
   imports = [
-    inputs.sops-nix.nixosModules.sops
+    # inputs.sops-nix.nixosModules.sops
   ];
 
   time.timeZone = "America/Sao_Paulo";
@@ -58,11 +58,11 @@
 
 #   services.tailscale.enable = true;
 
-  environment.systemPackages = [pkgs.sops pkgs.btop];
+  # environment.systemPackages = [pkgs.sops pkgs.btop];
 
-  sops = {
-    age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-    defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
-  };
+  # sops = {
+  #   age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  #   defaultSopsFormat = "yaml";
+  #   defaultSopsFile = ../../secrets/secrets.yaml;
+  # };
 }
