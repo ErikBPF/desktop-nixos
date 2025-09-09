@@ -55,24 +55,24 @@ boot = {
   };
 
 
-    sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-  sops.secrets = {
-    id_ed25519 ={
-      sopsFile = ../../secrets/secrets.yaml;
-    };
-    };
+  #   sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  # sops.secrets = {
+  #   id_ed25519 ={
+  #     sopsFile = ../../secrets/secrets.yaml;
+  #   };
+  #   };
 
-    systemd.services."test" = {
-    script = ''
-        echo "
-        Hey bro! I'm a service, and imma send this secure password:
-        $(cat ${config.sops.secrets.id_ed25519.path})
-        located in:
-        ${config.sops.secrets.id_ed25519.path}
-        to database and hack the mainframe
-        " > /home/erik/Downloads/test
-      '';
-    };
+  #   systemd.services."test" = {
+  #   script = ''
+  #       echo "
+  #       Hey bro! I'm a service, and imma send this secure password:
+  #       $(cat ${config.sops.secrets.id_ed25519.path})
+  #       located in:
+  #       ${config.sops.secrets.id_ed25519.path}
+  #       to database and hack the mainframe
+  #       " > /home/erik/Downloads/test
+  #     '';
+  #   };
 
   system.stateVersion = "25.05";
 }
