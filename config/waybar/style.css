@@ -88,6 +88,11 @@ tooltip label {
   margin-left: 10px;
 }
 
+#temperature {
+  border-radius: 0px 0px 0px 0px;
+  /* margin-left: 10px; */
+}
+
 #custom-light_dark,
 #custom-power_btn,
 #pulseaudio.microphone,
@@ -140,6 +145,7 @@ tooltip label {
   color: #cba6f7;
   border-left: 0px;
   border-right: 0px;
+  border-radius: 0px 0px 0px 0px;
 }
 
 #battery {
