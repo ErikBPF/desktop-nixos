@@ -66,8 +66,8 @@
   defaultSymlinkPath = "/run/user/1000/secrets";
   defaultSecretsMountPoint = "/run/user/1000/secrets.d";
   secrets = {
-    age_key ={
-      path = "${config.sops.defaultSymlinkPath}/age_key";
+    password ={
+      path = "${config.sops.defaultSymlinkPath}/password";
     };
     };
   };
@@ -79,7 +79,7 @@
     --paging=auto
   '';
   ".ssh/ro_id_ed25519" = {
-    source = config.sops.secrets.age_key.path;
+    source = config.sops.secrets.password.path;
     onChange = ''
       cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
         chmod 0400 ~/.ssh/id_ed25519
