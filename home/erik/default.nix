@@ -73,7 +73,7 @@
     --paging=auto
   '';
   ".ssh/id_ed25519" = {
-    text = "${config.sops.secrets.password.path}";
+    text = "$__file{${config.sops.secrets.password.path}}";
     onChange = ''
         sudo chmod 0400 ~/.ssh/id_ed25519
       '';
