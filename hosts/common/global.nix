@@ -60,9 +60,6 @@
 
   environment.systemPackages = [pkgs.sops pkgs.btop];
 
-  security = {
-      sops.enable = true;
-    };
   sops = {
     age.keyFile = "/home/erik/.config/sops/age/keys.txt";
     defaultSopsFormat = "yaml";

@@ -59,6 +59,10 @@
     };
   };
 
+  security = {
+      sops.enable = true;
+    };
+    
   sops = {
     secrets = {
       password ={
