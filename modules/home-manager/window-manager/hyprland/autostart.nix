@@ -5,12 +5,13 @@
 }: {
   wayland.windowManager.hyprland.settings = {
     exec-once = [
-      # "hypridle & mako & waybar & fcitx5"
       "waybar"
-      # "swaybg -i ~/.config/omarchy/current/background -m fill"
       "hyprsunset"
       "systemctl --user start hyprpolkitagent"
       "wl-clip-persist --clipboard regular & clipse -listen"
+      "blueman-applet" # Systray app for BT
+      "nm-applet --indicator" # Systray app for Network/Wifi
+      "tailscale-systray --accept-routes" # Systray tailscale
 
       # "dropbox-cli start"  # Uncomment to run Dropbox
     ];
