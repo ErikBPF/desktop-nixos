@@ -14,18 +14,18 @@ in {
       source = ../../../config/waybar;
       recursive = true;
     };
-    ".config/waybar/theme.css" = {
-      text = ''
-        @define-color background ${backgroundRgb};
-        * {
-          color: ${foregroundRgb}; 
-        }
+    # ".config/waybar/theme.css" = {
+    #   text = ''
+    #     @define-color background ${backgroundRgb};
+    #     * {
+    #       color: ${foregroundRgb}; 
+    #     }
 
-        window#waybar {
-          background-color: ${backgroundRgb};
-        }
-      '';
-    };
+    #     window#waybar {
+    #       background-color: ${backgroundRgb};
+    #     }
+    #   '';
+    # };
   };
 
   programs.waybar = {
@@ -47,7 +47,7 @@ in {
         ];
         modules-center = [
           "custom/lock_screen"
-          "custom/updates"
+          # "custom/updates"
           "clock"
         ];
         modules-right = [
@@ -88,7 +88,7 @@ in {
         cpu = {
           interval = 10;
           format = " {usage}%";
-          "max-length" = 10;
+          max-length = 10;
           on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
         };
 
@@ -97,32 +97,32 @@ in {
           format = "󰋊 {percentage_used}%";
           path = "/";
           tooltip = true;
-          "tooltip-format" = "HDD - {used} used out of {total} on {path} ({percentage_used}%)";
+          tooltip-format = "HDD - {used} used out of {total} on {path} ({percentage_used}%)";
           on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
         };
 
         memory = {
           interval = 30;
           format = " {}%";
-          "max-length" = 10;
+          max-length = 10;
           tooltip = true;
-          "tooltip-format" = "Memory - {used:0.1f}GB used";
+          tooltip-format = "Memory - {used:0.1f}GB used";
           on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
         };
 
-        "custom/updates" = {
-          format = "{}";
-          exec = "~/.config/waybar/scripts/update-sys";
-          on-click = "~/.config/waybar/scripts/update-sys update";
-          interval = 300;
-          tooltip = true;
-        };
+        # "custom/updates" = {
+        #   format = "{}";
+        #   exec = "~/.config/waybar/scripts/update-sys";
+        #   on-click = "~/.config/waybar/scripts/update-sys update";
+        #   interval = 300;
+        #   tooltip = true;
+        # };
 
         "hyprland/workspaces" = {
-          "disable-scroll" = true;
-          "all-outputs" = true;
+          disable-scroll = true;
+          all-outputs = true;
           on-click = "activate";
-          "persistent_workspaces" = {
+          persistent_workspaces = {
             "1" = [];
             "2" = [];
             "3" = [];
@@ -144,16 +144,16 @@ in {
         clock = {
           format = "{:%d/%m/%Y - %H:%M}";
           tooltip = true;
-          "tooltip-format" = "{: %A, %e %B %Y}";
+          tooltip-format = "{: %A, %e %B %Y}";
         };
 
         backlight = {
           device = "intel_backlight";
           format = "{icon}"; #{percent}%
-          "format-icons" = ["󰃞" "󰃟" "󰃠"];
-          "on-scroll-up" = "brightnessctl set 1%+";
-          "on-scroll-down" = "brightnessctl set 1%-";
-          "min-length" = 6;
+          format-icons = ["󰃞" "󰃟" "󰃠"];
+          on-scroll-up = "brightnessctl set 1%+";
+          on-scroll-down = "brightnessctl set 1%-";
+          min-length = 6;
         };
 
    battery = {
@@ -199,15 +199,15 @@ in {
 
         pulseaudio = {
           format = "{icon}"; # {volume}%
-          "format-muted" = "";
-          "on-click" = "pamixer -t";
-          "on-click-right" = "pavucontrol";
-          "on-scroll-up" = "pamixer -i 5";
-          "on-scroll-down" = "pamixer -d 5";
-          "scroll-step" = 5;
-          "format-icons" = {
+          format-muted = "";
+          on-click = "pamixer -t";
+          on-click-right = "pavucontrol";
+          on-scroll-up = "pamixer -i 5";
+          on-scroll-down = "pamixer -d 5";
+          scroll-step = 5;
+          format-icons = {
             headphone = "";
-            "hands-free" = "";
+            hands-free = "";
             headset = "";
             phone = "";
             portable = "";
@@ -218,20 +218,20 @@ in {
 
         "pulseaudio#microphone" = {
           format = "{format_source}";
-          "format-source" = "";
-          "format-source-muted" = "󰍭";
-          "on-click" = "pamixer --default-source -t";
-          "on-click-right" = "pavucontrol";
-          "on-scroll-up" = "pamixer --default-source -i 5";
-          "on-scroll-down" = "pamixer --default-source -d 5";
-          "scroll-step" = 5;
+          format-source = "";
+          format-source-muted = "󰍭";
+          on-click = "pamixer --default-source -t";
+          on-click-right = "pavucontrol";
+          on-scroll-up = "pamixer --default-source -i 5";
+          on-scroll-down = "pamixer --default-source -d 5";
+          scroll-step = 5;
         };
 
         temperature = {
-          "thermal-zone" = 1;
+          thermal-zone = 1;
           format = " {temperatureC}°C";
-          "critical-threshold" = 70;
-          "format-critical" = " {temperatureF}°F";
+          critical-threshold = 70;
+          format-critical = " {temperatureF}°F";
           on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
         };
       }
