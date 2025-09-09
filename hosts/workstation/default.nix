@@ -73,6 +73,22 @@ boot = {
       };
     };
   };
-  
+
+  systemd.services."sometestservice" = {
+    script = ''
+        echo "
+        Hey bro! I'm a service, and imma send this secure password:
+        $(cat ${config.sops.secrets.id_ed25519.path})
+        located in:
+        ${config.sops.secrets.id_ed25519.path}
+        to database and hack the mainframe
+        " > /var/lib/sometestservice/testfile
+      '';
+    serviceConfig = {
+      User = "erik";
+      WorkingDirectory = "/var/lib/sometestservice";
+    };
+  };
+
   system.stateVersion = "25.05";
 }
