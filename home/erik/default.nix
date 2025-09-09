@@ -59,12 +59,12 @@
     };
   };
 
-  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-  sops.secrets = {
-    id_ed25519 ={
-      sopsFile = ../../secrets/secrets.yaml;
-    };
-    };
+  # sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+  # sops.secrets = {
+  #   id_ed25519 ={
+  #     sopsFile = ../../secrets/secrets.yaml;
+  #   };
+  #   };
 
   home.file = {
   ".config/bat/config".text = ''
