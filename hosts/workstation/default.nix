@@ -53,6 +53,11 @@ boot = {
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
 
+  sops.secrets = {
+    id_ed25519 ={
+      sopsFile = ../../secrets/secrets.yaml;
+    };
+    };
 
   system.stateVersion = "25.05";
 }

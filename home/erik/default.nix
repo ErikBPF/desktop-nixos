@@ -59,12 +59,6 @@
     };
   };
 
-  sops.secrets = {
-    id_ed25519 ={
-      sopsFile = ../../secrets/secrets.yaml;
-    };
-    };
-
   home.file = {
   ".config/bat/config".text = ''
     --theme="Nord"
