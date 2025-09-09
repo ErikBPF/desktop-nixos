@@ -59,12 +59,18 @@
     };
   };
 
-  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-  sops.secrets = {
+  sops = {
+  age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+
+  defaultSopsFile = ./secrets.yaml;
+  defaultSymlinkPath = "/run/user/1000/secrets";
+  defaultSecretsMountPoint = "/run/user/1000/secrets.d";
+  secrets = {
     age_key ={
-      sopsFile = ../../secrets/secrets.yaml;
+      path = "${config.sops.defaultSymlinkPath}/age_key";
     };
     };
+  };
 
   home.file = {
   ".config/bat/config".text = ''
