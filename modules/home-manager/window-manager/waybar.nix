@@ -153,12 +153,12 @@ in {
           format-icons = ["󰃞" "󰃟" "󰃠"];
           on-scroll-up = "brightnessctl set 1%+";
           on-scroll-down = "brightnessctl set 1%-";
-          min-length = 6;
+          # min-length = 6;
         };
 
    battery = {
           interval = 5;
-          format = "{capacity}% {icon}";
+          format = "{icon} {capacity}%";
           format-discharging = "{icon}";
           format-charging = "{icon}";
           format-plugged = "";
@@ -204,6 +204,8 @@ in {
           on-click-right = "pavucontrol";
           on-scroll-up = "pamixer -i 5";
           on-scroll-down = "pamixer -d 5";
+          tooltip = true;
+          tooltip-format = "Volume: {volume}%";
           scroll-step = 5;
           format-icons = {
             headphone = "";
