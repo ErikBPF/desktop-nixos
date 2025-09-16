@@ -98,10 +98,10 @@
       chmod 0700 ~/.ssh/test
       '';
     };
-    ".ssh/test1" = {
-      source = config.sops.secrets.id_ed25519.path;
-      mode = "0600"; # Set appropriate permissions for a private key
-    };
+    # ".ssh/test1" = {
+    #   source = config.sops.secrets.id_ed25519.path;
+    #   mode = "0600"; # Set appropriate permissions for a private key
+    # };
     # ".ssh/ro_id_rsa" = {
     # source = config.sops.secrets.id_rsa.path;
     # onChange = ''
