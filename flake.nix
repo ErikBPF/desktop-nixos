@@ -14,8 +14,8 @@ inputs = {
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
-    hyprland.url = "github:hyprwm/Hyprland";
-    hyprland.inputs.nixpkgs.follows = "nixpkgs";
+    # hyprland.url = "github:hyprwm/Hyprland";
+    # hyprland.inputs.nixpkgs.follows = "nixpkgs";
 
 
     nix-colors.url = "github:misterio77/nix-colors";
@@ -29,7 +29,7 @@ inputs = {
       nixpkgs,
       disko,
       home-manager,
-      hyprland,
+      # hyprland,
       nix-colors,
       sops-nix,
       ...
