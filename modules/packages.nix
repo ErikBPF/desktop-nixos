@@ -1,5 +1,8 @@
-{pkgs, lib, exclude_packages ? []}:
-let
+{
+  pkgs,
+  lib,
+  exclude_packages ? [],
+}: let
   # Essential Hyprland packages - cannot be excluded
   hyprlandPackages = with pkgs; [
     hyprland # The Hyprland Wayland compositor
@@ -100,7 +103,7 @@ let
     zstd # Compression algorithm (optional Emacs dep)
   ];
 
-   # Essential nix packages - cannot be excluded
+  # Essential nix packages - cannot be excluded
   nixPackages = with pkgs; [
     nix-btm # Bottom-like system monitor for nix
     nix-du # Disk usage analyzer for nix store
@@ -118,84 +121,86 @@ let
   ];
 
   # Discretionary packages - can be excluded by user
-  discretionaryPackages = with pkgs; [
-    # Terminal utilities
-    
-    # Wayland terminal tools
-    ydotool   # input automation for Wayland
-    wtype     # text input for Wayland
-    wl-clipboard  # clipboard utilities for Wayland
-    # --- Secrets Management ---
-    sops # Editor of encrypted files
+  discretionaryPackages = with pkgs;
+    [
+      # Terminal utilities
 
-    # --- Wayland Utilities ---
-    swappy # A Wayland-native snapshot editing tool
-    wf-recorder # A screen recorder for Wayland compositors
-    grim # A screenshot utility for Wayland
-    slurp # A command-line utility to select a region in a Wayland compositor
-    ydotool # Generic command-line automation tool for Wayland
-    wtype # A Wayland tool that allows you to simulate keyboard input
-    wl-clipboard # Command-line copy/paste utilities for Wayland
+      # Wayland terminal tools
+      ydotool # input automation for Wayland
+      wtype # text input for Wayland
+      wl-clipboard # clipboard utilities for Wayland
+      # --- Secrets Management ---
+      sops # Editor of encrypted files
 
-    # --- System & GUI Tools ---
-    nfs-utils # Network File System utilities
-    gparted # GNOME Partition Editor
-    chromium # Open-source web browser
-    vlc # A free and open source cross-platform multimedia player
-    discord # Voice, video, and text chat app
-    foot # A fast, lightweight and minimalistic Wayland terminal emulator
+      # --- Wayland Utilities ---
+      swappy # A Wayland-native snapshot editing tool
+      wf-recorder # A screen recorder for Wayland compositors
+      grim # A screenshot utility for Wayland
+      slurp # A command-line utility to select a region in a Wayland compositor
+      ydotool # Generic command-line automation tool for Wayland
+      wtype # A Wayland tool that allows you to simulate keyboard input
+      wl-clipboard # Command-line copy/paste utilities for Wayland
 
-    # --- TUI Applications ---
-    lazygit # A simple terminal UI for git commands
-    lazydocker # A simple terminal UI for both docker and docker-compose
-    powertop # A tool to diagnose issues with power consumption
-    fastfetch # A neofetch-like tool for fetching system information and displaying it in a pretty way
+      # --- System & GUI Tools ---
+      nfs-utils # Network File System utilities
+      gparted # GNOME Partition Editor
+      chromium # Open-source web browser
+      vlc # A free and open source cross-platform multimedia player
+      discord # Voice, video, and text chat app
+      foot # A fast, lightweight and minimalistic Wayland terminal emulator
 
-    # --- Programming Languages & Runtimes ---
-    python3Full # The Python programming language
-    uv # An extremely fast Python package installer and resolver, written in Rust
-    go # The Go programming language
-    go-protobuf # Go bindings for protocol buffers
-    protoc-gen-go # Go protocol buffer compiler plugin
-    protoc-gen-go-grpc # Go gRPC compiler plugin
-    zulu23 # Zulu OpenJDK 23
-    jre21_minimal # Minimal JRE 21
-    zulu17 # Zulu OpenJDK 17
-    zulu11 # Zulu OpenJDK 11
-    spark # A unified analytics engine for large-scale data processing
+      # --- TUI Applications ---
+      lazygit # A simple terminal UI for git commands
+      lazydocker # A simple terminal UI for both docker and docker-compose
+      powertop # A tool to diagnose issues with power consumption
+      fastfetch # A neofetch-like tool for fetching system information and displaying it in a pretty way
 
-    # --- DevOps & Cloud ---
-    terraform # Tool for building, changing, and versioning infrastructure safely and efficiently
-    terraform-ls # Official language server for Terraform
-    terragrunt # A thin wrapper for Terraform that provides extra tools
-    tenv # A Terraform version manager
-    docker-compose # A tool for defining and running multi-container Docker applications
-    kubectl # Command line tool for controlling Kubernetes clusters
-    kubelogin # A kubectl plugin for Kubernetes authentication using OIDC
-    kubectx # A tool to switch between kubectl contexts
-    k9s # A terminal based UI to interact with your Kubernetes clusters
-    lens # The Kubernetes IDE
-    kubernetes-helm # The Kubernetes package manager
-    helmfile # A declarative spec for deploying Helm charts
-    azure-cli # Command-line tools for Azure
-    azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
+      # --- Programming Languages & Runtimes ---
+      python3Full # The Python programming language
+      uv # An extremely fast Python package installer and resolver, written in Rust
+      go # The Go programming language
+      go-protobuf # Go bindings for protocol buffers
+      protoc-gen-go # Go protocol buffer compiler plugin
+      protoc-gen-go-grpc # Go gRPC compiler plugin
+      zulu23 # Zulu OpenJDK 23
+      jre21_minimal # Minimal JRE 21
+      zulu17 # Zulu OpenJDK 17
+      zulu11 # Zulu OpenJDK 11
+      spark # A unified analytics engine for large-scale data processing
 
-    # --- Development Tools ---
-    github-desktop # The official GitHub GUI client
-    gh # Official GitHub CLI
-    code-cursor # The Cursor editor, an AI-powered fork of VSCode
-    opencode # The OpenCode-OSS editor, a fork of VSCode
-    gemini-cli # A command-line interface for Google's Gemini models
-    ngrok # Secure introspectable tunnels to localhost
-    postman # A collaboration platform for API development
-    dbeaver-bin # A universal database tool
-    ffmpeg # A complete, cross-platform solution to record, convert and stream audio and video
+      # --- DevOps & Cloud ---
+      terraform # Tool for building, changing, and versioning infrastructure safely and efficiently
+      terraform-ls # Official language server for Terraform
+      terragrunt # A thin wrapper for Terraform that provides extra tools
+      tenv # A Terraform version manager
+      docker-compose # A tool for defining and running multi-container Docker applications
+      kubectl # Command line tool for controlling Kubernetes clusters
+      kubelogin # A kubectl plugin for Kubernetes authentication using OIDC
+      kubectx # A tool to switch between kubectl contexts
+      k9s # A terminal based UI to interact with your Kubernetes clusters
+      lens # The Kubernetes IDE
+      kubernetes-helm # The Kubernetes package manager
+      helmfile # A declarative spec for deploying Helm charts
+      azure-cli # Command-line tools for Azure
+      azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
 
-    # --- Shell & Prompt ---
-    starship # The minimal, blazing-fast, and infinitely customizable prompt for any shell
-  ] ++ lib.optionals (pkgs.system == "x86_64-linux") [
-    spotify # A music streaming service
-  ];
+      # --- Development Tools ---
+      github-desktop # The official GitHub GUI client
+      gh # Official GitHub CLI
+      code-cursor # The Cursor editor, an AI-powered fork of VSCode
+      opencode # The OpenCode-OSS editor, a fork of VSCode
+      gemini-cli # A command-line interface for Google's Gemini models
+      ngrok # Secure introspectable tunnels to localhost
+      postman # A collaboration platform for API development
+      dbeaver-bin # A universal database tool
+      ffmpeg # A complete, cross-platform solution to record, convert and stream audio and video
+
+      # --- Shell & Prompt ---
+      starship # The minimal, blazing-fast, and infinitely customizable prompt for any shell
+    ]
+    ++ lib.optionals (pkgs.system == "x86_64-linux") [
+      spotify # A music streaming service
+    ];
 
   # Only allow excluding discretionary packages to prevent breaking the system
   filteredDiscretionaryPackages = lib.lists.subtractLists exclude_packages discretionaryPackages;

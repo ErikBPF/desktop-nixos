@@ -13,7 +13,6 @@ in {
     ./shell
   ];
 
-
   home.packages = packages.homePackages;
 
   home.file = {

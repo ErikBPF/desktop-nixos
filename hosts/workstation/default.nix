@@ -6,8 +6,7 @@
   pkgs,
   modulesPath,
   ...
-} @ args:
-{
+} @ args: {
   imports = [
     (modulesPath + "/installer/scan/not-detected.nix")
     (modulesPath + "/profiles/qemu-guest.nix")
@@ -21,7 +20,7 @@
     ../common/global.nix
     ../common/packages.nix
   ];
-boot = {
+  boot = {
     kernelParams = ["nohibernate"];
     tmp.cleanOnBoot = true;
     supportedFilesystems = ["ntfs"];
@@ -36,14 +35,14 @@ boot = {
       };
       timeout = 300;
     };
-};
+  };
 
   services.openssh.enable = true;
 
   home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
   home-manager.extraSpecialArgs = {inherit inputs outputs;};
-  
+
   home-manager.users.erik = {
     imports = [
       ../../home/erik

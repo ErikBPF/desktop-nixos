@@ -1,5 +1,4 @@
-{ ... }:
-{
+{...}: {
   # --- Archive Management ---
   untar = "tar -xvf";
   untargz = "tar -xzvf";
@@ -60,7 +59,6 @@
   nrs = "sudo nixos-rebuild switch";
   urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
   urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
-  
 
   # --- List ---
   # List ->
@@ -73,13 +71,11 @@
   lli = "eza --icons -l";
   lai = "eza --icons -la";
 
-
   # --- Network ---
   ping = "gping"; # Graph ping with TUI
   dig = "dog"; # Modern DNS lookup
   ip = "ip -c"; # Colorized ip command
   myip = "curl -s ifconfig.me";
-
 
   # --- Quick Edits ---
   bashrc = "nvim ~/.bashrc";

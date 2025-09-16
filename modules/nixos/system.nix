@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  packages = import ../packages.nix {inherit pkgs lib; };
+  packages = import ../packages.nix {inherit pkgs lib;};
 in {
   security.rtkit.enable = true;
   services.pulseaudio.enable = false;
@@ -14,13 +14,11 @@ in {
     pulse.enable = true;
     jack.enable = true;
   };
-  
 
   # Initial login experience
   services.greetd = {
     enable = true;
-    settings.default_session.command =
-      "${pkgs.greetd.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
+    settings.default_session.command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
   };
   systemd.tmpfiles.rules = [
     "d '/var/cache/tuigreet' - greeter greeter - -"
@@ -44,8 +42,7 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs.direnv.enable = true;
 
-
-    services.xserver = {
+  services.xserver = {
     # ...
 
     xkb = {
@@ -56,24 +53,26 @@ in {
           description = "QWERTY with French symbols and diacritics";
           languages = ["eng"];
           symbolsFile = builtins.fetchurl {
-        url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr";
-      };
+            url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr";
+          };
         };
       };
     };
   };
 
-
-
   security.sudo = {
     enable = true;
-    extraRules = [{
-      groups = [ "wheel" ];
-      commands = [{
-        command = "ALL";
-        options = [ "NOPASSWD" ];
-      }];
-    }];
+    extraRules = [
+      {
+        groups = ["wheel"];
+        commands = [
+          {
+            command = "ALL";
+            options = ["NOPASSWD"];
+          }
+        ];
+      }
+    ];
   };
 
   # Networking

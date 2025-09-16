@@ -46,7 +46,7 @@ in {
         # Use XCompose file
         "XCOMPOSEFILE,~/.XCompose"
         "EDITOR,nvim"
-        
+
         # GTK theme
         "GTK_THEME,Adwaita:dark"
 

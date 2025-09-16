@@ -1,6 +1,5 @@
 {
-
-inputs = {
+  inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     nixpkgs-master.url = "github:NixOS/nixpkgs/master";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -17,23 +16,20 @@ inputs = {
     # hyprland.url = "github:hyprwm/Hyprland";
     # hyprland.inputs.nixpkgs.follows = "nixpkgs";
 
-
     nix-colors.url = "github:misterio77/nix-colors";
     sops-nix.url = "github:Mic92/sops-nix";
-
   };
 
-  outputs =
-    {
-     self,
-      nixpkgs,
-      disko,
-      home-manager,
-      # hyprland,
-      nix-colors,
-      sops-nix,
-      ...
-    }@ inputs: let
+  outputs = {
+    self,
+    nixpkgs,
+    disko,
+    home-manager,
+    # hyprland,
+    nix-colors,
+    sops-nix,
+    ...
+  } @ inputs: let
     inherit (self) outputs;
     systems = [
       "x86_64-linux"
@@ -50,7 +46,6 @@ inputs = {
         system = "x86_64-linux";
         modules = [./hosts/workstation];
       };
-
     };
   };
 }
