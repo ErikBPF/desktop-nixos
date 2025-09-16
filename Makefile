@@ -7,6 +7,10 @@ build:
 	git pull;
 	sudo nixos-rebuild switch --flake .#workstation --impure --show-trace
 
+upgrade:
+	git pull;
+	sudo nixos-rebuild switch --upgrade --flake .#workstation --impure --show-trace
+
 fmt:
 	# format the nix files in this repo
 	nix fmt ./

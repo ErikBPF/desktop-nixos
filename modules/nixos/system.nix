@@ -53,7 +53,7 @@ in {
           description = "QWERTY with French symbols and diacritics";
           languages = ["eng"];
           symbolsFile = builtins.fetchurl {
-            url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/test-kaku/system/nix/us_qwerty-fr";
+            url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/main/config/keyboard/us_qwerty-fr";
           };
         };
       };
