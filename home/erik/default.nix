@@ -48,7 +48,6 @@
   };  
 
   programs = {
-    bash.completion.enable = true; # Required for home setting
     command-not-found.enable = false; # Required for fish
   };
 
