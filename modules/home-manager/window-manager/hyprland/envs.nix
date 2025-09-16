@@ -35,6 +35,7 @@ in {
         "MOZ_ENABLE_WAYLAND,1"
         "ELECTRON_OZONE_PLATFORM_HINT,wayland"
         "OZONE_PLATFORM,wayland"
+        "NIXOS_OZONE_WL,1"
 
         # Make Chromium use XCompose and all Wayland
         "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --ozone-platform=wayland --gtk-version=4\""
