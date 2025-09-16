@@ -85,30 +85,30 @@
     --style="numbers,changes,grid"
     --paging=auto
   '';
-  # ".ssh/ro_id_ed25519" = {
-  #   source = config.sops.secrets.id_ed25519.path;
-  #   onChange = ''
-  #     cp ~/.ssh/ro_id_ed25519 ~/.ssh/id_ed25519
-  #     chmod 0400 ~/.ssh/id_ed25519
-  #     '';
-  #   };
-    ".ssh/test" = {
-      text = builtins.readFile config.sops.secrets.id_ed25519.path;
-      onChange = ''
-      chmod 0700 ~/.ssh/test
+  ".ssh/sops/ro_id_ed25519" = {
+    source = config.sops.secrets.id_ed25519.path;
+    onChange = ''
+      cp ~/.ssh/sops/ro_id_ed25519 ~/.ssh/id_ed25519
+      chmod 0400 ~/.ssh/id_ed25519
       '';
     };
+    # ".ssh/test" = {
+    #   text = builtins.readFile config.sops.secrets.id_ed25519.path;
+    #   onChange = ''
+    #   chmod 0700 ~/.ssh/test
+    #   '';
+    # };
     # ".ssh/test1" = {
     #   source = config.sops.secrets.id_ed25519.path;
     #   mode = "0600"; # Set appropriate permissions for a private key
     # };
-    # ".ssh/ro_id_rsa" = {
-    # source = config.sops.secrets.id_rsa.path;
-    # onChange = ''
-    #   cp ~/.ssh/ro_id_rsa ~/.ssh/id_rsa
-    #   chmod 0700 ~/.ssh/id_rsa
-    #   '';
-    # };
+    ".ssh/sops/ro_id_rsa" = {
+    source = config.sops.secrets.id_rsa.path;
+    onChange = ''
+      cp ~/.ssh/sops/ro_id_rsa ~/.ssh/id_rsa
+      chmod 0700 ~/.ssh/id_rsa
+      '';
+    };
 # ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
     #     ".ssh/dummy" = {
     #   text = "dummy";
