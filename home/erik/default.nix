@@ -16,10 +16,17 @@
 
   programs.ssh = {
     enable = true;
-    # extraConfig = ''
-    #   Host *
-    #     IdentityAgent ~/.1password/agent.sock
-    # '';
+    extraConfig = ''
+    Host github_erikbpf
+      HostName github.com
+      User git
+      IdentityFile ~/.ssh/id_ed25519
+
+    Host github_nstech
+      HostName github.com
+      User git
+      IdentityFile ~/.ssh/id_rsa
+    '';
   };
 
   programs.git = {
@@ -34,12 +41,14 @@
   programs.bash = {
     enable = true;
     shellAliases = {
-      btw = "echo i use nixos btw";
       nrs = "sudo nixos-rebuild switch";
       k = "kubectl";
+      kct = "kubectx";
+      kns = "kubens";
       dc = "docker compose";
       urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
       urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
+      kubelc = "kubelogin convert-kubeconfig -l azurecli";
     };
 
     initExtra = ''
@@ -92,16 +101,6 @@
       chmod 0400 ~/.ssh/id_ed25519
       '';
     };
-    # ".ssh/test" = {
-    #   text = builtins.readFile config.sops.secrets.id_ed25519.path;
-    #   onChange = ''
-    #   chmod 0700 ~/.ssh/test
-    #   '';
-    # };
-    # ".ssh/test1" = {
-    #   source = config.sops.secrets.id_ed25519.path;
-    #   mode = "0600"; # Set appropriate permissions for a private key
-    # };
     ".ssh/sops/ro_id_rsa" = {
     source = config.sops.secrets.id_rsa.path;
     onChange = ''
@@ -109,7 +108,6 @@
       chmod 0400 ~/.ssh/id_rsa
       '';
     };
-# ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
     #     ".ssh/dummy" = {
     #   text = "dummy";
     #   onChange = ''

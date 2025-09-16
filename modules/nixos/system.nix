@@ -29,7 +29,7 @@ in {
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.greetd.enableGnomeKeyring = true;
 
-  hardware.opengl = {
+  hardware.graphics = {
     enable = true;
   };
 
