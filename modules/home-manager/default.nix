@@ -10,6 +10,7 @@ in {
   imports = [
     ./window-manager
     ./terminal
+    ./shell
   ];
 
 
