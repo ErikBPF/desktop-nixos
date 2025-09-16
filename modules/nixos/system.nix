@@ -33,17 +33,11 @@ in {
     enable = true;
   };
 
-  xdg = {
-    userDirs = {
-      enable = true;
-      createDirectories = true;
-    };
-    portal = {
+  xdg.portal = {
     enable = true;
     extraPortals = with pkgs; [
       xdg-desktop-portal-hyprland
     ];
-    };
   };
 
   # Install packages
