@@ -106,7 +106,7 @@
     source = config.sops.secrets.id_rsa.path;
     onChange = ''
       cp ~/.ssh/sops/ro_id_rsa ~/.ssh/id_rsa
-      chmod 0700 ~/.ssh/id_rsa
+      chmod 0400 ~/.ssh/id_rsa
       '';
     };
 # ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
