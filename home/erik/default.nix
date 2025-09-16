@@ -14,7 +14,19 @@
   
 
   programs.home-manager.enable = true;
-  shell = pkgs.fish;
+  shell  = {
+    enableFishIntegration = true;
+    shellAliases = {
+      nrs = "sudo nixos-rebuild switch";
+      k = "kubectl";
+      kct = "kubectx";
+      kns = "kubens";
+      dc = "docker compose";
+      urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
+      urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
+      kubelc = "kubelogin convert-kubeconfig -l azurecli";
+    };
+  };
 
   programs.ssh = {
     enable = true;
