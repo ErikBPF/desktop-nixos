@@ -37,51 +37,7 @@
     extraConfig = {
       credential.helper = "store";
     };
-  };
-
-  programs.fish = {
-    enable = true;
-    shellAliases = {
-      nrs = "sudo nixos-rebuild switch";
-      k = "kubectl";
-      kct = "kubectx";
-      kns = "kubens";
-      dc = "docker compose";
-      urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
-      urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
-      kubelc = "kubelogin convert-kubeconfig -l azurecli";
-    };
   };  
-
-  programs.bash = {
-    enable = true;
-    shellAliases = {
-      nrs = "sudo nixos-rebuild switch";
-      k = "kubectl";
-      kct = "kubectx";
-      kns = "kubens";
-      dc = "docker compose";
-      urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
-      urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
-      kubelc = "kubelogin convert-kubeconfig -l azurecli";
-    };
-
-    initExtra = ''
-      export PS1='\[\e[38;5;76m\]\u\[\e[0m\] in \[\e[38;5;32m\]\w\[\e[0m\] \\$ '
-    '';
-  };
-
-  programs.alacritty = {
-    enable = true;
-    settings = {
-      window.opacity = 0.9;
-      font.normal = {
-        family = "JetBrains Mono";
-        style = "Regular";
-      };
-      font.size = 16;
-    };
-  };
 
   sops = {
     age= {
