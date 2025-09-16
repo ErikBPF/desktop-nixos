@@ -71,8 +71,6 @@
     '';
   };
 
-  programs.ghostty.shellIntegration.enable = true;
-
   programs.alacritty = {
     enable = true;
     settings = {
