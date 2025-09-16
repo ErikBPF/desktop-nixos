@@ -19,7 +19,26 @@ in {
   # Initial login experience
   services.greetd = {
     enable = true;
-    settings.default_session.command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd Hyprland";
+    settings.default_session.command =
+      "${pkgs.greetd.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
+  };
+  systemd.tmpfiles.rules = [
+    "d '/var/cache/tuigreet' - greeter greeter - -"
+  ];
+
+  services.gnome.gnome-keyring.enable = true;
+  security.pam.services.greetd.enableGnomeKeyring = true;
+
+  hardware.opengl = {
+    enable = true;
+    driSupport = true;
+  };
+
+  xdg.portal = {
+    enable = true;
+    extraPortals = with pkgs; [
+      xdg-desktop-portal-hyprland
+    ];
   };
 
   # Install packages
