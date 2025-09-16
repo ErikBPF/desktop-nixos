@@ -33,7 +33,6 @@
   htop = "btm"; # Bottom
   neofetch = "fastfetch"; # Fetch
   nf = "fastfetch"; # Fetch
-  "!!" = "sudo $history[1]"; # Last command with sudo
   notify-catch = ''dbus-monitor "interface='org.freedesktop.Notifications'"''; # Catch notificaton info sent by d-bus
 
   # --- Git ---
