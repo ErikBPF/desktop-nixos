@@ -18,7 +18,7 @@ in {
     #   text = ''
     #     @define-color background ${backgroundRgb};
     #     * {
-    #       color: ${foregroundRgb}; 
+    #       color: ${foregroundRgb};
     #     }
 
     #     window#waybar {
@@ -158,7 +158,7 @@ in {
           # min-length = 6;
         };
 
-   battery = {
+        battery = {
           interval = 5;
           format = "{icon} {capacity}%";
           format-discharging = "{icon}";
@@ -216,7 +216,7 @@ in {
             phone = "";
             portable = "";
             car = "";
-            default = [ "" "" "" ];
+            default = ["" "" ""];
           };
         };
 

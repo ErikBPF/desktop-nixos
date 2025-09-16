@@ -1,6 +1,4 @@
-{ pkgs, ... }: 
-
-{
+{pkgs, ...}: {
   virtualisation = {
     spiceUSBRedirection.enable = true;
 
@@ -10,7 +8,7 @@
       qemu = {
         swtpm.enable = true;
         ovmf.enable = true;
-        ovmf.packages = [ pkgs.OVMFFull.fd ];
+        ovmf.packages = [pkgs.OVMFFull.fd];
       };
     };
     docker = {
@@ -34,6 +32,6 @@
     virt-manager
     virt-viewer
     win-spice
-    win-virtio  
+    win-virtio
   ];
 }

@@ -11,7 +11,6 @@
   home.username = "erik";
   home.homeDirectory = "/home/erik";
   home.stateVersion = "25.05";
-  
 
   xdg = {
     enable = true;
@@ -26,15 +25,15 @@
   programs.ssh = {
     enable = true;
     extraConfig = ''
-    Host github_erikbpf
-      HostName github.com
-      User git
-      IdentityFile ~/.ssh/id_ed25519
+      Host github_erikbpf
+        HostName github.com
+        User git
+        IdentityFile ~/.ssh/id_ed25519
 
-    Host github_nstech
-      HostName github.com
-      User git
-      IdentityFile ~/.ssh/id_rsa
+      Host github_nstech
+        HostName github.com
+        User git
+        IdentityFile ~/.ssh/id_rsa
     '';
   };
 
@@ -45,7 +44,7 @@
     extraConfig = {
       credential.helper = "store";
     };
-  };  
+  };
 
   programs = {
     command-not-found.enable = false; # Required for fish
@@ -57,43 +56,43 @@
   };
 
   sops = {
-    age= {
+    age = {
       keyFile = "/home/erik/.config/sops/age/keys.txt";
       generateKey = true;
     };
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
-      password ={
-      # path = "%r/password.txt";
+      password = {
+        # path = "%r/password.txt";
       };
-      id_ed25519 ={
-      # path = "%r/id_ed25519.txt";
+      id_ed25519 = {
+        # path = "%r/id_ed25519.txt";
       };
       id_rsa = {
-      # path = "%r/id_rsa.txt";
+        # path = "%r/id_rsa.txt";
       };
     };
   };
 
   home.file = {
-  ".config/bat/config".text = ''
-    --theme="Nord"
-    --style="numbers,changes,grid"
-    --paging=auto
-  '';
-  ".ssh/sops/ro_id_ed25519" = {
-    source = config.sops.secrets.id_ed25519.path;
-    onChange = ''
-      cp ~/.ssh/sops/ro_id_ed25519 ~/.ssh/id_ed25519
-      chmod 0400 ~/.ssh/id_ed25519
+    ".config/bat/config".text = ''
+      --theme="Nord"
+      --style="numbers,changes,grid"
+      --paging=auto
+    '';
+    ".ssh/sops/ro_id_ed25519" = {
+      source = config.sops.secrets.id_ed25519.path;
+      onChange = ''
+        cp ~/.ssh/sops/ro_id_ed25519 ~/.ssh/id_ed25519
+        chmod 0400 ~/.ssh/id_ed25519
       '';
     };
     ".ssh/sops/ro_id_rsa" = {
-    source = config.sops.secrets.id_rsa.path;
-    onChange = ''
-      cp ~/.ssh/sops/ro_id_rsa ~/.ssh/id_rsa
-      chmod 0400 ~/.ssh/id_rsa
+      source = config.sops.secrets.id_rsa.path;
+      onChange = ''
+        cp ~/.ssh/sops/ro_id_rsa ~/.ssh/id_rsa
+        chmod 0400 ~/.ssh/id_rsa
       '';
     };
     #     ".ssh/dummy" = {
@@ -103,6 +102,5 @@
     #     chmod 0400 ~/.ssh/id_*
     #   '';
     # };
-
-};
+  };
 }

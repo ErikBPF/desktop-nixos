@@ -1,5 +1,6 @@
 
 update: 
+	
 	sudo nix flake update
 	
 build:
@@ -9,6 +10,9 @@ build:
 fmt:
 	# format the nix files in this repo
 	nix fmt ./
+
+update-channel:
+	sudo nix-channel --update
 
 gc: 
 	# run garbage collection

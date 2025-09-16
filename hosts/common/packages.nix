@@ -8,7 +8,6 @@
     alejandra
     qwerty-fr
 
-
     # Shell tools
     fzf
     zoxide
@@ -31,10 +30,9 @@
     chromium
     brave
 
-
     spotify
 
-   code-cursor
+    code-cursor
 
     # Containers
     docker-compose
