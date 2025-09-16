@@ -11,6 +11,7 @@
   home.username = "erik";
   home.homeDirectory = "/home/erik";
   home.stateVersion = "25.05";
+  
 
   programs.home-manager.enable = true;
 
@@ -37,6 +38,12 @@
       credential.helper = "store";
     };
   };
+
+  programs.fish = {
+    enable = true;
+  };
+
+  
 
   programs.bash = {
     enable = true;
