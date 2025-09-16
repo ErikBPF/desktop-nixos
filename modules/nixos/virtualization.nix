@@ -13,7 +13,10 @@
         ovmf.packages = [ pkgs.OVMFFull.fd ];
       };
     };
-    docker.enable = true;
+    docker = {
+      enable = true;
+      enableOnBoot = true;
+    };
     # podman = {
     #   enable = true;
 

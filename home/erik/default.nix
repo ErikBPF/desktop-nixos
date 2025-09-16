@@ -47,6 +47,16 @@
     };
   };  
 
+  programs = {
+    bash.completion.enable = true; # Required for home setting
+    command-not-found.enable = false; # Required for fish
+  };
+
+  programs.nix-index = {
+    enable = true;
+    enableFishIntegration = true;
+  };
+
   sops = {
     age= {
       keyFile = "/home/erik/.config/sops/age/keys.txt";
