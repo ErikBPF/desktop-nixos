@@ -14,6 +14,7 @@
   
 
   programs.home-manager.enable = true;
+  programs.user.shell = pkgs.fish;
 
   programs.ssh = {
     enable = true;
