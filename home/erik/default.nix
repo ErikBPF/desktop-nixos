@@ -14,7 +14,8 @@
   
 
   programs.home-manager.enable = true;
-  shell  = {
+
+  home.shell  = {
     enableFishIntegration = true;
     shellAliases = {
       nrs = "sudo nixos-rebuild switch";
