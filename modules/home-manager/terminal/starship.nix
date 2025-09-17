@@ -679,7 +679,7 @@ in
       };
       git_status = {
         format = "([\\[$all_status$ahead_behind\\]]($style) )";
-        style = "${c.red}";
+        style = "bold ${c.red}";
         ahead = "⇡";
         behind = "⇣";
         conflicted = "≠";
