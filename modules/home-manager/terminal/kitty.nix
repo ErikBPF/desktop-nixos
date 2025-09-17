@@ -1,6 +1,6 @@
 {...}: {
   programs.kitty = {
     enable = true;
-    enableFishIntegration = true;
+    # enableFishIntegration = true;
   };
 }
