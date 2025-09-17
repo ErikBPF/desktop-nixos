@@ -678,7 +678,7 @@ in
         revert = "↺";
       };
       git_status = {
-        format = "([\[$all_status$ahead_behind\]]($style) )";
+        format = "([\\[$all_status$ahead_behind\\]]($style) )";
         style = "bold ${c.red}";
         ahead = "⇡";
         behind = "⇣";
@@ -691,7 +691,7 @@ in
         stashed = "‡";
         typechanged = "⊙";
         untracked = "?";
-        up_to_date = "♦";
+        up_to_date = "";
       };
       git_commit = {
         tag_symbol = "◈";
