@@ -5,7 +5,7 @@
 }: {
   wayland.windowManager.hyprland.settings = {
     bind = [
-      "SUPER, A, exec, $webapp=https://claude.ai"
+      # "SUPER, A, exec, $webapp=https://claude.ai"
 
       "SUPER, B, exec, $browser"
       "SUPER, M, exec, $music"
@@ -17,14 +17,12 @@
       "SUPER, P, exec, pkill wlogout || wlogout --protocol layer-shell "
       "SUPER, E, exec, $fileManager "
       "SUPER, V, togglefloating, "
-      "SUPER, D, exec, pkill wofi || wofi "
+      "SUPER, D, exec, pkill wofi || wofi -n "
       "SUPER SHIFT, F, pseudo, "
       "SUPER, F, fullscreen, "
       "SUPER, M, fullscreen, 1 "
       "CTRL SHIFT, J, togglesplit, "
       "SUPER SHIFT, S, exec, grim -g '$(slurp)' - | swappy -f - "
-
-      "SUPER, space, exec, wofi --show drun --sort-order=alphabetical"
       "SUPER SHIFT, SPACE, exec, pkill -SIGUSR1 waybar"
       # "SUPER CTRL, SPACE, exec, ~/.local/share/omarchy/bin/swaybg-next"
       # "SUPER SHIFT CTRL, SPACE, exec, ~/.local/share/omarchy/bin/omarchy-theme-next"
