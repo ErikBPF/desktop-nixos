@@ -94,7 +94,7 @@ in
 
       time = {
         format = "\\[[$time]($style)\\]";
-        style = "${c.blue_grey}";
+        style = "${c.teal}";
         disabled = false;
       };
       aws = {
