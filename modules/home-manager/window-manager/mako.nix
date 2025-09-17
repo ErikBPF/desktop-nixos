@@ -12,12 +12,13 @@
       border-color = "#${config.colorScheme.palette.base04}";
       progress-color = "#${config.colorScheme.palette.base0D}";
 
-      width = 420;
+      width = 300;
       height = 110;
       padding = "10";
       margin = "10";
       border-size = 2;
-      border-radius = 0;
+      border-radius = 15;
+
 
       anchor = "top-right";
       layer = "overlay";

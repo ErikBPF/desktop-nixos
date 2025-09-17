@@ -7,73 +7,89 @@
     ".config/wofi/style.css" = {
       text = ''
         * {
-          font-family: 'JetBrainsMono Nerd Font', monospace;
-          font-size: 18px;
+            font-family: 'JetBrainsMono Nerd Font', monospace;
+            font-size: 18px;
         }
 
         window {
-          margin: 0px;
-          padding: 20px;
-          background-color: #${config.colorScheme.palette.base00};
-          opacity: 0.95;
-        }
-
-        #inner-box {
-          margin: 0;
-          padding: 0;
-          border: none;
-          background-color: #${config.colorScheme.palette.base00};
-        }
-
-        #outer-box {
-          margin: 0;
-          padding: 20px;
-          border: none;
-          background-color: #${config.colorScheme.palette.base00};
-        }
-
-        #scroll {
-          margin: 0;
-          padding: 0;
-          border: none;
-          background-color: #${config.colorScheme.palette.base00};
+            margin: 0px;
+            border: #${config.colorScheme.palette.base01};
+            background-color: #${config.colorScheme.palette.base05};
+            border-radius: 15px;
         }
 
         #input {
-          margin: 0;
-          padding: 10px;
-          border: none;
-          background-color: #${config.colorScheme.palette.base00};
-          color: @text;
+            padding: 4px;
+            margin: 4px;
+            padding-left: 20px;
+            border: none;
+            color: #${config.colorScheme.palette.base05};
+            font-weight: bold;
+            background-color: #${config.colorScheme.palette.base00};
+            outline: none;
+            border-radius: 15px;
+            margin: 10px;
+            margin-bottom: 2px;
         }
 
         #input:focus {
-          outline: none;
-          box-shadow: none;
-          border: none;
+            border: 0px solid #1e1e2e;
+            margin-bottom: 0px;
         }
 
-        #text {
-          margin: 5px;
-          border: none;
-          color: #${config.colorScheme.palette.base06};
+        #inner-box {
+            margin: 4px;
+            border: 10px solid #1e1e2e;
+            color: #${config.colorScheme.palette.base05};
+            font-weight: bold;
+            background-color: #${config.colorScheme.palette.base00};
+            border-radius: 15px;
+        }
+
+        #outer-box {
+            margin: 0px;
+            border: none;
+            border-radius: 15px;
+            background-color: #${config.colorScheme.palette.base00};
+        }
+
+        #scroll {
+            margin-top: 5px;
+            border: none;
+            border-radius: 15px;
+            margin-bottom: 5px;
+            /* background: rgb(255,255,255); */
+        }
+
+        #img:selected {
+            background-color: #${config.colorScheme.palette.base05};
+            border-radius: 15px;
+        }
+
+        #text:selected {
+            color: #${config.colorScheme.palette.base05};
+            margin: 0px 0px;
+            border: none;
+            border-radius: 15px;
+            background-color: #${config.colorScheme.palette.base05};
         }
 
         #entry {
-          background-color: #${config.colorScheme.palette.base00};
+            margin: 0px 0px;
+            border: none;
+            border-radius: 15px;
+            background-color: transparent;
         }
 
         #entry:selected {
-          outline: none;
-          border: none;
-        }
-
-        #entry:selected #text {
-          color: #${config.colorScheme.palette.base02};
+            margin: 0px 0px;
+            border: none;
+            border-radius: 15px;
+            background-color: #${config.colorScheme.palette.base05};
         }
 
         #entry image {
-          -gtk-icon-transform: scale(0.7);
+            -gtk-icon-transform: scale(0.7);
         }
       '';
     };
