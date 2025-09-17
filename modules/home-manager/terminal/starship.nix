@@ -669,32 +669,32 @@ in
         symbol = " ";
       };
       git_state = {
-        # am = "✉";
-        # am_or_rebase = "⟳";
-        # bisect = "⊟";
-        # cherry_pick = "⊚";
-        # merge = "∩";
-        # rebase = "↻";
-        # revert = "↺";
+        am = "✉";
+        am_or_rebase = "⟳";
+        bisect = "⊟";
+        cherry_pick = "⊚";
+        merge = "∩";
+        rebase = "↻";
+        revert = "↺";
       };
       git_status = {
-        format = "([\\[$all_status$ahead_behind\\]]($style) )";
+        format = "([\[$all_status$ahead_behind\]]($style) )";
         style = "bold ${c.red}";
-        # ahead = "⇡";
-        # behind = "⇣";
-        # conflicted = "≠";
-        # deleted = "⨯";
-        # diverged = "⫩";
-        # modified = "◌";
-        # renamed = "↪";
-        # staged = "+";
-        # stashed = "‡";
-        # typechanged = "⊙";
-        # untracked = "?";
-        # up_to_date = "♦";
+        ahead = "⇡";
+        behind = "⇣";
+        conflicted = "≠";
+        deleted = "⨯";
+        diverged = "⫩";
+        modified = "◌";
+        renamed = "↪";
+        staged = "+";
+        stashed = "‡";
+        typechanged = "⊙";
+        untracked = "?";
+        up_to_date = "♦";
       };
       git_commit = {
-        # tag_symbol = "◈";
+        tag_symbol = "◈";
       };
       git_metrics = {
         disabled = false;
