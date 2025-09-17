@@ -42,7 +42,7 @@ in {
         outer_color = foregroundRgb; # #d3c6aa
         outline_thickness = 4;
 
-        font_family = "CaskaydiaMono Nerd Font";
+        font_family = "JetBrainsMono Nerd Font";
         font_size = 32;
         font_color = foregroundRgb;
 
@@ -62,7 +62,7 @@ in {
         text_align = "center";
         color = "rgb(211, 198, 170)";
         font_size = 24;
-        font_family = "CaskaydiaMono Nerd Font";
+        font_family = "JetBrainsMono Nerd Font";
         position = "0, -100";
         halign = "center";
         valign = "center";

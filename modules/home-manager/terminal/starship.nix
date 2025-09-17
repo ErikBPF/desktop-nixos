@@ -44,6 +44,7 @@ in
       };
 
       hostname = {
+        format = " on [$hostname]($style) ";
         style = "bold ${c.purple}";
         ssh_only = false;
         ssh_symbol = "󰒋 ";
