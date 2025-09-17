@@ -15,7 +15,7 @@
             margin: 0px;
             border: #${config.colorScheme.palette.base01};
             background-color: #${config.colorScheme.palette.base05};
-            border-radius: 15px;
+            border-radius: 10px;
         }
 
         #input {
@@ -27,7 +27,7 @@
             font-weight: bold;
             background-color: #${config.colorScheme.palette.base00};
             outline: none;
-            border-radius: 15px;
+            border-radius: 10px;
             margin: 10px;
             margin-bottom: 2px;
         }
@@ -43,48 +43,48 @@
             color: #${config.colorScheme.palette.base05};
             font-weight: bold;
             background-color: #${config.colorScheme.palette.base00};
-            border-radius: 15px;
+            border-radius: 10px;
         }
 
         #outer-box {
             margin: 0px;
             border: none;
-            border-radius: 15px;
+            border-radius: 10px;
             background-color: #${config.colorScheme.palette.base00};
         }
 
         #scroll {
             margin-top: 5px;
             border: none;
-            border-radius: 15px;
+            border-radius: 10px;
             margin-bottom: 5px;
             /* background: rgb(255,255,255); */
         }
 
         #img:selected {
             background-color: #${config.colorScheme.palette.base04};
-            border-radius: 15px;
+            border-radius: 10px;
         }
 
         #text:selected {
             color: #${config.colorScheme.palette.base01};
             margin: 0px 0px;
             border: none;
-            border-radius: 15px;
+            border-radius: 10px;
             background-color: #${config.colorScheme.palette.base04};
         }
 
         #entry {
             margin: 0px 0px;
             border: none;
-            border-radius: 15px;
+            border-radius: 10px;
             background-color: transparent;
         }
 
         #entry:selected {
             margin: 0px 0px;
             border: none;
-            border-radius: 15px;
+            border-radius: 10px;
             background-color: #${config.colorScheme.palette.base04};
         }
 
