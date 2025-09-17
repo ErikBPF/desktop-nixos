@@ -4,6 +4,7 @@
     ./btop.nix
     ./starship.nix
     ./zoxide.nix
+    ./kitty.nix
     ./ghostty.nix
   ];
 }
