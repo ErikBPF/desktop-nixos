@@ -50,7 +50,7 @@ in
       $cmd_duration $jobs $time\
       $line_break\
       $character
-      ''
+      '';
       # Custom Modules
       custom.times = {
         description = "Display Execution Times (Start and End Time)";

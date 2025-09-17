@@ -31,12 +31,12 @@ in {
     enable = true;
   };
 
-  xdg.portal = {
-    enable = true;
-    extraPortals = with pkgs; [
-      xdg-desktop-portal-hyprland
-    ];
-  };
+  # xdg.portal = {
+  #   enable = true;
+  #   extraPortals = with pkgs; [
+  #     xdg-desktop-portal-hyprland
+  #   ];
+  # };
 
   # Install packages
   environment.systemPackages = packages.systemPackages;
