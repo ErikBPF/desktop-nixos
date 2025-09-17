@@ -39,7 +39,7 @@
 
     layerrule = [
       # Proper background blur for wofi
-      "blur,wofi"
+      # "blur,wofi"
       # "blur,waybar"
     ];
   };
