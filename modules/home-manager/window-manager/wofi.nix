@@ -62,16 +62,16 @@
         }
 
         #img:selected {
-            background-color: #${config.colorScheme.palette.base05};
+            background-color: #${config.colorScheme.palette.base01};
             border-radius: 15px;
         }
 
         #text:selected {
-            color: #${config.colorScheme.palette.base05};
+            color: #${config.colorScheme.palette.base01};
             margin: 0px 0px;
             border: none;
             border-radius: 15px;
-            background-color: #${config.colorScheme.palette.base05};
+            background-color: #${config.colorScheme.palette.base01};
         }
 
         #entry {
@@ -85,7 +85,7 @@
             margin: 0px 0px;
             border: none;
             border-radius: 15px;
-            background-color: #${config.colorScheme.palette.base05};
+            background-color: #${config.colorScheme.palette.base04};
         }
 
         #entry image {
