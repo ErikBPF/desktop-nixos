@@ -27,6 +27,7 @@
     git # Distributed version control system
     vim # Ubiquitous text editor
     rsync
+    sqlite
 
     # --- Terminals ---
     kitty # Fast, feature-rich, GPU-based terminal emulator
