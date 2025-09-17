@@ -17,34 +17,34 @@ in {
         bind \cx _fifc
         bind -M insert \cx _fifc
 
-        set -g fish_pager_color_secondary_background      4B5F6F --background normal     # Pager #4B5F6F
-        set -g fish_pager_color_background                4B5F6F --background normal     # Pager #4B5F6F
-        set -g fish_color_autosuggestion                  4B5F6F                         # Autosuggestions #4B5F6F
-        set -g fish_color_command                         7FB4CA                         # Commands #7FB4CA
-        set -g fish_color_comment                         4B5F6F                         # Code comments #4B5F6F
-        set -g fish_color_cwd                             7AA89F                         # Current working directory #7AA89F
-        set -g fish_color_end                             b6927b                         # Process separators #b6927b
-        set -g fish_color_error                           E46876                         # Highlight potential errors #E46876
-        set -g fish_color_escape                          8ea4a2                         # Character escapes #8ea4a2
-        set -g fish_color_match                           938AA9                         # Matching parenthesis #938AA9
-        set -g fish_color_normal                          A2A5A2                         # Default color #A2A5A2
-        set -g fish_color_operator                        E6C384                         # Parameter expansion operators #E6C384
-        set -g fish_color_param                           A2A5A2                         # Regular command parameters #A2A5A2
-        set -g fish_color_quote                           87a987                         # Quoted blocks of text #87a987
-        set -g fish_color_redirection                     a292a3                         # IO redirections #a292a3
-        set -g fish_color_search_match                    4B5F6F --background E6C384     # Highlight search matches #E6C384 #4B5F6F
-        set -g fish_color_selection                       4B5F6F --background E6C384     # Text selection #E6C384 #4B5F6F
-        set -g fish_color_cancel                          0d0c0c                         # The '^C' indicator #0d0c0c
-        set -g fish_color_host                            938AA9                         # Current host system #938AA9
-        set -g fish_color_host_remote                     938AA9                         # Remote host system #938AA92
-        set -g fish_color_user                            b98d7b                         # Current username #b98d7b
+        set -g fish_pager_color_secondary_background      2F3549 --background normal     # Pager #2F3549
+        set -g fish_pager_color_background                2F3549 --background normal     # Pager #2F3549
+        set -g fish_color_autosuggestion                  787C99                         # Autosuggestions #787C99
+        set -g fish_color_command                         9ECE6A                         # Commands #9ECE6A
+        set -g fish_color_comment                         444B6A                         # Code comments #444B6A
+        set -g fish_color_cwd                             2AC3DE                         # Current working directory #2AC3DE
+        set -g fish_color_end                             F7768E                         # Process separators #F7768E
+        set -g fish_color_error                           C0CAF5                         # Highlight potential errors #C0CAF5
+        set -g fish_color_escape                          B4F9F8                         # Character escapes #B4F9F8
+        set -g fish_color_match                           0DB9D7                         # Matching parenthesis #0DB9D7
+        set -g fish_color_normal                          A9B1D6                         # Default color #A9B1D6
+        set -g fish_color_operator                        BB9AF7                         # Parameter expansion operators #BB9AF7
+        set -g fish_color_param                           A9B1D6                         # Regular command parameters #A9B1D6
+        set -g fish_color_quote                           9ECE6A                         # Quoted blocks of text #9ECE6A
+        set -g fish_color_redirection                     B4F9F8                         # IO redirections #B4F9F8
+        set -g fish_color_search_match                    0DB9D7 --background 16161E     # Highlight search matches #0DB9D7 #16161E
+        set -g fish_color_selection                       0DB9D7 --background 16161E     # Text selection #0DB9D7 #16161E
+        set -g fish_color_cancel                          C0CAF5                         # The '^C' indicator #C0CAF5
+        set -g fish_color_host                            2AC3DE                         # Current host system #2AC3DE
+        set -g fish_color_host_remote                     2AC3DE                         # Remote host system #2AC3DE
+        set -g fish_color_user                            9ECE6A                         # Current username #9ECE6A
 
 
 
-        set -g man_blink -o 2D4F67 #2D4F67
-        set -g man_bold -o 87a987 #87a987
-        set -g man_standout -b black 93a1a1 #93a1a1
-        set -g man_underline -u 93a1a1 #93a1a1
+        set -g man_blink -o 444B6A #444B6A
+        set -g man_bold -o 9ECE6A #9ECE6A
+        set -g man_standout -b black B4F9F8 #B4F9F8
+        set -g man_underline -u B4F9F8 #B4F9F8
         fish_vi_key_bindings # Enable vi mode
         set -g fish_greeting # Disable greeting
 
@@ -150,3 +150,21 @@ in {
       ];
     };
 }
+
+
+# base00: "#1A1B26"
+# base01: "#16161E"
+# base02: "#2F3549"
+# base03: "#444B6A"
+# base04: "#787C99"
+# base05: "#A9B1D6"
+# base06: "#CBCCD1"
+# base07: "#D5D6DB"
+# base08: "#C0CAF5"
+# base09: "#A9B1D6"
+# base0A: "#0DB9D7"
+# base0B: "#9ECE6A"
+# base0C: "#B4F9F8"
+# base0D: "#2AC3DE"
+# base0E: "#BB9AF7"
+# base0F: "#F7768E"
