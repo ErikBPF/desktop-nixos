@@ -16,6 +16,15 @@
 in {
   programs.hyprlock = {
     enable = true;
+    settings = {
+      general = {
+        disable_loading_bar = true;
+        no_fade_in = false;
+      };
+      auth = {
+        fingerprint.enabled = true;
+      };
+    };
     extraConfig = ''
 # BACKGROUND
 background {
@@ -38,7 +47,7 @@ general {
 # TIME
 label {
     monitor =
-     text = cmd[update:1000] echo "$(date +"%-I:%M%p")"
+     text = cmd[update:1000] echo "$(date +"%H:%M")"
     color = ${foregroundRgb}
     font_size = 120
     font_family = JetBrainsMono Nerd Font Bold
@@ -51,7 +60,7 @@ label {
 label {
     monitor =
     text = cmd[update:1000] echo "<span>$(date '+%A, %d %B')</span>"
-    color = ${foregroundMutedRgb}
+    color = rgba(255, 255, 255, 0.6)
     font_size = 30
     font_family = JetBrainsMono Nerd Font Bold
     position = 0, 200
@@ -62,7 +71,7 @@ label {
 # LOGO
 label {
     monitor =
-    text =  
+    text = "" 
     color = rgba(255, 255, 255, 0.65)
     font_size = 120
     position = 0, 60
@@ -95,7 +104,7 @@ input-field {
     font_color = rgb(200, 200, 200)
     fade_on_empty = false
     font_family = JetBrainsMono Nerd Font Bold
-    placeholder_text = <i><span foreground="##ffffff99">*****</span></i>
+    placeholder_text = <i><span foreground="##ffffff99">••••••••</span></i>
     hide_input = false
     position = 0, -140
     halign = center
@@ -117,7 +126,7 @@ input-field {
 # Reboot
 label {
     monitor =
-    text = 󰜉
+    text = "󰜉"
     color = rgba(255, 255, 255, 0.6)
     font_size = 50
     onclick = reboot now
@@ -129,7 +138,7 @@ label {
 # Power off
 label {
     monitor =
-    text = 󰐥
+    text = "󰐥"
     color = rgba(255, 255, 255, 0.6)
     font_size = 50
     onclick = shutdown now
@@ -141,7 +150,7 @@ label {
 # Suspend
 label {
     monitor =
-    text = 󰤄
+    text = "󰤄"
     color = rgba(255, 255, 255, 0.6)
     font_size = 50
     onclick = systemctl suspend
