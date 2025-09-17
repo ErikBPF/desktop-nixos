@@ -89,7 +89,6 @@ in {
 
   services.syncthing = {
       enable = true;
-      tray.enable = true;
       guiAddress = "0.0.0.0:8384";
       openDefaultPorts = true;
       relay = {
