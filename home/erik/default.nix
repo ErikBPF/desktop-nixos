@@ -47,7 +47,7 @@
   };
 
   programs = {
-    command-not-found.enable = false; # Required for fish
+    command-not-found.enable = true; # Required for fish
   };
 
   programs.nix-index = {
