@@ -26,7 +26,7 @@ in
     enable = true;
     enableFishIntegration = true;
     settings = {
-      format = "[](${c.cyan})$username$hostname$directory$git_branch$git_state$git_status$git_metrics$fill$cmd_duration$jobs$time$line_break$character";
+      format = "[  ](bold ${c.cyan})$username$hostname$directory$git_branch$git_state$git_status$git_metrics$fill$cmd_duration$jobs$time$line_break$character";
       # Custom Modules
       custom.times = {
         description = "Display Execution Times (Start and End Time)";
@@ -44,8 +44,7 @@ in
       };
 
       hostname = {
-        format = "[ on $hostname]($style) ";
-        style = "${c.purple}";
+        style = "bold ${c.purple}";
         ssh_only = false;
         ssh_symbol = "󰒋 ";
       };
@@ -68,7 +67,7 @@ in
         fish_style_pwd_dir_length = 1;
         format = "[$path]($style) ";
         read_only = "⌽ ";
-        style = "bold {c.teal}";
+        style = "bold ${c.teal}";
         truncate_to_repo = false;
         truncation_length = 3;
       };
