@@ -11,6 +11,8 @@
     };
   };
 
+    home.file"Downloads/test".text = builtins.readFile config.sops.secrets."syncthing/moon_id".path;
+
   services.syncthing = {
     overrideDevices = true;
     overrideFolders = true;
