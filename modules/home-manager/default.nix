@@ -12,6 +12,7 @@ in {
     ./terminal
     ./shell
     ./dev
+    ./browser
   ];
 
   home.packages = packages.homePackages;
