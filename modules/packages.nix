@@ -201,7 +201,6 @@
       azure-cli # Command-line tools for Azure
       azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
 
-
       brave
       # --- Development Tools ---
       github-desktop # The official GitHub GUI client
