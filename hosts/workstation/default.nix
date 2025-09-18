@@ -40,46 +40,6 @@
 
   services.openssh.enable = true;
 
-  sops = {
-    age = {
-      keyFile = "/home/erik/.config/sops/age/keys.txt";
-      generateKey = true;
-    };
-    defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
-    secrets = {
-      "syncthing/moon_id"  = {};
-      "syncthing/archlinux_id" = {};
-    };
-  };
-
-  services.syncthing = {
-    overrideDevices = true;
-    overrideFolders = true;
-    configDir = "/home/erik/.config/syncthing";
-    settings = {
-      devices = {
-        "Moon" = {
-          id = builtins.readFile config.sops.secrets."syncthing/moon_id".path;
-        };
-        "archlinux" = {
-          id = builtins.readFile config.sops.secrets."syncthing/archlinux_id".path;
-        };
-      };
-
-      folders = {
-        "ndykv-cjhly" = {
-          label = "Downloads";
-          path = "/home/erik/Downloads/";
-          devices = [
-            "Moon"
-            "archlinux"
-          ];
-        };
-      };
-    };
-  };
-
   home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
   home-manager.extraSpecialArgs = {inherit inputs outputs;};
@@ -90,6 +50,7 @@
       inputs.nix-colors.homeManagerModules.default
       inputs.sops-nix.homeManagerModules.sops
       ../../modules/home-manager/default.nix
+      ../../modules/home-manager/syncthing/workstation.nix
     ];
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
