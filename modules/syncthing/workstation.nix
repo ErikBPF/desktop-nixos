@@ -48,6 +48,22 @@
             "archlinux"
           ];
         };
+        "ykxhp-khmz2" = {
+          label = "Documents";
+          path = "/home/erik/Documents/";
+          devices = [
+            "Moon"
+            "archlinux"
+          ];
+        };
+        "xbwsp-zwvsr" = {
+          label = "kube";
+          path = "/home/erik/.kube/";
+          devices = [
+            "Moon"
+            "archlinux"
+          ];
+        };
       };
     };
   };
