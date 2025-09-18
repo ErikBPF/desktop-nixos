@@ -48,10 +48,10 @@
             "source.fixAll" = "explicit";
             "source.organizeImports" = "explicit";
         };
-        "editor.rulers"= [
-            160
-            200
-        ];
+        # "editor.rulers"= [
+        #     160,
+        #     200
+        # ];
 
         "files.autoSave" = "afterDelay";
         "files.autoSaveDelay" = 100;
