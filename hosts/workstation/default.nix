@@ -12,6 +12,7 @@
     (modulesPath + "/profiles/qemu-guest.nix")
     inputs.home-manager.nixosModules.default
     inputs.disko.nixosModules.disko
+    inputs.sops-nix.nixosModules.sops
     (import ../../modules/nixos/default.nix inputs)
     ./hardware-configuration.nix
     ../../modules/users/erik.nix
@@ -39,7 +40,7 @@
 
   services.openssh.enable = true;
 
-  inputs.sops-nix.nixosModules.sops = {
+  sops = {
     secrets = {
       "syncthing/moon_id"  = {};
       "syncthing/archlinux_id" = {};
