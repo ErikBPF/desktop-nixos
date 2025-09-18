@@ -8,7 +8,7 @@
       # "SUPER, A, exec, $webapp=https://claude.ai"
 
       "SUPER, B, exec, $browser"
-      "SUPER, M, exec, $music"
+      # "SUPER, M, exec, $music"
       "SUPER, N, exec, $terminal -e nvim"
 
       "SUPER, T, exec, $terminal "
@@ -90,11 +90,6 @@
       # Scroll through existing workspaces with mainMod + scroll
       "SUPER, mouse_down, workspace, e+1"
       "SUPER, mouse_up, workspace, e-1"
-
-      # Control Apple Display brightness
-      "CTRL, F1, exec, ~/.local/share/omarchy/bin/apple-display-brightness -5000"
-      "CTRL, F2, exec, ~/.local/share/omarchy/bin/apple-display-brightness +5000"
-      "SHIFT CTRL, F2, exec, ~/.local/share/omarchy/bin/apple-display-brightness +60000"
 
       # Super workspace floating layer
       "SUPER, S, togglespecialworkspace, magic"
