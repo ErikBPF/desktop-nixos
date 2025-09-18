@@ -14,8 +14,8 @@
         window {
             margin: 0px;
             border: #${config.colorScheme.palette.base01};
-            background-color: #${config.colorScheme.palette.base05};
-            border-radius: 5px;
+            background-color: #${config.colorScheme.palette.base01};
+            border-radius: 2px;
         }
 
         #input {
@@ -33,13 +33,13 @@
         }
 
         #input:focus {
-            border: 0px solid #1e1e2e;
+            border: 0px solid #${config.colorScheme.palette.base01};;
             margin-bottom: 0px;
         }
 
         #inner-box {
             margin: 4px;
-            border: 10px solid #1e1e2e;
+            border: 10px solid #${config.colorScheme.palette.base01};;
             color: #${config.colorScheme.palette.base05};
             font-weight: bold;
             background-color: #${config.colorScheme.palette.base01};
@@ -62,16 +62,16 @@
         }
 
         #img:selected {
-            background-color: #${config.colorScheme.palette.base04};
+            background-color: #${config.colorScheme.palette.base03};
             border-radius: 10px;
         }
 
         #text:selected {
-            color: #${config.colorScheme.palette.base01};
+            color: #${config.colorScheme.palette.base0C};
             margin: 0px 0px;
             border: none;
             border-radius: 10px;
-            background-color: #${config.colorScheme.palette.base04};
+            background-color: #${config.colorScheme.palette.base03};
         }
 
         #entry {
@@ -85,7 +85,7 @@
             margin: 0px 0px;
             border: none;
             border-radius: 10px;
-            background-color: #${config.colorScheme.palette.base04};
+            background-color: #${config.colorScheme.palette.base03};
         }
 
         #entry image {
