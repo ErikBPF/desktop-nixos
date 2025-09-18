@@ -13,7 +13,7 @@
           "${config.home.homeDirectory}/Documents/nstech"
         ];
       };
-
+      hide_env_diff = true;
       warn_timeout = "10s"; # Warning timeout
       disable_stdin = true; # Disable stdin during .envrc evaluation
     };
