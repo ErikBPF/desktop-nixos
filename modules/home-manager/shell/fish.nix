@@ -38,7 +38,7 @@ in {
         set -g fish_pager_color_prefix            7dcfff # Pager prefix color #7dcfff
         set -g fish_pager_color_completion        c0caf5 # Pager completion color #c0caf5
         set -g fish_pager_color_description       565f89 # Pager description color #565f89
-        set -g fish_pager_color_selected_background --background=283457 # Pager selected background color
+        set -g fish_pager_color_selected_background --background=283457 # Pager selected background color #283457
         fish_vi_key_bindings # Enable vi mode
         set -g fish_greeting # Disable greeting
 
