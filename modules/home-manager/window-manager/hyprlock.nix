@@ -49,7 +49,7 @@ label {
     monitor =
      text = cmd[update:1000] echo "$(date +"%H:%M")"
     color = ${foregroundRgb}
-    font_size = 120
+    font_size = 140
     font_family = JetBrainsMono Nerd Font Bold
     position = 0, -140
     halign = center
@@ -74,6 +74,7 @@ label {
     text =  
     color = rgba(255, 255, 255, 0.65)
     font_size = 120
+    font_family = SF Pro Display Bold
     position = 0, 60
     halign = center
     valign = center
@@ -129,6 +130,7 @@ label {
     text = 󰜉 
     color = rgba(255, 255, 255, 0.6)
     font_size = 50
+    font_family = SF Pro Display Bold
     onclick = reboot now
     position = 0, 100
     halign = center
@@ -141,6 +143,7 @@ label {
     text = 󰐥 
     color = rgba(255, 255, 255, 0.6)
     font_size = 50
+    font_family = SF Pro Display Bold
     onclick = shutdown now
     position = 820, 100
     halign =left 
@@ -153,6 +156,7 @@ label {
     text = 󰤄 
     color = rgba(255, 255, 255, 0.6)
     font_size = 50
+    font_family = SF Pro Display Bold
     onclick = systemctl suspend
     position = -820, 100
     halign = right
