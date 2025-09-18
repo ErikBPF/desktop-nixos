@@ -51,7 +51,7 @@ label {
     color = ${foregroundRgb}
     font_size = 140
     font_family = JetBrainsMono Nerd Font Bold
-    position = 0, -140
+    position = 0, -160
     halign = center
     valign = top
 }
@@ -69,16 +69,16 @@ label {
 }
 
 # LOGO
-label {
-    monitor =
-    text =  
-    color = rgba(255, 255, 255, 0.65)
-    font_size = 120
-    font_family = SF Pro Display Bold
-    position = 0, 60
-    halign = center
-    valign = center
-}
+# label {
+#     monitor =
+#     text =  
+#     color = rgba(255, 255, 255, 0.65)
+#     font_size = 120
+#     font_family = SF Pro Display Bold
+#     position = 0, 60
+#     halign = center
+#     valign = center
+# }
 
 # USER
 label {
@@ -124,44 +124,44 @@ input-field {
 #     valign = bottom
 # }
 
-# Reboot
-label {
-    monitor =
-    text = 󰜉 
-    color = rgba(255, 255, 255, 0.6)
-    font_size = 50
-    font_family = SF Pro Display Bold
-    onclick = reboot now
-    position = 0, 100
-    halign = center
-    valign = bottom
-}
+# # Reboot
+# label {
+#     monitor =
+#     text = 󰜉 
+#     color = rgba(255, 255, 255, 0.6)
+#     font_size = 50
+#     font_family = SF Pro Display Bold
+#     onclick = reboot now
+#     position = 0, 100
+#     halign = center
+#     valign = bottom
+# }
 
-# Power off
-label {
-    monitor =
-    text = 󰐥 
-    color = rgba(255, 255, 255, 0.6)
-    font_size = 50
-    font_family = SF Pro Display Bold
-    onclick = shutdown now
-    position = 820, 100
-    halign =left 
-    valign = bottom
-}
+# # Power off
+# label {
+#     monitor =
+#     text = 󰐥 
+#     color = rgba(255, 255, 255, 0.6)
+#     font_size = 50
+#     font_family = SF Pro Display Bold
+#     onclick = shutdown now
+#     position = 820, 100
+#     halign =left 
+#     valign = bottom
+# }
 
-# Suspend
-label {
-    monitor =
-    text = 󰤄 
-    color = rgba(255, 255, 255, 0.6)
-    font_size = 50
-    font_family = SF Pro Display Bold
-    onclick = systemctl suspend
-    position = -820, 100
-    halign = right
-    valign = bottom
-}
+# # Suspend
+# label {
+#     monitor =
+#     text = 󰤄 
+#     color = rgba(255, 255, 255, 0.6)
+#     font_size = 50
+#     font_family = SF Pro Display Bold
+#     onclick = systemctl suspend
+#     position = -820, 100
+#     halign = right
+#     valign = bottom
+# }
     '';
     };
 }

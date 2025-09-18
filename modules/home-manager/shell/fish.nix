@@ -27,7 +27,7 @@ in {
         set -g fish_color_error                           C0CAF5                         # Highlight potential errors #C0CAF5
         set -g fish_color_escape                          B4F9F8                         # Character escapes #B4F9F8
         set -g fish_color_match                           0DB9D7                         # Matching parenthesis #0DB9D7
-        set -g fish_color_normal                          A9B1D6                         # Default color #A9B1D6
+        set -g fish_color_normal                          A9B1D6                         # Default color #ffffffff
         set -g fish_color_operator                        BB9AF7                         # Parameter expansion operators #BB9AF7
         set -g fish_color_param                           A9B1D6                         # Regular command parameters #A9B1D6
         set -g fish_color_quote                           9ECE6A                         # Quoted blocks of text #9ECE6A
