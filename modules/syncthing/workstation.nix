@@ -1,21 +1,20 @@
 {
   inputs,
-  config,
   ...
 }: {
 
-  # sops = {
-  #   age = {
-  #     keyFile = "/home/erik/.config/sops/age/keys.txt";
-  #     generateKey = true;
-  #   };
-  #   defaultSopsFormat = "yaml";
-  #   defaultSopsFile = ../../secrets/secrets.yaml;
-  #   secrets = {
-  #     "syncthing/moon_id"  = {};
-  #     "syncthing/archlinux_id" = {};
-  #   };
-  # };
+  sops = {
+    age = {
+      keyFile = "/home/erik/.config/sops/age/keys.txt";
+      generateKey = true;
+    };
+    defaultSopsFormat = "yaml";
+    defaultSopsFile = ../../secrets/secrets.yaml;
+    secrets = {
+      "syncthing/moon_id"  = {};
+      "syncthing/archlinux_id" = {};
+    };
+  };
 
     # home.file."Downloads/test".text = ''${builtins.readFile config.sops.secrets."syncthing/moon_id".path}'';aq
   services.syncthing = {
