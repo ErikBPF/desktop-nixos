@@ -87,16 +87,6 @@ in {
     networkmanager.enable = true;
   };
 
-  # services.syncthing = {
-  #     enable = true;
-  #     guiAddress = "127.0.0.1:8384";
-  #     openDefaultPorts = true;
-  #     relay = {
-  #       enable = true;
-  #     };
-  # };
-
-
   services.tailscale = {
     enable = true;
     # openFirewall = true;
