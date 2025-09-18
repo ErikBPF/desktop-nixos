@@ -51,10 +51,10 @@
             160
             200
         ];
-        
+
         "files.autoSave"=  "afterDelay";
         "files.associations" = {
-            "*.hcl" = "terraform"
+            "*.hcl" = "terraform";
         };
 
         "terminal.integrated.fontFamily" = "JetBrainsMono Nerd Font";
