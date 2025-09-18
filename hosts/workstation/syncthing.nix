@@ -4,7 +4,6 @@
   config,
   ...
 }: {
-
   sops = {
     age = {
       keyFile = "/home/erik/.config/sops/age/keys.txt";
@@ -13,7 +12,7 @@
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
-      "syncthing/moon_id"  = {};
+      "syncthing/moon_id" = {};
       "syncthing/archlinux_id" = {};
     };
   };
@@ -28,7 +27,7 @@
     dataDir = "/home/erik/.config/syncthing";
     overrideDevices = true;
     overrideFolders = true;
-    user= "erik";
+    user = "erik";
     settings = {
       devices = {
         "Moon" = {

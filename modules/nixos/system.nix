@@ -45,9 +45,9 @@ in {
       xserver = {
     # ...
     # displayManager = {
-		# 	sddm.enable = true;
+    # 	sddm.enable = true;
     #         sddm.theme = "${import ./sddm-theme.nix { inherit pkgs; }}";
-		# };
+    # };
 
     xkb = {
       layout = "qwerty-fr";

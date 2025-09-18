@@ -1,5 +1,4 @@
-{ ... }:
-let
+{...}: let
   c = {
     red = "#f7768e";
     orange = "#ff9e64";
@@ -19,9 +18,7 @@ let
     dark_blue = "#414868";
     bg = "#1a1b26";
   };
-
-in
-{
+in {
   programs.starship = {
     enable = true;
     enableFishIntegration = true;
@@ -135,14 +132,14 @@ in
         format = "[$symbol$context( \\($namespace\\))]($style) ";
         style = "${c.cyan} bold";
         disabled = false;
-        detect_extensions = [ ];
+        detect_extensions = [];
         detect_files = [
           "k8s.yaml"
           "kubernetes.yaml"
           ".kubeconfig"
         ];
-        detect_folders = [ ".kube" ];
-        detect_env_vars = [ "KUBECONFIG" ];
+        detect_folders = [".kube"];
+        detect_env_vars = ["KUBECONFIG"];
       };
       vagrant = {
         symbol = " ";
@@ -306,7 +303,7 @@ in
           "cabal.project"
           "package.yaml"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       haxe = {
         symbol = " ";
@@ -331,12 +328,12 @@ in
         symbol = " ";
         style = "${c.red}";
         disabled = false;
-        detect_extensions = [ "jl" ];
+        detect_extensions = ["jl"];
         detect_files = [
           "Project.toml"
           "Manifest.toml"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       kotlin = {
         symbol = " ";
@@ -349,13 +346,13 @@ in
         format = "[$symbol($version )]($style)";
         style = "${c.dark_blue}";
         disabled = false;
-        detect_extensions = [ "lua" ];
+        detect_extensions = ["lua"];
         detect_files = [
           ".luarc.json"
           ".luacheckrc"
           "stylua.toml"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       meson = {
         symbol = "󰔷 ";
@@ -405,16 +402,16 @@ in
           ".merlin"
           "esy.lock"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       odin = {
         format = "[$symbol($version )]($style)";
         symbol = "󰹩 ";
         style = "${c.blue_grey}";
         disabled = false;
-        detect_extensions = [ "odin" ];
-        detect_files = [ "ols.json" ];
-        detect_folders = [ ];
+        detect_extensions = ["odin"];
+        detect_files = ["ols.json"];
+        detect_folders = [];
       };
       opa = {
         symbol = " ";
@@ -455,14 +452,14 @@ in
           "python3"
           "python"
         ];
-        detect_extensions = [ "py" ];
+        detect_extensions = ["py"];
         detect_files = [
           "setup.py"
           "pyproject.toml"
           "requirements.txt"
           "__init__.py"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       quarto = {
         symbol = " ";
@@ -498,7 +495,7 @@ in
           ".Rproj"
           "renv.lock"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       ruby = {
         symbol = " ";
@@ -510,12 +507,12 @@ in
         symbol = " ";
         style = "${c.red}";
         disabled = false;
-        detect_extensions = [ "rs" ];
+        detect_extensions = ["rs"];
         detect_files = [
           "Cargo.toml"
           "Cargo.lock"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       scala = {
         format = "[$symbol($version )]($style)";
@@ -531,7 +528,7 @@ in
           "build.sc"
           "project/build.properties"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
       solidity = {
         symbol = " ";
@@ -570,7 +567,7 @@ in
           "build.zig"
           "build.zig.zon"
         ];
-        detect_folders = [ ];
+        detect_folders = [];
       };
 
       # --- Shells ---

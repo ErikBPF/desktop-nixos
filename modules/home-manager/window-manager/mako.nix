@@ -19,7 +19,6 @@
       border-size = 2;
       border-radius = 15;
 
-
       anchor = "top-right";
       layer = "overlay";
 
