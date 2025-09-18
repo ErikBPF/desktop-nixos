@@ -1,5 +1,7 @@
 {
+  pkgs,
   inputs,
+  config,
   ...
 }: {
 
@@ -17,7 +19,7 @@
   };
 
     home.file."Downloads/test".text = ''${builtins.readFile config.sops.secrets."syncthing/moon_id".path}'';
-    
+
   services.syncthing = {
     enable = true;
     guiAddress = "127.0.0.1:8384";
