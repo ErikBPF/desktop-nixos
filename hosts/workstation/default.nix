@@ -41,6 +41,12 @@
   services.openssh.enable = true;
 
   sops = {
+    age = {
+      keyFile = "/home/erik/.config/sops/age/keys.txt";
+      generateKey = true;
+    };
+    defaultSopsFormat = "yaml";
+    defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
       "syncthing/moon_id"  = {};
       "syncthing/archlinux_id" = {};
