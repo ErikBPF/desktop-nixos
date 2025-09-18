@@ -51,7 +51,7 @@ label {
     color = ${foregroundRgb}
     font_size = 140
     font_family = JetBrainsMono Nerd Font Bold
-    position = 0, -160
+    position = 0, -120
     halign = center
     valign = top
 }
