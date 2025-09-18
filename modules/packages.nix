@@ -102,6 +102,7 @@
     p7zip # 7-Zip archiver
     rar # RAR archives
     wget # A free software package for retrieving files using HTTP, HTTPS, FTP
+    curl
     unzip # Extract ZIP archives
     zip # Create ZIP archives
     zstd # Compression algorithm (optional Emacs dep)
@@ -188,11 +189,14 @@
       azure-cli # Command-line tools for Azure
       azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
 
+
+      brave
       # --- Development Tools ---
       github-desktop # The official GitHub GUI client
       gh # Official GitHub CLI
-      code-cursor # The Cursor editor, an AI-powered fork of VSCode
-      opencode # The OpenCode-OSS editor, a fork of VSCode
+      vscode-fhs
+      code-cursor-fhs # The Cursor editor, an AI-powered fork of VSCode
+      opencode # The OpenCode-OSS CLI agent
       gemini-cli # A command-line interface for Google's Gemini models
       ngrok # Secure introspectable tunnels to localhost
       postman # A collaboration platform for API development
