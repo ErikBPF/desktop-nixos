@@ -14,7 +14,7 @@
   services.syncthing = {
     overrideDevices = true;
     overrideFolders = true;
-    configDir = "/home/erik/.config/syncthing";
+    tray = true;
     settings = {
       devices = {
         "Moon" = {
