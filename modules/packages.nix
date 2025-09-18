@@ -65,7 +65,6 @@
     glxinfo # A tool for diagnosing problems with OpenGL and GLX
     lm_sensors # Tools for reading hardware sensor data
     libinput # Library to handle input devices in Wayland compositors
-    polkit-gnome
     gnome-keyring
     seahorse # GUI to manage the keyring
     libsecret # CLI tools (secret-tool)
