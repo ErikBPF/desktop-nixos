@@ -19,7 +19,7 @@
         {
           name = "pkief";
           publisher = "material-icon-theme";
-        #   version = "5.27.0";
+          version = "5.27.0";
         }
       ];
 
