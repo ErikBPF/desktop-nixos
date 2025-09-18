@@ -15,12 +15,12 @@
           name = "enkia";
           publisher = "tokyo-night";
           version = "1.1.2";
-        };
+        }
         {
           name = "pkief";
           publisher = "material-icon-theme";
         #   version = "5.27.0";
-        };
+        }
       ];
 
       userSettings = {
