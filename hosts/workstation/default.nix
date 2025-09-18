@@ -21,7 +21,7 @@
     ../common/global.nix
     ../common/packages.nix
 
-    ../../modules/syncthing/workstation.nix
+    ./syncthing.nix
   ];
   boot = {
     kernelParams = ["nohibernate"];
