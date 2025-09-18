@@ -63,15 +63,9 @@
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
-      password = {
-        # path = "%r/password.txt";
-      };
-      id_ed25519 = {
-        # path = "%r/id_ed25519.txt";
-      };
-      id_rsa = {
-        # path = "%r/id_rsa.txt";
-      };
+      password = {};
+      id_ed25519 = {};
+      id_rsa = {};
     };
   };
 
