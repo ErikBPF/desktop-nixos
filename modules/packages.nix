@@ -19,6 +19,7 @@
     wlr-randr # Utility to manage outputs for wlroots compositors
     libinput-gestures # Adds gesture support from libinput
     nwg-displays
+    dconf
   ];
 
   # Essential system packages - cannot be excluded
