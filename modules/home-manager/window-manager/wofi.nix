@@ -15,7 +15,7 @@
             margin: 0px;
             border: #${config.colorScheme.palette.base01};
             background-color: #${config.colorScheme.palette.base05};
-            border-radius: 10px;
+            border-radius: 5px;
         }
 
         #input {
@@ -25,7 +25,7 @@
             border: none;
             color: #${config.colorScheme.palette.base05};
             font-weight: bold;
-            background-color: #${config.colorScheme.palette.base00};
+            background-color: #${config.colorScheme.palette.base01};
             outline: none;
             border-radius: 10px;
             margin: 10px;
@@ -42,7 +42,7 @@
             border: 10px solid #1e1e2e;
             color: #${config.colorScheme.palette.base05};
             font-weight: bold;
-            background-color: #${config.colorScheme.palette.base00};
+            background-color: #${config.colorScheme.palette.base01};
             border-radius: 10px;
         }
 
@@ -50,7 +50,7 @@
             margin: 0px;
             border: none;
             border-radius: 10px;
-            background-color: #${config.colorScheme.palette.base00};
+            background-color: #${config.colorScheme.palette.base01};
         }
 
         #scroll {
