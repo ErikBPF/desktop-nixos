@@ -14,7 +14,7 @@
       { id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; } # ublock origin
     ];
     commandLineArgs = [
-      "--disable-features=WebRtcAllowInputVolumeAdjustment"
+      "--disable-features=WebRtcAllowInputVolumeAdjustment --enable-features=UseOzonePlatform --ozone-platform=wayland "
     ];
   }
 }
