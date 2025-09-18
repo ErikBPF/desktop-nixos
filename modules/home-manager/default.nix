@@ -11,6 +11,7 @@ in {
     ./window-manager
     ./terminal
     ./shell
+    ./dev
   ];
 
   home.packages = packages.homePackages;
