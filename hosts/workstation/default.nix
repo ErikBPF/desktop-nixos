@@ -19,8 +19,6 @@
     ./disk-config.nix
 
     ../common/global.nix
-    ../common/packages.nix
-
     ./syncthing.nix
   ];
   boot = {
