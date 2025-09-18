@@ -30,7 +30,7 @@ in {
 background {
     monitor =
     path = ${selected_wallpaper_path}
-    blur_passes = 3
+    blur_passes = 1
     contrast = 0.8916
     brightness = 0.8172
     vibrancy = 0.1696
