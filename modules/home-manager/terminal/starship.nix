@@ -160,7 +160,8 @@ in
       # --- Infrastructure & DevOps ---
       direnv = {
         symbol = " ";
-        disabled = true;
+        style = "${c.sky}";
+        disabled = false;
       };
       pulumi = {
         symbol = " ";
