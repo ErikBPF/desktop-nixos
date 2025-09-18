@@ -39,7 +39,6 @@
         "editor.formatOnType"= true;
         "editor.formatOnPaste"= true;
         "editor.unicodeHighlight.invisibleCharacters"= true;
-        "files.autoSave"=  "afterDelay";
         "editor.formatOnSaveMode" = "file";
         "editor.formatOnSave" = true;
         "editor.codeActionsOnSave" = {
@@ -48,13 +47,12 @@
             "source.fixAll" = "explicit";
             "source.organizeImports" = "explicit";
         };
-        # "editor.rulers"= [
-        #     160,
-        #     200
-        # ];
-
-        "files.autoSave" = "afterDelay";
-        "files.autoSaveDelay" = 100;
+        "editor.rulers"= [
+            160
+            200
+        ];
+        
+        "files.autoSave"=  "afterDelay";
         "files.associations" = {
             "*.hcl" = "terraform"
         };
