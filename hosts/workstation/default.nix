@@ -20,6 +20,8 @@
 
     ../common/global.nix
     ../common/packages.nix
+
+    ../../modules/syncthing/workstation.nix
   ];
   boot = {
     kernelParams = ["nohibernate"];
@@ -50,7 +52,6 @@
       inputs.nix-colors.homeManagerModules.default
       inputs.sops-nix.homeManagerModules.sops
       ../../modules/home-manager/default.nix
-      ../../modules/home-manager/syncthing/workstation.nix
     ];
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };

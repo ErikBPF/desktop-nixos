@@ -16,7 +16,6 @@
   services.syncthing = {
     overrideDevices = true;
     overrideFolders = true;
-    tray = true;
     settings = {
       devices = {
         "Moon" = {
