@@ -39,7 +39,7 @@
 
   services.openssh.enable = true;
 
-  sops = {
+  sops-nix.nixosModules.sops = {
     secrets = {
       "syncthing/moon_id"  = {};
       "syncthing/archlinux_id" = {};
