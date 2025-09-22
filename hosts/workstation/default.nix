@@ -19,7 +19,7 @@
     ./disk-config.nix
 
     ../common/global.nix
-    ./syncthing.nix
+    # ./syncthing.nix
   ];
   boot = {
     kernelParams = ["nohibernate"];
