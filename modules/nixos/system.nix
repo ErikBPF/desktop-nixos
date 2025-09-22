@@ -6,8 +6,6 @@
 }: let
   packages = import ../packages.nix {inherit pkgs lib;};
 in {
-
-
   hardware = {
     bluetooth = {
       enable = true;
@@ -39,31 +37,30 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs.direnv.enable = true;
 
-
-    # Services
+  # Services
   services = {
-      xserver = {
-    # ...
-    # displayManager = {
-    # 	sddm.enable = true;
-    #         sddm.theme = "${import ./sddm-theme.nix { inherit pkgs; }}";
-    # };
+    xserver = {
+      # ...
+      # displayManager = {
+      # 	sddm.enable = true;
+      #         sddm.theme = "${import ./sddm-theme.nix { inherit pkgs; }}";
+      # };
 
-    xkb = {
-      layout = "qwerty-fr";
-      variant = "qwerty-fr";
-      extraLayouts = {
-        qwerty-fr = {
-          description = "QWERTY with French symbols and diacritics";
-          languages = ["eng"];
-          symbolsFile = builtins.fetchurl {
-            url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/main/config/keyboard/us_qwerty-fr";
+      xkb = {
+        layout = "qwerty-fr";
+        variant = "qwerty-fr";
+        extraLayouts = {
+          qwerty-fr = {
+            description = "QWERTY with French symbols and diacritics";
+            languages = ["eng"];
+            symbolsFile = builtins.fetchurl {
+              url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/main/config/keyboard/us_qwerty-fr";
+            };
           };
         };
       };
     };
-  };
-      greetd = {
+    greetd = {
       enable = true;
       settings.default_session.command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     };
@@ -123,34 +120,33 @@ in {
   security = {
     sudo = {
       enable = true;
-    #   extraRules = [
-    #     {
-    #       groups = ["wheel"];
-    #       commands = [
-    #         {
-    #           command = "ALL";
-    #           options = ["NOPASSWD"];
-    #         }
-    #       ];
-    #     }
-    #   ];
-    # };
-    rtkit.enable = true;
-    polkit.enable = true;
-    sudo.wheelNeedsPassword = false;
-    pam.services = {
-      greetd.enableGnomeKeyring = true;
-      login.kwallet.enable = true;
-      gdm.kwallet.enable = true;
-      gdm-password.kwallet.enable = true;
-      # hyprlock = { };
-      # Unlock GNOME Keyring on login for GVFS credentials
-      login.enableGnomeKeyring = true;
-      gdm-password.enableGnomeKeyring = true;
+      #   extraRules = [
+      #     {
+      #       groups = ["wheel"];
+      #       commands = [
+      #         {
+      #           command = "ALL";
+      #           options = ["NOPASSWD"];
+      #         }
+      #       ];
+      #     }
+      #   ];
+      # };
+      rtkit.enable = true;
+      polkit.enable = true;
+      sudo.wheelNeedsPassword = false;
+      pam.services = {
+        greetd.enableGnomeKeyring = true;
+        login.kwallet.enable = true;
+        gdm.kwallet.enable = true;
+        gdm-password.kwallet.enable = true;
+        # hyprlock = { };
+        # Unlock GNOME Keyring on login for GVFS credentials
+        login.enableGnomeKeyring = true;
+        gdm-password.enableGnomeKeyring = true;
+      };
     };
   };
-  };
-
 
   fonts.packages = with pkgs; [
     noto-fonts

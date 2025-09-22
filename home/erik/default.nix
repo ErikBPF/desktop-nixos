@@ -50,8 +50,8 @@
           HostName github.com
           User git
           IdentityFile ~/.ssh/id_rsa
-    '';
-    mode = "0400";
+      '';
+      mode = "0400";
     };
   };
 
