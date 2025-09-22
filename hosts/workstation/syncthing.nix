@@ -31,10 +31,10 @@
     settings = {
       devices = {
         "Moon" = {
-          id = ''${builtins.readFile config.sops.secrets."syncthing/moon_id".path}'';
+          id = $(cat ${config.sops.secrets."syncthing/moon_id".path});
         };
         "archlinux" = {
-          id = ''${builtins.readFile config.sops.secrets."syncthing/archlinux_id".path}'';
+          id = $(cat ${config.sops.secrets."syncthing/archlinux_id".path});
         };
       };
 
