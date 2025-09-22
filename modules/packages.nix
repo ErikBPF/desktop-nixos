@@ -69,6 +69,14 @@
     seahorse # GUI to manage the keyring
     libsecret # CLI tools (secret-tool)
 
+    btrfs-progs
+    btrfs-snap
+    pciutils
+    cifs-utils
+    samba
+    fuse
+    fuse3
+
     # --- Hardware Information Tools ---
     dmidecode # Tool for dumping a computer's DMI (some say SMBIOS) table contents in a human-readable format
     dool # System statistics tool (dstat replacement)
@@ -139,6 +147,7 @@
       wl-clipboard # clipboard utilities for Wayland
       # --- Secrets Management ---
       sops # Editor of encrypted files
+      atuin
 
       # --- Wayland Utilities ---
       swappy # A Wayland-native snapshot editing tool
