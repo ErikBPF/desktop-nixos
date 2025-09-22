@@ -39,7 +39,6 @@
     kernelPackages = pkgs.linuxPackages_zen;
   };
 
-
   services.btrfs.autoScrub.enable = true;
   nix.settings.auto-optimise-store = true;
   nix.gc = {
@@ -53,7 +52,6 @@
     algorithm = "zstd";
   };
 
-
   systemd = {
     slices."nix-daemon".sliceConfig = {
       ManagedOOMMemoryPressure = "kill";
@@ -66,7 +64,7 @@
       };
     };
   };
-      
+
   services.openssh.enable = true;
 
   home-manager.useGlobalPkgs = true;
