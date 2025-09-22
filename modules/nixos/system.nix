@@ -120,33 +120,34 @@ in {
   security = {
     sudo = {
       enable = true;
-      #   extraRules = [
-      #     {
-      #       groups = ["wheel"];
-      #       commands = [
-      #         {
-      #           command = "ALL";
-      #           options = ["NOPASSWD"];
-      #         }
-      #       ];
-      #     }
-      #   ];
-      # };
-      rtkit.enable = true;
-      polkit.enable = true;
-      sudo.wheelNeedsPassword = false;
-      pam.services = {
-        greetd.enableGnomeKeyring = true;
-        login.kwallet.enable = true;
-        gdm.kwallet.enable = true;
-        gdm-password.kwallet.enable = true;
-        # hyprlock = { };
-        # Unlock GNOME Keyring on login for GVFS credentials
-        login.enableGnomeKeyring = true;
-        gdm-password.enableGnomeKeyring = true;
-      };
+    #   extraRules = [
+    #     {
+    #       groups = ["wheel"];
+    #       commands = [
+    #         {
+    #           command = "ALL";
+    #           options = ["NOPASSWD"];
+    #         }
+    #       ];
+    #     }
+    #   ];
+    # };
+    };
+    rtkit.enable = true;
+    polkit.enable = true;
+    sudo.wheelNeedsPassword = false;
+    pam.services = {
+      greetd.enableGnomeKeyring = true;
+      login.kwallet.enable = true;
+      gdm.kwallet.enable = true;
+      gdm-password.kwallet.enable = true;
+      # hyprlock = { };
+      # Unlock GNOME Keyring on login for GVFS credentials
+      login.enableGnomeKeyring = true;
+      gdm-password.enableGnomeKeyring = true;
     };
   };
+
 
   fonts.packages = with pkgs; [
     noto-fonts
