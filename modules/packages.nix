@@ -76,6 +76,7 @@
     samba
     fuse
     fuse3
+    syncthing
 
     # --- Hardware Information Tools ---
     dmidecode # Tool for dumping a computer's DMI (some say SMBIOS) table contents in a human-readable format
