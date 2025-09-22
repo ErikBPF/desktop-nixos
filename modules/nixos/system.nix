@@ -37,6 +37,10 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs.direnv.enable = true;
 
+  systemd.tmpfiles.rules = [
+      "d '/var/cache/tuigreet' - greeter greeter - -"
+    ];
+
   # Services
   services = {
     xserver = {
@@ -64,9 +68,6 @@ in {
       enable = true;
       settings.default_session.command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     };
-    systemd.tmpfiles.rules = [
-      "d '/var/cache/tuigreet' - greeter greeter - -"
-    ];
     fstrim.enable = true;
     resolved.enable = true;
     udisks2.enable = true;
