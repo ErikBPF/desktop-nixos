@@ -60,6 +60,15 @@
     };
   };
 
+  # system.autoUpgrade = {
+  #   enable = true;
+  #   flake = "github:ErikBPF/desktop-nixos#workstation";
+  #   operation = "boot";
+  #   randomizedDelaySec = "45min";
+  #   allowReboot = false;
+  #   dates = "02:00";
+  # };
+
   services.openssh.enable = true;
 
   home-manager.useGlobalPkgs = true;
