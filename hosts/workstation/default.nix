@@ -36,8 +36,37 @@
       };
       timeout = 300;
     };
+    kernelPackages = pkgs.linuxPackages_zen;
   };
 
+
+  services.btrfs.autoScrub.enable = true;
+  nix.settings.auto-optimise-store = true;
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 15d";
+  };
+
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+  };
+
+
+  systemd = {
+    slices."nix-daemon".sliceConfig = {
+      ManagedOOMMemoryPressure = "kill";
+      ManagedOOMMemoryPressureLimit = "95%";
+    };
+    services."nix-daemon" = {
+      serviceConfig = {
+        Slice = "nix-daemon.slice";
+        OOMScoreAdjust = 1000;
+      };
+    };
+  };
+      
   services.openssh.enable = true;
 
   home-manager.useGlobalPkgs = true;
