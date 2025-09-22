@@ -55,4 +55,5 @@
       mode = "0400";
     };
   };
+  programs.fish.enable = true;
 }
