@@ -22,9 +22,9 @@
 
   programs.home-manager.enable = true;
 
-  programs.ssh = {
-    enable = true;
-  };
+  # programs.ssh = {
+  #   enable = true;
+  # };
 
   programs.git = {
     enable = true;
