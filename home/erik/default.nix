@@ -24,17 +24,35 @@
 
   programs.ssh = {
     enable = true;
-    extraConfig = ''
-      Host github_erikbpf
-        HostName github.com
-        User git
-        IdentityFile ~/.ssh/id_ed25519
+  };
 
-      Host github_nstech
-        HostName github.com
-        User git
-        IdentityFile ~/.ssh/id_rsa
+  environment.etc = {
+    "/home/erik/.ssh/config" = {
+      text = ''
+        Host *
+          ForwardAgent no
+          AddKeysToAgent no
+          Compression no
+          ServerAliveInterval 0
+          ServerAliveCountMax 3
+          HashKnownHosts no
+          UserKnownHostsFile ~/.ssh/known_hosts
+          ControlMaster no
+          ControlPath ~/.ssh/master-%r@%n:%p
+          ControlPersist no
+
+        Host github_erikbpf
+          HostName github.com
+          User git
+          IdentityFile ~/.ssh/id_ed25519
+
+        Host github_nstech
+          HostName github.com
+          User git
+          IdentityFile ~/.ssh/id_rsa
     '';
+    mode = "0400";
+    };
   };
 
   programs.git = {
