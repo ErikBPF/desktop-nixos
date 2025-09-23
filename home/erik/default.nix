@@ -80,7 +80,7 @@
     gtk-cursor-theme-size=24
     gtk-application-prefer-dark-theme=true
     '';
-    "config/qt6ct/qt6ct.conf".text = ''
+    ".config/qt6ct/qt6ct.conf".text = ''
     [Appearance]
     style=adwaita-dark
     icon_theme=Papirus-Dark
