@@ -75,7 +75,7 @@ in {
 
         "custom/lock_screen" = {
           format = "";
-          on-click = "sh -c '(sleep 0.5s; swaylock)' & disown";
+          on-click = "sh -c '(sleep 0.5s; hyprlock)' & disown";
           tooltip = false;
         };
 
