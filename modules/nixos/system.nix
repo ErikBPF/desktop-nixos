@@ -51,9 +51,9 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs.direnv.enable = true;
 
-  # systemd.tmpfiles.rules = [
-  #     "d '/var/cache/tuigreet' - greeter greeter - -"
-  #   ];
+  systemd.tmpfiles.rules = [
+      "d '/var/cache/tuigreet' - greeter greeter - -"
+    ];
 
   # Services
   services = {
@@ -63,7 +63,6 @@ in {
       # 	sddm.enable = true;
       #         sddm.theme = "${import ./sddm-theme.nix { inherit pkgs; }}";
       # };
-      displayManager.gdm.enable = true;
       xkb = {
         layout = "qwerty-fr";
         variant = "qwerty-fr";
@@ -78,10 +77,10 @@ in {
         };
       };
     };
-    # greetd = {
-    #   enable = true;
-    #   settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
-    # };
+    greetd = {
+      enable = true;
+      settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
+    };
     fstrim.enable = true;
     resolved.enable = true;
     udisks2.enable = true;
@@ -99,10 +98,10 @@ in {
     # Secret Service provider for GVFS credentials (SFTP/SMB/WebDAV)
     gnome.gnome-keyring.enable = true;
     # Display manager for Hyprland
-    displayManager.gdm = {
-      enable = true;
-      wayland = true;
-    };
+    # displayManager.gdm = {
+    #   enable = true;
+    #   wayland = true;
+    # };
     printing.enable = true;
     pulseaudio.enable = false;
     pipewire = {
