@@ -32,7 +32,6 @@ in {
     };
     iconTheme = "Papirus-Dark";
     cursorTheme = "Bibata-Modern-Ice";
-  };
   gtk3 = {
     enable = true;
     extraConfig = {
@@ -52,5 +51,6 @@ in {
       gtk-cursor-theme-name="Bibata-Modern-Ice";
       gtk-cursor-theme-size=24;
     };
+  };
   };
 }
