@@ -12,12 +12,12 @@
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
-      # "syncthing/moon_id" = {};
-      # "syncthing/archlinux_id" = {};
+      "syncthing/moon_id" = {};
+      "syncthing/archlinux_id" = {};
     };
   };
   services.syncthing = {
-    enable = false;
+    enable = true;
     guiAddress = "127.0.0.1:8384";
     openDefaultPorts = true;
     relay = {
