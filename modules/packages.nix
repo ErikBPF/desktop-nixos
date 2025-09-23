@@ -174,7 +174,7 @@
       fastfetch # A neofetch-like tool for fetching system information and displaying it in a pretty way
 
       # --- Programming Languages & Runtimes ---
-      python3Full # The Python programming language
+      python3Minimal # The Python programming language
       uv # An extremely fast Python package installer and resolver, written in Rust
       go # The Go programming language
       go-protobuf # Go bindings for protocol buffers
