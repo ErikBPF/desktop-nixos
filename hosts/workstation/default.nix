@@ -60,6 +60,14 @@
     };
   };
 
+  networking = {
+    hostName = "workstation";
+    networkmanager.enable = true;
+    networkmanager.dns = "systemd-resolved";
+    firewall = {
+      enable = false;
+    };
+  };
   # system.autoUpgrade = {
   #   enable = true;
   #   flake = "github:ErikBPF/desktop-nixos#workstation";
