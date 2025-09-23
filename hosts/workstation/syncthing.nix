@@ -66,4 +66,10 @@
       };
     };
   };
+
+  # Ensure syncthing waits for sops secrets to be available
+  systemd.services.syncthing = {
+    after = [ "sops-nix.service" ];
+    wants = [ "sops-nix.service" ];
+  };
 }
