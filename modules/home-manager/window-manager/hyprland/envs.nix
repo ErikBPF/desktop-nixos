@@ -24,8 +24,8 @@ in {
         "HYPRCURSOR_SIZE,24"
 
         # Cursor theme
-        "XCURSOR_THEME,Vimix"
-        "HYPRCURSOR_THEME,Vimix"
+        "XCURSOR_THEME,Vimix-cursors"
+        "HYPRCURSOR_THEME,Vimix-cursors"
 
         # Force all apps to use Wayland
         "GDK_BACKEND,wayland"
