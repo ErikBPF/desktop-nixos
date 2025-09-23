@@ -62,7 +62,8 @@
 
   # --- List ---
   # List ->
-  ls = "eza -l";
+  # ls = "eza -l";
+  ls = "eza --icons -la";
   la = "eza -la";
   llc = "eza -1";
   lac = "eza -1a";
