@@ -11,6 +11,7 @@
   home.username = "erik";
   home.homeDirectory = "/home/erik";
   home.stateVersion = "25.05";
+  home.enableNixpkgsReleaseCheck = false;
 
   xdg = {
     enable = true;
