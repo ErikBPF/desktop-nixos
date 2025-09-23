@@ -27,8 +27,30 @@ in {
   gtk = {
     enable = true;
     theme = {
-      name = "Adwaita:dark";
-      package = pkgs.gnome-themes-extra;
+      name = "Tokyonight-Dark-B";
+      # package = pkgs.gnome-themes-extra;
+    };
+    iconTheme = "Papirus-Dark";
+    cursorTheme = "Bibata-Modern-Ice";
+  };
+  gtk3 = {
+    enable = true;
+    extraConfig = {
+      gtk-application-prefer-dark-theme=true;
+      gtk-theme-name="Tokyonight-Dark-B";
+      gtk-icon-theme-name="Papirus-Dark";
+      gtk-cursor-theme-name="Bibata-Modern-Ice";
+      gtk-cursor-theme-size=24;
+    };
+  };
+    gtk4 = {
+    enable = true;
+    extraConfig = {
+      gtk-application-prefer-dark-theme=true;
+      gtk-theme-name="Tokyonight-Dark-B";
+      gtk-icon-theme-name="Papirus-Dark";
+      gtk-cursor-theme-name="Bibata-Modern-Ice";
+      gtk-cursor-theme-size=24;
     };
   };
 }
