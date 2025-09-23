@@ -61,9 +61,49 @@
 
   home.file = {
     ".config/bat/config".text = ''
-      --theme="Nord"
       --style="numbers,changes,grid"
       --paging=auto
+    '';
+    ".config/gtk-3.0/settings.ini".text = ''
+    [Settings]
+    gtk-theme-name=Tokyonight-Dark-B
+    gtk-icon-theme-name=Papirus-Dark
+    gtk-cursor-theme-name=Bibata-Modern-Ice
+    gtk-cursor-theme-size=24
+    gtk-application-prefer-dark-theme=true
+    '';
+    ".config/gtk-4.0/settings.ini".text = ''
+    [Settings]
+    gtk-theme-name=Tokyonight-Dark-B
+    gtk-icon-theme-name=Papirus-Dark
+    gtk-cursor-theme-name=Bibata-Modern-Ice
+    gtk-cursor-theme-size=24
+    gtk-application-prefer-dark-theme=true
+    '';
+    "config/qt6ct/qt6ct.conf".text = ''
+    [Appearance]
+    style=adwaita-dark
+    icon_theme=Papirus-Dark
+    standard_dialogs=gtk3
+    palette=
+    [Fonts]
+    fixed=@Variant(\0\0\0\x7f\0\0\0\n\0M\0o\0n\0o\0s\0p\0a\0c\0e\0\0\0\0\0\0\0\0\0\x1e\0\0\0\0\0\0\0\0\0\0\0\0\0\0)
+    general=@Variant(\0\0\0\x7f\0\0\0\n\0I\0n\0t\0e\0r\0\0\0\0\0\0\0\0\0\x1e\0\0\0\0\0\0\0\0\0\0\0\0\0\0)
+    [Interface]
+    double_click_interval=400
+    cursor_flash_time=1000
+    buttonbox_layout=0
+    keyboard_scheme=2
+    gui_effects=@Invalid()
+    wheel_scroll_lines=3
+    resolve_symlinks=true
+    single_click_activate=false
+    tabs_behavior=0
+    [SettingsWindow]
+    geometry=@ByteArray(AdnQywADAAAAAAAAB3wAAAQqAAAADwAAAB9AAAAEKgAAAA8AAAAAAAEAAAHfAAAAAQAAAAQAAAAfAAAABCg=)
+    [Troubleshooting]
+    force_raster_widgets=false
+    ignore_platform_theme=false
     '';
     ".ssh/sops/ro_id_ed25519" = {
       source = config.sops.secrets.id_ed25519.path;

@@ -30,6 +30,7 @@ in {
         # Force all apps to use Wayland
         "GDK_BACKEND,wayland"
         "QT_QPA_PLATFORM,wayland"
+        "QT_QPA_PLATFORMTHEME,qt6ct"
         "QT_STYLE_OVERRIDE,kvantum"
         "SDL_VIDEODRIVER,wayland"
         "MOZ_ENABLE_WAYLAND,1"
