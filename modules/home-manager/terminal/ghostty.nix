@@ -6,6 +6,7 @@
       font-family = "JetBrainsMono Nerd Font";
       font-size = 10;
       freetype-load-flags = "no-force-autohint";
+      theme = "TokyoNight Night";
       # adjust-cell-width = "-10%";
     };
   };
