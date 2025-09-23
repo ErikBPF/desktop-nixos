@@ -63,6 +63,9 @@
     qt6.qtbase
     qt6.qtwayland
     playerctl
+    tokyo-night-gtk
+    papirus-icon-theme
+    bibata-cursors
     kdePackages.kwallet
     kdePackages.kwallet-pam
     kdePackages.kate
