@@ -24,8 +24,8 @@ in {
         "HYPRCURSOR_SIZE,24"
 
         # Cursor theme
-        # "XCURSOR_THEME,Adwaita"
-        # "HYPRCURSOR_THEME,Adwaita"
+        "XCURSOR_THEME,Vimix"
+        "HYPRCURSOR_THEME,Vimix"
 
         # Force all apps to use Wayland
         "GDK_BACKEND,wayland"
@@ -49,7 +49,7 @@ in {
         "EDITOR,nvim"
 
         # GTK theme
-        # "GTK_THEME,Adwaita:dark"
+        "GTK_THEME,Adwaita:dark"
         # Podman compatibility. Probably need to add cfg.env?
         # "DOCKER_HOST,unix://$XDG_RUNTIME_DIR/podman/podman.sock"
       ];
