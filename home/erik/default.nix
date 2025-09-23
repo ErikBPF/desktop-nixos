@@ -64,22 +64,6 @@
       --style="numbers,changes,grid"
       --paging=auto
     '';
-    # ".config/gtk-3.0/settings.ini".text = ''
-    # [Settings]
-    # gtk-theme-name=Tokyonight-Dark-B
-    # gtk-icon-theme-name=Papirus-Dark
-    # gtk-cursor-theme-name=Bibata-Modern-Ice
-    # gtk-application-prefer-dark-theme=true
-    # gtk-cursor-theme-size=24
-    # '';
-    # ".config/gtk-4.0/settings.ini".text = ''
-    # [Settings]
-    # gtk-theme-name=Tokyonight-Dark-B
-    # gtk-icon-theme-name=Papirus-Dark
-    # gtk-cursor-theme-name=Bibata-Modern-Ice
-    # gtk-cursor-theme-size=24
-    # gtk-application-prefer-dark-theme=true
-    # '';
     ".config/qt6ct/qt6ct.conf".text = ''
     [Appearance]
     style=adwaita-dark

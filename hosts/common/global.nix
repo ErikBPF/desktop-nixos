@@ -55,15 +55,5 @@
     };
   };
 
-  #   services.tailscale.enable = true;
-
-  # environment.systemPackages = [pkgs.sops pkgs.btop];
-
-  # sops = {
-  #   age.keyFile = "/home/erik/.config/sops/age/keys.txt";
-  #   defaultSopsFormat = "yaml";
-  #   defaultSopsFile = ../../secrets/secrets.yaml;
-  # };
-
   system.stateVersion = "25.05";
 }
