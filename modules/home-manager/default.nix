@@ -26,12 +26,6 @@ in {
 
   gtk = {
     enable = true;
-    theme = {
-      name = "Tokyonight-Dark-B";
-      # package = pkgs.gnome-themes-extra;
-    };
-    iconTheme = "Papirus-Dark";
-    cursorTheme = "Bibata-Modern-Ice";
   gtk3 = {
     extraConfig = {
       gtk-application-prefer-dark-theme=true;
