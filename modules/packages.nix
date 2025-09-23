@@ -72,6 +72,9 @@
     tokyo-night-gtk
     papirus-icon-theme
     bibata-cursors
+    vimix-cursors
+    vimix-icon-theme
+    vimix-gtk-themes
     kdePackages.kwallet
     kdePackages.kwallet-pam
     kdePackages.kate

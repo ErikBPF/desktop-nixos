@@ -31,7 +31,7 @@ in {
       gtk-application-prefer-dark-theme=true;
       gtk-theme-name="Tokyonight-Dark-B";
       gtk-icon-theme-name="Papirus-Dark";
-      gtk-cursor-theme-name="Bibata-Modern-Ice";
+      gtk-cursor-theme-name="Vimix";
       gtk-cursor-theme-size=24;
     };
   };
@@ -40,7 +40,7 @@ in {
       gtk-application-prefer-dark-theme=true;
       gtk-theme-name="Tokyonight-Dark-B";
       gtk-icon-theme-name="Papirus-Dark";
-      gtk-cursor-theme-name="Bibata-Modern-Ice";
+      gtk-cursor-theme-name="Vimix";
       gtk-cursor-theme-size=24;
     };
   };
