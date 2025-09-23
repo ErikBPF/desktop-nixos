@@ -85,5 +85,4 @@
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };
 
-  system.stateVersion = "25.05";
 }

@@ -64,4 +64,7 @@
   #   defaultSopsFormat = "yaml";
   #   defaultSopsFile = ../../secrets/secrets.yaml;
   # };
+
+  # system.stateVersion = "25.05";
+  system.stateVersion = "unstable";
 }
