@@ -55,6 +55,21 @@
     gsettings-desktop-schemas # Collection of GSettings schemas
     gcc # GNU compiler collection
     pkg-config # A helper tool used when compiling applications and libraries
+    xdg-desktop-portal-hyprland
+    xdg-desktop-portal-gtk
+    xdg-utils
+    desktop-file-utils
+    kdePackages.polkit-kde-agent-1
+    qt6.qtbase
+    qt6.qtwayland
+    playerctl
+    kdePackages.kwallet
+    kdePackages.kwallet-pam
+    kdePackages.kate
+    wiremix
+    fcitx5
+    fcitx5-gtk
+    kdePackages.fcitx5-qt
 
     # --- Graphics & Hardware ---
     libGL # Mesa's implementation of the OpenGL API
