@@ -17,7 +17,7 @@
     };
   };
   services.syncthing = {
-    enable = true;
+    enable = false;
     guiAddress = "127.0.0.1:8384";
     openDefaultPorts = true;
     relay = {
