@@ -13,10 +13,10 @@
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
       "syncthing/moon_id" = {
-        neededForUsers = true
+        neededForUsers = true;
       };
       "syncthing/archlinux_id" = {
-        neededForUsers = true
+        neededForUsers = true;
       };
     };
   };
