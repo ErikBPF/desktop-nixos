@@ -12,8 +12,12 @@
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/secrets.yaml;
     secrets = {
-      "syncthing/moon_id" = {};
-      "syncthing/archlinux_id" = {};
+      "syncthing/moon_id" = {
+        neededForUsers = true
+      };
+      "syncthing/archlinux_id" = {
+        neededForUsers = true
+      };
     };
   };
   services.syncthing = {
