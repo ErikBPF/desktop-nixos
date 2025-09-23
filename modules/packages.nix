@@ -20,6 +20,9 @@
     libinput-gestures # Adds gesture support from libinput
     nwg-displays
     dconf
+    ffmpegthumbnailer
+    gnome.gvfs
+    imv
   ];
 
   # Essential system packages - cannot be excluded
@@ -55,6 +58,9 @@
     gsettings-desktop-schemas # Collection of GSettings schemas
     gcc # GNU compiler collection
     pkg-config # A helper tool used when compiling applications and libraries
+    swappy
+    wf-recorder
+    wlroots
     xdg-desktop-portal-hyprland
     xdg-desktop-portal-gtk
     xdg-utils
@@ -95,6 +101,7 @@
     fuse
     fuse3
     syncthing
+    syncthingtray
 
     # --- Hardware Information Tools ---
     dmidecode # Tool for dumping a computer's DMI (some say SMBIOS) table contents in a human-readable format
