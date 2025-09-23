@@ -72,6 +72,7 @@
     tokyo-night-gtk
     papirus-icon-theme
     bibata-cursors
+    adwaita-icon-theme
     kdePackages.kwallet
     kdePackages.kwallet-pam
     kdePackages.kate
