@@ -34,7 +34,7 @@
         useOSProber = true;
         timeoutStyle = "menu";
       };
-      timeout = 300;
+      timeout = 1;
     };
     kernelPackages = pkgs.linuxPackages_zen;
   };
