@@ -12,7 +12,7 @@
       "blueman-applet" # Systray app for BT
       "nm-applet --indicator" # Systray app for Network/Wifi
       "tailscale-systray --accept-routes" # Systray tailscale
-      "syncthingtray --single-instance"
+      "syncthingtray --single-instance --wait"
       "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland"
       "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland"
 
