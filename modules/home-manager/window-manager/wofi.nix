@@ -67,7 +67,7 @@
         }
 
         #text:selected {
-            color: #${config.colorScheme.palette.base0C};
+            color: #${config.colorScheme.palette.base0E};
             margin: 0px 0px;
             border: none;
             border-radius: 10px;
