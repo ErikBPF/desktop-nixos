@@ -63,7 +63,7 @@ in {
       # 	sddm.enable = true;
       #         sddm.theme = "${import ./sddm-theme.nix { inherit pkgs; }}";
       # };
-
+      displayManager.gdm.enable = true;
       xkb = {
         layout = "qwerty-fr";
         variant = "qwerty-fr";
