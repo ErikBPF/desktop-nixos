@@ -33,7 +33,6 @@ in {
     iconTheme = "Papirus-Dark";
     cursorTheme = "Bibata-Modern-Ice";
   gtk3 = {
-    enable = true;
     extraConfig = {
       gtk-application-prefer-dark-theme=true;
       gtk-theme-name="Tokyonight-Dark-B";
@@ -43,7 +42,6 @@ in {
     };
   };
     gtk4 = {
-    enable = true;
     extraConfig = {
       gtk-application-prefer-dark-theme=true;
       gtk-theme-name="Tokyonight-Dark-B";
