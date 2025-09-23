@@ -6,5 +6,6 @@
     ./zoxide.nix
     ./kitty.nix
     ./ghostty.nix
+    ./atuin.nix
   ];
 }
