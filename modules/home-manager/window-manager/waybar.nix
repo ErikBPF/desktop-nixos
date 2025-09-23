@@ -89,7 +89,7 @@ in {
           interval = 10;
           format = " {usage}%";
           max-length = 10;
-          on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
+          on-click = "ghostty -e btop";
         };
 
         disk = {
@@ -98,7 +98,7 @@ in {
           path = "/";
           tooltip = true;
           tooltip-format = "HDD - {used} used out of {total} on {path} ({percentage_used}%)";
-          on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
+          on-click = "ghostty -e btop";
         };
 
         memory = {
@@ -107,7 +107,7 @@ in {
           max-length = 10;
           tooltip = true;
           tooltip-format = "Memory - {used:0.1f}GB used";
-          on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
+          on-click = "ghostty -e btop";
         };
 
         # "custom/updates" = {
@@ -236,7 +236,7 @@ in {
           format = " {temperatureC}°C";
           critical-threshold = 70;
           format-critical = " {temperatureF}°F";
-          on-click = "ghostty --start-as=fullscreen --title btop sh -c 'btop'";
+          on-click = "ghostty -e btop";
         };
       }
     ];
