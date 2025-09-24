@@ -5,7 +5,6 @@
   ...
 }:
 {
-  # Add these kernel modules
   boot.kernelModules = [
     "nvidia"
     "nvidia_modeset"
@@ -14,7 +13,6 @@
     "kvm-intel"
   ];
 
-  # NVIDIA drivers package (use the stable version)
  services.xserver.videoDrivers = ["nvidia"];
 
   hardware.nvidia = {
@@ -29,7 +27,7 @@
 
     nvidiaSettings = true;
 
-    package = config.boot.kernelPackages.nvidiaPackages.production;
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
 
     prime = {
   		offload = {
