@@ -10,13 +10,11 @@
       generateKey = true;
     };
     defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
+    defaultSopsFile = ../../secrets/sops/secrets.yaml;
     secrets = {
       "syncthing/moon_id" = {
-        neededForUsers = true;
       };
       "syncthing/archlinux_id" = {
-        neededForUsers = true;
       };
     };
   };
@@ -35,10 +33,10 @@
     settings = {
       devices = {
         "Moon" = {
-          id = ''${builtins.readFile config.sops.secrets."syncthing/moon_id".path}'';
+          id = ''${secrets.syncthing.moon_id}'';
         };
         "archlinux" = {
-          id = ''${builtins.readFile config.sops.secrets."syncthing/archlinux_id".path}'';
+          id = ''${secrets.syncthing.archlinux_id}'';
         };
       };
 

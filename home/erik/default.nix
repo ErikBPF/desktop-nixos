@@ -51,7 +51,7 @@
       generateKey = true;
     };
     defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
+    defaultSopsFile = ../../secrets/sops/secrets.yaml;
     secrets = {
       password = {};
       id_ed25519 = {};

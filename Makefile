@@ -5,6 +5,7 @@ update:
 	
 build:
 	git pull;
+	git-crypt unlock ./secret-key
 	sudo nixos-rebuild switch --flake .#workstation --impure --show-trace
 
 upgrade:
@@ -42,9 +43,12 @@ age-public:
 	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command shell nixpkgs#age -c age-keygen -y ~/.config/sops/age/keys.txt
 
 sops:
-	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command run nixpkgs#sops -- secrets/secrets.yaml
+	sudo nix  --extra-experimental-features flakes --extra-experimental-features nix-command run nixpkgs#sops -- secrets/sops/secrets.yaml
 
-# rsync:
-#     rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
+rsync-sops:
+    rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
+
+rsync-crypt:
+    rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
 
 
