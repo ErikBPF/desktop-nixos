@@ -52,7 +52,10 @@
       sshKeys = ["D528D50F4E9F031AACB1F7A9833E49C848D6C90"];
       pinentry.package = pkgs.pinentry-gnome3;
     };
-
+  services.cliphist = {
+    enable = true;
+    allowImages = true;
+  };
   sops = {
     age = {
       keyFile = "/home/erik/.config/sops/age/keys.txt";

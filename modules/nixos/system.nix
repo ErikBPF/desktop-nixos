@@ -90,10 +90,6 @@ in {
     tumbler.enable = true;
     # Bluetooth manager (tray + UI)
     blueman.enable = true;
-    cliphist = {
-    enable = true;
-    allowImages = true;
-  };
     # Network service discovery for "Browse Network" in Thunar and SMB service discovery
     avahi = {
       enable = true;
