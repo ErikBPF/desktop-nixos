@@ -75,9 +75,9 @@
     vimix-cursors
     vimix-icon-theme
     vimix-gtk-themes
-    kdePackages.kwallet
-    kdePackages.kwallet-pam
-    kdePackages.kate
+    # kdePackages.kwallet
+    # kdePackages.kwallet-pam
+    # kdePackages.kate
     wiremix
     fcitx5
     fcitx5-gtk
