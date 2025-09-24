@@ -122,6 +122,9 @@
     btop
     zfxtop
     kmon
+    nvd
+    dotnetCorePackages.runtime_9_0-bin
+    dotnetCorePackages.sdk_9_0-bin
 
 
     # --- Hardware Information Tools ---
