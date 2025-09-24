@@ -79,17 +79,6 @@ in {
     };
     greetd = {
       enable = true;
-      Type = "idle";
-      StandardInput = "tty";
-      StandardOutput = "tty";
-
-      # without this errors will spam on screen
-      StandardError = "journal";
-
-      # without these bootlogs will spam on screen
-      TTYReset = true;
-      TTYVHangup = true;
-      TTYVTDisallocate = true;
       settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     };
     fstrim.enable = true;
@@ -145,18 +134,6 @@ in {
   security = {
     sudo = {
       enable = true;
-    #   extraRules = [
-    #     {
-    #       groups = ["wheel"];
-    #       commands = [
-    #         {
-    #           command = "ALL";
-    #           options = ["NOPASSWD"];
-    #         }
-    #       ];
-    #     }
-    #   ];
-    # };
     };
     rtkit.enable = true;
     polkit.enable = true;
@@ -172,6 +149,15 @@ in {
       login.enableGnomeKeyring = true;
       gdm-password.enableGnomeKeyring = true;
     };
+  };
+    systemd.services.greetd.serviceConfig = {
+    Type = "idle";
+    StandardInput = "tty";
+    StandardOutput = "tty";
+    StandardError = "journal";
+    TTYReset = true;
+    TTYVHangup = true;
+    TTYVTDisallocate = true;
   };
 
 
