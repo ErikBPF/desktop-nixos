@@ -18,9 +18,9 @@
   hardware.nvidia = {
     open = false;
     modesetting.enable = true;
-    powerManagement.enable = false;
+    powerManagement.enable = true;
 
-    powerManagement.finegrained = false;
+    powerManagement.finegrained = true;
 
     dynamicBoost.enable = lib.mkForce true;
 
@@ -29,15 +29,15 @@
 
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
-    prime = {
-  		offload = {
-  			enable = true;
-  			enableOffloadCmd = true;
-  		};
+    # prime = {
+  	# 	offload = {
+  	# 		enable = true;
+  	# 		enableOffloadCmd = true;
+  	# 	};
 
-  		nvidiaBusId = "PCI:01:00:0";
-  		intelBusId = "PCI:00:02:0";
-  	};
+  	# 	nvidiaBusId = "PCI:01:00:0";
+  	# 	intelBusId = "PCI:00:02:0";
+  	# };
   };
   specialisation = {
     nvidia-sync.configuration = {
