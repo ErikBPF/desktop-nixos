@@ -20,7 +20,7 @@
     modesetting.enable = true;
     powerManagement.enable = true;
 
-    powerManagement.finegrained = true;
+    # powerManagement.finegrained = true;
 
     dynamicBoost.enable = lib.mkForce true;
 
