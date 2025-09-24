@@ -48,7 +48,7 @@ sops:
 rsync-sops:
     rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
 
-rsync-crypt:
-    rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
+# rsync-crypt:
+#     rsync -azv --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" --filter=':- .gitignore' -e "ssh -l erik -oport=22" ~/.config/sops/age/ erik@192.168.10.125:~/.config/sops/age/
 
 
