@@ -5,10 +5,6 @@
   ...
 }:
 {
-  imports = [
-    ./base.nix
-  ];
-
   # Add these kernel modules
   boot.kernelModules = [
     "nvidia"
