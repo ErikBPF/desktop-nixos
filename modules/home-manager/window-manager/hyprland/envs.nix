@@ -39,7 +39,7 @@ in {
         "NIXOS_OZONE_WL,1"
 
         # Make Chromium use XCompose and all Wayland
-        "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --ozone-platform=wayland --gtk-version=4\""
+        "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --ozone-platform=wayland --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks,Vulkan,DefaultANGLEVulkan,VulkanFromANGLE --use-angle=vulkan --use-cmd-decoder=passthrough --gtk-version=4\""
 
         # Make .desktop files available for wofi
         "XDG_DATA_DIRS,$XDG_DATA_DIRS:$HOME/.nix-profile/share:/nix/var/nix/profiles/default/share"
