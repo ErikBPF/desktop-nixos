@@ -68,14 +68,19 @@
       enable = false;
     };
   };
-  # system.autoUpgrade = {
-  #   enable = true;
-  #   flake = "github:ErikBPF/desktop-nixos#workstation";
-  #   operation = "boot";
-  #   randomizedDelaySec = "45min";
-  #   allowReboot = false;
-  #   dates = "02:00";
-  # };
+
+  system.autoUpgrade = {
+    enable = true;
+    flake = "github:ErikBPF/desktop-nixos#workstation";
+    operation = "switch";
+    randomizedDelaySec = "45min";
+    flags = [
+      "--impure"
+      "--show-trace"
+    ];
+    allowReboot = false;
+    dates = "05:00";
+  };
 
   services.openssh.enable = true;
 
