@@ -106,6 +106,7 @@
     syncthing
     syncthingtray
     tailscale-systray
+    git-crypt
 
 
     # --- Hardware Information Tools ---
