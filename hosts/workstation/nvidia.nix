@@ -77,7 +77,5 @@
     nvtopPackages.intel
   ];
 
-  services.xserver.videoDrivers = [ "nvidia" ];
-
   #services.xserver.displayManager.wayland.enable = true;
 }
