@@ -18,9 +18,9 @@
   hardware.nvidia = {
     open = false;
     modesetting.enable = true;
-    powerManagement.enable = true;
+    powerManagement.enable = false;
 
-    powerManagement.finegrained = true;
+    powerManagement.finegrained = false;
 
     dynamicBoost.enable = lib.mkForce true;
 
