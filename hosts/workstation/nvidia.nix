@@ -3,8 +3,7 @@
   pkgs,
   lib,
   ...
-}:
-{
+}: {
   boot.kernelModules = [
     "nvidia"
     "nvidia_modeset"
@@ -13,7 +12,7 @@
     "kvm-intel"
   ];
 
- services.xserver.videoDrivers = ["nvidia"];
+  services.xserver.videoDrivers = ["nvidia"];
 
   hardware.nvidia = {
     open = true;
@@ -24,20 +23,19 @@
 
     # dynamicBoost.enable = lib.mkForce true;
 
-
     # nvidiaSettings = true;
 
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
     # prime = {
-  	# 	offload = {
-  	# 		enable = true;
-  	# 		enableOffloadCmd = true;
-  	# 	};
+    # 	offload = {
+    # 		enable = true;
+    # 		enableOffloadCmd = true;
+    # 	};
 
-  	# 	nvidiaBusId = "PCI:01:00:0";
-  	# 	intelBusId = "PCI:00:02:0";
-  	# };
+    # 	nvidiaBusId = "PCI:01:00:0";
+    # 	intelBusId = "PCI:00:02:0";
+    # };
   };
   # specialisation = {
   #   nvidia-sync.configuration = {
