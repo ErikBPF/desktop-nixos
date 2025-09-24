@@ -5,7 +5,7 @@ update:
 	
 build:
 	git pull;
-	git-crypt unlock ./secret-key
+	# git-crypt unlock ./secret-key
 	sudo nixos-rebuild switch --flake .#workstation --impure --show-trace
 
 upgrade:
