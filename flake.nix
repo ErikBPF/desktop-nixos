@@ -44,7 +44,7 @@
     overlays = import ./overlays {inherit inputs;};
     nixosConfigurations = {
       workstation = nixpkgs.lib.nixosSystem {
-        specialArgs = {inherit inputs outputs;};
+        specialArgs = {inherit inputs outputs secrets;};
         system = "x86_64-linux";
         modules = [./hosts/workstation];
       };
