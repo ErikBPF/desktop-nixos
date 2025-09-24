@@ -108,6 +108,20 @@
     tailscale-systray
     git-crypt
     minikube
+    gpu-viewer
+    dig
+    speedtest-rs
+    onefetch
+    ipfetch
+    cpufetch
+    ramfetch
+    starfetch
+    octofetch
+    htop
+    bottom
+    btop
+    zfxtop
+    kmon
 
 
     # --- Hardware Information Tools ---
