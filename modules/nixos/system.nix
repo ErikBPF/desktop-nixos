@@ -79,6 +79,17 @@ in {
     };
     greetd = {
       enable = true;
+      Type = "idle";
+      StandardInput = "tty";
+      StandardOutput = "tty";
+
+      # without this errors will spam on screen
+      StandardError = "journal";
+
+      # without these bootlogs will spam on screen
+      TTYReset = true;
+      TTYVHangup = true;
+      TTYVTDisallocate = true;
       settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     };
     fstrim.enable = true;
@@ -152,6 +163,7 @@ in {
     sudo.wheelNeedsPassword = false;
     pam.services = {
       greetd.enableGnomeKeyring = true;
+      greetd.kwallet.enable = true;
       login.kwallet.enable = true;
       gdm.kwallet.enable = true;
       gdm-password.kwallet.enable = true;
