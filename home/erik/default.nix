@@ -38,6 +38,7 @@
 
   programs = {
     command-not-found.enable = false; # Required for fish
+    gpg.enable = true;
   };
 
   programs.nix-index = {

@@ -51,7 +51,6 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs= {
     direnv.enable = true;
-    gpg.enable = true;
     };
 
   systemd.tmpfiles.rules = [
