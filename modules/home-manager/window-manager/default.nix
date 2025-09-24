@@ -12,5 +12,6 @@
     ./mako.nix
     ./waybar.nix
     ./wofi.nix
+    ./wlogout.nix
   ];
 }

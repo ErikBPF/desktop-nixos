@@ -107,6 +107,7 @@
     syncthingtray
     tailscale-systray
     git-crypt
+    minikube
 
 
     # --- Hardware Information Tools ---
