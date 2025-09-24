@@ -142,7 +142,7 @@ in {
     sudo.wheelNeedsPassword = false;
     pam.services = {
       greetd.enableGnomeKeyring = true;
-      greetd.kwallet.enable = true;
+      greetd.kwallet.enable = false;
       login.kwallet.enable = true;
       gdm.kwallet.enable = true;
       gdm-password.kwallet.enable = true;
