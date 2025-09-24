@@ -49,7 +49,10 @@ in {
 
   # Install packages
   environment.systemPackages = packages.systemPackages;
-  programs.direnv.enable = true;
+  programs= {
+    direnv.enable = true;
+    gpg.enable = true;
+    };
 
   systemd.tmpfiles.rules = [
       "d '/var/cache/tuigreet' - greeter greeter - -"
@@ -103,6 +106,12 @@ in {
     #   wayland = true;
     # };
     printing.enable = true;
+    gpg-agent = {
+      enable = true;
+      enableSshSupport = true;
+      enableExtraSocket = true;
+      sshKeys = ["D528D50F4E9F031AACB1F7A9833E49C848D6C90"];
+      pinentryPackage = pkgs.pinentry-gnome3;
     pulseaudio.enable = false;
     pipewire = {
       enable = true;
