@@ -16,16 +16,16 @@
  services.xserver.videoDrivers = ["nvidia"];
 
   hardware.nvidia = {
-    open = false;
-    modesetting.enable = true;
+    open = true;
+    # modesetting.enable = true;
     powerManagement.enable = true;
 
     # powerManagement.finegrained = true;
 
-    dynamicBoost.enable = lib.mkForce true;
+    # dynamicBoost.enable = lib.mkForce true;
 
 
-    nvidiaSettings = true;
+    # nvidiaSettings = true;
 
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
