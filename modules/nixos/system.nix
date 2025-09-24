@@ -30,11 +30,11 @@ in {
     enable = true;
     xdgOpenUsePortal = true;
     # Hyprland module provides its own portal; include only GTK here to avoid duplicate units
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [pkgs.xdg-desktop-portal-gtk];
     config = {
       common = {
-        default = [ "hyprland" "gtk" ];
-        "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
+        default = ["hyprland" "gtk"];
+        "org.freedesktop.impl.portal.ScreenCast" = ["hyprland"];
       };
     };
   };
@@ -46,16 +46,15 @@ in {
     style = "adwaita-dark";
   };
 
-
   # Install packages
   environment.systemPackages = packages.systemPackages;
-  programs= {
+  programs = {
     direnv.enable = true;
-    };
+  };
 
   systemd.tmpfiles.rules = [
-      "d '/var/cache/tuigreet' - greeter greeter - -"
-    ];
+    "d '/var/cache/tuigreet' - greeter greeter - -"
+  ];
 
   # Services
   services = {
@@ -152,7 +151,7 @@ in {
       gdm-password.enableGnomeKeyring = true;
     };
   };
-    systemd.services.greetd.serviceConfig = {
+  systemd.services.greetd.serviceConfig = {
     Type = "idle";
     StandardInput = "tty";
     StandardOutput = "tty";
@@ -161,7 +160,6 @@ in {
     TTYVHangup = true;
     TTYVTDisallocate = true;
   };
-
 
   fonts.packages = with pkgs; [
     noto-fonts

@@ -127,7 +127,6 @@
     dotnetCorePackages.runtime_9_0-bin
     dotnetCorePackages.sdk_9_0-bin
 
-
     # --- Hardware Information Tools ---
     dmidecode # Tool for dumping a computer's DMI (some say SMBIOS) table contents in a human-readable format
     dool # System statistics tool (dstat replacement)

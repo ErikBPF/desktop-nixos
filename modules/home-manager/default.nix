@@ -26,23 +26,23 @@ in {
 
   gtk = {
     enable = true;
-  gtk3 = {
-    extraConfig = {
-      gtk-application-prefer-dark-theme=true;
-      gtk-theme-name="Tokyonight-Dark-B";
-      gtk-icon-theme-name="Papirus-Dark";
-      gtk-cursor-theme-name="Vimix-cursors";
-      gtk-cursor-theme-size=24;
+    gtk3 = {
+      extraConfig = {
+        gtk-application-prefer-dark-theme = true;
+        gtk-theme-name = "Tokyonight-Dark-B";
+        gtk-icon-theme-name = "Papirus-Dark";
+        gtk-cursor-theme-name = "Vimix-cursors";
+        gtk-cursor-theme-size = 24;
+      };
     };
-  };
     gtk4 = {
-    extraConfig = {
-      gtk-application-prefer-dark-theme=true;
-      gtk-theme-name="Tokyonight-Dark-B";
-      gtk-icon-theme-name="Papirus-Dark";
-      gtk-cursor-theme-name="Vimix-cursors";
-      gtk-cursor-theme-size=24;
+      extraConfig = {
+        gtk-application-prefer-dark-theme = true;
+        gtk-theme-name = "Tokyonight-Dark-B";
+        gtk-icon-theme-name = "Papirus-Dark";
+        gtk-cursor-theme-name = "Vimix-cursors";
+        gtk-cursor-theme-size = 24;
+      };
     };
-  };
   };
 }
