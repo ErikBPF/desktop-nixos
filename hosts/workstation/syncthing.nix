@@ -4,22 +4,8 @@
   config,
   ...
 }: {
-  sops = {
-    age = {
-      keyFile = "/home/erik/.config/sops/age/keys.txt";
-      generateKey = true;
-    };
-    defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/sops/secrets.yaml;
-    secrets = {
-      "syncthing/moon_id" = {
-      };
-      "syncthing/archlinux_id" = {
-      };
-    };
-  };
   services.syncthing = {
-    enable = true;
+    enable = false;
     guiAddress = "127.0.0.1:8384";
     openDefaultPorts = true;
     relay = {
@@ -67,11 +53,5 @@
         };
       };
     };
-  };
-
-  # Ensure syncthing waits for sops secrets to be available
-  systemd.services.syncthing = {
-    after = [ "sops-nix.service" ];
-    wants = [ "sops-nix.service" ];
   };
 }
