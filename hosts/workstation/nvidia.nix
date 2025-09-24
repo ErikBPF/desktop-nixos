@@ -39,19 +39,19 @@
   	# 	intelBusId = "PCI:00:02:0";
   	# };
   };
-  specialisation = {
-    nvidia-sync.configuration = {
-      system.nixos.tags = [ "nvidia-sync" ];
-      hardware.nvidia = {
-        powerManagement.finegrained = lib.mkForce false;
+  # specialisation = {
+  #   nvidia-sync.configuration = {
+  #     system.nixos.tags = [ "nvidia-sync" ];
+  #     hardware.nvidia = {
+  #       powerManagement.finegrained = lib.mkForce false;
 
-        prime.offload.enable = lib.mkForce false;
-        prime.offload.enableOffloadCmd = lib.mkForce false;
+  #       prime.offload.enable = lib.mkForce false;
+  #       prime.offload.enableOffloadCmd = lib.mkForce false;
 
-        prime.sync.enable = lib.mkForce true;
-      };
-    };
-  };
+  #       prime.sync.enable = lib.mkForce true;
+  #     };
+  #   };
+  # };
 
   environment.sessionVariables = {
     __NV_PRIME_RENDER_OFFLOAD = "1";
