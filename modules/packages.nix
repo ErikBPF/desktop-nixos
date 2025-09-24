@@ -42,6 +42,7 @@
     nautilus # Official file manager for the GNOME desktop
     blueberry # Bluetooth configuration tool for GNOME
     clipse # A clipboard manager for Wayland
+    cliphist
 
     # --- Command-line Productivity ---
     xh # A friendly and fast tool for sending HTTP requests

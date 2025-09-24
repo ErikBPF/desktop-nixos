@@ -22,10 +22,10 @@
       "SUPER, F, fullscreen, "
       "SUPER, M, fullscreen, 1 "
       "CTRL SHIFT, J, togglesplit, "
-      "SUPER SHIFT, S, exec, grim -g '$(slurp)' - | swappy -f - "
+      "SUPER SHIFT, S, exec, hyprshot -m region --freeze --clipboard-only --silent --raw | swappy -f - "
+      "SUPER CTRL, C, exec, V, exec, cliphist list | wofi -Iim --dmenu | cliphist decode | wl-copy && wtype -M ctrl v -M ctrl "
+      "SUPER, SPACE, pamixer --default-source -t"
       "SUPER SHIFT, SPACE, exec, pkill -SIGUSR1 waybar"
-      # "SUPER CTRL, SPACE, exec, ~/.local/share/omarchy/bin/swaybg-next"
-      # "SUPER SHIFT CTRL, SPACE, exec, ~/.local/share/omarchy/bin/omarchy-theme-next"
 
       "SUPER, W, killactive,"
       "SUPER, Backspace, killactive,"
@@ -48,6 +48,16 @@
       "SUPER, up, movefocus, u"
       "SUPER, down, movefocus, d"
 
+      "SUPER SHIFT, h, movewindow, l"
+      "SUPER SHIFT, l, movewindow, r"
+      "SUPER SHIFT, k, movewindow, u"
+      "SUPER SHIFT, j, movewindow, d"
+
+      "SUPER CTRL, h, resizeactive, -20 0"
+      "SUPER CTRL, l, resizeactive, 20 0"
+      "SUPER CTRL, k, resizeactive, 0 -20"
+      "SUPER CTRL, j, resizeactive, 0 20"
+
       # Switch workspaces with mainMod + [0-9]
       "SUPER, 1, workspace, 1"
       "SUPER, 2, workspace, 2"
@@ -59,6 +69,9 @@
       "SUPER, 8, workspace, 8"
       "SUPER, 9, workspace, 9"
       "SUPER, 0, workspace, 10"
+      "SUPER, a, workspace, 10"
+      "SUPER, z, workspace, 11"
+      "SUPER, x, workspace, 12"
 
       "SUPER, comma, workspace, -1"
       "SUPER, period, workspace, +1"
@@ -74,6 +87,9 @@
       "SUPER SHIFT, 8, movetoworkspace, 8"
       "SUPER SHIFT, 9, movetoworkspace, 9"
       "SUPER SHIFT, 0, movetoworkspace, 10"
+      "SUPER SHIFT, a, movetoworkspace, 10"
+      "SUPER SHIFT, z, movetoworkspace, 11"
+      "SUPER SHIFT, x, movetoworkspace, 12"
 
       # Swap active window with the one next to it with mainMod + SHIFT + arrow keys
       "SUPER SHIFT, left, swapwindow, l"

@@ -14,6 +14,7 @@
       # Settings management
       "float, class:^(org.pulseaudio.pavucontrol|blueberry.py)$"
 
+
       # Float Steam, fullscreen RetroArch
       "float, class:^(steam)$"
       "fullscreen, class:^(com.libretro.RetroArch)$"
@@ -33,6 +34,7 @@
 
       # Float in the middle for clipse clipboard manager
       "float, class:(clipse)"
+      # "float, title:^(clipse)$"
       "size 622 652, class:(clipse)"
       "stayfocused, class:(clipse)"
     ];
