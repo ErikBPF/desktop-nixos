@@ -17,9 +17,9 @@
     ./hardware-configuration.nix
     ../../modules/users/erik.nix
     ./disk-config.nix
-
     ../common/global.nix
     ./syncthing.nix
+    ./nvidia.nix
   ];
   boot = {
     kernelParams = ["nohibernate"];
