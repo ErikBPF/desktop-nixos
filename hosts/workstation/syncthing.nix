@@ -1,7 +1,6 @@
 {
   pkgs,
   inputs,
-  secrets,
   ...
 }: {
   services.syncthing = {
@@ -19,10 +18,10 @@
     settings = {
       devices = {
         "Moon" = {
-          id = ''${secrets.syncthing.moon_id}'';
+          id = ''${inputs.secrets.syncthing.moon_id}'';
         };
         "archlinux" = {
-          id = ''${secrets.syncthing.archlinux_id}'';
+          id = ''${inputs.secrets.syncthing.archlinux_id}'';
         };
       };
 
