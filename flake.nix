@@ -19,7 +19,6 @@
 
     nix-colors.url = "github:misterio77/nix-colors";
     sops-nix.url = "github:Mic92/sops-nix";
-    secrets.url = "git+file://./secrets/crypt";
   };
 
   outputs = {
@@ -38,7 +37,7 @@
       "aarch64-darwin"
     ];
     forAllSystems = nixpkgs.lib.genAttrs systems;
-    secrets = builtins.fromJSON (builtins.readFile "${self}/secrets/crypt/secrets.json");
+    # secrets = builtins.fromJSON (builtins.readFile "${self}/secrets/crypt/secrets.json");
   in {
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 
