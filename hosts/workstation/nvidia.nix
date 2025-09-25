@@ -12,7 +12,7 @@
       "nvidia_drm"
       "kvm-intel"
     ];
-    kernelParams = ["module_blacklist=i915"];
+    # kernelParams = ["module_blacklist=i915"];
     initrd.kernelModules = ["nvidia"];
     extraModulePackages = [config.boot.kernelPackages.nvidia_x11];
     blacklistedKernelModules = ["nouveau"];

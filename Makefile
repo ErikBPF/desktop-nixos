@@ -8,6 +8,11 @@ build:
 	# git-crypt unlock ./secret-key
 	sudo nixos-rebuild switch --flake .#workstation --impure --show-trace
 
+build:
+	git pull;
+	# git-crypt unlock ./secret-key
+	sudo nixos-rebuild boot --flake .#workstation --impure --show-trace
+
 upgrade:
 	git pull;
 	sudo nixos-rebuild switch --upgrade --flake .#workstation --impure --show-trace
