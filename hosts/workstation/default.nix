@@ -27,6 +27,7 @@
     supportedFilesystems = ["ntfs"];
     loader = {
       efi.canTouchEfiVariables = true;
+      configurationLimit = 5;
       grub = {
         device = "nodev";
         efiSupport = true;
