@@ -50,6 +50,7 @@ in {
 
   # Install packages
   environment.systemPackages = packages.systemPackages;
+
   programs = {
     direnv.enable = true;
   };
@@ -91,7 +92,7 @@ in {
       sddm = {
         enable = true;
         enableHidpi = true;
-        theme = "catppuccin-mocha-mauve";
+        theme = "sddm-tokyo-night";
         wayland.enable = true;
       };
     };
