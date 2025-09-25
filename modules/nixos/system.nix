@@ -258,7 +258,6 @@ xkb = {
       gdm.enableGnomeKeyring = true;
       gdm.kwallet.enable = false;
       gdm-greeter.enableGnomeKeyring = true;
-      gdm.kwallet.enable = true;
       gdm-password.kwallet.enable = true;
       gdm-password.enableGnomeKeyring = true;
       hyprlock = { };
