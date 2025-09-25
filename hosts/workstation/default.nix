@@ -33,7 +33,7 @@
         enable = true;
         useOSProber = true;
         timeoutStyle = "menu";
-        configurationLimit = 5;
+        configurationLimit = 3;
       };
       timeout = 1;
     };
