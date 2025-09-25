@@ -91,37 +91,8 @@ in {
       sddm = {
         enable = true;
         enableHidpi = true;
-        theme = "${pkgs.sddm-chili-theme}/share/sddm/themes/chili";
+        theme = "catppuccin-mocha-mauve";
         wayland.enable = true;
-        # settings = {
-        #   General = {
-        #     # DefaultSession = "hyprland";
-        #     DisplayServer = "wayland";
-        #     GreeterEnvironment = "QT_WAYLAND_FORCE_DPI=physical,QT_WAYLAND_DISABLE_WINDOWDECORATION=1";
-        #     Numlock = "on";
-        #     RememberLastUser = true;
-        #     RememberLastSession = true;
-        #     LoginTimeout = 60;
-        #     SessionTimeout = 30;
-        #   };
-        #   Users = {
-        #     MinimumUid = 1000;
-        #     MaximumUid = 60000;
-        #     HideUsers = "";
-        #     HideShells = "/bin/false,/usr/bin/nologin,/sbin/nologin";
-        #     RememberLastUser = true;
-        #   };
-        #   Wayland = {
-        #     SessionDir = "/run/current-system/sw/share/wayland-sessions";
-        #     CompositorCommand = "kwin_wayland --no-lockscreen --no-global-shortcuts --locale1";
-        #   };
-        #   X11 = {
-        #     SessionDir = "/run/current-system/sw/share/xsessions";
-        #     XephyrPath = "/run/current-system/sw/bin/Xephyr";
-        #     DisplayCommand = "/run/current-system/sw/bin/sddm-helper --start-server";
-        #     DisplayStopCommand = "/run/current-system/sw/bin/sddm-helper --stop-server";
-        #   };
-        # };
       };
     };
 
@@ -255,14 +226,14 @@ in {
     pam.services = {
       # greetd.enableGnomeKeyring = true;
       # greetd.kwallet.enable = false;
-      # sddm.enableGnomeKeyring = true;
-      # sddm.kwallet.enable = false;
-      # sddm-greeter.enableGnomeKeyring = true;
-      gdm.enableGnomeKeyring = true;
-      gdm.kwallet.enable = false;
-      gdm-greeter.enableGnomeKeyring = true;
-      gdm-password.kwallet.enable = true;
-      gdm-password.enableGnomeKeyring = true;
+      sddm.enableGnomeKeyring = true;
+      sddm.kwallet.enable = false;
+      sddm-greeter.enableGnomeKeyring = true;
+      # gdm.enableGnomeKeyring = true;
+      # gdm.kwallet.enable = false;
+      # gdm-greeter.enableGnomeKeyring = true;
+      # gdm-password.kwallet.enable = true;
+      # gdm-password.enableGnomeKeyring = true;
       hyprlock = {};
       login.enableGnomeKeyring = true;
       login.kwallet.enable = true;
