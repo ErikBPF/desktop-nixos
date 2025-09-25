@@ -81,6 +81,7 @@ xkb = {
       };};
       # ...
       displayManager = {
+        gdm.enable = true;
       # 	sddm = {
       #     enable = true;
       #     enableHidpi = true;
