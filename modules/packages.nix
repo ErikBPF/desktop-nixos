@@ -21,11 +21,10 @@
     nwg-displays # Display configuration tool for Wayland
     dconf # Low-level configuration system for GNOME
     ffmpegthumbnailer # Video thumbnailer using ffmpeg
-    gnome-firmware # Firmware update utility for GNOME
-    gnome-calculator # Calculator application for GNOME
     gnome-keyring # Password and secret manager for GNOME
     gnome.gvfs # Virtual file system for GNOME
     imv # Image viewer for Wayland
+    
   ];
 
   # Essential system packages - cannot be excluded
