@@ -88,7 +88,6 @@ in {
         wayland = true;
         debug = true;
       };
-      defaultSession = "hyprland";
       # sddm = {
       #   enable = true;
       #   enableHidpi = true;
