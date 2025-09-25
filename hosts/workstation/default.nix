@@ -47,18 +47,18 @@
     algorithm = "zstd";
   };
 
-  systemd = {
-    slices."nix-daemon".sliceConfig = {
-      ManagedOOMMemoryPressure = "kill";
-      ManagedOOMMemoryPressureLimit = "95%";
-    };
-    services."nix-daemon" = {
-      serviceConfig = {
-        Slice = "nix-daemon.slice";
-        OOMScoreAdjust = 1000;
-      };
-    };
-  };
+  # systemd = {
+  #   slices."nix-daemon".sliceConfig = {
+  #     ManagedOOMMemoryPressure = "kill";
+  #     ManagedOOMMemoryPressureLimit = "95%";
+  #   };
+  #   services."nix-daemon" = {
+  #     serviceConfig = {
+  #       Slice = "nix-daemon.slice";
+  #       OOMScoreAdjust = 1000;
+  #     };
+  #   };
+  # };
 
   networking = {
     hostName = "workstation";

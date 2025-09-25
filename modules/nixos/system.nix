@@ -22,6 +22,12 @@ in {
       enable = true;
       enable32Bit = true;
     };
+    usb-modeswitch.enable = true;
+    sensor.iio.enable = true;
+        smartd = {
+      enable = true;
+      autodetect = true;
+    };
     i2c.enable = true;
     steam-hardware.enable = true;
   };
@@ -59,6 +65,11 @@ in {
   # Services
   services = {
     xserver = {
+      setupCommands = ''
+  # workaround for using NVIDIA Optimus without Bumblebee
+  xrandr --setprovideroutputsource modesetting NVIDIA-0
+  xrandr --auto
+'';};
       # ...
       displayManager = {
       	sddm = {enable = true;
@@ -94,7 +105,6 @@ in {
           DisplayStopCommand = "/run/current-system/sw/bin/sddm-helper --stop-server";
         };
       };
-        };
       };
       xkb = {
         layout = "qwerty-fr";
@@ -114,8 +124,26 @@ in {
     #   enable = true;
     #   settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     # };
-    hardware.bolt.enable = true;
-    fstrim.enable = true;
+    hardware = {
+    bolt.enable = true;
+    };
+    fstrim = {enable = true;
+    interval = "weekly";
+    udev.extraRules = ''
+
+    # HDD
+    ACTION == "add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", \
+      ATTR{queue/scheduler}="bfq"
+
+    # SSD
+    ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", \
+      ATTR{queue/scheduler}="mq-deadline"
+
+    # NVMe SSD
+    ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/rotational}=="0", \
+      ATTR{queue/scheduler}="none"
+    '';
+    };
     resolved.enable = true;
     udisks2.enable = true;
     gvfs.enable = true;
@@ -148,7 +176,44 @@ in {
       jack.enable = true;
       wireplumber.enable = true;
     };
-    openssh.enable = true;
+    openssh = {
+      enable = true;
+      settings = {
+        PermitRootLogin = "no";
+        PasswordAuthentication = false;
+        KbdInteractiveAuthentication = false;
+        X11Forwarding = false;
+      };
+    };
+
+    # Firewall
+    fail2ban = {
+      enable = true;
+      maxretry = 3;
+      bantime = "1h";
+      bantime-increment.enable = true;
+    };
+    earlyoom = {
+      enable = true;
+      freeMemThreshold = 5;
+      freeSwapThreshold = 10;
+    };
+
+    # Logrotate
+    logrotate = {
+      enable = true;
+      settings = {
+        "/var/log/omnixy/*.log" = {
+          frequency = "weekly";
+          rotate = 4;
+          compress = true;
+          delaycompress = true;
+          notifempty = true;
+          create = "644 root root";
+        };
+      };
+    };
+    acpid.enable = true;
     tailscale.enable = true;
     atuin = {
       enable = true;
@@ -171,6 +236,13 @@ in {
     };
     rtkit.enable = true;
     polkit.enable = true;
+    apparmor = {
+      enable = true;
+      packages = with pkgs; [
+        apparmor-utils
+        apparmor-profiles
+      ];
+    };
     sudo.wheelNeedsPassword = false;
     pam.services = {
       # greetd.enableGnomeKeyring = true;
