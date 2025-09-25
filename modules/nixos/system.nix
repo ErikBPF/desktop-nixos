@@ -52,18 +52,52 @@ in {
     direnv.enable = true;
   };
 
-  systemd.tmpfiles.rules = [
-    "d '/var/cache/tuigreet' - greeter greeter - -"
-  ];
+  # systemd.tmpfiles.rules = [
+  #   "d '/var/cache/tuigreet' - greeter greeter - -"
+  # ];
 
   # Services
   services = {
     xserver = {
       # ...
-      # displayManager = {
-      # 	sddm.enable = true;
-      #         sddm.theme = "${import ./sddm-theme.nix { inherit pkgs; }}";
-      # };
+      displayManager = {
+      	sddm = {enable = true;
+          enableHidpi = true;
+          defaultSession = "hyprland";
+          theme = "${pkgs.sddm-chili-theme}/share/sddm/themes/chili";
+         wayland.enable = true;
+      theme = "catppuccin-mocha";
+      settings = {
+        General = {
+          DefaultSession = "hyprland";
+          DisplayServer = "wayland";
+          GreeterEnvironment = "QT_WAYLAND_FORCE_DPI=physical,QT_WAYLAND_DISABLE_WINDOWDECORATION=1";
+          Numlock = "on";
+          RememberLastUser = true;
+          RememberLastSession = true;
+          LoginTimeout = 60;
+          SessionTimeout = 30;
+        };
+        Users = {
+          MinimumUid = 1000;
+          MaximumUid = 60000;
+          HideUsers = "";
+          HideShells = "/bin/false,/usr/bin/nologin,/sbin/nologin";
+          RememberLastUser = true;
+        };
+        Wayland = {
+          SessionDir = "/run/current-system/sw/share/wayland-sessions";
+          CompositorCommand = "kwin_wayland --no-lockscreen --no-global-shortcuts --locale1";
+        };
+        X11 = {
+          SessionDir = "/run/current-system/sw/share/xsessions";
+          XephyrPath = "/run/current-system/sw/bin/Xephyr";
+          DisplayCommand = "/run/current-system/sw/bin/sddm-helper --start-server";
+          DisplayStopCommand = "/run/current-system/sw/bin/sddm-helper --stop-server";
+        };
+      };
+        };
+      };
       xkb = {
         layout = "qwerty-fr";
         variant = "qwerty-fr";
@@ -78,10 +112,10 @@ in {
         };
       };
     };
-    greetd = {
-      enable = true;
-      settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
-    };
+    # greetd = {
+    #   enable = true;
+    #   settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
+    # };
     hardware.bolt.enable = true;
     fstrim.enable = true;
     resolved.enable = true;
@@ -141,26 +175,29 @@ in {
     polkit.enable = true;
     sudo.wheelNeedsPassword = false;
     pam.services = {
-      greetd.enableGnomeKeyring = true;
-      greetd.kwallet.enable = false;
-      login.kwallet.enable = true;
-      gdm.kwallet.enable = true;
-      gdm-password.kwallet.enable = true;
-      # hyprlock = { };
-      # Unlock GNOME Keyring on login for GVFS credentials
-      login.enableGnomeKeyring = true;
-      gdm-password.enableGnomeKeyring = true;
+      # greetd.enableGnomeKeyring = true;
+      # greetd.kwallet.enable = false;
+      sddm.enableGnomeKeyring = true;
+      sddm.kwallet.enable = false;
+      sddm-greeter.enableGnomeKeyring = true;
+      # login.kwallet.enable = true;
+      # gdm.kwallet.enable = true;
+      # gdm-password.kwallet.enable = true;
+      # # hyprlock = { };
+      # # Unlock GNOME Keyring on login for GVFS credentials
+      # login.enableGnomeKeyring = true;
+      # gdm-password.enableGnomeKeyring = true;
     };
   };
-  systemd.services.greetd.serviceConfig = {
-    Type = "idle";
-    StandardInput = "tty";
-    StandardOutput = "tty";
-    StandardError = "journal";
-    TTYReset = true;
-    TTYVHangup = true;
-    TTYVTDisallocate = true;
-  };
+  # systemd.services.greetd.serviceConfig = {
+  #   Type = "idle";
+  #   StandardInput = "tty";
+  #   StandardOutput = "tty";
+  #   StandardError = "journal";
+  #   TTYReset = true;
+  #   TTYVHangup = true;
+  #   TTYVTDisallocate = true;
+  # };
 
   fonts.packages = with pkgs; [
     noto-fonts
