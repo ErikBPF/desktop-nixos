@@ -61,7 +61,6 @@ in {
     xserver = {
       # ...
       displayManager = {
-        DefaultSession = "hyprland";
       	sddm = {enable = true;
           enableHidpi = true;
           theme = "${pkgs.sddm-chili-theme}/share/sddm/themes/chili";
