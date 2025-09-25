@@ -33,7 +33,6 @@
     vim # Ubiquitous text editor
     rsync # Fast, versatile, remote (and local) file-copying tool
     sqlite # Self-contained, serverless, zero-configuration SQL database engine
-    sddm-themes.sddm-tokyo-night
 
     # --- Terminals ---
     kitty # Fast, feature-rich, GPU-based terminal emulator
