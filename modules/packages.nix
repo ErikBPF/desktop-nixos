@@ -18,14 +18,14 @@
     easyeffects # Audio effects for PipeWire applications
     wlr-randr # Utility to manage outputs for wlroots compositors
     libinput-gestures # Adds gesture support from libinput
-    nwg-displays
-    dconf
-    ffmpegthumbnailer
-    gnome-firmware
-    gnome-calculator
-    gnome-keyring
-    gnome.gvfs
-    imv
+    nwg-displays # Display configuration tool for Wayland
+    dconf # Low-level configuration system for GNOME
+    ffmpegthumbnailer # Video thumbnailer using ffmpeg
+    gnome-firmware # Firmware update utility for GNOME
+    gnome-calculator # Calculator application for GNOME
+    gnome-keyring # Password and secret manager for GNOME
+    gnome.gvfs # Virtual file system for GNOME
+    imv # Image viewer for Wayland
   ];
 
   # Essential system packages - cannot be excluded
@@ -33,8 +33,8 @@
     # --- Version Control & Editors ---
     git # Distributed version control system
     vim # Ubiquitous text editor
-    rsync
-    sqlite
+    rsync # Fast, versatile, remote (and local) file-copying tool
+    sqlite # Self-contained, serverless, zero-configuration SQL database engine
 
     # --- Terminals ---
     kitty # Fast, feature-rich, GPU-based terminal emulator
@@ -45,7 +45,7 @@
     nautilus # Official file manager for the GNOME desktop
     blueberry # Bluetooth configuration tool for GNOME
     clipse # A clipboard manager for Wayland
-    cliphist
+    cliphist # Clipboard history manager for Wayland
 
     # --- Command-line Productivity ---
     xh # A friendly and fast tool for sending HTTP requests
@@ -62,30 +62,27 @@
     gsettings-desktop-schemas # Collection of GSettings schemas
     gcc # GNU compiler collection
     pkg-config # A helper tool used when compiling applications and libraries
-    swappy
-    wf-recorder
-    wlroots
-    xdg-desktop-portal-hyprland
-    xdg-desktop-portal-gtk
-    xdg-utils
-    desktop-file-utils
+    wlroots # Modular Wayland compositor library
+    xdg-desktop-portal-hyprland # XDG desktop portal backend for Hyprland
+    xdg-desktop-portal-gtk # XDG desktop portal backend for GTK
+    xdg-utils # Command line utilities that assist applications with desktop integration
+    desktop-file-utils # Command line utilities for working with desktop entries
     kdePackages.polkit-kde-agent-1
     qt6.qtbase
     qt6.qtwayland
-    playerctl
-    tokyo-night-gtk
-    papirus-icon-theme
-    bibata-cursors
-    vimix-cursors
-    vimix-icon-theme
-    vimix-gtk-themes
+    tokyo-night-gtk # Tokyo Night GTK theme
+    papirus-icon-theme # Papirus icon theme
+    bibata-cursors # Cursor theme with smooth animations
+    vimix-cursors # Vimix cursor theme
+    vimix-icon-theme # Vimix icon theme
+    vimix-gtk-themes # Vimix GTK themes
     # kdePackages.kwallet
     # kdePackages.kwallet-pam
     # kdePackages.kate
-    wiremix
-    fcitx5
-    fcitx5-gtk
-    kdePackages.fcitx5-qt
+    wiremix # Audio mixer for Wayland
+    fcitx5 # Flexible Input Method Framework
+    fcitx5-gtk # GTK input method module for fcitx5
+    kdePackages.fcitx5-qt # Qt input method module for fcitx5
 
     # --- Graphics & Hardware ---
     libGL # Mesa's implementation of the OpenGL API
@@ -96,50 +93,43 @@
     glxinfo # A tool for diagnosing problems with OpenGL and GLX
     lm_sensors # Tools for reading hardware sensor data
     libinput # Library to handle input devices in Wayland compositors
-    gnome-keyring
     seahorse # GUI to manage the keyring
     libsecret # CLI tools (secret-tool)
 
-    btrfs-progs
-    btrfs-snap
-    pciutils
-    cifs-utils
-    samba
-    fuse
-    fuse3
-    syncthing
-    syncthingtray
-    tailscale-systray
-    git-crypt
-    minikube
-    gpu-viewer
-    dig
-    speedtest-rs
-    onefetch
-    ipfetch
-    cpufetch
-    ramfetch
-    starfetch
-    octofetch
-    htop
-    bottom
-    btop
-    zfxtop
-    kmon
-    nvd
+    btrfs-progs # Btrfs filesystem utilities
+    btrfs-snap # Btrfs snapshot management tool
+    cifs-utils # Common Internet File System utilities
+    samba # SMB/CIFS file, print, and login server for Unix
+    fuse # Filesystem in Userspace
+    fuse3 # Filesystem in Userspace (version 3)
+    syncthing # Continuous file synchronization program
+    syncthingtray # System tray application for Syncthing
+    tailscale-systray # System tray application for Tailscale
+    git-crypt # Transparent git encryption
+    minikube # Local Kubernetes engine
+    gpu-viewer # GPU information viewer
+    speedtest-rs # Command line interface for testing internet bandwidth
+    onefetch # Git repository summary on your terminal
+    cpufetch # CPU architecture fetching tool
+    ramfetch # RAM information fetching tool
+    starfetch # Star Wars themed system information tool
+    octofetch # GitHub user information fetching tool
+    htop # Interactive process viewer
+    zfxtop # ZFS monitoring tool
+    kmon # Linux kernel manager and activity monitor
+    nvd # NVIDIA driver version checker
     dotnetCorePackages.runtime_9_0-bin
     dotnetCorePackages.sdk_9_0-bin
-    intel-media-driver
-    vaapiIntel
-    vaapiVdpau
-    libvdpau-va-gl
+    intel-media-driver # Intel Media Driver for VAAPI
+    vaapiIntel # Intel VA-API driver
+    vaapiVdpau # VDPAU backend for VA-API
+    libvdpau-va-gl # VDPAU driver with VA-API backend
 
     # --- Hardware Information Tools ---
     dmidecode # Tool for dumping a computer's DMI (some say SMBIOS) table contents in a human-readable format
     dool # System statistics tool (dstat replacement)
     inxi # A full featured CLI system information tool
     lshw # A small tool to extract detailed information on the hardware configuration of the machine
-    pciutils # Contains lspci for inspecting PCI devices
     read-edid # Tools for reading monitor EDID information
     smartmontools # S.M.A.R.T. disk monitoring tools
     upower # D-Bus service for power management
@@ -148,8 +138,6 @@
 
     # --- System Monitoring & Stress Testing ---
     stress # A tool to impose a configurable amount of stress on your system
-    bottom # A customizable cross-platform graphical process/system monitor
-    btop # A resource monitor that shows usage and stats for processor, memory, disks, network and processes
     hyperfine # A command-line benchmarking tool
     nmon # A single-screen performance monitoring tool for developers and sysadmins
     psmisc # A set of small utilities that use the proc filesystem (e.g., killall, pstree)
@@ -170,7 +158,7 @@
     p7zip # 7-Zip archiver
     rar # RAR archives
     wget # A free software package for retrieving files using HTTP, HTTPS, FTP
-    curl
+    curl # Command line tool for transferring data with URLs
     unzip # Extract ZIP archives
     zip # Create ZIP archives
     zstd # Compression algorithm (optional Emacs dep)
@@ -199,21 +187,13 @@
       # Terminal utilities
 
       # Wayland terminal tools
-      ydotool # input automation for Wayland
-      wtype # text input for Wayland
-      wl-clipboard # clipboard utilities for Wayland
       # --- Secrets Management ---
       sops # Editor of encrypted files
       atuin
 
       # --- Wayland Utilities ---
-      swappy # A Wayland-native snapshot editing tool
-      wf-recorder # A screen recorder for Wayland compositors
       grim # A screenshot utility for Wayland
       slurp # A command-line utility to select a region in a Wayland compositor
-      ydotool # Generic command-line automation tool for Wayland
-      wtype # A Wayland tool that allows you to simulate keyboard input
-      wl-clipboard # Command-line copy/paste utilities for Wayland
 
       # --- System & GUI Tools ---
       nfs-utils # Network File System utilities
@@ -258,11 +238,11 @@
       azure-cli # Command-line tools for Azure
       azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
 
-      brave
+      brave # Privacy-focused web browser
       # --- Development Tools ---
       github-desktop # The official GitHub GUI client
       gh # Official GitHub CLI
-      vscode-fhs
+      vscode-fhs # Visual Studio Code with FHS environment
       code-cursor-fhs # The Cursor editor, an AI-powered fork of VSCode
       opencode # The OpenCode-OSS CLI agent
       gemini-cli # A command-line interface for Google's Gemini models
@@ -317,7 +297,6 @@ in {
     mtr # A network diagnostic tool that combines ping and traceroute
     iperf3 # A tool for active measurements of the maximum achievable bandwidth on IP networks
     dnsutils # Provides `dig` and `nslookup` for DNS queries
-    ipfetch # Neofetch for IP addresses
     ldns # A library to simplify DNS programming, provides `drill`
     aria2 # A lightweight multi-protocol & multi-source command-line download utility
     socat # A relay for bidirectional data transfer between two independent data channels
