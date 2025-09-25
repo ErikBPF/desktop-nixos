@@ -61,7 +61,7 @@ in {
   # Services
   services = {
     xserver = {
-      setupCommands = ''
+      displayManager.sddm.setupCommands = ''
   # workaround for using NVIDIA Optimus without Bumblebee
   xrandr --setprovideroutputsource modesetting NVIDIA-0
   xrandr --auto
