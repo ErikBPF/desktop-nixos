@@ -102,6 +102,7 @@ in {
         };
       };
       };
+      };
       xkb = {
         layout = "qwerty-fr";
         variant = "qwerty-fr";
