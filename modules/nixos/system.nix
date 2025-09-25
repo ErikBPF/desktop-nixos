@@ -81,7 +81,10 @@ xkb = {
       };};
       # ...
       displayManager = {
-        gdm.enable = true;
+        gdm = {
+          enable = true;
+        wayland = true;
+      };
       # 	sddm = {
       #     enable = true;
       #     enableHidpi = true;
@@ -158,11 +161,6 @@ xkb = {
     davfs2.enable = true;
     # Secret Service provider for GVFS credentials (SFTP/SMB/WebDAV)
     gnome.gnome-keyring.enable = true;
-    # Display manager for Hyprland
-    # displayManager.gdm = {
-    #   enable = true;
-    #   wayland = true;
-    # };
     printing.enable = true;
     pulseaudio.enable = false;
     pipewire = {
