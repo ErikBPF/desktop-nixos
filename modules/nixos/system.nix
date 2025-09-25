@@ -82,45 +82,45 @@ in {
     };
     # ...
     displayManager = {
-      gdm = {
+      # gdm = {
+      #   enable = true;
+      #   wayland = true;
+      # };
+      sddm = {
         enable = true;
-        wayland = true;
+        enableHidpi = true;
+        theme = "${pkgs.sddm-chili-theme}/share/sddm/themes/chili";
+        wayland.enable = true;
+        settings = {
+          General = {
+            DefaultSession = "hyprland";
+            DisplayServer = "wayland";
+            GreeterEnvironment = "QT_WAYLAND_FORCE_DPI=physical,QT_WAYLAND_DISABLE_WINDOWDECORATION=1";
+            Numlock = "on";
+            RememberLastUser = true;
+            RememberLastSession = true;
+            LoginTimeout = 60;
+            SessionTimeout = 30;
+          };
+          Users = {
+            MinimumUid = 1000;
+            MaximumUid = 60000;
+            HideUsers = "";
+            HideShells = "/bin/false,/usr/bin/nologin,/sbin/nologin";
+            RememberLastUser = true;
+          };
+          Wayland = {
+            SessionDir = "/run/current-system/sw/share/wayland-sessions";
+            CompositorCommand = "kwin_wayland --no-lockscreen --no-global-shortcuts --locale1";
+          };
+          X11 = {
+            SessionDir = "/run/current-system/sw/share/xsessions";
+            XephyrPath = "/run/current-system/sw/bin/Xephyr";
+            DisplayCommand = "/run/current-system/sw/bin/sddm-helper --start-server";
+            DisplayStopCommand = "/run/current-system/sw/bin/sddm-helper --stop-server";
+          };
+        };
       };
-      # 	sddm = {
-      #     enable = true;
-      #     enableHidpi = true;
-      #     theme = "${pkgs.sddm-chili-theme}/share/sddm/themes/chili";
-      #    wayland.enable = true;
-      # settings = {
-      #   General = {
-      #     DefaultSession = "hyprland";
-      #     DisplayServer = "wayland";
-      #     GreeterEnvironment = "QT_WAYLAND_FORCE_DPI=physical,QT_WAYLAND_DISABLE_WINDOWDECORATION=1";
-      #     Numlock = "on";
-      #     RememberLastUser = true;
-      #     RememberLastSession = true;
-      #     LoginTimeout = 60;
-      #     SessionTimeout = 30;
-      #   };
-      #   Users = {
-      #     MinimumUid = 1000;
-      #     MaximumUid = 60000;
-      #     HideUsers = "";
-      #     HideShells = "/bin/false,/usr/bin/nologin,/sbin/nologin";
-      #     RememberLastUser = true;
-      #   };
-      #   Wayland = {
-      #     SessionDir = "/run/current-system/sw/share/wayland-sessions";
-      #     CompositorCommand = "kwin_wayland --no-lockscreen --no-global-shortcuts --locale1";
-      #   };
-      #   X11 = {
-      #     SessionDir = "/run/current-system/sw/share/xsessions";
-      #     XephyrPath = "/run/current-system/sw/bin/Xephyr";
-      #     DisplayCommand = "/run/current-system/sw/bin/sddm-helper --start-server";
-      #     DisplayStopCommand = "/run/current-system/sw/bin/sddm-helper --stop-server";
-      #   };
-      # };
-      # };
     };
 
     # greetd = {
