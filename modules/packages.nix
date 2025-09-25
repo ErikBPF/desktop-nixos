@@ -21,6 +21,9 @@
     nwg-displays
     dconf
     ffmpegthumbnailer
+    gnome-firmware
+    gnome-calculator
+    gnome-keyring
     gnome.gvfs
     imv
   ];
