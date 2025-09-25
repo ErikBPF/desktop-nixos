@@ -21,6 +21,8 @@
     };
   };
 
+  documentation.nixos.enable = false;
+
   nix = {
     settings = {
       warn-dirty = false;
