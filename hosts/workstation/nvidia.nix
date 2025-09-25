@@ -30,7 +30,7 @@
     dynamicBoost.enable = lib.mkForce false;
 
     nvidiaSettings = true;
-
+    nvidiaPersistenced = true;
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
     prime = {
