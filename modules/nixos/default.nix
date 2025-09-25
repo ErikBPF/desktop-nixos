@@ -9,5 +9,6 @@ in {
     (import ./hyprland.nix inputs)
     (import ./system.nix)
     (import ./virtualization.nix)
+    (import ./sddm.nix)
   ];
 }
