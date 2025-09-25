@@ -65,7 +65,20 @@ in {
   # workaround for using NVIDIA Optimus without Bumblebee
   xrandr --setprovideroutputsource modesetting NVIDIA-0
   xrandr --auto
-'';};
+'';
+xkb = {
+        layout = "qwerty-fr";
+        variant = "qwerty-fr";
+        extraLayouts = {
+          qwerty-fr = {
+            description = "QWERTY with French symbols and diacritics";
+            languages = ["eng"];
+            symbolsFile = builtins.fetchurl {
+              url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/main/config/keyboard/us_qwerty-fr";
+            };
+          };
+        };
+      };};
       # ...
       displayManager = {
       	sddm = {enable = true;
@@ -103,19 +116,7 @@ in {
       };
       };
       };
-      xkb = {
-        layout = "qwerty-fr";
-        variant = "qwerty-fr";
-        extraLayouts = {
-          qwerty-fr = {
-            description = "QWERTY with French symbols and diacritics";
-            languages = ["eng"];
-            symbolsFile = builtins.fetchurl {
-              url = "https://raw.githubusercontent.com/ErikBPF/desktop-nixos/refs/heads/main/config/keyboard/us_qwerty-fr";
-            };
-          };
-        };
-      };
+      
     # greetd = {
     #   enable = true;
     #   settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
