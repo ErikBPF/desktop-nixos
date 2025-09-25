@@ -24,10 +24,6 @@ in {
     };
     usb-modeswitch.enable = true;
     sensor.iio.enable = true;
-        smartd = {
-      enable = true;
-      autodetect = true;
-    };
     i2c.enable = true;
     steam-hardware.enable = true;
   };
@@ -175,6 +171,10 @@ in {
       pulse.enable = true;
       jack.enable = true;
       wireplumber.enable = true;
+    };
+    smartd = {
+      enable = true;
+      autodetect = true;
     };
     openssh = {
       enable = true;
