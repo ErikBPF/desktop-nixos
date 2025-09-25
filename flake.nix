@@ -37,14 +37,16 @@
       "aarch64-darwin"
     ];
     forAllSystems = nixpkgs.lib.genAttrs systems;
-    secrets = builtins.fromJSON (builtins.readFile "${self}/secrets/crypt/secrets.json");
+    
   in {
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
+    packages = forAllSystems (pkgs: import ./pkgs { inherit pkgs; });
+    secrets = builtins.fromJSON (builtins.readFile "${self}/secrets/crypt/secrets.json");
 
     overlays = import ./overlays {inherit inputs;};
     nixosConfigurations = {
       workstation = nixpkgs.lib.nixosSystem {
-        specialArgs = {inherit inputs outputs secrets;};
+        specialArgs = {inherit inputs outputs;};
         system = "x86_64-linux";
         modules = [./hosts/workstation];
       };
