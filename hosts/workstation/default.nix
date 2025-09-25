@@ -65,7 +65,10 @@
     networkmanager.enable = true;
     networkmanager.dns = "systemd-resolved";
     firewall = {
-      enable = false;
+      enable = true;
+      checkReversePath = "loose"; # fixes connection issues with tailscale
+      allowedTCPPorts = [22 80 443 22000];
+      allowedUDPPorts = [21027];
     };
   };
 
