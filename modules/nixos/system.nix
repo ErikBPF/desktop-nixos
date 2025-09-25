@@ -66,7 +66,6 @@ in {
           defaultSession = "hyprland";
           theme = "${pkgs.sddm-chili-theme}/share/sddm/themes/chili";
          wayland.enable = true;
-      theme = "catppuccin-mocha";
       settings = {
         General = {
           DefaultSession = "hyprland";
