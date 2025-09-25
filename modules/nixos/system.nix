@@ -159,10 +159,10 @@ xkb = {
     # Secret Service provider for GVFS credentials (SFTP/SMB/WebDAV)
     gnome.gnome-keyring.enable = true;
     # Display manager for Hyprland
-    displayManager.gdm = {
-      enable = true;
-      wayland = true;
-    };
+    # displayManager.gdm = {
+    #   enable = true;
+    #   wayland = true;
+    # };
     printing.enable = true;
     pulseaudio.enable = false;
     pipewire = {
