@@ -82,6 +82,7 @@ in {
       enable = true;
       settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     };
+    hardware.bolt.enable = true;
     fstrim.enable = true;
     resolved.enable = true;
     udisks2.enable = true;
