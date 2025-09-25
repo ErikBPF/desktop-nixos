@@ -61,12 +61,12 @@ in {
   # Services
   services = {
     xserver = {
-#       displayManager.setupCommands = ''
-#   workaround for using NVIDIA Optimus without Bumblebee
-#   xrandr --setprovideroutputsource modesetting NVIDIA-0
-#   xrandr --auto
-# '';
-xkb = {
+      #       displayManager.setupCommands = ''
+      #   workaround for using NVIDIA Optimus without Bumblebee
+      #   xrandr --setprovideroutputsource modesetting NVIDIA-0
+      #   xrandr --auto
+      # '';
+      xkb = {
         layout = "qwerty-fr";
         variant = "qwerty-fr";
         extraLayouts = {
@@ -78,11 +78,12 @@ xkb = {
             };
           };
         };
-      };};
-      # ...
-      displayManager = {
-        gdm = {
-          enable = true;
+      };
+    };
+    # ...
+    displayManager = {
+      gdm = {
+        enable = true;
         wayland = true;
       };
       # 	sddm = {
@@ -120,31 +121,32 @@ xkb = {
       #   };
       # };
       # };
-      };
-      
+    };
+
     # greetd = {
     #   enable = true;
     #   settings.default_session.command = "${pkgs.tuigreet}/bin/tuigreet --time --asterisks --remember --cmd Hyprland";
     # };
     hardware = {
-    bolt.enable = true;
+      bolt.enable = true;
     };
-    fstrim = {enable = true;
-    interval = "weekly";
-    # udev.extraRules = ''
+    fstrim = {
+      enable = true;
+      interval = "weekly";
+      # udev.extraRules = ''
 
-    # HDD
-    # ACTION == "add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", \
-    #   ATTR{queue/scheduler}="bfq"
+      # HDD
+      # ACTION == "add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", \
+      #   ATTR{queue/scheduler}="bfq"
 
-    # SSD
-    # ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", \
-    #   ATTR{queue/scheduler}="mq-deadline"
+      # SSD
+      # ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", \
+      #   ATTR{queue/scheduler}="mq-deadline"
 
-    # NVMe SSD
-    # ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/rotational}=="0", \
-    #   ATTR{queue/scheduler}="none"
-    # '';
+      # NVMe SSD
+      # ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/rotational}=="0", \
+      #   ATTR{queue/scheduler}="none"
+      # '';
     };
     resolved.enable = true;
     udisks2.enable = true;
@@ -259,7 +261,7 @@ xkb = {
       gdm-greeter.enableGnomeKeyring = true;
       gdm-password.kwallet.enable = true;
       gdm-password.enableGnomeKeyring = true;
-      hyprlock = { };
+      hyprlock = {};
       login.enableGnomeKeyring = true;
       login.kwallet.enable = true;
     };

@@ -6,17 +6,16 @@
 }: {
   boot = {
     kernelModules = [
-    "nvidia"
-    "nvidia_modeset"
-    "nvidia_uvm"
-    "nvidia_drm"
-    "kvm-intel"
-  ];
-  kernelParams = [ "module_blacklist=i915" ];
-  initrd.kernelModules = [ "nvidia" ];
-  extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
-  blacklistedKernelModules =
-        ["nouveau"];
+      "nvidia"
+      "nvidia_modeset"
+      "nvidia_uvm"
+      "nvidia_drm"
+      "kvm-intel"
+    ];
+    kernelParams = ["module_blacklist=i915"];
+    initrd.kernelModules = ["nvidia"];
+    extraModulePackages = [config.boot.kernelPackages.nvidia_x11];
+    blacklistedKernelModules = ["nouveau"];
   };
 
   services.xserver.videoDrivers = ["nvidia"];
@@ -35,16 +34,16 @@
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
     prime = {
-    	offload = {
-    		enable = false;
-    		enableOffloadCmd = false;
-    	};
+      offload = {
+        enable = false;
+        enableOffloadCmd = false;
+      };
       sync = {
         enable = true;
       };
 
-    	nvidiaBusId = "PCI:01:00:0";
-    	intelBusId = "PCI:00:02:0";
+      nvidiaBusId = "PCI:01:00:0";
+      intelBusId = "PCI:00:02:0";
     };
   };
 
