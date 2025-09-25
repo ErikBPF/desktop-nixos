@@ -66,10 +66,6 @@ in {
       #   xrandr --setprovideroutputsource modesetting NVIDIA-0
       #   xrandr --auto
       # '';
-      displayManager.gdm = {
-        enable = true;
-        wayland = true;
-      };
       xkb = {
         layout = "qwerty-fr";
         variant = "qwerty-fr";
@@ -86,6 +82,12 @@ in {
     };
     # ...
     displayManager = {
+      gdm = {
+        enable = true;
+        wayland = true;
+        debug = true;
+      };
+      defaultSession = "hyprland";
       # sddm = {
       #   enable = true;
       #   enableHidpi = true;
