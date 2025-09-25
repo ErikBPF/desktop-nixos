@@ -24,7 +24,6 @@
     gnome-keyring # Password and secret manager for GNOME
     gnome.gvfs # Virtual file system for GNOME
     imv # Image viewer for Wayland
-    
   ];
 
   # Essential system packages - cannot be excluded
