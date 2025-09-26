@@ -116,8 +116,6 @@
     zfxtop # ZFS monitoring tool
     kmon # Linux kernel manager and activity monitor
     nvd # NVIDIA driver version checker
-    dotnetCorePackages.runtime_9_0-bin
-    dotnetCorePackages.sdk_9_0-bin
     intel-media-driver # Intel Media Driver for VAAPI
     vaapiIntel # Intel VA-API driver
     vaapiVdpau # VDPAU backend for VA-API
