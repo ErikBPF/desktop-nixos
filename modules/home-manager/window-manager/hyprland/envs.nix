@@ -10,6 +10,8 @@
     "NVD_BACKEND,direct"
     "LIBVA_DRIVER_NAME,nvidia"
     "__GLX_VENDOR_LIBRARY_NAME,nvidia"
+    "__NV_PRIME_RENDER_OFFLOAD,1"
+    "__VK_LAYER_NV_optimus,NVIDIA_only"
   ];
 in {
   wayland.windowManager.hyprland.settings = {
@@ -39,8 +41,10 @@ in {
         "NIXOS_OZONE_WL,1"
 
         # Make Chromium use XCompose and all Wayland
-        "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --ozone-platform=wayland --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks,Vulkan,DefaultANGLEVulkan,VulkanFromANGLE --use-angle=vulkan --use-cmd-decoder=passthrough --gtk-version=4\""
+        "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --enable-features=WebRTCPipeWireCapturer --ozone-platform=wayland  --gtk-version=4\""
 
+        # --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks,Vulkan,DefaultANGLEVulkan,VulkanFromANGLE --use-angle=vulkan --use-cmd-decoder=passthrough
+        
         # Make .desktop files available for wofi
         "XDG_DATA_DIRS,$XDG_DATA_DIRS:$HOME/.nix-profile/share:/nix/var/nix/profiles/default/share"
 

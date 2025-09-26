@@ -235,7 +235,7 @@ in {
           thermal-zone = 1;
           format = " {temperatureC}°C";
           critical-threshold = 70;
-          format-critical = " {temperatureF}°F";
+          format-critical = " {temperatureC}°C";
           on-click = "ghostty -e btop";
         };
       }

@@ -200,6 +200,7 @@
       whatsapp-electron
       teams-for-linux
       foot # A fast, lightweight and minimalistic Wayland terminal emulator
+      swappy # A Wayland screenshot tool
 
       # --- TUI Applications ---
       lazygit # A simple terminal UI for git commands

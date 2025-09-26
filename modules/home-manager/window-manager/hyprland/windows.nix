@@ -37,7 +37,7 @@
       "size 622 652, class:(clipse)"
       "stayfocused, class:(clipse)"
 
-      #       windowrulev2=workspace 1 silent,class:^(brave)$
+      # windowrulev2=workspace 1 silent,class:^(brave)$
       # windowrulev2=workspace 11 silent,class:^(kitty btop)$
       # windowrulev2=workspace 11 silent,title:^(Lens)$
       # windowrulev2=workspace 10 silent,class:^(chrome-teams.microsoft.com__-Default)$
@@ -53,6 +53,34 @@
       # windowrulev2=size 1056 585,class:^(chrome-teams.microsoft.com__-Default)$
       # windowrulev2=move 12 1304,class:^(chrome-discord.com__app-Default)$
       # windowrulev2=size 1056 603,class:^(chrome-discord.com__app-Default)$
+    ];
+
+    windowrulev2 = [
+      "opacity 0.8 0.70 override,class:^(com.mitchellh.ghostty)$"
+      "opacity 0.97 0.90,class:.*"
+      "opacity 1 1,class:^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
+      "workspace 10, class:^(whatsapp-electron)$"
+      "workspace 11, title:^(btop ~)$"
+      "workspace 12, class:^(spotify)$"
+      "workspace 10, class:^(teams-for-linux)$"
+      "workspace 10, class:^(discord)$"
+      "workspace 10, class:^(whatsapp-electron)$"
+      "workspace 11 silent,class:^(kitty btop)$"
+      "workspace 11 silent,title:^(Lens)$"
+      "workspace 10 silent,class:^(teams-for-linux)$"
+      "workspace 10 silent,class:^(discord)$"
+      "workspace 10 silent,class:^(whatsapp-electron)$"
+      
+      "float,class:^(teams-for-linux)$"
+      "float,class:^(discord)$"
+      "float,class:^(whatsapp-electron)$"
+
+      "move 12 646,class:^(whatsapp-electron)$"
+      "size 1056 643,class:^(whatsapp-electron)$"
+      "move 12 47,class:^(teams-for-linux)$"
+      "size 1056 585,class:^(teams-for-linux)$"
+      "move 12 1304,class:^(discord)$"
+      "size 1056 603,class:^(discord)$"
     ];
 
     layerrule = [
