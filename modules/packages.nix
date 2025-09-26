@@ -212,11 +212,7 @@
       go-protobuf # Go bindings for protocol buffers
       protoc-gen-go # Go protocol buffer compiler plugin
       protoc-gen-go-grpc # Go gRPC compiler plugin
-      zulu23 # Zulu OpenJDK 23
-      jre21_minimal # Minimal JRE 21
-      zulu17 # Zulu OpenJDK 17
-      zulu11 # Zulu OpenJDK 11
-      spark # A unified analytics engine for large-scale data processing
+
 
       # --- DevOps & Cloud ---
       terraform # Tool for building, changing, and versioning infrastructure safely and efficiently

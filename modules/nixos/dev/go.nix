@@ -3,7 +3,7 @@
   ...
 }: {
   # Go packages
-  home.packages = with pkgs; [
+  environment.systemPackages = with pkgs; [
     # Go language and tools
     go
     gopls # Go language server
@@ -24,7 +24,7 @@
   ];
 
   # Environment variables for Go
-  home.sessionVariables = {
+  environment.sessionVariables = {
     # Go settings
     GOPATH = "$HOME/go";
     GOROOT = "${pkgs.go}";
@@ -39,6 +39,5 @@
     # Go development settings
     GOFLAGS = "-mod=readonly";
     CGO_ENABLED = "1";
-    
   };
 }

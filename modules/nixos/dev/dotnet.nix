@@ -3,7 +3,7 @@
   ...
 }: {
   # .NET Core packages
-  home.packages = with pkgs; [
+  environment.systemPackages = with pkgs; [
     # .NET SDK and Runtime
     dotnet-sdk_9
     dotnet-runtime_9
@@ -23,7 +23,7 @@
   ];
 
   # Environment variables for .NET
-  home.sessionVariables = {
+  environment.sessionVariables = {
     # .NET Core settings
     DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
     DOTNET_CLI_TELEMETRY_OPTOUT = "1";
@@ -36,7 +36,5 @@
     DOTNET_EnableDiagnostics = "1";
     DOTNET_EnableTieredCompilation = "1";
     DOTNET_TieredCompilation = "1";
-    
   };
-
 }
