@@ -47,12 +47,5 @@ in {
     GOROOT = "${pkgs.go}";
     JAVA_HOME = "${pkgs.zulu23}";
     JDK_HOME = "${pkgs.zulu23}";
-    
-    # Development tool paths
-    EDITOR = "nvim";
-    VISUAL = "nvim";
-    
-    # Nix development paths
-    NIX_PATH = "nixpkgs=${pkgs.path}";
   };
 }
