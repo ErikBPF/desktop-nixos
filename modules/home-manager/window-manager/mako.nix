@@ -17,12 +17,12 @@
       padding = "10";
       margin = "10";
       border-size = 2;
-      border-radius = 15;
+      border-radius = 10;
 
       anchor = "top-right";
       layer = "overlay";
 
-      default-timeout = 5000;
+      default-timeout = 2000;
       ignore-timeout = false;
       max-visible = 5;
       sort = "-time";

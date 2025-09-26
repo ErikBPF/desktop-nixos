@@ -197,6 +197,8 @@
       chromium # Open-source web browser
       vlc # A free and open source cross-platform multimedia player
       discord # Voice, video, and text chat app
+      whatsapp-electron
+      teams-for-linux
       foot # A fast, lightweight and minimalistic Wayland terminal emulator
 
       # --- TUI Applications ---
