@@ -12,12 +12,6 @@
     # Additional .NET tools
     dotnet-ef # Entity Framework Core tools
     dotnet-outdated # Check for outdated NuGet packages
-    dotnet-script # Run C# scripts
-    dotnet-trace # Performance tracing
-    dotnet-counters # Performance counters
-    dotnet-dump # Memory dump analysis
-    dotnet-gcdump # GC heap analysis
-    dotnet-sos # SOS debugging extension
     
     # Build tools
     msbuild # Microsoft Build Engine
@@ -43,8 +37,6 @@
     DOTNET_EnableTieredCompilation = "1";
     DOTNET_TieredCompilation = "1";
     
-    # Path configuration
-    PATH = "$PATH:${pkgs.dotnet-sdk_9}/bin";
   };
 
 }

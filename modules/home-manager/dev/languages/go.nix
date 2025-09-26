@@ -16,11 +16,9 @@
     golangci-lint # Go linter aggregator
     gofumpt # Stricter gofmt
     gosec # Go security checker
-    staticcheck # Go static analysis
     govulncheck # Go vulnerability checker
     air # Live reload for Go apps
     richgo # Enriched go test output
-    gomobile # Go mobile development
     protoc-gen-go # Go protobuf compiler
     protoc-gen-go-grpc # Go gRPC compiler
   ];
@@ -42,7 +40,5 @@
     GOFLAGS = "-mod=readonly";
     CGO_ENABLED = "1";
     
-    # Path configuration
-    PATH = "$PATH:$HOME/go/bin:${pkgs.go}/bin";
   };
 }
