@@ -19,32 +19,12 @@
     jdt-language-server # Java language server
     java-language-server # Alternative Java LSP
     checkstyle # Java code style checker
-    spotbugs # Java bug finder
     pmd # Java source code analyzer
     jacoco # Java code coverage
-    jdeps # Java dependency analyzer
-    jps # Java process status
-    jstat # Java statistics monitoring
-    jstack # Java stack trace
-    jmap # Java memory map
-    jhat # Java heap analysis tool
-    jconsole # Java monitoring and management console
-    jvisualvm # Java visual VM
-    jprofiler # Java profiler
-    jmeter # Apache JMeter for testing
-    junit # JUnit testing framework
-    testng # TestNG testing framework
-    mockito # Mockito mocking framework
-    spring-boot-cli # Spring Boot CLI
     groovy # Groovy language
     kotlin # Kotlin language
     scala # Scala language
     sbt # Scala build tool
-    
-    # Additional tools
-    maven-dependency-analyzer # Maven dependency analyzer
-    maven-shade-plugin # Maven shade plugin
-    maven-compiler-plugin # Maven compiler plugin
   ];
 
   # Environment variables for Java
@@ -62,7 +42,5 @@
     # Java tool settings
     JAVA_TOOL_OPTIONS = "-Dfile.encoding=UTF-8 -Duser.timezone=UTC";
     
-    # Path configuration
-    PATH = "$PATH:${pkgs.zulu23}/bin:${pkgs.gradle}/bin:${pkgs.maven}/bin";
   };
 }
