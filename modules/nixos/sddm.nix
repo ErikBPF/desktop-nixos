@@ -6,7 +6,7 @@
 }: let
 
   sddm-astronaut = pkgs.sddm-astronaut.override {
-    embeddedTheme = "hyprland_kath";
+    embeddedTheme = "astronaut";
   };
 in {
   environment.systemPackages = [
@@ -28,7 +28,7 @@ in {
       };
       autoLogin = {
         enable = false;
-        user = "shawn";
+        user = "erik";
       };
     };
   };
