@@ -3,7 +3,7 @@
   ...
 }: {
   # Python packages
-  home.packages = with pkgs; [
+  environment.systemPackages = with pkgs; [
     # Python with essential packages
     (python3.withPackages (ps: with ps; [
       pip
@@ -56,7 +56,7 @@
   ];
 
   # Environment variables for Python
-  home.sessionVariables = {
+  environment.sessionVariables = {
     # Python settings
     PYTHONPATH = "$HOME/.local/lib/python3.12/site-packages:$PYTHONPATH";
     PYTHONSTARTUP = "$HOME/.pythonrc";
@@ -73,6 +73,5 @@
     # Development settings
     PYTHONBREAKPOINT = "pdb.set_trace";
     PYTHONWARNINGS = "default";
-    
   };
 }

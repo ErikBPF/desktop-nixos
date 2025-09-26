@@ -14,10 +14,11 @@
     inputs.disko.nixosModules.disko
     inputs.sops-nix.nixosModules.sops
     (import ../../modules/nixos/default.nix inputs)
+     ../common/global.nix
     ./hardware-configuration.nix
     ../../modules/users/erik.nix
     ./disk-config.nix
-    ../common/global.nix
+   ../../modules/nixos/dev/default.nix
     ./syncthing.nix
     ./nvidia.nix
   ];

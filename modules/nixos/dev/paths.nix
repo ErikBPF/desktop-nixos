@@ -25,7 +25,6 @@
     "${pkgs.gh}/bin"
     "${pkgs.git}/bin"
     "${pkgs.vim}/bin"
-    "${pkgs.nvim}/bin"
     "${pkgs.alejandra}/bin"
     "${pkgs.nil}/bin"
     "${pkgs.nixd}/bin"
@@ -38,24 +37,22 @@
   # Create PATH string
   concatenatedPath = builtins.concatStringsSep ":" allPaths;
 in {
-  # Set the concatenated PATH
-  home.sessionVariables = {
+  # Set environment variables including concatenated PATH
+  environment.sessionVariables = {
+    # Concatenated PATH
     PATH = "${concatenatedPath}:$PATH";
-  };
-  
-  # Individual path exports for reference
-  home.sessionVariablesExtra = ''
+    
     # Language-specific paths
-    export DOTNET_ROOT="${pkgs.dotnet-sdk_9}"
-    export GOROOT="${pkgs.go}"
-    export JAVA_HOME="${pkgs.zulu23}"
-    export JDK_HOME="${pkgs.zulu23}"
+    DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
+    GOROOT = "${pkgs.go}";
+    JAVA_HOME = "${pkgs.zulu23}";
+    JDK_HOME = "${pkgs.zulu23}";
     
     # Development tool paths
-    export EDITOR="nvim"
-    export VISUAL="nvim"
+    EDITOR = "nvim";
+    VISUAL = "nvim";
     
     # Nix development paths
-    export NIX_PATH="nixpkgs=${pkgs.path}"
-  '';
+    NIX_PATH = "nixpkgs=${pkgs.path}";
+  };
 }

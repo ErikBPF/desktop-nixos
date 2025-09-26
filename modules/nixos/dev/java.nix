@@ -3,12 +3,13 @@
   ...
 }: {
   # Java packages
-  home.packages = with pkgs; [
+  environment.systemPackages = with pkgs; [
     # Java Development Kit
     zulu23 # OpenJDK 23
     zulu17 # OpenJDK 17 (LTS)
     zulu11 # OpenJDK 11 (LTS)
     jre21_minimal # Minimal JRE 21
+    spark # A unified analytics engine for large-scale data processing
     
     # Java build tools
     gradle # Gradle build system
@@ -28,7 +29,7 @@
   ];
 
   # Environment variables for Java
-  home.sessionVariables = {
+  environment.sessionVariables = {
     # Java settings
     JAVA_HOME = "${pkgs.zulu23}";
     JDK_HOME = "${pkgs.zulu23}";
@@ -41,6 +42,5 @@
     
     # Java tool settings
     JAVA_TOOL_OPTIONS = "-Dfile.encoding=UTF-8 -Duser.timezone=UTC";
-    
   };
 }
