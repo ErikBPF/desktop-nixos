@@ -20,6 +20,7 @@ in {
       general = {
         disable_loading_bar = true;
         no_fade_in = false;
+        screencopy_mode = 1;
       };
       auth = {
         fingerprint.enabled = true;
