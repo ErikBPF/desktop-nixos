@@ -22,7 +22,7 @@
       "SUPER, F, fullscreen, "
       "SUPER, M, fullscreen, 1 "
       "CTRL SHIFT, J, togglesplit, "
-      "SUPER SHIFT, S, exec, hyprshot -m region --clipboard-only --silent --raw | swappy -f - "
+      "SUPER SHIFT, S, exec,grim -g \"$(slurp)\" - | swappy -f -" # hyprshot -m region --clipboard-only --silent --raw | swappy -f - 
       "SUPER SHIFT, C, exec, cliphist list | wofi -Iim --dmenu | cliphist decode | wl-copy && wtype -M ctrl v -M ctrl "
       "SUPER, SPACE, exec, pamixer --default-source -t"
       "SUPER SHIFT, SPACE, exec, pkill -SIGUSR1 waybar"

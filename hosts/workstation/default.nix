@@ -20,7 +20,7 @@
     ./disk-config.nix
    ../../modules/nixos/dev/default.nix
     ./syncthing.nix
-    ./nvidia.nix
+    # ./nvidia.nix
   ];
   boot = {
     kernelParams = ["nohibernate"];
