@@ -56,8 +56,8 @@
     ];
 
     windowrulev2 = [
-      "opacity 0.8 0.70 override,class:^(com.mitchellh.ghostty)$"
       "opacity 0.97 0.90,class:.*"
+      "opacity 0.90 0.80 override,class:^(com.mitchellh.ghostty)$"
       "opacity 1 1,class:^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
       "workspace 10, class:^(whatsapp-electron)$"
       "workspace 11, title:^(btop ~)$"
@@ -65,7 +65,7 @@
       "workspace 10, class:^(teams-for-linux)$"
       "workspace 10, class:^(discord)$"
       "workspace 10, class:^(whatsapp-electron)$"
-      "workspace 11 silent,class:^(kitty btop)$"
+      "workspace 11 silent,title:^(btop ~)$"
       "workspace 11 silent,title:^(Lens)$"
       "workspace 10 silent,class:^(teams-for-linux)$"
       "workspace 10 silent,class:^(discord)$"
