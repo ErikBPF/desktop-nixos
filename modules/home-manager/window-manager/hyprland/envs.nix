@@ -36,7 +36,7 @@ in {
         "QT_STYLE_OVERRIDE,kvantum"
         "SDL_VIDEODRIVER,wayland"
         "MOZ_ENABLE_WAYLAND,1"
-        "WLR_NO_HARDWARE_CURSORS,1"
+        # "WLR_NO_HARDWARE_CURSORS,1"
         "ELECTRON_OZONE_PLATFORM_HINT,wayland"
         "OZONE_PLATFORM,wayland"
         "NIXOS_OZONE_WL,1"
@@ -49,7 +49,7 @@ in {
         "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --enable-features=WebRTCPipeWireCapturer --ozone-platform=wayland  --gtk-version=4\""
 
         # --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks,Vulkan,DefaultANGLEVulkan,VulkanFromANGLE --use-angle=vulkan --use-cmd-decoder=passthrough
-        
+
         # Make .desktop files available for wofi
         "XDG_DATA_DIRS,$XDG_DATA_DIRS:$HOME/.nix-profile/share:/nix/var/nix/profiles/default/share"
 

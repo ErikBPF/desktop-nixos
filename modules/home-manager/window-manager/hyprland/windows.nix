@@ -70,7 +70,7 @@
       "workspace 10 silent,class:^(teams-for-linux)$"
       "workspace 10 silent,class:^(discord)$"
       "workspace 10 silent,class:^(whatsapp-electron)$"
-      
+
       "float,class:^(teams-for-linux)$"
       "float,class:^(discord)$"
       "float,class:^(whatsapp-electron)$"

@@ -216,7 +216,6 @@
       protoc-gen-go # Go protocol buffer compiler plugin
       protoc-gen-go-grpc # Go gRPC compiler plugin
 
-
       # --- DevOps & Cloud ---
       terraform # Tool for building, changing, and versioning infrastructure safely and efficiently
       terraform-ls # Official language server for Terraform
