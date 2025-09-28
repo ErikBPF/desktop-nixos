@@ -36,9 +36,14 @@ in {
         "QT_STYLE_OVERRIDE,kvantum"
         "SDL_VIDEODRIVER,wayland"
         "MOZ_ENABLE_WAYLAND,1"
+        "WLR_NO_HARDWARE_CURSORS,1"
         "ELECTRON_OZONE_PLATFORM_HINT,wayland"
         "OZONE_PLATFORM,wayland"
         "NIXOS_OZONE_WL,1"
+        # "XDG_SESSION_TYPE,wayland"
+        # "XDG_CURRENT_DESKTOP,Hyprland"
+        # "XDG_SESSION_DESKTOP,Hyprland"
+        # "GDK_BACKEND,x11"
 
         # Make Chromium use XCompose and all Wayland
         "CHROMIUM_FLAGS,\"--enable-features=UseOzonePlatform --enable-features=WebRTCPipeWireCapturer --ozone-platform=wayland  --gtk-version=4\""
