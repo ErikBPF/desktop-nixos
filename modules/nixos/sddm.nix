@@ -4,7 +4,6 @@
   config,
   ...
 }: let
-
   sddm-astronaut = pkgs.sddm-astronaut.override {
     embeddedTheme = "astronaut";
   };

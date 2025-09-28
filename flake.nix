@@ -38,7 +38,6 @@
     ];
     forAllSystems = nixpkgs.lib.genAttrs systems;
     secrets = builtins.fromJSON (builtins.readFile "${self}/secrets/crypt/secrets.json");
-    
   in {
     formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
 

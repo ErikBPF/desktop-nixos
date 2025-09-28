@@ -1,7 +1,4 @@
-{
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   # Go packages
   environment.systemPackages = with pkgs; [
     # Go language and tools
@@ -35,7 +32,7 @@
     GOPRIVATE = "";
     GOCACHE = "$HOME/.cache/go-build";
     GOMODCACHE = "$HOME/go/pkg/mod";
-    
+
     # Go development settings
     GOFLAGS = "-mod=readonly";
     CGO_ENABLED = "1";
