@@ -247,6 +247,9 @@
 
       # --- Shell & Prompt ---
       starship # The minimal, blazing-fast, and infinitely customizable prompt for any shell
+      yazi
+      imagemagick
+      exiftool
     ]
     ++ lib.optionals (pkgs.system == "x86_64-linux") [
       spotify # A music streaming service
