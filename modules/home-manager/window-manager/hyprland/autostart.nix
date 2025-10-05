@@ -5,7 +5,7 @@
 }: {
   wayland.windowManager.hyprland.settings = {
     exec-once = [
-      "waybar"
+      "pkill -SIGUSR2 waybar || waybar"
       "hyprsunset"
       "systemctl --user start hyprpolkitagent"
       "wl-clip-persist --clipboard regular & clipse -listen"

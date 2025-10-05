@@ -52,6 +52,7 @@ in {
   environment.systemPackages = packages.systemPackages;
   programs = {
     direnv.enable = true;
+    noisetorch.enable = true;
   };
 
   # systemd.tmpfiles.rules = [

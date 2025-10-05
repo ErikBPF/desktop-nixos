@@ -7,5 +7,6 @@
     ./kitty.nix
     ./ghostty.nix
     ./atuin.nix
+    ./yazi.nix
   ];
 }
