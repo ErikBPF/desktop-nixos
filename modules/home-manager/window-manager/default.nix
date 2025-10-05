@@ -13,5 +13,6 @@
     ./waybar.nix
     ./wofi.nix
     ./wlogout.nix
+    ./mime.nix
   ];
 }

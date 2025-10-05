@@ -8,13 +8,13 @@
 
     settings = {
       mgr = {
-        layout = [ 1 4 3 ];
+        layout = [ 1 3 4 ];
         sort_by = "alphabetical";
         sort_sensitive = true;
         sort_reverse = false;
         sort_dir_first = true;
         linemode = "none";
-        show_hidden = false;
+        show_hidden = true;
         show_symlink = true;
       };
 
