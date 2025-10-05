@@ -55,7 +55,9 @@ in {
 
         # Use XCompose file
         "XCOMPOSEFILE,~/.XCompose"
-        "EDITOR,nvim"
+        "EDITOR,cursor"
+        "BROWSER,brave"
+        "FILEMANAGER,ghostty -e yazi"
 
         # GTK theme
         "GTK_THEME,Adwaita:dark"

@@ -16,7 +16,8 @@
     settings = {
       # Default applications
       "$terminal" = lib.mkDefault "ghostty";
-      "$fileManager" = lib.mkDefault "nautilus --new-window";
+      "$fileManager" = lib.mkDefault "ghostty -e yazi";
+      # "$fileManager" = lib.mkDefault "nautilus --new-window";
       "$browser" = lib.mkDefault "brave --enable-features=UseOzonePlatform  --ozone-platform=wayland  --enable-features=WebRTCPipeWireCapturer";
       "$music" = lib.mkDefault "spotify";
       "$webapp" = lib.mkDefault "$browser --app";
