@@ -234,7 +234,7 @@ in {
         temperature = {
           thermal-zone = 0;
           format = " {temperatureC}°C";
-          
+
           critical-threshold = 70;
           format-critical = " {temperatureC}°C";
           on-click = "ghostty -e btop";

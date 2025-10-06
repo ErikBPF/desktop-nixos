@@ -1,5 +1,4 @@
-{  ...
-}: {
+{...}: {
   # yazi file manager
   programs.yazi = {
     enable = true;
@@ -8,7 +7,7 @@
 
     settings = {
       mgr = {
-        layout = [ 1 3 4 ];
+        layout = [1 3 4];
         sort_by = "alphabetical";
         sort_sensitive = true;
         sort_reverse = false;
