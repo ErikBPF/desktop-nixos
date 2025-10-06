@@ -1,12 +1,8 @@
-{
-  ...
-}:
-let
+{...}: let
   browser = "brave";
   pdf = "brave";
   fileManager = "yazi";
-in
-{
+in {
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {

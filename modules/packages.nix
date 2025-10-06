@@ -115,11 +115,6 @@
     htop # Interactive process viewer
     zfxtop # ZFS monitoring tool
     kmon # Linux kernel manager and activity monitor
-    nvd # NVIDIA driver version checker
-    intel-media-driver # Intel Media Driver for VAAPI
-    vaapiIntel # Intel VA-API driver
-    vaapiVdpau # VDPAU backend for VA-API
-    libvdpau-va-gl # VDPAU driver with VA-API backend
 
     # --- Hardware Information Tools ---
     dmidecode # Tool for dumping a computer's DMI (some say SMBIOS) table contents in a human-readable format
@@ -250,6 +245,11 @@
       yazi
       imagemagick
       exiftool
+      ffmpegthumbnailer
+      fontpreview
+      unar
+      poppler
+      unar
     ]
     ++ lib.optionals (pkgs.system == "x86_64-linux") [
       spotify # A music streaming service
