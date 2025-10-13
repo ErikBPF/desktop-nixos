@@ -3,6 +3,6 @@
     ./bluetooth.nix
     ./power.nix
     ./printing.nix
-    ./sensors.nix
+    ./peripherals.nix
   ];
 }

@@ -4,7 +4,7 @@ update:
 	sudo nix flake update
 	
 build:
-	git pull;
+	# git pull;
 	# git-crypt unlock ./secret-key
 	sudo nixos-rebuild switch --flake .#workstation --impure --show-trace
 
