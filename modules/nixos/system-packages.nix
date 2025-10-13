@@ -12,6 +12,5 @@ in {
   # System-wide programs
   programs = {
     direnv.enable = true;
-    noisetorch.enable = true;
   };
 }

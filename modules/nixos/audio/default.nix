@@ -1,13 +1,10 @@
 {
-  config,
   lib,
   ...
 }: {
-  options.modules.audio.enable = lib.mkEnableOption "audio support (PipeWire)";
+  imports = [
+    ./pipewire.nix
+  ];
 
-  config = lib.mkIf config.modules.audio.enable {
-    imports = [
-      ./pipewire.nix
-    ];
-  };
+  options.modules.audio.enable = lib.mkEnableOption "audio support (PipeWire)";
 }
