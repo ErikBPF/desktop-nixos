@@ -15,6 +15,10 @@
     "${pkgs.zulu23}/bin"
     "${pkgs.gradle}/bin"
     "${pkgs.maven}/bin"
+
+    # Node.js paths
+    "${pkgs.nodejs_22}/bin"
+    "$HOME/.npm-global/bin"
   ];
 
   # Additional development tool paths
