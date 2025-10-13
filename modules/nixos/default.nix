@@ -1,8 +1,4 @@
-inputs: {
-  config,
-  pkgs,
-  ...
-}: {
+inputs: {...}: {
   imports = [
     # System packages and programs
     ./system-packages.nix

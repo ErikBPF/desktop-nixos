@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   security.apparmor = {
     enable = true;
     packages = with pkgs; [

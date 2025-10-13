@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{...}: {
   services.atuin = {
     enable = true;
     # Optional: Configure a server for sync (uncomment and configure if needed)
