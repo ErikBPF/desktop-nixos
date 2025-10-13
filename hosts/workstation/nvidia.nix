@@ -18,7 +18,21 @@
     blacklistedKernelModules = ["nouveau"];
   };
 
-  services.xserver.videoDrivers = ["nvidia"];
+  services.xserver.videoDrivers = ["intel" "nvidia"];
+
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true;
+    extraPackages = with pkgs; [ 
+      intel-media-driver
+      libvdpau-va-gl
+      vaapiIntel
+      nvidia-vaapi-driver
+      vaapiVdpau # VDPAU backend for VA-API
+      intel-ocl 
+      intel-vaapi-driver
+       ];
+  };
 
   hardware.nvidia = {
     open = false;

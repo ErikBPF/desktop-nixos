@@ -9,14 +9,21 @@
       "kvm-intel"
     ];
   };
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true;
+    extraPackages = with pkgs; [ 
+      intel-media-driver
+      libvdpau-va-gl
+      vaapiIntel
+      vaapiVdpau # VDPAU backend for VA-API
+      intel-ocl 
+      intel-vaapi-driver
+       ];
+  };
   services.xserver.videoDrivers = ["intel"];
   environment.systemPackages = with pkgs; [
     egl-wayland
-    libvdpau-va-gl
-    intel-media-driver # Intel Media Driver for VAAPI
-    vaapiIntel # Intel VA-API driver
-    vaapiVdpau # VDPAU backend for VA-API
-    libvdpau-va-gl # VDPAU driver with VA-API backend
     nvtopPackages.intel
   ];
 }
