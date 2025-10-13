@@ -18,7 +18,7 @@
 
     # Node.js paths
     "${pkgs.nodejs_22}/bin"
-    "$HOME/.npm-global/bin"
+    "$HOME/.npm-packages/bin"
   ];
 
   # Additional development tool paths
