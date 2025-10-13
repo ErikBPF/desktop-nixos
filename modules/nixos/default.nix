@@ -2,13 +2,21 @@ inputs: {
   config,
   pkgs,
   ...
-}: let
-  packages = import ../packages.nix {inherit pkgs;};
-in {
+}: {
   imports = [
-    (import ./hyprland.nix inputs)
-    (import ./system.nix)
-    (import ./virtualization.nix)
-    (import ./sddm.nix)
+    # System packages and programs
+    ./system-packages.nix
+
+    # Core system categories
+    ./audio
+    ./boot
+    (import ./desktop inputs)
+    ./dev
+    ./graphics
+    ./hardware
+    ./networking
+    ./security
+    ./services
+    ./virtualization
   ];
 }

@@ -18,10 +18,19 @@
     ./hardware-configuration.nix
     ../../modules/users/erik.nix
     ./disk-config.nix
-    ../../modules/nixos/dev/default.nix
     ./syncthing.nix
-    ../../modules/nixos/graphics/nvidia.nix
   ];
+
+  # Enable system modules
+  modules = {
+    audio.enable = true;
+    desktop.enable = true;
+    dev.enable = true;
+    graphics = {
+      enable = true;
+      driver = "nvidia";
+    };
+  };
   boot = {
     kernelParams = ["nohibernate"];
     tmp.cleanOnBoot = true;
