@@ -23,7 +23,6 @@
 
   # Enable system modules
   modules = {
-    audio.enable = true;
     desktop.enable = true;
     dev.enable = true;
     graphics = {

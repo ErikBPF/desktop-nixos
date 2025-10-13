@@ -1,4 +1,9 @@
-{pkgs, ...}: let
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}: let
   # Collect all language-specific paths
   languagePaths = [
     # .NET paths
@@ -38,15 +43,17 @@
   # Create PATH string
   concatenatedPath = builtins.concatStringsSep ":" allPaths;
 in {
-  # Set environment variables including concatenated PATH
-  environment.sessionVariables = {
-    # Concatenated PATH
-    PATH = "${concatenatedPath}:$PATH";
+  config = lib.mkIf config.modules.dev.enable {
+    # Set environment variables including concatenated PATH
+    environment.sessionVariables = {
+      # Concatenated PATH
+      PATH = "${concatenatedPath}:$PATH";
 
-    # Language-specific paths
-    DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
-    GOROOT = "${pkgs.go}";
-    JAVA_HOME = "${pkgs.zulu23}";
-    JDK_HOME = "${pkgs.zulu23}";
+      # Language-specific paths
+      DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
+      GOROOT = "${pkgs.go}";
+      JAVA_HOME = "${pkgs.zulu23}";
+      JDK_HOME = "${pkgs.zulu23}";
+    };
   };
 }
