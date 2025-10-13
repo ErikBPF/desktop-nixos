@@ -8,26 +8,28 @@
     embeddedTheme = "astronaut";
   };
 in {
-  environment.systemPackages = [
-    sddm-astronaut
-  ];
+  config = lib.mkIf config.modules.desktop.enable {
+    environment.systemPackages = [
+      sddm-astronaut
+    ];
 
-  services = {
-    xserver.enable = true;
+    services = {
+      xserver.enable = true;
 
-    displayManager = {
-      sddm = {
-        wayland.enable = true;
-        enable = true;
-        package = pkgs.kdePackages.sddm;
-        enableHidpi = true;
-        theme = "sddm-astronaut-theme";
+      displayManager = {
+        sddm = {
+          wayland.enable = true;
+          enable = true;
+          package = pkgs.kdePackages.sddm;
+          enableHidpi = true;
+          theme = "sddm-astronaut-theme";
 
-        extraPackages = [sddm-astronaut];
-      };
-      autoLogin = {
-        enable = false;
-        user = "erik";
+          extraPackages = [sddm-astronaut];
+        };
+        autoLogin = {
+          enable = false;
+          user = "erik";
+        };
       };
     };
   };
