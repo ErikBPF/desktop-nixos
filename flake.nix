@@ -48,6 +48,11 @@
         system = "x86_64-linux";
         modules = [./hosts/workstation];
       };
+      laptop = nixpkgs.lib.nixosSystem {
+        specialArgs = {inherit inputs outputs secrets;};
+        system = "x86_64-linux";
+        modules = [./hosts/laptop];
+      };
     };
   };
 }

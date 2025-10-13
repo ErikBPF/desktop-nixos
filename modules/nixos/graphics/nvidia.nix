@@ -23,15 +23,15 @@
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
-    extraPackages = with pkgs; [ 
+    extraPackages = with pkgs; [
       intel-media-driver
       libvdpau-va-gl
       vaapiIntel
       nvidia-vaapi-driver
       vaapiVdpau # VDPAU backend for VA-API
-      intel-ocl 
+      intel-ocl
       intel-vaapi-driver
-       ];
+    ];
   };
 
   hardware.nvidia = {
