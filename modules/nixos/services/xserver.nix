@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{...}: {
   services.xserver = {
     #       displayManager.setupCommands = ''
     #   workaround for using NVIDIA Optimus without Bumblebee

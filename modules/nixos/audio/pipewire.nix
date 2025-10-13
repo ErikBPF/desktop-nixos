@@ -3,7 +3,7 @@
   lib,
   ...
 }: {
-  config = lib.mkIf config.modules.desktop.enable {
+  config = lib.mkIf config.modules.audio.enable {
     # Disable PulseAudio in favor of PipeWire
     services.pulseaudio.enable = false;
 
@@ -22,8 +22,8 @@
     # Enable rtkit for real-time audio priority
     security.rtkit.enable = true;
 
-  programs = {
-    noisetorch.enable = true;
-  };
+    programs = {
+      noisetorch.enable = true;
+    };
   };
 }

@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{...}: {
   security.pam.services = {
     # greetd.enableGnomeKeyring = true;
     # greetd.kwallet.enable = false;

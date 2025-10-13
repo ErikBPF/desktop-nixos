@@ -6,4 +6,3 @@
     steam-hardware.enable = true;
   };
 }
-

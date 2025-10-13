@@ -1,7 +1,4 @@
-inputs: {
-  lib,
-  ...
-}: {
+inputs: {lib, ...}: {
   imports = [
     ./fonts.nix
     ./xdg-portal.nix
