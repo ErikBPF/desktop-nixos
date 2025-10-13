@@ -5,5 +5,6 @@
     ./go.nix
     ./python.nix
     ./java.nix
+    ./javascript.nix
   ];
 }
