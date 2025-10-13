@@ -1,8 +1,12 @@
 {
-  config,
   lib,
   ...
 }: {
+  imports = [
+    ./intel.nix
+    ./nvidia.nix
+  ];
+
   options.modules.graphics = {
     enable = lib.mkEnableOption "graphics drivers";
     
@@ -11,12 +15,5 @@
       default = "none";
       description = "Graphics driver to use";
     };
-  };
-
-  config = lib.mkIf config.modules.graphics.enable {
-    imports = [
-      (lib.mkIf (config.modules.graphics.driver == "intel") ./intel.nix)
-      (lib.mkIf (config.modules.graphics.driver == "nvidia") ./nvidia.nix)
-    ];
   };
 }

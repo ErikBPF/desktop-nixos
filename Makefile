@@ -6,7 +6,7 @@ update:
 build:
 	# git pull;
 	# git-crypt unlock ./secret-key
-	sudo nixos-rebuild switch --flake .#workstation --impure --show-trace
+	sudo nixos-rebuild dry-run --flake .#workstation --impure --show-trace
 
 boot:
 	git pull;
