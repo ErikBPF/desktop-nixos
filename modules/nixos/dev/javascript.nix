@@ -9,17 +9,6 @@
     nodePackages.yarn
     nodePackages.pnpm
     
-    # Global npm packages
-    (pkgs.buildEnv {
-      name = "nodejs-global-packages";
-      paths = [
-        (pkgs.runCommand "fission-openspec" {} ''
-          mkdir -p $out/bin
-          ${pkgs.nodejs_22}/bin/npm install -g --prefix $out @fission-ai/openspec@latest
-        '')
-      ];
-    })
-    
     # Development tools
     nodePackages.typescript
     nodePackages.typescript-language-server
@@ -30,17 +19,19 @@
     
     # Build tools
     nodePackages.webpack
-    nodePackages.vite
-    
-    # Testing tools
-    nodePackages.jest
   ];
+  
+  # Note: Install global packages after system rebuild with:
+  # npm install -g @fission-ai/openspec@latest
 
   # Environment variables for Node.js
   environment.sessionVariables = {
     # Node.js settings
-    NODE_PATH = "$HOME/.npm-global/lib/node_modules:$NODE_PATH";
-    NPM_CONFIG_PREFIX = "$HOME/.npm-global";
+
+
+
+    NODE_PATH = "$HOME/.npm-packages/lib/node_modules:$NODE_PATH";
+    NPM_CONFIG_PREFIX = "$HOME/.npm-packages";
     
     # Development settings
     NODE_ENV = "development";
@@ -51,5 +42,26 @@
     NPM_CONFIG_AUDIT = "false";
     NPM_CONFIG_UPDATE_NOTIFIER = "false";
   };
+
+  # Create npm global directory and config
+  system.activationScripts.npmSetup = ''
+    for user in /home/*; do
+      if [ -d "$user" ]; then
+        username=$(basename "$user")
+        # Create npm global directory
+        mkdir -p "$user/.npm-packages"
+        chown -R $username:users "$user/.npm-packages" 2>/dev/null || true
+        
+        # Create .npmrc config
+        cat > "$user/.npmrc" << EOF
+prefix=$user/.npm-packages
+fund=false
+audit=false
+update-notifier=false
+EOF
+        chown $username:users "$user/.npmrc" 2>/dev/null || true
+      fi
+    done
+  '';
 }
 
