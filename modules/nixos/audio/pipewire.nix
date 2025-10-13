@@ -21,5 +21,9 @@
 
     # Enable rtkit for real-time audio priority
     security.rtkit.enable = true;
+
+  programs = {
+    noisetorch.enable = true;
+  };
   };
 }
