@@ -22,6 +22,25 @@
         max_width = 600;
         max_height = 900;
       };
+
+      opener = {
+        browser = [
+          {
+            run = "brave \"$@\"";
+            orphan = true;
+            desc = "Open in browser";
+          }
+        ];
+      };
+
+      open = {
+        rules = [
+          {
+            mime = "application/pdf";
+            use = "browser";
+          }
+        ];
+      };
     };
   };
 }
