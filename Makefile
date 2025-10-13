@@ -15,13 +15,14 @@ boot:
 
 upgrade:
 	git pull;
-	sudo nixos-rebuild switch --upgrade --flake .#workstation --impure --show-trace
+	sudo nixos-rebuild switch --upgrade-all --flake .#workstation --impure --show-trace
 
 fmt:
 	# format the nix files in this repo
 	nix fmt ./
 
 update-channel:
+	sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos
 	sudo nix-channel --update
 
 gc: 
