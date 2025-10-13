@@ -18,10 +18,6 @@ in {
         };
       };
     };
-    graphics = {
-      enable = true;
-      enable32Bit = true;
-    };
     usb-modeswitch.enable = true;
     sensor.iio.enable = true;
     i2c.enable = true;

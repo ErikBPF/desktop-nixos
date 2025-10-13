@@ -59,6 +59,8 @@ in {
         "BROWSER,brave"
         "FILEMANAGER,ghostty -e yazi"
 
+        # "AQ_DRM_DEVICES,/dev/dri/card0:/dev/dri/card1"
+
         # GTK theme
         "GTK_THEME,Adwaita:dark"
         # Podman compatibility. Probably need to add cfg.env?
