@@ -86,7 +86,7 @@
     libGL # Mesa's implementation of the OpenGL API
     libGLU # Mesa's implementation of the GLU API
     libva # Video Acceleration (VA) API for Linux
-    libva-utils # Video Acceleration (VA) utilities 
+    libva-utils # Video Acceleration (VA) utilities
     mesa # An open-source implementation of the OpenGL specification
     hwinfo # Hardware detection tool
     glxinfo # A tool for diagnosing problems with OpenGL and GLX

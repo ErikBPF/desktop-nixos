@@ -20,7 +20,7 @@
     ./disk-config.nix
     ../../modules/nixos/dev/default.nix
     ./syncthing.nix
-    ../../modules/nixos/graphics/nvidia.nix
+    ../../modules/nixos/graphics/intel.nix
   ];
   boot = {
     kernelParams = ["nohibernate"];
@@ -63,7 +63,7 @@
   # };
 
   networking = {
-    hostName = "workstation";
+    hostName = "laptop";
     networkmanager.enable = true;
     networkmanager.dns = "systemd-resolved";
     firewall = {
@@ -76,7 +76,7 @@
 
   system.autoUpgrade = {
     enable = true;
-    flake = "github:ErikBPF/desktop-nixos#workstation";
+    flake = "github:ErikBPF/desktop-nixos#laptop";
     operation = "switch";
     randomizedDelaySec = "45min";
     flags = [

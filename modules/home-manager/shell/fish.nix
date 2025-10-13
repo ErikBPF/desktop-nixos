@@ -5,6 +5,16 @@ in {
     enable = true;
     interactiveShellInit = ''
       ${pkgs.nix-your-shell}/bin/nix-your-shell --nom fish | source
+
+      # Early return conditions
+      if test "$PAGER" = "head -n 10000 | cat" -o "$COMPOSER_NO_INTERACTION" = "1"
+        return
+      end
+
+      if test "$TERM_PROGRAM" = "vscode" -o "$TERM_PROGRAM" = "cursor"
+        return
+      end
+
       set -x GOPATH $XDG_DATA_HOME/go
       set -x GOPRIVATE "git.curve.tools,go.curve.tools,gitlab.com/imaginecurve"
       set -gx PATH $PATH $HOME/.krew/bin
@@ -66,13 +76,13 @@ in {
       '';
 
       y = ''
-        	set tmp (mktemp -t "yazi-cwd.XXXXXX")
-        	yazi $argv --cwd-file="$tmp"
-        	if read -z cwd < "$tmp"; and [ -n "$cwd" ]; and [ "$cwd" != "$PWD" ]
-        		builtin cd -- "$cwd"
-        	end
-        	rm -f -- "$tmp"
-        '';
+        set tmp (mktemp -t "yazi-cwd.XXXXXX")
+        yazi $argv --cwd-file="$tmp"
+        if read -z cwd < "$tmp"; and [ -n "$cwd" ]; and [ "$cwd" != "$PWD" ]
+        	builtin cd -- "$cwd"
+        end
+        rm -f -- "$tmp"
+      '';
 
       gcrb = ''
           set result (git branch -a --color=always | grep -v '/HEAD\s' | sort |

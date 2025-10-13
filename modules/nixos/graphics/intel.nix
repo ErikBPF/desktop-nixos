@@ -12,14 +12,14 @@
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
-    extraPackages = with pkgs; [ 
+    extraPackages = with pkgs; [
       intel-media-driver
       libvdpau-va-gl
       vaapiIntel
       vaapiVdpau # VDPAU backend for VA-API
-      intel-ocl 
+      intel-ocl
       intel-vaapi-driver
-       ];
+    ];
   };
   services.xserver.videoDrivers = ["intel"];
   environment.systemPackages = with pkgs; [
