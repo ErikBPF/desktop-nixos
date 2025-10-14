@@ -70,6 +70,29 @@
     };
   };
 
+  # Activation script to copy SSH keys from SOPS secrets after they're created
+  # This runs after home-manager activation and only copies if secrets exist
+  # Using direct paths to avoid build-time evaluation issues
+  home.activation.copySopsSecrets = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    # Copy SSH keys from SOPS secrets if they exist
+    # SOPS-nix creates secrets in $HOME/.config/sops-nix/secrets/
+    SOPS_DIR="$HOME/.config/sops-nix/secrets"
+    
+    if [ -f "$SOPS_DIR/id_ed25519" ]; then
+      $DRY_RUN_CMD mkdir -p $HOME/.ssh
+      $DRY_RUN_CMD cp -f "$SOPS_DIR/id_ed25519" $HOME/.ssh/id_ed25519
+      $DRY_RUN_CMD chmod 0400 $HOME/.ssh/id_ed25519
+      echo "✓ Copied id_ed25519 from SOPS"
+    fi
+    
+    if [ -f "$SOPS_DIR/id_rsa" ]; then
+      $DRY_RUN_CMD mkdir -p $HOME/.ssh
+      $DRY_RUN_CMD cp -f "$SOPS_DIR/id_rsa" $HOME/.ssh/id_rsa
+      $DRY_RUN_CMD chmod 0400 $HOME/.ssh/id_rsa
+      echo "✓ Copied id_rsa from SOPS"
+    fi
+  '';
+
   home.file = {
     ".config/bat/config".text = ''
       --style="numbers,changes,grid"
@@ -128,20 +151,6 @@
       onChange = ''
         cp ~/.ssh/ro_config ~/.ssh/config
         chmod 0400 ~/.ssh/config
-      '';
-    };
-    ".ssh/sops/ro_id_ed25519" = {
-      source = config.sops.secrets.id_ed25519.path;
-      onChange = ''
-        cp ~/.ssh/sops/ro_id_ed25519 ~/.ssh/id_ed25519
-        chmod 0400 ~/.ssh/id_ed25519
-      '';
-    };
-    ".ssh/sops/ro_id_rsa" = {
-      source = config.sops.secrets.id_rsa.path;
-      onChange = ''
-        cp ~/.ssh/sops/ro_id_rsa ~/.ssh/id_rsa
-        chmod 0400 ~/.ssh/id_rsa
       '';
     };
     #     ".ssh/dummy" = {
