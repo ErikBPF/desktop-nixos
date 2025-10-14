@@ -58,7 +58,7 @@
   };
   sops = {
     age = {
-      keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
+      keyFile = "/home/erik/.config/sops/age/keys.txt";
       generateKey = true;
     };
     defaultSopsFormat = "yaml";
