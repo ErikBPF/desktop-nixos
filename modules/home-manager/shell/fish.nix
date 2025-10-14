@@ -7,13 +7,13 @@ in {
       ${pkgs.nix-your-shell}/bin/nix-your-shell --nom fish | source
 
       # Early return conditions
-      if test "$PAGER" = "head -n 10000 | cat" -o "$COMPOSER_NO_INTERACTION" = "1"
-        return
-      end
+      # if test "$PAGER" = "head -n 10000 | cat" -o "$COMPOSER_NO_INTERACTION" = "1"
+      #   return
+      # end
 
-      if test "$TERM_PROGRAM" = "vscode" -o "$TERM_PROGRAM" = "cursor"
-        return
-      end
+      # if test "$TERM_PROGRAM" = "vscode" -o "$TERM_PROGRAM" = "cursor"
+      #   return
+      # end
 
       set -x GOPATH $XDG_DATA_HOME/go
       set -x GOPRIVATE "git.curve.tools,go.curve.tools,gitlab.com/imaginecurve"
