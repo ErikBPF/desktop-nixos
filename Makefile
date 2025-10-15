@@ -1,8 +1,9 @@
 # Configuration variables - can be overridden on command line
 # Example: make build PROFILE=laptop
-PROFILE ?= laptop
+# If PROFILE is not set, automatically detect from hostname
+PROFILE ?= $(shell hostname)
 HOST_IP ?= 192.168.10.147
-NIXOS_USER ?= erik
+NIXOS_USER ?= nixos
 
 .PHONY: help update build boot upgrade fmt gc nixos-anywhere store-repair check any-update age-private age-public sops unlock rsync-sops rsync-crypt
 
@@ -10,7 +11,7 @@ help:
 	@echo "NixOS Configuration Management"
 	@echo ""
 	@echo "Configuration Variables:"
-	@echo "  PROFILE=$(PROFILE)  - Target system profile (workstation, laptop, etc.)"
+	@echo "  PROFILE=$(PROFILE)  - Target system profile (auto-detected from hostname)"
 	@echo "  HOST_IP=$(HOST_IP)  - Target host IP address"
 	@echo "  NIXOS_USER=$(NIXOS_USER)        - Remote user for deployments"
 	@echo ""
