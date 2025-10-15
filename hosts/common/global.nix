@@ -35,6 +35,7 @@
       warn-dirty = false;
       experimental-features = ["nix-command" "flakes"];
       auto-optimise-store = true;
+      trusted-users = ["root" "erik"];
       substituters = [
         "https://cache.nixos.org?priority=10"
         "https://nix-community.cachix.org"
@@ -44,6 +45,7 @@
         "https://fufexan.cachix.org"
         "https://helix.cachix.org"
         "https://hyprland.cachix.org"
+        "https://devenv.cachix.org"
       ];
       trusted-public-keys = [
         "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
@@ -54,6 +56,7 @@
         "fufexan.cachix.org-1:LwCDjCJNJQf5XD2BV+yamQIMZfcKWR9ISIFy5curUsY="
         "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs="
         "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
+        "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw="
       ];
     };
 

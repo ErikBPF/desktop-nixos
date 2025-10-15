@@ -55,6 +55,7 @@
 
     # --- Build Essentials & Development ---
     gnumake # A tool which controls the generation of executables
+    just
     gdb # The GNU Project Debugger
     glib # Core application building blocks for libraries and applications written in C
     gsettings-desktop-schemas # Collection of GSettings schemas
