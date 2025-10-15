@@ -30,8 +30,10 @@
     environment.sessionVariables = {
       # Go settings
       GOPATH = "$HOME/go";
-      GOROOT = "${pkgs.go}";
+      # Don't set GOROOT - let Go find it automatically from the binary path
+      # GOROOT = "${pkgs.go}/share/go";
       GO111MODULE = "on";
+      GOPROXY = "https://proxy.golang.org,direct";
       GOSUMDB = "sum.golang.org";
       GONOPROXY = "";
       GONOSUMDB = "";

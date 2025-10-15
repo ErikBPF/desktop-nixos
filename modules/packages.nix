@@ -81,6 +81,7 @@
     fcitx5 # Flexible Input Method Framework
     fcitx5-gtk # GTK input method module for fcitx5
     kdePackages.fcitx5-qt # Qt input method module for fcitx5
+    devenv
 
     # --- Graphics & Hardware ---
     libGL # Mesa's implementation of the OpenGL API
