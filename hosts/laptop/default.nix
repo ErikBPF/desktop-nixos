@@ -80,6 +80,9 @@
       allowedTCPPorts = [22 80 443 22000];
       allowedUDPPorts = [21027];
     };
+    # hosts = {
+    #   "168.62.50.31" = [ "airflow-datalake-prd.nstech.com.br" ];
+    # };
   };
 
   system.autoUpgrade = {
