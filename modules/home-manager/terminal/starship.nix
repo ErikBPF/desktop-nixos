@@ -22,6 +22,7 @@ in {
   programs.starship = {
     enable = true;
     enableFishIntegration = true;
+    enableBashIntegration = false;
     settings = {
       format = "[  ](bold ${c.cyan})$username$hostname$directory$git_branch$git_state$git_status$git_metrics$fill$cmd_duration$jobs$direnv$time$line_break$character";
       # Custom Modules

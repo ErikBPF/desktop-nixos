@@ -24,6 +24,7 @@
     gnome-keyring # Password and secret manager for GNOME
     gnome.gvfs # Virtual file system for GNOME
     imv # Image viewer for Wayland
+    noisetorch
   ];
 
   # Essential system packages - cannot be excluded
@@ -96,6 +97,7 @@
     libinput # Library to handle input devices in Wayland compositors
     seahorse # GUI to manage the keyring
     libsecret # CLI tools (secret-tool)
+    mongodb-compass # MongoDB GUI
 
     btrfs-progs # Btrfs filesystem utilities
     btrfs-snap # Btrfs snapshot management tool
