@@ -108,14 +108,14 @@
     # Copy SSH keys from SOPS secrets if they exist
     # SOPS-nix creates secrets in $HOME/.config/sops-nix/secrets/
     SOPS_DIR="$HOME/.config/sops-nix/secrets"
-    
+
     if [ -f "$SOPS_DIR/id_ed25519" ]; then
       $DRY_RUN_CMD mkdir -p $HOME/.ssh
       $DRY_RUN_CMD cp -f "$SOPS_DIR/id_ed25519" $HOME/.ssh/id_ed25519
       $DRY_RUN_CMD chmod 0400 $HOME/.ssh/id_ed25519
       echo "✓ Copied id_ed25519 from SOPS"
     fi
-    
+
     if [ -f "$SOPS_DIR/id_rsa" ]; then
       $DRY_RUN_CMD mkdir -p $HOME/.ssh
       $DRY_RUN_CMD cp -f "$SOPS_DIR/id_rsa" $HOME/.ssh/id_rsa
