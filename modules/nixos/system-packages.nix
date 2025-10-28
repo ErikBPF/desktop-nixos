@@ -9,7 +9,4 @@ in {
   environment.systemPackages = packages.systemPackages;
 
   # System-wide programs
-  programs = {
-    direnv.enable = true;
-  };
 }
