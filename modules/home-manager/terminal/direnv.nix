@@ -4,12 +4,12 @@
     nix-direnv.enable = true; # Cache .env environment
     silent = true; # Silence direnv messages
     enableBashIntegration = true; # Enable bash integration
-    enableFishIntegration = true;
 
     config = {
       global = {
         log_format = "-";
-        log_filter = "^loading";
+        log_filter = "^$";
+        hide_env_diff = true;
       };
       # Whitelist configuration
       whitelist = {

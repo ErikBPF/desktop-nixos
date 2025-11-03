@@ -70,7 +70,7 @@
     kdePackages.polkit-kde-agent-1
     qt6.qtbase
     qt6.qtwayland
-    tokyo-night-gtk # Tokyo Night GTK theme
+    tokyonight-gtk-theme # Tokyo Night GTK theme
     papirus-icon-theme # Papirus icon theme
     bibata-cursors # Cursor theme with smooth animations
     vimix-cursors # Vimix cursor theme
@@ -92,7 +92,7 @@
     libva-utils # Video Acceleration (VA) utilities
     mesa # An open-source implementation of the OpenGL specification
     hwinfo # Hardware detection tool
-    glxinfo # A tool for diagnosing problems with OpenGL and GLX
+    mesa-demos # A tool for diagnosing problems with OpenGL and GLX
     lm_sensors # Tools for reading hardware sensor data
     libinput # Library to handle input devices in Wayland compositors
     seahorse # GUI to manage the keyring

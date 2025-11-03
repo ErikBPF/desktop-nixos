@@ -62,6 +62,7 @@ boot:
 
 upgrade:
 	git pull;
+	sudo nix flake update;
 	sudo nixos-rebuild switch --upgrade-all --flake .#$(PROFILE) --impure --show-trace
 
 fmt:

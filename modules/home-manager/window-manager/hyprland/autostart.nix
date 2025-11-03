@@ -8,6 +8,7 @@
       "pkill -SIGUSR2 waybar || waybar"
       "hyprsunset"
       "systemctl --user start hyprpolkitagent"
+      "systemctl --user start xdg-desktop-portal-gtk"
       "wl-clip-persist --clipboard regular & clipse -listen"
       "blueman-applet" # Systray app for BT
       "nm-applet --indicator" # Systray app for Network/Wifi

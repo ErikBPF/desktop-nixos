@@ -14,7 +14,7 @@
     overlays = [
       # outputs.overlays.additions
       # outputs.overlays.modifications
-      outputs.overlays.unstable-packages
+      # outputs.overlays.unstable-packages
     ];
     config = {
       allowUnfree = true;
@@ -35,6 +35,9 @@
       warn-dirty = false;
       experimental-features = ["nix-command" "flakes"];
       auto-optimise-store = true;
+      # Use all cores for parallel builds
+      max-jobs = "auto";
+      cores = 0;
       trusted-users = ["root" "erik"];
       substituters = [
         "https://cache.nixos.org?priority=10"
@@ -62,8 +65,8 @@
 
     gc = {
       automatic = true;
-      dates = "weekly";
-      options = "--delete-older-than 7d";
+      dates = "daily";
+      options = "--delete-older-than 3d";
     };
   };
 
