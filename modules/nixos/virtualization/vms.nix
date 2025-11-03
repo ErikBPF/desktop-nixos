@@ -19,6 +19,6 @@
     virt-manager
     virt-viewer
     win-spice
-    win-virtio
+    virtio-win
   ];
 }

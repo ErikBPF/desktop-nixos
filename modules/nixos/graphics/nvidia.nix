@@ -27,9 +27,8 @@
       extraPackages = with pkgs; [
         intel-media-driver
         libvdpau-va-gl
-        vaapiIntel
         nvidia-vaapi-driver
-        vaapiVdpau # VDPAU backend for VA-API
+        libva-vdpau-driver # VDPAU backend for VA-API
         intel-ocl
         intel-vaapi-driver
       ];

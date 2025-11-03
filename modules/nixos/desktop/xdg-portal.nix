@@ -12,16 +12,21 @@
       extraPortals = [pkgs.xdg-desktop-portal-gtk];
       config = {
         common = {
-          default = ["hyprland" "gtk"];
+          # Put GTK first to ensure OpenURI and other GTK interfaces are available
+          default = ["gtk" "hyprland"];
+          # Explicitly assign interfaces to their backends
           "org.freedesktop.impl.portal.ScreenCast" = ["hyprland"];
+          "org.freedesktop.impl.portal.OpenURI" = ["gtk"];
+          "org.freedesktop.impl.portal.FileChooser" = ["gtk"];
+          "org.freedesktop.impl.portal.Screenshot" = ["hyprland"];
         };
       };
     };
 
-    # Make Qt apps follow GNOME/GTK settings for closer match to GTK theme
+    # Make Qt apps follow GTK settings for closer match to GTK theme
     qt = {
       enable = true;
-      platformTheme = "gnome";
+      platformTheme = "gtk2";
       style = "adwaita-dark";
     };
   };
