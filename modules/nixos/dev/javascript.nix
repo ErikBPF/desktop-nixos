@@ -24,11 +24,13 @@
       nodePackages.npm-check-updates
 
       # Build tools
-      nodePackages.webpack
+      # nodePackages.webpack
     ];
 
     # Note: Install global packages after system rebuild with:
     # npm install -g @fission-ai/openspec@latest
+    # npm install -g cline
+    # npm install -g repomix
 
     # Environment variables for Node.js
     environment.sessionVariables = {

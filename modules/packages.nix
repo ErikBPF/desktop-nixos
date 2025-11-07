@@ -236,7 +236,6 @@
       # --- Development Tools ---
       github-desktop # The official GitHub GUI client
       gh # Official GitHub CLI
-      vscode-fhs # Visual Studio Code with FHS environment
       code-cursor-fhs # The Cursor editor, an AI-powered fork of VSCode
       opencode # The OpenCode-OSS CLI agent
       gemini-cli # A command-line interface for Google's Gemini models
@@ -256,7 +255,7 @@
       poppler
       unar
     ]
-    ++ lib.optionals (pkgs.system == "x86_64-linux") [
+    ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
       spotify # A music streaming service
     ];
 
