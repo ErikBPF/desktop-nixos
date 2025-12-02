@@ -8,7 +8,7 @@
     # Java packages
     environment.systemPackages = with pkgs; [
       # Java Development Kit
-      zulu23 # OpenJDK 23
+      jdk # OpenJDK 23
       zulu17 # OpenJDK 17 (LTS)
       zulu11 # OpenJDK 11 (LTS)
       jre21_minimal # Minimal JRE 21
@@ -34,9 +34,9 @@
     # Environment variables for Java
     environment.sessionVariables = {
       # Java settings
-      JAVA_HOME = "${pkgs.zulu23}";
-      JDK_HOME = "${pkgs.zulu23}";
-      JRE_HOME = "${pkgs.zulu23}";
+      JAVA_HOME = "${pkgs.jdk}";
+      JDK_HOME = "${pkgs.jdk}";
+      JRE_HOME = "${pkgs.jdk}";
 
       # Java development settings
       JAVA_OPTS = "-Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication";

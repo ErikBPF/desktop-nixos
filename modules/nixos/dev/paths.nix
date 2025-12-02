@@ -17,7 +17,7 @@
     "$HOME/.local/bin"
 
     # Java paths
-    "${pkgs.zulu23}/bin"
+    "${pkgs.jdk}/bin"
     "${pkgs.gradle}/bin"
     "${pkgs.maven}/bin"
 
@@ -52,8 +52,8 @@ in {
       # Language-specific paths
       DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
       GOROOT = "${pkgs.go}";
-      JAVA_HOME = "${pkgs.zulu23}";
-      JDK_HOME = "${pkgs.zulu23}";
+      JAVA_HOME = "${pkgs.jdk}";
+      JDK_HOME = "${pkgs.jdk}";
     };
   };
 }

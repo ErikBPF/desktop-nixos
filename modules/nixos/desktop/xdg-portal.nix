@@ -7,9 +7,13 @@
   config = lib.mkIf config.modules.desktop.enable {
     xdg.portal = {
       enable = true;
-      xdgOpenUsePortal = true;
+      xdgOpenUsePortal = false;
       # Hyprland module provides its own portal; include only GTK here to avoid duplicate units
-      extraPortals = [pkgs.xdg-desktop-portal-gtk];
+      extraPortals = with pkgs; [
+        xdg-desktop-portal
+        xdg-desktop-portal-hyprland
+        xdg-desktop-portal-gtk
+      ];
       config = {
         common = {
           # Put GTK first to ensure OpenURI and other GTK interfaces are available
@@ -19,6 +23,11 @@
           "org.freedesktop.impl.portal.OpenURI" = ["gtk"];
           "org.freedesktop.impl.portal.FileChooser" = ["gtk"];
           "org.freedesktop.impl.portal.Screenshot" = ["hyprland"];
+        };
+        hyprland = {
+          default = ["hyprland" "gtk"];
+          "org.freedesktop.impl.portal.FileChooser" = ["gtk"];
+          "org.freedesktop.impl.portal.OpenURI" = ["gtk"];
         };
       };
     };
