@@ -6,17 +6,17 @@
   wayland.windowManager.hyprland.settings = {
     windowrule = [
       # See https://wiki.hyprland.org/Configuring/Window-Rules/ for more
-      "suppressevent maximize, class:.*"
+      "suppress_event maximize, match:class .*"
 
       # Force chromium into a tile to deal with --app bug
-      "tile, class:^(chromium)$"
+      "tile on, match:class ^(chromium)$"
 
       # Settings management
-      "float, class:^(org.pulseaudio.pavucontrol|blueberry.py)$"
+      "float on, match:class ^(org.pulseaudio.pavucontrol|blueberry.py)$"
 
       # Float Steam, fullscreen RetroArch
-      "float, class:^(steam)$"
-      "fullscreen, class:^(com.libretro.RetroArch)$"
+      "float on, match:class ^(steam)$"
+      "fullscreen on, match:class ^(com.libretro.RetroArch)$"
 
       # # Just dash of transparency
       # "opacity 0.97 0.9, class:.*"
@@ -29,13 +29,40 @@
       # "opacity 1 1, class:^(com.libretro.RetroArch|steam)$"
 
       # Fix some dragging issues with XWayland
-      "nofocus,class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0"
+      # "no_initial_focus on,match:class ^$,match:title ^$,xwayland:1,floating:1,fullscreen:0,pinned:0"
 
       # Float in the middle for clipse clipboard manager
-      "float, class:(clipse)"
+      "float on, match:class clipse"
       # "float, title:^(clipse)$"
-      "size 622 652, class:(clipse)"
-      "stayfocused, class:(clipse)"
+      "size 622 652, match:class clipse"
+      "stay_focused on, match:class clipse"
+
+      "opacity 0.97 0.90, match:class .*"
+      "opacity 0.90 0.80 override,match:class ^(com.mitchellh.ghostty)$"
+      "opacity 1 1,match:class ^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
+      "float on,match:class ^(teams-for-linux)$"
+      "float on,match:class ^(discord)$"
+      "float on,match:class ^(whatsapp-electron)$"
+
+      "move 12 646,match:class ^(whatsapp-electron)$"
+      "size 1056 643,match:class ^(whatsapp-electron)$"
+      "move 12 47,match:class ^(teams-for-linux)$"
+      "size 1056 585,match:class ^(teams-for-linux)$"
+      "move 12 1304,match:class ^(discord)$"
+      "size 1056 603,match:class ^(discord)$"
+
+      "workspace 1, match:class ^(brave)$"
+      "workspace 10, match:class ^(whatsapp-electron)$"
+      "workspace 11, match:title ^(btop ~)$"
+      "workspace 12, match:class ^(spotify)$"
+      "workspace 10, match:class ^(teams-for-linux)$"
+      "workspace 10, match:class ^(discord)$"
+      "workspace 10, match:class ^(whatsapp-electron)$"
+      "workspace 11 silent,match:title ^(btop ~)$"
+      "workspace 11 silent,match:title ^(Lens)$"
+      "workspace 10 silent,match:class ^(teams-for-linux)$"
+      "workspace 10 silent,match:class ^(discord)$"
+      "workspace 10 silent,match:class ^(whatsapp-electron)$"
 
       # windowrulev2=workspace 1 silent,class:^(brave)$
       # windowrulev2=workspace 11 silent,class:^(kitty btop)$
@@ -56,31 +83,10 @@
     ];
 
     windowrulev2 = [
-      "opacity 0.97 0.90,class:.*"
-      "opacity 0.90 0.80 override,class:^(com.mitchellh.ghostty)$"
-      "opacity 1 1,class:^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
-      "workspace 10, class:^(whatsapp-electron)$"
-      "workspace 11, title:^(btop ~)$"
-      "workspace 12, class:^(spotify)$"
-      "workspace 10, class:^(teams-for-linux)$"
-      "workspace 10, class:^(discord)$"
-      "workspace 10, class:^(whatsapp-electron)$"
-      "workspace 11 silent,title:^(btop ~)$"
-      "workspace 11 silent,title:^(Lens)$"
-      "workspace 10 silent,class:^(teams-for-linux)$"
-      "workspace 10 silent,class:^(discord)$"
-      "workspace 10 silent,class:^(whatsapp-electron)$"
+      
 
-      "float,class:^(teams-for-linux)$"
-      "float,class:^(discord)$"
-      "float,class:^(whatsapp-electron)$"
 
-      "move 12 646,class:^(whatsapp-electron)$"
-      "size 1056 643,class:^(whatsapp-electron)$"
-      "move 12 47,class:^(teams-for-linux)$"
-      "size 1056 585,class:^(teams-for-linux)$"
-      "move 12 1304,class:^(discord)$"
-      "size 1056 603,class:^(discord)$"
+
     ];
 
     layerrule = [

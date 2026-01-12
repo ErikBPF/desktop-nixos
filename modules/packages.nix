@@ -8,6 +8,7 @@
     hyprland # The Hyprland Wayland compositor
     hyprshot # Screenshot tool for Hyprland
     hyprpicker # Color picker for Hyprland
+    hyprpaper # Wallpaper manager for Hyprland
     hyprsunset # Day/night gamma adjustments for Hyprland
     brightnessctl # Control screen brightness
     pamixer # Pulseaudio command-line mixer
@@ -174,7 +175,7 @@
     nix-web # Web interface for nix store
     nil # Nix language server (original)
     nixd # Nix language server (newer)
-    nixfmt-rfc-style # Official formatter
+    nixfmt # Official formatter
   ];
 
   # Discretionary packages - can be excluded by user
