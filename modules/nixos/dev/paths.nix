@@ -7,7 +7,7 @@
   # Collect all language-specific paths
   languagePaths = [
     # .NET paths
-    "${pkgs.dotnet-sdk_9}/bin"
+    "${pkgs.dotnet-sdk_10}/bin"
 
     # Go paths
     "$HOME/go/bin"
@@ -34,7 +34,7 @@
     "${pkgs.alejandra}/bin"
     "${pkgs.nil}/bin"
     "${pkgs.nixd}/bin"
-    "${pkgs.nixfmt-rfc-style}/bin"
+    "${pkgs.nixfmt}/bin"
   ];
 
   # Combine all paths
@@ -50,7 +50,7 @@ in {
       PATH = "${concatenatedPath}:$PATH";
 
       # Language-specific paths
-      DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
+      DOTNET_ROOT = "${pkgs.dotnet-sdk_10}";
       GOROOT = "${pkgs.go}";
       JAVA_HOME = "${pkgs.jdk}";
       JDK_HOME = "${pkgs.jdk}";

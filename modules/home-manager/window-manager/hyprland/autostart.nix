@@ -7,6 +7,7 @@
     exec-once = [
       "pkill -SIGUSR2 waybar || waybar"
       "hyprsunset"
+      "hyprpaper"
       "systemctl --user start hyprpolkitagent"
       "systemctl --user start xdg-desktop-portal-gtk"
       "wl-clip-persist --clipboard regular & clipse -listen"

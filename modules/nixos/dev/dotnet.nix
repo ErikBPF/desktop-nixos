@@ -8,9 +8,9 @@
     # .NET Core packages
     environment.systemPackages = with pkgs; [
       # .NET SDK and Runtime
-      dotnet-sdk_9
-      dotnet-runtime_9
-      dotnet-aspnetcore_9
+      dotnet-sdk_10
+      dotnet-runtime_10
+      dotnet-aspnetcore_10
 
       # Additional .NET tools
       dotnet-ef # Entity Framework Core tools
@@ -28,7 +28,7 @@
     # Environment variables for .NET
     environment.sessionVariables = {
       # .NET Core settings
-      DOTNET_ROOT = "${pkgs.dotnet-sdk_9}";
+      DOTNET_ROOT = "${pkgs.dotnet-sdk_10}";
       DOTNET_CLI_TELEMETRY_OPTOUT = "1";
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1";
       DOTNET_NOLOGO = "1";
