@@ -20,6 +20,8 @@ in {
       wallpaper = [
         ",${selected_wallpaper_path}"
       ];
+      ipc = "on";
+      splash = false;
     };
   };
 }

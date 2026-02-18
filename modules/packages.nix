@@ -106,8 +106,8 @@
     samba # SMB/CIFS file, print, and login server for Unix
     fuse # Filesystem in Userspace
     fuse3 # Filesystem in Userspace (version 3)
-    syncthing # Continuous file synchronization program
-    syncthingtray # System tray application for Syncthing
+    #syncthing # Continuous file synchronization program
+    #syncthingtray # System tray application for Syncthing
     tailscale-systray # System tray application for Tailscale
     git-crypt # Transparent git encryption
     minikube # Local Kubernetes engine
@@ -208,7 +208,6 @@
       lazydocker # A simple terminal UI for both docker and docker-compose
       powertop # A tool to diagnose issues with power consumption
       fastfetch # A neofetch-like tool for fetching system information and displaying it in a pretty way
-
       # --- Programming Languages & Runtimes ---
       python3Minimal # The Python programming language
       uv # An extremely fast Python package installer and resolver, written in Rust
