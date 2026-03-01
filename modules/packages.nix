@@ -229,7 +229,7 @@
       lens # The Kubernetes IDE
       kubernetes-helm # The Kubernetes package manager
       helmfile # A declarative spec for deploying Helm charts
-      azure-cli # Command-line tools for Azure
+      #azure-cli # Command-line tools for Azure
       azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
 
       brave # Privacy-focused web browser
@@ -283,6 +283,7 @@ in {
     # --- Command-line Utilities ---
     bat # A cat(1) clone with wings
     neofetch # A command-line system information tool
+    lynis # A security and system auditing tool
     ripgrep-all # Ripgrep, but for more file types
     jq # A lightweight and flexible command-line JSON processor
     yq-go # A portable command-line YAML processor
