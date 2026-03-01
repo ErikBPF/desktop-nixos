@@ -1,5 +1,6 @@
 {...}: {
-  # Boot configuration can be customized per-host
-  # This is a placeholder for common boot settings
-  # Add bootloader and kernel configurations as needed
+  imports = [
+    ./security.nix
+    ./tmpfs.nix
+  ];
 }
