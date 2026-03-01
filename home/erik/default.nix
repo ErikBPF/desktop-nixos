@@ -29,9 +29,11 @@
 
   programs.git = {
     enable = true;
-    userName = "Erik Bogado";
-    userEmail = "erikbogado@gmail.com";
-    extraConfig = {
+    settings = {
+      user = {
+        name = "Erik Bogado";
+        email = "erikbogado@gmail.com";
+      };
       credential.helper = "store";
     };
   };
