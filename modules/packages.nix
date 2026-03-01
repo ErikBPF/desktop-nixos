@@ -159,6 +159,10 @@
     unzip # Extract ZIP archives
     zip # Create ZIP archives
     zstd # Compression algorithm (optional Emacs dep)
+
+    # --- Security & Auditing ---
+    lynis
+    clamav
   ];
 
   # Essential nix packages - cannot be excluded
@@ -283,7 +287,6 @@ in {
     # --- Command-line Utilities ---
     bat # A cat(1) clone with wings
     neofetch # A command-line system information tool
-    lynis # A security and system auditing tool
     ripgrep-all # Ripgrep, but for more file types
     jq # A lightweight and flexible command-line JSON processor
     yq-go # A portable command-line YAML processor

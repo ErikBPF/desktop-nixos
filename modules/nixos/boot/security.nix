@@ -22,10 +22,10 @@
     "fs.protected_fifos" = 2;
     "fs.protected_regular" = 2;
     "fs.suid_dumpable" = 0;
-    "kernel.kptr_restrict" = 2;
-    "kernel.modules_disabled" = 1;
-    "kernel.sysrq" = 0;
-    "kernel.unprivileged_bpf_disabled" = 1;
+    # "kernel.kptr_restrict" = 2;
+    # "kernel.modules_disabled" = 1;
+    # "kernel.sysrq" = 0;
+    # "kernel.unprivileged_bpf_disabled" = 1;
     "net.core.bpf_jit_harden" = 2;
     "net.ipv4.conf.all.forwarding" = 0;
     "net.ipv4.conf.all.log_martians" = 1;

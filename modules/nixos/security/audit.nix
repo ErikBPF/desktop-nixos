@@ -4,7 +4,7 @@
   security.audit = {
     enable = true;
     rules = [
-      "-a always,exit -F arch=b64 -S execve"
+      "-a exit,always -F arch=b64 -S execve"
     ];
   };
 
