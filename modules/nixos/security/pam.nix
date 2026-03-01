@@ -13,5 +13,8 @@
     hyprlock = {};
     login.enableGnomeKeyring = true;
     login.kwallet.enable = true;
+
+    # Password strength testing [AUTH-9262]
+    passwd.pwquality.enable = true;
   };
 }
