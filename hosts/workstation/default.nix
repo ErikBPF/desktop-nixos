@@ -6,7 +6,8 @@
   pkgs,
   modulesPath,
   ...
-} @ args: {
+}@args:
+{
   imports = [
     (modulesPath + "/installer/scan/not-detected.nix")
     (modulesPath + "/profiles/qemu-guest.nix")
@@ -31,9 +32,9 @@
     };
   };
   boot = {
-    kernelParams = ["nohibernate"];
+    kernelParams = [ "nohibernate" ];
     tmp.cleanOnBoot = true;
-    supportedFilesystems = ["ntfs"];
+    supportedFilesystems = [ "ntfs" ];
     loader = {
       efi.canTouchEfiVariables = true;
       grub = {
@@ -77,8 +78,12 @@
     firewall = {
       enable = true;
       checkReversePath = "loose"; # fixes connection issues with tailscale
-      allowedTCPPorts = [22 80 443 22000];
-      allowedUDPPorts = [21027];
+      allowedTCPPorts = [
+        80
+        443
+        22000
+      ];
+      allowedUDPPorts = [ 21027 ];
     };
   };
 
@@ -99,7 +104,7 @@
 
   home-manager.useGlobalPkgs = true;
   home-manager.backupFileExtension = "backup";
-  home-manager.extraSpecialArgs = {inherit inputs outputs;};
+  home-manager.extraSpecialArgs = { inherit inputs outputs; };
 
   home-manager.users.erik = {
     imports = [

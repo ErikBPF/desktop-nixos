@@ -1,6 +1,8 @@
 {...}: {
   services.openssh = {
     enable = true;
+    openFirewall = true;
+    ports = [ 2222 ];
     settings = {
       PermitRootLogin = "no";
       PasswordAuthentication = false;
@@ -12,7 +14,6 @@
       MaxSessions = 2;
       TCPKeepAlive = "no";
       AllowAgentForwarding = "no";
-      Port = 2222; 
     };
   };
 }
