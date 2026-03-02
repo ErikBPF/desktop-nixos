@@ -3,9 +3,8 @@
   security.auditd.enable = true;
   security.audit = {
     enable = true;
-    rules = [
-      "-a exit,always -F arch=b64 -S execve"
-    ];
+    backlogLimit = 8192;
+    failureMode = "printk"; # 0=silent, 1=printk, 2=panic
   };
 
   # Enable sysstat for accounting [ACCT-9626]

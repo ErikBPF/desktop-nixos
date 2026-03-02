@@ -1,4 +1,5 @@
-{...}: {
+{ ... }:
+{
   services.logrotate = {
     enable = true;
     # settings = {
@@ -12,4 +13,9 @@
     #   };
     # };
   };
+
+  services.journald.extraConfig = ''
+    SystemMaxUse=50M
+    SystemMaxFileSize=10M
+  '';
 }

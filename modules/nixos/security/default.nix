@@ -1,5 +1,7 @@
-{...}: {
+{ ... }:
+{
   imports = [
+    ./aide.nix
     ./apparmor.nix
     ./audit.nix
     ./issue.nix

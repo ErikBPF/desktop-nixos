@@ -156,6 +156,7 @@
     rar # RAR archives
     wget # A free software package for retrieving files using HTTP, HTTPS, FTP
     curl # Command line tool for transferring data with URLs
+    gping # Ping, but with a graph
     unzip # Extract ZIP archives
     zip # Create ZIP archives
     zstd # Compression algorithm (optional Emacs dep)
@@ -241,6 +242,7 @@
       github-desktop # The official GitHub GUI client
       gh # Official GitHub CLI
       code-cursor-fhs # The Cursor editor, an AI-powered fork of VSCode
+      antigravity-fhs # The Antigravity editor, an AI-powered fork of VSCode
       opencode # The OpenCode-OSS CLI agent
       gemini-cli # A command-line interface for Google's Gemini models
       ngrok # Secure introspectable tunnels to localhost
