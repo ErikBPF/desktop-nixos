@@ -1,8 +1,9 @@
 {
   pkgs,
   lib,
-  exclude_packages ? [],
-}: let
+  exclude_packages ? [ ],
+}:
+let
   # Essential Hyprland packages - cannot be excluded
   hyprlandPackages = with pkgs; [
     hyprland # The Hyprland Wayland compositor
@@ -161,8 +162,6 @@
     zip # Create ZIP archives
     zstd # Compression algorithm (optional Emacs dep)
 
-    # --- Security & Auditing ---
-    lynis
     clamav
   ];
 
@@ -184,7 +183,8 @@
   ];
 
   # Discretionary packages - can be excluded by user
-  discretionaryPackages = with pkgs;
+  discretionaryPackages =
+    with pkgs;
     [
       # Terminal utilities
 
@@ -267,8 +267,10 @@
 
   # Only allow excluding discretionary packages to prevent breaking the system
   filteredDiscretionaryPackages = lib.lists.subtractLists exclude_packages discretionaryPackages;
-  allSystemPackages = hyprlandPackages ++ systemPackages ++ nixPackages ++ filteredDiscretionaryPackages;
-in {
+  allSystemPackages =
+    hyprlandPackages ++ systemPackages ++ nixPackages ++ filteredDiscretionaryPackages;
+in
+{
   # Regular packages
   systemPackages = allSystemPackages;
 
