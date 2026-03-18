@@ -102,6 +102,11 @@
       "SUPER, equal, resizeactive, 100 0"
       "SUPER SHIFT, minus, resizeactive, 0 -100"
       "SUPER SHIFT, equal, resizeactive, 0 100"
+            # Resize active window
+      "SUPER, minus, resizeactive, -100 0"
+      "SUPER, equal, resizeactive, 100 0"
+      "SUPER SHIFT, minus, resizeactive, 0 -100"
+      "SUPER SHIFT, equal, resizeactive, 0 100"
 
       # Scroll through existing workspaces with mainMod + scroll
       "SUPER, mouse_down, workspace, e+1"

@@ -59,6 +59,19 @@
       ruff # Fast Python linter and formatter
     ];
 
+    systemd.user.services."uv-tool-specify-cli" = {
+      description = "Install specify-cli uv tool";
+      wantedBy = ["default.target"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = toString (pkgs.writeShellScript "uv-install-specify-cli" ''
+          ${pkgs.uv}/bin/uv tool install specify-cli \
+            --from git+https://github.com/github/spec-kit.git
+        '');
+      };
+    };
+
     # Environment variables for Python
     environment.sessionVariables = {
       # Python settings

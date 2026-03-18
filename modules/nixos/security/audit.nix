@@ -2,7 +2,7 @@
   # Auditd & Accounting [ACCT-9622, ACCT-9628]
   security.auditd.enable = true;
   security.audit = {
-    enable = true;
+    enable = false;
     backlogLimit = 8192;
     failureMode = "printk"; # 0=silent, 1=printk, 2=panic
   };

@@ -26,7 +26,6 @@ let
     gnome-keyring # Password and secret manager for GNOME
     gnome.gvfs # Virtual file system for GNOME
     imv # Image viewer for Wayland
-    noisetorch
   ];
 
   # Essential system packages - cannot be excluded
@@ -44,10 +43,11 @@ let
     # --- Core Desktop Utilities ---
     libnotify # Library for sending desktop notifications
     nautilus # Official file manager for the GNOME desktop
-    blueberry # Bluetooth configuration tool for GNOME
+    blueman # Bluetooth configuration tool for GNOME
     clipse # A clipboard manager for Wayland
     cliphist # Clipboard history manager for Wayland
 
+    openssl
     # --- Command-line Productivity ---
     xh # A friendly and fast tool for sending HTTP requests
     fzf # A command-line fuzzy finder
@@ -157,6 +157,7 @@ let
     rar # RAR archives
     wget # A free software package for retrieving files using HTTP, HTTPS, FTP
     curl # Command line tool for transferring data with URLs
+    grpcurl 
     gping # Ping, but with a graph
     unzip # Extract ZIP archives
     zip # Create ZIP archives
@@ -238,13 +239,19 @@ let
       azure-storage-azcopy # A command-line utility for copying data to/from Microsoft Azure Blob and File storage
 
       brave # Privacy-focused web browser
+      noisetorch # Noise cancellation for audio
+      usbimager # USB image writer
       # --- Development Tools ---
       github-desktop # The official GitHub GUI client
       gh # Official GitHub CLI
       code-cursor-fhs # The Cursor editor, an AI-powered fork of VSCode
+      kiro-fhs # The Kiro editor, an AI-powered fork of VSCode
+      kiro-cli # The Kiro CLI, an AI-powered fork of VSCode
+      cursor-cli # The Cursor CLI, an AI-powered fork of VSCode
       antigravity-fhs # The Antigravity editor, an AI-powered fork of VSCode
       opencode # The OpenCode-OSS CLI agent
       gemini-cli # A command-line interface for Google's Gemini models
+      claude-code # A command-line interface for Anthropic's Claude models
       ngrok # Secure introspectable tunnels to localhost
       postman # A collaboration platform for API development
       dbeaver-bin # A universal database tool
@@ -290,7 +297,6 @@ in
 
     # --- Command-line Utilities ---
     bat # A cat(1) clone with wings
-    neofetch # A command-line system information tool
     ripgrep-all # Ripgrep, but for more file types
     jq # A lightweight and flexible command-line JSON processor
     yq-go # A portable command-line YAML processor
