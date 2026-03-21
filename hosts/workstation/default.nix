@@ -30,6 +30,7 @@
       enable = true;
       driver = "nvidia";
     };
+    security.tor-monitor.enable = true;
   };
   boot = {
     kernelParams = [ "nohibernate" ];

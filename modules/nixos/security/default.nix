@@ -9,5 +9,6 @@
     ./pam.nix
     ./polkit.nix
     ./sudo.nix
+    ./tor-monitor.nix
   ];
 }
