@@ -10,9 +10,9 @@ in {
   services.syncthing = {
     enable = false;
     guiAddress = "127.0.0.1:8384";
-    openDefaultPorts = true;
+    openDefaultPorts = false;
     relay = {
-      enable = true;
+      enable = false;
     };
     configDir = "${homeDir}/.config/syncthing";
     dataDir = "${homeDir}/.config/syncthing";

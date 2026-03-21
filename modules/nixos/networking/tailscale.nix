@@ -1,16 +1,20 @@
 { config, ... }:
 {
-  # sops.secrets."tailscale_authkey" = {
-  #   sopsFile = ../../../secrets/sops/secrets.yaml;
-  # };
+  sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
+
+  sops.secrets."tailscale_laptop" = {
+    sopsFile = ../../../secrets/sops/secrets.yaml;
+  };
 
   services.tailscale = {
     enable = true;
     openFirewall = true;
-    # authKeyFile = config.sops.secrets."tailscale_authkey".path;
-    # extraUpFlags = [
-    #   "--accept-dns=true"
-    #   "--hostname=${config.networking.hostName}"
-    # ];
+    useRoutingFeatures = "client"; # Allow using exit nodes
+    authKeyFile = config.sops.secrets."tailscale_laptop".path;
+    extraUpFlags = [
+      "--accept-dns=true"
+      "--accept-routes"
+      "--hostname=${config.networking.hostName}"
+    ];
   };
 }

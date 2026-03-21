@@ -2,7 +2,7 @@
   imports = [
     ./bluetooth.nix
     ./power.nix
-    ./printing.nix
+    # ./printing.nix
     ./peripherals.nix
   ];
 }

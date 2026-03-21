@@ -322,7 +322,7 @@ in
     xz # XZ compression utilities
 
     # --- Printing ---
-    cups # Common UNIX Printing System
-    hplip # HP Linux Imaging and Printing
+    # cups # Common UNIX Printing System
+    # hplip # HP Linux Imaging and Printing
   ];
 }

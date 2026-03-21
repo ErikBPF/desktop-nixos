@@ -1,5 +1,6 @@
 inputs: {lib, ...}: {
   imports = [
+    ./brave.nix
     ./fonts.nix
     ./xdg-portal.nix
     (import ./hyprland.nix inputs)
