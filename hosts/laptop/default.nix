@@ -30,6 +30,7 @@
       enable = true;
       driver = "intel";
     };
+    security.tor-monitor.enable = true;
   };
   boot = {
     kernelParams = [ "nohibernate" ];
