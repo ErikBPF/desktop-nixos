@@ -18,7 +18,7 @@
       "$terminal" = lib.mkDefault "ghostty";
       "$fileManager" = lib.mkDefault "nautilus --new-window"; #"ghostty -e yazi";
       # "$fileManager" = lib.mkDefault "nautilus --new-window";
-      "$browser" = lib.mkDefault "brave --enable-features=UseOzonePlatform  --ozone-platform=wayland  --enable-features=WebRTCPipeWireCapturer";
+      "$browser" = lib.mkDefault "brave";
       "$music" = lib.mkDefault "spotify";
       "$webapp" = lib.mkDefault "$browser --app";
 

@@ -3,7 +3,7 @@
   pkgs,
   ...
 }: let
-  selected_wallpaper_path = "~/Pictures/Wallpapers/wallpaper.png";
+  selected_wallpaper_path = "/home/erik/Pictures/Wallpapers/wallpaper.png";
 in {
   home.file = {
     "Pictures/Wallpapers" = {
