@@ -5,9 +5,9 @@
 }: {
   wayland.windowManager.hyprland.settings = {
     exec-once = [
-      "pkill -SIGUSR2 waybar || waybar"
+      "quickshell -p ~/.config/quickshell/qml/Shell.qml"
+      # swww managed by systemd user service (quickshell/default.nix)
       "hyprsunset"
-      # hyprpaper is managed by home-manager systemd service
       "systemctl --user start hyprpolkitagent"
       "systemctl --user start xdg-desktop-portal-gtk"
       "wl-clip-persist --clipboard regular & clipse -listen"
@@ -21,7 +21,6 @@
       "sleep 10; noisetorch -i -t 30; wpctl status | sed -n '/Sources:/,/^$/ s/^[│ ]*\([0-9]\+\)\. \+Focusrite Scarlett 2i2 Analog Stereo.*/\1/p' ;wpctl status | grep -oP '\d+(?=\.\s+NoiseTorch Microphone for Focusrite Scarlett 2i2\b)' | head -1 | xargs -r wpctl set-default"
       # No longer needed — hyprpaper now uses absolute path
 
-      
       # "[workspace 11] lens-desktop"
       "[workspace 11] ghostty -e btop"
       "[workspace 11] sleep 3; spotify"

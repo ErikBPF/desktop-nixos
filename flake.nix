@@ -17,6 +17,9 @@
     hyprland.url = "git+https://github.com/hyprwm/Hyprland?submodules=1";
     hyprland.inputs.nixpkgs.follows = "nixpkgs";
 
+    quickshell.url = "git+https://git.outfoxxed.me/outfoxxed/quickshell?rev=6a244c3c560b45f3b860ed6c0fc54d0291ab6f57";
+    quickshell.inputs.nixpkgs.follows = "nixpkgs";
+
     nix-colors.url = "github:misterio77/nix-colors";
     sops-nix.url = "github:Mic92/sops-nix";
   };

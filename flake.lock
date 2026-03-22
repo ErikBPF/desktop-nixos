@@ -556,6 +556,27 @@
         "type": "github"
       }
     },
+    "quickshell": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1773988952,
+        "narHash": "sha256-XV/WgkkZ6OLJ+W0vrD4bXB7/ErQysc5R5lrkT2/VBVs=",
+        "ref": "refs/heads/master",
+        "rev": "6a244c3c560b45f3b860ed6c0fc54d0291ab6f57",
+        "revCount": 774,
+        "type": "git",
+        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
+      },
+      "original": {
+        "rev": "6a244c3c560b45f3b860ed6c0fc54d0291ab6f57",
+        "type": "git",
+        "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
+      }
+    },
     "root": {
       "inputs": {
         "disko": "disko",
@@ -564,6 +585,7 @@
         "nix-colors": "nix-colors",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs",
+        "quickshell": "quickshell",
         "sops-nix": "sops-nix"
       }
     },

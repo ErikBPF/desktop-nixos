@@ -14,6 +14,10 @@
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will
   # be accessible through 'pkgs.unstable'
+  quickshell = final: _prev: {
+    quickshell = inputs.quickshell.packages.${final.system}.default;
+  };
+
   unstable-packages = final: _prev: {
     unstable = import inputs.nixpkgs-unstable {
       system = final.system;

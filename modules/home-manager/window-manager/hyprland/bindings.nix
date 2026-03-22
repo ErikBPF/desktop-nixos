@@ -8,27 +8,27 @@
       # "SUPER, A, exec, $webapp=https://claude.ai"
 
       "SUPER, B, exec, $browser"
-      # "SUPER, M, exec, $music"
       "SUPER, N, exec, $terminal -e nvim"
+      "SUPER, T, exec, $terminal"
+      "SUPER, E, exec, $fileManager"
+      "SUPER, D, exec, pkill rofi || rofi -show drun"
 
-      "SUPER, T, exec, $terminal "
-      "SUPER, W, killactive, "
-      "CTRL SHIFT, L, exec, hyprlock "
-      "SUPER, P, exec, pkill wlogout || wlogout --protocol layer-shell "
-      "SUPER, E, exec, $fileManager "
-      "SUPER, V, togglefloating, "
-      "SUPER, D, exec, pkill wofi || wofi -n "
-      "SUPER SHIFT, F, pseudo, "
-      "SUPER, F, fullscreen, "
-      "SUPER, M, fullscreen, 1 "
-      "CTRL SHIFT, J, togglesplit, "
-      "SUPER SHIFT, S, exec, grim -g \"$(slurp)\" - | swappy -f -" #exec, hyprshot -m region --clipboard-only --silent --raw | swappy -f -" #  exec, grim -g \"$(slurp)\" - | swappy -f -
-      "SUPER SHIFT, C, exec, cliphist list | wofi -Iim --dmenu | cliphist decode | wl-copy && wtype -M ctrl v -M ctrl "
-      "SUPER, SPACE, exec, pamixer --default-source -t"
-      "SUPER SHIFT, SPACE, exec, pkill -SIGUSR1 waybar"
-
+      # Window management
       "SUPER, W, killactive,"
       "SUPER, Backspace, killactive,"
+      "SUPER, V, togglefloating,"
+      "SUPER, F, fullscreen,"
+      "SUPER, M, fullscreen, 1"
+      "SUPER SHIFT, F, pseudo,"
+      "SUPER, J, togglesplit, # dwindle"
+      "SUPER, P, pseudo, # dwindle"
+      "CTRL SHIFT, L, exec, hyprlock"
+      "CTRL SHIFT, J, togglesplit,"
+
+      # Screenshots & tools
+      "SUPER SHIFT, S, exec, grim -g \"$(slurp)\" - | swappy -f -"
+      "SUPER SHIFT, C, exec, cliphist list | rofi -dmenu | cliphist decode | wl-copy && wtype -M ctrl v -M ctrl"
+      "SUPER, SPACE, exec, pamixer --default-source -t"
 
       # End active session
       "SUPER, ESCAPE, exec, hyprlock"
@@ -36,11 +36,13 @@
       "SUPER CTRL, ESCAPE, exec, reboot"
       "SUPER SHIFT CTRL, ESCAPE, exec, systemctl poweroff"
 
-      # Control tiling
-      "SUPER, J, togglesplit, # dwindle"
-      "SUPER, P, pseudo, # dwindle"
-      "SUPER, V, togglefloating,"
-      "SUPER SHIFT, Plus, fullscreen,"
+      # Quickshell popup toggles
+      "SUPER, C, exec, ~/.config/quickshell/scripts/qs_manager.sh toggle calendar"
+      "SUPER, G, exec, ~/.config/quickshell/scripts/qs_manager.sh toggle music"
+      "SUPER, O, exec, ~/.config/quickshell/scripts/qs_manager.sh toggle battery"
+      "SUPER, I, exec, ~/.config/quickshell/scripts/qs_manager.sh toggle network"
+      "SUPER, Y, exec, ~/.config/quickshell/scripts/qs_manager.sh toggle wallpaper"
+      "SUPER, U, exec, ~/.config/quickshell/scripts/qs_manager.sh toggle monitors"
 
       # Move focus with mainMod + arrow keys
       "SUPER, left, movefocus, l"
@@ -91,7 +93,7 @@
       "SUPER SHIFT, z, movetoworkspace, 11"
       "SUPER SHIFT, x, movetoworkspace, 12"
 
-      # Swap active window with the one next to it with mainMod + SHIFT + arrow keys
+      # Swap active window
       "SUPER SHIFT, left, swapwindow, l"
       "SUPER SHIFT, right, swapwindow, r"
       "SUPER SHIFT, up, swapwindow, u"
@@ -102,19 +104,10 @@
       "SUPER, equal, resizeactive, 100 0"
       "SUPER SHIFT, minus, resizeactive, 0 -100"
       "SUPER SHIFT, equal, resizeactive, 0 100"
-            # Resize active window
-      "SUPER, minus, resizeactive, -100 0"
-      "SUPER, equal, resizeactive, 100 0"
-      "SUPER SHIFT, minus, resizeactive, 0 -100"
-      "SUPER SHIFT, equal, resizeactive, 0 100"
 
       # Scroll through existing workspaces with mainMod + scroll
       "SUPER, mouse_down, workspace, e+1"
       "SUPER, mouse_up, workspace, e-1"
-
-      # Super workspace floating layer
-      # "SUPER, S, togglespecialworkspace, magic"
-      # "SUPER SHIFT, S, movetoworkspace, special:magic"
 
       # Screenshots
       ", PRINT, exec, hyprshot -m region"
