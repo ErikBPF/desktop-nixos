@@ -1,16 +1,17 @@
 {
   pkgs,
   lib,
-  exclude_packages ? [ ],
-}:
-let
+  exclude_packages ? [],
+}: let
   # Essential Hyprland packages - cannot be excluded
   hyprlandPackages = with pkgs; [
     hyprland # The Hyprland Wayland compositor
+    quickshell # QML-based desktop shell for Wayland
     hyprshot # Screenshot tool for Hyprland
     hyprpicker # Color picker for Hyprland
     hyprpaper # Wallpaper manager for Hyprland
     hyprsunset # Day/night gamma adjustments for Hyprland
+    swww # Animated wallpaper daemon for Wayland
     brightnessctl # Control screen brightness
     pamixer # Pulseaudio command-line mixer
     playerctl # Control media players from the command-line
@@ -157,7 +158,7 @@ let
     rar # RAR archives
     wget # A free software package for retrieving files using HTTP, HTTPS, FTP
     curl # Command line tool for transferring data with URLs
-    grpcurl 
+    grpcurl
     gping # Ping, but with a graph
     unzip # Extract ZIP archives
     zip # Create ZIP archives
@@ -184,8 +185,7 @@ let
   ];
 
   # Discretionary packages - can be excluded by user
-  discretionaryPackages =
-    with pkgs;
+  discretionaryPackages = with pkgs;
     [
       # Terminal utilities
 
@@ -206,6 +206,7 @@ let
       discord # Voice, video, and text chat app
       whatsapp-electron
       teams-for-linux
+      rofi # Application launcher for Wayland (rofi-wayland merged into rofi)
       foot # A fast, lightweight and minimalistic Wayland terminal emulator
       swappy # A Wayland screenshot tool
 
@@ -276,8 +277,7 @@ let
   filteredDiscretionaryPackages = lib.lists.subtractLists exclude_packages discretionaryPackages;
   allSystemPackages =
     hyprlandPackages ++ systemPackages ++ nixPackages ++ filteredDiscretionaryPackages;
-in
-{
+in {
   # Regular packages
   systemPackages = allSystemPackages;
 

@@ -7,12 +7,10 @@
   imports = [
     ./hyprland.nix
     ./hyprlock.nix
-    ./hyprpaper.nix
     ./hypridle.nix
     ./mako.nix
-    ./waybar.nix
-    ./wofi.nix
-    ./wlogout.nix
+    ./quickshell
+    ./rofi.nix
     ./mime.nix
   ];
 }
