@@ -42,8 +42,8 @@ QtObject {
 
     // Bar metrics
     readonly property int barHeight: 32
-    readonly property int barFontSize: 11
-    readonly property int barIconSize: 13
+    readonly property int barFontSize: 12
+    readonly property int barIconSize: 14
     readonly property real barOpacity: 0.0
     readonly property int barRadius: 10
     readonly property int pillHeight: 24
