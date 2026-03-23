@@ -1,3 +1,4 @@
+//@ pragma UseQApplication
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -409,18 +410,42 @@ ShellRoot {
 
                         // Tray
                         Row {
-                            spacing: 4
+                            spacing: 6
                             Repeater {
                                 model: SystemTray.items
-                                Item {
+                                delegate: Item {
+                                    id: trayItem
                                     required property SystemTrayItem modelData
                                     width: 16; height: 16
-                                    Image { anchors.fill: parent; source: modelData.icon; sourceSize: Qt.size(16, 16) }
-                                    MouseArea {
-                                        anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton; cursorShape: Qt.PointingHandCursor
-                                        onClicked: function(mouse) { if (mouse.button === Qt.LeftButton) modelData.activate(); else menuAnchor.open(); }
+
+                                    Image {
+                                        id: trayIcon
+                                        anchors.fill: parent
+                                        source: trayItem.modelData.icon || ""
+                                        sourceSize: Qt.size(16, 16)
+                                        fillMode: Image.PreserveAspectFit
+                                        opacity: trayMouse.containsMouse ? 1.0 : 0.75
+                                        Behavior on opacity { NumberAnimation { duration: 150 } }
                                     }
-                                    QsMenuAnchor { id: menuAnchor; menu: modelData.menu; anchor.window: bar }
+
+                                    MouseArea {
+                                        id: trayMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: mouse => {
+                                            if (mouse.button === Qt.MiddleButton) {
+                                                trayItem.modelData.secondaryActivate();
+                                            } else if (mouse.button === Qt.RightButton) {
+                                                // Use display() with position relative to bar window
+                                                var pos = trayItem.mapToItem(null, 0, trayItem.height);
+                                                trayItem.modelData.display(bar, pos.x, pos.y);
+                                            } else {
+                                                trayItem.modelData.activate();
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

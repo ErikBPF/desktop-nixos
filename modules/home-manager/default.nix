@@ -27,6 +27,8 @@ in {
   dconf.settings = {
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";
+      gtk-theme = "Tokyonight-Dark";
+      icon-theme = "Papirus-Dark";
     };
   };
   gtk = {
