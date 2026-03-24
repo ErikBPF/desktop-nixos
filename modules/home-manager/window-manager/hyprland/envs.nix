@@ -62,7 +62,9 @@ in {
         # "AQ_DRM_DEVICES,/dev/dri/card0:/dev/dri/card1"
 
         # GTK theme
-        "GTK_THEME,Adwaita:dark"
+        "GTK_THEME,Tokyonight-Dark"
+        # Force libadwaita apps (Nautilus, etc.) to use dark mode
+        "ADW_DEBUG_COLOR_SCHEME,prefer-dark"
         # Podman compatibility. Probably need to add cfg.env?
         # "DOCKER_HOST,unix://$XDG_RUNTIME_DIR/podman/podman.sock"
       ];

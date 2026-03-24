@@ -53,6 +53,7 @@ update:
 build:
 	# git pull;
 	# git-crypt unlock ./secret-key
+	git add -A
 	sudo nixos-rebuild switch --flake .#$(PROFILE) --impure --show-trace
 
 boot:

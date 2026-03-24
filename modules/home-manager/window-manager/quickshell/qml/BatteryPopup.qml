@@ -55,10 +55,10 @@ Item {
             }
         }
 
-        // Power profiles
+        // Power profile (TLP-managed)
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Power Profile"
+            text: "Power Profile (TLP)"
             font.family: Style.fontMono; font.pixelSize: 11; font.weight: Font.Bold
             color: Style.dimText
         }
@@ -69,32 +69,39 @@ Item {
 
             Repeater {
                 model: [
-                    { name: "power-saver", label: "\uf06c Save", color: Style.success },
-                    { name: "balanced", label: "\uf24e Balanced", color: Style.accent },
-                    { name: "performance", label: "\uf0e7 Perf", color: Style.warning }
+                    { governor: "powersave", platform: "low-power", label: "\uf06c Save", color: Style.success },
+                    { governor: "", platform: "balanced", label: "\uf24e Balanced", color: Style.accent },
+                    { governor: "performance", platform: "performance", label: "\uf0e7 Perf", color: Style.warning }
                 ]
 
                 Rectangle {
                     required property var modelData
+                    property bool active: root.platformProfile === modelData.platform ||
+                                         (modelData.platform !== "balanced" && root.cpuGovernor === modelData.governor)
                     width: profileText.implicitWidth + 16; height: 28; radius: 6
-                    color: Style.surface
-                    border.width: 1; border.color: modelData.color
+                    color: active ? Qt.rgba(modelData.color.r, modelData.color.g, modelData.color.b, 0.2) : Style.surface
+                    border.width: active ? 2 : 1
+                    border.color: active ? modelData.color : Style.dimText
 
                     Text {
                         id: profileText
                         anchors.centerIn: parent
                         text: modelData.label
                         font.family: Style.fontMono; font.pixelSize: 10
-                        color: modelData.color
+                        font.weight: active ? Font.Bold : Font.Normal
+                        color: active ? modelData.color : Style.dimText
                     }
 
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: Quickshell.execDetached(["powerprofilesctl", "set", modelData.name])
-                    }
-                    Accessible.role: Accessible.Button; Accessible.name: modelData.label
+                    Accessible.role: Accessible.StaticText; Accessible.name: modelData.label
                 }
             }
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Governor: " + (root.cpuGovernor || "—")
+            font.family: Style.fontMono; font.pixelSize: 9
+            color: Style.dimText
         }
 
         // Volume slider

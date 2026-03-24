@@ -66,6 +66,8 @@ ShellRoot {
     property bool micMuted: false
     property string weatherTemp: ""
     property string weatherIcon: ""
+    property string cpuGovernor: ""
+    property string platformProfile: ""
 
     // Fast poller — mem, disk, volume, mic, battery (no sleep)
     Process {
@@ -83,6 +85,8 @@ ShellRoot {
                 else if (k === "micmuted") root.micMuted = (v === "true");
                 else if (k === "bat") root.batteryPercent = v;
                 else if (k === "batstatus") root.batteryStatus = v;
+                else if (k === "governor") root.cpuGovernor = v;
+                else if (k === "platform") root.platformProfile = v;
             }
         }
     }

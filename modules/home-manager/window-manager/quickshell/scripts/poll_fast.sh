@@ -21,3 +21,9 @@ bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null)
 echo "bat=$bat"
 batstatus=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null)
 echo "batstatus=$batstatus"
+
+# Power profile (TLP)
+governor=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)
+echo "governor=$governor"
+platform=$(cat /sys/firmware/acpi/platform_profile 2>/dev/null)
+echo "platform=$platform"

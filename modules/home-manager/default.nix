@@ -36,7 +36,7 @@ in {
     gtk3 = {
       extraConfig = {
         gtk-application-prefer-dark-theme = true;
-        gtk-theme-name = "Tokyonight-Dark-B";
+        gtk-theme-name = "Tokyonight-Dark";
         gtk-icon-theme-name = "Papirus-Dark";
         gtk-cursor-theme-name = "Vimix-cursors";
         gtk-cursor-theme-size = 24;
@@ -45,7 +45,7 @@ in {
     gtk4 = {
       extraConfig = {
         gtk-application-prefer-dark-theme = true;
-        gtk-theme-name = "Tokyonight-Dark-B";
+        gtk-theme-name = "Tokyonight-Dark";
         gtk-icon-theme-name = "Papirus-Dark";
         gtk-cursor-theme-name = "Vimix-cursors";
         gtk-cursor-theme-size = 24;
