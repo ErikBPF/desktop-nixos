@@ -104,7 +104,6 @@ Item {
 
                     width: 36; height: 28; radius: 6
                     color: isToday ? Style.accent : "transparent"
-                    visible: dayNum > 0
 
                     Text {
                         anchors.centerIn: parent

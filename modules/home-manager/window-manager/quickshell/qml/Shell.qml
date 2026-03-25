@@ -26,7 +26,9 @@ ShellRoot {
             parser: SplitParser {
                 onRead: message => {
                     var msg = message.trim();
-                    if (msg === "close") {
+                    if (msg === "refresh") {
+                        root.restartPollers();
+                    } else if (msg === "close") {
                         root.activePopup = "";
                         root.popupRequested("close", "");
                     } else if (msg.startsWith("toggle:")) {
@@ -138,6 +140,24 @@ ShellRoot {
     Timer {
         interval: 150000; running: true; repeat: true; triggeredOnStart: true
         onTriggered: { if (!weatherPoller.running) weatherPoller.running = true; }
+    }
+
+    // Force-restart all pollers (used on session resume after lock/DPMS)
+    function restartPollers() {
+        console.log("Restarting pollers (session resume)");
+        fastPoller.running = false;
+        cpuPoller.running = false;
+        weatherPoller.running = false;
+        // Setting running=false kills the process; timers will restart them next tick
+    }
+
+    // Watchdog — kill pollers stuck longer than 10s (e.g. wpctl hanging during DPMS off)
+    Timer {
+        interval: 10000; running: true; repeat: true
+        onTriggered: {
+            if (fastPoller.running) { fastPoller.running = false; }
+            if (cpuPoller.running) { cpuPoller.running = false; }
+        }
     }
 
     // Active media player

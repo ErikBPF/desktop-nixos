@@ -15,8 +15,8 @@
       "nm-applet --indicator" # Systray app for Network/Wifi
       "tailscale-systray --accept-routes" # Systray tailscale
       "syncthingtray --single-instance --wait"
-      "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland"
-      "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland"
+      "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME"
+      "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME"
       # "sleep 10; noisetorch -i alsa_output.usb-Focusrite_Scarlett_2i2_USB-00.analog-stereo.monitor -t 30"
       "sleep 10; noisetorch -i -t 30; wpctl status | sed -n '/Sources:/,/^$/ s/^[│ ]*\([0-9]\+\)\. \+Focusrite Scarlett 2i2 Analog Stereo.*/\1/p' ;wpctl status | grep -oP '\d+(?=\.\s+NoiseTorch Microphone for Focusrite Scarlett 2i2\b)' | head -1 | xargs -r wpctl set-default"
       # No longer needed — hyprpaper now uses absolute path
