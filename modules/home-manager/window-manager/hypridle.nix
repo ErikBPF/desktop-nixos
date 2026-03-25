@@ -15,7 +15,7 @@
         {
           timeout = 330;
           on-timeout = "hyprctl dispatch dpms off";
-          on-resume = "hyprctl dispatch dpms on && brightnessctl -r";
+          on-resume = "hyprctl dispatch dpms on && brightnessctl -r && sleep 1 && ~/.config/quickshell/scripts/qs_manager.sh refresh";
         }
       ];
     };

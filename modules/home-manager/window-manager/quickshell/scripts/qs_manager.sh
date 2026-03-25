@@ -37,9 +37,12 @@ case "$action" in
     close)
         echo "close" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null
         ;;
+    refresh)
+        echo "refresh" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null
+        ;;
     *)
         echo "Unknown action: $action"
-        echo "Usage: $0 {toggle|open|close} [widget]"
+        echo "Usage: $0 {toggle|open|close|refresh} [widget]"
         exit 1
         ;;
 esac
