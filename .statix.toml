@@ -1,0 +1,11 @@
+disabled = []
+nix_version = '2.4'
+ignore = [
+  'modules/_nixos/**',
+  'modules/_home-manager/**',
+  'modules/_users/**',
+  'modules/_packages.nix',
+  'home/**',
+  'hosts/**',
+  'overlays/**',
+]
