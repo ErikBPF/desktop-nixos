@@ -21,7 +21,7 @@ upgrade target=profile:
 # ── Verification ──────────────────────────────────────────
 
 lint:
-    statix check . -c .statix.toml -i 'modules/_*' 'home/*' 'hosts/*' 'overlays/*'
+    statix check . -c .statix.toml -i 'modules/_*' 'home/*' 'hosts/*' 'overlays/*' '.direnv/*'
 
 fmt:
     nix fmt ./
@@ -49,35 +49,46 @@ eval:
 
 # ── Remote Deployment ─────────────────────────────────────
 
-deploy target ip user="erik":
+deploy target ip port="22" user="erik":
     nixos-rebuild switch --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
         --use-remote-sudo --show-trace
 
-deploy-boot target ip user="erik":
+deploy-boot target ip port="22" user="erik":
     nixos-rebuild boot --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
         --use-remote-sudo --show-trace
 
-verify target ip user="erik":
+verify target ip port="22" user="erik":
     @echo ":: Verifying {{target}}..."
-    ssh {{user}}@{{ip}} "echo ':: Failed units:' && systemctl --failed --no-legend"
-    ssh {{user}}@{{ip}} "echo ':: Tailscale:' && tailscale status --peers=false"
-    ssh {{user}}@{{ip}} "echo ':: Syncthing:' && systemctl is-active syncthing"
-    ssh {{user}}@{{ip}} "echo ':: SOPS age key:' && test -f ~/.config/sops/age/keys.txt && echo 'present' || echo 'MISSING'"
+    ssh -p {{port}} {{user}}@{{ip}} "echo ':: Failed units:' && systemctl --failed --no-legend"
+    ssh -p {{port}} {{user}}@{{ip}} "echo ':: Tailscale:' && tailscale status --peers=false"
+    ssh -p {{port}} {{user}}@{{ip}} "echo ':: Syncthing:' && systemctl is-active syncthing"
+    ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS age key:' && test -f ~/.config/sops/age/keys.txt && echo 'present' || echo 'MISSING'"
     @echo ":: Verification complete for {{target}}"
 
-nixos-anywhere target ip user="nixos":
+nixos-anywhere target ip luks-pass="" user="nixos":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    LUKS_PASS="{{luks-pass}}"
+    if [ -z "$LUKS_PASS" ]; then
+        read -rsp "Enter LUKS password: " LUKS_PASS
+        echo
+    fi
     mkdir -p /tmp/nixos-extra/home/erik/.config/sops/age/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/home/erik/.config/sops/age/
+    LUKS_FILE=$(mktemp)
+    printf '%s' "$LUKS_PASS" > "$LUKS_FILE"
+    trap 'rm -f "$LUKS_FILE"; rm -rf /tmp/nixos-extra' EXIT
     nix run github:nix-community/nixos-anywhere -- \
         --flake .#{{target}} \
         --extra-files /tmp/nixos-extra \
+        --disk-encryption-keys /tmp/luks-password.txt "$LUKS_FILE" \
+        --post-install-script <(echo 'chown -R 1000:100 /mnt/home/erik') \
         --show-trace \
         --generate-hardware-config nixos-generate-config \
-            ./modules/hosts/{{target}}-hw-generated.nix \
+            ./modules/hosts/_{{target}}-hw-generated.nix \
         {{user}}@{{ip}}
-    rm -rf /tmp/nixos-extra
 
 # ── Secrets ───────────────────────────────────────────────
 
@@ -97,16 +108,16 @@ age-public:
 sops:
     nix run nixpkgs#sops -- secrets/sops/secrets.yaml
 
-rsync-sops ip user="erik":
+rsync-sops ip port="22" user="erik":
     rsync -azv \
         --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" \
-        -e "ssh -l {{user}} -o Port=22" \
+        -e "ssh -l {{user}} -o Port={{port}}" \
         ~/.config/sops/age/ {{user}}@{{ip}}:~/.config/sops/age/
 
-rsync-crypt ip user="erik":
+rsync-crypt ip port="22" user="erik":
     @test -f ./secret-key-base64 || (cat ./secret-key | base64 -w 0 > ./secret-key-base64)
-    scp ./secret-key-base64 {{user}}@{{ip}}:~/secret-key-base64
-    ssh {{user}}@{{ip}} "cat ~/secret-key-base64 | base64 --decode > ~/secret-key && chmod 600 ~/secret-key"
+    scp -P {{port}} ./secret-key-base64 {{user}}@{{ip}}:~/secret-key-base64
+    ssh -p {{port}} {{user}}@{{ip}} "cat ~/secret-key-base64 | base64 --decode > ~/secret-key && chmod 600 ~/secret-key"
     @echo "Key deployed. On remote run: git-crypt unlock ~/secret-key"
 
 # ── Maintenance ───────────────────────────────────────────
