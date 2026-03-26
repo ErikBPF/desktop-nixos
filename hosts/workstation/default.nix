@@ -14,10 +14,10 @@
     inputs.home-manager.nixosModules.default
     inputs.disko.nixosModules.disko
     inputs.sops-nix.nixosModules.sops
-    (import ../../modules/nixos/default.nix inputs)
+    (import ../../modules/_nixos/default.nix inputs)
     ../common/global.nix
     ./hardware-configuration.nix
-    ../../modules/users/erik.nix
+    ../../modules/_users/erik.nix
     ./disk-config.nix
     ./syncthing.nix
   ];
@@ -112,7 +112,7 @@
       ../../home/erik
       inputs.nix-colors.homeManagerModules.default
       inputs.sops-nix.homeManagerModules.sops
-      ../../modules/home-manager/default.nix
+      ../../modules/_home-manager/default.nix
     ];
     colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
   };

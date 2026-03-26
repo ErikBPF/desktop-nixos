@@ -5,7 +5,7 @@
   inputs,
   ...
 }: let
-  packages = import ../packages.nix {inherit pkgs lib;};
+  packages = import ../_packages.nix {inherit pkgs lib;};
 in {
   imports = [
     ./window-manager
