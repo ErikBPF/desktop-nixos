@@ -21,13 +21,13 @@ upgrade target=profile:
 # ── Verification ──────────────────────────────────────────
 
 lint:
-    statix check . -c .statix.toml -i 'modules/_*' 'home/*' 'hosts/*' 'overlays/*' '.direnv/*'
+    statix check . -c .statix.toml -i '.direnv/*'
 
 fmt:
     nix fmt ./
 
 fmt-check:
-    alejandra --check -e ./modules/_nixos -e ./modules/_home-manager -e ./modules/_users -e ./modules/_packages.nix -e ./home -e ./hosts -e ./overlays .
+    alejandra --check .
 
 dry target=profile:
     sudo nixos-rebuild dry-build --flake .#{{target}} --show-trace
@@ -78,6 +78,7 @@ nixos-anywhere target ip luks-pass="" user="nixos":
     fi
     mkdir -p /tmp/nixos-extra/home/erik/.config/sops/age/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/home/erik/.config/sops/age/
+    chown -R 1000:100 /tmp/nixos-extra/home/erik
     LUKS_FILE=$(mktemp)
     printf '%s' "$LUKS_PASS" > "$LUKS_FILE"
     trap 'rm -f "$LUKS_FILE"; rm -rf /tmp/nixos-extra' EXIT
@@ -85,7 +86,6 @@ nixos-anywhere target ip luks-pass="" user="nixos":
         --flake .#{{target}} \
         --extra-files /tmp/nixos-extra \
         --disk-encryption-keys /tmp/luks-password.txt "$LUKS_FILE" \
-        --post-install-script <(echo 'chown -R 1000:100 /mnt/home/erik') \
         --show-trace \
         --generate-hardware-config nixos-generate-config \
             ./modules/hosts/_{{target}}-hw-generated.nix \
