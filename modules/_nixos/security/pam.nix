@@ -13,6 +13,5 @@
     hyprlock = {};
     login.enableGnomeKeyring = true;
     login.kwallet.enable = true;
-
   };
 }

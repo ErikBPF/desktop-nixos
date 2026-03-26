@@ -1,9 +1,5 @@
-{...}: {
-  flake.modules.home.hyprlock = {
-    config,
-    inputs,
-    ...
-  }: let
+{inputs, ...}: {
+  flake.modules.home.hyprlock = {config, ...}: let
     palette = config.colorScheme.palette;
     convert = inputs.nix-colors.lib.conversions.hexToRGBString;
     selected_wallpaper_path = "~/Pictures/Wallpapers/wallpaper.png";

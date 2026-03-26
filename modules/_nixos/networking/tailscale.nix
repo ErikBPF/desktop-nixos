@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+{config, ...}: {
   sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
 
   sops.secrets."tailscale_laptop" = {

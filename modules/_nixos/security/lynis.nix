@@ -1,6 +1,5 @@
-{ pkgs, ... }:
-{
-  environment.systemPackages = [ pkgs.lynis ];
+{pkgs, ...}: {
+  environment.systemPackages = [pkgs.lynis];
 
   environment.etc."lynis/custom.prf".text = ''
     # NixOS handles its own firewall dynamically (nftables), skip legacy daemon tests
@@ -22,5 +21,4 @@
     skip-test=AUTH-9229
     skip-test=AUTH-9230
   '';
-
 }

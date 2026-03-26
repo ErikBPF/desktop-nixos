@@ -1,5 +1,9 @@
-{ pkgs, lib, config, ... }:
-let
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}: let
   cfg = config.modules.security.tor-monitor;
   logDir = "/home/erik/Documents/erik/desktop-nixos/logs";
 
@@ -115,14 +119,14 @@ in {
         Type = "oneshot";
         ExecStart = torBlocklistScript;
       };
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" ];
-      path = [ pkgs.iptables pkgs.ipset ];
+      wants = ["network-online.target"];
+      after = ["network-online.target"];
+      path = [pkgs.iptables pkgs.ipset];
     };
 
     systemd.timers.tor-blocklist-update = {
       description = "Refresh Tor relay list every 6 hours";
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnBootSec = "5min";
         OnUnitActiveSec = "6h";
@@ -140,8 +144,8 @@ in {
         # Run as user for notify-send access
         Environment = "DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus";
       };
-      wantedBy = [ "multi-user.target" ];
-      after = [ "tor-blocklist-update.service" ];
+      wantedBy = ["multi-user.target"];
+      after = ["tor-blocklist-update.service"];
     };
 
     # Periodic connection scanner — catches established Tor connections with PID
@@ -152,12 +156,12 @@ in {
         ExecStart = torConnectionScanScript;
         Environment = "DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus";
       };
-      after = [ "tor-blocklist-update.service" ];
+      after = ["tor-blocklist-update.service"];
     };
 
     systemd.timers.tor-connection-scan = {
       description = "Scan for Tor connections every 5 minutes";
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnBootSec = "6min";
         OnUnitActiveSec = "5min";

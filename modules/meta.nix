@@ -1,4 +1,8 @@
-{lib, ...}: {
+{
+  lib,
+  self,
+  ...
+}: {
   options = {
     username = lib.mkOption {
       type = lib.types.singleLineStr;
@@ -18,7 +22,7 @@
     configPath = lib.mkOption {
       type = lib.types.path;
       readOnly = true;
-      default = ../../config;
+      default = self + "/config";
       description = "Path to non-nix assets (wallpapers, keyboard, quickshell QML)";
     };
   };

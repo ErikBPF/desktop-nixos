@@ -1,9 +1,9 @@
-{...}: {
+{self, ...}: {
   flake.modules.nixos.tailscale = {config, ...}: {
     sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
 
     sops.secrets."tailscale_laptop" = {
-      sopsFile = ../../../secrets/sops/secrets.yaml;
+      sopsFile = self + "/secrets/sops/secrets.yaml";
     };
 
     services.tailscale = {

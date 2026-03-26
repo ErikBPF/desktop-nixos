@@ -9,8 +9,8 @@
     ...
   }: let
     palette = config.colorScheme.palette;
-    qmlPath = ../../../../modules/_home-manager/window-manager/quickshell/qml;
-    scriptsPath = ../../../../modules/_home-manager/window-manager/quickshell/scripts;
+    qmlPath = ../_home-manager/window-manager/quickshell/qml;
+    scriptsPath = ../_home-manager/window-manager/quickshell/scripts;
   in {
     home.packages = [inputs.quickshell.packages.${pkgs.system}.default];
 

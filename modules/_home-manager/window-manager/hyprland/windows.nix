@@ -83,10 +83,6 @@
     ];
 
     windowrulev2 = [
-      
-
-
-
     ];
 
     layerrule = [
