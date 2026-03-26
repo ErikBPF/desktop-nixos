@@ -21,7 +21,7 @@ upgrade target=profile:
 # ── Verification ──────────────────────────────────────────
 
 lint:
-    statix check . -i 'modules/_*' 'home/*' 'hosts/*' 'overlays/*'
+    statix check . -c .statix.toml -i 'modules/_*' 'home/*' 'hosts/*' 'overlays/*'
 
 fmt:
     nix fmt ./
