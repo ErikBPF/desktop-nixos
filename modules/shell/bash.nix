@@ -1,6 +1,6 @@
 {...}: {
   flake.modules.home.bash = {...}: let
-    aliases = import ../../modules/_home-manager/shell/aliases.nix {};
+    aliases = import ./_aliases.nix {};
   in {
     programs.bash = {
       enable = true;

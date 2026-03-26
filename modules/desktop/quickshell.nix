@@ -2,15 +2,17 @@
   config,
   inputs,
   ...
-}: {
+}: let
+  cfgPath = config.configPath;
+in {
   flake.modules.home.quickshell = {
     config,
     pkgs,
     ...
   }: let
     palette = config.colorScheme.palette;
-    qmlPath = ../_home-manager/window-manager/quickshell/qml;
-    scriptsPath = ../_home-manager/window-manager/quickshell/scripts;
+    qmlPath = cfgPath + "/quickshell/qml";
+    scriptsPath = cfgPath + "/quickshell/scripts";
   in {
     home.packages = [inputs.quickshell.packages.${pkgs.system}.default];
 

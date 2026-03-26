@@ -6,7 +6,7 @@
     };
 
     home.fish = {pkgs, ...}: let
-      aliases = import ../../modules/_home-manager/shell/aliases.nix {};
+      aliases = import ./_aliases.nix {};
     in {
       programs.fish = {
         enable = true;
