@@ -2,7 +2,6 @@
   flake.modules.nixos.headless = {...}: {
     # Disable all GUI components
     services.xserver.enable = false;
-    sound.enable = false;
     hardware.bluetooth.enable = false;
 
     # Console defaults for headless operation
