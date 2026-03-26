@@ -1,42 +1,55 @@
 {config, ...}: {
-  flake.modules.home.btop = {config, ...}: let
-    palette = config.colorScheme.palette;
+  flake.modules.home.btop = {
+    config,
+    lib,
+    ...
+  }: let
+    hasColorScheme = config ? colorScheme && config.colorScheme ? palette;
+    palette =
+      if hasColorScheme
+      then config.colorScheme.palette
+      else {};
   in {
-    home.file.".config/btop/themes/tokyo-night.theme".text = ''
-      theme[main_fg]="${palette.base05}"
-      theme[title]="${palette.base05}"
-      theme[hi_fg]="${palette.base0D}"
-      theme[selected_bg]="${palette.base01}"
-      theme[selected_fg]="${palette.base05}"
-      theme[inactive_fg]="${palette.base04}"
-      theme[proc_misc]="${palette.base0D}"
-      theme[cpu_box]="${palette.base0B}"
-      theme[mem_box]="${palette.base09}"
-      theme[net_box]="${palette.base0E}"
-      theme[proc_box]="${palette.base0C}"
-      theme[div_line]="${palette.base04}"
-      theme[temp_start]="${palette.base0B}"
-      theme[temp_mid]="${palette.base0A}"
-      theme[temp_end]="${palette.base08}"
-      theme[cpu_start]="${palette.base0B}"
-      theme[cpu_mid]="${palette.base0A}"
-      theme[cpu_end]="${palette.base08}"
-      theme[free_start]="${palette.base0B}"
-      theme[cached_start]="${palette.base0A}"
-      theme[available_start]="${palette.base09}"
-      theme[used_start]="${palette.base08}"
-      theme[download_start]="${palette.base0E}"
-      theme[download_mid]="${palette.base0D}"
-      theme[download_end]="${palette.base0C}"
-      theme[upload_start]="${palette.base0E}"
-      theme[upload_mid]="${palette.base0D}"
-      theme[upload_end]="${palette.base0C}"
-    '';
+    home.file = lib.mkIf hasColorScheme {
+      ".config/btop/themes/tokyo-night.theme".text = ''
+        theme[main_fg]="${palette.base05}"
+        theme[title]="${palette.base05}"
+        theme[hi_fg]="${palette.base0D}"
+        theme[selected_bg]="${palette.base01}"
+        theme[selected_fg]="${palette.base05}"
+        theme[inactive_fg]="${palette.base04}"
+        theme[proc_misc]="${palette.base0D}"
+        theme[cpu_box]="${palette.base0B}"
+        theme[mem_box]="${palette.base09}"
+        theme[net_box]="${palette.base0E}"
+        theme[proc_box]="${palette.base0C}"
+        theme[div_line]="${palette.base04}"
+        theme[temp_start]="${palette.base0B}"
+        theme[temp_mid]="${palette.base0A}"
+        theme[temp_end]="${palette.base08}"
+        theme[cpu_start]="${palette.base0B}"
+        theme[cpu_mid]="${palette.base0A}"
+        theme[cpu_end]="${palette.base08}"
+        theme[free_start]="${palette.base0B}"
+        theme[cached_start]="${palette.base0A}"
+        theme[available_start]="${palette.base09}"
+        theme[used_start]="${palette.base08}"
+        theme[download_start]="${palette.base0E}"
+        theme[download_mid]="${palette.base0D}"
+        theme[download_end]="${palette.base0C}"
+        theme[upload_start]="${palette.base0E}"
+        theme[upload_mid]="${palette.base0D}"
+        theme[upload_end]="${palette.base0C}"
+      '';
+    };
 
     programs.btop = {
       enable = true;
       settings = {
-        color_theme = "tokyo-night";
+        color_theme =
+          if hasColorScheme
+          then "tokyo-night"
+          else "Default";
         theme_background = false;
         truecolor = true;
         force_tty = false;
