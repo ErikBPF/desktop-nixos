@@ -59,7 +59,7 @@ in {
     _module.args = {
       inherit inputs;
       outputs = {inherit overlays;};
-      secrets = config.secrets;
+      inherit (config) secrets;
     };
 
     # Enable system modules
@@ -131,21 +131,22 @@ in {
 
     services.openssh.enable = true;
 
-    home-manager.useGlobalPkgs = true;
-    home-manager.backupFileExtension = "backup";
-    home-manager.extraSpecialArgs = {
-      inherit inputs;
-      outputs = {inherit overlays;};
-    };
-
-    home-manager.users.erik = {
-      imports = [
-        ../../home/erik
-        inputs.nix-colors.homeManagerModules.default
-        inputs.sops-nix.homeManagerModules.sops
-        ../../modules/_home-manager/default.nix
-      ];
-      colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
+    home-manager = {
+      useGlobalPkgs = true;
+      backupFileExtension = "backup";
+      extraSpecialArgs = {
+        inherit inputs;
+        outputs = {inherit overlays;};
+      };
+      users.erik = {
+        imports = [
+          ../../home/erik
+          inputs.nix-colors.homeManagerModules.default
+          inputs.sops-nix.homeManagerModules.sops
+          ../../modules/_home-manager/default.nix
+        ];
+        colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
+      };
     };
   };
 }
