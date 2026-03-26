@@ -4,19 +4,23 @@
   inputs,
   ...
 }: {
-  imports = [
-    inputs.flake-parts.flakeModules.modules
-  ];
+  options = {
+    flake.modules = lib.mkOption {
+      type = lib.types.lazyAttrsOf (lib.types.lazyAttrsOf lib.types.deferredModule);
+      default = {};
+      description = "Groups of deferredModules. flake.modules.nixos.* for NixOS, flake.modules.home.* for home-manager.";
+    };
 
-  options.configurations.nixos = lib.mkOption {
-    type = lib.types.lazyAttrsOf (
-      lib.types.submodule {
-        options.module = lib.mkOption {
-          type = lib.types.deferredModule;
-        };
-      }
-    );
-    default = {};
+    configurations.nixos = lib.mkOption {
+      type = lib.types.lazyAttrsOf (
+        lib.types.submodule {
+          options.module = lib.mkOption {
+            type = lib.types.deferredModule;
+          };
+        }
+      );
+      default = {};
+    };
   };
 
   config.flake = {

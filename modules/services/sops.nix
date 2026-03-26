@@ -1,4 +1,4 @@
-{...}: {
+{self, ...}: {
   flake.modules = {
     nixos.sops = {...}: {
       # NixOS-level sops is configured per-host (tailscale keys, etc.)
@@ -16,7 +16,7 @@
           generateKey = true;
         };
         defaultSopsFormat = "yaml";
-        defaultSopsFile = ../../secrets/sops/secrets.yaml;
+        defaultSopsFile = self + "/secrets/sops/secrets.yaml";
         secrets = {
           password = {};
           id_ed25519 = {};

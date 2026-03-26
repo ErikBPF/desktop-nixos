@@ -2,7 +2,7 @@
   services.openssh = {
     enable = true;
     openFirewall = true;
-    ports = [ 2222 ];
+    ports = [2222];
     settings = {
       PermitRootLogin = "no";
       PasswordAuthentication = false;

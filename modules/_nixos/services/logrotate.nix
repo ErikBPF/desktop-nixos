@@ -1,5 +1,4 @@
-{ ... }:
-{
+{...}: {
   services.logrotate = {
     enable = true;
     # settings = {

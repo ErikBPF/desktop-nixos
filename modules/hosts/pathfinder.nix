@@ -1,10 +1,9 @@
 {
   config,
   inputs,
-  self,
   ...
 }: let
-  overlays = import ../../overlays {inherit inputs;};
+  m = config.flake.modules;
 in {
   monitors = [
     {
@@ -45,33 +44,46 @@ in {
   }: {
     imports = [
       (modulesPath + "/installer/scan/not-detected.nix")
-      (modulesPath + "/profiles/qemu-guest.nix")
       inputs.disko.nixosModules.disko
       inputs.sops-nix.nixosModules.sops
-      (import ../../modules/_nixos/default.nix inputs)
-      ../../hosts/common/global.nix
-      ../../hosts/workstation/hardware-configuration.nix
-      ../../modules/_users/erik.nix
-      ../../hosts/workstation/disk-config.nix
-      ../../hosts/workstation/syncthing.nix
+      m.nixos.profile-base
+      m.nixos.profile-desktop
+      m.nixos.pathfinder-hardware
+      m.nixos.pathfinder-networking
+      m.nixos.pathfinder-syncthing
     ];
 
-    _module.args = {
-      inherit inputs;
-      outputs = {inherit overlays;};
-      inherit (config) secrets;
+    home-manager = {
+      useGlobalPkgs = true;
+      backupFileExtension = "backup";
+      users.${config.username} = {
+        imports = [
+          inputs.nix-colors.homeManagerModules.default
+          inputs.sops-nix.homeManagerModules.sops
+          m.home.profile-base
+          m.home.profile-desktop
+          m.home.pathfinder-ssh
+        ];
+        home.username = config.username;
+        home.homeDirectory = "/home/${config.username}";
+        home.stateVersion = "25.11";
+        home.enableNixpkgsReleaseCheck = false;
+        xdg = {
+          enable = true;
+          userDirs = {
+            enable = true;
+            createDirectories = true;
+          };
+        };
+        programs.home-manager.enable = true;
+        colorScheme = config.colorScheme;
+      };
     };
 
-    # Enable system modules
-    modules = {
-      desktop.enable = true;
-      dev.enable = true;
-      graphics = {
-        enable = true;
-        driver = "nvidia";
-      };
-      security.tor-monitor.enable = true;
-    };
+    system.stateVersion = "25.11";
+    nixpkgs.hostPlatform = "x86_64-linux";
+    hardware.cpu.intel.updateMicrocode = true;
+    boot.kernelPackages = pkgs.linuxPackages_zen;
 
     boot = {
       kernelParams = ["nohibernate"];
@@ -89,7 +101,6 @@ in {
         };
         timeout = 1;
       };
-      kernelPackages = pkgs.linuxPackages_zen;
     };
 
     services.btrfs.autoScrub.enable = true;
@@ -100,53 +111,17 @@ in {
       algorithm = "zstd";
     };
 
-    networking = {
-      hostName = "pathfinder";
-      networkmanager.enable = true;
-      networkmanager.dns = "systemd-resolved";
-      firewall = {
-        enable = true;
-        checkReversePath = "loose";
-        allowedTCPPorts = [
-          80
-          443
-          22000
-        ];
-        allowedUDPPorts = [21027];
-      };
-    };
+    modules.security.tor-monitor.enable = true;
 
     system.autoUpgrade = {
       enable = true;
       flake = "github:ErikBPF/desktop-nixos#pathfinder";
       operation = "switch";
-      randomizedDelaySec = "45min";
-      flags = [
-        "--impure"
-        "--show-trace"
-      ];
+      flags = ["--show-trace"];
       allowReboot = false;
       dates = "05:00";
     };
 
     services.openssh.enable = true;
-
-    home-manager = {
-      useGlobalPkgs = true;
-      backupFileExtension = "backup";
-      extraSpecialArgs = {
-        inherit inputs;
-        outputs = {inherit overlays;};
-      };
-      users.erik = {
-        imports = [
-          ../../home/erik
-          inputs.nix-colors.homeManagerModules.default
-          inputs.sops-nix.homeManagerModules.sops
-          ../../modules/_home-manager/default.nix
-        ];
-        colorScheme = inputs.nix-colors.colorSchemes.tokyo-night-dark;
-      };
-    };
   };
 }
