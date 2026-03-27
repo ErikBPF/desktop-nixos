@@ -51,6 +51,7 @@ in {
       m.nixos.pathfinder-hardware
       m.nixos.pathfinder-networking
       m.nixos.pathfinder-syncthing
+      m.nixos.first-boot
     ];
 
     home-manager = {
