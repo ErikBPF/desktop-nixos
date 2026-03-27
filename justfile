@@ -76,9 +76,9 @@ nixos-anywhere target ip luks-pass="" user="nixos":
         read -rsp "Enter LUKS password: " LUKS_PASS
         echo
     fi
-    mkdir -p /tmp/nixos-extra/home/erik/.config/sops/age/
-    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/home/erik/.config/sops/age/
-    chown -R 1000:100 /tmp/nixos-extra/home/erik
+    mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     LUKS_FILE=$(mktemp)
     printf '%s' "$LUKS_PASS" > "$LUKS_FILE"
     trap 'rm -f "$LUKS_FILE"; rm -rf /tmp/nixos-extra' EXIT
