@@ -144,6 +144,18 @@ age-public:
 sops:
     nix run nixpkgs#sops -- secrets/sops/secrets.yaml
 
+cache-keygen:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ":: Generating nix-serve cache signing key pair"
+    sudo nix-store --generate-binary-cache-key discovery /etc/nix/cache-priv-key.pem /tmp/cache-pub-key.pem
+    sudo chmod 600 /etc/nix/cache-priv-key.pem
+    echo ":: Private key: /etc/nix/cache-priv-key.pem"
+    echo ":: Public key:"
+    cat /tmp/cache-pub-key.pem
+    echo
+    echo ":: Add this public key to nix.settings.trusted-public-keys in Story 3.3"
+
 rsync-sops ip port="22" user="erik":
     rsync -azv \
         --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" \
