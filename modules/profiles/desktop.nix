@@ -24,7 +24,6 @@ in {
       m.home.hyprland
       m.home.hypridle
       m.home.hyprlock
-      m.home.hyprpaper
       m.home.quickshell
       m.home.mako
       m.home.rofi

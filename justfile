@@ -88,14 +88,10 @@ nixos-anywhere target ip luks-pass="" user="nixos":
         --disk-encryption-keys /tmp/luks-password.txt "$LUKS_FILE" \
         --show-trace \
         --generate-hardware-config nixos-generate-config \
-            ./modules/hosts/_{{target}}-hw-generated.nix \
+            ./modules/hosts/{{target}}/_hw-generated.nix \
         {{user}}@{{ip}}
 
 # ── Secrets ───────────────────────────────────────────────
-
-unlock:
-    git-crypt unlock ./secret-key
-    @echo "Unlocked. Run: just build"
 
 age-private:
     mkdir -p ~/.config/sops/age
@@ -114,12 +110,6 @@ rsync-sops ip port="22" user="erik":
         --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" \
         -e "ssh -l {{user}} -o Port={{port}}" \
         ~/.config/sops/age/ {{user}}@{{ip}}:~/.config/sops/age/
-
-rsync-crypt ip port="22" user="erik":
-    @test -f ./secret-key-base64 || (cat ./secret-key | base64 -w 0 > ./secret-key-base64)
-    scp -P {{port}} ./secret-key-base64 {{user}}@{{ip}}:~/secret-key-base64
-    ssh -p {{port}} {{user}}@{{ip}} "cat ~/secret-key-base64 | base64 --decode > ~/secret-key && chmod 600 ~/secret-key"
-    @echo "Key deployed. On remote run: git-crypt unlock ~/secret-key"
 
 # ── Maintenance ───────────────────────────────────────────
 
