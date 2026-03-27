@@ -93,6 +93,43 @@ nixos-anywhere target ip luks-pass="" user="nixos":
             ./modules/hosts/{{target}}/_hw-generated.nix \
         {{user}}@{{ip}}
 
+# ── Local Bootstrap (from NixOS ISO) ─────────────────────
+
+bootstrap target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ":: Bootstrap {{target}} from NixOS ISO"
+
+    # LUKS password
+    read -rsp "Enter LUKS password: " LUKS_PASS
+    echo
+    printf '%s' "$LUKS_PASS" > /tmp/luks-password.txt
+    trap 'rm -f /tmp/luks-password.txt' EXIT
+
+    # Partition with disko
+    echo ":: Partitioning with disko..."
+    sudo nix run github:nix-community/disko -- \
+        --mode destroy,format,mount \
+        --flake .#{{target}}
+
+    # Install
+    echo ":: Installing NixOS..."
+    sudo nixos-install --flake .#{{target}} --no-root-password --show-trace
+
+    # Stage age key (optional)
+    echo
+    read -rp "Path to age key (leave empty to skip): " AGE_KEY_PATH
+    if [ -n "$AGE_KEY_PATH" ]; then
+        sudo mkdir -p /mnt/var/lib/sops-staging/
+        sudo cp "$AGE_KEY_PATH" /mnt/var/lib/sops-staging/age-keys.txt
+        sudo chmod 600 /mnt/var/lib/sops-staging/age-keys.txt
+        echo ":: Age key staged at /mnt/var/lib/sops-staging/age-keys.txt"
+    else
+        echo ":: WARNING: No age key staged — sops secrets will not be available on first boot"
+    fi
+
+    echo ":: Bootstrap complete. Reboot and enter LUKS password."
+
 # ── Secrets ───────────────────────────────────────────────
 
 age-private:
