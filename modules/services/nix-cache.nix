@@ -51,6 +51,36 @@
       '';
     };
 
+    # Daily closure builder — keeps the cache warm
+    systemd.services.nix-cache-builder = {
+      description = "Build all host closures to warm the nix cache";
+      serviceConfig = {
+        Type = "oneshot";
+        WorkingDirectory = "/var/lib/nix-cache-builder/repo";
+      };
+      path = [pkgs.git pkgs.nix pkgs.nixos-rebuild];
+      script = ''
+        set -euo pipefail
+        echo ":: Pulling latest from main..."
+        git pull --ff-only origin main
+
+        echo ":: Building host closures..."
+        nix build .#nixosConfigurations.pathfinder.config.system.build.toplevel --no-link
+        nix build .#nixosConfigurations.discovery.config.system.build.toplevel --no-link
+
+        echo ":: Cache builder complete"
+      '';
+    };
+
+    systemd.timers.nix-cache-builder = {
+      description = "Daily nix cache builder timer";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = "03:00";
+        Persistent = true;
+      };
+    };
+
     # Only allow cache traffic on the tailscale interface
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [443];
   };
