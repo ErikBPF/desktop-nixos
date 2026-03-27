@@ -51,12 +51,12 @@ eval:
 # ── Remote Deployment ─────────────────────────────────────
 
 deploy target ip port="22" user="erik":
-    nixos-rebuild switch --flake .#{{target}} \
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
         --use-remote-sudo --show-trace
 
 deploy-boot target ip port="22" user="erik":
-    nixos-rebuild boot --flake .#{{target}} \
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild boot --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
         --use-remote-sudo --show-trace
 
