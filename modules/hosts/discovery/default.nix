@@ -19,6 +19,7 @@ in {
       m.nixos.discovery-hardware
       m.nixos.discovery-networking
       m.nixos.discovery-syncthing
+      m.nixos.nix-cache
     ];
 
     home-manager = {

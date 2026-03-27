@@ -11,7 +11,6 @@
         quickshell
         hyprshot
         hyprpicker
-        hyprpaper
         hyprsunset
         swww
         brightnessctl

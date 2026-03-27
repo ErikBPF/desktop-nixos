@@ -88,7 +88,6 @@
       # --- Secrets & Network ---
       sops
       atuin
-      git-crypt
       cifs-utils
       samba
       fuse
