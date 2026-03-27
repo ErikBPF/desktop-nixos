@@ -20,6 +20,7 @@ in {
       m.nixos.discovery-networking
       m.nixos.discovery-syncthing
       m.nixos.nix-cache
+      m.nixos.first-boot
     ];
 
     home-manager = {
