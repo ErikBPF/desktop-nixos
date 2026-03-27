@@ -8,6 +8,7 @@
       enable = true;
       bindAddress = "127.0.0.1";
       port = 5000;
+      secretKeyFile = "/etc/nix/cache-priv-key.pem";
     };
 
     services.nginx = {
