@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.dev-java = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       jdk

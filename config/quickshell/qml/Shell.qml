@@ -196,6 +196,7 @@ ShellRoot {
         property color iconColor: Style.accent
         property color textColor: Style.text
         property bool clickable: false
+        property string tooltip: ""
         signal clicked()
 
         width: metricRow.implicitWidth
@@ -221,9 +222,33 @@ ShellRoot {
         }
 
         MouseArea {
+            id: metricMouse
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: metricRoot.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
             onClicked: metricRoot.clicked()
+        }
+
+        // Waybar-style tooltip
+        Rectangle {
+            visible: metricRoot.tooltip !== "" && metricMouse.containsMouse
+            x: -width / 2 + parent.width / 2
+            y: parent.height + 6
+            z: 100
+            width: tooltipLabel.implicitWidth + 16
+            height: tooltipLabel.implicitHeight + 10
+            radius: 10
+            color: Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.8)
+            border.width: 2
+            border.color: Style.base01
+
+            Text {
+                id: tooltipLabel
+                anchors.centerIn: parent
+                text: metricRoot.tooltip
+                font.family: Style.fontMono; font.pixelSize: 11
+                color: Style.text
+            }
         }
     }
 
@@ -382,6 +407,7 @@ ShellRoot {
                             icon: "\uf4bc"; value: root.cpuUsage + "%"
                             iconColor: parseInt(root.cpuUsage) > 80 ? Style.error : Style.accent
                             textColor: parseInt(root.cpuUsage) > 80 ? Style.error : Style.text
+                            tooltip: "CPU: " + root.cpuUsage + "%" + (root.cpuGovernor ? " · " + root.cpuGovernor : "")
                             clickable: true; onClicked: Quickshell.execDetached(["ghostty", "-e", "btop"])
                         }
 
@@ -390,6 +416,7 @@ ShellRoot {
                             icon: "\uefc5"; value: root.memUsage + "%"
                             iconColor: parseInt(root.memUsage) > 80 ? Style.error : Style.special
                             textColor: parseInt(root.memUsage) > 80 ? Style.error : Style.text
+                            tooltip: "Memory: " + root.memUsage + "%"
                             clickable: true; onClicked: Quickshell.execDetached(["ghostty", "-e", "btop"])
                         }
 
@@ -398,6 +425,7 @@ ShellRoot {
                             icon: "\uf0a0"; value: root.diskUsage + "%"
                             iconColor: parseInt(root.diskUsage) > 90 ? Style.error : Style.info
                             textColor: parseInt(root.diskUsage) > 90 ? Style.error : Style.text
+                            tooltip: "Disk: " + root.diskUsage + "%"
                         }
 
                         Rectangle { width: 1; height: 14; color: Style.subtle }
@@ -413,12 +441,14 @@ ShellRoot {
                             value: root.batteryPercent + "%"
                             iconColor: parseInt(root.batteryPercent) < 20 ? Style.error : Style.success
                             textColor: parseInt(root.batteryPercent) < 20 ? Style.error : Style.text
+                            tooltip: "Battery: " + root.batteryPercent + "%" + (root.batteryStatus ? " · " + root.batteryStatus : "")
                         }
 
                         // Mic (icon only)
                         Metric {
                             icon: root.micMuted ? "\uf131" : "\uf130"; value: ""
                             iconColor: root.micMuted ? Style.error : Style.success
+                            tooltip: root.micMuted ? "Mic: Muted" : "Mic: On"
                             clickable: true; onClicked: Quickshell.execDetached(["pamixer", "--default-source", "-t"])
                         }
 
@@ -426,6 +456,7 @@ ShellRoot {
                         Metric {
                             icon: root.volumeMuted ? "\uf6a9" : "\uf028"; value: ""
                             iconColor: root.volumeMuted ? Style.error : Style.warning
+                            tooltip: root.volumeMuted ? "Volume: Muted" : "Volume: " + root.volume + "%"
                             clickable: true
                             onClicked: Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
                         }

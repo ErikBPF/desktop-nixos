@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.peripherals = {...}: {
+_: {
+  flake.modules.nixos.peripherals = _: {
     hardware = {
       usb-modeswitch.enable = true;
       sensor.iio.enable = true;

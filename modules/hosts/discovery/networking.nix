@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.discovery-networking = {lib, ...}: {
     networking = {
       hostName = "discovery";

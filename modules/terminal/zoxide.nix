@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.home.zoxide = {...}: {
+_: {
+  flake.modules.home.zoxide = _: {
     programs.zoxide = {
       enable = true;
       enableFishIntegration = true;

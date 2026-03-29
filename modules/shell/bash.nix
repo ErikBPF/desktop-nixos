@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.home.bash = {...}: let
+_: {
+  flake.modules.home.bash = _: let
     aliases = import ./_aliases.nix {};
   in {
     programs.bash = {

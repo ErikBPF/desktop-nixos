@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.home.starship = {...}: let
+_: {
+  flake.modules.home.starship = _: let
     c = {
       red = "#f7768e";
       orange = "#ff9e64";

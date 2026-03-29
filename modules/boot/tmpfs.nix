@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.boot-tmpfs = {...}: {
+_: {
+  flake.modules.nixos.boot-tmpfs = _: {
     boot.tmp.useTmpfs = true;
     boot.tmp.cleanOnBoot = true;
   };

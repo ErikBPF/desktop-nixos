@@ -1,10 +1,10 @@
-{...}: {
+_: {
   flake.modules.home.rofi = {
     config,
     pkgs,
     ...
   }: let
-    palette = config.colorScheme.palette;
+    inherit (config.colorScheme) palette;
   in {
     programs.rofi = {
       enable = true;

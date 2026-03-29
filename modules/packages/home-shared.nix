@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.home.packages-shared = {pkgs, ...}: {
     home.packages = with pkgs; [
       # --- Security & Authentication ---

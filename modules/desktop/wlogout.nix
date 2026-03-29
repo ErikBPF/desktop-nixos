@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.home.wlogout = {pkgs, ...}: {
     programs.wlogout = {
       enable = true;

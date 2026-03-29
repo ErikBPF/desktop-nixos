@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.home.ssh = {...}: {
+_: {
+  flake.modules.home.ssh = _: {
     home.file.".ssh/ro_config" = {
       text = ''
         Host *

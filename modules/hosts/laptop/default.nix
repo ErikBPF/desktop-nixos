@@ -97,6 +97,7 @@ in {
       m.nixos.profile-desktop
       m.nixos.laptop-hardware
       m.nixos.laptop-networking
+      m.nixos.laptop-syncthing
       m.nixos.first-boot
     ];
 
@@ -111,19 +112,21 @@ in {
           m.home.profile-desktop
           m.home.laptop-ssh
         ];
-        home.username = config.username;
-        home.homeDirectory = "/home/${config.username}";
-        home.stateVersion = "25.11";
-        home.enableNixpkgsReleaseCheck = false;
+        home = {
+          inherit (config) username;
+          homeDirectory = "/home/${config.username}";
+          stateVersion = "25.11";
+        };
         xdg = {
           enable = true;
           userDirs = {
             enable = true;
             createDirectories = true;
+            setSessionVariables = true;
           };
         };
         programs.home-manager.enable = true;
-        colorScheme = config.colorScheme;
+        inherit (config) colorScheme;
 
         wayland.windowManager.hyprland.settings.monitor = [
           ",preferred,auto,1"
@@ -160,7 +163,6 @@ in {
 
     boot = {
       kernelParams = ["nohibernate"];
-      tmp.cleanOnBoot = true;
       supportedFilesystems = ["ntfs"];
       loader = {
         efi.canTouchEfiVariables = true;
@@ -177,7 +179,6 @@ in {
     };
 
     services.btrfs.autoScrub.enable = true;
-    nix.settings.auto-optimise-store = true;
 
     zramSwap = {
       enable = true;

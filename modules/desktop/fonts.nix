@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules = {
     nixos.fonts = {pkgs, ...}: {
       fonts.packages = with pkgs; [
@@ -8,7 +8,7 @@
       ];
     };
 
-    home.fonts = {...}: {
+    home.fonts = _: {
       fonts.fontconfig = {
         enable = true;
         defaultFonts = {

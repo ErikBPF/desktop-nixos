@@ -1,12 +1,12 @@
-{...}: {
+_: {
   flake.modules = {
-    nixos.atuin = {...}: {
+    nixos.atuin = _: {
       services.atuin = {
         enable = true;
       };
     };
 
-    home.atuin = {...}: {
+    home.atuin = _: {
       programs.atuin = {
         enable = true;
         enableFishIntegration = true;

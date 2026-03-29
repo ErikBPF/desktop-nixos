@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.dev-paths = {pkgs, ...}: let
     languagePaths = [
       "${pkgs.dotnet-sdk_10}/bin"

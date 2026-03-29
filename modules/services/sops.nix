@@ -1,6 +1,6 @@
 {self, ...}: {
   flake.modules = {
-    nixos.sops = {...}: {
+    nixos.sops = _: {
       sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
     };
 

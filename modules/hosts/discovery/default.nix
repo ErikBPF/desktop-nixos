@@ -32,15 +32,17 @@ in {
           m.home.profile-base
           m.home.discovery-ssh
         ];
-        home.username = config.username;
-        home.homeDirectory = "/home/${config.username}";
-        home.stateVersion = "25.11";
-        home.enableNixpkgsReleaseCheck = false;
+        home = {
+          inherit (config) username;
+          homeDirectory = "/home/${config.username}";
+          stateVersion = "25.11";
+        };
         xdg = {
           enable = true;
           userDirs = {
             enable = true;
             createDirectories = true;
+            setSessionVariables = true;
           };
         };
         programs.home-manager.enable = true;

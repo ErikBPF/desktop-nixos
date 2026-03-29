@@ -35,6 +35,7 @@ dry target=profile:
 dry-all:
     sudo nixos-rebuild dry-build --flake .#pathfinder --show-trace
     sudo nixos-rebuild dry-build --flake .#discovery --show-trace
+    sudo nixos-rebuild dry-build --flake .#laptop --show-trace
 
 check:
     @echo ":: Linting..."
@@ -169,3 +170,12 @@ gc days="5":
 
 store-repair:
     sudo nix-store --verify --check-contents --repair
+
+update-vscode-hash:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ":: Fetching latest VS Code Insiders hash..."
+    HASH=$(nix-prefetch-url --unpack "https://update.code.visualstudio.com/latest/linux-x64/insider" 2>/dev/null)
+    echo ":: New hash: $HASH"
+    sed -i "s|sha256 = \".*\"; # vscode-insiders|sha256 = \"$HASH\"; # vscode-insiders|" modules/dev/vscode.nix
+    echo ":: Updated modules/dev/vscode.nix"

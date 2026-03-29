@@ -1,6 +1,6 @@
 {config, ...}: {
   flake.modules.nixos.first-boot = {lib, ...}: let
-    username = config.username;
+    inherit (config) username;
     homeDir = "/home/${username}";
   in {
     # Distribute sops age key from staging path to user home

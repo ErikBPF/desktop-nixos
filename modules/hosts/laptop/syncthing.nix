@@ -1,19 +1,25 @@
 {config, ...}: let
   deviceIDs = config.syncthingDeviceIDs;
 in {
-  flake.modules.nixos.discovery-syncthing = _: {
+  flake.modules.nixos.laptop-syncthing = {config, ...}: let
+    homeDir = "/home/erik";
+  in {
     services.syncthing = {
       enable = true;
       guiAddress = "127.0.0.1:8384";
       openDefaultPorts = false;
       relay.enable = false;
-      configDir = "/home/erik/.config/syncthing";
-      dataDir = "/home/erik/.config/syncthing";
+      configDir = "${homeDir}/.config/syncthing";
+      dataDir = "${homeDir}/.config/syncthing";
       overrideDevices = true;
       overrideFolders = true;
       user = "erik";
       settings = {
-        options.rawListenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
+        options = {
+          # Disable QUIC — workaround for Go 1.26 TLS panic
+          # "crypto/tls bug: where's my session ticket?"
+          rawListenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
+        };
         devices = {
           "discovery".id = deviceIDs.discovery_id;
           "archlinux".id = deviceIDs.archlinux_id;
@@ -21,17 +27,17 @@ in {
         folders = {
           "ndykv-cjhly" = {
             label = "Downloads";
-            path = "/data/backup/Downloads/";
+            path = "${homeDir}/Downloads/";
             devices = ["discovery" "archlinux"];
           };
           "ykxhp-khmz2" = {
             label = "Documents";
-            path = "/data/backup/Documents/";
+            path = "${homeDir}/Documents/";
             devices = ["discovery" "archlinux"];
           };
           "xbwsp-zwvsr" = {
             label = "kube";
-            path = "/data/backup/kube/";
+            path = "${homeDir}/.kube/";
             devices = ["discovery" "archlinux"];
           };
         };

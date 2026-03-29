@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.home.mako = {config, ...}: {
     services.mako = {
       enable = true;

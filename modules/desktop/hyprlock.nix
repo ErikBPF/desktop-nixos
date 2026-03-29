@@ -4,7 +4,7 @@
   ...
 }: {
   flake.modules.home.hyprlock = {config, ...}: let
-    palette = config.colorScheme.palette;
+    inherit (config.colorScheme) palette;
     convert = inputs.nix-colors.lib.conversions.hexToRGBString;
     wallpaper = "/home/${config.home.username}/Pictures/Wallpapers/wallpaper.png";
     foregroundRgb = "rgb(${convert ", " palette.base05})";

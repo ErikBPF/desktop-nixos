@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.sddm = {pkgs, ...}: let
     sddm-astronaut = pkgs.sddm-astronaut.override {
       embeddedTheme = "astronaut";

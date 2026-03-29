@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.laptop-networking = {...}: {
+_: {
+  flake.modules.nixos.laptop-networking = _: {
     networking = {
       hostName = "laptop";
       networkmanager.enable = true;

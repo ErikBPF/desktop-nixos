@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.dev-python = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       (python3.withPackages (ps:

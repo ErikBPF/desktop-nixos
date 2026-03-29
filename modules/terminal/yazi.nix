@@ -1,8 +1,9 @@
-{...}: {
-  flake.modules.home.yazi = {...}: {
+_: {
+  flake.modules.home.yazi = _: {
     programs.yazi = {
       enable = true;
       enableFishIntegration = true;
+      shellWrapperName = "yy";
       settings = {
         mgr = {
           layout = [1 3 4];

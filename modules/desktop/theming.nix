@@ -4,7 +4,7 @@
     pkgs,
     ...
   }: let
-    palette = config.colorScheme.palette;
+    inherit (config.colorScheme) palette;
   in {
     dconf.settings = {
       "org/gnome/desktop/interface" = {
@@ -22,12 +22,15 @@
         gtk-cursor-theme-name = "Vimix-cursors";
         gtk-cursor-theme-size = 24;
       };
-      gtk4.extraConfig = {
-        gtk-application-prefer-dark-theme = true;
-        gtk-theme-name = "Tokyonight-Dark";
-        gtk-icon-theme-name = "Papirus-Dark";
-        gtk-cursor-theme-name = "Vimix-cursors";
-        gtk-cursor-theme-size = 24;
+      gtk4 = {
+        inherit (config.gtk) theme;
+        extraConfig = {
+          gtk-application-prefer-dark-theme = true;
+          gtk-theme-name = "Tokyonight-Dark";
+          gtk-icon-theme-name = "Papirus-Dark";
+          gtk-cursor-theme-name = "Vimix-cursors";
+          gtk-cursor-theme-size = 24;
+        };
       };
     };
     home.file.".config/qt6ct/qt6ct.conf".text = ''

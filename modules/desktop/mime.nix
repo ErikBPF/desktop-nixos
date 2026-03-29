@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.home.mime = {...}: let
+_: {
+  flake.modules.home.mime = _: let
     browser = "brave-browser";
     pdf = "brave-browser";
     fileManager = "yazi";

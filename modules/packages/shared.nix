@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.packages-shared = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       # --- Version Control & Editors ---

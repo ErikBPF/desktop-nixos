@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.pam = {...}: {
+_: {
+  flake.modules.nixos.pam = _: {
     security.pam.services = {
       sddm.enableGnomeKeyring = true;
       sddm.kwallet.enable = false;

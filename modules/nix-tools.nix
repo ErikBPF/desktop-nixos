@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.home.nix-tools = {pkgs, ...}: {
     programs.nix-index = {
       enable = true;

@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.issue = {...}: {
+_: {
+  flake.modules.nixos.issue = _: {
     environment.etc."issue".text = ''
       ***************************************************************************
       *                               WARNING                                   *

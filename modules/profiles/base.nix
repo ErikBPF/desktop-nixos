@@ -18,7 +18,6 @@ in {
       m.nixos.polkit
       m.nixos.sudo
       m.nixos.atuin
-      m.nixos.avahi
       m.nixos.file-systems
       m.nixos.logrotate
       m.nixos.maintenance
@@ -41,7 +40,6 @@ in {
     imports = [
       m.home.fish
       m.home.bash
-      m.home.aliases
       m.home.starship
       m.home.atuin
       m.home.btop

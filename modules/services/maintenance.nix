@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.maintenance = {...}: {
+_: {
+  flake.modules.nixos.maintenance = _: {
     services = {
       fstrim = {
         enable = true;

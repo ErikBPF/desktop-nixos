@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.lynis = {pkgs, ...}: {
     environment.systemPackages = [pkgs.lynis];
 

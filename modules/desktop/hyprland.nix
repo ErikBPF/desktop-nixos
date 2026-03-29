@@ -4,7 +4,7 @@
   ...
 }: {
   flake.modules = {
-    nixos.hyprland = {...}: {
+    nixos.hyprland = _: {
       programs = {
         hyprland.enable = true;
         hyprlock.enable = true;
@@ -19,7 +19,7 @@
       ...
     }: let
       hexToRgba = hex: alpha: "rgba(${hex}${alpha})";
-      palette = config.colorScheme.palette;
+      inherit (config.colorScheme) palette;
       inactiveBorder = hexToRgba palette.base09 "aa";
       activeBorder = hexToRgba palette.base0D "aa";
       hasNvidiaDrivers = builtins.elem "nvidia" osConfig.services.xserver.videoDrivers;

@@ -1,11 +1,11 @@
 {config, ...}: {
-  flake.modules.home.git = {...}: {
+  flake.modules.home.git = _: {
     programs.git = {
       enable = true;
       settings = {
         user = {
           name = config.fullName;
-          email = config.email;
+          inherit (config) email;
         };
         credential.helper = "store";
       };

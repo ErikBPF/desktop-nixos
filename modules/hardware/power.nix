@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.power = {...}: {
+_: {
+  flake.modules.nixos.power = _: {
     services.tlp = {
       enable = true;
       settings = {

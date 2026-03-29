@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.home.kitty = {...}: {
+_: {
+  flake.modules.home.kitty = _: {
     programs.kitty = {
       enable = true;
       settings = {

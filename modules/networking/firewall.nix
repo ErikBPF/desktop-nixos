@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.firewall = {...}: {
+_: {
+  flake.modules.nixos.firewall = _: {
     networking.firewall = {
       enable = true;
       allowPing = false;

@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.boot-security = {...}: {
+_: {
+  flake.modules.nixos.boot-security = _: {
     boot.blacklistedKernelModules = [
       "dccp"
       "sctp"

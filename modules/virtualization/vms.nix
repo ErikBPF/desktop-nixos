@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.vms = {pkgs, ...}: {
     virtualisation = {
       spiceUSBRedirection.enable = true;

@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.logrotate = {...}: {
+_: {
+  flake.modules.nixos.logrotate = _: {
     services.logrotate.enable = true;
 
     services.journald.extraConfig = ''

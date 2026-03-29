@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.file-systems = {...}: {
+_: {
+  flake.modules.nixos.file-systems = _: {
     services = {
       udisks2.enable = true;
       gvfs.enable = true;

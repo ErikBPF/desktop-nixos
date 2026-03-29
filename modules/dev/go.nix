@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.dev-go = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       go

@@ -3,7 +3,7 @@
   config,
   ...
 }: let
-  username = config.username;
+  inherit (config) username;
 in {
   flake.modules.nixos.user = {
     pkgs,

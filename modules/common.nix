@@ -1,17 +1,8 @@
-{
-  config,
-  inputs,
-  ...
-}: {
-  flake.modules.nixos.common = {...}: {
+{config, ...}: {
+  flake.modules.nixos.common = _: {
     time.timeZone = "America/Sao_Paulo";
 
     nixpkgs = {
-      overlays = [
-        (final: _prev: {
-          quickshell = inputs.quickshell.packages.${final.system}.default;
-        })
-      ];
       config.allowUnfree = true;
     };
 

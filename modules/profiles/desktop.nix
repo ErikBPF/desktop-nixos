@@ -37,6 +37,7 @@ in {
       m.home.brave
       m.home.vscode
       m.home.packages-desktop
+      m.home.syncthing-tray
     ];
   };
 }

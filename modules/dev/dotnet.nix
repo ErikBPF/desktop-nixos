@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.dev-dotnet = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       dotnet-sdk_10

@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.headless = {...}: {
+_: {
+  flake.modules.nixos.headless = _: {
     # Disable all GUI components
     services.xserver.enable = false;
     hardware.bluetooth.enable = false;

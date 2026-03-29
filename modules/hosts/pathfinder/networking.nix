@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.pathfinder-networking = {...}: {
+_: {
+  flake.modules.nixos.pathfinder-networking = _: {
     networking = {
       hostName = "pathfinder";
       networkmanager.enable = true;

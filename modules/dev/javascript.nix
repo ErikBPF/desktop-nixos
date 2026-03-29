@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.dev-javascript = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       nodejs_22

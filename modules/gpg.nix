@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.home.gpg = {pkgs, ...}: {
     programs = {
       command-not-found.enable = false;

@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.nixos.orchestration = {...}: {
+_: {
+  flake.modules.nixos.orchestration = _: {
     # Container orchestration defaults for server hosts
     virtualisation.docker = {
       enable = true;

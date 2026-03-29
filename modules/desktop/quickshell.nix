@@ -10,11 +10,11 @@ in {
     pkgs,
     ...
   }: let
-    palette = config.colorScheme.palette;
+    inherit (config.colorScheme) palette;
     qmlPath = cfgPath + "/quickshell/qml";
     scriptsPath = cfgPath + "/quickshell/scripts";
   in {
-    home.packages = [inputs.quickshell.packages.${pkgs.system}.default];
+    home.packages = [inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default];
 
     home.file."Pictures/Wallpapers" = {
       source = cfgPath + "/themes/wallpapers";
