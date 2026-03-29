@@ -1,8 +1,7 @@
 {self, ...}: {
   flake.modules = {
     nixos.sops = {...}: {
-      # NixOS-level sops is configured per-host (tailscale keys, etc.)
-      # This module provides the base sops-nix enablement
+      sops.age.keyFile = "/home/erik/.config/sops/age/keys.txt";
     };
 
     home.sops = {

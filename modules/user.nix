@@ -1,8 +1,15 @@
-{config, ...}: {
-  flake.modules.nixos.user = {pkgs, ...}: {
-    users.users.${config.username} = {
+{self, config, ...}: let
+  username = config.username;
+in {
+  flake.modules.nixos.user = {pkgs, config, ...}: {
+    sops.secrets."hashed_password" = {
+      sopsFile = self + "/secrets/sops/secrets.yaml";
+      neededForUsers = true;
+    };
+
+    users.users.${username} = {
       isNormalUser = true;
-      initialPassword = "1045";
+      hashedPasswordFile = config.sops.secrets."hashed_password".path;
       shell = pkgs.fish;
       openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com"

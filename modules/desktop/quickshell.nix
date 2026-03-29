@@ -59,6 +59,7 @@ in {
         Description = "swww wallpaper daemon";
         PartOf = ["graphical-session.target"];
         After = ["graphical-session.target"];
+        Wants = ["swww-wallpaper.service"];
       };
       Service = {
         Type = "simple";
@@ -76,9 +77,9 @@ in {
       };
       Service = {
         Type = "oneshot";
+        ExecStartPre = "${pkgs.bash}/bin/bash -c 'for i in $(seq 1 10); do ${pkgs.swww}/bin/swww query && exit 0; sleep 0.5; done; exit 1'";
         ExecStart = "${pkgs.swww}/bin/swww img /home/erik/Pictures/Wallpapers/wallpaper.png --transition-type fade";
       };
-      Install.WantedBy = ["graphical-session.target"];
     };
 
     xdg.configFile."quickshell/qml/qmldir".text = ''
