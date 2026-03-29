@@ -16,6 +16,11 @@ in {
   in {
     home.packages = [inputs.quickshell.packages.${pkgs.system}.default];
 
+    home.file."Pictures/Wallpapers" = {
+      source = cfgPath + "/themes/wallpapers";
+      recursive = true;
+    };
+
     xdg.configFile."quickshell/theme.json".text = builtins.toJSON {
       colors = {
         base00 = "#${palette.base00}";
