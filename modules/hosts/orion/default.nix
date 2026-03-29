@@ -19,6 +19,7 @@ in {
       m.nixos.orion-hardware
       m.nixos.orion-networking
       m.nixos.orion-syncthing
+      m.nixos.orion-containers
       m.nixos.first-boot
       m.nixos.orion-jovian
       m.nixos.orion-sunshine

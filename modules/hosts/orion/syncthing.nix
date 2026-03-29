@@ -5,7 +5,7 @@ in {
     homeDir = "/home/erik";
   in {
     services.syncthing = {
-      enable = false;
+      enable = true;
       guiAddress = "127.0.0.1:8384";
       openDefaultPorts = false;
       relay.enable = false;
@@ -16,7 +16,11 @@ in {
       user = "erik";
       settings = {
         options.listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
-        devices = {};
+        devices = {
+          "discovery".id = deviceIDs.discovery_id;
+          "kepler".id = deviceIDs.kepler_id;
+        };
+        # Future: add /opt/models folder sync from Kepler after first boot
         folders = {};
       };
     };
