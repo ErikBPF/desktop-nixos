@@ -1,7 +1,15 @@
-{self, config, ...}: let
+{
+  self,
+  config,
+  ...
+}: let
   username = config.username;
 in {
-  flake.modules.nixos.user = {pkgs, config, ...}: {
+  flake.modules.nixos.user = {
+    pkgs,
+    config,
+    ...
+  }: {
     sops.secrets."hashed_password" = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
       neededForUsers = true;

@@ -26,8 +26,9 @@
 
     # Brave looks for extensions in its own profile dir, not chromium's
     xdg.configFile = lib.listToAttrs (map (id: {
-      name = "BraveSoftware/Brave-Browser/External Extensions/${id}.json";
-      value.text = extJson;
-    }) extensions);
+        name = "BraveSoftware/Brave-Browser/External Extensions/${id}.json";
+        value.text = extJson;
+      })
+      extensions);
   };
 }

@@ -1,4 +1,8 @@
-{inputs, config, ...}: {
+{
+  inputs,
+  config,
+  ...
+}: {
   flake.modules.home.hyprlock = {config, ...}: let
     palette = config.colorScheme.palette;
     convert = inputs.nix-colors.lib.conversions.hexToRGBString;
