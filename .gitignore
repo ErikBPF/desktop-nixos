@@ -1,3 +1,11 @@
 secret-key
 secret-key-base64
 logs/
+bmalph/
+.ralph/logs/
+_bmad-output/
+_bmad/
+.ralph/
+.claude/
+.direnv/
+.bg-shell/
