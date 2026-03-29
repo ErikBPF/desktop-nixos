@@ -14,11 +14,18 @@ in {
       (modulesPath + "/installer/scan/not-detected.nix")
       inputs.disko.nixosModules.disko
       inputs.sops-nix.nixosModules.sops
+      inputs.jovian.nixosModules.default
       m.nixos.profile-base
       m.nixos.orion-hardware
       m.nixos.orion-networking
       m.nixos.orion-syncthing
       m.nixos.first-boot
+      m.nixos.orion-jovian
+      m.nixos.hyprland
+      m.nixos.audio
+      m.nixos.bluetooth
+      m.nixos.xdg-portal
+      m.nixos.fonts
     ];
 
     home-manager = {
@@ -26,9 +33,12 @@ in {
       backupFileExtension = "backup";
       users.${config.username} = {
         imports = [
+          inputs.nix-colors.homeManagerModules.default
           inputs.sops-nix.homeManagerModules.sops
           m.home.profile-base
           m.home.orion-ssh
+          m.home.hyprland
+          m.home.fonts
         ];
         home = {
           inherit (config) username;
@@ -44,6 +54,7 @@ in {
           };
         };
         programs.home-manager.enable = true;
+        inherit (config) colorScheme;
       };
     };
 
