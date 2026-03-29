@@ -36,6 +36,7 @@ dry-all:
     sudo nixos-rebuild dry-build --flake .#pathfinder --show-trace
     sudo nixos-rebuild dry-build --flake .#discovery --show-trace
     sudo nixos-rebuild dry-build --flake .#laptop --show-trace
+    sudo nixos-rebuild dry-build --flake .#orion --show-trace
 
 check:
     @echo ":: Linting..."
