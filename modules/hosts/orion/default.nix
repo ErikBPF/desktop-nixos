@@ -21,6 +21,7 @@ in {
       m.nixos.orion-syncthing
       m.nixos.first-boot
       m.nixos.orion-jovian
+      m.nixos.orion-sunshine
       m.nixos.hyprland
       m.nixos.audio
       m.nixos.bluetooth
