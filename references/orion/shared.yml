@@ -1,0 +1,197 @@
+# =============================================================================
+# shared.yml — Shared infrastructure services (M1 Workstation)
+# Services: tailscale, alloy, syncthing, docker-prune,
+#           scrutiny-collector (SMART disk health → Discovery hub)
+#
+# Tailscale: mesh VPN connectivity to other machines (M2, M3, M4)
+# Alloy: telemetry collector shipping metrics/logs to Loki/Mimir/Tempo on M3
+# Syncthing: lightweight config sync node (no media volumes on M1)
+# docker-prune: weekly cleanup of dangling images and stopped containers
+# Scrutiny collector: reports SMART data to the hub on Discovery
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "10"
+
+x-restart: &restart
+  restart: unless-stopped
+
+networks:
+  homelab-net:
+    external: true
+
+volumes:
+  tailscale_state:
+  syncthing_config:
+  syncthing_data:
+
+services:
+  # ---------------------------------------------------------------------------
+  # Tailscale — mesh VPN with subnet routing
+  # Connects M1 to the Tailscale mesh for cross-machine communication
+  # ---------------------------------------------------------------------------
+  tailscale:
+    image: tailscale/tailscale:v1.94.2
+    container_name: tailscale
+    <<: *restart
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+      TS_ACCEPT_DNS: "true"
+      TS_HOSTNAME: ${TAILSCALE_HOSTNAME:-orion}
+      TS_EXTRA_ARGS: --accept-routes
+      TS_ENABLE_HEALTH_CHECK: "true"
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9002/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Grafana Alloy — unified telemetry collector
+  # Ships logs, host metrics, and container metrics to Loki/Mimir/Tempo on M3
+  # ---------------------------------------------------------------------------
+  alloy:
+    image: grafana/alloy:v1.14.2
+    container_name: alloy
+    <<: *restart
+    group_add:
+      - "956"
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    volumes:
+      - ./config/alloy/config.alloy:/etc/alloy/config.alloy:ro,z
+      - /var/run/docker.sock:/var/run/docker.sock:ro,z
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/12345' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Syncthing — P2P file sync (config sync to M2, no media on M1)
+  # ---------------------------------------------------------------------------
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:2.0.15
+    container_name: syncthing
+    <<: *restart
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - syncthing_config:/config
+      - syncthing_data:/data
+    ports:
+      - "8384:8384"                    # admin UI
+      - "22000:22000/tcp"              # sync protocol TCP
+      - "22000:22000/udp"              # sync protocol UDP
+      - "21027:21027/udp"              # local discovery
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8384/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # docker-prune — weekly cleanup of dangling images and stopped containers
+  # ---------------------------------------------------------------------------
+  docker-prune:
+    image: docker:cli
+    container_name: docker-prune
+    <<: *restart
+    entrypoint: /bin/sh
+    command: >
+      -c 'while true; do
+        sleep 604800;
+        echo "[$(date)] Weekly prune starting on orion...";
+        PRUNE=$(docker system prune -f --filter "until=168h" 2>&1);
+        echo "$PRUNE";
+        IMAGES=$(docker image prune -f --filter "dangling=true" 2>&1);
+        echo "$IMAGES";
+        wget -qO- --post-data="Weekly prune on orion complete. $PRUNE $IMAGES" http://${DISCOVERY_HOST}:8070/homelab-maintenance 2>/dev/null || true;
+        echo "[$(date)] Weekly prune complete.";
+      done'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - homelab-net
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Scrutiny Collector — SMART disk health reporter
+  # Reports to Scrutiny hub on Discovery via Tailscale.
+  # Bazzite/SELinux: :z label on /run/udev mount for SELinux compat.
+  # ---------------------------------------------------------------------------
+  scrutiny-collector:
+    image: ghcr.io/analogj/scrutiny:master-collector
+    container_name: scrutiny-collector
+    <<: *restart
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
+    environment:
+      - COLLECTOR_API_ENDPOINT=${SCRUTINY_API_ENDPOINT}
+      - COLLECTOR_HOST_ID=orion
+      - COLLECTOR_CRON_SCHEDULE=0 */6 * * *
+    volumes:
+      - /run/udev:/run/udev:ro,z
+    # TODO: Add Orion drive devices after deployment. Example:
+    # devices:
+    #   - /dev/sda
+    #   - /dev/nvme0n1
+    networks:
+      - homelab-net
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Hawser — Dockhand remote agent (Standard Mode)
+  # Enables Dockhand on Discovery to manage Docker on this host.
+  # Token-based auth over Tailscale — no TLS needed (tunnel is encrypted).
+  # Bazzite/SELinux: :z label on Docker socket mount.
+  # ---------------------------------------------------------------------------
+  hawser:
+    image: ghcr.io/finsys/hawser:v0.2.39
+    container_name: hawser
+    <<: *restart
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro,z
+    ports:
+      - "2376:2376"
+    environment:
+      - TOKEN=${HAWSER_TOKEN}
+      - AGENT_NAME=orion
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2376/_hawser/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging

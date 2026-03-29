@@ -1,0 +1,55 @@
+# =============================================================================
+# Hermes Agent — Configuration
+# Docs: https://github.com/NousResearch/hermes-agent
+#
+# Uses LiteLLM on Discovery as the model gateway, which routes to:
+#   - Local Qwen 3.5 27B on Orion (via llama-chat)
+#   - Cloud models (Claude, GPT) as fallback
+# =============================================================================
+
+model:
+  provider: custom
+  default: "qwen-chat"
+  base_url: "https://litellm.homelab.pastelariadev.com/v1"
+  max_context: 32768
+  # api_key set via OPENAI_API_KEY env var
+
+auxiliary_models:
+  vision:
+    provider: custom
+    model: "qwen-chat"
+    base_url: "https://litellm.homelab.pastelariadev.com/v1"
+    max_context: 32768
+  compression:
+    provider: custom
+    model: "qwen-chat"
+    base_url: "https://litellm.homelab.pastelariadev.com/v1"
+    max_context: 32768
+  session_search:
+    provider: custom
+    model: "qwen-chat"
+    base_url: "https://litellm.homelab.pastelariadev.com/v1"
+    max_context: 32768
+
+memory:
+  enabled: true
+
+terminal:
+  backend: local
+
+gateway:
+  platforms:
+    api_server:
+      enabled: true
+      host: "0.0.0.0"
+      port: 8642
+    webhook:
+      enabled: true
+      host: "0.0.0.0"
+      port: 8644
+    telegram:
+      enabled: true
+      # Token set via TELEGRAM_BOT_TOKEN env var
+
+display:
+  theme: dark
