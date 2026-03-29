@@ -28,6 +28,7 @@ in {
       m.nixos.bluetooth
       m.nixos.xdg-portal
       m.nixos.fonts
+      m.nixos.alloy
     ];
 
     home-manager = {
