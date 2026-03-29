@@ -18,7 +18,9 @@ in {
         options = {
           # Disable QUIC — workaround for Go 1.26 TLS panic
           # "crypto/tls bug: where's my session ticket?"
-          rawListenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
+          # NixOS syncthing module uses JSON API format, not XML format.
+          # XML: rawListenAddresses → JSON API: listenAddresses
+          listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         };
         devices = {
           "discovery".id = deviceIDs.discovery_id;

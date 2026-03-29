@@ -13,7 +13,7 @@ in {
       overrideFolders = true;
       user = "erik";
       settings = {
-        options.rawListenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
+        options.listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         devices = {
           "discovery".id = deviceIDs.discovery_id;
           "archlinux".id = deviceIDs.archlinux_id;
