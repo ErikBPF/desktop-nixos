@@ -11,6 +11,7 @@ _: {
 
     # --- Hardware detection (AMD Ryzen + Radeon) ---
     boot.initrd.availableKernelModules = ["nvme" "xhci_pci" "ahci" "usb_storage" "sd_mod"];
+    boot.initrd.kernelModules = ["amdgpu"];
     boot.kernelModules = ["kvm-amd" "amdgpu"];
 
     networking.useDHCP = lib.mkDefault true;
@@ -111,5 +112,7 @@ _: {
       enable = true;
       enable32Bit = true;
     };
+
+    services.xserver.videoDrivers = ["amdgpu"];
   };
 }
