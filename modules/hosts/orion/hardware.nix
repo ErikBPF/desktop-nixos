@@ -23,7 +23,7 @@ _: {
       disk = {
         nvme0 = {
           type = "disk";
-          device = "/dev/nvme0n1"; # placeholder — update after nixos-generate-config in S06
+          device = "/dev/nvme0n1"; # confirmed: Force MP510 447GB NVMe
           content = {
             type = "gpt";
             partitions = {
@@ -69,7 +69,7 @@ _: {
         };
         ssd1 = {
           type = "disk";
-          device = "/dev/sda"; # placeholder — update after nixos-generate-config in S06
+          device = "/dev/sda"; # confirmed: Kingston SV300S37A 480GB SATA SSD → /opt/models
           content = {
             type = "gpt";
             partitions = {
@@ -87,7 +87,7 @@ _: {
         };
         ssd2 = {
           type = "disk";
-          device = "/dev/sdb"; # placeholder — update after nixos-generate-config in S06
+          device = "/dev/sdb"; # confirmed: SanDisk SSD PLUS 480GB SATA → /scratch
           content = {
             type = "gpt";
             partitions = {

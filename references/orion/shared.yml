@@ -162,10 +162,10 @@ services:
       - COLLECTOR_CRON_SCHEDULE=0 */6 * * *
     volumes:
       - /run/udev:/run/udev:ro,z
-    # TODO: Add Orion drive devices after deployment. Example:
-    # devices:
-    #   - /dev/sda
-    #   - /dev/nvme0n1
+    devices:
+      - /dev/nvme0n1  # Force MP510 447GB — btrfs root
+      - /dev/sda      # Kingston SV300S37A 480GB — /opt/models
+      - /dev/sdb      # SanDisk SSD PLUS 480GB — /scratch
     networks:
       - homelab-net
     logging: *logging

@@ -1,0 +1,40 @@
+# =============================================================================
+# Decluttarr v2 — removes stalled/failed/slow downloads from *arr queues
+# =============================================================================
+
+general:
+  timer: 10
+  ssl_verification: true
+  log_level: INFO
+  private_tracker_handling: "skip"
+  protected_tag: "Keep"
+
+job_defaults:
+  max_strikes: 3
+
+jobs:
+  remove_failed_downloads:
+  remove_failed_imports:
+  remove_metadata_missing:
+  remove_missing_files:
+  remove_orphans:
+  remove_stalled:
+  remove_unmonitored:
+  search_missing:
+
+instances:
+  sonarr:
+    - base_url: "http://sonarr:8989"
+      api_key: !ENV SONARR_API_KEY
+  radarr:
+    - base_url: "http://radarr:7878"
+      api_key: !ENV RADARR_API_KEY
+  lidarr:
+    - base_url: "http://lidarr:8686"
+      api_key: !ENV LIDARR_API_KEY
+
+download_clients:
+  qbittorrent:
+    - base_url: "http://gluetun:9080"
+      username: !ENV QBITTORRENT_USER
+      password: !ENV QBITTORRENT_PASSWORD

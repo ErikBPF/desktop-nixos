@@ -14,18 +14,6 @@
       # dockerSocket.enable is intentionally omitted (R006 constraint)
       autoPrune.enable = true;
     };
-
-    # Create the homelab-net Podman network on boot.
-    # AI compose files declare this network as external — it must exist before containers start.
-    systemd.services.podman-homelab-net = {
-      description = "Create podman homelab-net network";
-      after = ["network.target"];
-      wantedBy = ["multi-user.target"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${pkgs.podman}/bin/podman network create homelab-net || true";
-      };
-    };
+    # homelab-net network is created by docker compose (not a systemd unit) — compose handles it.
   };
 }

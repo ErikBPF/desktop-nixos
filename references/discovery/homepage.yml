@@ -1,0 +1,57 @@
+# =============================================================================
+# homepage.yml — Homepage dashboard (Machine 3: m3-infra)
+# Service: gethomepage.dev — service-aware homelab dashboard
+#
+# Homepage auto-discovers local Docker containers via labels.
+# Remote services on M1/M2 are configured via config files (not Docker labels).
+# Config files live at ./config/homepage/ (bind-mounted).
+# Homepage hot-reloads config changes without restart.
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "10"
+
+x-restart: &restart
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+networks:
+  homelab-net:
+    external: true
+
+services:
+  # ---------------------------------------------------------------------------
+  # Homepage — service-aware homelab dashboard (gethomepage.dev)
+  # Auto-discovers containers via Docker labels; hot-reloads config changes
+  # ---------------------------------------------------------------------------
+  homepage:
+    image: ghcr.io/gethomepage/homepage:v1.11.0
+    container_name: homepage
+    <<: *restart
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - HOMEPAGE_ALLOWED_HOSTS=homepage.${HOMELAB_DOMAIN},homepage,localhost
+      - HOMEPAGE_VAR_RADARR_KEY=${RADARR_API_KEY}
+      - HOMEPAGE_VAR_SONARR_KEY=${SONARR_API_KEY}
+      - HOMEPAGE_VAR_LIDARR_KEY=${LIDARR_API_KEY}
+      - HOMEPAGE_VAR_GRAFANA_USER=${GRAFANA_ADMIN_USER}
+      - HOMEPAGE_VAR_GRAFANA_PASS=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./config/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "3005:3000"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging

@@ -29,6 +29,7 @@ in {
       m.nixos.xdg-portal
       m.nixos.fonts
       m.nixos.alloy
+      m.nixos.nix-cache
     ];
 
     home-manager = {

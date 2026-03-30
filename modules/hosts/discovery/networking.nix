@@ -2,8 +2,18 @@ _: {
   flake.modules.nixos.discovery-networking = {lib, ...}: {
     networking = {
       hostName = "discovery";
-      networkmanager.enable = true;
-      networkmanager.dns = "systemd-resolved";
+
+      # Headless server — use systemd-networkd style config, not NetworkManager.
+      # NetworkManager is disabled to avoid fighting with the declarative bridge.
+      networkmanager.enable = false;
+      useDHCP = false; # set per-interface below
+
+      # br0: LAN bridge — eno1 enslaved, bridge gets DHCP.
+      # Required for HAOS KVM VM to appear on the LAN with its own MAC address.
+      bridges.br0.interfaces = ["eno1"];
+      interfaces.eno1.useDHCP = false;
+      interfaces.br0.useDHCP = true;
+
       firewall = {
         enable = true;
         checkReversePath = "loose";

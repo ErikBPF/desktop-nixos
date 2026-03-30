@@ -1,0 +1,97 @@
+---
+# https://gethomepage.dev/configs/services/
+# Services are organized by category and proxy through SWAG on Discovery.
+
+- Media:
+    - Jellyfin:
+        icon: jellyfin.svg
+        href: https://jellyfin.homelab.pastelariadev.com
+        description: Media server
+    - Plex:
+        icon: plex.svg
+        href: https://plex.homelab.pastelariadev.com
+        description: Media server
+    - Sonarr:
+        icon: sonarr.svg
+        href: https://sonarr.homelab.pastelariadev.com
+        description: TV shows
+    - Radarr:
+        icon: radarr.svg
+        href: https://radarr.homelab.pastelariadev.com
+        description: Movies
+    - Lidarr:
+        icon: lidarr.svg
+        href: https://lidarr.homelab.pastelariadev.com
+        description: Music
+    - Prowlarr:
+        icon: prowlarr.svg
+        href: https://prowlarr.homelab.pastelariadev.com
+        description: Indexers
+    - qBittorrent:
+        icon: qbittorrent.svg
+        href: https://qbittorrent.homelab.pastelariadev.com
+        description: Torrent client
+    - Seerr:
+        icon: overseerr.svg
+        href: https://seerr.homelab.pastelariadev.com
+        description: Media requests
+
+- AI:
+    - Open WebUI:
+        icon: open-webui.svg
+        href: https://openwebui.homelab.pastelariadev.com
+        description: Chat interface
+    - n8n:
+        icon: n8n.svg
+        href: https://n8n.homelab.pastelariadev.com
+        description: Workflow automation
+    - Langfuse:
+        icon: https://langfuse.com/favicon.ico
+        href: https://langfuse.homelab.pastelariadev.com
+        description: LLM observability
+    - LiteLLM:
+        href: https://litellm.homelab.pastelariadev.com
+        description: AI gateway
+
+- Infrastructure:
+    - Grafana:
+        icon: grafana.svg
+        href: https://grafana.homelab.pastelariadev.com
+        description: Dashboards
+    - Uptime Kuma:
+        icon: uptime-kuma.svg
+        href: https://uptime-kuma.homelab.pastelariadev.com
+        description: Uptime monitoring
+    - Vaultwarden:
+        icon: bitwarden.svg
+        href: https://vaultwarden.homelab.pastelariadev.com
+        description: Password manager
+
+- Development:
+    - GitLab:
+        icon: gitlab.svg
+        href: https://gitlab.homelab.pastelariadev.com
+        description: Git hosting + CI/CD
+    - Obsidian:
+        icon: obsidian.svg
+        href: https://obsidian.homelab.pastelariadev.com
+        description: Notes
+    - Excalidraw:
+        icon: excalidraw.svg
+        href: https://excalidraw.homelab.pastelariadev.com
+        description: Whiteboard
+
+- Photos & Knowledge:
+    - Immich:
+        icon: immich.svg
+        href: https://immich.homelab.pastelariadev.com
+        description: Photo management
+    - Karakeep:
+        href: https://karakeep.homelab.pastelariadev.com
+        description: Bookmarks
+
+- Security:
+    - Wazuh:
+        icon: wazuh.svg
+        href: https://wazuh.homelab.pastelariadev.com
+        description: SIEM dashboard

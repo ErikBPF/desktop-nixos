@@ -1,0 +1,8 @@
+# config.toml — Autobrr configuration for Kepler
+
+host = "0.0.0.0"
+port = 7474
+baseUrlModeLegacy = true
+logLevel = "INFO"
+checkForUpdates = true
+sessionSecret = "changeme-generate-with-openssl-rand-hex-16"
