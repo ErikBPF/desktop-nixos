@@ -99,6 +99,7 @@ in {
       m.nixos.laptop-networking
       m.nixos.laptop-syncthing
       m.nixos.first-boot
+      m.nixos.alloy
     ];
 
     home-manager = {

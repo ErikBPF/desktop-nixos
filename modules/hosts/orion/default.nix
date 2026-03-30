@@ -5,39 +5,7 @@
 }: let
   m = config.flake.modules;
 in {
-  monitors = [
-    {
-      name = "DP-1";
-      resolution = "1920x1080";
-      refreshRate = 60;
-      position = "0x0";
-    }
-  ];
-  workspaces = [
-    {
-      id = 1;
-      monitor = "DP-1";
-      default = true;
-    }
-    {
-      id = 2;
-      monitor = "DP-1";
-    }
-    {
-      id = 3;
-      monitor = "DP-1";
-    }
-    {
-      id = 4;
-      monitor = "DP-1";
-    }
-    {
-      id = 5;
-      monitor = "DP-1";
-    }
-  ];
-
-  configurations.nixos.pathfinder.module = {
+  configurations.nixos.orion.module = {
     pkgs,
     modulesPath,
     ...
@@ -46,13 +14,22 @@ in {
       (modulesPath + "/installer/scan/not-detected.nix")
       inputs.disko.nixosModules.disko
       inputs.sops-nix.nixosModules.sops
+      inputs.jovian.nixosModules.default
       m.nixos.profile-base
-      m.nixos.profile-desktop
-      m.nixos.pathfinder-hardware
-      m.nixos.pathfinder-networking
-      m.nixos.pathfinder-syncthing
+      m.nixos.orion-hardware
+      m.nixos.orion-networking
+      m.nixos.orion-syncthing
+      m.nixos.orion-containers
       m.nixos.first-boot
+      m.nixos.orion-jovian
+      m.nixos.orion-sunshine
+      m.nixos.hyprland
+      m.nixos.audio
+      m.nixos.bluetooth
+      m.nixos.xdg-portal
+      m.nixos.fonts
       m.nixos.alloy
+      m.nixos.nix-cache
     ];
 
     home-manager = {
@@ -63,8 +40,9 @@ in {
           inputs.nix-colors.homeManagerModules.default
           inputs.sops-nix.homeManagerModules.sops
           m.home.profile-base
-          m.home.profile-desktop
-          m.home.pathfinder-ssh
+          m.home.orion-ssh
+          m.home.hyprland
+          m.home.fonts
         ];
         home = {
           inherit (config) username;
@@ -86,23 +64,22 @@ in {
 
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
-    hardware.cpu.intel.updateMicrocode = true;
-    boot.kernelPackages = pkgs.linuxPackages_zen;
+    hardware.cpu.amd.updateMicrocode = true;
+    boot.kernelPackages = pkgs.linuxPackages_latest;
 
     boot = {
       kernelParams = ["nohibernate"];
-      supportedFilesystems = ["ntfs"];
       loader = {
         efi.canTouchEfiVariables = true;
         grub = {
           device = "nodev";
           efiSupport = true;
           enable = true;
-          useOSProber = true;
+          useOSProber = false;
           timeoutStyle = "menu";
-          configurationLimit = 3;
+          configurationLimit = 10;
         };
-        timeout = 1;
+        timeout = 3;
       };
     };
 
@@ -113,15 +90,13 @@ in {
       algorithm = "zstd";
     };
 
-    modules.security.tor-monitor.enable = true;
-
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#pathfinder";
+      flake = "github:ErikBPF/desktop-nixos#orion";
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
-      dates = "05:00";
+      dates = "04:00";
     };
 
     services.openssh.enable = true;

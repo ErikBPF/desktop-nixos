@@ -19,8 +19,9 @@ in {
       m.nixos.discovery-hardware
       m.nixos.discovery-networking
       m.nixos.discovery-syncthing
-      m.nixos.nix-cache
+      m.nixos.discovery-haos
       m.nixos.first-boot
+      m.nixos.alloy
     ];
 
     home-manager = {
@@ -54,10 +55,13 @@ in {
     hardware.cpu.intel.updateMicrocode = true;
 
     boot.loader = {
+      efi.canTouchEfiVariables = true;
       grub = {
         enable = true;
-        device = "/dev/sda";
-        configurationLimit = 3;
+        device = "nodev";
+        efiSupport = true;
+        useOSProber = false;
+        configurationLimit = 5;
       };
     };
 
