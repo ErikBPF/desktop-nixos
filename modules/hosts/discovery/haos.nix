@@ -11,6 +11,12 @@
         # ovmf.enable removed in NixOS 25.05 — OVMF bundled with QEMU by default
         swtpm.enable = true; # TPM 2.0 emulator (HAOS requires it)
         runAsRoot = false;
+        # Don't relabel disk images — the qcow2 lives on an ext4 vault mount
+        # that libvirt-qemu (uid 301) can read via group=kvm. Relabeling would
+        # reset ownership to libvirt-qemu after each VM stop, breaking restarts.
+        verbatimConfig = ''
+          remember_owner = 0
+        '';
       };
     };
 
@@ -18,10 +24,10 @@
     users.users.erik.extraGroups = ["libvirtd" "kvm"];
 
     # --- HAOS VM definition ---
-    # QCOW2:  /home/erik/vault/vms/haos_ova-16.3.qcow2  (on vault HDD, survives OS rebuilds)
+    # QCOW2:  /home/erik/vault/vms/haos_ova-17.1.qcow2  (official KVM image, on vault HDD)
     # NVRAM:  /var/lib/libvirt/qemu/nvram/haos_VARS.fd   (EFI vars, persisted across rebuilds)
     # USB:    Silicon Labs CP210x (0x10c4:0xea60) — Zigbee/Z-Wave stick, passed through
-    # MAC:    52:54:00:80:4a:0e — fixed so HAOS keeps its DHCP lease / LAN identity
+    # MAC:    52:54:00:d6:a5:ce — set DHCP reservation to 192.168.10.205 on router
     # Bridge: br0 (eno1 enslaved) — HAOS appears directly on the LAN
     environment.etc."libvirt/qemu/haos.xml" = {
       source = ./haos-domain.xml;
@@ -31,7 +37,7 @@
     };
 
     # /home/erik needs world-execute so libvirt-qemu (uid qemu-libvirtd) can
-    # traverse the path to /home/erik/vault/vms/haos_ova-16.3.qcow2.
+    # traverse the path to /home/erik/vault/vms/haos_ova-17.1.qcow2.
     # home-manager sets drwx------ by default; override to drwx-----x.
     systemd.tmpfiles.rules = [
       "Z /home/erik 0711 erik users - -"
@@ -59,7 +65,7 @@
 
       script = ''
         VIRSH="${pkgs.libvirt}/bin/virsh"
-        DISK="/home/erik/vault/vms/haos_ova-16.3.qcow2"
+        DISK="/home/erik/vault/vms/haos_ova-17.1.qcow2"
 
         if [ ! -f "$DISK" ]; then
           echo "HAOS disk not found at $DISK — retrying in 30s"
