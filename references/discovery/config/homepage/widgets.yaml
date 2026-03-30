@@ -1,6 +1,0 @@
----
-# https://gethomepage.dev/configs/widgets/
-
-- search:
-    provider: google
-    target: _blank

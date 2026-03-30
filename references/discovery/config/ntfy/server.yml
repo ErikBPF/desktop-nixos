@@ -1,6 +1,0 @@
-base-url: "http://ntfy:80"
-upstream-base-url: "https://ntfy.sh"
-auth-default-access: "deny-all"
-cache-file: "/var/cache/ntfy/cache.db"
-cache-duration: "12h"
-attachment-cache-dir: "/var/cache/ntfy/attachments"
