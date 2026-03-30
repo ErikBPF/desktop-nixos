@@ -299,15 +299,11 @@
             "opacity 1 1,match:class ^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
             "float on,match:class ^(teams-for-linux)$"
             "float on,match:class ^(discord)$"
-            "float on,match:initialTitle ^(WhatsApp Electron .*)$"
-            "move 12 646,match:initialTitle ^(WhatsApp Electron .*)$"
-            "size 1056 643,match:initialTitle ^(WhatsApp Electron .*)$"
             "move 12 47,match:class ^(teams-for-linux)$"
             "size 1056 585,match:class ^(teams-for-linux)$"
             "move 12 1304,match:class ^(discord)$"
             "size 1056 603,match:class ^(discord)$"
             "workspace 1, match:class ^(brave)$"
-            "workspace 10, match:initialTitle ^(WhatsApp Electron .*)$"
             "workspace 11, match:title ^(btop ~)$"
             "workspace 12, match:class ^(spotify)$"
             "workspace 10, match:class ^(teams-for-linux)$"
@@ -316,7 +312,15 @@
             "workspace 11 silent,match:title ^(Lens)$"
             "workspace 10 silent,match:class ^(teams-for-linux)$"
             "workspace 10 silent,match:class ^(discord)$"
-            "workspace 10 silent,match:initialTitle ^(WhatsApp Electron .*)$"
+          ];
+
+          # windowrulev2 required for initialTitle matching (not valid in windowrule)
+          windowrulev2 = [
+            "float, initialTitle:^(WhatsApp Electron .*)$"
+            "move 12 646, initialTitle:^(WhatsApp Electron .*)$"
+            "size 1056 643, initialTitle:^(WhatsApp Electron .*)$"
+            "workspace 10, initialTitle:^(WhatsApp Electron .*)$"
+            "workspace 10 silent, initialTitle:^(WhatsApp Electron .*)$"
           ];
         };
 
