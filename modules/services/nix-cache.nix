@@ -24,7 +24,7 @@
       secretKeyFile = config.sops.secrets.nix_cache_signing_key.path;
     };
 
-    networking.firewall.allowedTCPPorts = [ 5000 ];
+    networking.firewall.allowedTCPPorts = [5000];
 
     # Daily closure builder — keeps the cache warm by building all host closures.
     # Runs at 03:00, requires the flake repo to be checked out at the path below.
@@ -35,7 +35,7 @@
         User = "root";
         WorkingDirectory = "/var/lib/nix-cache-builder/repo";
       };
-      path = [ pkgs.git pkgs.nix ];
+      path = [pkgs.git pkgs.nix];
       script = ''
         set -euo pipefail
         echo ":: Pulling latest from main..."
@@ -45,6 +45,7 @@
         nix build .#nixosConfigurations.orion.config.system.build.toplevel --no-link
         nix build .#nixosConfigurations.pathfinder.config.system.build.toplevel --no-link
         nix build .#nixosConfigurations.laptop.config.system.build.toplevel --no-link
+        nix build .#nixosConfigurations.discovery.config.system.build.toplevel --no-link
 
         echo ":: Cache builder complete"
       '';
@@ -52,7 +53,7 @@
 
     systemd.timers.nix-cache-builder = {
       description = "Daily nix cache builder timer";
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnCalendar = "03:00";
         Persistent = true;

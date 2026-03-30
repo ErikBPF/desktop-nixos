@@ -1,7 +1,0 @@
----
-# https://gethomepage.dev/configs/docker/
-# Homepage auto-discovers services from Docker labels on the local host.
-# Remote services (Kepler, Orion) are defined in services.yaml.
-
-local:
-  socket: /var/run/docker.sock
