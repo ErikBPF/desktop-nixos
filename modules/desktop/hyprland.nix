@@ -312,15 +312,12 @@
             "workspace 11 silent,match:title ^(Lens)$"
             "workspace 10 silent,match:class ^(teams-for-linux)$"
             "workspace 10 silent,match:class ^(discord)$"
-          ];
-
-          # windowrulev2 required for initialTitle matching (not valid in windowrule)
-          windowrulev2 = [
-            "float, initialTitle:^(WhatsApp Electron .*)$"
-            "move 12 646, initialTitle:^(WhatsApp Electron .*)$"
-            "size 1056 643, initialTitle:^(WhatsApp Electron .*)$"
-            "workspace 10, initialTitle:^(WhatsApp Electron .*)$"
-            "workspace 10 silent, initialTitle:^(WhatsApp Electron .*)$"
+            # WhatsApp: class is 'electron' (shared); match on title which is unique
+            "float on, match:title ^(WhatsApp Electron.*)$"
+            "move 12 646, match:title ^(WhatsApp Electron.*)$"
+            "size 1056 643, match:title ^(WhatsApp Electron.*)$"
+            "workspace 10, match:title ^(WhatsApp Electron.*)$"
+            "workspace 10 silent, match:title ^(WhatsApp Electron.*)$"
           ];
         };
 
