@@ -1,0 +1,105 @@
+# =============================================================================
+# networking.yml — Networking & Edge Security stack
+# Machine: Discovery (Debian — 24/7 Infrastructure)
+#
+# Services: SWAG (Nginx reverse proxy + Certbot + Fail2ban), AdGuard Home (DNS)
+#
+# SWAG handles:
+#   - TLS wildcard cert for *.homelab.pastelariadev.com via Cloudflare DNS
+#   - Reverse proxy to local Discovery services and remote Kepler/Orion via Tailscale
+#   - Fail2ban intrusion prevention (replaces CrowdSec)
+#   - Auto-reload on config file changes
+#
+# AdGuard Home provides LAN DNS with ad/tracker blocking.
+#
+# First-run:
+#   1. Deploy: docker compose -f networking.yml up -d
+#   2. Edit /config/dns-conf/cloudflare.ini with your API token
+#   3. Restart swag to pick up the token
+#   4. Create nginx proxy configs in /config/nginx/proxy-confs/
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "10"
+
+x-restart: &restart
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+networks:
+  homelab-net:
+    external: true
+
+volumes:
+  swag_config:
+  adguard_work:
+
+services:
+  # ---------------------------------------------------------------------------
+  # SWAG — Secure Web Application Gateway
+  # Nginx + Certbot (Cloudflare DNS) + Fail2ban
+  # Wildcard cert: *.homelab.pastelariadev.com
+  # ---------------------------------------------------------------------------
+  swag:
+    image: lscr.io/linuxserver/swag:5.4.0
+    container_name: swag
+    <<: *restart
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - URL=${HOMELAB_DOMAIN}
+      - SUBDOMAINS=wildcard
+      - ONLY_SUBDOMAINS=true
+      - VALIDATION=dns
+      - DNSPLUGIN=cloudflare
+      - EMAIL=${ACME_EMAIL:-admin@pastelariadev.com}
+      - EXTRA_DOMAINS=ha.pastelariadev.com
+      - STAGING=false
+      - DISABLE_F2B=false
+      - SWAG_AUTORELOAD=true
+    volumes:
+      - swag_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf https://localhost:443 -k || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # AdGuard Home — LAN DNS + ad/tracker blocking
+  # ---------------------------------------------------------------------------
+  adguard:
+    image: adguard/adguardhome:v0.108.0-b.83
+    container_name: adguard
+    <<: *restart
+    ports:
+      - "${DISCOVERY_LAN_IP:-192.168.10.210}:53:53/udp"
+      - "${DISCOVERY_LAN_IP:-192.168.10.210}:53:53/tcp"
+      - "${DISCOVERY_LAN_IP:-192.168.10.210}:3000:3000"
+      - "${DISCOVERY_LAN_IP:-192.168.10.210}:8090:80"
+    volumes:
+      - adguard_work:/opt/adguardhome/work
+      - ./config/adguard:/opt/adguardhome/conf
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/login.html || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging: *logging

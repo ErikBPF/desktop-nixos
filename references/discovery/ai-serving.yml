@@ -1,0 +1,225 @@
+# =============================================================================
+# ai-serving.yml — AI Gateway + Observability (Discovery — 24/7 Infrastructure)
+# Services: LiteLLM, Langfuse v3 (ClickHouse + Web + Worker)
+#
+# LiteLLM routes to:
+#   - Remote llama-embed (Kepler) at http://${KEPLER_HOST}:8501
+#   - Remote llama-chat (Orion) at http://${ORION_HOST}:8503
+#   - Langfuse observability (local) at http://langfuse-web:3000
+#
+# Langfuse uses Discovery Postgres, Discovery Redis, Kepler MinIO (over LAN).
+# Always-on gateway — available 24/7 regardless of Kepler/Orion uptime.
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "10"
+
+x-restart: &restart
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+networks:
+  homelab-net:
+    external: true
+
+volumes:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.82.3-stable
+    container_name: litellm
+    <<: *restart
+    command: --config /etc/litellm/litellm_config.yaml --num_workers 4 --run_gunicorn --max_requests_before_restart 10000
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/litellm
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_HOST: http://langfuse-web:3000
+      KEPLER_HOST: ${KEPLER_HOST:-kepler}
+      ORION_HOST: ${ORION_HOST:-orion}
+      UI_USERNAME: ${UI_USERNAME:-admin}
+      UI_PASSWORD: ${UI_PASSWORD}
+      LITELLM_MODE: PRODUCTION
+      LITELLM_LOG: ERROR
+      LITELLM_DOCS_URL: /docs
+      LITELLM_ROOT_REDIRECT_URL: /ui
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/4
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./config/litellm/litellm_config.yaml:/etc/litellm/litellm_config.yaml:ro
+    ports:
+      - "4000:4000"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:4000/health/readiness\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Langfuse v3 — ClickHouse (OLAP storage for traces/events)
+  # ---------------------------------------------------------------------------
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:26.2.6.27-stable
+    container_name: langfuse-clickhouse
+    <<: *restart
+    mem_limit: 2g
+    cpus: 2.0
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-default}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Langfuse v3 — Web (frontend + API)
+  # Uses Discovery Postgres, Discovery Redis, Kepler MinIO (over LAN)
+  # ---------------------------------------------------------------------------
+  langfuse-web:
+    image: langfuse/langfuse:3.162.0
+    container_name: langfuse-web
+    <<: *restart
+    mem_limit: 1g
+    cpus: 2.0
+    depends_on:
+      langfuse-clickhouse:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/langfuse
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-default}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_AUTH: ${REDIS_PASSWORD}
+      REDIS_CONNECTION_STRING: redis://:${REDIS_PASSWORD}@redis:6379/3
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${MINIO_STORAGE_BUCKET:-langfuse}
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: batch-export/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: auto
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://${KEPLER_HOST}:9191
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${MINIO_STORAGE_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://${KEPLER_HOST}:9191
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${MINIO_STORAGE_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://${KEPLER_HOST}:9191
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-1}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Homelab}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-AI Stack}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_SECRET_KEY}
+      NEXTAUTH_SECRET: ${LANGFUSE_SECRET_KEY}
+      NEXTAUTH_URL: https://langfuse.${HOMELAB_DOMAIN}
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
+    ports:
+      - "3004:3000"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://langfuse-web:3000/api/public/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Langfuse v3 — Worker (async background processing)
+  # ---------------------------------------------------------------------------
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3.162.0
+    container_name: langfuse-worker
+    <<: *restart
+    mem_limit: 1g
+    cpus: 1.0
+    depends_on:
+      langfuse-clickhouse:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/langfuse
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-default}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_AUTH: ${REDIS_PASSWORD}
+      REDIS_CONNECTION_STRING: redis://:${REDIS_PASSWORD}@redis:6379/3
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${MINIO_STORAGE_BUCKET:-langfuse}
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: batch-export/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: auto
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://${KEPLER_HOST}:9191
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${MINIO_STORAGE_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://${KEPLER_HOST}:9191
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${MINIO_STORAGE_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://${KEPLER_HOST}:9191
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_SECRET_KEY}
+      NEXTAUTH_SECRET: ${LANGFUSE_SECRET_KEY}
+      NEXTAUTH_URL: https://langfuse.${HOMELAB_DOMAIN}
+      TELEMETRY_ENABLED: "false"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://langfuse-worker:3030/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging: *logging

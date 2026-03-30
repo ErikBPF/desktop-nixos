@@ -1,0 +1,32 @@
+# Mimir monolithic mode — local filesystem storage
+target: all
+
+server:
+  http_listen_port: 8080
+  log_level: warn
+
+common:
+  storage:
+    backend: filesystem
+    filesystem:
+      dir: /mimir/data
+
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /mimir/tsdb
+
+ruler:
+  rule_path: /mimir/rules
+
+compactor:
+  data_dir: /mimir/compactor
+
+alertmanager:
+  data_dir: /mimir/alertmanager
+
+limits:
+  native_histograms_ingestion_enabled: true
+
+usage_stats:
+  enabled: false

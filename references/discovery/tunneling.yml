@@ -1,0 +1,46 @@
+# =============================================================================
+# tunneling.yml — Tunneling stack
+# Machine: Discovery (Debian — 24/7 Infrastructure)
+#
+# Services: Cloudflare Tunnel
+#
+# Tailscale runs on the HOST (not Docker) for proper networking.
+# Install: curl -fsSL https://tailscale.com/install.sh | sh
+# Start:   sudo tailscale up --hostname=discovery --advertise-routes=192.168.10.0/24 --ssh --accept-dns=false
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "10"
+
+x-restart: &restart
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+networks:
+  homelab-net:
+    external: true
+
+services:
+  # ---------------------------------------------------------------------------
+  # Cloudflare Tunnel — outbound-only tunnel to Cloudflare edge
+  # ---------------------------------------------------------------------------
+  cloudflared:
+    image: cloudflare/cloudflared:2026.3.0
+    container_name: cloudflared
+    <<: *restart
+    command: tunnel --metrics 0.0.0.0:20241 run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "0.0.0.0:20241", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    logging: *logging

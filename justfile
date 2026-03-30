@@ -95,6 +95,48 @@ nixos-anywhere target ip luks-pass="" user="nixos":
             ./modules/hosts/{{target}}/_hw-generated.nix \
         {{user}}@{{ip}}
 
+deploy-orion:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Stage age key for SOPS decryption on first boot
+    mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra' EXIT
+    # NOTE: No LUKS flag passed — Orion has no disk encryption (R010)
+    # Target: nixos@192.168.10.220 (NixOS ISO boot; ISO uses port 22)
+    # Before running: boot Orion from NixOS ISO, confirm device paths with:
+    #   ssh nixos@192.168.10.220 'lsblk -d -o NAME,SIZE,TYPE,MODEL | sort'
+    # then update modules/hosts/orion/hardware.nix if nvme0n1/sda/sdb differ.
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#orion \
+        --extra-files /tmp/nixos-extra \
+        --show-trace \
+        --generate-hardware-config nixos-generate-config \
+            ./modules/hosts/orion/_hw-generated.nix \
+        nixos@192.168.10.220
+
+deploy-discovery:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Stage age key for SOPS decryption on first boot
+    mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra' EXIT
+    # NOTE: No LUKS on Discovery — no disk encryption flag needed
+    # Target: nixos@192.168.10.210 (NixOS ISO boot, port 22)
+    # WARNING: sda and sdc will be wiped. sdb (/home/erik/vault) is NOT touched by disko.
+    # Before running: boot Discovery from NixOS ISO, confirm device paths with:
+    #   ssh nixos@192.168.10.210 'lsblk -d -o NAME,SIZE,TYPE,MODEL | sort'
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#discovery \
+        --extra-files /tmp/nixos-extra \
+        --show-trace \
+        --generate-hardware-config nixos-generate-config \
+            ./modules/hosts/discovery/_hw-generated.nix \
+        nixos@192.168.10.210
+
 # ── Local Bootstrap (from NixOS ISO) ─────────────────────
 
 bootstrap target:

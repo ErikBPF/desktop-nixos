@@ -1,0 +1,135 @@
+# =============================================================================
+# tools.yml — Productivity & Tools Stack
+# Machine: Discovery (Debian — 24/7 Infrastructure)
+#
+# Services: Obsidian, Excalidraw, IT-Tools, Stirling PDF, Changedetection, Cyberchef
+#
+# Lightweight tools available 24/7.
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "10"
+
+x-restart: &restart
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+networks:
+  homelab-net:
+    external: true
+
+volumes:
+  obsidian_config:
+  stirling_data:
+  changedetection_data:
+
+services:
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:1.12.4
+    container_name: obsidian
+    <<: *restart
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - obsidian_config:/config
+    ports:
+      - "3010:3000"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *logging
+
+  excalidraw:
+    image: excalidraw/excalidraw:0.18.0
+    container_name: excalidraw
+    <<: *restart
+    ports:
+      - "3011:80"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging
+
+  it-tools:
+    image: corentinth/it-tools:2024.10.22-7ca5933
+    container_name: it-tools
+    <<: *restart
+    ports:
+      - "3012:80"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging
+
+  stirling-pdf:
+    image: frooodle/s-pdf:2.8.0
+    container_name: stirling-pdf
+    <<: *restart
+    environment:
+      - DOCKER_ENABLE_SECURITY=false
+    volumes:
+      - stirling_data:/usr/share/tessdata
+    ports:
+      - "3013:8080"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/v1/info/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *logging
+
+  changedetection:
+    image: ghcr.io/dgtlmoon/changedetection.io:0.54.6
+    container_name: changedetection
+    <<: *restart
+    environment:
+      - BASE_URL=https://changedetection.${HOMELAB_DOMAIN}
+    volumes:
+      - changedetection_data:/datastore
+    ports:
+      - "3015:5000"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000\")' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging
+
+  cyberchef:
+    image: ghcr.io/gchq/cyberchef:10.22.1
+    container_name: cyberchef
+    <<: *restart
+    ports:
+      - "3016:80"
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *logging
