@@ -26,6 +26,7 @@ in {
         "audio"
         "input"
         "networkmanager"
+        "podman"
         "render"
         "sound"
         "tty"

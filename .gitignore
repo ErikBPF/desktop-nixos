@@ -5,6 +5,7 @@ bmalph/
 .ralph/logs/
 _bmad-output/
 _bmad/
+bmalph
 .ralph/
 .claude/
 .direnv/

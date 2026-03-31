@@ -85,6 +85,11 @@ in {
 
     services.btrfs.autoScrub.enable = true;
 
+    # Allow laptop's nix-builder root key to trigger builds via ssh-ng
+    users.users.${config.username}.openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop"
+    ];
+
     zramSwap = {
       enable = true;
       algorithm = "zstd";

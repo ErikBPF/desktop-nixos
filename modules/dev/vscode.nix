@@ -5,7 +5,7 @@ _: {
       package = (pkgs.vscode.override {isInsiders = true;}).overrideAttrs (oldAttrs: rec {
         src = builtins.fetchTarball {
           url = "https://update.code.visualstudio.com/latest/linux-x64/insider";
-          sha256 = "1mngnfq1gw5ny77xz7sn4520xm43ddvycfnp52cngi7wxvzb68bz"; # vscode-insiders
+          sha256 = "0x4fxl9ba8bvflkkwwqnmpg7n2lkqm8xh35bfjv7wxql8imly6hj"; # vscode-insiders
         };
         version = "latest";
       });

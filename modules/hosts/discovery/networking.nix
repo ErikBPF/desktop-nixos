@@ -19,9 +19,14 @@ _: {
         checkReversePath = "loose";
         # Default-closed: only SSH + syncthing
         allowedTCPPorts = [
+          53 # DNS
+          80 # HTTP
+          443 # HTTPS
           22000 # syncthing
+          32400 # Plex Media Server
         ];
         allowedUDPPorts = [
+          53 # DNS
           21027 # syncthing discovery
         ];
       };

@@ -24,6 +24,10 @@
         cores = 0;
         trusted-users = ["root" config.username];
         fallback = true;
+        # Redirect build sandboxes off tmpfs → saves RAM on memory-constrained hosts
+        build-dir = "/nix/build-tmp";
+        # Allow build machines to fetch from substituters directly
+        builders-use-substitutes = true;
         substituters = [
           "https://cache.nixos.org?priority=10"
           "http://192.168.10.220:5000?priority=5"
@@ -44,5 +48,10 @@
         options = "--delete-older-than 3d";
       };
     };
+
+    # Build scratch dir owned by root (nix rejects world-writable build-dir)
+    systemd.tmpfiles.rules = [
+      "d /nix/build-tmp 0700 root root -"
+    ];
   };
 }
