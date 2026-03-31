@@ -23,6 +23,7 @@ _: {
           80 # HTTP
           443 # HTTPS
           22000 # syncthing
+          32400 # Plex Media Server
         ];
         allowedUDPPorts = [
           53 # DNS

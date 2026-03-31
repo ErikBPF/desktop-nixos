@@ -61,6 +61,7 @@ _: {
       nil
       nixd
       nixfmt
+      statix
 
       # --- Hardware Information ---
       btrfs-progs

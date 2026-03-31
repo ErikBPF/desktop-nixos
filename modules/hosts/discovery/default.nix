@@ -65,6 +65,10 @@ in {
       };
     };
 
+    boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 53;
+
+    hardware.nvidia-container-toolkit.enable = true;
+
     system.autoUpgrade = {
       enable = true;
       flake = "github:ErikBPF/desktop-nixos#discovery";
