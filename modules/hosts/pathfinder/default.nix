@@ -53,6 +53,7 @@ in {
       m.nixos.pathfinder-syncthing
       m.nixos.first-boot
       m.nixos.alloy
+      m.nixos.kepler-nfs
     ];
 
     home-manager = {
