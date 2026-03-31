@@ -5,7 +5,7 @@
 }: let
   m = config.flake.modules;
 in {
-  configurations.nixos.discovery.module = {
+  configurations.nixos.kepler.module = {
     pkgs,
     modulesPath,
     ...
@@ -16,13 +16,12 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
-      m.nixos.discovery-hardware
-      m.nixos.discovery-networking
-      m.nixos.discovery-syncthing
-      m.nixos.discovery-haos
+      m.nixos.kepler-hardware
+      m.nixos.kepler-networking
+      m.nixos.kepler-syncthing
+      m.nixos.kepler-nas
       m.nixos.first-boot
       m.nixos.alloy
-      m.nixos.kepler-nfs
     ];
 
     home-manager = {
@@ -32,7 +31,7 @@ in {
         imports = [
           inputs.sops-nix.homeManagerModules.sops
           m.home.profile-base
-          m.home.discovery-ssh
+          m.home.kepler-ssh
         ];
         home = {
           inherit (config) username;
@@ -48,24 +47,12 @@ in {
           };
         };
         programs.home-manager.enable = true;
-
-        # Rootless Podman on btrfs: native overlayfs in user namespaces
-        # strips execute bits from files owned by uid 0 (e.g. ld-linux-x86-64.so.2
-        # gets 711 instead of 755). fuse-overlayfs handles uid mapping in userspace
-        # and preserves layer permissions correctly.
-        home.file.".config/containers/storage.conf".text = ''
-          [storage]
-          driver = "overlay"
-
-          [storage.options.overlay]
-          mount_program = "${pkgs.fuse-overlayfs}/bin/fuse-overlayfs"
-        '';
       };
     };
 
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
-    hardware.cpu.intel.updateMicrocode = true;
+    hardware.cpu.amd.updateMicrocode = true;
 
     boot.loader = {
       efi.canTouchEfiVariables = true;
@@ -78,17 +65,19 @@ in {
       };
     };
 
-    boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 53;
+    # ZFS hostId — generated from /etc/machine-id on live ISO (head -c 8 /etc/machine-id)
+    networking.hostId = "cf7e11b5";
 
+    # CUDA container toolkit for AI inference workloads
     hardware.nvidia-container-toolkit.enable = true;
 
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#discovery";
+      flake = "github:ErikBPF/desktop-nixos#kepler";
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
-      dates = "03:30";
+      dates = "04:00";
     };
   };
 }

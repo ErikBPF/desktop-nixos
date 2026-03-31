@@ -30,6 +30,7 @@ in {
       m.nixos.fonts
       m.nixos.alloy
       m.nixos.nix-cache
+      m.nixos.kepler-nfs
     ];
 
     home-manager = {
