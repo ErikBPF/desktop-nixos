@@ -181,10 +181,28 @@ in {
 
     services.btrfs.autoScrub.enable = true;
 
-    zramSwap = {
-      enable = true;
-      algorithm = "zstd";
-    };
+    # Offload heavy builds to Orion (Ryzen 9 5950X, 32t, 62GB RAM)
+    nix.distributedBuilds = true;
+    nix.buildMachines = [
+      {
+        hostName = "192.168.10.220";
+        sshUser = "erik";
+        sshKey = "/root/.ssh/nix-builder";
+        systems = ["x86_64-linux"];
+        protocol = "ssh-ng";
+        maxJobs = 16;
+        speedFactor = 4;
+        supportedFeatures = ["nixos-test" "benchmark" "big-parallel" "kvm"];
+      }
+    ];
+
+    # Use non-default SSH port for Orion (nix-daemon distributed builds)
+    # Root's ~/.ssh/config is written imperatively — see bootstrap notes in KNOWLEDGE.md
+
+    # zramSwap = {
+    #   enable = true;
+    #   algorithm = "zstd";
+    # };
 
     modules.security.tor-monitor.enable = true;
 

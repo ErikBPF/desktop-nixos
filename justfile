@@ -6,7 +6,9 @@ default:
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
-    sudo nixos-rebuild switch --flake .#{{target}} --show-trace
+    sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
+        --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
+        --option builders-use-substitutes true
 
 boot target=profile:
     sudo nixos-rebuild boot --flake .#{{target}} --show-trace
@@ -15,8 +17,11 @@ update:
     nix flake update
 
 upgrade target=profile:
+    just update-vscode-hash
     nix flake update
-    sudo nixos-rebuild switch --flake .#{{target}} --show-trace
+    sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
+        --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
+        --option builders-use-substitutes true
 
 # ── Verification ──────────────────────────────────────────
 
