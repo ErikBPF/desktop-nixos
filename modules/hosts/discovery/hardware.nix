@@ -123,7 +123,7 @@ _: {
       powerManagement.finegrained = false;
       nvidiaSettings = false;
       nvidiaPersistenced = true;
-      package = config.boot.kernelPackages.nvidiaPackages.stable;
+      package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
     };
 
     boot.kernelModules = [
@@ -134,7 +134,7 @@ _: {
       "nvidia_drm"
     ];
     boot.initrd.kernelModules = ["nvidia"];
-    boot.extraModulePackages = [config.boot.kernelPackages.nvidia_x11];
+    boot.extraModulePackages = [config.boot.kernelPackages.nvidiaPackages.legacy_580];
     boot.blacklistedKernelModules = ["nouveau"];
 
     environment.systemPackages = with pkgs; [
