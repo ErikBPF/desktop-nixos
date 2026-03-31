@@ -65,6 +65,9 @@ eval:
 switch-discovery:
     just deploy discovery 192.168.10.210 2222
 
+switch-kepler:
+    just deploy kepler 192.168.10.230 2222
+
 switch-orion:
     just deploy orion 192.168.10.220 2222
 
@@ -249,3 +252,20 @@ update-vscode-hash:
     echo ":: New hash: $HASH"
     sed -i "s|sha256 = \".*\"; # vscode-insiders|sha256 = \"$HASH\"; # vscode-insiders|" modules/dev/vscode.nix
     echo ":: Updated modules/dev/vscode.nix"
+
+deploy-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Stage age key for SOPS decryption on first boot
+    mkdir -p /tmp/nixos-extra-kepler/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra-kepler' EXIT
+    # Target: nixos@192.168.10.112 (NixOS ISO, port 22)
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#kepler \
+        --extra-files /tmp/nixos-extra-kepler \
+        --show-trace \
+        --generate-hardware-config nixos-generate-config \
+            ./modules/hosts/kepler/_hw-generated.nix \
+        nixos@192.168.10.112
