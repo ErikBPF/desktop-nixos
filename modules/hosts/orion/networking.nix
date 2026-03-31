@@ -10,6 +10,8 @@ _: {
         allowedTCPPorts = [
           80
           443
+          8080
+          8081
           22000
         ];
         allowedUDPPorts = [21027];

@@ -6,7 +6,9 @@ default:
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
-    sudo nixos-rebuild switch --flake .#{{target}} --show-trace
+    sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
+        --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
+        --option builders-use-substitutes true
 
 boot target=profile:
     sudo nixos-rebuild boot --flake .#{{target}} --show-trace
@@ -15,8 +17,11 @@ update:
     nix flake update
 
 upgrade target=profile:
+    just update-vscode-hash
     nix flake update
-    sudo nixos-rebuild switch --flake .#{{target}} --show-trace
+    sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
+        --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
+        --option builders-use-substitutes true
 
 # ── Verification ──────────────────────────────────────────
 
@@ -51,18 +56,40 @@ eval:
     nix flake check
 
 # ── Remote Deployment ─────────────────────────────────────
+# Host IPs (local LAN, port 2222):
+#   discovery  192.168.10.210
+#   orion      192.168.10.220
+#   pathfinder 192.168.10.125
+#   laptop     — Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
 
-deploy target ip port="22" user="erik":
+switch-discovery:
+    just deploy discovery 192.168.10.210 2222
+
+switch-orion:
+    just deploy orion 192.168.10.220 2222
+
+switch-pathfinder:
+    just deploy pathfinder 192.168.10.125 2222
+
+switch-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just switch-discovery &
+    just switch-orion &
+    just switch-pathfinder &
+    wait
+
+deploy target ip port="2222" user="erik":
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
-        --use-remote-sudo --show-trace
+        --use-substitutes --sudo --show-trace
 
-deploy-boot target ip port="22" user="erik":
+deploy-boot target ip port="2222" user="erik":
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild boot --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
-        --use-remote-sudo --show-trace
+        --use-substitutes --sudo --show-trace
 
-verify target ip port="22" user="erik":
+verify target ip port="2222" user="erik":
     @echo ":: Verifying {{target}}..."
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: Failed units:' && systemctl --failed --no-legend"
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: Tailscale:' && tailscale status --peers=false"

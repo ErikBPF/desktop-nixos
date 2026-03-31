@@ -1,12 +1,12 @@
 <domain type='kvm'>
   <name>haos</name>
-  <uuid>ff2799c9-19cd-4631-9754-a7ba7d274c1c</uuid>
-  <description>Home Assistant OS</description>
+  <uuid>620bdcb2-9c51-448c-8c3e-2ca12960031c</uuid>
+  <description>Home Assistant OS 17.1</description>
   <memory unit='KiB'>4194304</memory>
   <currentMemory unit='KiB'>4194304</currentMemory>
   <vcpu placement='static'>2</vcpu>
   <os firmware='efi'>
-    <type arch='x86_64' machine='pc-i440fx-8.2'>hvm</type>
+    <type arch='x86_64' machine='pc-i440fx-10.2'>hvm</type>
     <firmware>
       <feature enabled='no' name='enrolled-keys'/>
       <feature enabled='no' name='secure-boot'/>
@@ -34,7 +34,7 @@
   <devices>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/home/erik/vault/vms/haos_ova-16.3.qcow2'/>
+      <source file='/home/erik/vault/vms/haos_ova-17.1.qcow2'/>
       <target dev='sda' bus='scsi'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>
@@ -58,9 +58,9 @@
     </controller>
     <controller type='pci' index='0' model='pci-root'/>
     <interface type='bridge'>
-      <mac address='52:54:00:80:4a:0e'/>
+      <mac address='52:54:00:d6:a5:ce'/>
       <source bridge='br0'/>
-      <model type='e1000'/>
+      <model type='virtio'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
     </interface>
     <serial type='pty'>
@@ -77,6 +77,7 @@
       <backend type='emulator' version='2.0'/>
     </tpm>
     <audio id='1' type='none'/>
+    <!-- CP210x Zigbee/Z-Wave stick passthrough (Silicon Labs 0x10c4:0xea60) -->
     <hostdev mode='subsystem' type='usb' managed='yes'>
       <source>
         <vendor id='0x10c4'/>
