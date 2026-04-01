@@ -2,11 +2,13 @@
 
 ## Hosts
 
-| Host | Type | Hardware | IP |
-|------|------|----------|-----|
-| pathfinder | Desktop | Intel i7 + Nvidia GTX, LUKS+btrfs | 192.168.10.125 |
-| discovery | Server | Intel + Nvidia Quadro P2000, RAID1 SSD + HDD | 192.168.10.210 |
-| laptop | Desktop | Intel i7-1165G7 + Iris Xe, NVMe LUKS+btrfs | DHCP |
+| Host       | Type    | Hardware                                     | IP             |
+| ---------- | ------- | -------------------------------------------- | -------------- |
+| pathfinder | Desktop | Intel i7 + Nvidia GTX 1080, LUKS+btrfs       | 192.168.10.125 |
+| discovery  | Server  | Intel + Nvidia Quadro P2000, RAID1 SSD + HDD | 192.168.10.210 |
+| laptop     | Laptop  | Intel i7-1165G7 + Iris Xe, NVMe LUKS+btrfs   | DHCP           |
+| orion      | HTPC    | AMD Ryzen + RX 9070XT, Jovian Steam UI        | 192.168.10.220 |
+| kepler     | NAS/AI  | AMD Ryzen 5 3600 + RTX 3070, ZFS pools        | 192.168.10.230 |
 
 ## Prerequisites
 
@@ -97,12 +99,67 @@ just deploy pathfinder 192.168.10.125 2222
 
 ### Fleet auto-update
 
-All hosts pull from `main` on staggered crons:
-- discovery: 03:30
-- pathfinder: 05:00
-- laptop: 05:30
+Orion builds and caches all host closures at 03:00. All hosts (including orion) update at 05:00 once the cache is warm.
+
+- orion `nix-cache-builder`: 03:00
+- all hosts: 05:00
 
 No manual deploys needed after merging to main.
+
+## Orion (HTPC — Jovian Steam UI)
+
+Orion is provisioned via nixos-anywhere. It boots directly into the Steam Deck UI (Jovian-NixOS).
+
+```bash
+just deploy-orion   # fresh install from NixOS ISO
+just switch-orion   # deploy changes to running system
+```
+
+**Storage:** 3-disk layout — NVMe (OS), SSD1 (`/opt/models`), SSD2 (`/scratch`). No LUKS.
+
+**Post-install notes:**
+- Sunshine remote-play: pair via `http://orion:47990` from a client on the LAN
+- AI inference: `llama.cpp` with Vulkan backend on the RX 9070XT
+- Syncthing peers: discovery + kepler (models folder)
+
+## Kepler (NAS / AI workstation)
+
+Kepler is provisioned via nixos-anywhere. ZFS pools are **not** created by disko — they are created manually after first boot (see `docs/kepler-zfs-setup.md`).
+
+```bash
+just deploy-kepler   # fresh install from NixOS ISO (boots to 192.168.10.230)
+just switch-kepler   # deploy changes to running system
+```
+
+**Storage:**
+- OS: 238GB Toshiba M.2 SATA (`sde`) — btrfs, managed by disko
+- `fast-pool`: RAIDZ1, 4× Kingston 480GB SSD (`sda/sdb/sdc/sdd`) → `/fast` (~1.4TB)
+- `bulk-pool`: RAIDZ1, 5× Seagate 4TB HDD via LSI SAS3008 HBA → `/bulk` (~15TB) + 2× Kingston 120GB SSD as L2ARC cache
+
+**HBA:** LSI SAS3008 confirmed IT mode (`Protocol=(Initiator,Target)`). Drives appear as `sdg–sdk` (HDDs) and `sdl/sdm` (cache SSDs).
+
+**Post-install — ZFS pool creation:**
+```bash
+# After nixos-anywhere completes and host has booted:
+ssh -p 2222 erik@192.168.10.230
+# Follow docs/kepler-zfs-setup.md
+```
+
+**Post-install — Samba password:**
+```bash
+ssh -p 2222 erik@192.168.10.230 'sudo smbpasswd -a erik'
+```
+
+**Post-install — Syncthing device ID:**
+```bash
+# Get the ID and update modules/secrets.nix
+ssh -p 2222 erik@192.168.10.230 'syncthing show -deviceid'
+# Replace PLACEHOLDER in modules/secrets.nix with the real ID, then redeploy
+```
+
+**NFS mounts:** All fleet hosts mount `/home/erik/nfs/{fast,bulk}` via Tailscale (`kepler` MagicDNS). Automount on first access, nofail.
+
+**hostId:** `cf7e11b5` (from `/etc/machine-id` on live ISO)
 
 ## Just Commands Reference
 
