@@ -31,6 +31,8 @@ in {
       m.nixos.alloy
       m.nixos.nix-cache
       m.nixos.kepler-nfs
+      m.nixos.orchestration
+      m.nixos.orion-compose
     ];
 
     home-manager = {
@@ -102,7 +104,7 @@ in {
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
-      dates = "04:00";
+      dates = "05:00";
     };
 
     services.openssh.enable = true;
