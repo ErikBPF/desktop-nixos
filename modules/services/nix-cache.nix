@@ -46,6 +46,7 @@
         nix build .#nixosConfigurations.pathfinder.config.system.build.toplevel --no-link
         nix build .#nixosConfigurations.laptop.config.system.build.toplevel --no-link
         nix build .#nixosConfigurations.discovery.config.system.build.toplevel --no-link
+        nix build .#nixosConfigurations.kepler.config.system.build.toplevel --no-link
 
         echo ":: Cache builder complete"
       '';
