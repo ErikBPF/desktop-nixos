@@ -77,7 +77,7 @@ in {
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
-      dates = "04:00";
+      dates = "05:00";
     };
   };
 }

@@ -213,7 +213,7 @@ in {
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
-      dates = "05:30";
+      dates = "05:00";
     };
 
     services.openssh.enable = true;
