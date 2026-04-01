@@ -25,9 +25,9 @@ _: {
         ];
         allowedUDPPorts = [
           21027 # syncthing discovery
-          111   # rpcbind UDP
-          4000  # statd UDP
-          4001  # lockd UDP
+          111 # rpcbind UDP
+          4000 # statd UDP
+          4001 # lockd UDP
         ];
       };
     };

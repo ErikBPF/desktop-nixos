@@ -9,8 +9,8 @@ _: {
       # Pin auxiliary RPC ports so they can be firewalled/ACL'd deterministically.
       # Without these, mountd/statd/lockd use random ephemeral ports on each boot.
       mountdPort = 4002;
-      statdPort  = 4000;
-      lockdPort  = 4001;
+      statdPort = 4000;
+      lockdPort = 4001;
       exports = ''
         /fast  192.168.10.0/24(rw,sync,no_subtree_check,no_root_squash) 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)
         /bulk  192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)

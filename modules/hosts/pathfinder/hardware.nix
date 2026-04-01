@@ -20,7 +20,7 @@ _: {
       "nvidia_drm"
       "kvm-intel"
     ];
-    boot.extraModulePackages = [config.boot.kernelPackages.nvidia_x11];
+    boot.extraModulePackages = [config.boot.kernelPackages.nvidiaPackages.legacy_580];
     boot.blacklistedKernelModules = ["nouveau"];
 
     networking.useDHCP = lib.mkDefault true;
@@ -114,7 +114,7 @@ _: {
       dynamicBoost.enable = lib.mkForce false;
       nvidiaSettings = true;
       nvidiaPersistenced = true;
-      package = config.boot.kernelPackages.nvidiaPackages.stable;
+      package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
       prime = {
         offload = {
           enable = false;
