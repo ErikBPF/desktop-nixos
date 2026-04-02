@@ -57,6 +57,8 @@ _: {
         mesa-demos
         libinput
         gpu-viewer
+        nvtopPackages.full # GPU monitoring for btop (Intel + AMD + NVIDIA)
+        intel-gpu-tools # btop needs intel_gpu_top for Intel iGPUs without hwmon
 
         # --- Desktop Theming ---
         glib

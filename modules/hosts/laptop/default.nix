@@ -200,10 +200,11 @@ in {
     # Use non-default SSH port for Orion (nix-daemon distributed builds)
     # Root's ~/.ssh/config is written imperatively — see bootstrap notes in KNOWLEDGE.md
 
-    # zramSwap = {
-    #   enable = true;
-    #   algorithm = "zstd";
-    # };
+    zramSwap = {
+      enable = true;
+      algorithm = "zstd";
+      memoryPercent = 25;
+    };
 
     modules.security.tor-monitor.enable = true;
 
