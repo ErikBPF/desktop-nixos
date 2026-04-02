@@ -23,6 +23,7 @@ in {
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs
+      m.nixos.discovery-containers
       m.nixos.discovery-compose
     ];
 
@@ -50,20 +51,8 @@ in {
         };
         programs.home-manager.enable = true;
 
-        # Rootless Podman on btrfs: native overlayfs in user namespaces
-        # strips execute bits from files owned by uid 0 (e.g. ld-linux-x86-64.so.2
-        # gets 711 instead of 755). fuse-overlayfs handles uid mapping in userspace
-        # and preserves layer permissions correctly.
-        # force_mask = "022" ensures extracted layer files get at minimum 644/755
-        # permissions, preventing permission stripping on image pulls.
-        home.file.".config/containers/storage.conf".text = ''
-          [storage]
-          driver = "overlay"
-
-          [storage.options.overlay]
-          mount_program = "${pkgs.fuse-overlayfs}/bin/fuse-overlayfs"
-          force_mask = "022"
-        '';
+        # NOTE: fuse-overlayfs storage.conf removed — discovery now uses rootful
+        # Docker instead of rootless Podman. See modules/hosts/discovery/containers.nix.
       };
     };
 
