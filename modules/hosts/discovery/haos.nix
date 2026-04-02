@@ -23,11 +23,15 @@
     # Allow erik to manage VMs without sudo
     users.users.erik.extraGroups = ["libvirtd" "kvm"];
 
+    # qemu-libvirtd (uid 301) needs kvm group to read the qcow2 disk image
+    # at /home/erik/vault/vms/ which is owned erik:kvm.
+    users.users.qemu-libvirtd.extraGroups = ["kvm"];
+
     # --- HAOS VM definition ---
     # QCOW2:  /home/erik/vault/vms/haos_ova-17.1.qcow2  (official KVM image, on vault HDD)
     # NVRAM:  /var/lib/libvirt/qemu/nvram/haos_VARS.fd   (EFI vars, persisted across rebuilds)
     # USB:    Silicon Labs CP210x (0x10c4:0xea60) — Zigbee/Z-Wave stick, passed through
-    # MAC:    52:54:00:d6:a5:ce — set DHCP reservation to 192.168.10.205 on router
+    # MAC:    52:54:00:d6:a5:ce — DHCP reservation 192.168.10.115 on router
     # Bridge: br0 (eno1 enslaved) — HAOS appears directly on the LAN
     environment.etc."libvirt/qemu/haos.xml" = {
       source = ./haos-domain.xml;
@@ -38,9 +42,9 @@
 
     # /home/erik needs world-execute so libvirt-qemu (uid qemu-libvirtd) can
     # traverse the path to /home/erik/vault/vms/haos_ova-17.1.qcow2.
-    # home-manager sets drwx------ by default; override to drwx-----x.
+    # home-manager resets /home/erik to 0700 on every activation, so tmpfiles
+    # alone cannot maintain this. The haos-vm service fixes it before each start.
     systemd.tmpfiles.rules = [
-      "Z /home/erik 0711 erik users - -"
       "Z /home/erik/vault/vms - erik kvm - -"
     ];
 
@@ -72,12 +76,29 @@
           exit 1
         fi
 
+        # Fix path traversal: home-manager resets /home/erik to 0700 on every
+        # activation, blocking qemu-libvirtd from reaching the qcow2.
+        chmod 711 /home/erik
+        chmod 711 /home/erik/vault
+        chmod 750 /home/erik/vault/vms
+        # Ensure the qcow2 is group-readable by kvm (qemu-libvirtd is in kvm).
+        chmod 660 "$DISK"
+        chown erik:kvm "$DISK"
+
         # Define (or redefine) the domain from the NixOS-managed XML.
         # virsh define is idempotent — safe on every nixos-rebuild.
         $VIRSH define /etc/libvirt/qemu/haos.xml
 
         # Enable autostart so libvirt starts it on next libvirtd.service start.
         $VIRSH autostart haos
+
+        # Remove any stale managed-save image. After a NixOS rebuild the QEMU
+        # version may change, making the save file unrestorable (SIGPIPE in
+        # libvirt_iohelper). A cold boot is always safe; HAOS journals to disk.
+        if $VIRSH managedsave-dumpxml haos &>/dev/null; then
+          echo "Removing stale managed-save image"
+          $VIRSH managedsave-remove haos
+        fi
 
         # Start now if not already running.
         if ! $VIRSH domstate haos 2>/dev/null | grep -q "running"; then

@@ -41,20 +41,8 @@
     <controller type='scsi' index='0' model='virtio-scsi'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
     </controller>
-    <controller type='usb' index='0' model='ich9-ehci1'>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x7'/>
-    </controller>
-    <controller type='usb' index='0' model='ich9-uhci1'>
-      <master startport='0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0' multifunction='on'/>
-    </controller>
-    <controller type='usb' index='0' model='ich9-uhci2'>
-      <master startport='2'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x1'/>
-    </controller>
-    <controller type='usb' index='0' model='ich9-uhci3'>
-      <master startport='4'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x2'/>
+    <controller type='usb' index='0' model='qemu-xhci' ports='4'>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </controller>
     <controller type='pci' index='0' model='pci-root'/>
     <interface type='bridge'>
@@ -77,9 +65,11 @@
       <backend type='emulator' version='2.0'/>
     </tpm>
     <audio id='1' type='none'/>
-    <!-- CP210x Zigbee/Z-Wave stick passthrough (Silicon Labs 0x10c4:0xea60) -->
+    <!-- Sonoff Zigbee 3.0 USB Dongle Plus (CP210x, serial f28da5e9...)
+         Bound by vendor+product ID. startupPolicy=optional lets the VM boot
+         if the stick is unplugged. -->
     <hostdev mode='subsystem' type='usb' managed='yes'>
-      <source>
+      <source startupPolicy='optional'>
         <vendor id='0x10c4'/>
         <product id='0xea60'/>
       </source>

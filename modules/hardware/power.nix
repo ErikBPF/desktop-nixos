@@ -1,5 +1,9 @@
 _: {
-  flake.modules.nixos.power = _: {
+  flake.modules.nixos.power = {
+    config,
+    pkgs,
+    ...
+  }: {
     services.tlp = {
       enable = true;
       settings = {
@@ -11,8 +15,6 @@ _: {
         CPU_DRIVER_OPMODE_ON_BAT = "active";
         CPU_SCALING_GOVERNOR_ON_AC = "performance";
         CPU_SCALING_GOVERNOR_ON_BAT = "powersave";
-        CPU_SCALING_MAX_FREQ_ON_AC = 2400000;
-        CPU_SCALING_MAX_FREQ_ON_BAT = 2400000;
         CPU_ENERGY_PERF_POLICY_ON_AC = "performance";
         CPU_ENERGY_PERF_POLICY_ON_BAT = "balance_power";
         PCIE_ASPM_ON_BAT = "powersupersave";
@@ -25,5 +27,16 @@ _: {
       };
     };
     services.acpid.enable = true;
+
+    # --- CPU frequency / throttle profiling ---
+    boot.kernelModules = ["msr"];
+    environment.systemPackages = [
+      config.boot.kernelPackages.turbostat
+      config.boot.kernelPackages.cpupower
+      config.boot.kernelPackages.perf
+      pkgs.msr-tools
+      pkgs.s-tui
+      pkgs.i7z
+    ];
   };
 }
