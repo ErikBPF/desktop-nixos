@@ -36,7 +36,7 @@ _: {
     services.tailscale = {
       useRoutingFeatures = lib.mkForce "server";
       extraUpFlags = [
-        "--advertise-routes=192.168.10.0/24"
+        "--advertise-routes=192.168.10.210/32"
       ];
     };
   };

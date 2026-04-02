@@ -112,6 +112,7 @@ in {
     zramSwap = {
       enable = true;
       algorithm = "zstd";
+      memoryPercent = 25;
     };
 
     modules.security.tor-monitor.enable = true;
