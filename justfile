@@ -17,7 +17,6 @@ update:
     nix flake update
 
 upgrade target=profile:
-    just update-vscode-hash
     nix flake update
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
@@ -243,15 +242,6 @@ gc days="5":
 
 store-repair:
     sudo nix-store --verify --check-contents --repair
-
-update-vscode-hash:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo ":: Fetching latest VS Code Insiders hash..."
-    HASH=$(nix-prefetch-url --unpack "https://update.code.visualstudio.com/latest/linux-x64/insider" 2>/dev/null)
-    echo ":: New hash: $HASH"
-    sed -i "s|sha256 = \".*\"; # vscode-insiders|sha256 = \"$HASH\"; # vscode-insiders|" modules/dev/vscode.nix
-    echo ":: Updated modules/dev/vscode.nix"
 
 deploy-kepler:
     #!/usr/bin/env bash
