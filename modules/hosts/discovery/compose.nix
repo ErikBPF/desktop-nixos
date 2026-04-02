@@ -2,6 +2,8 @@ _: {
   flake.modules.nixos.discovery-compose = _: {
     homelab.compose = {
       composeDir = "/home/erik/servarr/machines/discovery";
+      # Rootful Docker — socket owned by root, accessible via docker group.
+      dockerSocket = "unix:///run/docker.sock";
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
