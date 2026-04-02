@@ -37,6 +37,15 @@ in {
           Services start sequentially in list order.
         '';
       };
+
+      dockerSocket = lib.mkOption {
+        type = lib.types.str;
+        default = "unix:///run/user/1000/podman/podman.sock";
+        description = ''
+          Docker-compatible socket for docker-compose. Defaults to rootless
+          Podman socket. Override to /run/docker.sock for rootful Docker.
+        '';
+      };
     };
 
     config = let
@@ -70,8 +79,8 @@ in {
             StartLimitBurst = 5;
             # Load .env so compose variable substitution works.
             EnvironmentFile = "-${cfg.composeDir}/.env";
-            # Point docker-compose at the rootless Podman socket.
-            Environment = "DOCKER_HOST=unix:///run/user/1000/podman/podman.sock";
+            # Docker socket — rootless Podman by default, override for rootful Docker.
+            Environment = "DOCKER_HOST=${cfg.dockerSocket}";
             ExecStart = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
             ExecStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env -f ${cfg.composeDir}/${name}.yml stop";
             TimeoutStopSec = 60;
@@ -134,6 +143,11 @@ in {
                       if [ -f "$MACHINE_DIR/.env.sops" ] && { [ ! -f "$MACHINE_DIR/.env" ] || [ "$MACHINE_DIR/.env.sops" -nt "$MACHINE_DIR/.env" ]; }; then
                         ${pkgs.sops}/bin/sops --decrypt "$MACHINE_DIR/.env.sops" > "$MACHINE_DIR/.env"
                       fi
+                      # Ensure homelab-net Docker/Podman network exists.
+                      # Compose stacks declare it as external so it must be
+                      # pre-created. Idempotent — no-op if already present.
+                      DOCKER_HOST="${cfg.dockerSocket}" ${pkgs.docker}/bin/docker \
+                        network create homelab-net 2>/dev/null || true
                     '';
                   in "${script}";
                 };
