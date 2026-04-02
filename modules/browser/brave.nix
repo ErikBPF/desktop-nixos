@@ -5,13 +5,12 @@ _: {
     ...
   }: let
     extensions = [
-      "eimadpbcbfnmbkopoojfekhnkhdbieeh" # dark reader
+      "eimadpbcbfnmbkopoojfekhnkhdbieeh" # Dark Reader
       "ponfpcnoihfmfllpaingbgckeeldkhle" # Enhancer for YouTube
-      "ghbmnnjooekpmoecnnnilnnbdlolhkhi" # Google Docs Offline
-      "eiaeiblijfjekdanodkjadfinkhbfgcd" # Nord Pass
-      "ioimlbgefgadofblnajllknopjboejda" # Transpose Pitch
+      "eiaeiblijfjekdanodkjadfinkhbfgcd" # NordPass
       "nffaoalbilbmmfgbnbgppjihopabppdk" # Video Speed Controller
-      "cjpalhdlnbpafiamejdnhcphjbkeiagm" # ublock origin
+      "cjpalhdlnbpafiamejdnhcphjbkeiagm" # uBlock Origin
+      "plpkmjcnhhnpkblimgenmdhghfgghdpp" # The Great-er Tab Discarder
     ];
     extJson = builtins.toJSON {external_update_url = "https://clients2.google.com/service/update2/crx";};
   in {
