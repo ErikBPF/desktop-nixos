@@ -1,16 +1,15 @@
 _: {
   flake.modules.nixos.dev-javascript = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
-      nodejs_22
-      nodePackages.npm
-      nodePackages.yarn
-      nodePackages.pnpm
-      nodePackages.typescript
-      nodePackages.typescript-language-server
-      nodePackages.eslint
-      nodePackages.prettier
-      nodePackages.nodemon
-      nodePackages.npm-check-updates
+      nodejs_22 # npm is bundled with nodejs
+      yarn
+      pnpm
+      typescript
+      typescript-language-server
+      eslint
+      prettier
+      nodemon
+      npm-check-updates
     ];
 
     environment.sessionVariables = {
