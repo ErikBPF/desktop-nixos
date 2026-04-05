@@ -12,6 +12,8 @@ _: {
           443
           8080
           8081
+          8642 # hermes-agent API
+          8644 # hermes-agent webhooks
           22000
         ];
         allowedUDPPorts = [21027];
