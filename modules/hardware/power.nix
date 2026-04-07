@@ -33,7 +33,7 @@ _: {
     environment.systemPackages = [
       config.boot.kernelPackages.turbostat
       config.boot.kernelPackages.cpupower
-      config.boot.kernelPackages.perf
+      pkgs.perf
       pkgs.msr-tools
       pkgs.s-tui
       pkgs.i7z

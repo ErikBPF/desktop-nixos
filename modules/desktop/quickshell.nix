@@ -54,31 +54,31 @@ in {
       };
     };
 
-    systemd.user.services.swww-daemon = {
+    systemd.user.services.awww-daemon = {
       Unit = {
-        Description = "swww wallpaper daemon";
+        Description = "awww wallpaper daemon";
         PartOf = ["graphical-session.target"];
         After = ["graphical-session.target"];
-        Wants = ["swww-wallpaper.service"];
+        Wants = ["awww-wallpaper.service"];
       };
       Service = {
         Type = "simple";
-        ExecStart = "${pkgs.swww}/bin/swww-daemon";
+        ExecStart = "${pkgs.awww}/bin/awww-daemon";
         Restart = "on-failure";
       };
       Install.WantedBy = ["graphical-session.target"];
     };
 
-    systemd.user.services.swww-wallpaper = {
+    systemd.user.services.awww-wallpaper = {
       Unit = {
-        Description = "Set wallpaper via swww";
-        After = ["swww-daemon.service"];
-        Requires = ["swww-daemon.service"];
+        Description = "Set wallpaper via awww";
+        After = ["awww-daemon.service"];
+        Requires = ["awww-daemon.service"];
       };
       Service = {
         Type = "oneshot";
-        ExecStartPre = "${pkgs.bash}/bin/bash -c 'for i in $(seq 1 10); do ${pkgs.swww}/bin/swww query && exit 0; sleep 0.5; done; exit 1'";
-        ExecStart = "${pkgs.swww}/bin/swww img /home/erik/Pictures/Wallpapers/wallpaper.png --transition-type fade";
+        ExecStartPre = "${pkgs.bash}/bin/bash -c 'for i in $(seq 1 10); do ${pkgs.awww}/bin/awww query && exit 0; sleep 0.5; done; exit 1'";
+        ExecStart = "${pkgs.awww}/bin/awww img /home/erik/Pictures/Wallpapers/wallpaper.png --transition-type fade";
       };
     };
 
