@@ -36,6 +36,7 @@ in {
       m.home.kitty
       m.home.brave
       m.home.vscode
+      m.home.claude-code
       m.home.packages-desktop
       m.home.syncthing-tray
     ];
