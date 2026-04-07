@@ -157,7 +157,7 @@ ssh -p 2222 erik@192.168.10.230 'syncthing show -deviceid'
 # Replace PLACEHOLDER in modules/secrets.nix with the real ID, then redeploy
 ```
 
-**NFS mounts:** All fleet hosts mount `/home/erik/nfs/{fast,bulk}` via Tailscale (`kepler` MagicDNS). Automount on first access, nofail.
+**NFS mounts:** All fleet hosts mount `/mnt/nfs/{fast,bulk}` via Tailscale (`kepler` MagicDNS). Automount on first access, nofail.
 
 **hostId:** `cf7e11b5` (from `/etc/machine-id` on live ISO)
 

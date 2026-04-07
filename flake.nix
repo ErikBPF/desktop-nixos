@@ -31,6 +31,7 @@
 
     nix-colors.url = "github:misterio77/nix-colors";
     sops-nix.url = "github:Mic92/sops-nix";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
