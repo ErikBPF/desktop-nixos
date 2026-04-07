@@ -12,7 +12,7 @@ _: {
         hyprshot
         hyprpicker
         hyprsunset
-        swww
+        awww
         brightnessctl
         pamixer
         playerctl
