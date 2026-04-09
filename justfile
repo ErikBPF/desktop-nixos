@@ -24,15 +24,6 @@ upgrade target=profile:
 
 # ── Verification ──────────────────────────────────────────
 
-lint:
-    statix check . -c .statix.toml -i '.direnv/*'
-
-fmt:
-    nix fmt ./
-
-fmt-check:
-    alejandra --check .
-
 dry target=profile:
     sudo nixos-rebuild dry-build --flake .#{{target}} --show-trace
 
@@ -41,6 +32,15 @@ dry-all:
     sudo nixos-rebuild dry-build --flake .#discovery --show-trace
     sudo nixos-rebuild dry-build --flake .#laptop --show-trace
     sudo nixos-rebuild dry-build --flake .#orion --show-trace
+
+lint:
+    statix check . -c .statix.toml -i '.direnv/*'
+
+fmt:
+    nix fmt ./
+
+fmt-check:
+    alejandra --check .
 
 check:
     @echo ":: Linting..."
@@ -54,24 +54,25 @@ check:
 eval:
     nix flake check
 
-# ── Remote Deployment ─────────────────────────────────────
-# Host IPs (local LAN, port 2222):
+# ── Remote Deploy ─────────────────────────────────────────
+# Host IPs (LAN, SSH port 2222):
 #   discovery  192.168.10.210
 #   orion      192.168.10.220
 #   pathfinder 192.168.10.125
+#   kepler     192.168.10.230
 #   laptop     — Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
 
 switch-discovery:
     just deploy discovery 192.168.10.210 2222
-
-switch-kepler:
-    just deploy kepler 192.168.10.230 2222
 
 switch-orion:
     just deploy orion 192.168.10.220 2222
 
 switch-pathfinder:
     just deploy pathfinder 192.168.10.125 2222
+
+switch-kepler:
+    just deploy kepler 192.168.10.230 2222
 
 switch-all:
     #!/usr/bin/env bash
@@ -101,6 +102,8 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
 
+# ── Provisioning (first install) ──────────────────────────
+
 nixos-anywhere target ip luks-pass="" user="nixos":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -127,13 +130,12 @@ nixos-anywhere target ip luks-pass="" user="nixos":
 deploy-orion:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Stage age key for SOPS decryption on first boot
     mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra' EXIT
-    # NOTE: No LUKS flag passed — Orion has no disk encryption (R010)
-    # Target: nixos@192.168.10.220 (NixOS ISO boot; ISO uses port 22)
+    # NOTE: No LUKS flag — Orion has no disk encryption (R010)
+    # Target: nixos@192.168.10.220 (NixOS ISO, port 22)
     # Before running: boot Orion from NixOS ISO, confirm device paths with:
     #   ssh nixos@192.168.10.220 'lsblk -d -o NAME,SIZE,TYPE,MODEL | sort'
     # then update modules/hosts/orion/hardware.nix if nvme0n1/sda/sdb differ.
@@ -148,13 +150,12 @@ deploy-orion:
 deploy-discovery:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Stage age key for SOPS decryption on first boot
     mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra' EXIT
-    # NOTE: No LUKS on Discovery — no disk encryption flag needed
-    # Target: nixos@192.168.10.210 (NixOS ISO boot, port 22)
+    # NOTE: No LUKS on Discovery
+    # Target: nixos@192.168.10.210 (NixOS ISO, port 22)
     # WARNING: sda and sdc will be wiped. sdb (/home/erik/vault) is NOT touched by disko.
     # Before running: boot Discovery from NixOS ISO, confirm device paths with:
     #   ssh nixos@192.168.10.210 'lsblk -d -o NAME,SIZE,TYPE,MODEL | sort'
@@ -166,7 +167,21 @@ deploy-discovery:
             ./modules/hosts/discovery/_hw-generated.nix \
         nixos@192.168.10.210
 
-# ── Local Bootstrap (from NixOS ISO) ─────────────────────
+deploy-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /tmp/nixos-extra-kepler/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra-kepler' EXIT
+    # Target: nixos@192.168.10.112 (NixOS ISO, port 22)
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#kepler \
+        --extra-files /tmp/nixos-extra-kepler \
+        --show-trace \
+        --generate-hardware-config nixos-generate-config \
+            ./modules/hosts/kepler/_hw-generated.nix \
+        nixos@192.168.10.112
 
 bootstrap target:
     #!/usr/bin/env bash
@@ -217,18 +232,6 @@ age-public:
 sops:
     nix run nixpkgs#sops -- secrets/sops/secrets.yaml
 
-cache-keygen:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo ":: Generating nix-serve cache signing key pair"
-    sudo nix-store --generate-binary-cache-key discovery /etc/nix/cache-priv-key.pem /tmp/cache-pub-key.pem
-    sudo chmod 600 /etc/nix/cache-priv-key.pem
-    echo ":: Private key: /etc/nix/cache-priv-key.pem"
-    echo ":: Public key:"
-    cat /tmp/cache-pub-key.pem
-    echo
-    echo ":: Add this public key to nix.settings.trusted-public-keys in Story 3.3"
-
 rsync-sops ip port="22" user="erik":
     rsync -azv \
         --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" \
@@ -243,19 +246,14 @@ gc days="5":
 store-repair:
     sudo nix-store --verify --check-contents --repair
 
-deploy-kepler:
+cache-keygen:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Stage age key for SOPS decryption on first boot
-    mkdir -p /tmp/nixos-extra-kepler/var/lib/sops-staging/
-    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
-    chmod 600 /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
-    trap 'rm -rf /tmp/nixos-extra-kepler' EXIT
-    # Target: nixos@192.168.10.112 (NixOS ISO, port 22)
-    nix run github:nix-community/nixos-anywhere -- \
-        --flake .#kepler \
-        --extra-files /tmp/nixos-extra-kepler \
-        --show-trace \
-        --generate-hardware-config nixos-generate-config \
-            ./modules/hosts/kepler/_hw-generated.nix \
-        nixos@192.168.10.112
+    echo ":: Generating nix-serve cache signing key pair"
+    sudo nix-store --generate-binary-cache-key discovery /etc/nix/cache-priv-key.pem /tmp/cache-pub-key.pem
+    sudo chmod 600 /etc/nix/cache-priv-key.pem
+    echo ":: Private key: /etc/nix/cache-priv-key.pem"
+    echo ":: Public key:"
+    cat /tmp/cache-pub-key.pem
+    echo
+    echo ":: Add this public key to nix.settings.trusted-public-keys in Story 3.3"
