@@ -11,15 +11,13 @@
     # The signing private key is managed by sops-nix.
     sops.secrets.nix_cache_signing_key = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
-      # nix-serve runs as a DynamicUser (no persistent system account).
-      # World-readable is acceptable here: the key signs LAN-internal store
-      # paths; anyone on the machine can already read the nix store.
-      mode = "0444";
+      mode = "0400";
+      owner = "nix-serve";
     };
 
     services.nix-serve = {
       enable = true;
-      bindAddress = "0.0.0.0";
+      bindAddress = "192.168.10.220";
       port = 5000;
       secretKeyFile = config.sops.secrets.nix_cache_signing_key.path;
     };
