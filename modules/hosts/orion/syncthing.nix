@@ -17,10 +17,22 @@ in {
       settings = {
         options.listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         devices = {
-          "discovery" = {id = deviceIDs.discovery_id; addresses = ["tcp://discovery:22000" "dynamic"];};
-          "laptop" = {id = deviceIDs.laptop_id; addresses = ["tcp://laptop:22000" "dynamic"];};
-          "pathfinder" = {id = deviceIDs.pathfinder_id; addresses = ["tcp://pathfinder:22000" "dynamic"];};
-          "kepler" = {id = deviceIDs.kepler_id; addresses = ["tcp://kepler:22000" "dynamic"];};
+          "discovery" = {
+            id = deviceIDs.discovery_id;
+            addresses = ["tcp://discovery:22000" "dynamic"];
+          };
+          "laptop" = {
+            id = deviceIDs.laptop_id;
+            addresses = ["tcp://laptop:22000" "dynamic"];
+          };
+          "pathfinder" = {
+            id = deviceIDs.pathfinder_id;
+            addresses = ["tcp://pathfinder:22000" "dynamic"];
+          };
+          "kepler" = {
+            id = deviceIDs.kepler_id;
+            addresses = ["tcp://kepler:22000" "dynamic"];
+          };
         };
         folders = {
           "ndykv-cjhly" = {

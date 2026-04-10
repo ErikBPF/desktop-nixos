@@ -23,9 +23,18 @@ in {
           listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         };
         devices = {
-          "discovery" = {id = deviceIDs.discovery_id; addresses = ["tcp://discovery:22000" "dynamic"];};
-          "pathfinder" = {id = deviceIDs.pathfinder_id; addresses = ["tcp://pathfinder:22000" "dynamic"];};
-          "orion" = {id = deviceIDs.orion_id; addresses = ["tcp://orion:22000" "dynamic"];};
+          "discovery" = {
+            id = deviceIDs.discovery_id;
+            addresses = ["tcp://discovery:22000" "dynamic"];
+          };
+          "pathfinder" = {
+            id = deviceIDs.pathfinder_id;
+            addresses = ["tcp://pathfinder:22000" "dynamic"];
+          };
+          "orion" = {
+            id = deviceIDs.orion_id;
+            addresses = ["tcp://orion:22000" "dynamic"];
+          };
         };
         folders = {
           "ndykv-cjhly" = {
