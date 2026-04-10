@@ -15,24 +15,34 @@ in {
       settings = {
         options.listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         devices = {
-          "discovery".id = deviceIDs.discovery_id;
-          "archlinux".id = deviceIDs.archlinux_id;
+          "laptop" = {
+            id = deviceIDs.laptop_id;
+            addresses = ["tcp://laptop:22000" "dynamic"];
+          };
+          "pathfinder" = {
+            id = deviceIDs.pathfinder_id;
+            addresses = ["tcp://pathfinder:22000" "dynamic"];
+          };
+          "orion" = {
+            id = deviceIDs.orion_id;
+            addresses = ["tcp://orion:22000" "dynamic"];
+          };
         };
         folders = {
           "ndykv-cjhly" = {
             label = "Downloads";
-            path = "/data/backup/Downloads/";
-            devices = ["discovery" "archlinux"];
+            path = "/home/erik/backup/Downloads/";
+            devices = ["laptop" "pathfinder" "orion"];
           };
           "ykxhp-khmz2" = {
             label = "Documents";
-            path = "/data/backup/Documents/";
-            devices = ["discovery" "archlinux"];
+            path = "/home/erik/backup/Documents/";
+            devices = ["laptop" "pathfinder" "orion"];
           };
           "xbwsp-zwvsr" = {
             label = "kube";
-            path = "/data/backup/kube/";
-            devices = ["discovery" "archlinux"];
+            path = "/home/erik/backup/kube/";
+            devices = ["laptop" "pathfinder" "orion"];
           };
         };
       };
