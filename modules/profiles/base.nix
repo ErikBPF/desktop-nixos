@@ -33,6 +33,8 @@ in {
       m.nixos.packages-shared
       m.nixos.overlays
       m.nixos.sops
+      m.nixos.upgrade-health-check
+      m.nixos.distributed-builds
     ];
   };
 

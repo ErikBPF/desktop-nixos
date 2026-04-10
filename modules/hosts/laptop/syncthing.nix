@@ -23,24 +23,34 @@ in {
           listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         };
         devices = {
-          "discovery".id = deviceIDs.discovery_id;
-          "archlinux".id = deviceIDs.archlinux_id;
+          "discovery" = {
+            id = deviceIDs.discovery_id;
+            addresses = ["tcp://discovery:22000" "dynamic"];
+          };
+          "pathfinder" = {
+            id = deviceIDs.pathfinder_id;
+            addresses = ["tcp://pathfinder:22000" "dynamic"];
+          };
+          "orion" = {
+            id = deviceIDs.orion_id;
+            addresses = ["tcp://orion:22000" "dynamic"];
+          };
         };
         folders = {
           "ndykv-cjhly" = {
             label = "Downloads";
             path = "${homeDir}/Downloads/";
-            devices = ["discovery" "archlinux"];
+            devices = ["discovery" "pathfinder" "orion"];
           };
           "ykxhp-khmz2" = {
             label = "Documents";
             path = "${homeDir}/Documents/";
-            devices = ["discovery" "archlinux"];
+            devices = ["discovery" "pathfinder" "orion"];
           };
           "xbwsp-zwvsr" = {
             label = "kube";
             path = "${homeDir}/.kube/";
-            devices = ["discovery" "archlinux"];
+            devices = ["discovery" "pathfinder" "orion"];
           };
         };
       };
