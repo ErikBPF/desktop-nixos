@@ -15,9 +15,18 @@ in {
       settings = {
         options.listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
         devices = {
-          "laptop" = {id = deviceIDs.laptop_id; addresses = ["tcp://laptop:22000" "dynamic"];};
-          "pathfinder" = {id = deviceIDs.pathfinder_id; addresses = ["tcp://pathfinder:22000" "dynamic"];};
-          "orion" = {id = deviceIDs.orion_id; addresses = ["tcp://orion:22000" "dynamic"];};
+          "laptop" = {
+            id = deviceIDs.laptop_id;
+            addresses = ["tcp://laptop:22000" "dynamic"];
+          };
+          "pathfinder" = {
+            id = deviceIDs.pathfinder_id;
+            addresses = ["tcp://pathfinder:22000" "dynamic"];
+          };
+          "orion" = {
+            id = deviceIDs.orion_id;
+            addresses = ["tcp://orion:22000" "dynamic"];
+          };
         };
         folders = {
           "ndykv-cjhly" = {
