@@ -13,6 +13,7 @@
       sopsFile = self + "/secrets/sops/secrets.yaml";
       mode = "0400";
       owner = "nix-serve";
+      group = "nix-serve";
     };
 
     services.nix-serve = {
