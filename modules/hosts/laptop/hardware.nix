@@ -91,6 +91,8 @@ _: {
         intel-media-driver
         libvdpau-va-gl
         intel-vaapi-driver
+        vulkan-loader
+        intel-compute-runtime
       ];
     };
 

@@ -16,6 +16,7 @@ in {
       m.nixos.dev-javascript
       m.nixos.dev-python
       m.nixos.dev-paths
+      m.nixos.firefox-policies
     ];
   };
 
@@ -35,6 +36,7 @@ in {
       m.home.ghostty
       m.home.kitty
       m.home.brave
+      m.home.firefox
       m.home.vscode
       m.home.claude-code
       m.home.packages-desktop
