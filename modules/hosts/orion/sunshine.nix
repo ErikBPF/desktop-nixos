@@ -4,6 +4,7 @@ _: {
     services.sunshine.enable = true;
     services.sunshine.capSysAdmin = true; # Required for KMS/DRM capture under gamescope/Wayland
     services.sunshine.openFirewall = true; # TCP 47984/47989/47990/48010, UDP 47998-48010
+    services.sunshine.settings.origin_web_ui_allowed = "lan"; # Allow web UI access from LAN hosts
 
     # --- Xbox One/Series Bluetooth controller DKMS driver ---
     hardware.xpadneo.enable = true;
