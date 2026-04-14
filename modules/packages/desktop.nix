@@ -81,6 +81,7 @@ _: {
         libsecret
 
         # --- GUI Applications ---
+        moonlight-qt
         chromium
         vlc
         discord
