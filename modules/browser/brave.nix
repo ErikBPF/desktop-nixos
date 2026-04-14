@@ -18,7 +18,12 @@ _: {
       enable = true;
       package = pkgs.brave;
       commandLineArgs = [
-        "--disable-features=WebRtcAllowInputVolumeAdjustment,MediaRouter --enable-features=UseOzonePlatform --ozone-platform=wayland"
+        "--enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,UseOzonePlatform"
+        "--disable-features=UseChromeOSDirectVideoDecoder,WebRtcAllowInputVolumeAdjustment,MediaRouter"
+        "--ignore-gpu-blocklist"
+        "--ozone-platform=wayland"
+        "--use-gl=angle"
+        "--use-angle=gl"
       ];
       inherit extensions;
     };

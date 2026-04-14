@@ -41,3 +41,4 @@ tmp/
 haos-backup/*.qcow2
 haos-backup/
 servarr
+ampagent*

@@ -232,6 +232,37 @@ age-public:
 sops:
     nix run nixpkgs#sops -- secrets/sops/secrets.yaml
 
+add-ampagent:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    deb=$(find . -maxdepth 1 -name 'ampagent-*kace.nstech.com.br*.deb' ! -name '* copy*' -print -quit)
+    if [ -z "$deb" ]; then
+        echo "ERROR: No ampagent .deb found in project root"
+        echo "  Drop the original .deb (with token in filename) here and retry"
+        exit 1
+    fi
+    echo ":: Found: $deb"
+
+    # Extract enrollment token from filename (part after '+' before '.deb')
+    token=$(basename "$deb" | sed -n 's/.*\.com\.br+\(.*\)\.deb/\1/p')
+    if [ -z "$token" ]; then
+        echo "ERROR: Could not extract token from filename"
+        exit 1
+    fi
+    echo ":: Extracted enrollment token"
+
+    # Add clean-named .deb to nix store
+    cp "$deb" ampagent-15.0.54.deb
+    nix-store --add-fixed sha256 ampagent-15.0.54.deb
+    rm ampagent-15.0.54.deb
+    echo ":: Added .deb to nix store"
+
+    # Upsert kace_token in sops secrets
+    nix run nixpkgs#sops -- set secrets/sops/secrets.yaml '["kace_token"]' "\"$token\""
+    echo ":: Updated kace_token in sops"
+
+    echo ":: Done. You can delete the original: rm \"$deb\""
+
 rsync-sops ip port="22" user="erik":
     rsync -azv \
         --rsync-path="mkdir -p ~/.config/sops/age/ && rsync" \

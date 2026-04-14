@@ -98,6 +98,8 @@ in {
       m.nixos.laptop-hardware
       m.nixos.laptop-networking
       m.nixos.laptop-syncthing
+      m.nixos.laptop-appimage
+      m.nixos.laptop-ampagent
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs
