@@ -49,6 +49,7 @@
     systemd.tmpfiles.rules = [
       "d /var/quest/kace 0755 root root -"
       "d /var/quest/kace/user 0777 root root -"
+      "d /usr/local/share/ca-certificates 0755 root root -"
     ];
 
     # amp.conf with KACE server host
@@ -80,6 +81,20 @@
       after = ["network-online.target"];
       wants = ["network-online.target"];
       wantedBy = ["multi-user.target"];
+
+      path = with pkgs; [
+        bash
+        coreutils
+        gnugrep
+        gawk
+        hostname
+        iproute2
+        dmidecode
+        util-linux
+        procps
+        nettools
+        nssTools
+      ];
 
       serviceConfig = {
         Type = "simple";
