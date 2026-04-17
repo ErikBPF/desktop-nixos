@@ -103,6 +103,7 @@ _: {
         claude-code
         obsidian
         tailscale-systray
+        cloudflare-warp
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         spotify
