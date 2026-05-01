@@ -33,6 +33,7 @@ _: {
       gawk
       lsof
       dua
+      duf
       dust
       ncdu
       eza
