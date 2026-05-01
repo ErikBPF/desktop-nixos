@@ -7,6 +7,8 @@ _: {
       extraFlags = ["--server.http.listen-addr=127.0.0.1:12345"];
     };
 
+    systemd.services.alloy.serviceConfig.TimeoutStopSec = "1s";
+
     environment.etc."alloy/config.alloy".text = ''
       // Grafana Alloy configuration — fleet-wide NixOS module
       // Ships systemd journal logs to Discovery Loki, host metrics to Discovery Mimir.
