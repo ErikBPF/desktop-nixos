@@ -8,6 +8,7 @@
       programs = {
         hyprland.enable = true;
         hyprlock.enable = true;
+        uwsm.enable = true;
       };
     };
 
@@ -297,20 +298,21 @@
             "opacity 0.97 0.90, match:class .*"
             "opacity 0.90 0.80 override,match:class ^(com.mitchellh.ghostty)$"
             "opacity 1 1,match:class ^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
-            "float on,match:class ^(teams-for-linux)$"
+            # Teams: class is 'electron' (shared); match on title which is unique
+            "float on,match:title ^(.*Microsoft Teams.*)$"
+            "move 12 47,match:title ^(.*Microsoft Teams.*)$"
+            "size 1056 585,match:title ^(.*Microsoft Teams.*)$"
+            "workspace 10,match:title ^(.*Microsoft Teams.*)$"
+            "workspace 10 silent,match:title ^(.*Microsoft Teams.*)$"
             "float on,match:class ^(discord)$"
-            "move 12 47,match:class ^(teams-for-linux)$"
-            "size 1056 585,match:class ^(teams-for-linux)$"
             "move 12 1304,match:class ^(discord)$"
             "size 1056 603,match:class ^(discord)$"
             "workspace 1, match:class ^(brave)$"
             "workspace 11, match:title ^(btop ~)$"
             "workspace 12, match:class ^(spotify)$"
-            "workspace 10, match:class ^(teams-for-linux)$"
             "workspace 10, match:class ^(discord)$"
             "workspace 11 silent,match:title ^(btop ~)$"
             "workspace 11 silent,match:title ^(Lens)$"
-            "workspace 10 silent,match:class ^(teams-for-linux)$"
             "workspace 10 silent,match:class ^(discord)$"
             # WhatsApp: class is 'electron' (shared); match on title which is unique
             "float on, match:title ^(WhatsApp Electron.*)$"
