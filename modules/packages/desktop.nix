@@ -4,6 +4,10 @@ _: {
     lib,
     ...
   }: {
+    # Auto-start Cloudflare WARP daemon (warp-svc.service ships with the package).
+    systemd.packages = [pkgs.cloudflare-warp];
+    systemd.services.warp-svc.wantedBy = ["multi-user.target"];
+
     environment.systemPackages = with pkgs;
       [
         # --- Hyprland Desktop ---

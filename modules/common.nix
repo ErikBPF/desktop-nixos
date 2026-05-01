@@ -28,6 +28,7 @@
         build-dir = "/nix/build-tmp";
         # Allow build machines to fetch from substituters directly
         builders-use-substitutes = true;
+        connect-timeout = 5;
         substituters = [
           "https://cache.nixos.org?priority=10"
           "http://192.168.10.220:5000?priority=5"
