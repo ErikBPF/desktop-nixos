@@ -46,6 +46,10 @@
             ",preferred,auto,1"
           ];
 
+          workspace = [
+            "1, monitor:HDMI-A-1, default:true, persistent:true"
+          ];
+
           env =
             (lib.optionals hasNvidiaDrivers nvidiaEnv)
             ++ [
@@ -108,7 +112,6 @@
               enabled = false;
               range = 30;
               render_power = 3;
-              ignore_window = true;
               color = "rgba(00000045)";
             };
             blur = {
@@ -147,7 +150,6 @@
           };
 
           dwindle = {
-            pseudotile = true;
             preserve_split = true;
             force_split = 2;
           };
@@ -298,16 +300,15 @@
             "opacity 0.97 0.90, match:class .*"
             "opacity 0.90 0.80 override,match:class ^(com.mitchellh.ghostty)$"
             "opacity 1 1,match:class ^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"
-            # Teams: class is 'electron' (shared); match on title which is unique
+            # Teams: class is 'electron' (shared); match on title which is unique.
             "float on,match:title ^(.*Microsoft Teams.*)$"
+            "workspace 10 silent,match:title ^(.*Microsoft Teams.*)$"
             "move 12 47,match:title ^(.*Microsoft Teams.*)$"
             "size 1056 585,match:title ^(.*Microsoft Teams.*)$"
-            "workspace 10,match:title ^(.*Microsoft Teams.*)$"
-            "workspace 10 silent,match:title ^(.*Microsoft Teams.*)$"
             "float on,match:class ^(discord)$"
             "move 12 1304,match:class ^(discord)$"
             "size 1056 603,match:class ^(discord)$"
-            "workspace 1, match:class ^(brave)$"
+            "workspace 1, match:class ^(brave-browser)$"
             "workspace 11, match:title ^(btop ~)$"
             "workspace 12, match:class ^(spotify)$"
             "workspace 10, match:class ^(discord)$"

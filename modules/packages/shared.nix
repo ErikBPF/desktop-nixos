@@ -95,6 +95,7 @@ _: {
       fuse
       fuse3
       nfs-utils
+      sshuttle
 
       # --- DevOps & Cloud ---
       terraform
