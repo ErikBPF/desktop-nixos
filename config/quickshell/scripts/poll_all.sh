@@ -51,7 +51,7 @@ else
 fi
 
 # Disk
-disk=$(df / | awk 'NR==2{gsub(/%/,"",$5); print $5}')
+disk=$(stat -f -c '%a %b' / | awk '{printf "%.0f", (1 - $1/$2) * 100}')
 echo "disk=$disk"
 
 # Volume

@@ -54,6 +54,24 @@ in {
       };
     };
 
+    systemd.user.services.quickshell = {
+      Unit = {
+        Description = "Quickshell bar";
+        PartOf = ["graphical-session.target"];
+        After = ["graphical-session.target"];
+      };
+      Service = {
+        Type = "simple";
+        ExecStart = "${inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/quickshell -p %h/.config/quickshell/qml/Shell.qml";
+        Restart = "always";
+        RestartSec = 1;
+        StandardOutput = "append:%h/.cache/quickshell/stdout.log";
+        StandardError = "append:%h/.cache/quickshell/stderr.log";
+        ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/.cache/quickshell";
+      };
+      Install.WantedBy = ["graphical-session.target"];
+    };
+
     systemd.user.services.awww-daemon = {
       Unit = {
         Description = "awww wallpaper daemon";

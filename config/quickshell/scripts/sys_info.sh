@@ -53,7 +53,7 @@ case "$1" in
         fi
         ;;
     disk)
-        df / | awk 'NR==2{gsub(/%/,"",$5); print $5}'
+        stat -f -c '%a %b' / | awk '{printf "%.0f\n", (1 - $1/$2) * 100}'
         ;;
     mic-muted)
         wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED && echo "true" || echo "false"

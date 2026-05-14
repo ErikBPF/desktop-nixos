@@ -16,7 +16,7 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.batteryStatus === "Charging" ? "\uf0e7" :
+                text: (root.batteryStatus === "Charging" || root.batteryStatus === "PendingCharge") ? "\uf0e7" :
                       parseInt(root.batteryPercent) > 80 ? "\uf240" :
                       parseInt(root.batteryPercent) > 60 ? "\uf241" :
                       parseInt(root.batteryPercent) > 40 ? "\uf242" :
