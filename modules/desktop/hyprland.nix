@@ -162,7 +162,7 @@
           };
 
           exec-once = [
-            "quickshell -p ~/.config/quickshell/qml/Shell.qml"
+            "systemctl --user restart quickshell"
             "hyprsunset"
             "systemctl --user start hyprpolkitagent"
             "systemctl --user start xdg-desktop-portal-gtk"
