@@ -68,8 +68,9 @@ ShellRoot {
         ? Pipewire.defaultAudioSource.audio.muted : false
 
     // Battery (event-driven via UPower service)
+    // UPower.displayDevice.percentage is reported as 0..1 fraction by quickshell, not 0..100.
     property string batteryPercent: UPower.displayDevice && UPower.displayDevice.isPresent
-        ? Math.round(UPower.displayDevice.percentage).toString() : ""
+        ? Math.round(UPower.displayDevice.percentage * 100).toString() : ""
     property string batteryStatus: UPower.displayDevice
         ? UPowerDeviceState.toString(UPower.displayDevice.state) : ""
 
