@@ -27,6 +27,7 @@ _: {
       };
     };
     services.acpid.enable = true;
+    services.upower.enable = true;
 
     # --- CPU frequency / throttle profiling ---
     boot.kernelModules = ["msr"];

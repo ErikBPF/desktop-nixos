@@ -5,6 +5,8 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Services.SystemTray
+import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import QtQuick
 
 ShellRoot {
@@ -56,22 +58,34 @@ ShellRoot {
         console.log("IPC socket: " + ipcServer.path);
     }
 
-    // System info state
-    property string volume: "0"
-    property bool volumeMuted: false
-    property string batteryPercent: ""
-    property string batteryStatus: ""
+    // Audio (event-driven via Pipewire service)
+    PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
+    property string volume: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio
+        ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100).toString() : "0"
+    property bool volumeMuted: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio
+        ? Pipewire.defaultAudioSink.audio.muted : false
+    property bool micMuted: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio
+        ? Pipewire.defaultAudioSource.audio.muted : false
+
+    // Battery (event-driven via UPower service)
+    property string batteryPercent: UPower.displayDevice && UPower.displayDevice.isPresent
+        ? Math.round(UPower.displayDevice.percentage).toString() : ""
+    property string batteryStatus: UPower.displayDevice
+        ? UPowerDeviceState.toString(UPower.displayDevice.state) : ""
+
+    // Polled state (mem, disk, temp, cpu, governor — no event source)
     property string cpuUsage: "0"
     property string cpuCores: ""
     property string memUsage: "0"
     property string diskUsage: "0"
-    property bool micMuted: false
     property string weatherTemp: ""
     property string weatherIcon: ""
     property string cpuGovernor: ""
     property string platformProfile: ""
 
-    // Fast poller — mem, disk, volume, mic, battery (no sleep)
+    // Slow poller — mem, disk, temp, governor (no event source available)
+    property double fastPollerStartedAt: 0
+    property double cpuPollerStartedAt: 0
     Process {
         id: fastPoller
         command: ["bash", root.scriptsDir + "/poll_fast.sh"]
@@ -81,19 +95,21 @@ ShellRoot {
                 if (eq < 0) return;
                 var k = data.substring(0, eq), v = data.substring(eq + 1).trim();
                 if (k === "mem") root.memUsage = v;
-                else if (k === "vol") root.volume = v;
                 else if (k === "disk") root.diskUsage = v;
-                else if (k === "muted") root.volumeMuted = (v === "true");
-                else if (k === "micmuted") root.micMuted = (v === "true");
-                else if (k === "bat") root.batteryPercent = v;
-                else if (k === "batstatus") root.batteryStatus = v;
                 else if (k === "governor") root.cpuGovernor = v;
                 else if (k === "platform") root.platformProfile = v;
             }
         }
+        stderr: SplitParser {
+            onRead: data => console.warn("poll_fast stderr:", data)
+        }
+        onRunningChanged: {
+            if (running) root.fastPollerStartedAt = Date.now();
+            else root.fastPollerStartedAt = 0;
+        }
     }
     Timer {
-        interval: 500; running: true; repeat: true; triggeredOnStart: true
+        interval: 2000; running: true; repeat: true; triggeredOnStart: true
         onTriggered: { if (!fastPoller.running) fastPoller.running = true; }
     }
 
@@ -109,6 +125,13 @@ ShellRoot {
                 if (k === "cpu") root.cpuUsage = v;
                 else if (k === "cpucores") root.cpuCores = v;
             }
+        }
+        stderr: SplitParser {
+            onRead: data => console.warn("poll_cpu stderr:", data)
+        }
+        onRunningChanged: {
+            if (running) root.cpuPollerStartedAt = Date.now();
+            else root.cpuPollerStartedAt = 0;
         }
     }
     Timer {
@@ -151,12 +174,19 @@ ShellRoot {
         // Setting running=false kills the process; timers will restart them next tick
     }
 
-    // Watchdog — kill pollers stuck longer than 10s (e.g. wpctl hanging during DPMS off)
+    // Watchdog — kill pollers stuck longer than 5s (e.g. wpctl hanging during DPMS off)
     Timer {
-        interval: 10000; running: true; repeat: true
+        interval: 2000; running: true; repeat: true
         onTriggered: {
-            if (fastPoller.running) { fastPoller.running = false; }
-            if (cpuPoller.running) { cpuPoller.running = false; }
+            var now = Date.now();
+            if (fastPoller.running && root.fastPollerStartedAt > 0 && (now - root.fastPollerStartedAt) > 5000) {
+                console.warn("Watchdog killing stuck fastPoller (" + (now - root.fastPollerStartedAt) + "ms)");
+                fastPoller.running = false;
+            }
+            if (cpuPoller.running && root.cpuPollerStartedAt > 0 && (now - root.cpuPollerStartedAt) > 8000) {
+                console.warn("Watchdog killing stuck cpuPoller (" + (now - root.cpuPollerStartedAt) + "ms)");
+                cpuPoller.running = false;
+            }
         }
     }
 
@@ -433,7 +463,7 @@ ShellRoot {
                         // Battery
                         Metric {
                             visible: root.batteryPercent !== ""
-                            icon: root.batteryStatus === "Charging" ? "\uf0e7" :
+                            icon: (root.batteryStatus === "Charging" || root.batteryStatus === "PendingCharge") ? "\uf0e7" :
                                   parseInt(root.batteryPercent) > 80 ? "\uf240" :
                                   parseInt(root.batteryPercent) > 60 ? "\uf241" :
                                   parseInt(root.batteryPercent) > 40 ? "\uf242" :
@@ -449,7 +479,11 @@ ShellRoot {
                             icon: root.micMuted ? "\uf131" : "\uf130"; value: ""
                             iconColor: root.micMuted ? Style.error : Style.success
                             tooltip: root.micMuted ? "Mic: Muted" : "Mic: On"
-                            clickable: true; onClicked: Quickshell.execDetached(["pamixer", "--default-source", "-t"])
+                            clickable: true
+                            onClicked: {
+                                if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio)
+                                    Pipewire.defaultAudioSource.audio.muted = !Pipewire.defaultAudioSource.audio.muted;
+                            }
                         }
 
                         // Volume (icon only — click to mute/unmute)
@@ -458,7 +492,10 @@ ShellRoot {
                             iconColor: root.volumeMuted ? Style.error : Style.warning
                             tooltip: root.volumeMuted ? "Volume: Muted" : "Volume: " + root.volume + "%"
                             clickable: true
-                            onClicked: Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
+                            onClicked: {
+                                if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio)
+                                    Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted;
+                            }
                         }
 
                         Rectangle { width: 1; height: 14; color: Style.subtle }
