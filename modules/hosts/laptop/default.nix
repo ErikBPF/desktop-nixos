@@ -173,18 +173,55 @@ in {
           c1 = "desc:Samsung Electric Company C27F390 HX5MB00876";
           c2 = "desc:Samsung Electric Company C27F390 HX5MB00881";
         in [
-          {workspace = "1"; monitor = qbq; default = true;}
-          {workspace = "2"; monitor = qbq;}
-          {workspace = "3"; monitor = qbq;}
-          {workspace = "4"; monitor = qbq;}
-          {workspace = "5"; monitor = qbq;}
-          {workspace = "6"; monitor = qbq;}
-          {workspace = "7"; monitor = qbq;}
-          {workspace = "8"; monitor = qbq;}
-          {workspace = "9"; monitor = qbq;}
-          {workspace = "10"; monitor = c1;}
-          {workspace = "11"; monitor = c2;}
-          {workspace = "12"; monitor = "eDP-1";}
+          {
+            workspace = "1";
+            monitor = qbq;
+            default = true;
+          }
+          {
+            workspace = "2";
+            monitor = qbq;
+          }
+          {
+            workspace = "3";
+            monitor = qbq;
+          }
+          {
+            workspace = "4";
+            monitor = qbq;
+          }
+          {
+            workspace = "5";
+            monitor = qbq;
+          }
+          {
+            workspace = "6";
+            monitor = qbq;
+          }
+          {
+            workspace = "7";
+            monitor = qbq;
+          }
+          {
+            workspace = "8";
+            monitor = qbq;
+          }
+          {
+            workspace = "9";
+            monitor = qbq;
+          }
+          {
+            workspace = "10";
+            monitor = c1;
+          }
+          {
+            workspace = "11";
+            monitor = c2;
+          }
+          {
+            workspace = "12";
+            monitor = "eDP-1";
+          }
         ];
       };
     };

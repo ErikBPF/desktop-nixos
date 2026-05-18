@@ -222,20 +222,94 @@
           ];
 
           animation = [
-            {leaf = "global"; enabled = true; speed = 10; bezier = "default";}
-            {leaf = "border"; enabled = true; speed = 5.39; bezier = "easeOutQuint";}
-            {leaf = "windows"; enabled = true; speed = 4.79; bezier = "easeOutQuint";}
-            {leaf = "windowsIn"; enabled = true; speed = 4.1; bezier = "easeOutQuint"; style = "popin 87%";}
-            {leaf = "windowsOut"; enabled = true; speed = 1.49; bezier = "linear"; style = "popin 87%";}
-            {leaf = "fadeIn"; enabled = true; speed = 1.73; bezier = "almostLinear";}
-            {leaf = "fadeOut"; enabled = true; speed = 1.46; bezier = "almostLinear";}
-            {leaf = "fade"; enabled = true; speed = 3.03; bezier = "quick";}
-            {leaf = "layers"; enabled = true; speed = 3.81; bezier = "easeOutQuint";}
-            {leaf = "layersIn"; enabled = true; speed = 4; bezier = "easeOutQuint"; style = "fade";}
-            {leaf = "layersOut"; enabled = true; speed = 1.5; bezier = "linear"; style = "fade";}
-            {leaf = "fadeLayersIn"; enabled = true; speed = 1.79; bezier = "almostLinear";}
-            {leaf = "fadeLayersOut"; enabled = true; speed = 1.39; bezier = "almostLinear";}
-            {leaf = "workspaces"; enabled = false; speed = 0; bezier = "ease";}
+            {
+              leaf = "global";
+              enabled = true;
+              speed = 10;
+              bezier = "default";
+            }
+            {
+              leaf = "border";
+              enabled = true;
+              speed = 5.39;
+              bezier = "easeOutQuint";
+            }
+            {
+              leaf = "windows";
+              enabled = true;
+              speed = 4.79;
+              bezier = "easeOutQuint";
+            }
+            {
+              leaf = "windowsIn";
+              enabled = true;
+              speed = 4.1;
+              bezier = "easeOutQuint";
+              style = "popin 87%";
+            }
+            {
+              leaf = "windowsOut";
+              enabled = true;
+              speed = 1.49;
+              bezier = "linear";
+              style = "popin 87%";
+            }
+            {
+              leaf = "fadeIn";
+              enabled = true;
+              speed = 1.73;
+              bezier = "almostLinear";
+            }
+            {
+              leaf = "fadeOut";
+              enabled = true;
+              speed = 1.46;
+              bezier = "almostLinear";
+            }
+            {
+              leaf = "fade";
+              enabled = true;
+              speed = 3.03;
+              bezier = "quick";
+            }
+            {
+              leaf = "layers";
+              enabled = true;
+              speed = 3.81;
+              bezier = "easeOutQuint";
+            }
+            {
+              leaf = "layersIn";
+              enabled = true;
+              speed = 4;
+              bezier = "easeOutQuint";
+              style = "fade";
+            }
+            {
+              leaf = "layersOut";
+              enabled = true;
+              speed = 1.5;
+              bezier = "linear";
+              style = "fade";
+            }
+            {
+              leaf = "fadeLayersIn";
+              enabled = true;
+              speed = 1.79;
+              bezier = "almostLinear";
+            }
+            {
+              leaf = "fadeLayersOut";
+              enabled = true;
+              speed = 1.39;
+              bezier = "almostLinear";
+            }
+            {
+              leaf = "workspaces";
+              enabled = false;
+              speed = 0;
+              bezier = "ease";
+            }
           ];
 
           on = [
@@ -370,12 +444,66 @@
               {_args = ["SUPER + mouse:272" (mkLuaInline "hl.dsp.window.drag()") {mouse = true;}];}
               {_args = ["SUPER + mouse:273" (mkLuaInline "hl.dsp.window.resize()") {mouse = true;}];}
 
-              {_args = ["XF86AudioRaiseVolume" (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+")'') {locked = true; repeating = true;}];}
-              {_args = ["XF86AudioLowerVolume" (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-")'') {locked = true; repeating = true;}];}
-              {_args = ["XF86AudioMute" (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")'') {locked = true; repeating = true;}];}
-              {_args = ["XF86AudioMicMute" (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle")'') {locked = true; repeating = true;}];}
-              {_args = ["XF86MonBrightnessUp" (mkLuaInline ''hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+")'') {locked = true; repeating = true;}];}
-              {_args = ["XF86MonBrightnessDown" (mkLuaInline ''hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-")'') {locked = true; repeating = true;}];}
+              {
+                _args = [
+                  "XF86AudioRaiseVolume"
+                  (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+")'')
+                  {
+                    locked = true;
+                    repeating = true;
+                  }
+                ];
+              }
+              {
+                _args = [
+                  "XF86AudioLowerVolume"
+                  (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-")'')
+                  {
+                    locked = true;
+                    repeating = true;
+                  }
+                ];
+              }
+              {
+                _args = [
+                  "XF86AudioMute"
+                  (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")'')
+                  {
+                    locked = true;
+                    repeating = true;
+                  }
+                ];
+              }
+              {
+                _args = [
+                  "XF86AudioMicMute"
+                  (mkLuaInline ''hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle")'')
+                  {
+                    locked = true;
+                    repeating = true;
+                  }
+                ];
+              }
+              {
+                _args = [
+                  "XF86MonBrightnessUp"
+                  (mkLuaInline ''hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+")'')
+                  {
+                    locked = true;
+                    repeating = true;
+                  }
+                ];
+              }
+              {
+                _args = [
+                  "XF86MonBrightnessDown"
+                  (mkLuaInline ''hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-")'')
+                  {
+                    locked = true;
+                    repeating = true;
+                  }
+                ];
+              }
 
               {_args = ["XF86AudioNext" (mkLuaInline ''hl.dsp.exec_cmd("playerctl next")'') {locked = true;}];}
               {_args = ["XF86AudioPause" (mkLuaInline ''hl.dsp.exec_cmd("playerctl play-pause")'') {locked = true;}];}
@@ -384,32 +512,110 @@
             ];
 
           window_rule = [
-            {match.class = ".*"; suppress_event = "maximize";}
-            {match.class = "^(chromium)$"; tile = true;}
-            {match.class = "^(org.pulseaudio.pavucontrol|blueberry.py)$"; float = true;}
-            {match.class = "^(steam)$"; float = true;}
-            {match.class = "^(com.libretro.RetroArch)$"; fullscreen = true;}
-            {match.class = "clipse"; float = true;}
-            {match.class = "clipse"; size = "622 652";}
-            {match.class = "clipse"; stay_focused = true;}
-            {match.class = ".*"; opacity = "0.97 0.90";}
-            {match.class = "^(com.mitchellh.ghostty)$"; opacity = "0.90 0.80 override";}
-            {match.class = "^(brave-browser|chromium|google-chrome|google-chrome-unstable)$"; opacity = "1 1";}
-            {match.class = "^(discord)$"; float = true;}
-            {match.class = "^(discord)$"; move = "12 1304";}
-            {match.class = "^(discord)$"; size = "1056 603";}
-            {match.class = "^(brave-browser)$"; workspace = "1";}
-            {match.title = "^(btop ~)$"; workspace = "11";}
-            {match.class = "^(spotify)$"; workspace = "12";}
-            {match.class = "^(discord)$"; workspace = "10";}
-            {match.title = "^(btop ~)$"; workspace = "11 silent";}
-            {match.title = "^(Lens)$"; workspace = "11 silent";}
-            {match.class = "^(discord)$"; workspace = "10 silent";}
-            {match.title = "^(WhatsApp Electron.*)$"; float = true;}
-            {match.title = "^(WhatsApp Electron.*)$"; move = "12 646";}
-            {match.title = "^(WhatsApp Electron.*)$"; size = "1056 643";}
-            {match.title = "^(WhatsApp Electron.*)$"; workspace = "10";}
-            {match.title = "^(WhatsApp Electron.*)$"; workspace = "10 silent";}
+            {
+              match.class = ".*";
+              suppress_event = "maximize";
+            }
+            {
+              match.class = "^(chromium)$";
+              tile = true;
+            }
+            {
+              match.class = "^(org.pulseaudio.pavucontrol|blueberry.py)$";
+              float = true;
+            }
+            {
+              match.class = "^(steam)$";
+              float = true;
+            }
+            {
+              match.class = "^(com.libretro.RetroArch)$";
+              fullscreen = true;
+            }
+            {
+              match.class = "clipse";
+              float = true;
+            }
+            {
+              match.class = "clipse";
+              size = "622 652";
+            }
+            {
+              match.class = "clipse";
+              stay_focused = true;
+            }
+            {
+              match.class = ".*";
+              opacity = "0.97 0.90";
+            }
+            {
+              match.class = "^(com.mitchellh.ghostty)$";
+              opacity = "0.90 0.80 override";
+            }
+            {
+              match.class = "^(brave-browser|chromium|google-chrome|google-chrome-unstable)$";
+              opacity = "1 1";
+            }
+            {
+              match.class = "^(discord)$";
+              float = true;
+            }
+            {
+              match.class = "^(discord)$";
+              move = "12 1304";
+            }
+            {
+              match.class = "^(discord)$";
+              size = "1056 603";
+            }
+            {
+              match.class = "^(brave-browser)$";
+              workspace = "1";
+            }
+            {
+              match.title = "^(btop ~)$";
+              workspace = "11";
+            }
+            {
+              match.class = "^(spotify)$";
+              workspace = "12";
+            }
+            {
+              match.class = "^(discord)$";
+              workspace = "10";
+            }
+            {
+              match.title = "^(btop ~)$";
+              workspace = "11 silent";
+            }
+            {
+              match.title = "^(Lens)$";
+              workspace = "11 silent";
+            }
+            {
+              match.class = "^(discord)$";
+              workspace = "10 silent";
+            }
+            {
+              match.title = "^(WhatsApp Electron.*)$";
+              float = true;
+            }
+            {
+              match.title = "^(WhatsApp Electron.*)$";
+              move = "12 646";
+            }
+            {
+              match.title = "^(WhatsApp Electron.*)$";
+              size = "1056 643";
+            }
+            {
+              match.title = "^(WhatsApp Electron.*)$";
+              workspace = "10";
+            }
+            {
+              match.title = "^(WhatsApp Electron.*)$";
+              workspace = "10 silent";
+            }
           ];
         };
       };
