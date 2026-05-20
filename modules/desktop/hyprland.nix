@@ -328,10 +328,10 @@
                     hl.exec_cmd("tailscale-systray --accept-routes")
                     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
                     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
-                    hl.exec_cmd([[sleep 10; noisetorch -i -t 30; wpctl status | sed -n '/Sources:/,/^$/ s/^[│ ]*\([0-9]\+\)\. \+Focusrite Scarlett 2i2 Analog Stereo.*/\1/p' ;wpctl status | grep -oP '\d+(?=\.\s+NoiseTorch Microphone for Focusrite Scarlett 2i2\b)' | head -1 | xargs -r wpctl set-default]])
+                    hl.exec_cmd([[sleep 10; wpctl status | grep -oP '\d+(?=\.\s+Focusrite Scarlett 2i2 Analog Stereo\b)' | head -1 | xargs -r wpctl set-default; noisetorch -i -t 30; sleep 1; wpctl status | grep -oP '\d+(?=\.\s+NoiseTorch Microphone for Focusrite Scarlett 2i2\b)' | head -1 | xargs -r wpctl set-default]])
                     hl.exec_cmd("ghostty -e btop",            { workspace = 11 })
                     hl.exec_cmd("sleep 3; spotify",           { workspace = 11 })
-                    hl.exec_cmd("sleep 3; teams-for-linux",   { workspace = 10 })
+                    hl.exec_cmd("teams-for-linux",            { workspace = 10 })
                     hl.exec_cmd("sleep 3; discord",           { workspace = 10 })
                     hl.exec_cmd("sleep 3; whatsapp-electron", { workspace = 10 })
                     hl.exec_cmd("sleep 3; " .. browser .. " --restore-last-session", { workspace = 1 })
@@ -345,7 +345,7 @@
                 (mkLuaInline ''
                   function(w)
                     if w == nil or w.title == nil then return end
-                    if w.title:find("Microsoft Teams") then
+                    if w.class == "electron" and w.title:find("Microsoft Teams") then
                       local addr = tostring(w.address or w)
                       if appliedTeams[addr] then return end
                       appliedTeams[addr] = true
