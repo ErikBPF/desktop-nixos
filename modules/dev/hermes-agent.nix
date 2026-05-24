@@ -9,7 +9,7 @@
     config,
     ...
   }: let
-    apiKeyPath = "/run/secrets/hermes_client_api_key";
+    apiKeyPath = "/run/secrets/hermes_agent_client_api_key";
     discoveryApiUrl = "https://hermes.homelab.pastelariadev.com/v1";
   in {
     imports = [inputs.hermes-flake.homeManagerModules.default];
