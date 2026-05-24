@@ -140,8 +140,16 @@ in {
                         ${pkgs.git}/bin/git -C "$REPO" pull --ff-only origin main || true
                       fi
                       # Decrypt .env.sops → .env if stale or missing.
+                      # --input-type/--output-type dotenv is required: sops
+                      # uses file-extension auto-detection, and a `.env.sops`
+                      # filename is read as JSON by default, which fails with
+                      # "Could not unmarshal input data: invalid character '#'"
+                      # because the encrypted file is dotenv-format (KEY=ENC).
+                      # Without the explicit type, the redirect truncates .env
+                      # to zero bytes and every compose stack loses its vars.
                       if [ -f "$MACHINE_DIR/.env.sops" ] && { [ ! -f "$MACHINE_DIR/.env" ] || [ "$MACHINE_DIR/.env.sops" -nt "$MACHINE_DIR/.env" ]; }; then
-                        ${pkgs.sops}/bin/sops --decrypt "$MACHINE_DIR/.env.sops" > "$MACHINE_DIR/.env"
+                        ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt "$MACHINE_DIR/.env.sops" > "$MACHINE_DIR/.env.new" \
+                          && mv "$MACHINE_DIR/.env.new" "$MACHINE_DIR/.env"
                       fi
                       # Ensure homelab-net Docker/Podman network exists.
                       # Compose stacks declare it as external so it must be
