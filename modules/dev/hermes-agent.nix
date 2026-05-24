@@ -33,6 +33,14 @@
         # Chain: laptop hermes CLI → Discovery hermes API → LiteLLM → backend.
         OPENAI_BASE_URL = discoveryApiUrl;
         HERMES_DEFAULT_MODEL = "qwen-chat";
+
+        # Laptop is a thin client — skip the local node-runtime bootstrap
+        # (browser tools, etc.) since heavy tooling runs server-side.
+        # ~0.8s saved per startup.
+        HERMES_SKIP_NODE_BOOTSTRAP = "1";
+
+        # Suppress noisy startup output.
+        HERMES_QUIET = "1";
       };
     };
   };
