@@ -18,12 +18,13 @@
       # inputs.hermes-flake.nixosModules.default  # bare-metal alternative
     ];
 
-    # Sops secret carrying the hermes env dotenv. Define via
-    # `sops secrets/sops/secrets.yaml` under a `hermes_server.env: |` block.
-    sops.secrets."hermes_server/env" = {
+    # Sops secret carrying the hermes env dotenv. Lives under the
+    # consolidated `hermes_agent.server_env` block in
+    # secrets/sops/secrets.yaml.
+    sops.secrets."hermes_agent/server_env" = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
       format = "yaml";
-      key = "hermes_server/env";
+      key = "hermes_agent/server_env";
       mode = "0440";
       owner = "hermes";
       group = "hermes";
@@ -37,7 +38,7 @@
       containerName = "hermes";
       privateNetwork = false;
       hostDataDir = "/var/lib/hermes-agent";
-      hostSecretsPath = config.sops.secrets."hermes_server/env".path;
+      hostSecretsPath = config.sops.secrets."hermes_agent/server_env".path;
       apiPort = 8642;
       webhookPort = 8644;
       telegramAllowedUsers = [7729797827];
@@ -93,7 +94,7 @@
     #
     # services.hermes-agent = {
     #   enable = true;
-    #   environmentFile = config.sops.secrets."hermes_server/env".path;
+    #   environmentFile = config.sops.secrets."hermes_agent/server_env".path;
     #   apiPort = 8642;
     #   webhookPort = 8644;
     #   telegramAllowedUsers = [ 7729797827 ];
