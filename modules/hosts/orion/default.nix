@@ -7,6 +7,7 @@
 in {
   configurations.nixos.orion.module = {
     pkgs,
+    lib,
     modulesPath,
     ...
   }: {
@@ -33,6 +34,9 @@ in {
       m.nixos.kepler-nfs
       m.nixos.orchestration
       m.nixos.orion-compose
+      m.nixos.power-desktop
+      m.nixos.lact
+      m.nixos.orion-lact
     ];
 
     home-manager = {
@@ -71,7 +75,32 @@ in {
     boot.kernelPackages = pkgs.linuxPackages_latest;
 
     boot = {
-      kernelParams = ["nohibernate"];
+      kernelParams = [
+        "nohibernate"
+        # RDNA4 + MoE hybrid offload tuning (see servarr/machines/orion/KERNEL-TUNING.md).
+        # Defeat PCIe ASPM latency on host->GPU weight/activation transfers.
+        # NOTE: the kernel boolean `pcie_aspm=` only takes `off`/`force`; the
+        # policy is set via the module parameter `pcie_aspm.policy=`.
+        "pcie_aspm.policy=performance"
+        # Force 2MB pages for CPU-side MoE shard tensors; trims TLB pressure.
+        "transparent_hugepage=always"
+        # Unlock amdgpu power-management features (CoreCtrl/LACT controls).
+        "amdgpu.ppfeaturemask=0xffffffff"
+        # NOTE: `pci=realloc=on` was tried here and bricked boot — the kernel
+        # tried to reassign BARs without firmware-reserved 64-bit MMIO above
+        # 4 GiB and something downstream (NVMe/NIC enumeration) hung. ReBAR
+        # is now deferred to a BIOS change (KERNEL-TUNING-DEFERRED.md D5)
+        # — `Above 4G Decoding` + `Re-Size BAR Support` must be toggled in
+        # BIOS first; software cannot work around the missing MMIO window.
+      ];
+      kernel.sysctl = {
+        # 62GB RAM + zramSwap disabled below: keep anon pages resident, avoid
+        # any swap activity racing with VRAM eviction during long-ctx inference.
+        "vm.swappiness" = 1;
+        # Steam games hit AC-locked atomics; default split-lock penalty
+        # (warn+sleep) stutters game threads. Disable on a single-user HTPC.
+        "kernel.split_lock_mitigate" = 0;
+      };
       loader = {
         efi.canTouchEfiVariables = true;
         grub = {
@@ -93,10 +122,47 @@ in {
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop"
     ];
 
-    zramSwap = {
-      enable = true;
-      algorithm = "zstd";
-      memoryPercent = 25;
+    # zramSwap intentionally disabled: 62GB host RAM is enough for the 21GB
+    # GGUF + CPU-side MoE shards + containers. vm.swappiness=1 above assumes
+    # no swap competes with VRAM eviction during long-context inference.
+    zramSwap.enable = false;
+
+    # earlyoom from m.nixos.maintenance sets freeSwapThreshold=10. earlyoom
+    # 1.9 refuses any non-zero swap threshold when swap_total=0 ("value X
+    # exceeds limit 0") and the NixOS option clamps to 1..100, so we cannot
+    # zero it. Just disable earlyoom on Orion: 62GB RAM + no swap + kernel
+    # OOM killer covers the residual risk, and freeMemThreshold=5 isn't
+    # load-bearing on a single-purpose inference host.
+    services.earlyoom.enable = lib.mkForce false;
+
+    # bpftune (also from m.nixos.maintenance) auto-tunes vm.* sysctls under
+    # observed memory pressure. It can silently raise vm.swappiness above 1
+    # and reset vm.vfs_cache_pressure toward the kernel default, undoing the
+    # static tuning above. Disable on Orion: the swap-avoidance + cache
+    # retention invariants must not be re-tuned at runtime during inference.
+    services.bpftune.enable = lib.mkForce false;
+
+    # Pin all amdgpu IRQs to CPU0 so the 16-thread inference pool on cores
+    # 1..15 keeps its L2/L3 hot. IRQ numbers change across reboots so resolve
+    # them at service start, not at eval.
+    # Pin amdgpu IRQs once amdgpu has registered with the kernel. amdgpu is
+    # loaded from the initrd, so by multi-user.target the IRQ lines exist in
+    # /proc/interrupts — no After= ordering needed. (A previous version
+    # ordered after systemd-udev-settle.service, but that unit is not pulled
+    # into the multi-user.target dependency graph on modern NixOS, making
+    # the ordering hint a no-op.)
+    systemd.services.amdgpu-irq-pin = {
+      description = "Pin amdgpu IRQs to CPU0 for inference cache locality";
+      wantedBy = ["multi-user.target"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        for irq in $(${pkgs.gnugrep}/bin/grep amdgpu /proc/interrupts | ${pkgs.gawk}/bin/awk -F: '{print $1}' | ${pkgs.coreutils}/bin/tr -d ' '); do
+          echo 0 > /proc/irq/$irq/smp_affinity_list || true
+        done
+      '';
     };
 
     system.autoUpgrade = {

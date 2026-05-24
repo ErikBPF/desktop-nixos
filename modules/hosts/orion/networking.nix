@@ -12,9 +12,8 @@ _: {
           443
           8080
           8081
-          8642 # hermes-agent API
-          8644 # hermes-agent webhooks
           22000
+          # 8642/8644 closed — hermes-agent relocated to Discovery on 2026-05-23.
         ];
         allowedUDPPorts = [21027];
       };

@@ -4,7 +4,11 @@ _: {
       enable = true;
       # Bind the Alloy HTTP UI/API to localhost only — it contains pipeline
       # introspection and is not meant to be reachable over Tailscale.
-      extraFlags = ["--server.http.listen-addr=127.0.0.1:12345"];
+      # --disable-reporting stops the anonymous usage pings to stats.grafana.org.
+      extraFlags = [
+        "--server.http.listen-addr=127.0.0.1:12345"
+        "--disable-reporting"
+      ];
     };
 
     systemd.services.alloy.serviceConfig.TimeoutStopSec = "1s";
