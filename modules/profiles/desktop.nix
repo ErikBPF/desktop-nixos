@@ -3,6 +3,7 @@
 in {
   flake.modules.nixos.profile-desktop = {...}: {
     imports = [
+      m.nixos.laptop-hermes-client
       m.nixos.hyprland
       m.nixos.sddm
       m.nixos.fonts
@@ -37,8 +38,11 @@ in {
       m.home.kitty
       m.home.brave
       m.home.firefox
+      m.home.obsidian
+      m.home.obsidian-sync
       m.home.vscode
       m.home.claude-code
+      m.home.hermes-agent
       m.home.packages-desktop
       m.home.syncthing-tray
     ];

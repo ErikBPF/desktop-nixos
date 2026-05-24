@@ -22,6 +22,7 @@ in {
       m.nixos.kepler-nas
       m.nixos.first-boot
       m.nixos.alloy
+      m.nixos.power-desktop
     ];
 
     home-manager = {
@@ -67,6 +68,13 @@ in {
 
     # ZFS hostId — generated from /etc/machine-id on live ISO (head -c 8 /etc/machine-id)
     networking.hostId = "cf7e11b5";
+
+    # NB: transparent_hugepage=always was previously set here for "ARC + CUDA"
+    # locality, but OpenZFS upstream guidance is explicit that THP=always
+    # competes with ARC for contiguous memory and triggers khugepaged
+    # compaction stalls under sustained IO. Leave THP at the kernel default
+    # (madvise) on this host; the CUDA inference workload that motivated the
+    # change is still future, and the ZFS pool is the primary daily driver.
 
     # CUDA container toolkit for AI inference workloads
     hardware.nvidia-container-toolkit.enable = true;

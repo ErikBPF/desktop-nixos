@@ -1,4 +1,9 @@
+## Commit policy
 
+Never add `Co-Authored-By: Claude …` (or any other Anthropic attribution) to
+commit messages or PR bodies in this repo. Commits should read as if a human
+authored them; the only signature is the configured `git user.name` /
+`user.email`.
 
 ## BMAD-METHOD Integration
 

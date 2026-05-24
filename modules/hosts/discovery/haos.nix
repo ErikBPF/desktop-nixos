@@ -43,10 +43,46 @@
     # /home/erik needs world-execute so libvirt-qemu (uid qemu-libvirtd) can
     # traverse the path to /home/erik/vault/vms/haos_ova-17.1.qcow2.
     # home-manager resets /home/erik to 0700 on every activation, so tmpfiles
-    # alone cannot maintain this. The haos-vm service fixes it before each start.
+    # alone cannot maintain this. The haos-vm service fixes it on first start,
+    # and the haos-perms-fix.path watcher below re-fixes after any later reset
+    # (home-manager activation, manual chmod, VM destroy+start mid-uptime).
     systemd.tmpfiles.rules = [
       "Z /home/erik/vault/vms - erik kvm - -"
     ];
+
+    # Re-apply traversal perms whenever /home/erik mode changes. Without this,
+    # a home-manager activation after boot leaves /home/erik at 0700 and any
+    # subsequent VM cold start (virsh destroy + start) fails with
+    # "Cannot access storage file ... Permission denied".
+    systemd.paths.haos-perms-fix = {
+      description = "Watch /home/erik and re-fix traversal perms for HAOS qcow2";
+      wantedBy = ["multi-user.target"];
+      pathConfig = {
+        # PathModified (IN_ATTRIB) — chmod-only events are NOT captured by
+        # PathChanged (IN_CLOSE_WRITE/IN_CREATE/IN_MOVED_TO). home-manager
+        # activation resets /home/erik to 0700 via a bare chmod, which would
+        # never trigger PathChanged.
+        PathModified = "/home/erik";
+        Unit = "haos-perms-fix.service";
+      };
+    };
+
+    systemd.services.haos-perms-fix = {
+      description = "Re-apply traversal perms for qemu-libvirtd on /home/erik";
+      # StartLimitIntervalSec=0 disables the default 5×10s start-rate limit.
+      # A transient unavailability of /home/erik/vault (slow nofail mount on
+      # boot, vault subvol briefly missing) would otherwise burn through the
+      # 5-retry budget and permanently silence the path watcher for the
+      # session — the next legitimate home-manager chmod would not recover.
+      startLimitIntervalSec = 0;
+      serviceConfig = {
+        Type = "oneshot";
+      };
+      script = ''
+        ${pkgs.coreutils}/bin/chmod 711 /home/erik
+        ${pkgs.coreutils}/bin/chmod 711 /home/erik/vault
+      '';
+    };
 
     # Declarative VM lifecycle: define + autostart on every boot.
     # - Idempotent: virsh define is a no-op if XML is unchanged.

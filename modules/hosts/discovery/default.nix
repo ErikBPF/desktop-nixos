@@ -25,6 +25,8 @@ in {
       m.nixos.kepler-nfs
       m.nixos.discovery-containers
       m.nixos.discovery-compose
+      m.nixos.discovery-hermes-agent
+      m.nixos.power-desktop
     ];
 
     home-manager = {

@@ -1,0 +1,176 @@
+// Tailscale ACL — desktop-nixos fleet
+// Last updated: 2026-04-01
+//
+// Policy summary:
+//   - laptop        → unrestricted access to all hosts
+//   - all members   → SSH (2222) on every host
+//   - all members   → discovery public services (DNS, web, media, dashboards)
+//   - fleet only    → discovery infra ports (Vault, Postgres, Loki, Mimir)
+//   - laptop only   → Sunshine game streaming on orion
+//   - fleet only    → orion nix-serve binary cache
+//   - fleet only    → kepler NFS/Samba file shares
+//   - fleet         → syncthing between all Linux hosts
+//
+// Hosts:
+//   laptop      100.74.137.124   — dev workstation, unrestricted
+//   discovery   100.76.140.121   — homelab server (Podman stack, subnet router)
+//   kepler      100.94.239.46    — NAS (NFS + Samba + ZFS)
+//   orion       100.102.11.127   — HTPC / game streaming (Jovian + Sunshine)
+//   pathfinder  100.104.92.5     — desktop workstation
+{
+    "tagOwners": {
+        "tag:server": [
+            "autogroup:owner"
+        ],
+        "tag:desktop": [
+            "autogroup:owner"
+        ],
+    },
+    "hosts": {
+        "laptop": "100.74.137.124",
+        "discovery": "100.76.140.121",
+        "kepler": "100.94.239.46",
+        "orion": "100.102.11.127",
+        "pathfinder": "100.104.92.5",
+    },
+    "acls": [
+        // ── laptop → everything (unrestricted) ────────────────────────────
+        {
+            "action": "accept",
+            "src": [
+                "laptop"
+            ],
+            "dst": [
+                "*:*"
+            ],
+        },
+        // ── SSH — all members → every host ────────────────────────────────
+        {
+            "action": "accept",
+            "src": [
+                "autogroup:member"
+            ],
+            "dst": [
+                "laptop:2222",
+                "discovery:2222",
+                "kepler:2222",
+                "orion:2222",
+                "pathfinder:2222",
+            ],
+        },
+        // ── discovery public services — all members ────────────────────────
+        // DNS (AdGuard), reverse proxy (SWAG), media, and user-facing dashboards.
+        // Reachable from phone and any fleet host.
+        {
+            "action": "accept",
+            "src": [
+                "autogroup:member"
+            ],
+            "dst": [
+                "discovery:53", // AdGuard DNS
+                "discovery:80", // SWAG HTTP
+                "discovery:443", // SWAG HTTPS
+                "discovery:32400", // Plex
+            ],
+        },
+        // ── discovery infra — fleet Linux hosts only ──────────────────────
+        // Vault, Postgres, and the Alloy push endpoints (Loki + Mimir).
+        // Phone and external devices must not reach these.
+        {
+            "action": "accept",
+            "src": [
+                "laptop",
+                "orion",
+                "kepler",
+                "pathfinder"
+            ],
+            "dst": [
+                "discovery:8200", // HashiCorp Vault
+                "discovery:5433", // Postgres (external port)
+                "discovery:3100", // Loki push (Alloy → discovery)
+                "discovery:9009", // Mimir push (Alloy → discovery)
+            ],
+        },
+        // ── orion — fleet Linux hosts ─────────────────────────────────────
+        {
+            "action": "accept",
+            "src": [
+                "discovery",
+                "kepler",
+                "pathfinder"
+            ],
+            "dst": [
+                "orion:5000", // nix-serve binary cache
+                "orion:22000", // Syncthing
+            ],
+        },
+        // ── orion — Sunshine game streaming (laptop only) ─────────────────
+        // Moonlight/Sunshine control + video/audio/input UDP range.
+        {
+            "action": "accept",
+            "src": [
+                "laptop"
+            ],
+            "dst": [
+                "orion:47984", // Sunshine HTTPS (Moonlight pairing)
+                "orion:47989", // Sunshine HTTP
+                "orion:47990", // Sunshine WebUI
+                "orion:47998-48010", // Sunshine video/audio/input (TCP+UDP)
+                "orion:27036", // Steam Remote Play
+            ],
+        },
+        // ── kepler NFS/Samba — fleet Linux hosts only ─────────────────────
+        // NFS ports are pinned in NixOS config:
+        //   mountd=4002  statd=4000  lockd=4001
+        // rpcbind (111) is required even for NFSv4 clients on NixOS.
+        {
+            "action": "accept",
+            "src": [
+                "discovery",
+                "orion",
+                "pathfinder"
+            ],
+            "dst": [
+                "kepler:111", // rpcbind (NFS bootstrap)
+                "kepler:2049", // NFS
+                "kepler:4000", // rpc.statd (pinned)
+                "kepler:4001", // lockd (pinned)
+                "kepler:4002", // rpc.mountd (pinned)
+                "kepler:445", // Samba SMB
+                "kepler:22000", // Syncthing
+            ],
+        },
+        // ── Syncthing — remaining fleet pairs ─────────────────────────────
+        {
+            "action": "accept",
+            "src": [
+                "discovery",
+                "orion",
+                "kepler",
+                "pathfinder"
+            ],
+            "dst": [
+                "laptop:22000",
+                "pathfinder:22000",
+            ],
+        },
+    ],
+    "ssh": [
+        // Default SSH policy: members can SSH into their own devices.
+        // checkPeriod=0s means no re-auth period — check once at connection.
+        {
+            "action": "check",
+            "src": [
+                "autogroup:member"
+            ],
+            "dst": [
+                "autogroup:self"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ],
+            "checkPeriod": "0s",
+        },
+    ],
+}

@@ -5,6 +5,7 @@ in {
     imports = [
       m.nixos.boot-security
       m.nixos.boot-tmpfs
+      m.nixos.kernel-tuning
       m.nixos.firewall
       m.nixos.openssh
       m.nixos.resolved

@@ -39,6 +39,11 @@
     };
 
     import-tree.url = "github:vic/import-tree";
+
+    hermes-flake = {
+      url = "github:ErikBPF/hermes-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
