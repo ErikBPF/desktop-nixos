@@ -52,7 +52,12 @@
           default = "qwen-chat";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
-          max_context = 262144;
+          # Must match Orion's llama-chat LLAMA_CTX (servarr/machines/orion/.env
+          # → LLAMA_CTX=196608, default in ai-models.yml). Setting this higher
+          # than the served context causes prompts >196608 tokens to be
+          # rejected or silently truncated by llama-server, with no clean
+          # error path back to the agent.
+          max_context = 196608;
         };
 
         # Auxiliary models (vision / compression / session_search) → LiteLLM
