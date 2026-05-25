@@ -346,7 +346,7 @@
                 (mkLuaInline ''
                   function(w)
                     if w == nil or w.title == nil then return end
-                    if w.class == "electron" and w.title:find("Microsoft Teams") then
+                    if w.class == "teams-for-linux" then
                       local addr = tostring(w.address or w)
                       if appliedTeams[addr] then return end
                       appliedTeams[addr] = true
