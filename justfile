@@ -102,6 +102,85 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
 
+# ── Servarr sync (compose stacks) ─────────────────────────
+# Push local servarr/ working tree to a host's /home/erik/servarr/ so that
+# unpushed changes can be deployed without going through GitHub. The local
+# `servarr` symlink in this repo points at ~/Documents/erik/servarr.
+# Use these when you want to test compose changes before pushing main.
+
+sync-servarr target:
+    just _sync-servarr {{target}}
+
+_sync-servarr-default:
+    just _sync-servarr {{profile}}
+
+_sync-servarr target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+        kepler)    IP=192.168.10.230 ;;
+        discovery) IP=192.168.10.210 ;;
+        orion)     IP=192.168.10.220 ;;
+        *) echo "Unknown target: {{target}}"; exit 1 ;;
+    esac
+    SRC="$(readlink -f servarr)"
+    echo ":: Syncing $SRC/machines/{{target}} → erik@$IP:/home/erik/servarr/machines/{{target}}/"
+    ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}'
+    rsync -azv \
+        --no-perms --no-owner --no-group --no-times \
+        --exclude '.env' --exclude '.env.sops' \
+        --exclude '__pycache__' --exclude '.DS_Store' \
+        -e "ssh -p 2222" \
+        "$SRC/machines/{{target}}/" \
+        "erik@$IP:/home/erik/servarr/machines/{{target}}/"
+
+# Sync a single host stack file + its config dir (faster, doesn't touch others):
+#   just sync-stack kepler ai-serving
+sync-stack target stack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+        kepler)    IP=192.168.10.230 ;;
+        discovery) IP=192.168.10.210 ;;
+        orion)     IP=192.168.10.220 ;;
+        *) echo "Unknown target: {{target}}"; exit 1 ;;
+    esac
+    SRC="$(readlink -f servarr)"
+    echo ":: Syncing {{stack}} files → erik@$IP:/home/erik/servarr/machines/{{target}}/"
+    ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}/config/{{stack}}'
+    rsync -azv --no-perms --no-owner --no-group --no-times -e "ssh -p 2222" \
+        "$SRC/machines/{{target}}/{{stack}}.yml" \
+        "erik@$IP:/home/erik/servarr/machines/{{target}}/{{stack}}.yml" || true
+    if [ -d "$SRC/machines/{{target}}/config/{{stack}}" ]; then
+        rsync -azv --no-perms --no-owner --no-group --no-times -e "ssh -p 2222" \
+            "$SRC/machines/{{target}}/config/{{stack}}/" \
+            "erik@$IP:/home/erik/servarr/machines/{{target}}/config/{{stack}}/"
+    fi
+
+# After syncing, kick the compose stack on the remote host:
+#   just kick-stack kepler ai-serving
+kick-stack target stack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+        kepler)    IP=192.168.10.230 ;;
+        discovery) IP=192.168.10.210 ;;
+        orion)     IP=192.168.10.220 ;;
+        *) echo "Unknown target: {{target}}"; exit 1 ;;
+    esac
+    ssh -p 2222 erik@$IP "systemctl --user start podman-compose-{{stack}}.service"
+    ssh -p 2222 erik@$IP "systemctl --user status podman-compose-{{stack}}.service --no-pager -n10"
+
+# Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
+ai-kepler-health:
+    @just verify-port kepler 192.168.10.230 7997
+    @just verify-port kepler 192.168.10.230 8001
+    @just verify-port kepler 192.168.10.230 9000
+    @just verify-port kepler 192.168.10.230 10200
+
+verify-port target ip port:
+    @nc -z -w 2 {{ip}} {{port}} && echo ":: {{target}}:{{port}} ✅" || echo ":: {{target}}:{{port}} ❌"
+
 # ── Provisioning (first install) ──────────────────────────
 
 nixos-anywhere target ip luks-pass="" user="nixos":

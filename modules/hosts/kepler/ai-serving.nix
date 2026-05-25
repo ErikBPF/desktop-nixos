@@ -8,10 +8,10 @@
     # Wyoming protocol is unauthenticated and must not leave the network.
     #   7997  infinity embeddings  (OpenAI /v1/embeddings)
     #   8001  f5-tts               (OpenAI /v1/audio/speech)
-    #   9000  faster-whisper       (OpenAI /v1/audio/transcriptions)
+    #   9000  faster-whisper       (OpenAI /v1/audio/transcriptions; HA STT here too)
     #  10200  wyoming-piper        (HA fallback TTS)
-    #  10300  wyoming-faster-whisper (HA STT)
-    networking.firewall.allowedTCPPorts = [7997 8001 9000 10200 10300];
+    # 10300 (wyoming-whisper) intentionally removed — see ai-serving.yml.
+    networking.firewall.allowedTCPPorts = [7997 8001 9000 10200];
 
     # Model cache lives on fast-pool (ZFS RAIDZ1, ~1.4 TB). Survives
     # docker compose down/up and image rebuilds. Pre-create with the
