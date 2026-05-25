@@ -30,15 +30,35 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
                       └────────────────────────────────────────┘
 ```
 
+## Topology — actual deployed shape
+
+The first iteration of this stack had five containers including a Wyoming
+faster-whisper service for HA. After hitting an unfixable CT2 model
+incompatibility in `wyoming-faster-whisper 3.1.0` (it forces a stale
+`dropbox-dash/faster-whisper-large-v3-turbo` model that doesn't load on
+driver 595), the Wyoming variant was dropped. HA reaches STT via the
+OpenAI route at `kepler:9000` instead — `OpenAI Conversation` /
+`OpenAI STT` integration in HAOS supports a custom base URL since 2025.7.
+
+Final container set:
+
+| Service | Image | Port | Health |
+|---------|-------|------|--------|
+| `faster-whisper-openai` | `kepler/faster-whisper:cuda13` (locally built) | 9000 | `/health` |
+| `infinity-embeddings` | `michaelf34/infinity:latest` | 7997 | `/health` |
+| `f5-tts-server` | `kepler/f5-tts-server:pt-br` (locally built) | 8001 | `/health` |
+| `piper-wyoming` | `rhasspy/wyoming-piper:latest` | 10200 | `nc localhost 10200` |
+
 ## Components
 
 | File | Purpose |
 |------|---------|
-| `modules/hosts/kepler/containers.nix` | Force rootful Docker, register NVIDIA runtime |
+| `modules/hosts/kepler/containers.nix` | Match fleet podman conventions, expose docker-compose |
 | `modules/hosts/kepler/compose.nix` | Declares the `ai-serving` stack for `homelab.compose` |
 | `modules/hosts/kepler/ai-serving.nix` | Firewall ports, `/fast/ai-models` tmpfiles |
-| `servarr/machines/kepler/ai-serving.yml` | Compose definition for the 5 services |
-| `servarr/machines/kepler/config/f5-tts/` | Dockerfile + FastAPI shim for F5-TTS PT-BR |
+| `servarr/machines/kepler/ai-serving.yml` | Compose definition for the 4 services |
+| `servarr/machines/kepler/config/whisper/` | Dockerfile + FastAPI shim — required because upstream lscr.io/linuxserver/faster-whisper ships a CT2 runtime that rejects NVIDIA driver 595 |
+| `servarr/machines/kepler/config/f5-tts/` | Dockerfile + FastAPI shim for F5-TTS PT-BR voice cloning |
 | `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Adds `whisper-pt-br`, `tts-pt-br-f5`, `embeddings-qwen3`, `vision-qwen2vl` routes |
 | `modules/hosts/discovery/hermes-agent.nix` | Wires the new routes into hermes auxiliary models |
 | `machines/kepler/scripts/ai-smoke.sh` | End-to-end smoke test |
@@ -47,11 +67,11 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
 
 | Service | Model | License | VRAM | Reasoning |
 |---------|-------|---------|------|-----------|
-| STT (Wyoming + OpenAI) | `large-v3-turbo` via `faster-whisper` (CT2) | MIT | ~1.5 GB | 216× real-time at WER ~7.75% on PT-BR; can swap to `freds0/distil-whisper-large-v3-ptbr` once CT2-converted (WER 8.22%, ~6× faster) |
-| TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) | CC BY-NC 4.0 (base CC BY-NC) | ~3.0 GB | ~10 s reference audio; non-autoregressive; switch to `mrfakename/OpenF5-TTS-Base` for commercial use |
+| STT (OpenAI) | `large-v3-turbo` via `faster-whisper` (CT2) | MIT | ~1.5 GB | 216× real-time at WER ~7.75% on PT-BR; future swap → `freds0/distil-whisper-large-v3-ptbr` once CT2-converted (WER 8.22%, ~6× faster) |
+| TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) — model at `pt-br/model_last.pt`, vocab from `SWivid/F5-TTS` at `F5TTS_Base/vocab.txt` (firstpixel reuses the upstream char vocab) | CC BY-NC 4.0 | ~3.0 GB | ~10 s reference audio; non-autoregressive; switch `F5_MODEL_REPO=mrfakename/OpenF5-TTS-Base` for an Apache-2.0 base |
 | TTS — HA fallback | Piper `pt_BR-faber-medium` | MIT | CPU | Low-latency announcements; no GPU |
-| Embeddings | `Qwen/Qwen3-Embedding-0.6B` via Infinity | Apache 2.0 | ~1.3 GB | 32k context, instruction-aware, multilingual; supersedes the older `qwen-embed` on Orion |
-| OCR / Vision | `Qwen2.5-VL` on Orion llama-server (no kepler footprint) | Apache 2.0 | — | OCR-as-VLM: hermes-agent calls `vision-qwen2vl`; saves the 2 GB this would cost on Kepler |
+| Embeddings | `BAAI/bge-m3` via Infinity (1024-dim, multilingual, 8k context) | MIT | ~1.3 GB | Replaces planned `Qwen/Qwen3-Embedding-0.6B` — current `michaelf34/infinity:latest` (9 months old) bundles transformers < 4.51 and cannot load qwen3 architecture. LiteLLM route name kept as `embeddings-qwen3` for downstream stability. |
+| OCR / Vision | `Qwen2.5-VL` on Orion llama-server (no Kepler footprint) | Apache 2.0 | — | OCR-as-VLM: hermes-agent calls `vision-qwen2vl`; saves the 2 GB it would cost on Kepler |
 
 ## Deploy
 
@@ -160,6 +180,54 @@ The custom F5-TTS endpoint is not Wyoming — HA can call it via a
 `rest_command:` or by routing through LiteLLM's `/v1/audio/speech`.
 
 ## Troubleshooting
+
+### `ctranslate2.get_cuda_device_count() == 0` (GPU not visible to containers)
+
+The compose file passes the GPU via CDI:
+
+```yaml
+devices:
+  - nvidia.com/gpu=all
+security_opt:
+  - label=disable
+```
+
+`runtime: nvidia` in compose is silently ignored by Podman docker-compat —
+containers come up under the `oci` runtime and `nvidia-smi` is absent
+inside them. If a service logs `RuntimeError: CUDA failed with error CUDA
+driver version is insufficient for CUDA runtime version`, the most common
+cause is *no GPU at all* (not a driver mismatch). Verify:
+
+```sh
+docker inspect <container> --format '{{.HostConfig.Runtime}}'
+docker exec <container> python -c "import ctranslate2; print(ctranslate2.get_cuda_device_count())"
+```
+
+If the runtime is `oci` and device count is `0`, the CDI device block was
+dropped — re-sync `ai-serving.yml` and recreate the service.
+
+### `wyoming-faster-whisper` cannot load `dropbox-dash/faster-whisper-large-v3-turbo`
+
+Same error message as the CDI issue above, but caused by a stale CT2 model
+spec. This Wyoming variant was removed from the stack — Home Assistant now
+uses the OpenAI `/v1/audio/transcriptions` route via LiteLLM. If you bring
+the Wyoming server back, supply `--model Systran/faster-whisper-large-v3-turbo`
+or a pre-converted local path instead of the wyoming default.
+
+### F5-TTS build fails with `torchvision::nms does not exist`
+
+`pip install f5-tts` will, if unconstrained, upgrade `torch` to 2.12 and
+leave `torchaudio`/`torchvision` on 2.4 — at which point the C extensions
+fail ABI checks. The Dockerfile uses a constraints file pinning the entire
+torch trio to 2.4 and `transformers<4.50`. If you need newer transformers
+in the future, upgrade torchvision in lockstep.
+
+### F5-TTS exits with `Entry Not Found for url: .../vocab.txt`
+
+`firstpixel/F5-TTS-pt-br` does not ship a vocab file — it reuses the upstream
+char vocab. The server downloads vocab from `SWivid/F5-TTS` at
+`F5TTS_Base/vocab.txt` (`F5_VOCAB_REPO` / `F5_VOCAB_FILE` env vars).
+If you swap to a different fine-tune, point these at its vocab.
 
 ### `f5-tts-server` exits with `CUDA out of memory`
 
