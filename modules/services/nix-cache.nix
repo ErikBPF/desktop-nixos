@@ -35,8 +35,9 @@
       path = [pkgs.git pkgs.nix];
       script = ''
         set -euo pipefail
-        echo ":: Pulling latest from main..."
-        git pull --ff-only origin main
+        echo ":: Syncing repo to origin/main..."
+        git fetch --prune origin
+        git reset --hard origin/main
 
         echo ":: Building host closures..."
         nix build .#nixosConfigurations.orion.config.system.build.toplevel --no-link
