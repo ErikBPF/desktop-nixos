@@ -56,10 +56,10 @@
       secrets.openaiApiKeyFile = apiKeyPath;
 
       # Fast one-shot alias — bypasses the local hermes agent init (~5s
-       # saving). Goes straight to Discovery's API server.
+      # saving). Goes straight to Discovery's API server.
       # Usage: hq "what's the weather"
       # Falls back to `hermes -z` only when a session / tools / memory are
-       # needed.
+      # needed.
       extraEnvironment = {
         # Route model calls through Discovery's hermes API gateway.
         # Chain: laptop hermes CLI (local) → Discovery API → LiteLLM → Orion.
