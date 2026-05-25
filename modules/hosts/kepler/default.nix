@@ -20,6 +20,9 @@ in {
       m.nixos.kepler-networking
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas
+      m.nixos.kepler-containers
+      m.nixos.kepler-compose
+      m.nixos.kepler-ai-serving
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.power-desktop

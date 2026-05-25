@@ -60,11 +60,13 @@
           max_context = 196608;
         };
 
-        # Auxiliary models (vision / compression / session_search) → LiteLLM
+        # Auxiliary models — all routed through LiteLLM. Audio (STT/TTS) and
+        # the new embeddings model land on Kepler's ai-serving stack; vision
+        # is routed to Qwen2.5-VL on Orion once wired (see litellm_config.yaml).
         auxiliary = {
           vision = {
             provider = "custom";
-            model = "qwen-chat";
+            model = "vision-qwen2vl";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
@@ -77,6 +79,24 @@
           session_search = {
             provider = "custom";
             model = "qwen-chat";
+            base_url = litellmUrl;
+            api_key = "\${OPENAI_API_KEY}";
+          };
+          transcription = {
+            provider = "custom";
+            model = "whisper-pt-br";
+            base_url = litellmUrl;
+            api_key = "\${OPENAI_API_KEY}";
+          };
+          tts = {
+            provider = "custom";
+            model = "tts-pt-br-f5";
+            base_url = litellmUrl;
+            api_key = "\${OPENAI_API_KEY}";
+          };
+          embeddings = {
+            provider = "custom";
+            model = "embeddings-qwen3";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
