@@ -89,8 +89,6 @@
           terminal = {_var = "ghostty";};
           fileManager = {_var = "nautilus --new-window";};
           browser = {_var = "brave";};
-          appliedTeams = {_var = mkLuaInline "{}";};
-
           monitor = lib.mkDefault [
             {
               output = "";
@@ -340,37 +338,6 @@
                 '')
               ];
             }
-            {
-              _args = [
-                "window.title"
-                (mkLuaInline ''
-                  function(w)
-                    if w == nil or w.title == nil then return end
-                    if w.class == "teams-for-linux" then
-                      local addr = tostring(w.address or w)
-                      if appliedTeams[addr] then return end
-                      appliedTeams[addr] = true
-                      hl.dispatch(hl.dsp.window.float({ window = w, action = "enable" }))
-                      hl.dispatch(hl.dsp.window.move({ window = w, workspace = 10 }))
-                      hl.dispatch(hl.dsp.window.resize({ window = w, x = 1056, y = 585 }))
-                      hl.dispatch(hl.dsp.window.move({ window = w, x = 12, y = 47 }))
-                    end
-                  end
-                '')
-              ];
-            }
-            {
-              _args = [
-                "window.close"
-                (mkLuaInline ''
-                  function(w)
-                    if w == nil then return end
-                    local addr = tostring(w.address or w)
-                    appliedTeams[addr] = nil
-                  end
-                '')
-              ];
-            }
           ];
 
           bind =
@@ -596,6 +563,22 @@
             {
               match.class = "^(discord)$";
               workspace = "10 silent";
+            }
+            {
+              match.class = "^(teams-for-linux)$";
+              float = true;
+            }
+            {
+              match.class = "^(teams-for-linux)$";
+              workspace = "10 silent";
+            }
+            {
+              match.class = "^(teams-for-linux)$";
+              size = "1056 585";
+            }
+            {
+              match.class = "^(teams-for-linux)$";
+              move = "12 47";
             }
             {
               match.title = "^(WhatsApp Electron.*)$";
