@@ -24,6 +24,7 @@ in {
       ];
       extraGroups = [
         "audio"
+        "dialout"
         "input"
         "networkmanager"
         "podman"
