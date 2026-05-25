@@ -17,6 +17,7 @@ in {
       m.nixos.dev-javascript
       m.nixos.dev-python
       m.nixos.dev-paths
+      m.nixos.dev-nix-ld
       m.nixos.firefox-policies
     ];
   };
