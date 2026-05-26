@@ -89,21 +89,14 @@
             api_key = "\${OPENAI_API_KEY}";
           };
           tts = {
-            # Canonical PT-BR TTS — Piper, hit directly on kepler:8002.
-            #
-            # We intentionally bypass LiteLLM here: its proxy's `audio_speech`
-            # route calls `Router.aspeech(**data)` straight from the request
-            # body, and `Router.aspeech()` has `voice` as a required
-            # positional argument. Callers (including hermes-agent) that
-            # omit `voice` get a 500 before any pre_call_hook can fix it.
-            # piper-openai's shim defaults the voice when missing, so the
-            # direct hit is the path of least friction. Cost tracking via
-            # LiteLLM is sacrificed for this single route until upstream
-            # accepts a request-body default.
+            # Canonical PT-BR TTS — Piper, routed through LiteLLM. The proxy
+            # monkey-patches Router.aspeech in sitecustomize.py so requests
+            # without `voice` no longer 500. See
+            # servarr/machines/discovery/config/litellm/sitecustomize.py.
             provider = "custom";
-            model = "piper";
-            base_url = "http://kepler:8002/v1";
-            api_key = "sk-no-key-required";
+            model = "tts-pt-br";
+            base_url = litellmUrl;
+            api_key = "\${OPENAI_API_KEY}";
           };
           embeddings = {
             provider = "custom";
