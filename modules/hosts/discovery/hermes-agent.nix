@@ -89,14 +89,21 @@
             api_key = "\${OPENAI_API_KEY}";
           };
           tts = {
-            # Canonical PT-BR TTS — Piper. F5-TTS PT-BR fine-tunes available
-            # today clone voice timbre but do not follow input text reliably;
-            # see docs/kepler-ai-serving.md. Voice cloning is still reachable
-            # via the `tts-pt-br-f5-experimental` LiteLLM route.
+            # Canonical PT-BR TTS — Piper, hit directly on kepler:8002.
+            #
+            # We intentionally bypass LiteLLM here: its proxy's `audio_speech`
+            # route calls `Router.aspeech(**data)` straight from the request
+            # body, and `Router.aspeech()` has `voice` as a required
+            # positional argument. Callers (including hermes-agent) that
+            # omit `voice` get a 500 before any pre_call_hook can fix it.
+            # piper-openai's shim defaults the voice when missing, so the
+            # direct hit is the path of least friction. Cost tracking via
+            # LiteLLM is sacrificed for this single route until upstream
+            # accepts a request-body default.
             provider = "custom";
-            model = "tts-pt-br";
-            base_url = litellmUrl;
-            api_key = "\${OPENAI_API_KEY}";
+            model = "piper";
+            base_url = "http://kepler:8002/v1";
+            api_key = "sk-no-key-required";
           };
           embeddings = {
             provider = "custom";
