@@ -89,8 +89,12 @@
             api_key = "\${OPENAI_API_KEY}";
           };
           tts = {
+            # Canonical PT-BR TTS — Piper. F5-TTS PT-BR fine-tunes available
+            # today clone voice timbre but do not follow input text reliably;
+            # see docs/kepler-ai-serving.md. Voice cloning is still reachable
+            # via the `tts-pt-br-f5-experimental` LiteLLM route.
             provider = "custom";
-            model = "tts-pt-br-f5";
+            model = "tts-pt-br";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
