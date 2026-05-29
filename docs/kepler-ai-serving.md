@@ -7,47 +7,58 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
 ## Topology
 
 ```
-                      ┌────────────────────────────────────────┐
-                      │ Discovery (24/7 infra)                 │
-   external clients ──┤   SWAG (TLS)                           │
-   hermes-agent ──────┤   LiteLLM ─── auxiliary.transcription ─┼──► kepler:9000   (faster-whisper)
-                      │            ─── auxiliary.tts ──────────┼──► kepler:8001   (F5-TTS)
-                      │            ─── auxiliary.embeddings ───┼──► kepler:7997   (Infinity)
-                      │   HAOS VM (Wyoming) ───────────────────┼──► kepler:10200  (Piper TTS)
-                      │                       ─────────────────┼──► kepler:10300  (Whisper STT)
-                      └────────────────────────────────────────┘
+                      ┌────────────────────────────────────────────────────────┐
+                      │ Discovery (24/7 infra)                                 │
+   external clients ──┤   SWAG (TLS, *.homelab.pastelariadev.com)              │
+   hermes-agent ──────┤   LiteLLM gateway ──── whisper-pt-br ──────┼──► kepler:9000   (faster-whisper, pt-BR)
+   HAOS VM ──────────-┤   model_list:          tts-pt-br ──────────┼──► kepler:8002   (edge-tts, Thalita)
+   OpenWebUI / n8n ───┤                        tts-pt-br-piper ────┼──► kepler:8003   (piper-openai, faber)
+                      │                        embeddings-qwen3 ───┼──► kepler:7997   (qwen3-embed, 1024-dim)
+                      │                        vision-qwen2vl ─────┼──► kepler:8082   (Qwen2.5-VL-7B)
+                      │                        qwen-chat ──────────┼──► orion:8080    (Qwen3.6-35B-A3B)
+                      │   piper-wyoming (legacy direct) ───────────┼──► kepler:10200  (Piper TTS, Wyoming TCP)
+                      └────────────────────────────────────────────────────────┘
                                           ▲
                                           │ LAN / Tailscale
-                      ┌───────────────────┴────────────────────┐
-                      │ Kepler (NixOS, RTX 3070 8 GB)          │
-                      │   docker compose ai-serving.yml        │
-                      │     • faster-whisper-wyoming  10300    │
-                      │     • faster-whisper-openai    9000    │
-                      │     • piper-wyoming           10200    │
-                      │     • f5-tts-server            8001    │
-                      │     • infinity-embeddings      7997    │
-                      │   models cached at /fast/ai-models     │
-                      └────────────────────────────────────────┘
+                      ┌───────────────────┴────────────────────────────────────┐
+                      │ Kepler (NixOS, RTX 3070 8 GB)                          │
+                      │   podman-compose ai-serving.yml                        │
+                      │     • faster-whisper-openai    9000   STT (large-v3-turbo)
+                      │     • edge-tts-openai          8002   TTS primary (Thalita +25%)
+                      │     • piper-openai             8003   TTS offline fallback
+                      │     • piper-wyoming           10200   TTS (Wyoming, legacy direct)
+                      │     • f5-tts-server            8001   TTS voice cloning (not in LiteLLM yet)
+                      │     • qwen3-embed              7997   embeddings (Qwen3-Embedding-0.6B)
+                      │     • qwen-vl                  8082   vision (Qwen2.5-VL-7B)
+                      │   models cached at /fast/ai-models                     │
+                      └────────────────────────────────────────────────────────┘
 ```
 
-## Topology — actual deployed shape
+**Invariant**: every consumer (hermes, HA, OpenWebUI, n8n, anything new) speaks
+OpenAI to the LiteLLM gateway. There are no sanctioned direct-to-kepler paths
+*except* the legacy Wyoming piper at `:10200`, which exists for HA announcement
+use cases that predate the Phase 1 voice-assistant rollout and is being phased
+out as Phase 1 lands. Adding a new route → edit `model_list` in
+`servarr/machines/discovery/config/litellm/litellm_config.yaml`; never point a
+new consumer at a Kepler port directly.
 
-The first iteration of this stack had five containers including a Wyoming
-faster-whisper service for HA. After hitting an unfixable CT2 model
-incompatibility in `wyoming-faster-whisper 3.1.0` (it forces a stale
-`dropbox-dash/faster-whisper-large-v3-turbo` model that doesn't load on
-driver 595), the Wyoming variant was dropped. HA reaches STT via the
-OpenAI route at `kepler:9000` instead — `OpenAI Conversation` /
-`OpenAI STT` integration in HAOS supports a custom base URL since 2025.7.
+## History — services that came and went
 
-Final container set:
+- **`faster-whisper-wyoming`** (port 10300) — removed 2026-05. `wyoming-faster-whisper 3.1.0` forces a stale `dropbox-dash/faster-whisper-large-v3-turbo` model that doesn't load on driver 595+. HA now reaches STT through the LiteLLM `whisper-pt-br` route (which lands at `:9000`, the OpenAI-shim variant), so no Wyoming STT is needed.
+- **`infinity-embeddings`** (port 7997, `michaelf34/infinity:latest`, BAAI/bge-m3) — replaced 2026-05 by the llama.cpp `qwen3-embed` service on the same port. Same 1024-dim, same multilingual, higher MTEB, 32K context, Matryoshka. LiteLLM route name kept `embeddings-qwen3` either way; consumers don't move.
+- **Qwen2.5-VL-3B** (vision) — replaced 2026-05 by Qwen2.5-VL-7B-Instruct (Q4_K_M + f16 mmproj, mmproj kept on CPU via `--no-mmproj-offload`). Same `vision-qwen2vl` route; +5.5 MMMU, +75 OCRBench. See commit history of `ai-serving.yml` for the VRAM-tuning rationale.
 
-| Service | Image | Port | Health |
-|---------|-------|------|--------|
-| `faster-whisper-openai` | `kepler/faster-whisper:cuda13` (locally built) | 9000 | `/health` |
-| `infinity-embeddings` | `michaelf34/infinity:latest` | 7997 | `/health` |
-| `f5-tts-server` | `kepler/f5-tts-server:pt-br` (locally built) | 8001 | `/health` |
-| `piper-wyoming` | `rhasspy/wyoming-piper:latest` | 10200 | `nc localhost 10200` |
+## Current container set
+
+| Service | Image | Port | Health | LiteLLM route(s) |
+|---------|-------|------|--------|------------------|
+| `faster-whisper-openai` | `kepler/faster-whisper:cuda13` (locally built) | 9000 | `/health` | `whisper-pt-br` |
+| `edge-tts-openai` | `kepler/edge-tts-openai:latest` (locally built) | 8002 | `/health` | `tts-pt-br` |
+| `piper-openai` | `kepler/piper-openai:latest` (locally built) | 8003 | `/health` | `tts-pt-br-piper` |
+| `f5-tts-server` | `kepler/f5-tts-server:pt-br` (locally built) | 8001 | `/health` | none yet (Phase 4 voice-clone candidate) |
+| `qwen3-embed` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 7997 | `/health` | `embeddings-qwen3` |
+| `qwen-vl` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 8082 | `/health` | `vision-qwen2vl` |
+| `piper-wyoming` | `rhasspy/wyoming-piper:latest` | 10200 | `nc localhost 10200` | none (legacy direct, Wyoming protocol) |
 
 ## Components
 
@@ -59,7 +70,7 @@ Final container set:
 | `servarr/machines/kepler/ai-serving.yml` | Compose definition for the 4 services |
 | `servarr/machines/kepler/config/whisper/` | Dockerfile + FastAPI shim — required because upstream lscr.io/linuxserver/faster-whisper ships a CT2 runtime that rejects NVIDIA driver 595 |
 | `servarr/machines/kepler/config/f5-tts/` | Dockerfile + FastAPI shim for F5-TTS PT-BR voice cloning |
-| `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Adds `whisper-pt-br`, `tts-pt-br-f5`, `embeddings-qwen3`, `vision-qwen2vl` routes |
+| `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Routes: `whisper-pt-br`, `tts-pt-br` (edge-tts), `tts-pt-br-piper`, `embeddings-qwen3`, `vision-qwen2vl`, `qwen-chat` |
 | `modules/hosts/discovery/hermes-agent.nix` | Wires the new routes into hermes auxiliary models |
 | `machines/kepler/scripts/ai-smoke.sh` | End-to-end smoke test |
 
@@ -67,11 +78,12 @@ Final container set:
 
 | Service | Model | License | VRAM | Reasoning |
 |---------|-------|---------|------|-----------|
-| STT (OpenAI) | `large-v3-turbo` via `faster-whisper` (CT2) | MIT | ~1.5 GB | 216× real-time at WER ~7.75% on PT-BR; future swap → `freds0/distil-whisper-large-v3-ptbr` once CT2-converted (WER 8.22%, ~6× faster) |
-| TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) — model at `pt-br/model_last.pt`, vocab from `SWivid/F5-TTS` at `F5TTS_Base/vocab.txt` (firstpixel reuses the upstream char vocab) | CC BY-NC 4.0 | ~3.0 GB | ~10 s reference audio; non-autoregressive; switch `F5_MODEL_REPO=mrfakename/OpenF5-TTS-Base` for an Apache-2.0 base |
-| TTS — HA fallback | Piper `pt_BR-faber-medium` | MIT | CPU | Low-latency announcements; no GPU |
-| Embeddings | `BAAI/bge-m3` via Infinity (1024-dim, multilingual, 8k context) | MIT | ~1.3 GB | Replaces planned `Qwen/Qwen3-Embedding-0.6B` — current `michaelf34/infinity:latest` (9 months old) bundles transformers < 4.51 and cannot load qwen3 architecture. LiteLLM route name kept as `embeddings-qwen3` for downstream stability. |
-| OCR / Vision | `Qwen2.5-VL` on Orion llama-server (no Kepler footprint) | Apache 2.0 | — | OCR-as-VLM: hermes-agent calls `vision-qwen2vl`; saves the 2 GB it would cost on Kepler |
+| STT | `large-v3-turbo` via `faster-whisper` (CT2) | MIT | ~1.5 GB | 216× real-time at WER ~7.75% on PT-BR; LiteLLM route `whisper-pt-br`. Future swap → `freds0/distil-whisper-large-v3-ptbr` once CT2-converted (WER 8.22%, ~6× faster). |
+| TTS — primary | Microsoft Edge TTS `pt-BR-ThalitaMultilingualNeural` at `+25%` rate | n/a (cloud, free tier) | CPU | Natural-sounding PT-BR neural voice; route `tts-pt-br`. Requires internet egress. |
+| TTS — offline fallback | Piper `pt_BR-faber-medium` via OpenAI shim | MIT | CPU | Route `tts-pt-br-piper`. Local, no internet; lower quality. Wyoming variant at `:10200` exists for legacy HA direct hookups but is being phased out. |
+| TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) | CC BY-NC 4.0 | ~3.0 GB | Not yet routed through LiteLLM — Phase 4 voice-clone synergy. Switch `F5_MODEL_REPO=mrfakename/OpenF5-TTS-Base` for an Apache-2.0 base. |
+| Embeddings | `Qwen/Qwen3-Embedding-0.6B` via llama.cpp `server-cuda` | Apache 2.0 | ~0.4 GB | Route `embeddings-qwen3`. 1024-dim, multilingual, 32K context, Matryoshka (MRL) up to 1024. Replaced earlier `BAAI/bge-m3 via Infinity` 2026-05 — higher MTEB, 4× longer context, ~18 ms single-call latency vs 30 ms on the same hardware. |
+| OCR / Vision | `Qwen2.5-VL-7B-Instruct` via llama.cpp `server-cuda` + mmproj-f16 | Apache 2.0 | ~4.5 GB (auto-fit, layer-spill to CPU; mmproj stays on CPU via `--no-mmproj-offload`) | Route `vision-qwen2vl`. OCR-as-VLM for hermes-agent + planned HA Phase 4 camera-describe. Upgraded from 3B in 2026-05: +5.5 MMMU, +75 OCRBench, +1.8 DocVQA. KV cache must stay f16 — `-ctk q4_0` measurably degrades vision attention output. |
 
 ## Deploy
 
@@ -83,7 +95,7 @@ just switch-kepler        # nixos-rebuild switch on 192.168.10.230:2222
 
 This:
 - enables rootful Docker with the NVIDIA runtime,
-- opens firewall ports 7997, 8001, 9000, 10200, 10300,
+- opens firewall ports 7997, 8001, 8002, 8003, 8082, 9000, 10200 (10300 was retired with the Wyoming whisper service),
 - pre-creates `/fast/ai-models/{whisper,f5-tts,embeddings,refs,piper}`,
 - enables the orchestration module so the compose stack is started on boot
   by the `podman-compose-ai-serving` user service (after `servarr-pull`
@@ -164,20 +176,42 @@ just ai-smoke             # full E2E (embedding + ASR + TTS + LiteLLM round-trip
 
 ## Home Assistant wiring
 
-After the stack is healthy, in the HAOS VM (192.168.10.115):
+The current ("Phase 1") design routes HA's entire Assist pipeline through
+LiteLLM — see the proposal at
+`docs/proposals/2026-05-27-home-assistant-voice-assistant.md` and the
+runbook at `<home-assistant-config>/docs/voice-assistant.md`.
 
-1. **Settings → Devices & services → Add Integration → Wyoming Protocol**
-   - Host `kepler`, port `10300` → Faster-Whisper STT
-   - Host `kepler`, port `10200` → Piper TTS
-2. **Settings → Voice assistants → Add assistant**
-   - STT: `Wyoming (faster-whisper)` (PT-BR auto-detected by `WHISPER_LANG=pt`)
-   - TTS: `Wyoming (piper)` for short announcements, or call the F5-TTS API
-     via a REST shell command for higher-quality responses.
-   - Conversation agent: **OpenAI Conversation** pointing at
-     `https://litellm.homelab.pastelariadev.com/v1` with model `qwen-chat`.
+**Earlier docs and earlier iterations of this file** suggested wiring HA's
+Wyoming integration directly at `kepler:10300` (STT) and `kepler:10200`
+(TTS), with the official **OpenAI Conversation** integration pointing at
+the LiteLLM `base_url`. Both are now incorrect:
 
-The custom F5-TTS endpoint is not Wyoming — HA can call it via a
-`rest_command:` or by routing through LiteLLM's `/v1/audio/speech`.
+- The Wyoming faster-whisper service at `:10300` was retired (driver 595+ /
+  CT2 incompatibility). HA reaches STT through LiteLLM's `whisper-pt-br`
+  route (which lands at `:9000`).
+- The official **OpenAI Conversation** integration hard-locks `base_url`
+  to `api.openai.com` and can *not* talk to LiteLLM — never could. The
+  Phase 1 design uses three vendored HACS components in
+  `home-assistant-config/custom_components/`:
+    - `openai_stt` (einToast, vendored with a one-line `vol.In` → `cv.string`
+      patch so `whisper-pt-br` is an accepted model name) → STT.
+    - `openai_tts` (sfortis) → TTS (model `tts-pt-br`, voice
+      `pt-BR-ThalitaMultilingualNeural` sent explicitly, with the LiteLLM
+      `sitecustomize.py` voice-default patch kept as belt-and-braces).
+    - `custom_conversation` (michelle-avery, Phase 2) → conversation agent
+      hitting LiteLLM `qwen-chat`, with HA Assist LLM API exposed for
+      device control and "prefer handling commands locally" ON so device
+      intents bypass the LLM when Orion is offline.
+
+The Wyoming piper at `:10200` is still running as a legacy direct path for
+HA *announcements* (broadcast TTS that pre-dates the LiteLLM-only design),
+but is on track to retire as soon as the Phase 1 voice pipeline is stable.
+No new HA integration should target it.
+
+F5-TTS at `:8001` is intentionally **not** in `model_list` yet — it's the
+Phase 4 voice-clone candidate. Adding it = one `model_name: tts-pt-br-f5`
+entry in `litellm_config.yaml`; HA then picks it up via the same `openai_tts`
+component by switching the configured model.
 
 ## Troubleshooting
 
