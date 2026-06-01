@@ -105,7 +105,9 @@ verify target ip port="2222" user="erik":
 # ── Servarr sync (compose stacks) ─────────────────────────
 # Push local servarr/ working tree to a host's /home/erik/servarr/ so that
 # unpushed changes can be deployed without going through GitHub. The local
-# `servarr` symlink in this repo points at ~/Documents/erik/servarr.
+# symlink at `references/repos/servarr` points at ~/Documents/erik/servarr
+# (alongside `references/repos/hermes-flake` and
+# `references/repos/home-assistant-config`).
 # Use these when you want to test compose changes before pushing main.
 
 sync-servarr target:
@@ -123,7 +125,7 @@ _sync-servarr target:
         orion)     IP=192.168.10.220 ;;
         *) echo "Unknown target: {{target}}"; exit 1 ;;
     esac
-    SRC="$(readlink -f servarr)"
+    SRC="$(readlink -f references/repos/servarr)"
     echo ":: Syncing $SRC/machines/{{target}} → erik@$IP:/home/erik/servarr/machines/{{target}}/"
     ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}'
     rsync -azv \
@@ -145,7 +147,7 @@ sync-stack target stack:
         orion)     IP=192.168.10.220 ;;
         *) echo "Unknown target: {{target}}"; exit 1 ;;
     esac
-    SRC="$(readlink -f servarr)"
+    SRC="$(readlink -f references/repos/servarr)"
     echo ":: Syncing {{stack}} files → erik@$IP:/home/erik/servarr/machines/{{target}}/"
     ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}/config/{{stack}}'
     rsync -azv --no-perms --no-owner --no-group --no-times -e "ssh -p 2222" \

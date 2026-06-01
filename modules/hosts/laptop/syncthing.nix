@@ -3,7 +3,14 @@
 in {
   flake.modules.nixos.laptop-syncthing = {config, ...}: let
     homeDir = "/home/erik";
+    stignore = ../../common/stignore;
   in {
+    systemd.tmpfiles.rules = [
+      "L+ ${homeDir}/Documents/.stignore - - - - ${stignore}"
+      "L+ ${homeDir}/Downloads/.stignore - - - - ${stignore}"
+      "L+ ${homeDir}/.kube/.stignore     - - - - ${stignore}"
+    ];
+
     services.syncthing = {
       enable = true;
       guiAddress = "127.0.0.1:8384";

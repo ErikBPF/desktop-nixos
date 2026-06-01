@@ -1,7 +1,15 @@
 {config, ...}: let
   deviceIDs = config.syncthingDeviceIDs;
 in {
-  flake.modules.nixos.discovery-syncthing = _: {
+  flake.modules.nixos.discovery-syncthing = _: let
+    stignore = ../../common/stignore;
+  in {
+    systemd.tmpfiles.rules = [
+      "L+ /home/erik/backup/Documents/.stignore - - - - ${stignore}"
+      "L+ /home/erik/backup/Downloads/.stignore - - - - ${stignore}"
+      "L+ /home/erik/backup/kube/.stignore      - - - - ${stignore}"
+    ];
+
     services.syncthing = {
       enable = true;
       guiAddress = "127.0.0.1:8384";
