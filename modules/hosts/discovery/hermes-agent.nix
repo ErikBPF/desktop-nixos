@@ -18,6 +18,29 @@
       # inputs.hermes-flake.nixosModules.default  # bare-metal alternative
     ];
 
+    # sops-install-secrets runs on the *host* during activation and chowns the
+    # decrypted secret to `hermes`. That user only exists inside the nspawn
+    # container (uid/gid 10000, created by hermes-flake's inner module), so the
+    # chown fails on the host with "unknown user hermes". Mirror the same
+    # uid/gid on the host: with shared-network nspawn and no user namespacing
+    # the host uid == container uid, so this both satisfies the chown and keeps
+    # the read-only bind-mounted secret readable as uid 10000 inside the guest.
+    users.groups.hermes.gid = 10000;
+    users.users.hermes = {
+      isSystemUser = true;
+      group = "hermes";
+      uid = 10000;
+    };
+
+    # The container read-write bind-mounts hostDataDir into the guest as
+    # /var/lib/hermes-agent. systemd-nspawn refuses to start if the host path is
+    # missing ("Failed to clone /var/lib/hermes-agent: No such file or
+    # directory"), so create it up front owned by the same uid/gid the guest
+    # runs hermes as.
+    systemd.tmpfiles.rules = [
+      "d /var/lib/hermes-agent 0750 hermes hermes -"
+    ];
+
     # Sops secret carrying the hermes env dotenv. Lives under the
     # consolidated `hermes_agent.server_env` block in
     # secrets/sops/secrets.yaml.

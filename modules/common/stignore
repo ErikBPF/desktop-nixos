@@ -1,0 +1,79 @@
+// Syncthing global ignore patterns
+// Managed by NixOS flake (modules/common/stignore).
+// Do NOT edit the deployed copy on disk — change this file and redeploy.
+// Syntax: https://docs.syncthing.net/users/ignoring.html
+
+// ----- Python -----
+**/.venv
+**/venv
+**/.env
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.tox
+**/*.egg-info
+**/.ipynb_checkpoints
+
+// ----- Node / JS / TS -----
+**/node_modules
+**/.next
+**/.nuxt
+**/.turbo
+**/.parcel-cache
+**/.svelte-kit
+**/.astro
+**/dist
+**/build
+**/out
+**/.yarn/cache
+**/.yarn/install-state.gz
+**/.pnpm-store
+
+// ----- Rust / Java / Scala / Go -----
+**/target
+**/.gradle
+**/.mvn
+**/*.class
+**/vendor
+
+// ----- Terraform / OpenTofu / Pulumi -----
+**/.terraform
+**/.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.backup
+**/.tofu
+**/.pulumi
+
+// ----- Nix / direnv -----
+**/.direnv
+**/result
+**/result-*
+
+// ----- Containers / k8s caches -----
+**/.helm
+**/.kube/cache
+**/.kube/http-cache
+
+// ----- IDE / editor -----
+**/.idea
+**/.vscode
+**/.fleet
+**/.zed
+**/*.swp
+**/*.swo
+**/*~
+
+// ----- OS junk -----
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+// ----- Logs / dumps / coverage -----
+**/*.log
+**/core.*
+**/*.heapsnapshot
+**/coverage
+**/.nyc_output
