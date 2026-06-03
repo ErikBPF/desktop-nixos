@@ -8,7 +8,7 @@ _: {
       "${pkgs.jdk}/bin"
       "${pkgs.gradle}/bin"
       "${pkgs.maven}/bin"
-      "${pkgs.nodejs_22}/bin"
+      "${pkgs.nodejs_24}/bin"
       "$HOME/.npm-packages/bin"
     ];
     devToolPaths = [
