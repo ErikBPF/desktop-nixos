@@ -31,7 +31,7 @@
         connect-timeout = 5;
         substituters = [
           "https://cache.nixos.org?priority=10"
-          "http://192.168.10.220:5000?priority=5"
+          "http://orion:5000?priority=5"
           "https://nix-community.cachix.org"
           "https://hyprland.cachix.org"
         ];

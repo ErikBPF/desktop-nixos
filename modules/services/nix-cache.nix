@@ -6,8 +6,12 @@
     ...
   }: {
     # nix-serve signs and serves the local nix store over plain HTTP.
-    # Binds on all interfaces at port 5000 — reachable at http://192.168.10.220:5000
-    # on the LAN. No TLS for now (DNS lives on Discovery which may be offline).
+    # Binds on all interfaces (0.0.0.0) at port 5000 so the cache is reachable
+    # both on the LAN (http://192.168.10.220:5000) and over Tailscale, where
+    # clients reach it by MagicDNS short name (http://orion:5000). A single
+    # hardcoded LAN IP left the Tailscale interface unserved and broke the bind
+    # at boot when DHCP was slow.
+    # No TLS for now (DNS lives on Discovery which may be offline).
     # The signing private key is managed by sops-nix.
     sops.secrets.nix_cache_signing_key = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
@@ -16,7 +20,7 @@
 
     services.nix-serve = {
       enable = true;
-      bindAddress = "192.168.10.220";
+      bindAddress = "0.0.0.0";
       port = 5000;
       secretKeyFile = config.sops.secrets.nix_cache_signing_key.path;
     };
