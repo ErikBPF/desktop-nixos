@@ -1,7 +1,7 @@
 _: {
   flake.modules.nixos.dev-javascript = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
-      nodejs_22 # npm is bundled with nodejs
+      nodejs_24 # npm is bundled with nodejs
       yarn
       pnpm
       typescript
