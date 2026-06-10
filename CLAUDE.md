@@ -1,3 +1,97 @@
+## Behavioral guidelines
+
+These bias toward caution over speed; for trivial tasks, use judgment.
+
+### Think before coding
+
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### Simplicity first
+
+Minimum code that solves the problem; nothing speculative. No features
+beyond what was asked, no abstractions for single-use code, no
+"flexibility" that wasn't requested, no error handling for impossible
+scenarios. Ask: "Would a senior engineer say this is overcomplicated?"
+If yes, simplify.
+
+### Surgical changes
+
+Every changed line should trace directly to the request.
+
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- Remove imports/options/modules that **your** change made unused; mention
+  (don't delete) pre-existing dead code.
+
+### Goal-driven execution
+
+Transform tasks into verifiable goals and loop until verified. In this
+repo, verification means the **Verify changes** section below: lint +
+fmt-check, `just dry <host>` / toplevel `--dry-run` for touched hosts, eval
+spot-checks for refactors that must be behavior-preserving, and post-switch
+service checks for deploys. For multi-step work, state a brief plan with a
+verify step per item.
+
+## Architecture orientation (read before editing modules)
+
+This flake is **dendritic**: `flake.nix` is just `flake-parts.mkFlake` +
+`import-tree ./modules`. Every `.nix` file under `modules/` is auto-imported
+as a flake-parts module — there are no aggregator `default.nix` import lists.
+Files whose path contains a segment starting with `_` are skipped by
+import-tree (`_hw-generated.nix` is imported explicitly by host hardware
+modules).
+
+- Feature modules register themselves under `flake.modules.nixos.<name>` /
+  `flake.modules.home.<name>` (deferredModule). Hosts compose them via
+  `imports = [ m.nixos.<name> … ]` where `m = config.flake.modules`.
+- Shared values flow through **top-level options** (`modules/meta.nix`:
+  `username`, `email`, `configPath`; `modules/secrets.nix`:
+  `syncthingDeviceIDs`) — never `specialArgs`.
+- Hosts are produced from `configurations.nixos.<host>.module`
+  (`modules/configurations.nix`). A host's `default.nix` should stay thin:
+  import list + genuinely host-specific config.
+
+### Module naming convention
+
+- `profile-*` — composition profiles (`profile-base` minimal fleet-wide,
+  `profile-desktop` GUI/workstation, `profile-server` headless).
+- `<host>-*` — host-scoped aspects (`kepler-nas`, `pathfinder-hardware`).
+- bare names — fleet-wide feature aspects (`alloy`, `firewall`,
+  `btrfs-snapshots`, `syncthing-fleet` which generates all
+  `<host>-syncthing` modules from one topology table).
+- Don't create per-host copies of a feature; parameterize one module
+  (see `modules/services/syncthing-fleet.nix`).
+
+### Things that bite
+
+- **New files must be `git add`ed before any `nix` command sees them** —
+  flake eval ignores untracked files; the error is a misleading
+  "attribute missing".
+- `profile-base` is intentionally minimal. GUI/workstation concerns
+  (xserver, peripherals, power/TLP, thunderbolt, vms, containers,
+  file-systems) live in `profile-desktop`; servers import individual pieces
+  explicitly (see orion/kepler `default.nix`).
+- `modules.upgradeHealthCheck.criticalUnits` guards unattended upgrades;
+  overriding it **replaces** the default — re-list sshd/tailscaled.
+
+## Verify changes
+
+Before claiming done: `just lint && just fmt-check`, then `just dry <host>`
+for touched hosts (or `nix build .#nixosConfigurations.<host>.config.system.build.toplevel --dry-run`
+without sudo). `just check` runs the full pre-flight. CI evaluates all five
+hosts on push/PR. After a remote `switch`, verify services per the rules
+below — a green rebuild is not proof the service came up.
+
+## Docs map
+
+`docs/README.md` is the index. Operational truth lives in `justfile`
+recipes; `docs/` explains why (kepler AI serving, kepler ZFS setup,
+proposals/RFCs). If doc and recipe disagree, the recipe wins.
+
 ## Commit policy
 
 Never add `Co-Authored-By: Claude …` (or any other Anthropic attribution) to

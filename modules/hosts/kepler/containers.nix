@@ -4,7 +4,8 @@ _: {
     config,
     ...
   }: {
-    # Kepler runs the fleet-wide rootless Podman with docker-compat enabled.
+    # Kepler runs rootless Podman with docker-compat (m.nixos.containers,
+    # imported explicitly in default.nix — no longer part of profile-base).
     # No runtime override here — orchestration.nix targets the rootless socket
     # at /run/user/1000/podman/podman.sock by default. The NVIDIA runtime is
     # exposed via CDI (Container Device Interface) by

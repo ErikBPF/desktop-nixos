@@ -11,6 +11,7 @@ _: {
       ];
     };
 
+    # Restart policy: upstream NixOS module already sets Restart=always.
     systemd.services.alloy.serviceConfig.TimeoutStopSec = "1s";
 
     environment.etc."alloy/config.alloy".text = ''

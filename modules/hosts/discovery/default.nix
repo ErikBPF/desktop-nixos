@@ -27,36 +27,22 @@ in {
       m.nixos.discovery-compose
       m.nixos.discovery-hermes-agent
       m.nixos.power-desktop
+      m.nixos.btrfs-snapshots
     ];
 
-    home-manager = {
-      useGlobalPkgs = true;
-      backupFileExtension = "backup";
-      users.${config.username} = {
-        imports = [
-          inputs.sops-nix.homeManagerModules.sops
-          m.home.profile-base
-          m.home.discovery-ssh
-        ];
-        home = {
-          inherit (config) username;
-          homeDirectory = "/home/${config.username}";
-          stateVersion = "25.11";
-        };
-        xdg = {
-          enable = true;
-          userDirs = {
-            enable = true;
-            createDirectories = true;
-            setSessionVariables = true;
-          };
-        };
-        programs.home-manager.enable = true;
+    # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.
+    modules.upgradeHealthCheck.criticalUnits = [
+      "sshd.service"
+      "tailscaled.service"
+      "docker.service"
+      "libvirtd.service"
+    ];
 
-        # NOTE: fuse-overlayfs storage.conf removed — discovery now uses rootful
-        # Docker instead of rootless Podman. See modules/hosts/discovery/containers.nix.
-      };
-    };
+    # NOTE: fuse-overlayfs storage.conf removed — discovery now uses rootful
+    # Docker instead of rootless Podman. See modules/hosts/discovery/containers.nix.
+    home-manager.users.${config.username}.imports = [
+      m.home.discovery-ssh
+    ];
 
     # Lingering allows erik's systemd user session (and user services) to
     # survive after logout and start on boot without an interactive login.

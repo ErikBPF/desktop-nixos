@@ -3,6 +3,15 @@
 in {
   flake.modules.nixos.profile-desktop = {...}: {
     imports = [
+      # moved out of profile-base: GUI/workstation-only concerns
+      m.nixos.xserver
+      m.nixos.peripherals
+      m.nixos.power
+      m.nixos.thunderbolt
+      m.nixos.vms
+      m.nixos.containers
+      m.nixos.file-systems
+
       m.nixos.laptop-hermes-client
       m.nixos.hyprland
       m.nixos.sddm

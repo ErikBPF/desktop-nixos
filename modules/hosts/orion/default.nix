@@ -20,6 +20,13 @@ in {
       m.nixos.orion-hardware
       m.nixos.orion-networking
       m.nixos.orion-syncthing
+      # desktop-ish concerns orion needs without the full profile-desktop:
+      # qwerty-fr layout, steam-hardware udev (jovian), rootless podman,
+      # udisks2/gvfs for removable media on the HTPC
+      m.nixos.xserver
+      m.nixos.peripherals
+      m.nixos.containers
+      m.nixos.file-systems
       m.nixos.orion-containers
       m.nixos.first-boot
       m.nixos.orion-jovian
@@ -37,36 +44,24 @@ in {
       m.nixos.power-desktop
       m.nixos.lact
       m.nixos.orion-lact
+      m.nixos.btrfs-snapshots
     ];
 
-    home-manager = {
-      useGlobalPkgs = true;
-      backupFileExtension = "backup";
-      users.${config.username} = {
-        imports = [
-          inputs.nix-colors.homeManagerModules.default
-          inputs.sops-nix.homeManagerModules.sops
-          m.home.profile-base
-          m.home.orion-ssh
-          m.home.hyprland
-          m.home.fonts
-        ];
-        home = {
-          inherit (config) username;
-          homeDirectory = "/home/${config.username}";
-          stateVersion = "25.11";
-        };
-        xdg = {
-          enable = true;
-          userDirs = {
-            enable = true;
-            createDirectories = true;
-            setSessionVariables = true;
-          };
-        };
-        programs.home-manager.enable = true;
-        inherit (config) colorScheme;
-      };
+    # Rollback guard: orion is the fleet binary cache + build offload target.
+    modules.upgradeHealthCheck.criticalUnits = [
+      "sshd.service"
+      "tailscaled.service"
+      "nix-serve.service"
+    ];
+
+    home-manager.users.${config.username} = {
+      imports = [
+        inputs.nix-colors.homeManagerModules.default
+        m.home.orion-ssh
+        m.home.hyprland
+        m.home.fonts
+      ];
+      inherit (config) colorScheme;
     };
 
     system.stateVersion = "25.11";

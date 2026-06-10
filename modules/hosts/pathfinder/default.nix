@@ -54,35 +54,16 @@ in {
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs
+      m.nixos.btrfs-snapshots
     ];
 
-    home-manager = {
-      useGlobalPkgs = true;
-      backupFileExtension = "backup";
-      users.${config.username} = {
-        imports = [
-          inputs.nix-colors.homeManagerModules.default
-          inputs.sops-nix.homeManagerModules.sops
-          m.home.profile-base
-          m.home.profile-desktop
-          m.home.pathfinder-ssh
-        ];
-        home = {
-          inherit (config) username;
-          homeDirectory = "/home/${config.username}";
-          stateVersion = "25.11";
-        };
-        xdg = {
-          enable = true;
-          userDirs = {
-            enable = true;
-            createDirectories = true;
-            setSessionVariables = true;
-          };
-        };
-        programs.home-manager.enable = true;
-        inherit (config) colorScheme;
-      };
+    home-manager.users.${config.username} = {
+      imports = [
+        inputs.nix-colors.homeManagerModules.default
+        m.home.profile-desktop
+        m.home.pathfinder-ssh
+      ];
+      inherit (config) colorScheme;
     };
 
     system.stateVersion = "25.11";

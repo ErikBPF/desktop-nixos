@@ -1,6 +1,10 @@
 {config, ...}: let
   m = config.flake.modules;
 in {
+  # Minimal fleet-wide profile: security, networking, nix plumbing, shell.
+  # Desktop-only concerns (GUI stack, peripherals, TLP, libvirt, rootless
+  # podman, removable-media services) live in profile-desktop; servers that
+  # need one of those import it explicitly in their host module.
   flake.modules.nixos.profile-base = {...}: {
     imports = [
       m.nixos.boot-security
@@ -19,15 +23,8 @@ in {
       m.nixos.polkit
       m.nixos.sudo
       m.nixos.atuin
-      m.nixos.file-systems
       m.nixos.logrotate
       m.nixos.maintenance
-      m.nixos.thunderbolt
-      m.nixos.xserver
-      m.nixos.peripherals
-      m.nixos.power
-      m.nixos.containers
-      m.nixos.vms
       m.nixos.tor-monitor
       m.nixos.common
       m.nixos.user
@@ -36,6 +33,7 @@ in {
       m.nixos.sops
       m.nixos.upgrade-health-check
       m.nixos.distributed-builds
+      m.nixos.home-manager-base
     ];
   };
 
