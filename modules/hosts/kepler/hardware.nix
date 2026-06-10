@@ -130,5 +130,24 @@ _: {
       enable = true;
       interval = "monthly";
     };
+
+    # Sanoid snapshot timeline for the data pool. Scrub protects against
+    # bitrot; snapshots protect against deletes/bad writes. Local-only —
+    # off-host backup is the restic chain in servarr (kepler/sync.yml).
+    services.sanoid = {
+      enable = true;
+      templates.production = {
+        hourly = 24;
+        daily = 14;
+        monthly = 3;
+        autosnap = true;
+        autoprune = true;
+      };
+      datasets."fast-pool/data" = {
+        useTemplate = ["production"];
+        recursive = true;
+      };
+      # Add "bulk-pool/data" here once the HDDs land on the SAS HBA.
+    };
   };
 }

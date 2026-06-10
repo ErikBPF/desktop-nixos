@@ -1,13 +1,34 @@
 profile := `hostname`
 
+# Host IPs (LAN, SSH port 2222). laptop is Tailscale-only (roaming).
+ip_discovery := "192.168.10.210"
+ip_orion := "192.168.10.220"
+ip_pathfinder := "192.168.10.125"
+ip_kepler := "192.168.10.230"
+
+# Build offload to orion (Ryzen 9 5950X) via ssh-ng
+orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
+
 default:
     @just --list
+
+# Resolve a host name to its LAN IP (used by sync/kick recipes)
+_host-ip target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+        discovery)  echo "{{ip_discovery}}" ;;
+        orion)      echo "{{ip_orion}}" ;;
+        pathfinder) echo "{{ip_pathfinder}}" ;;
+        kepler)     echo "{{ip_kepler}}" ;;
+        *) echo "Unknown target: {{target}}" >&2; exit 1 ;;
+    esac
 
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
-        --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
+        --option builders "{{orion_builder}}" \
         --option builders-use-substitutes true
 
 boot target=profile:
@@ -19,7 +40,7 @@ update:
 upgrade target=profile:
     nix flake update
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
-        --option builders "ssh-ng://erik@192.168.10.220 x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test" \
+        --option builders "{{orion_builder}}" \
         --option builders-use-substitutes true
 
 # ── Verification ──────────────────────────────────────────
@@ -32,6 +53,7 @@ dry-all:
     sudo nixos-rebuild dry-build --flake .#discovery --show-trace
     sudo nixos-rebuild dry-build --flake .#laptop --show-trace
     sudo nixos-rebuild dry-build --flake .#orion --show-trace
+    sudo nixos-rebuild dry-build --flake .#kepler --show-trace
 
 lint:
     statix check . -c .statix.toml -i '.direnv/*'
@@ -55,32 +77,41 @@ eval:
     nix flake check
 
 # ── Remote Deploy ─────────────────────────────────────────
-# Host IPs (LAN, SSH port 2222):
-#   discovery  192.168.10.210
-#   orion      192.168.10.220
-#   pathfinder 192.168.10.125
-#   kepler     192.168.10.230
-#   laptop     — Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
+# laptop is Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
 
 switch-discovery:
-    just deploy discovery 192.168.10.210 2222
+    just deploy discovery {{ip_discovery}} 2222
 
 switch-orion:
-    just deploy orion 192.168.10.220 2222
+    just deploy orion {{ip_orion}} 2222
 
 switch-pathfinder:
-    just deploy pathfinder 192.168.10.125 2222
+    just deploy pathfinder {{ip_pathfinder}} 2222
 
 switch-kepler:
-    just deploy kepler 192.168.10.230 2222
+    just deploy kepler {{ip_kepler}} 2222
 
+# kepler intentionally excluded — deploy it on its own window so the AI
+# serving stack isn't restarted as a side effect: just switch-kepler
 switch-all:
     #!/usr/bin/env bash
     set -euo pipefail
-    just switch-discovery &
-    just switch-orion &
-    just switch-pathfinder &
-    wait
+    declare -A pids
+    just switch-discovery  & pids[discovery]=$!
+    just switch-orion      & pids[orion]=$!
+    just switch-pathfinder & pids[pathfinder]=$!
+    fail=0
+    for host in "${!pids[@]}"; do
+        if ! wait "${pids[$host]}"; then
+            echo ":: switch-$host FAILED" >&2
+            fail=1
+        fi
+    done
+    if [ "$fail" -ne 0 ]; then
+        echo ":: switch-all finished with failures" >&2
+        exit 1
+    fi
+    echo ":: switch-all OK (discovery, orion, pathfinder)"
 
 deploy target ip port="2222" user="erik":
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#{{target}} \
@@ -119,12 +150,7 @@ _sync-servarr-default:
 _sync-servarr target:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{target}}" in
-        kepler)    IP=192.168.10.230 ;;
-        discovery) IP=192.168.10.210 ;;
-        orion)     IP=192.168.10.220 ;;
-        *) echo "Unknown target: {{target}}"; exit 1 ;;
-    esac
+    IP="$(just _host-ip {{target}})"
     SRC="$(readlink -f references/repos/servarr)"
     echo ":: Syncing $SRC/machines/{{target}} → erik@$IP:/home/erik/servarr/machines/{{target}}/"
     ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}'
@@ -141,12 +167,7 @@ _sync-servarr target:
 sync-stack target stack:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{target}}" in
-        kepler)    IP=192.168.10.230 ;;
-        discovery) IP=192.168.10.210 ;;
-        orion)     IP=192.168.10.220 ;;
-        *) echo "Unknown target: {{target}}"; exit 1 ;;
-    esac
+    IP="$(just _host-ip {{target}})"
     SRC="$(readlink -f references/repos/servarr)"
     echo ":: Syncing {{stack}} files → erik@$IP:/home/erik/servarr/machines/{{target}}/"
     ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}/config/{{stack}}'
@@ -164,21 +185,16 @@ sync-stack target stack:
 kick-stack target stack:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{target}}" in
-        kepler)    IP=192.168.10.230 ;;
-        discovery) IP=192.168.10.210 ;;
-        orion)     IP=192.168.10.220 ;;
-        *) echo "Unknown target: {{target}}"; exit 1 ;;
-    esac
+    IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@$IP "systemctl --user start podman-compose-{{stack}}.service"
     ssh -p 2222 erik@$IP "systemctl --user status podman-compose-{{stack}}.service --no-pager -n10"
 
 # Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
 ai-kepler-health:
-    @just verify-port kepler 192.168.10.230 7997
-    @just verify-port kepler 192.168.10.230 8001
-    @just verify-port kepler 192.168.10.230 9000
-    @just verify-port kepler 192.168.10.230 10200
+    @just verify-port kepler {{ip_kepler}} 7997
+    @just verify-port kepler {{ip_kepler}} 8001
+    @just verify-port kepler {{ip_kepler}} 9000
+    @just verify-port kepler {{ip_kepler}} 10200
 
 verify-port target ip port:
     @nc -z -w 2 {{ip}} {{port}} && echo ":: {{target}}:{{port}} ✅" || echo ":: {{target}}:{{port}} ❌"

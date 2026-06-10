@@ -1,6 +1,7 @@
 _: {
   # Always-AC hosts (HTPC/server/workstation). Disables TLP (a laptop
-  # battery tuner pulled in by profile-base via m.nixos.power) and pins the
+  # battery tuner pulled in via m.nixos.power on profile-desktop hosts;
+  # the mkForce stays as defense on hosts that never import it) and pins the
   # CPU frequency governor to performance so AVX2/AVX-512 matmul threads ramp
   # to max turbo immediately. Matches the Orion AI-inference + Kepler ZFS/CUDA
   # workload profile where there is no battery to spare and no idle.

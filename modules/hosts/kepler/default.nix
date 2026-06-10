@@ -20,6 +20,7 @@ in {
       m.nixos.kepler-networking
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas
+      m.nixos.containers
       m.nixos.kepler-containers
       m.nixos.kepler-compose
       m.nixos.kepler-ai-serving
@@ -28,31 +29,9 @@ in {
       m.nixos.power-desktop
     ];
 
-    home-manager = {
-      useGlobalPkgs = true;
-      backupFileExtension = "backup";
-      users.${config.username} = {
-        imports = [
-          inputs.sops-nix.homeManagerModules.sops
-          m.home.profile-base
-          m.home.kepler-ssh
-        ];
-        home = {
-          inherit (config) username;
-          homeDirectory = "/home/${config.username}";
-          stateVersion = "25.11";
-        };
-        xdg = {
-          enable = true;
-          userDirs = {
-            enable = true;
-            createDirectories = true;
-            setSessionVariables = true;
-          };
-        };
-        programs.home-manager.enable = true;
-      };
-    };
+    home-manager.users.${config.username}.imports = [
+      m.home.kepler-ssh
+    ];
 
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
