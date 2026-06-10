@@ -31,6 +31,11 @@
     # Runs at 03:00, requires the flake repo to be checked out at the path below.
     systemd.services.nix-cache-builder = {
       description = "Build all host closures to warm the nix cache";
+      # Never let activation queue a job for this oneshot: a deploy landing
+      # while the warm is running would block switch-to-configuration until
+      # all five closures finish (observed: 40 min hang, 2026-06-10).
+      restartIfChanged = false;
+      stopIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         User = "root";
