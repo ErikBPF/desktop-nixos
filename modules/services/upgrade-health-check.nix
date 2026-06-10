@@ -9,10 +9,9 @@ _: {
       type = lib.types.listOf lib.types.str;
       default = ["sshd.service" "tailscaled.service"];
       description = ''
-        Units that must be active after an unattended upgrade. If any is not,
-        the system profile is rolled back and the previous generation
-        re-activated. Hosts overriding this must re-list sshd/tailscaled —
-        a definition replaces the default.
+        Units that must be active after an unattended upgrade; otherwise the
+        previous generation is re-activated. A host definition replaces the
+        default — re-list the default units when overriding.
       '';
     };
 
