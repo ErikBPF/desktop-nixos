@@ -96,22 +96,17 @@ switch-kepler:
 switch-all:
     #!/usr/bin/env bash
     set -euo pipefail
-    declare -A pids
-    just switch-discovery  & pids[discovery]=$!
-    just switch-orion      & pids[orion]=$!
-    just switch-pathfinder & pids[pathfinder]=$!
-    fail=0
-    for host in "${!pids[@]}"; do
-        if ! wait "${pids[$host]}"; then
-            echo ":: switch-$host FAILED" >&2
-            fail=1
-        fi
+    hosts=(discovery orion pathfinder)
+    pids=()
+    for host in "${hosts[@]}"; do
+        just "switch-$host" & pids+=($!)
     done
-    if [ "$fail" -ne 0 ]; then
-        echo ":: switch-all finished with failures" >&2
-        exit 1
-    fi
-    echo ":: switch-all OK (discovery, orion, pathfinder)"
+    fail=0
+    for i in "${!hosts[@]}"; do
+        wait "${pids[$i]}" || { echo ":: switch-${hosts[$i]} FAILED" >&2; fail=1; }
+    done
+    [ "$fail" -eq 0 ] && echo ":: switch-all OK (${hosts[*]})"
+    exit "$fail"
 
 deploy target ip port="2222" user="erik":
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#{{target}} \
