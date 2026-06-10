@@ -3,6 +3,9 @@
 // Do NOT edit the deployed copy on disk — change this file and redeploy.
 // Syntax: https://docs.syncthing.net/users/ignoring.html
 
+// ----- Git internals (constant pack/index/ref churn + corruption risk) -----
+**/.git
+
 // ----- Python -----
 **/.venv
 **/venv
