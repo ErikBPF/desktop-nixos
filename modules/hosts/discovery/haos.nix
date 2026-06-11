@@ -140,6 +140,25 @@
         if ! $VIRSH domstate haos 2>/dev/null | grep -q "running"; then
           $VIRSH start haos
         fi
+
+        # Repair: libvirt autostart can race USB enumeration on boot —
+        # startupPolicy=optional then boots the VM with the Zigbee stick
+        # marked missing='yes' and zigbee2mqtt dies inside HAOS. If the
+        # running domain has exactly one 10c4 entry and it is the missing
+        # one, hot-attach the stick once it shows up on the host.
+        XML=$($VIRSH dumpxml haos)
+        if echo "$XML" | grep -q "missing='yes'" \
+          && [ "$(echo "$XML" | grep -c "vendor id='0x10c4'")" -eq 1 ]; then
+          for _ in $(seq 1 12); do
+            if ${pkgs.usbutils}/bin/lsusb -d 10c4:ea60 >/dev/null 2>&1; then
+              echo "<hostdev mode='subsystem' type='usb' managed='yes'><source><vendor id='0x10c4'/><product id='0xea60'/></source></hostdev>" > /run/haos-zigbee-attach.xml
+              $VIRSH attach-device haos /run/haos-zigbee-attach.xml --live
+              break
+            fi
+            echo "Zigbee stick not enumerated yet — waiting 5s"
+            sleep 5
+          done
+        fi
       '';
     };
 
