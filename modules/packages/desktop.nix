@@ -95,6 +95,7 @@ _: {
         noisetorch
         usbimager
         gparted
+        orca-slicer
         mongodb-compass
         github-desktop
         code-cursor-fhs
