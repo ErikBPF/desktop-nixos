@@ -1,5 +1,8 @@
 secret-key
 secret-key-base64
+result
+result-*
+result.json
 logs/
 bmalph/
 .ralph/logs/
