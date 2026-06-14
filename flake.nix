@@ -2,6 +2,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # Pinned solely for orca-slicer: 2.3.2 fails GL init ("Unable to init glew
+    # library, Missing GL version" -> empty build plate) on Mesa 26.x/Wayland.
+    # 2.3.1 from this commit renders correctly. Drop once nixpkgs ships a fix.
+    nixpkgs-orca.url = "github:nixos/nixpkgs/09061f748ee21f68a089cd5d91ec1859cd93d0be";
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
