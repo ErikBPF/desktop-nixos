@@ -69,6 +69,10 @@ in {
     hardware.cpu.amd.updateMicrocode = true;
     boot.kernelPackages = pkgs.linuxPackages_latest;
 
+    # Build aarch64 (the `archinaut` RPi3 print host) under qemu so its closure
+    # and SD image can be produced here and substituted to the Pi.
+    boot.binfmt.emulatedSystems = ["aarch64-linux"];
+
     boot = {
       kernelParams = [
         "nohibernate"
