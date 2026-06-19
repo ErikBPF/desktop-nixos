@@ -6,7 +6,8 @@
   nodeIp, # node IP on the cluster network (k3s --node-ip)
   clusterInit ? false, # first server bootstraps embedded etcd
   serverAddr ? null, # joining servers/agents point here
-  controlPlane ? false, # taint NoSchedule (dedicated control plane)
+  controlPlane ? false, # taint NoSchedule (used by the nixosTest)
+  disableAgent ? false, # server runs control-plane only (no kubelet/CNI/pods)
   iface ? null, # flannel iface — only needed to disambiguate multi-NIC nodes
   token ? null, # literal token — test only
   tokenFile ? null, # file path — real cluster (host-provisioned, RFC §5.5)
@@ -28,7 +29,7 @@
 
   services.k3s = {
     enable = true;
-    inherit role clusterInit;
+    inherit role clusterInit disableAgent;
     token = lib.mkIf (token != null) token;
     tokenFile = lib.mkIf (tokenFile != null) tokenFile;
     serverAddr = lib.mkIf (serverAddr != null) serverAddr;
@@ -45,7 +46,13 @@
     # case); single-NIC microvm guests auto-detect correctly.
     extraFlags =
       ["--node-ip=${nodeIp}"]
-      ++ lib.optionals (iface != null) ["--flannel-iface=${iface}"]
-      ++ lib.optionals controlPlane ["--node-taint=node-role.kubernetes.io/control-plane:NoSchedule"];
+      # All nodes share one L2 bridge, so use flannel host-gw (direct routing) not
+      # VXLAN — VXLAN over virtio NICs drops encapsulated packets (TX checksum
+      # offload), causing the "no route to host" / flaky pod->svc seen on multi-node.
+      # Cluster-wide setting; defined on servers.
+      ++ lib.optionals (role == "server") ["--flannel-backend=host-gw"]
+      # Agent-only flags — skipped on control-plane-only servers (no kubelet/CNI).
+      ++ lib.optionals (iface != null && !disableAgent) ["--flannel-iface=${iface}"]
+      ++ lib.optionals (controlPlane && !disableAgent) ["--node-taint=node-role.kubernetes.io/control-plane:NoSchedule"];
   };
 }

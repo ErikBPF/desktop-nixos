@@ -42,7 +42,11 @@
         i = cpIndex name;
       in {
         role = "server";
-        controlPlane = true; # dedicated CP — workloads land on workers
+        # Control-plane only: no kubelet/CNI/pods on CPs (canonical dedicated CP).
+        # Cleaner + lighter than tainting, and avoids the CP-node pod-networking
+        # issues — all workloads run on workers. CPs aren't schedulable nodes.
+        disableAgent = true;
+        controlPlane = false;
         clusterInit = i == 1;
         serverAddr =
           if i == 1
@@ -60,6 +64,7 @@
       in {
         role = "agent";
         controlPlane = false;
+        disableAgent = false;
         clusterInit = false;
         serverAddr = "https://${cp1Ip}:6443";
         nodeIp = "${subnet}.${toString (20 + i)}"; # .21 .22 ...
@@ -75,7 +80,7 @@
     in {
       imports = [
         (mkK3sNode {
-          inherit (s) role nodeIp clusterInit serverAddr controlPlane;
+          inherit (s) role nodeIp clusterInit serverAddr controlPlane disableAgent;
           tokenFile = "/tokens/token";
         })
       ];
@@ -117,12 +122,22 @@
       # Single NIC on the private subnet, static. Gateway is kepler.
       systemd.network.enable = true;
       systemd.network.networks."10-cluster" = {
+        # Match only the real NIC, not k8s/CNI interfaces (see 99-k8s-unmanaged).
         matchConfig.Type = "ether";
+        matchConfig.Kind = "!*"; # exclude virtual devices (bridges/veth/vxlan)
         networkConfig = {
           Address = "${s.nodeIp}/24";
           Gateway = hostIp;
           DHCP = "no";
         };
+      };
+      # CRITICAL: stop systemd-networkd from managing k3s's CNI interfaces. With
+      # networkd enabled (for the static IP), it otherwise grabs cni0/veth*/flannel*
+      # and breaks pod networking — cni0 goes down → "no route to host" kubelet->pod
+      # and pod->service timeouts. (microvm docs warn about this for Docker veths.)
+      systemd.network.networks."99-k8s-unmanaged" = {
+        matchConfig.Name = ["cni0" "flannel*" "veth*" "cali*" "vxlan*" "kube-*"];
+        linkConfig.Unmanaged = "yes";
       };
 
       # Disable the guest firewall: the nodes sit on an isolated private subnet
