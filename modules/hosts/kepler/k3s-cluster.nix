@@ -19,8 +19,16 @@
     mkK3sNode = import ../../services/_k3s-node.nix;
 
     subnet = "10.250.0";
-    hostIp = "${subnet}.1"; # kepler on br-k3s = cluster gateway
-    cp1Ip = "${subnet}.11"; # join target until the LB lands (stage 3)
+    hostIp = "${subnet}.1"; # kepler on br-k3s = cluster gateway + LB registration
+
+    # LAN-published endpoints, fronted by kepler's L4 LB (RFC §5.3).
+    apiVip = "192.168.10.245"; # admin / kubectl
+    ingressVip = "192.168.10.250"; # ingress (backend = ingress-nginx NodePort, 4c)
+    ingressNodePort = 30443;
+
+    # LB upstream server lists, generated from the topology.
+    cpServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (10 + i)}:6443;") [1 2 3];
+    workerServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString ingressNodePort};") (lib.range 1 cfg.workerCount);
 
     tokenDir = "/var/lib/k3s-cluster";
 
@@ -48,10 +56,13 @@
         disableAgent = true;
         controlPlane = false;
         clusterInit = i == 1;
+        # Join via the kepler LB (fronts all 3 apiservers) for HA, not a single CP.
         serverAddr =
           if i == 1
           then null
-          else "https://${cp1Ip}:6443";
+          else "https://${hostIp}:6443";
+        # apiserver cert must cover the LB + LAN admin addresses.
+        tlsSan = [hostIp apiVip];
         nodeIp = "${subnet}.${toString (10 + i)}"; # .11 .12 .13
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
@@ -65,8 +76,9 @@
         role = "agent";
         controlPlane = false;
         disableAgent = false;
+        tlsSan = []; # agents don't serve the apiserver
         clusterInit = false;
-        serverAddr = "https://${cp1Ip}:6443";
+        serverAddr = "https://${hostIp}:6443"; # join via the LB
         nodeIp = "${subnet}.${toString (20 + i)}"; # .21 .22 ...
         cid = 20 + i;
         mac = "02:00:00:00:fb:0${toString i}";
@@ -80,7 +92,7 @@
     in {
       imports = [
         (mkK3sNode {
-          inherit (s) role nodeIp clusterInit serverAddr controlPlane disableAgent;
+          inherit (s) role nodeIp clusterInit serverAddr controlPlane disableAgent tlsSan;
           tokenFile = "/tokens/token";
         })
       ];
@@ -206,6 +218,40 @@
         enable = true;
         internalInterfaces = ["br-k3s"];
         externalInterface = "enp5s0";
+      };
+
+      # --- kepler L4 load-balancer (RFC §5.3 / §10b): the one host that's
+      # mandatory anyway fronts the cluster. nginx stream (TCP passthrough) — no
+      # in-cluster kube-vip/MetalLB. Publishes two LAN IPs + a private registration
+      # address. Headless CP apiservers are the backend.
+      networking.interfaces.enp5s0.ipv4.addresses = [
+        {
+          address = apiVip;
+          prefixLength = 24;
+        }
+        {
+          address = ingressVip;
+          prefixLength = 24;
+        }
+      ];
+      networking.firewall.allowedTCPPorts = [6443 443];
+
+      services.nginx = {
+        enable = true;
+        # TCP passthrough; apiserver does its own mTLS so we must NOT terminate.
+        streamConfig = ''
+          upstream k3s-apiserver {
+          ${cpServers}
+          }
+          upstream k3s-ingress {
+          ${workerServers}
+          }
+          # private registration address (nodes join here in step 2) + LAN admin
+          server { listen ${hostIp}:6443; proxy_pass k3s-apiserver; proxy_timeout 600s; }
+          server { listen ${apiVip}:6443; proxy_pass k3s-apiserver; proxy_timeout 600s; }
+          # LAN ingress -> worker ingress-nginx NodePort (backend deployed in 4c)
+          server { listen ${ingressVip}:443; proxy_pass k3s-ingress; proxy_timeout 600s; }
+        '';
       };
 
       # Shared join token, provisioned host-side before any node starts.

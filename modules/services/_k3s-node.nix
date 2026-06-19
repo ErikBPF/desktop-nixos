@@ -8,6 +8,7 @@
   serverAddr ? null, # joining servers/agents point here
   controlPlane ? false, # taint NoSchedule (used by the nixosTest)
   disableAgent ? false, # server runs control-plane only (no kubelet/CNI/pods)
+  tlsSan ? [], # extra apiserver cert SANs (LB / LAN IPs) — servers only
   iface ? null, # flannel iface — only needed to disambiguate multi-NIC nodes
   token ? null, # literal token — test only
   tokenFile ? null, # file path — real cluster (host-provisioned, RFC §5.5)
@@ -51,6 +52,7 @@
       # offload), causing the "no route to host" / flaky pod->svc seen on multi-node.
       # Cluster-wide setting; defined on servers.
       ++ lib.optionals (role == "server") ["--flannel-backend=host-gw"]
+      ++ lib.optionals (role == "server") (map (s: "--tls-san=${s}") tlsSan)
       # Agent-only flags — skipped on control-plane-only servers (no kubelet/CNI).
       ++ lib.optionals (iface != null && !disableAgent) ["--flannel-iface=${iface}"]
       ++ lib.optionals (controlPlane && !disableAgent) ["--node-taint=node-role.kubernetes.io/control-plane:NoSchedule"];
