@@ -73,4 +73,63 @@ in {
       )
     '';
   };
+
+  # Full-topology check (RFC §5.10): 3-server embedded-etcd HA control plane +
+  # a worker, control-plane tainted. Validates the task-4 k3s config (etcd
+  # quorum, joining servers, dedicated-CP taint) in QEMU — independent of the
+  # kepler microvm plumbing. Heavier (4 VMs); run on-demand:
+  #   nix build .#checks.x86_64-linux.k3s-ha -L
+  flake.checks.x86_64-linux.k3s-ha = pkgs.testers.runNixOSTest {
+    name = "k3s-ha";
+
+    nodes = {
+      cp1 = mkTestNode {
+        role = "server";
+        clusterInit = true;
+        controlPlane = true;
+      };
+      cp2 = mkTestNode {
+        role = "server";
+        serverAddr = "https://cp1:6443";
+        controlPlane = true;
+      };
+      cp3 = mkTestNode {
+        role = "server";
+        serverAddr = "https://cp1:6443";
+        controlPlane = true;
+      };
+      w1 = mkTestNode {
+        role = "agent";
+        serverAddr = "https://cp1:6443";
+      };
+    };
+
+    testScript = ''
+      start_all()
+      for m in [cp1, cp2, cp3, w1]:
+          m.wait_for_unit("k3s")
+
+      # All 4 nodes Ready — the 3 servers form a 3-member embedded-etcd quorum
+      # and the agent joins.
+      cp1.wait_until_succeeds(
+          "test $(k3s kubectl get nodes --no-headers | grep -c ' Ready ') -eq 4",
+          timeout=420,
+      )
+      # Exactly 3 control-plane nodes.
+      cp1.succeed(
+          "test $(k3s kubectl get nodes -l node-role.kubernetes.io/control-plane "
+          "--no-headers | wc -l) -eq 3"
+      )
+      # The NoSchedule taint is applied to a control-plane node and absent on the
+      # worker — proves the dedicated-CP separation (RFC §3.3).
+      cp1.succeed(
+          "k3s kubectl get node cp1 -o jsonpath='{.spec.taints[*].key}' "
+          "| grep -q node-role.kubernetes.io/control-plane"
+      )
+      cp1.fail(
+          "k3s kubectl get node w1 -o jsonpath='{.spec.taints[*].key}' "
+          "| grep -q node-role.kubernetes.io/control-plane"
+      )
+    '';
+  };
 }
