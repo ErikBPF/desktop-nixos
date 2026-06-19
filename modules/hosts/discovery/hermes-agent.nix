@@ -67,6 +67,13 @@
       telegramAllowedUsers = [7729797827];
       openaiBaseUrl = litellmUrl;
 
+      # YOLO: bypass the gateway's dangerous-command approval prompts. The
+      # config-level `approvals.mode = "off"` below only covers the non-command
+      # approval paths; the shell-command gate keys off HERMES_YOLO_MODE (frozen
+      # at process import). hermes' hardcoded catastrophic floor (rm -rf /, mkfs,
+      # shutdown, …) still blocks regardless.
+      extraEnvironment.HERMES_YOLO_MODE = "1";
+
       # Homelab-specific settings overlaid on the flake's vendor-neutral defaults.
       settings = {
         # Override neutral defaults with LiteLLM routing + Qwen as model
@@ -136,6 +143,15 @@
         };
 
         agent.max_turns = 60;
+
+        # YOLO / permanent auto-approve. hermes gates only DANGEROUS commands;
+        # the per-prompt "session" choice and the runtime "/yolo" toggle are
+        # in-memory and lost on restart — only an explicit "always" persists
+        # (written to /var/lib/hermes-agent/config.yaml). Setting the approval
+        # mode off here makes auto-approve permanent and declarative. A
+        # hardcoded catastrophic floor in hermes still blocks truly destructive
+        # ops regardless of this setting.
+        approvals.mode = "off";
       };
 
       # Override the flake's bundled SOUL with the homelab agent persona.

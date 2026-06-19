@@ -97,4 +97,16 @@ _: {
   # --- View ---
   cat = "bat";
   cata = "cat * | wl-copy";
+
+  # --- Claude / coding ---
+  c = "claude --dangerously-skip-permissions"; # default claude (always skip-perms)
+  cc = "code . ; claude --dangerously-skip-permissions"; # open editor + claude
+  e = "code ."; # editor in cwd
+
+  # --- Repo jumps ---
+  dnix = "cd ~/Documents/erik/desktop-nixos";
+  ddp = "cd ~/Documents/nstech/dataplatform";
+  dspark = "cd ~/Documents/nstech/dataplatform-spark";
+  dair = "cd ~/Documents/nstech/dataplatform-airflow";
+  dcon = "cd ~/Documents/nstech/dataplatform-datacontracts";
 }

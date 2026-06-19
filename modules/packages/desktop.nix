@@ -96,6 +96,10 @@ _: {
         usbimager
         gparted
         orca-slicer
+        # --- CAD / EDA (TPS43 touchpad mount + PCB work) ---
+        kicad # EDA suite
+        openscad # parametric .scad mounts
+        freecad # gen_step.py STEP export (import FreeCAD, Part)
         mongodb-compass
         github-desktop
         code-cursor-fhs

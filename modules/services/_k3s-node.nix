@@ -15,6 +15,17 @@
   lib,
   ...
 }: {
+  # k8s node prerequisite: bridged pod traffic must traverse iptables so
+  # kube-proxy can NAT pod -> ClusterIP. The minimal microvm guest doesn't load
+  # br_netfilter / set these by default, so pod->service times out (node->service
+  # works). (NixOS test-driver VMs have these, which is why the nixosTest passed.)
+  boot.kernelModules = ["br_netfilter" "overlay"];
+  boot.kernel.sysctl = {
+    "net.bridge.bridge-nf-call-iptables" = 1;
+    "net.bridge.bridge-nf-call-ip6tables" = 1;
+    "net.ipv4.ip_forward" = 1;
+  };
+
   services.k3s = {
     enable = true;
     inherit role clusterInit;

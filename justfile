@@ -5,6 +5,7 @@ ip_discovery := "192.168.10.210"
 ip_orion := "192.168.10.220"
 ip_pathfinder := "192.168.10.125"
 ip_kepler := "192.168.10.230"
+ip_archinaut := "192.168.10.225"
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -21,6 +22,7 @@ _host-ip target:
         orion)      echo "{{ip_orion}}" ;;
         pathfinder) echo "{{ip_pathfinder}}" ;;
         kepler)     echo "{{ip_kepler}}" ;;
+        archinaut)  echo "{{ip_archinaut}}" ;;
         *) echo "Unknown target: {{target}}" >&2; exit 1 ;;
     esac
 
@@ -36,6 +38,17 @@ boot target=profile:
 
 update:
     nix flake update
+
+# Bump all inputs, then dry-build every host; revert the lock if any fails.
+# Guards against bleeding-edge nixpkgs/git-tip inputs breaking a build.
+update-safe:
+    nix flake update
+    just dry-all || { echo ":: dry-build failed — reverting flake.lock"; git checkout flake.lock; exit 1; }
+
+# Bump a single input in isolation (e.g. just update-input hyprland), so a
+# volatile git-tip input's breakage doesn't get tangled with a nixpkgs bump.
+update-input input:
+    nix flake update {{ input }}
 
 upgrade target=profile:
     nix flake update
@@ -127,6 +140,38 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS age key:' && test -f ~/.config/sops/age/keys.txt && echo 'present' || echo 'MISSING'"
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
+
+# ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
+# archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.
+# Bootstrap: build the SD image, dd it, first boot wired (see
+# docs/proposals/2026-06-16-printer-nixos-host.md §9), then seed config.
+
+# Build the bootable SD image (aarch64) on orion. Output: result/sd-image/*.img.zst
+build-archinaut-sd:
+    nix build .#nixosConfigurations.archinaut.config.system.build.sdImage \
+        --builders 'ssh-ng://erik@{{ip_orion}}?ssh-key=/root/.ssh/nix-builder aarch64-linux' \
+        --max-jobs 0 --show-trace --out-link result-archinaut-sd
+    @echo ":: image at result-archinaut-sd/sd-image/ — flash with:"
+    @echo "   zstd -dc result-archinaut-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
+
+# Deploy archinaut: evaluate locally, build aarch64 on orion, push to the Pi.
+switch-archinaut:
+    NIX_SSHOPTS="-p 2222" nixos-rebuild switch --flake .#archinaut \
+        --target-host erik@{{ip_archinaut}} \
+        --build-host erik@{{ip_orion}} \
+        --use-substitutes --sudo --show-trace
+
+# Seed /var/lib/klipper from the klipper-biqu repo (printer.cfg, mainsail.cfg,
+# macros). mutableConfig keeps these; SAVE_CONFIG/Mainsail edits persist.
+seed-archinaut:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SRC="$(readlink -f references/repos/klipper-biqu)/printer_data/config/"
+    rsync -av --rsync-path="sudo rsync" -e "ssh -p 2222" \
+        "$SRC" erik@{{ip_archinaut}}:/var/lib/klipper/
+    ssh -p 2222 erik@{{ip_archinaut}} \
+        "sudo chown -R klipper:klipper /var/lib/klipper && sudo systemctl restart klipper moonraker"
+    @echo ":: seeded — check Mainsail at http://{{ip_archinaut}}"
 
 # ── Servarr sync (compose stacks) ─────────────────────────
 # Push local servarr/ working tree to a host's /home/erik/servarr/ so that

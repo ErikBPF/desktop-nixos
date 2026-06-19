@@ -158,7 +158,7 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. Three sister repos plug into it. Each is exposed as a
+configuration. Four sister repos plug into it. Each is exposed as a
 gitignored symlink under `references/repos/` for quick local access (the
 real working trees live at `~/Documents/erik/...`):
 
@@ -166,6 +166,7 @@ real working trees live at `~/Documents/erik/...`):
 references/repos/servarr               → ~/Documents/erik/servarr
 references/repos/hermes-flake          → ~/Documents/erik/hermes-flake
 references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config
+references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu
 ```
 
 Justfile recipes resolve through these symlinks (`readlink -f
@@ -216,20 +217,48 @@ references/repos/servarr`); never hard-code the absolute path.
 - See `memory/ha_voice_assistant.md` for locked decisions and the active
   Phase-1 branch.
 
+### `klipper-biqu` — BIQU B1 printer config (Klipper + OrcaSlicer)
+
+- Lives at `~/Documents/erik/klipper-biqu`. Reachable in-repo via
+  `references/repos/klipper-biqu`.
+- Versions the printer's two disjoint config sets: `printer_data/config/`
+  (Klipper — `printer.cfg`, `moonraker.conf`, macros; pushed by
+  `klipper-backup` **on the Pi**) and `orcaslicer/` (OrcaSlicer presets;
+  pushed from the laptop via that repo's `just orca-sync`).
+- Klipper host: Raspberry Pi 3, Debian, **`192.168.10.225`**. As-built
+  hardware/calibration reference lives in that repo's `references/README.md`.
+- **Planned NixOS migration** (RFC, not yet built): turn the Pi into the
+  fleet `archinaut` host running `services.klipper`/`moonraker`/`mainsail`.
+  Decisions locked — keep the RPi3 (aarch64 build via kepler + cache),
+  **services-only**: the host's value is OS + MCU firmware + package
+  *version* maintainability. **All** config — Klipper `printer.cfg`/
+  `moonraker.conf`, Mainsail `mainsail.cfg`, OrcaSlicer presets — lives in
+  this repo, never in Nix; the Pi's `/var/lib/klipper/config` is a mutable
+  working copy round-tripped via klipper-backup so `SAVE_CONFIG`/Mainsail
+  edits survive. See `docs/proposals/2026-06-16-printer-nixos-host.md` and
+  `docs/proposals/archinaut-migration-plan.md`; printer config/calibration
+  docs live in the `klipper-biqu` sister repo (`references/`). When the host
+  exists it joins the coupling map below.
+- This repo is **config/state only** — no flake input, no NixOS module
+  today. Touch it like `home-assistant-config`: it owns the app config, this
+  flake owns the host OS.
+
 ### Coupling map
 
 ```
 desktop-nixos (system config)
 ├── inputs.servarr      → containers on kepler/discovery/orion
 ├── inputs.hermes-flake → hermes-agent on kepler
-└── deploys / hosts     → kepler also serves HA voice backend
-                          ↑
-                          home-assistant-config (HA app config)
+├── deploys / hosts     → kepler also serves HA voice backend
+│                         ↑
+│                         home-assistant-config (HA app config)
+└── (planned) archinaut host → klipper-biqu seeds /var/lib/klipper/config
+                               klipper-backup keeps it as git source-of-truth
 ```
 
 Rule of thumb: when a change touches more than one of these repos, land the
-**leaf** repo first (hermes-flake or servarr or home-assistant-config),
-then bump the input / sync, then deploy from `desktop-nixos`.
+**leaf** repo first (hermes-flake / servarr / home-assistant-config /
+klipper-biqu), then bump the input / sync, then deploy from `desktop-nixos`.
 
 ## BMAD-METHOD Integration
 

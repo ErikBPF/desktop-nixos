@@ -20,6 +20,8 @@ disagree, the recipe wins — flag the doc as stale.
 | [`superpowers/specs/2026-03-18-dendritic-migration-design.md`](superpowers/specs/2026-03-18-dendritic-migration-design.md) | Implemented — the current module layout follows this design. Historical reference. |
 | [`proposals/2026-05-23-home-assistant-declarative.md`](proposals/2026-05-23-home-assistant-declarative.md) | Proposal — declarative HA management. |
 | [`proposals/2026-05-27-home-assistant-voice-assistant.md`](proposals/2026-05-27-home-assistant-voice-assistant.md) | In progress — HA voice assistant (Phase 1 branch lives in `home-assistant-config`). |
+| [`proposals/2026-06-16-printer-nixos-host.md`](proposals/2026-06-16-printer-nixos-host.md) | Proposal (skeleton) — BIQU B1 Klipper printer as fleet host `archinaut`; judgment sections pending. |
+| [`proposals/archinaut-migration-plan.md`](proposals/archinaut-migration-plan.md) | Execution checklist for the `archinaut` migration (session handoff). Pairs with the RFC above. Printer config/calibration docs live in the `klipper-biqu` sister repo. |
 
 New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
