@@ -24,10 +24,17 @@ in {
       m.nixos.kepler-containers
       m.nixos.kepler-compose
       m.nixos.kepler-ai-serving
+      m.nixos.kepler-k3s-cluster
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.power-desktop
     ];
+
+    # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).
+    # ⚠ Brings up systemd-networkd — deploy supervised (see the module header).
+    # BLOCKED: kepler's BIOS has AMD-V/SVM disabled (no /dev/kvm) → microvms can't
+    # run. Re-enable after enabling "SVM Mode" in the BIOS + reboot.
+    kepler.k3s.enable = false;
 
     home-manager.users.${config.username}.imports = [
       m.home.kepler-ssh
@@ -44,7 +51,10 @@ in {
         device = "nodev";
         efiSupport = true;
         useOSProber = false;
-        configurationLimit = 5;
+        # kepler's initrds are ~180 MB (ZFS + nvidia + modules) and the ESP is only
+        # 512 MB, so it can hold ~2 generations. 5 overflowed /boot. Keep 2.
+        # NOTE: the deeper fix is a smaller initrd or a larger ESP — see below.
+        configurationLimit = 2;
       };
     };
 
