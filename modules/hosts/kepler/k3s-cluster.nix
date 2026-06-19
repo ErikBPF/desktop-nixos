@@ -1,14 +1,14 @@
 # k3s test cluster on kepler — each node a NixOS MicroVM.
 # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.
 #
-# STAGE 1 (this file): single throwaway control-plane VM (cp-1, clusterInit) to
-# prove the microvm plumbing on real hardware — cloud-hypervisor + virtiofs /nix
-# + tap on a private bridge + k3s comes up offline (airgap images baked). NOT the
-# full topology yet (no workers, no LB, no fan-out — those follow once this boots).
+# STAGE 2: full topology — 3 control-plane (HA embedded etcd, NoSchedule-tainted)
+# + a scalable worker pool. Nodes join via cp-1 directly for now; the kepler L4 LB
+# (.245 admin / .250 ingress) and platform baseline are the next steps.
 #
-# Gated behind `kepler.k3s.enable` (default off) so importing it is inert; the VM
-# only runs after `kepler.k3s.enable = true` + a switch. The networkd switch is
-# connectivity-sensitive — deploy this supervised (console), not blind over SSH.
+# Plumbing proven in stage 1: cloud-hypervisor + virtiofs /nix + private br-k3s
+# bridge + k3s offline from baked airgap images (cp-1 Ready on real hardware).
+#
+# Gated behind `kepler.k3s.enable`. ⚠ Uses systemd-networkd — deploy supervised.
 {inputs, ...}: {
   flake.modules.nixos.kepler-k3s-cluster = {
     config,
@@ -19,28 +19,150 @@
     mkK3sNode = import ../../services/_k3s-node.nix;
 
     subnet = "10.250.0";
-    hostIp = "${subnet}.1"; # kepler's address on the private bridge / cluster gateway
-    cp1Ip = "${subnet}.11";
+    hostIp = "${subnet}.1"; # kepler on br-k3s = cluster gateway
+    cp1Ip = "${subnet}.11"; # join target until the LB lands (stage 3)
 
-    # Host-side token dir, shared read-only into the guest via virtiofs (RFC §5.5,
-    # G3: guests run no sops). /var/lib is btrfs on kepler — safe for a virtiofs
-    # share (the ZFS xattr=sa caveat only applies to ZFS-backed shares).
     tokenDir = "/var/lib/k3s-cluster";
-    tokenFile = "${tokenDir}/token";
+
+    sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com";
+
+    # --- topology -----------------------------------------------------------
+    # 3 control-plane nodes (fixed — etcd quorum). cp-1 bootstraps, cp-2/3 join.
+    cpNames = ["cp-1" "cp-2" "cp-3"];
+    workerNames = map (n: "w-${toString n}") (lib.range 1 cfg.workerCount);
+    allNames = cpNames ++ workerNames;
+
+    cpIndex = name: lib.toInt (lib.removePrefix "cp-" name); # 1..3
+    workerIndex = name: lib.toInt (lib.removePrefix "w-" name); # 1..N
+
+    # Per-node spec, derived from the name so scaling = bump workerCount.
+    nodeSpec = name:
+      if lib.hasPrefix "cp-" name
+      then let
+        i = cpIndex name;
+      in {
+        role = "server";
+        controlPlane = true; # dedicated CP — workloads land on workers
+        clusterInit = i == 1;
+        serverAddr =
+          if i == 1
+          then null
+          else "https://${cp1Ip}:6443";
+        nodeIp = "${subnet}.${toString (10 + i)}"; # .11 .12 .13
+        cid = 10 + i;
+        mac = "02:00:00:00:fa:0${toString i}";
+        vcpu = 1; # RFC CP target (G1 tunable post-deploy)
+        mem = 2048;
+        disk = 8192;
+      }
+      else let
+        i = workerIndex name;
+      in {
+        role = "agent";
+        controlPlane = false;
+        clusterInit = false;
+        serverAddr = "https://${cp1Ip}:6443";
+        nodeIp = "${subnet}.${toString (20 + i)}"; # .21 .22 ...
+        cid = 20 + i;
+        mac = "02:00:00:00:fb:0${toString i}";
+        vcpu = cfg.workerVcpu;
+        mem = cfg.workerMem;
+        disk = 20480;
+      };
+
+    mkGuest = name: let
+      s = nodeSpec name;
+    in {
+      imports = [
+        (mkK3sNode {
+          inherit (s) role nodeIp clusterInit serverAddr controlPlane;
+          tokenFile = "/tokens/token";
+        })
+      ];
+
+      microvm = {
+        hypervisor = "cloud-hypervisor";
+        inherit (s) vcpu mem;
+        vsock.cid = s.cid;
+        interfaces = [
+          {
+            type = "tap";
+            id = "vm-k3s-${name}"; # matched into br-k3s by the host (21-k3s-tap)
+            inherit (s) mac;
+          }
+        ];
+        shares = [
+          {
+            tag = "ro-store";
+            source = "/nix/store";
+            mountPoint = "/nix/.ro-store";
+            proto = "virtiofs";
+          }
+          {
+            tag = "k3s-token";
+            source = tokenDir;
+            mountPoint = "/tokens";
+            proto = "virtiofs";
+          }
+        ];
+        volumes = [
+          {
+            image = "root.img"; # relative to /var/lib/microvms/${name}
+            mountPoint = "/";
+            size = s.disk;
+          }
+        ];
+      };
+
+      # Single NIC on the private subnet, static. Gateway is kepler.
+      systemd.network.enable = true;
+      systemd.network.networks."10-cluster" = {
+        matchConfig.Type = "ether";
+        networkConfig = {
+          Address = "${s.nodeIp}/24";
+          Gateway = hostIp;
+          DHCP = "no";
+        };
+      };
+
+      # Disable the guest firewall: the nodes sit on an isolated private subnet
+      # behind kepler (only .245/.250 are ever exposed, via the LB). This avoids
+      # enumerating every k3s intra-cluster port (etcd/kubelet/flannel) per node.
+      # Pod-level isolation is k8s NetworkPolicy (default-deny baseline), not the
+      # node firewall.
+      networking.firewall.enable = false;
+
+      # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
+      services.openssh.enable = true;
+      users.users.root.openssh.authorizedKeys.keys = [sshKey];
+
+      system.stateVersion = "25.11";
+    };
   in {
-    # Host capability is harmless when no VMs are defined; imports can't be gated
-    # on config, so this stays unconditional.
     imports = [inputs.microvm.nixosModules.host];
 
-    options.kepler.k3s.enable =
-      lib.mkEnableOption "k3s test cluster (microvm nodes) on kepler";
+    options.kepler.k3s = {
+      enable = lib.mkEnableOption "k3s test cluster (microvm nodes) on kepler";
+      workerCount = lib.mkOption {
+        type = lib.types.int;
+        default = 2;
+        description = "Number of worker (agent) microvm nodes. Scale: bump + switch.";
+      };
+      workerMem = lib.mkOption {
+        type = lib.types.int;
+        default = 16384;
+        description = "RAM (MiB) per worker. 16 GB; with 2 workers that's 32 GB + 6 GB CP on kepler's 62 GB (ARC yields under pressure). More headroom after the 128 GB upgrade.";
+      };
+      workerVcpu = lib.mkOption {
+        type = lib.types.int;
+        default = 2;
+      };
+    };
 
     config = lib.mkIf cfg.enable {
-      # --- Private bridge for cluster nodes; kepler is the gateway (no physical
-      # NIC enslaved → invisible to the LAN, RFC §5.3 option B). Requires
-      # systemd-networkd. kepler's enp5s0 DHCP is rendered to networkd from the
-      # legacy networking.interfaces option, so LAN/SSH is preserved. ⚠ supervised
-      # deploy — a networkd misconfig drops SSH.
+      # Private bridge; kepler is the gateway (no physical NIC enslaved → invisible
+      # to the LAN, RFC §5.3). enp5s0 DHCP is rendered to networkd from the legacy
+      # option, so LAN/SSH is preserved. ⚠ supervised deploy.
       networking.useNetworkd = true;
 
       systemd.network = {
@@ -50,13 +172,9 @@
         };
         networks."20-br-k3s" = {
           matchConfig.Name = "br-k3s";
-          # kepler owns the subnet gateway IP; its own default route stays on enp5s0.
           address = ["${hostIp}/24"];
-          # The bridge has no carrier until a VM tap attaches; don't let it (or the
-          # taps) fail systemd-networkd-wait-online and leave the host "degraded".
           linkConfig.RequiredForOnline = "no";
         };
-        # Enslave the microvm tap(s) into the bridge as they appear.
         networks."21-k3s-tap" = {
           matchConfig.Name = "vm-k3s-*";
           networkConfig.Bridge = "br-k3s";
@@ -64,113 +182,37 @@
         };
       };
 
-      # Bridge traffic is intra-cluster; don't let the host firewall block it.
       networking.firewall.trustedInterfaces = ["br-k3s"];
 
-      # Generate the shared join token once, before the VM starts. Host-only;
-      # 0600. (Real cluster: sops — for a disposable LAN sandbox a generated
-      # secret is sufficient, RFC §5.5.)
+      # NAT egress for the private cluster subnet (RFC §5.3 option B: kepler is
+      # gateway + NAT). Without it, pods/coredns can't reach upstream DNS or pull
+      # anything not baked. Masquerade br-k3s -> enp5s0.
+      networking.nat = {
+        enable = true;
+        internalInterfaces = ["br-k3s"];
+        externalInterface = "enp5s0";
+      };
+
+      # Shared join token, provisioned host-side before any node starts.
       systemd.services.k3s-cluster-token = {
         description = "Provision the k3s cluster join token";
         wantedBy = ["multi-user.target"];
-        before = ["microvm@cp-1.service"];
+        before = map (n: "microvm@${n}.service") allNames;
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
         };
         script = ''
           mkdir -p ${tokenDir}
-          if [ ! -s ${tokenFile} ]; then
+          if [ ! -s ${tokenDir}/token ]; then
             umask 077
-            head -c 32 /dev/urandom | base64 > ${tokenFile}
+            head -c 32 /dev/urandom | base64 > ${tokenDir}/token
           fi
         '';
       };
 
-      microvm.autostart = ["cp-1"];
-
-      microvm.vms.cp-1.config = {
-        imports = [
-          (mkK3sNode {
-            role = "server";
-            clusterInit = true;
-            nodeIp = cp1Ip;
-            tokenFile = "/tokens/token";
-            # NOT control-plane-tainted: single node must stay schedulable so
-            # coredns/etc. run. Taints come with the full topology (workers exist).
-          })
-        ];
-
-        microvm = {
-          hypervisor = "cloud-hypervisor";
-          # RFC target CP size is 1 vCPU / 2 GB (G1, tunable post-deploy); give the
-          # proof a little headroom for the first-boot image import.
-          vcpu = 2;
-          mem = 2048;
-          # vsock enables cloud-hypervisor systemd-notify, so microvm@cp-1 reports
-          # ready when the guest is actually up. Unique CID per VM.
-          vsock.cid = 11;
-
-          interfaces = [
-            {
-              type = "tap";
-              id = "vm-k3s-cp1"; # matched into br-k3s by the host (21-k3s-tap)
-              mac = "02:00:00:00:fa:01";
-            }
-          ];
-
-          shares = [
-            {
-              # Share the host store so the guest image stays tiny (RFC §5.4).
-              tag = "ro-store";
-              source = "/nix/store";
-              mountPoint = "/nix/.ro-store";
-              proto = "virtiofs";
-            }
-            {
-              tag = "k3s-token";
-              source = tokenDir;
-              mountPoint = "/tokens";
-              proto = "virtiofs";
-            }
-          ];
-
-          volumes = [
-            {
-              image = "/var/lib/microvms/cp-1/root.img";
-              mountPoint = "/";
-              size = 8192;
-            }
-          ];
-        };
-
-        # Single NIC on the private subnet, static. Gateway is kepler; no NAT in
-        # stage 1 — the node forms offline from the baked airgap images.
-        systemd.network.enable = true;
-        systemd.network.networks."10-cluster" = {
-          matchConfig.Type = "ether";
-          networkConfig = {
-            Address = "${cp1Ip}/24";
-            Gateway = hostIp;
-            DHCP = "no";
-          };
-        };
-
-        # The guest firewall is on by default and would block the apiserver (6443)
-        # and SSH. Open both on the private subnet. (Multi-node intra-cluster ports
-        # — etcd/kubelet/flannel — come with the fan-out.)
-        networking.firewall.allowedTCPPorts = [22 6443];
-
-        # SSH for admin / kubectl, reachable from kepler over the bridge
-        # (ssh -J erik@kepler root@10.250.0.11). Real kubectl access later goes via
-        # the kepler LB / SWAG (RFC §5.3).
-        services.openssh.enable = true;
-        users.users.root.openssh.authorizedKeys.keys = [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com"
-        ];
-
-        system.stateVersion = "25.11";
-      };
+      microvm.autostart = allNames;
+      microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
     };
   };
 }
