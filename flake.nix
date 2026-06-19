@@ -49,6 +49,13 @@
       url = "github:ErikBPF/hermes-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # k3s test cluster on kepler runs each node as a NixOS MicroVM.
+    # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.
+    microvm = {
+      url = "github:microvm-nix/microvm.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
