@@ -32,9 +32,7 @@ in {
 
     # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).
     # ⚠ Brings up systemd-networkd — deploy supervised (see the module header).
-    # BLOCKED: kepler's BIOS has AMD-V/SVM disabled (no /dev/kvm) → microvms can't
-    # run. Re-enable after enabling "SVM Mode" in the BIOS + reboot.
-    kepler.k3s.enable = false;
+    kepler.k3s.enable = true;
 
     home-manager.users.${config.username}.imports = [
       m.home.kepler-ssh

@@ -156,6 +156,19 @@
           };
         };
 
+        # The guest firewall is on by default and would block the apiserver (6443)
+        # and SSH. Open both on the private subnet. (Multi-node intra-cluster ports
+        # — etcd/kubelet/flannel — come with the fan-out.)
+        networking.firewall.allowedTCPPorts = [22 6443];
+
+        # SSH for admin / kubectl, reachable from kepler over the bridge
+        # (ssh -J erik@kepler root@10.250.0.11). Real kubectl access later goes via
+        # the kepler LB / SWAG (RFC §5.3).
+        services.openssh.enable = true;
+        users.users.root.openssh.authorizedKeys.keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com"
+        ];
+
         system.stateVersion = "25.11";
       };
     };
