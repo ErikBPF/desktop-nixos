@@ -20,8 +20,9 @@ in {
       m.nixos.archinaut-hardware
       m.nixos.klipper-host
       m.nixos.first-boot
-      m.nixos.alloy
       # NOTE: btrfs-snapshots intentionally omitted — the SD root is ext4.
+      # NOTE: alloy (monitoring) intentionally omitted — ~260 MB RSS + CPU is
+      # too heavy for the 1 GB Pi; it starved sshd during boot activation.
     ];
 
     # Rollback guard: the print stack must come back after an unattended upgrade.
@@ -43,6 +44,12 @@ in {
       allowReboot = false;
       dates = "05:00";
     };
+
+    # 1 GB RPi3 trims: no SMART-capable disk (SD card), and the RPi kernel
+    # rejects the auditd netlink rule-load — disable both to keep boot clean.
+    services.smartd.enable = lib.mkForce false;
+    security.auditd.enable = lib.mkForce false;
+    security.audit.enable = lib.mkForce false;
 
     services.openssh.enable = true;
   };

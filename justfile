@@ -171,7 +171,7 @@ seed-archinaut:
         "$SRC" erik@{{ip_archinaut}}:/var/lib/klipper/
     ssh -p 2222 erik@{{ip_archinaut}} \
         "sudo chown -R klipper:klipper /var/lib/klipper && sudo systemctl restart klipper moonraker"
-    @echo ":: seeded — check Mainsail at http://{{ip_archinaut}}"
+    echo ":: seeded — check Mainsail at http://{{ip_archinaut}}"
 
 # ── Servarr sync (compose stacks) ─────────────────────────
 # Push local servarr/ working tree to a host's /home/erik/servarr/ so that
