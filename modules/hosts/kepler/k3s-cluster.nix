@@ -61,8 +61,9 @@
           if i == 1
           then null
           else "https://${hostIp}:6443";
-        # apiserver cert must cover the LB + LAN admin addresses.
-        tlsSan = [hostIp apiVip];
+        # apiserver cert must cover the LB + LAN admin addresses + the admin
+        # domain (kubectl via k8s.pastelariadev.com -> discovery stream-proxy).
+        tlsSan = [hostIp apiVip "k8s.pastelariadev.com"];
         nodeIp = "${subnet}.${toString (10 + i)}"; # .11 .12 .13
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
