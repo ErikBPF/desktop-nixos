@@ -14,7 +14,8 @@
   config,
   ...
 }: let
-  fleetUser = config.username; # flake-parts top-level option (meta.nix)
+  fleetUser = config.username; # flake-parts top-level options (meta.nix)
+  inherit (config) domain;
 in {
   flake.modules.nixos.kepler-k3s-cluster = {
     config,
@@ -37,6 +38,10 @@ in {
     workerServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString ingressNodePort};") (lib.range 1 cfg.workerCount);
 
     tokenDir = "/var/lib/k3s-cluster";
+
+    # etcd snapshots land here (kepler's bulk-pool ZFS, /bulk) via a per-CP
+    # virtiofs share — survives guest root.img loss. RFC §C.
+    etcdSnapshotBase = "/bulk/k3s-etcd-snapshots";
 
     # Reuse the fleet authorized key (user.nix) rather than a 3rd hardcoded copy —
     # guest root login trusts the same key.
@@ -72,7 +77,7 @@ in {
           else "https://${hostIp}:6443";
         # apiserver cert must cover the LB + LAN admin addresses + the admin
         # domain (kubectl via k8s.pastelariadev.com -> discovery stream-proxy).
-        tlsSan = [hostIp apiVip "k8s.pastelariadev.com"];
+        tlsSan = [hostIp apiVip "k8s.${domain}"];
         nodeIp = "${subnet}.${toString (10 + i)}"; # .11 .12 .13
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
@@ -104,6 +109,10 @@ in {
           (mkK3sNode {
             inherit (s) role nodeIp clusterInit serverAddr controlPlane tlsSan;
             tokenFile = "/tokens/token";
+            etcdSnapshotDir =
+              if s.controlPlane
+              then "/etcd-snapshots"
+              else null;
           })
         ]
         # Platform baseline — declared on the clusterInit server ONLY (helm-controller
@@ -142,20 +151,28 @@ in {
             inherit (s) mac;
           }
         ];
-        shares = [
-          {
-            tag = "ro-store";
-            source = "/nix/store";
-            mountPoint = "/nix/.ro-store";
+        shares =
+          [
+            {
+              tag = "ro-store";
+              source = "/nix/store";
+              mountPoint = "/nix/.ro-store";
+              proto = "virtiofs";
+            }
+            {
+              tag = "k3s-token";
+              source = tokenDir;
+              mountPoint = "/tokens";
+              proto = "virtiofs";
+            }
+          ]
+          # CP nodes write embedded-etcd snapshots to a host-backed /bulk subdir.
+          ++ lib.optional s.controlPlane {
+            tag = "etcd-snap";
+            source = "${etcdSnapshotBase}/${name}";
+            mountPoint = "/etcd-snapshots";
             proto = "virtiofs";
-          }
-          {
-            tag = "k3s-token";
-            source = tokenDir;
-            mountPoint = "/tokens";
-            proto = "virtiofs";
-          }
-        ];
+          };
         volumes = [
           {
             image = "root.img"; # relative to /var/lib/microvms/${name}
@@ -289,33 +306,56 @@ in {
         '';
       };
 
-      # Shared join token, provisioned host-side before any node starts.
-      systemd.services.k3s-cluster-token = {
-        description = "Provision the k3s cluster join token";
-        wantedBy = ["multi-user.target"];
-        before = map (n: "microvm@${n}.service") allNames;
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
-        script = ''
-          mkdir -p ${tokenDir}
-          if [ ! -s ${tokenDir}/token ]; then
-            umask 077
-            head -c 32 /dev/urandom | base64 > ${tokenDir}/token
-          fi
-        '';
-      };
-
       microvm.autostart = allNames;
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
 
-      # Stability: the microvm@ unit is Type=notify with a 150s default start
-      # timeout. On a cold/contended boot (host reboot or `switch` restarting the 3
-      # CPs together) the guest's vsock ready-notify can land past 150s, failing the
-      # unit and leaving it "activating" until a manual restart. Give it headroom so
-      # boots self-heal (Restart=always handles the rest). Applies to all microvms.
-      systemd.services."microvm@".serviceConfig.TimeoutStartSec = 300;
+      # Host-side etcd-snapshot tree on /bulk: one subdir per CP, created before
+      # the guests start (virtiofsd needs the share source to exist). RFC §C.
+      systemd.tmpfiles.rules =
+        ["d ${etcdSnapshotBase} 0700 root root -"]
+        ++ map (n: "d ${etcdSnapshotBase}/${n} 0700 root root -") cpNames;
+
+      systemd.services =
+        {
+          # Shared join token, provisioned host-side before any node starts.
+          k3s-cluster-token = {
+            description = "Provision the k3s cluster join token";
+            wantedBy = ["multi-user.target"];
+            before = map (n: "microvm@${n}.service") allNames;
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+            };
+            script = ''
+              mkdir -p ${tokenDir}
+              if [ ! -s ${tokenDir}/token ]; then
+                umask 077
+                head -c 32 /dev/urandom | base64 > ${tokenDir}/token
+              fi
+            '';
+          };
+
+          # Stability: the microvm@ unit is Type=notify with a 150s default start
+          # timeout. On a cold/contended boot (host reboot or `switch` restarting the
+          # 3 CPs together) the guest's vsock ready-notify can land past 150s, failing
+          # the unit and leaving it "activating" until a manual restart. Give it
+          # headroom so boots self-heal (Restart=always handles the rest).
+          "microvm@".serviceConfig.TimeoutStartSec = 300;
+        }
+        # Stagger cold boot to cut the simultaneous-boot vsock-notify contention:
+        # cp-1 first (clusterInit), then cp-2 → cp-3 serially (clean sequential etcd
+        # join), workers after cp-1 (apiserver is up so they join immediately).
+        # Drop-ins on the template instances; After= is ordering-only (no failure
+        # cascade if a predecessor dies).
+        // lib.mapAttrs' (name: pred:
+          lib.nameValuePair "microvm@${name}" {
+            overrideStrategy = "asDropin";
+            after = ["microvm@${pred}.service"];
+          }) ({
+            "cp-2" = "cp-1";
+            "cp-3" = "cp-2";
+          }
+          // lib.genAttrs workerNames (_: "cp-1"));
     };
   };
 }

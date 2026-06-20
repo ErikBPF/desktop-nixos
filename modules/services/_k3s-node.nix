@@ -8,6 +8,7 @@
   serverAddr ? null, # joining servers/agents point here
   controlPlane ? false, # taint NoSchedule (dedicated control plane)
   tlsSan ? [], # extra apiserver cert SANs (LB / LAN IPs) — servers only
+  etcdSnapshotDir ? null, # relocate etcd snapshots here (servers only) — e.g. a host-backed share
   iface ? null, # flannel iface — only needed to disambiguate multi-NIC nodes
   token ? null, # literal token — test only
   tokenFile ? null, # file path — real cluster (host-provisioned, RFC §5.5)
@@ -79,6 +80,10 @@ in {
           "--kube-apiserver-arg=admission-control-config-file=${psaConfig}"
         ]
         ++ map (s: "--tls-san=${s}") tlsSan
+        # Relocate embedded-etcd snapshots off the guest's ephemeral root.img onto
+        # a host-backed share (default cadence: every 12h, retain 5). Filenames
+        # carry the node name, so all servers can target one host tree (RFC §C).
+        ++ lib.optionals (etcdSnapshotDir != null) ["--etcd-snapshot-dir=${etcdSnapshotDir}"]
       )
       # --flannel-iface only needed to disambiguate multi-NIC nodes (the test VLAN).
       ++ lib.optionals (iface != null) ["--flannel-iface=${iface}"]
