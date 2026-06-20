@@ -70,9 +70,14 @@ in {
           source_labels = ["__meta_kubernetes_namespace"]
           target_label  = "namespace"
         }
+        // Stream labels stay low-cardinality: namespace, app, container. Pod name
+        // is deliberately NOT a label — its per-restart ReplicaSet hash mints a new
+        // Loki stream every restart (cardinality blowup; telemetry RFC §1). Filter
+        // by namespace/container + line content; promote to structured metadata if
+        // per-pod querying is ever needed.
         rule {
-          source_labels = ["__meta_kubernetes_pod_name"]
-          target_label  = "pod"
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
         }
         rule {
           source_labels = ["__meta_kubernetes_pod_container_name"]
