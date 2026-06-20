@@ -108,7 +108,7 @@ in {
           enable = true;
           useOSProber = false;
           timeoutStyle = "menu";
-          configurationLimit = 10;
+          configurationLimit = 3;
         };
         timeout = 3;
       };

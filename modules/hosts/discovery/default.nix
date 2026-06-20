@@ -60,7 +60,7 @@ in {
         device = "nodev";
         efiSupport = true;
         useOSProber = false;
-        configurationLimit = 5;
+        configurationLimit = 3;
       };
     };
 

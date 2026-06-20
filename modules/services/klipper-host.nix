@@ -160,8 +160,12 @@ in {
 
       services.mainsail.enable = true;
 
-      # Webcam — single Logitech C270 (replaces crowsnest). 720p MJPEG on :8080;
-      # add the stream to Mainsail as http://<host>:8080/stream.
+      # Webcam — single Logitech C270 (replaces crowsnest), MJPEG on :8080;
+      # registered declaratively above (services.moonraker.settings."webcam C270").
+      # 640x480: the RPi3's single USB 2.0 bus is shared with the onboard LAN
+      # (LAN9514), and MJPEG 720p starved it → "uvcvideo: Failed to resubmit
+      # video URB" + captured_fps 0. 480p fits the bandwidth. --persistent +
+      # --device-timeout keep the stream alive across camera/USB hiccups.
       systemd.services.ustreamer = {
         description = "ustreamer MJPEG stream (C270)";
         wantedBy = ["multi-user.target"];
@@ -170,8 +174,11 @@ in {
           ExecStart = lib.concatStringsSep " " [
             "${pkgs.ustreamer}/bin/ustreamer"
             "--device=/dev/video0"
-            "--resolution=1280x720"
+            "--resolution=640x480"
             "--format=MJPEG"
+            "--desired-fps=15"
+            "--persistent"
+            "--device-timeout=8"
             "--host=0.0.0.0"
             "--port=8080"
           ];

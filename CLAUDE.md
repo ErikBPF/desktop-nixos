@@ -158,7 +158,7 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. Four sister repos plug into it. Each is exposed as a
+configuration. Five sister repos plug into it. Each is exposed as a
 gitignored symlink under `references/repos/` for quick local access (the
 real working trees live at `~/Documents/erik/...`):
 
@@ -167,6 +167,7 @@ references/repos/servarr               → ~/Documents/erik/servarr
 references/repos/hermes-flake          → ~/Documents/erik/hermes-flake
 references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config
 references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu
+references/repos/homelab-iac           → ~/Documents/erik/homelab-iac
 ```
 
 Justfile recipes resolve through these symlinks (`readlink -f
@@ -243,6 +244,24 @@ references/repos/servarr`); never hard-code the absolute path.
   today. Touch it like `home-assistant-config`: it owns the app config, this
   flake owns the host OS.
 
+### `homelab-iac` — declarative UniFi network (OpenTofu + Terragrunt)
+
+- Lives at `~/Documents/erik/homelab-iac`. Reachable in-repo via
+  `references/repos/homelab-iac`. Remote:
+  `git@github.com:ErikBPF/homelab-iac.git`.
+- Source of truth for the **network the fleet lives on**: VLANs, WLANs, static
+  DNS, and **DHCP fixed-IP reservations** on the home UDM (`192.168.10.1`), via
+  the `filipowm/unifi` provider (Terragrunt units per stack, config under
+  `unifi/`). Two envs: `home` (live) and `lab` (stub).
+- **Addressing contract** with this flake: the reservations there assign the
+  IPs hosts use here — `kepler .230`, `homeassistant .205`, `archinaut .225`,
+  `nix-erik .125`, … Change a host's IP in one repo → update the matching
+  reservation in the other, or DHCP and the host config disagree.
+- **Config/state only** — no flake input, no NixOS module. Touch it like
+  `home-assistant-config`/`klipper-biqu`: it owns the network, this flake owns
+  the hosts. Apply **only from a wired LAN host** (Wi-Fi changes can self-lock);
+  state is local + encrypted. See its `README.md`.
+
 ### Coupling map
 
 ```
@@ -254,47 +273,12 @@ desktop-nixos (system config)
 │                         home-assistant-config (HA app config)
 └── (planned) archinaut host → klipper-biqu seeds /var/lib/klipper/config
                                klipper-backup keeps it as git source-of-truth
+
+homelab-iac (UniFi network)  ← the substrate all the above run on:
+  DHCP reservations pin every host's IP; static DNS pins service hostnames.
+  desktop-nixos owns the hosts; homelab-iac owns the network they live on.
 ```
 
 Rule of thumb: when a change touches more than one of these repos, land the
 **leaf** repo first (hermes-flake / servarr / home-assistant-config /
 klipper-biqu), then bump the input / sync, then deploy from `desktop-nixos`.
-
-## BMAD-METHOD Integration
-
-Use `/bmalph` to navigate phases. Use `/bmad-help` to discover all commands. Use `/bmalph-status` for a quick overview. See `_bmad/COMMANDS.md` for a full command reference.
-
-### Phases
-
-| Phase | Focus | Key Commands |
-|-------|-------|-------------|
-| 1. Analysis | Understand the problem | `/create-brief`, `/brainstorm-project`, `/market-research` |
-| 2. Planning | Define the solution | `/create-prd`, `/create-ux` |
-| 3. Solutioning | Design the architecture | `/create-architecture`, `/create-epics-stories`, `/implementation-readiness` |
-| 4. Implementation | Build it | `/sprint-planning`, `/create-story`, then `/bmalph-implement` for Ralph |
-
-### Workflow
-
-1. Work through Phases 1-3 using BMAD agents and workflows (interactive, command-driven)
-2. Run `/bmalph-implement` to transition planning artifacts into Ralph format, then start Ralph
-
-### Management Commands
-
-| Command | Description |
-|---------|-------------|
-| `/bmalph-status` | Show current phase, Ralph progress, version info |
-| `/bmalph-implement` | Transition planning artifacts → prepare Ralph loop |
-| `/bmalph-upgrade` | Update bundled assets to match current bmalph version |
-| `/bmalph-doctor` | Check project health and report issues |
-
-### Available Agents
-
-| Command | Agent | Role |
-|---------|-------|------|
-| `/analyst` | Analyst | Research, briefs, discovery |
-| `/architect` | Architect | Technical design, architecture |
-| `/pm` | Product Manager | PRDs, epics, stories |
-| `/sm` | Scrum Master | Sprint planning, status, coordination |
-| `/dev` | Developer | Implementation, coding |
-| `/ux-designer` | UX Designer | User experience, wireframes |
-| `/qa` | QA Engineer | Test automation, quality assurance |
