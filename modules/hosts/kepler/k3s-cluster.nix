@@ -309,6 +309,13 @@ in {
 
       microvm.autostart = allNames;
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
+
+      # Stability: the microvm@ unit is Type=notify with a 150s default start
+      # timeout. On a cold/contended boot (host reboot or `switch` restarting the 3
+      # CPs together) the guest's vsock ready-notify can land past 150s, failing the
+      # unit and leaving it "activating" until a manual restart. Give it headroom so
+      # boots self-heal (Restart=always handles the rest). Applies to all microvms.
+      systemd.services."microvm@".serviceConfig.TimeoutStartSec = 300;
     };
   };
 }
