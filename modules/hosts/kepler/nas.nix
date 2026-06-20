@@ -14,8 +14,20 @@ _: {
       exports = ''
         /fast  192.168.10.0/24(rw,sync,no_subtree_check,no_root_squash) 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)
         /bulk  192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
+        /fast/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
+        /bulk/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
       '';
     };
+
+    # csi-driver-nfs PV roots: dedicated subdirs so k3s PVs don't mingle with the
+    # model cache (/fast) or media (/bulk). Exported rw to the cluster subnet only
+    # (the nodes mount kepler at its br-k3s gateway IP 10.250.0.1). no_root_squash:
+    # the CSI node plugin runs as root and chowns each PV dir. nfs-fast → SSD pool,
+    # nfs-slow → HDD pool (RFC platform-gitops §4).
+    systemd.tmpfiles.rules = [
+      "d /fast/k8s 0755 root root -"
+      "d /bulk/k8s 0755 root root -"
+    ];
 
     # --- Samba ---
     # Provides read-write access to bulk storage for Windows/macOS clients
