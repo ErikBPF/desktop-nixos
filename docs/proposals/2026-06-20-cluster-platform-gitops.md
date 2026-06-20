@@ -47,9 +47,9 @@ with `just` recipes; applied to the live cluster.
 | Layer | Pick | Chart / version | Notes |
 |---|---|---|---|
 | GitOps | **Argo CD** | `argo-cd` 9.6.0 (appVer v3.x) | bootstrapped via `just`, self-managing |
-| Ingress | **Traefik** (mimic prod) | `traefik` chart | as a 2nd IngressClass alongside the Nix ingress-nginx; prod-realistic IngressRoute/middleware. `TODO`: coexist or replace |
-| Storage RWX **fast** | csi-driver-nfs → SSD/NVMe export | `csi-driver-nfs` 4.12.0 (kube-system) | StorageClass `nfs-fast` → kepler SSD dataset |
-| Storage RWX **slow** | csi-driver-nfs → `/bulk` | same driver, 2nd SC | StorageClass `nfs-slow` → kepler `/bulk` (HDD/ZFS) |
+| Ingress | **Traefik** (mimic prod) | `traefik` chart | **replaces** ingress-nginx as the default IngressClass; reuses NodePort 30443 so the L4 LB is unchanged. IngressRoute/middleware CRDs |
+| Storage RWX **fast** | csi-driver-nfs → `/fast/k8s` | `csi-driver-nfs` 4.12.0 (kube-system) | StorageClass `nfs-fast` → **fast-pool** (SSD RAIDZ1) |
+| Storage RWX **slow** | csi-driver-nfs → `/bulk/k8s` | same driver, 2nd SC | StorageClass `nfs-slow` → **bulk-pool** (HDD) |
 | Storage RWO | k3s **local-path** (default) | built-in | ephemeral/scratch |
 | Registry | **Harbor** (mimic prod) | `harbor` chart | full: RBAC, Trivy scan, replication, proxy-cache. ~4GB min + postgres/redis |
 | Secrets | **ESO → Vault@discovery** | `external-secrets` v2.6.0 | AppRole auth (see §5) |
@@ -66,8 +66,11 @@ distinct `StorageClass` objects pointing at different kepler exports.
 k3s shipped Traefik; we disabled it for ingress-nginx. To mimic prod, bring
 **Traefik back via GitOps** as a second `IngressClass` (IngressRoute CRDs,
 middlewares, the dashboard) behind the same kepler L4 LB / a second NodePort.
-- `TODO(erik)`: run Traefik **alongside** ingress-nginx (two classes — realistic
-  for migration drills) or make it the cluster default? (Recommend alongside:
+- **DECIDED: Traefik replaces ingress-nginx** (becomes the default IngressClass).
+  Scaffolded in `platform/traefik` (NodePort 30443 = LB target). Cutover: bring up
+  Argo + Traefik, verify, then remove ingress-nginx from the Nix `autoDeployCharts`
+  and repoint the argocd ingress to traefik. Superseded note: ~~run Traefik
+  alongside ingress-nginx (two classes)?~~
   keeps the working ingress-nginx path while you exercise Traefik.)
 - No `Service type=LoadBalancer` — expose via NodePort behind the kepler L4 LB,
   same as ingress-nginx (NodePort 30443).
@@ -76,14 +79,16 @@ middlewares, the dashboard) behind the same kepler L4 LB / a second NodePort.
 
 One `csi-driver-nfs` (4.12.0, into kube-system to inherit the PSA exemption — the
 node plugin is privileged), two StorageClasses:
-- **`nfs-fast`** → a kepler SSD/NVMe ZFS dataset export (databases, registry blob
-  store if not local, latency-sensitive PVCs).
-- **`nfs-slow`** → kepler `/bulk` (media, backups, bulk RWX).
+- **`nfs-fast`** → `fast-pool` (SSD RAIDZ1, ~1.2T free) via `/fast/k8s` —
+  databases, registry blobs, latency-sensitive PVCs.
+- **`nfs-slow`** → `bulk-pool` (HDD, ~12T free) via `/bulk/k8s` — media, backups,
+  bulk RWX.
 - **`local-path`** stays the default SC for ephemeral/scratch RWO.
 - **Skip Longhorn** — replicating across VMs on one physical disk = 3× waste,
   zero durability, runs degraded. ZFS gives integrity + snapshots already.
-- `TODO(erik)`: which kepler dataset/export backs `nfs-fast`? (needs an SSD
-  pool/dataset + NFS export; confirm it exists or carve one.)
+- **DONE (substrate):** both pools exist; `nas.nix` now exports `/fast/k8s` +
+  `/bulk/k8s` rw,no_root_squash to `10.250.0.0/24` (dedicated subdirs so PVs don't
+  mingle with the model cache / media). Nodes mount kepler at `10.250.0.1`.
 
 ## 5. Secrets — External Secrets Operator → Vault on discovery
 
@@ -222,9 +227,11 @@ else the user named is **in**.
 
 ## 14. Decisions — `TODO(erik)`
 
-- Traefik **alongside** ingress-nginx (2 classes) or replace?
-- external-dns provider: AdGuard webhook / Cloudflare / UniFi?
-- `nfs-fast` backing dataset — does an SSD pool/export exist on kepler?
+- ~~Traefik alongside or replace?~~ **DECIDED: replace** (default IngressClass).
+- ~~`nfs-fast` backing dataset?~~ **DECIDED: fast-pool SSD `/fast/k8s`** (slow =
+  bulk-pool `/bulk/k8s`); exports added in `nas.nix`.
+- external-dns provider: AdGuard webhook / Cloudflare / UniFi? (AdGuard is on
+  discovery — **postponed** while discovery is busy.)
 - Harbor blob storage: `nfs-fast` vs node-local?
 - Vault unseal automation shape (sops + systemd unit on discovery) — acceptable,
   or auto-unseal via a transit Vault (over-engineering for a lab)?
