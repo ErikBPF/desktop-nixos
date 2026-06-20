@@ -43,10 +43,12 @@ in {
     # virtiofs share — survives guest root.img loss. RFC §13.
     etcdSnapshotBase = "/bulk/k3s-etcd-snapshots";
 
-    # Fleet observability: ship cluster pod logs to discovery's Loki (same sink
-    # the host Alloy uses — discovery's Tailscale IP, see modules/services/alloy.nix).
+    # Fleet observability: ship cluster pod logs to discovery's Loki — the same
+    # sink the host Alloy uses, but addressed by raw tailnet IP, not MagicDNS:
+    # pods aren't tailnet members so "discovery" doesn't resolve in-cluster (the
+    # host Alloy in modules/services/alloy.nix uses the name). Keep the IP in sync.
     discoveryLokiUrl = "http://100.76.140.121:3100/loki/api/v1/push";
-    clusterName = "pastelariadev";
+    clusterName = lib.head (lib.splitString "." domain); # "pastelariadev"
 
     # In-cluster Alloy DaemonSet config: tail pod logs via the k8s API (not host
     # files → no hostPath, stays PodSecurity-baseline clean) and forward to Loki,
@@ -124,7 +126,7 @@ in {
           then null
           else "https://${hostIp}:6443";
         # apiserver cert must cover the LB + LAN admin addresses + the admin
-        # domain (kubectl via k8s.pastelariadev.com -> discovery stream-proxy).
+        # domain (kubectl via k8s.${domain} -> discovery stream-proxy).
         tlsSan = [hostIp apiVip "k8s.${domain}"];
         nodeIp = "${subnet}.${toString (10 + i)}"; # .11 .12 .13
         cid = 10 + i;
