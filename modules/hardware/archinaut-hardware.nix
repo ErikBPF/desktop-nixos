@@ -1,7 +1,7 @@
 _: {
   # Raspberry Pi 3 (BCM2837, aarch64, 1 GB RAM) — the BIQU B1 print host.
-  # The SD-image bootloader/firmware (extlinux + u-boot-rpi3 + RPi firmware) is
-  # supplied by sd-image-aarch64.nix, imported in the host's default.nix.
+  # The bootloader is kernel-direct (GPU firmware loads the kernel, no u-boot) —
+  # supplied by archinaut-kernel-direct, imported in the host's default.nix.
   flake.modules.nixos.archinaut-hardware = {lib, ...}: {
     nixpkgs.hostPlatform = "aarch64-linux";
 
@@ -13,27 +13,6 @@ _: {
     boot.tmp.useTmpfs = lib.mkForce false;
     boot.tmp.cleanOnBoot = true;
     zramSwap.enable = true;
-
-    # The Klipper MCU is wired to the GPIO UART (GPIO14/15), which is also
-    # u-boot's serial console — with the printer powered, the MCU disrupts
-    # u-boot and the Pi hangs before the kernel (boots with printer OFF, hangs
-    # with it ON). CONFIG_BOOTDELAY=-2 (autoboot, no serial-stdin wait) was an
-    # attempt at this; it does NOT fix the clash (the disruption is deeper than
-    # the autoboot keypress). Kept only as a sane appliance default (no boot
-    # wait). The real fix is kernel-direct boot — see
-    # docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md. Until then,
-    # power-sequence: boot the Pi first, then power the printer.
-    nixpkgs.overlays = [
-      (_final: prev: {
-        ubootRaspberryPi3_64bit = prev.ubootRaspberryPi3_64bit.override (o: {
-          extraConfig =
-            (o.extraConfig or "")
-            + ''
-              CONFIG_BOOTDELAY=-2
-            '';
-        });
-      })
-    ];
 
     networking.hostName = "archinaut";
     # Wired ethernet (USB smsc95xx) + WiFi both via DHCP.

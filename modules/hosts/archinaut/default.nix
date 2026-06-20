@@ -11,9 +11,14 @@ in {
     ...
   }: {
     imports = [
-      # RPi3 aarch64 SD image: extlinux + u-boot-rpi3 + RPi firmware + DTBs,
-      # and the sdImage builder (config.system.build.sdImage).
-      (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
+      # Kernel-direct boot: the base SD-image builder (NOT sd-image-aarch64.nix,
+      # which hardcodes u-boot + extlinux) plus archinaut-kernel-direct, which
+      # supplies a GPU-firmware-direct bootloader (no u-boot). This is what lets
+      # the Pi boot with the printer powered — the Klipper MCU on the GPIO UART
+      # used to hang u-boot's serial console. See
+      # docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md.
+      (modulesPath + "/installer/sd-card/sd-image.nix")
+      m.nixos.archinaut-kernel-direct
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
