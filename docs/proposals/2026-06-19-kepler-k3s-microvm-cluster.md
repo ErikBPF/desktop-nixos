@@ -598,3 +598,80 @@ from git, tested in a `nixosTest` — while staying light and ergonomic. Recorde
 as a deliberate choice, with `services.kubernetes`/`nixos-rke2`/clan as the
 escalation options if requirements change. `TODO(erik)`: accept k3s-native, or
 want a spike of `services.kubernetes` + `easyCerts` to feel the difference?
+
+## 13. Post-v1 improvements (2026-06-20)
+
+Four refinements after the `v1` tag, batched together. **A and C touch the
+guests** → land on a supervised `just switch-kepler` window (recreates the CP
+microvms; D's stagger lengthens cold boot, see below).
+
+### B — `meta.domain` (DRY the domain)
+
+`pastelariadev.com` was hardcoded in five modules. Hoisted into a `readOnly`
+`meta.nix` option (`config.domain`); hermes (agent + litellm URLs), the klipper
+moonraker HA-power plugin, and this cluster's apiserver TLS SAN now reference it.
+No behaviour change — pure de-duplication.
+
+### C — etcd snapshots → kepler's bulk-pool
+
+k3s embedded-etcd takes automatic snapshots (default every 12h, retain 5) but
+wrote them to each guest's **ephemeral `root.img`** — lost if the volume is
+recreated. Each CP guest now mounts a **per-CP virtiofs share** at
+`/etcd-snapshots` backed by `/bulk/k3s-etcd-snapshots/<cp>` (bulk-pool ZFS, 15T),
+and passes `--etcd-snapshot-dir=/etcd-snapshots`. Per-CP subdirs avoid any
+cross-guest virtiofs write contention; restore is the standard
+`k3s server --cluster-reset --cluster-reset-restore-path=<snapshot>` off `/bulk`.
+
+### D — staggered cold boot
+
+The `microvm@` units are `Type=notify`; on a cold/contended boot all 5 guests
+raced their vsock ready-notify, occasionally tripping the (now 300s) start
+timeout. Per-instance `After=` drop-ins (`overrideStrategy = "asDropin"` on the
+template) order boot **cp-1 → cp-2 → cp-3**, workers after cp-1. `After=` is
+ordering-only (no failure cascade). Trade-off: serial CP boot makes a full cold
+start slower (~one CP-ready interval each) in exchange for no contention spikes.
+
+### A — fleet observability of the cluster
+
+Surveyed `dataplatform-gitops` (in-cluster kube-prometheus-stack + Alloy). For a
+5-node sandbox that already has an **external** Grafana/Loki/Prometheus on
+discovery, the reusable piece is their **Alloy log pipeline**, not the in-cluster
+operator stack. Adopted **push-only, one agent**:
+
+- **Logs (shipped):** a Grafana **Alloy DaemonSet** (`monitoring` ns) tails pod
+  logs **via the k8s API** (`loki.source.kubernetes` — no hostPath, so it passes
+  the PodSecurity **baseline**), keeps only its own node's pods (`NODE_NAME`
+  downward-API filter), labels `cluster="pastelariadev"`, and pushes to
+  discovery's Loki (`100.76.140.121:3100`). Chart fetched from the GitHub release
+  tarball (grafana's helm repo doesn't serve tgz at the repo root).
+- **Egress path:** cluster pods are NAT'd to kepler's LAN only, but discovery is
+  **tailnet-only**. Added a masquerade of `10.250.0.0/24 → tailscale0` on kepler
+  (`networking.nat.extraCommands`) so pod egress is SNAT'd to kepler's Tailscale
+  IP — push-only, **no subnet-route advertisement** (nothing reaches into pods,
+  no Tailscale-admin route approval needed).
+- **Bonus fix:** discovery's *own* fleet Alloy module was remote-writing host
+  metrics to `:9009` (Mimir, never deployed) — silently dropped. Repointed to
+  Prometheus `:9090/api/v1/write` (receiver already enabled). Fleet-wide.
+
+**Deferred (follow-up):** cluster **metrics** — node-exporter / cAdvisor+kubelet
+scrape + **kube-state-metrics** → Prometheus `remote_write`. Each in-cluster
+metrics source has a fiddly bit (kubelet bearer-token TLS, node-exporter host
+mounts vs. PSA, KSM as a standalone Deployment) that's only verifiable live, so
+it's split out from the reliable log path. k3s control-plane component
+ServiceMonitors (`kubeScheduler`/`kubeControllerManager`/`kubeEtcd`/`kubeProxy`)
+mostly don't scrape on k3s' single-binary server — skip them.
+
+### Verify (on the supervised deploy)
+
+1. `just dry kepler` clean (done — evaluates with the Alloy chart + egress rule).
+2. `just switch-kepler`; confirm 5/5 nodes Ready and the staggered boot order in
+   `journalctl -u microvm@cp-2 -u microvm@cp-3` (start After cp-1/cp-2).
+3. `kubectl -n monitoring get ds alloy` → desired == ready (one per node);
+   `kubectl -n monitoring logs ds/alloy` shows no Loki push 4xx/5xx and no RBAC
+   `forbidden` on pods/log (if forbidden, add explicit `rbac.rules` for
+   `pods`,`pods/log`,`namespaces`,`nodes` — chart default RBAC is the fallback).
+4. discovery Grafana → Loki, query `{cluster="pastelariadev"}` returns pod logs.
+5. etcd: `ls /bulk/k3s-etcd-snapshots/cp-*/` populates within a snapshot cycle
+   (or force one: `k3s etcd-snapshot save` on a CP).
+6. Bonus: discovery Grafana → Prometheus, `up{instance=~".*"}` now shows host
+   metrics flowing (the `:9090` fix) — verify after deploying discovery too.

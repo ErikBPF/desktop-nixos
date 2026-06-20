@@ -82,7 +82,7 @@ in {
         ++ map (s: "--tls-san=${s}") tlsSan
         # Relocate embedded-etcd snapshots off the guest's ephemeral root.img onto
         # a host-backed share (default cadence: every 12h, retain 5). Filenames
-        # carry the node name, so all servers can target one host tree (RFC §C).
+        # carry the node name, so all servers can target one host tree (RFC §13).
         ++ lib.optionals (etcdSnapshotDir != null) ["--etcd-snapshot-dir=${etcdSnapshotDir}"]
       )
       # --flannel-iface only needed to disambiguate multi-NIC nodes (the test VLAN).

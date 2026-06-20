@@ -40,8 +40,56 @@ in {
     tokenDir = "/var/lib/k3s-cluster";
 
     # etcd snapshots land here (kepler's bulk-pool ZFS, /bulk) via a per-CP
-    # virtiofs share — survives guest root.img loss. RFC §C.
+    # virtiofs share — survives guest root.img loss. RFC §13.
     etcdSnapshotBase = "/bulk/k3s-etcd-snapshots";
+
+    # Fleet observability: ship cluster pod logs to discovery's Loki (same sink
+    # the host Alloy uses — discovery's Tailscale IP, see modules/services/alloy.nix).
+    discoveryLokiUrl = "http://100.76.140.121:3100/loki/api/v1/push";
+    clusterName = "pastelariadev";
+
+    # In-cluster Alloy DaemonSet config: tail pod logs via the k8s API (not host
+    # files → no hostPath, stays PodSecurity-baseline clean) and forward to Loki,
+    # keeping only this node's pods (DaemonSet → one Alloy per node).
+    alloyConfig = ''
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      discovery.relabel "pod_logs" {
+        targets = discovery.kubernetes.pods.targets
+        // NODE_NAME from the downward API (alloy.extraEnv) — keep local pods only.
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          regex         = sys.env("NODE_NAME")
+          action        = "keep"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+      }
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pod_logs.output
+        forward_to = [loki.write.discovery.receiver]
+      }
+
+      loki.write "discovery" {
+        endpoint {
+          url = "${discoveryLokiUrl}"
+        }
+        external_labels = { "cluster" = "${clusterName}" }
+      }
+    '';
 
     # Reuse the fleet authorized key (user.nix) rather than a 3rd hardcoded copy —
     # guest root login trusts the same key.
@@ -117,28 +165,62 @@ in {
         ]
         # Platform baseline — declared on the clusterInit server ONLY (helm-controller
         # runs per-server; setting on >1 server conflicts). RFC §5.9.
-        ++ lib.optional s.clusterInit {
-          # ingress-nginx as a DaemonSet on a fixed NodePort; the kepler LB sends
-          # .250:443 -> workers:30443. No in-cluster LoadBalancer.
-          services.k3s.autoDeployCharts.ingress-nginx = {
-            name = "ingress-nginx";
-            repo = "https://kubernetes.github.io/ingress-nginx";
-            version = "4.12.1";
-            hash = "sha256-WfZke4wKoSJnci+greFnE/sLFqGvkyInryBl/dGn87w=";
-            targetNamespace = "ingress-nginx";
-            createNamespace = true;
-            values.controller = {
-              kind = "DaemonSet";
-              service = {
-                type = "NodePort";
-                nodePorts = {
-                  http = 30080;
-                  https = ingressNodePort;
+        ++ lib.optional s.clusterInit ({pkgs, ...}: {
+          services.k3s.autoDeployCharts = {
+            # ingress-nginx as a DaemonSet on a fixed NodePort; the kepler LB sends
+            # .250:443 -> workers:30443. No in-cluster LoadBalancer.
+            ingress-nginx = {
+              name = "ingress-nginx";
+              repo = "https://kubernetes.github.io/ingress-nginx";
+              version = "4.12.1";
+              hash = "sha256-WfZke4wKoSJnci+greFnE/sLFqGvkyInryBl/dGn87w=";
+              targetNamespace = "ingress-nginx";
+              createNamespace = true;
+              values.controller = {
+                kind = "DaemonSet";
+                service = {
+                  type = "NodePort";
+                  nodePorts = {
+                    http = 30080;
+                    https = ingressNodePort;
+                  };
+                };
+              };
+            };
+
+            # Grafana Alloy DaemonSet → ships pod logs to discovery's Loki.
+            # grafana's helm repo serves chart tarballs from GitHub releases (not
+            # the repo root), so fetch the tgz directly via `package`.
+            alloy = {
+              name = "alloy";
+              package = pkgs.fetchurl {
+                url = "https://github.com/grafana/helm-charts/releases/download/alloy-1.10.0/alloy-1.10.0.tgz";
+                hash = "sha256-q8ceioRgZbSPD5g73De4nEZWkPF5fD3zFN7kxQGdtdU=";
+              };
+              targetNamespace = "monitoring";
+              createNamespace = true;
+              values = {
+                controller.type = "daemonset";
+                alloy = {
+                  configMap.content = alloyConfig;
+                  # Node name for the per-node log-keep filter (downward API).
+                  extraEnv = [
+                    {
+                      name = "NODE_NAME";
+                      valueFrom.fieldRef.fieldPath = "spec.nodeName";
+                    }
+                  ];
+                  # API-based log tailing → no /var/log host mount needed.
+                  mounts.varlog = false;
+                  resources.requests = {
+                    cpu = "50m";
+                    memory = "128Mi";
+                  };
                 };
               };
             };
           };
-        };
+        });
 
       microvm = {
         hypervisor = "cloud-hypervisor";
@@ -269,6 +351,17 @@ in {
         enable = true;
         internalInterfaces = ["br-k3s"];
         externalInterface = "enp5s0";
+        # Pods also need discovery's observability stack, which is tailnet-only.
+        # Masquerade the cluster subnet onto tailscale0 so Tailscale accepts the
+        # egress (source becomes kepler's own TS IP) — push-only, nothing routes
+        # back into the pods, so no subnet-route advertisement is needed. iptables
+        # backend (no networking.nftables on the fleet).
+        extraCommands = ''
+          iptables -t nat -A POSTROUTING -s ${subnet}.0/24 -o tailscale0 -j MASQUERADE
+        '';
+        extraStopCommands = ''
+          iptables -t nat -D POSTROUTING -s ${subnet}.0/24 -o tailscale0 -j MASQUERADE 2>/dev/null || true
+        '';
       };
 
       # --- kepler L4 load-balancer (RFC §5.3 / §10b): the one host that's
@@ -310,7 +403,7 @@ in {
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
 
       # Host-side etcd-snapshot tree on /bulk: one subdir per CP, created before
-      # the guests start (virtiofsd needs the share source to exist). RFC §C.
+      # the guests start (virtiofsd needs the share source to exist). RFC §13.
       systemd.tmpfiles.rules =
         ["d ${etcdSnapshotBase} 0700 root root -"]
         ++ map (n: "d ${etcdSnapshotBase}/${n} 0700 root root -") cpNames;
