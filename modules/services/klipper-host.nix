@@ -75,7 +75,9 @@ in {
       users.users.klipper = {
         isSystemUser = true;
         group = "klipper";
-        # MCU is USB-serial on the SKR 1.4 → dialout for /dev/serial access.
+        # MCU is on the GPIO UART /dev/ttyS1 (mini-UART, GPIO14/15; ttyS0 is a
+        # dead placeholder, ttyAMA0/PL011 needs disable-bt which breaks u-boot).
+        # /dev/ttyS1 is group `dialout`, so klipper needs it.
         extraGroups = ["dialout"];
       };
       users.groups.klipper = {};
@@ -122,6 +124,16 @@ in {
             octoprint_compat = {};
             history = {};
             announcements.subscriptions = ["mainsail"];
+            # Declarative webcam — the C270 via raw ustreamer on :8080. Defined
+            # here (not the moonraker DB) so a reflash reproduces it. A
+            # config-defined webcam is read-only in the Mainsail UI.
+            "webcam C270" = {
+              location = "printer";
+              service = "mjpegstreamer-adaptive";
+              target_fps = 15;
+              stream_url = "http://192.168.10.187:8080/stream";
+              snapshot_url = "http://192.168.10.187:8080/snapshot";
+            };
             # NOTE: every [update_manager …] git_repo entry from the Debian conf
             # is intentionally dropped — NixOS owns versions; git updaters can't
             # run on a read-only store.
