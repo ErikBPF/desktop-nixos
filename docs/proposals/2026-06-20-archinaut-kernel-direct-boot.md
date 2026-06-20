@@ -75,6 +75,125 @@ kernel-direct deliberately as its own work item: prototype the firmware-direct
 `boot.loader` backend + enlarged-firmware sdImage on a scratch build, validate
 boot-with-printer-on, then reflash `archinaut`. Keep the old SD as rollback.
 
+## Implementation plan (fresh-session-ready)
+
+A new session can execute from here without this session's context. Read this
+section + the "What's already in place" list below.
+
+### Repo context (dendritic flake — orient first)
+
+- `flake.nix` = `flake-parts.mkFlake` + `import-tree ./modules`. Every `.nix`
+  under `modules/` is auto-imported; **new files must be `git add`ed before any
+  `nix` eval sees them** (else "attribute missing").
+- archinaut host: `modules/hosts/archinaut/default.nix` (imports
+  `sd-image-aarch64.nix` + profiles + `archinaut-hardware` + `klipper-host`).
+- hardware aspect: `modules/hardware/archinaut-hardware.nix` (hostPlatform,
+  DHCP, wifi bootstrap, the `bootdelay=-2` u-boot overlay to **remove**).
+- rescue host: `modules/hosts/archinaut-base/default.nix` (use it to prototype —
+  it has no klipper stack, faster to iterate; same hardware module).
+- Build: `just build-archinaut-sd` (aarch64 on orion `192.168.10.220` via binfmt;
+  orion LAN is firewalled to ICMP — trust SSH `:2222`, not ping). Deploy:
+  `just switch-archinaut` (targets wired `.187`). Flash: see migration-plan.md.
+
+### Chosen approach
+
+**`boot.loader.external` + a custom sdImage** (no u-boot, no extlinux). The RPi
+GPU firmware reads `config.txt` and loads the kernel directly — exactly how
+Raspberry Pi OS boots, and what **raspberry-pi-nix does for Pi4/5**. We adapt
+that pattern to **bcm2837**.
+
+> **Prior art to read & adapt:** `nix-community/raspberry-pi-nix` —
+> `rpi/sd-image.nix` (firmware-partition population) and its bootloader/
+> installer logic. It's Pi4/5-only, but the Pi3 differences are just the
+> firmware blob names + DTB (`bcm2837-rpi-3-b.dtb`) + `start.elf`/`bootcode.bin`
+> (Pi3 uses the 32-bit-named blobs with `arm_64bit=1`).
+
+Start **single-generation** (no rollback menu — the old SD is the rollback).
+Add a generation switcher later only if wanted.
+
+### Pieces to build
+
+1. **Larger firmware partition.** New module/override for archinaut's host:
+   `sdImage.firmwarePartitionSize = 256 * 1024 * 1024;` (kernel 60M + initrd 28M
+   + firmware blobs + headroom). **Stop importing
+   `installer/sd-card/sd-image-aarch64.nix`** (it hardcodes u-boot); import the
+   base `installer/sd-card/sd-image.nix` instead and supply our own
+   `sdImage.populateFirmwareCommands`.
+2. **`populateFirmwareCommands`** writes to the FAT firmware dir:
+   - RPi GPU firmware blobs from `pkgs.raspberrypifw` (`bootcode.bin`,
+     `start.elf`, `fixup.dat`, and `start4.elf`/etc not needed for Pi3).
+   - `bcm2837-rpi-3-b.dtb` (from `pkgs.raspberrypifw` or the kernel's
+     `${config.boot.kernelPackages.kernel}/dtbs/broadcom/`).
+   - `config.txt` (see template) + `cmdline.txt`.
+   - The kernel `Image` and `initrd` (copied from the current toplevel).
+3. **`config.txt`** (kernel-direct):
+   ```
+   arm_64bit=1
+   enable_uart=1            # keep; harmless, no u-boot console now
+   core_freq=250            # keep — stabilises the mini-UART (ttyS1) for klipper
+   kernel=Image
+   initramfs initrd followkernel
+   device_tree=bcm2837-rpi-3-b.dtb
+   # NO dtoverlay=disable-bt (breaks nothing now, but unneeded — klipper uses ttyS1)
+   ```
+4. **`cmdline.txt`** (single line, NO serial console):
+   ```
+   console=tty0 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait init=<toplevel>/init loglevel=7
+   ```
+   (use the NIXOS_SD partition; `root=/dev/disk/by-label/NIXOS_SD` is more robust
+   than `mmcblk0p2`.)
+5. **`boot.loader`**: disable the extlinux/u-boot loader; set
+   `boot.loader.external.enable = true` + an `installHook` that, on every
+   `nixos-rebuild switch/boot`, copies the new generation's kernel+initrd to
+   `/boot/firmware` and rewrites `cmdline.txt` (`init=<new-toplevel>/init`).
+   Mount the FAT partition at `/boot/firmware` (fileSystems entry) so the hook
+   and the GPU firmware share it.
+6. **Remove** the `bootdelay=-2` u-boot overlay from `archinaut-hardware.nix`
+   (u-boot is gone). Keep the serial-console-free cmdline.
+
+### Spikes to resolve FIRST (before a full archinaut reflash)
+
+Prototype on `archinaut-base` + a **spare SD** (do NOT touch the working
+archinaut card until proven; keep it + the Debian SD as rollback):
+
+- **S1:** Does RPi3 GPU firmware kernel-direct-boot a mainline arm64 `Image` +
+  initrd via `config.txt` on `pkgs.raspberrypifw` blobs? (Expected yes.)
+- **S2:** Correct DTB source/name and whether `device_tree=` is needed vs
+  firmware auto-load.
+- **S3:** `boot.loader.external` installHook shape on this NixOS version (signature,
+  how it receives the toplevel, how to find kernel/initrd paths).
+- **S4:** root= device reliability (by-label NIXOS_SD vs mmcblk0p2; rootwait).
+- **S5:** Confirms the printer-ON boot now succeeds (the whole point) — test with
+  the printer powered on the spare rig.
+
+### Steps
+
+1. Create `modules/hosts/archinaut-base/` variant (or a `_kernel-direct.nix`
+   aspect) implementing pieces 1–5; `git add`.
+2. `just lint && just fmt-check`; eval
+   `.#nixosConfigurations.archinaut-base.config.system.build.sdImage.drvPath`.
+3. `nix build .#nixosConfigurations.archinaut-base.config.system.build.sdImage`
+   on orion; flash a **spare** SD.
+4. Boot the spare on the Pi3 **with a UART peripheral / printer attached** →
+   resolve S1–S5 (HDMI console invaluable here).
+5. Once green, fold the approach into the real `archinaut` host, rebuild, flash
+   the archinaut card (back up `/var/lib/klipper` first or just re-seed after),
+   boot, `just seed-archinaut`, verify klippy `ready` **without** power-sequencing.
+6. Remove the `bootdelay=-2` overlay; update migration-plan.md (drop the
+   power-sequencing caveat); commit.
+
+### Definition of done
+
+Pi3 boots to a `ready` klipper **with the printer already powered on** (no
+power-sequencing), `/dev/ttyS1` owned by klipper, no u-boot in the boot chain,
+and `nixos-rebuild switch` correctly updates the boot partition.
+
+### Risks
+
+- FAT firmware partition exhaustion if initrd grows — size with headroom (256M).
+- Losing generation rollback (mitigated by the old SD; revisit if needed).
+- Mainline-kernel/RPi-firmware DTB mismatches — the main debug surface (S2).
+
 ## What's already in place (so this stands alone)
 
 - `printer.cfg [mcu] serial = /dev/ttyS1` (the clocked mini-UART; `ttyS0` is a
