@@ -217,6 +217,8 @@ _sync-servarr target:
         --no-perms --no-owner --no-group --no-times \
         --exclude '.env' --exclude '.env.sops' \
         --exclude '__pycache__' --exclude '.DS_Store' \
+        --exclude 'config/adguard/AdGuardHome.yaml' \
+
         -e "ssh -p 2222" \
         "$SRC/machines/{{target}}/" \
         "erik@$IP:/home/erik/servarr/machines/{{target}}/"
