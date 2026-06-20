@@ -36,3 +36,29 @@ jobs:
 
       - name: Evaluate ${{ matrix.host }}
         run: nix eval .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel.drvPath
+
+  # flake.lock health: warns on stale/unsupported nixpkgs. We track nixos-unstable
+  # + autoUpgrade, so this guards against the lock silently drifting too far.
+  flake-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/flake-checker-action@main
+
+  # Boot the k3s test cluster (1 server + 1 agent) in QEMU, fully offline, and
+  # assert it forms — catches k3s node-config regressions before they hit kepler.
+  # Heavy (airgap image bundle + 2 VMs); free runner disk first. Runs under TCG if
+  # the runner lacks /dev/kvm (slower, still passes).
+  k3s-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space (airgap bundle is large)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /usr/local/share/boost /opt/hostedtoolcache
+          sudo docker image prune -af || true
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: k3s smoke test
+        run: nix build .#checks.x86_64-linux.k3s-smoke -L
