@@ -19,6 +19,12 @@
       readOnly = true;
       default = "erikbogado@gmail.com";
     };
+    domain = lib.mkOption {
+      type = lib.types.singleLineStr;
+      readOnly = true;
+      default = "pastelariadev.com";
+      description = "Primary domain for fleet services (HA, k3s ingress, hermes/litellm).";
+    };
     configPath = lib.mkOption {
       type = lib.types.path;
       readOnly = true;

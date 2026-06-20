@@ -1,4 +1,10 @@
-{self, ...}: {
+{
+  self,
+  config,
+  ...
+}: let
+  inherit (config) domain; # flake-parts top-level option (meta.nix)
+in {
   # Klipper print-host stack for the BIQU B1 (`archinaut`).
   #
   # Principle (see docs/proposals/2026-06-16-printer-nixos-host.md): NixOS owns
@@ -23,6 +29,14 @@
       repo = "klipper_tmc_autotune";
       rev = "aa26fc04f444997bd64b30a37414d678107cc04c";
       hash = "sha256-v+8VFkG9iJ43wbXVNpXzdA5sUnRQxhcJIxHPbNoBUp4=";
+    };
+
+    # shell_command.cfg needs the G-Code Shell Command extra ([gcode_shell_command])
+    # for the `update_git` klipper-backup macro. Also not in stock klipper.
+    gcodeShellCommandSrc = pkgs.fetchurl {
+      name = "gcode_shell_command.py";
+      url = "https://raw.githubusercontent.com/dw-0/kiauh/b90a8f13b198726bfb75d56a7e540e46c4011685/kiauh/extensions/gcode_shell_cmd/assets/gcode_shell_command.py";
+      hash = "sha256-WTcKHi+2BNRnLBxBueJmkG5Zb9zfr+RvXPeQSJWEHSk=";
     };
 
     # Placeholder seed — klipper requires `configFile` or `settings`, but the
@@ -52,6 +66,7 @@
                    ${tmcAutotuneSrc}/motor_constants.py \
                    ${tmcAutotuneSrc}/motor_database.cfg \
                    $out/lib/klipper/extras/
+                cp ${gcodeShellCommandSrc} $out/lib/klipper/extras/gcode_shell_command.py
               '';
           });
         })
@@ -116,7 +131,7 @@
             "power biqu" = {
               type = "homeassistant";
               protocol = "https";
-              address = "ha.pastelariadev.com";
+              address = "ha.${domain}";
               port = 443;
               device = "switch.tomada_impressora_2";
               token = "{secrets.home_assistant.token}";

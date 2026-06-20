@@ -2,7 +2,9 @@
   config,
   inputs,
   ...
-}: {
+}: let
+  inherit (config) domain; # flake-parts top-level option (meta.nix)
+in {
   flake.modules.home.hermes-agent = {
     pkgs,
     lib,
@@ -10,7 +12,7 @@
     ...
   }: let
     apiKeyPath = "/run/secrets/hermes_agent_client_api_key";
-    discoveryApiUrl = "https://hermes.homelab.pastelariadev.com/v1";
+    discoveryApiUrl = "https://hermes.homelab.${domain}/v1";
   in {
     imports = [inputs.hermes-flake.homeManagerModules.default];
 

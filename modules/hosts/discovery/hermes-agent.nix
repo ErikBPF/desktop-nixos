@@ -3,14 +3,16 @@
   inputs,
   self,
   ...
-}: {
+}: let
+  inherit (config) domain; # flake-parts top-level option (meta.nix)
+in {
   flake.modules.nixos.discovery-hermes-agent = {
     config,
     lib,
     pkgs,
     ...
   }: let
-    litellmUrl = "https://litellm.homelab.pastelariadev.com/v1";
+    litellmUrl = "https://litellm.homelab.${domain}/v1";
   in {
     imports = [
       # Pick ONE of the two below:
