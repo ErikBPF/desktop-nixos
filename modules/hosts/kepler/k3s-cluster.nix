@@ -274,11 +274,12 @@
           upstream k3s-ingress {
           ${workerServers}
           }
-          # private registration address (nodes join here in step 2) + LAN admin
-          server { listen ${hostIp}:6443; proxy_pass k3s-apiserver; proxy_timeout 600s; }
-          server { listen ${apiVip}:6443; proxy_pass k3s-apiserver; proxy_timeout 600s; }
-          # LAN ingress -> worker ingress-nginx NodePort (backend deployed in 4c)
-          server { listen ${ingressVip}:443; proxy_pass k3s-ingress; proxy_timeout 600s; }
+          # Listen on all interfaces so the endpoints answer on the LAN (.245/.250
+          # aliases + private 10.250.0.1 registration) AND kepler's Tailscale IP —
+          # discovery's SWAG is on a different physical LAN and reaches kepler only
+          # over the tailnet (RFC §5.3 / 4d).
+          server { listen 6443; proxy_pass k3s-apiserver; proxy_timeout 600s; }
+          server { listen 443; proxy_pass k3s-ingress; proxy_timeout 600s; }
         '';
       };
 
