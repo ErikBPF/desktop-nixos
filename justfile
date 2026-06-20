@@ -5,7 +5,7 @@ ip_discovery := "192.168.10.210"
 ip_orion := "192.168.10.220"
 ip_pathfinder := "192.168.10.125"
 ip_kepler := "192.168.10.230"
-ip_archinaut := "192.168.10.225"
+ip_archinaut := "192.168.10.187"  # wired (eth0); wifi .225 is the Phase-9 path
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -140,6 +140,25 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS age key:' && test -f ~/.config/sops/age/keys.txt && echo 'present' || echo 'MISSING'"
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
+
+# ── kepler k3s cluster ────────────────────────────────────
+
+# Fetch cp-1's admin kubeconfig → repoint at the LB admin endpoint (via discovery)
+# → rename context to 'pastelariadev' → ~/.kube/config. Run after a fresh laptop
+# or a cluster reform. cp-1 (clusterInit server, 10.250.0.11) is on the private
+# subnet, reached by agent-forward (kepler sshd disallows TCP forwarding).
+kubeconfig:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p ~/.kube
+    ssh -A -p 2222 erik@{{ip_kepler}} \
+        'ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 "cat /etc/rancher/k3s/k3s.yaml"' \
+        | sed 's#https://127.0.0.1:6443#https://k8s.pastelariadev.com:6443#' \
+        | sed 's/: default$/: pastelariadev/' \
+        > ~/.kube/config
+    chmod 600 ~/.kube/config
+    echo ":: kubeconfig → context $(kubectl config current-context)"
+    kubectl get nodes
 
 # ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
 # archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.
