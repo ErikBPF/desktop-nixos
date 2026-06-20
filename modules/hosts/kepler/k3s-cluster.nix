@@ -170,9 +170,13 @@ in {
               else null;
           })
         ]
-        # Platform baseline — declared on the clusterInit server ONLY (helm-controller
-        # runs per-server; setting on >1 server conflicts). RFC §5.9.
-        ++ lib.optional s.clusterInit ({pkgs, ...}: {
+        # Platform baseline — declared on ALL servers. NixOS bakes the chart as a
+        # STATIC tarball in each server's /static/charts; the helm-install job hits
+        # an arbitrary apiserver, so the tarball must exist on every server or
+        # upgrades 404 (a clusterInit-only chart installs once, then can never
+        # upgrade). Identical Nix manifests across servers = no conflict (k3s only
+        # warns about *manual* drift). RFC §5.9 / §13.
+        ++ lib.optional (s.role == "server") {
           services.k3s.autoDeployCharts = {
             # ingress-nginx as a DaemonSet on a fixed NodePort; the kepler LB sends
             # .250:443 -> workers:30443. No in-cluster LoadBalancer.
@@ -196,14 +200,15 @@ in {
             };
 
             # Grafana Alloy DaemonSet → ships pod logs to discovery's Loki.
-            # grafana's helm repo serves chart tarballs from GitHub releases (not
-            # the repo root), so fetch the tgz directly via `package`.
+            # repo mode (not `package`): a baked static chart lands only on cp-1's
+            # /static/charts, but the helm-install job hits any of the 3 apiservers
+            # → 404 on cp-2/cp-3. helm-controller pulls from the repo index at job
+            # time (NAT egress resolves the GitHub-release tgz), like ingress-nginx.
             alloy = {
               name = "alloy";
-              package = pkgs.fetchurl {
-                url = "https://github.com/grafana/helm-charts/releases/download/alloy-1.10.0/alloy-1.10.0.tgz";
-                hash = "sha256-q8ceioRgZbSPD5g73De4nEZWkPF5fD3zFN7kxQGdtdU=";
-              };
+              repo = "https://grafana.github.io/helm-charts";
+              version = "1.10.0";
+              hash = "sha256-q8ceioRgZbSPD5g73De4nEZWkPF5fD3zFN7kxQGdtdU=";
               targetNamespace = "monitoring";
               createNamespace = true;
               values = {
@@ -233,7 +238,7 @@ in {
               };
             };
           };
-        });
+        };
 
       microvm = {
         hypervisor = "cloud-hypervisor";
