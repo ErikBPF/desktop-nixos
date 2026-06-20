@@ -17,7 +17,8 @@ _: {
     environment.etc."alloy/config.alloy".text = ''
       // Grafana Alloy configuration — fleet-wide NixOS module
       // Ships systemd journal logs to Discovery Loki, host metrics to Discovery Prometheus.
-      // Endpoints use Discovery's Tailscale IP — requires tailscaled running.
+      // Endpoints use Discovery's MagicDNS name ("discovery") — requires tailscaled
+      // + accept-dns (fleet default). Tailnet ACL grants <host> -> discovery:3100,9090.
 
       // ============================================================================
       // Systemd journal logs -> Loki (on Discovery via Tailscale)
@@ -29,7 +30,7 @@ _: {
 
       loki.write "loki" {
         endpoint {
-          url = "http://100.76.140.121:3100/loki/api/v1/push"
+          url = "http://discovery:3100/loki/api/v1/push"
         }
       }
 
@@ -64,7 +65,7 @@ _: {
       // ============================================================================
       prometheus.remote_write "prometheus" {
         endpoint {
-          url = "http://100.76.140.121:9090/api/v1/write"
+          url = "http://discovery:9090/api/v1/write"
         }
       }
     '';
