@@ -14,6 +14,27 @@ _: {
     boot.tmp.cleanOnBoot = true;
     zramSwap.enable = true;
 
+    # The Klipper MCU is wired to the GPIO UART (GPIO14/15), which is also
+    # u-boot's serial console — with the printer powered, the MCU disrupts
+    # u-boot and the Pi hangs before the kernel (boots with printer OFF, hangs
+    # with it ON). CONFIG_BOOTDELAY=-2 (autoboot, no serial-stdin wait) was an
+    # attempt at this; it does NOT fix the clash (the disruption is deeper than
+    # the autoboot keypress). Kept only as a sane appliance default (no boot
+    # wait). The real fix is kernel-direct boot — see
+    # docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md. Until then,
+    # power-sequence: boot the Pi first, then power the printer.
+    nixpkgs.overlays = [
+      (_final: prev: {
+        ubootRaspberryPi3_64bit = prev.ubootRaspberryPi3_64bit.override (o: {
+          extraConfig =
+            (o.extraConfig or "")
+            + ''
+              CONFIG_BOOTDELAY=-2
+            '';
+        });
+      })
+    ];
+
     networking.hostName = "archinaut";
     # Wired ethernet (USB smsc95xx) + WiFi both via DHCP.
     networking.useDHCP = lib.mkDefault true;
