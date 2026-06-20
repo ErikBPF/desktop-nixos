@@ -9,7 +9,13 @@
 # bridge + k3s offline from baked airgap images (cp-1 Ready on real hardware).
 #
 # Gated behind `kepler.k3s.enable`. ⚠ Uses systemd-networkd — deploy supervised.
-{inputs, ...}: {
+{
+  inputs,
+  config,
+  ...
+}: let
+  fleetUser = config.username; # flake-parts top-level option (meta.nix)
+in {
   flake.modules.nixos.kepler-k3s-cluster = {
     config,
     lib,
@@ -32,7 +38,9 @@
 
     tokenDir = "/var/lib/k3s-cluster";
 
-    sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com";
+    # Reuse the fleet authorized key (user.nix) rather than a 3rd hardcoded copy —
+    # guest root login trusts the same key.
+    sshKeys = config.users.users.${fleetUser}.openssh.authorizedKeys.keys;
 
     # --- topology -----------------------------------------------------------
     # 3 control-plane nodes (fixed — etcd quorum). cp-1 bootstraps, cp-2/3 join.
@@ -50,12 +58,11 @@
         i = cpIndex name;
       in {
         role = "server";
-        # Tainted (NoSchedule), NOT disableAgent: CPs run kube-proxy/flannel so the
-        # apiserver can reach in-cluster Services — required for admission webhooks
-        # (ingress-nginx), aggregated APIs (metrics-server), and namespace deletion.
-        # Headless CPs broke all three. The taint still keeps workloads on workers;
-        # CP-node pod networking works thanks to the networkd-leaves-CNI fix (§mkGuest).
-        disableAgent = false;
+        # Tainted (NoSchedule), not headless: CPs run the agent (kube-proxy/flannel)
+        # so the apiserver can reach in-cluster Services — required for admission
+        # webhooks (ingress-nginx), aggregated APIs (metrics-server), and namespace
+        # deletion. The taint still keeps workloads on workers; CP-node pod
+        # networking works via the networkd-leaves-CNI fix (§mkGuest).
         controlPlane = true;
         clusterInit = i == 1;
         # Join via the kepler LB (fronts all 3 apiservers) for HA, not a single CP.
@@ -78,7 +85,6 @@
       in {
         role = "agent";
         controlPlane = false;
-        disableAgent = false;
         tlsSan = []; # agents don't serve the apiserver
         clusterInit = false;
         serverAddr = "https://${hostIp}:6443"; # join via the LB
@@ -96,7 +102,7 @@
       imports =
         [
           (mkK3sNode {
-            inherit (s) role nodeIp clusterInit serverAddr controlPlane disableAgent tlsSan;
+            inherit (s) role nodeIp clusterInit serverAddr controlPlane tlsSan;
             tokenFile = "/tokens/token";
           })
         ]
@@ -128,10 +134,7 @@
       microvm = {
         hypervisor = "cloud-hypervisor";
         inherit (s) vcpu mem;
-        # vsock systemd-notify: headless (disableAgent) CPs don't signal ready, so
-        # their microvm@ unit hangs in "activating" (cosmetic; NRestarts=0). Only
-        # the agent nodes, which do notify, get a vsock CID.
-        vsock.cid = lib.mkIf (!s.disableAgent) s.cid;
+        vsock.cid = s.cid; # systemd-notify readiness over vsock
         interfaces = [
           {
             type = "tap";
@@ -192,7 +195,7 @@
 
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
-      users.users.root.openssh.authorizedKeys.keys = [sshKey];
+      users.users.root.openssh.authorizedKeys.keys = sshKeys;
 
       system.stateVersion = "25.11";
     };
