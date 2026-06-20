@@ -193,9 +193,67 @@ cd ~/klipper-backup && ./install.sh && bash ./script.sh "resume backups on NixOS
 | | |
 |---|---|
 | Host attr | `archinaut` (`.#archinaut`) |
-| Pi IP / SSH | `192.168.10.225` : 2222 |
+| Pi IP / SSH | `192.168.10.187` (wired/eth0) : 2222 — wifi `.225` is Phase-9 |
 | Build host | orion `192.168.10.220` (aarch64 binfmt) |
 | Config dir (mutable) | `/var/lib/klipper` |
 | Config source-of-truth | `klipper-biqu` repo (`references/repos/klipper-biqu`) |
-| Mainsail | `http://192.168.10.225` |
-| Webcam | `http://192.168.10.225:8080/stream` |
+| MCU serial | `/dev/ttyS1` (mini-UART on GPIO14/15) |
+| Mainsail | `http://192.168.10.187` |
+| Webcam | `http://192.168.10.187:8080/stream` (ustreamer, C270) |
+
+## Post-bring-up config hardening — implementation plan (2026-06-20)
+
+Printer is **operational** (klippy `ready`, Mainsail, webcam, MCU on
+`/dev/ttyS1`) but on **power-sequencing** (boot Pi → then printer; see the
+kernel-direct RFC). Several fixes landed live / in moonraker's DB only — make
+them declarative so a **reflash reproduces the working state**. Each item lists
+the change + verify. Order: 1→2 required, 3→4 optional, 5 doc, 6 external.
+
+### 1. Declarative webcam (REQUIRED — reflash-safe)
+The C270 is registered only in moonraker's database (`source:"database"`) — a
+fresh reflash loses it. Add a `[webcam]` block to `services.moonraker.settings`
+in `modules/services/klipper-host.nix`:
+```nix
+"webcam C270" = {
+  location = "printer";
+  service = "mjpegstreamer-adaptive";
+  target_fps = 15;
+  stream_url = "http://192.168.10.187:8080/stream";
+  snapshot_url = "http://192.168.10.187:8080/snapshot";
+};
+```
+- Optional robustness: proxy ustreamer through the mainsail nginx at `/webcam/`
+  and use **relative** URLs, so it's IP-independent (survives wired↔wifi).
+- Verify: `just dry archinaut`; after `just switch-archinaut`,
+  `curl localhost:7125/server/webcams/list` shows a `source:"config"` C270 and
+  Mainsail renders the feed. (A config-defined webcam is read-only in the UI —
+  delete the stale DB one via the API if it duplicates.)
+
+### 2. Fix the `dialout` comment (REQUIRED — correctness)
+`klipper-host.nix` ~L78 reads "MCU is USB-serial on the SKR 1.4". It is **GPIO
+UART `/dev/ttyS1`** (mini-UART). The `dialout` group stays (ttyS1 is
+group `dialout`); fix the comment only.
+
+### 3. Drop kernel serial consoles (OPTIONAL — hygiene)
+The sd-image adds `console=ttyS0,115200n8 console=ttyAMA0,115200n8`. Harmless
+(klipper is on ttyS1, not those) but they spawn failing `serial-getty@` units
+and are the u-boot-console hazard if boot is ever reworked. Override
+`boot.kernelParams` in `archinaut-hardware.nix` to keep only `console=tty0`.
+Verify: `cat /proc/cmdline` post-switch shows no `console=ttyS0/ttyAMA0`.
+
+### 4. ustreamer `--workers 2` (OPTIONAL — if the feed stalls)
+Single worker can choke with multiple viewers (transient "loading forever" seen
+once). Add `--workers=2` (+ `--drop-same-frames=30`) to the ustreamer
+`ExecStart`. Verify: two browser tabs stream concurrently.
+
+### 5. (this doc) stale-ref sweep — done above (`.225`→`.187`, MCU row).
+
+### 6. External — `klipper-biqu` repo (user-owned, do NOT auto-push)
+Commit `printer.cfg` (`[mcu] serial=/dev/ttyS1`). The recovered `mainsail.cfg`
+and vendored `KAMP/` are **gitignored** working-tree files (update_manager-style)
+— they round-trip via klipper-backup once Step 8 is set up; until then they live
+only in the working tree + on the Pi.
+
+### Out of scope (separate RFC)
+Kernel-direct boot to retire power-sequencing →
+`docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md`.
