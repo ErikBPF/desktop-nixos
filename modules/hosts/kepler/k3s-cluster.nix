@@ -125,7 +125,10 @@
       microvm = {
         hypervisor = "cloud-hypervisor";
         inherit (s) vcpu mem;
-        vsock.cid = s.cid;
+        # vsock systemd-notify: headless (disableAgent) CPs don't signal ready, so
+        # their microvm@ unit hangs in "activating" (cosmetic; NRestarts=0). Only
+        # the agent nodes, which do notify, get a vsock CID.
+        vsock.cid = lib.mkIf (!s.disableAgent) s.cid;
         interfaces = [
           {
             type = "tap";
