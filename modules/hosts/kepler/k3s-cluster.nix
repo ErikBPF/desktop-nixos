@@ -90,12 +90,37 @@
     mkGuest = name: let
       s = nodeSpec name;
     in {
-      imports = [
-        (mkK3sNode {
-          inherit (s) role nodeIp clusterInit serverAddr controlPlane disableAgent tlsSan;
-          tokenFile = "/tokens/token";
-        })
-      ];
+      imports =
+        [
+          (mkK3sNode {
+            inherit (s) role nodeIp clusterInit serverAddr controlPlane disableAgent tlsSan;
+            tokenFile = "/tokens/token";
+          })
+        ]
+        # Platform baseline — declared on the clusterInit server ONLY (helm-controller
+        # runs per-server; setting on >1 server conflicts). RFC §5.9.
+        ++ lib.optional s.clusterInit {
+          # ingress-nginx as a DaemonSet on a fixed NodePort; the kepler LB sends
+          # .250:443 -> workers:30443. No in-cluster LoadBalancer.
+          services.k3s.autoDeployCharts.ingress-nginx = {
+            name = "ingress-nginx";
+            repo = "https://kubernetes.github.io/ingress-nginx";
+            version = "4.12.1";
+            hash = "sha256-WfZke4wKoSJnci+greFnE/sLFqGvkyInryBl/dGn87w=";
+            targetNamespace = "ingress-nginx";
+            createNamespace = true;
+            values.controller = {
+              kind = "DaemonSet";
+              service = {
+                type = "NodePort";
+                nodePorts = {
+                  http = 30080;
+                  https = ingressNodePort;
+                };
+              };
+            };
+          };
+        };
 
       microvm = {
         hypervisor = "cloud-hypervisor";
