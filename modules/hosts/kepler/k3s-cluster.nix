@@ -50,11 +50,13 @@
         i = cpIndex name;
       in {
         role = "server";
-        # Control-plane only: no kubelet/CNI/pods on CPs (canonical dedicated CP).
-        # Cleaner + lighter than tainting, and avoids the CP-node pod-networking
-        # issues — all workloads run on workers. CPs aren't schedulable nodes.
-        disableAgent = true;
-        controlPlane = false;
+        # Tainted (NoSchedule), NOT disableAgent: CPs run kube-proxy/flannel so the
+        # apiserver can reach in-cluster Services — required for admission webhooks
+        # (ingress-nginx), aggregated APIs (metrics-server), and namespace deletion.
+        # Headless CPs broke all three. The taint still keeps workloads on workers;
+        # CP-node pod networking works thanks to the networkd-leaves-CNI fix (§mkGuest).
+        disableAgent = false;
+        controlPlane = true;
         clusterInit = i == 1;
         # Join via the kepler LB (fronts all 3 apiservers) for HA, not a single CP.
         serverAddr =
