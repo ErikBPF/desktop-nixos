@@ -17,10 +17,15 @@ in {
   # (.187 wired / .225 wifi). sshd on 2222 (see modules/networking/openssh.nix).
   configurations.nixos.archinaut-base.module = {modulesPath, ...}: {
     imports = [
-      (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
+      # Base SD-image builder only (NOT sd-image-aarch64.nix, which hardcodes
+      # u-boot + extlinux). archinaut-kernel-direct supplies the bootloader:
+      # GPU-firmware-direct kernel boot, no u-boot — proves out the kernel-direct
+      # RFC on a spare SD before the real archinaut card is reflashed.
+      (modulesPath + "/installer/sd-card/sd-image.nix")
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.archinaut-hardware
+      m.nixos.archinaut-kernel-direct
     ];
 
     system.stateVersion = "25.11";
