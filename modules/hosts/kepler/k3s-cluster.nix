@@ -200,7 +200,13 @@ in {
               targetNamespace = "monitoring";
               createNamespace = true;
               values = {
-                controller.type = "daemonset";
+                controller = {
+                  type = "daemonset";
+                  # Run on every node incl. the NoSchedule-tainted control planes,
+                  # so CP-scheduled pod logs are captured too (a log collector
+                  # should tolerate all taints).
+                  tolerations = [{operator = "Exists";}];
+                };
                 alloy = {
                   configMap.content = alloyConfig;
                   # Node name for the per-node log-keep filter (downward API).
@@ -402,17 +408,16 @@ in {
       microvm.autostart = allNames;
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
 
-      # Host-side etcd-snapshot tree on /bulk: one subdir per CP, created before
-      # the guests start (virtiofsd needs the share source to exist). RFC §13.
-      systemd.tmpfiles.rules =
-        ["d ${etcdSnapshotBase} 0700 root root -"]
-        ++ map (n: "d ${etcdSnapshotBase}/${n} 0700 root root -") cpNames;
-
       systemd.services =
         {
-          # Shared join token, provisioned host-side before any node starts.
+          # Provision host-side state before any node starts: the shared join
+          # token + the per-CP etcd-snapshot share sources. `before = microvm@*`
+          # guarantees the dirs exist before virtiofsd opens them. (tmpfiles can't
+          # make these: /bulk is owned by the fleet user and tmpfiles refuses to
+          # descend a non-root parent to create root dirs — "unsafe path
+          # transition". Plain mkdir as root has no such qualm.) RFC §13.
           k3s-cluster-token = {
-            description = "Provision the k3s cluster join token";
+            description = "Provision the k3s join token + etcd-snapshot dirs";
             wantedBy = ["multi-user.target"];
             before = map (n: "microvm@${n}.service") allNames;
             serviceConfig = {
@@ -425,6 +430,10 @@ in {
                 umask 077
                 head -c 32 /dev/urandom | base64 > ${tokenDir}/token
               fi
+
+              for d in ${lib.concatMapStringsSep " " (n: "${etcdSnapshotBase}/${n}") cpNames}; do
+                mkdir -p "$d" && chmod 700 "$d"
+              done
             '';
           };
 
