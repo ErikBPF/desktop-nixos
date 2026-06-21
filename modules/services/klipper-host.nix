@@ -92,6 +92,19 @@ in {
         apiSocket = "/run/klipper/api";
       };
 
+      # The SoC thermal zone read by [temperature_sensor raspberry_pi] is
+      # registered by bcm2835_thermal a few seconds into boot (it reads VC
+      # firmware calibration). klippy hard-halts ("Unable to open temperature
+      # file") if printer.cfg references thermal_zone0 before it exists, so wait
+      # for it (bounded ~60s, then proceed regardless rather than block boot).
+      systemd.services.klipper.preStart = ''
+        n=0
+        while [ ! -e /sys/class/thermal/thermal_zone0/temp ] && [ $n -lt 60 ]; do
+          ${pkgs.coreutils}/bin/sleep 1
+          n=$((n + 1))
+        done
+      '';
+
       services.moonraker = {
         enable = true;
         user = "klipper";
