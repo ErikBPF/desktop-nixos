@@ -52,7 +52,7 @@ with `just` recipes; applied to the live cluster.
 | Storage RWX **slow** | csi-driver-nfs → `/bulk/k8s` | same driver, 2nd SC | StorageClass `nfs-slow` → **bulk-pool** (HDD) |
 | Storage RWO | k3s **local-path** (default) | built-in | ephemeral/scratch |
 | Registry | **Harbor** (mimic prod) | `harbor` chart | full: RBAC, Trivy scan, replication, proxy-cache. ~4GB min + postgres/redis |
-| Secrets | **ESO → Vault@discovery** | `external-secrets` v2.6.0 | AppRole auth (see §5) |
+| Secrets | **ESO → in-cluster Vault** | `external-secrets` 2.6.0 + `vault` 0.33.0 | AppRole over cluster DNS (see §5) |
 | Autoscaling | **KEDA operator** | `kedacore/keda` 2.20.x | cron + prometheus scaler (→ external Prom) |
 | Metrics | kube-state-metrics + node-exporter (+ kubelet cAdvisor) | KSM / node-exporter charts | remote_write → discovery Prometheus |
 | Tracing | **Jaeger** + **OTel Collector** | `jaeger` + `opentelemetry-collector` charts | OTel receives OTLP → exports to Jaeger; spans from instrumented apps |
@@ -89,32 +89,35 @@ node plugin is privileged), two StorageClasses:
   `/bulk/k8s` rw,no_root_squash to `10.250.0.0/24` (dedicated subdirs so PVs don't
   mingle with the model cache / media). Nodes mount kepler at `10.250.0.1`.
 
-## 5. Secrets — External Secrets Operator → Vault on discovery
+## 5. Secrets — External Secrets Operator → in-cluster Vault (AS BUILT 2026-06-21)
 
-Prod-mimic secrets: a **Vault on discovery** (new servarr docker stack), ESO in
-the cluster syncs from it.
+> **Changed from the original plan (Vault-on-discovery).** Per direction, Vault
+> runs **in-cluster on kepler** via GitOps, NOT as a discovery docker stack. ESO
+> reaches it over **cluster DNS** (`vault.vault.svc:8200`) — no tailnet hop, no
+> ACL grant, no discovery dependency, and it sidesteps the "pods can't resolve
+> MagicDNS" problem entirely. Simpler + self-contained.
 
-- **Vault deploy (discovery, servarr-style):** `hashicorp/vault:1.21`, **integrated
-  Raft** storage (not dev mode, not `file`), low unseal threshold, unseal key in
-  **sops-nix on discovery**, an entrypoint/systemd unit auto-runs
-  `vault operator unseal` on boot (real seal lifecycle, no KMS). Compose follows
-  servarr (`cap_add: IPC_LOCK`, Raft data volume, TLS cert mounted). Publish
-  `8200`.
-- **Auth: AppRole** (not Kubernetes auth). AppRole = ESO-calls-Vault-only,
-  matching the egress direction (pod → kepler NAT → discovery:8200). Kubernetes
-  auth would force Vault to call *back* into kepler:6443 (reverse trust, long-lived
-  reviewer JWT) — not worth it for one Vault/one cluster.
-- **ESO:** chart `external-secrets` v2.6.0; a `ClusterSecretStore` with inline
-  `role_id` (non-secret) + `secret_id` from a k8s Secret; `caProvider` → a
-  `vault-ca` ConfigMap. **Keep Vault TLS on** even over the tailnet (endpoint
-  auth + prod habit; no `VAULT_SKIP_VERIFY`); cert SANs `100.76.140.121` +
-  `discovery`.
-- **Bootstrap seed (chicken-and-egg):** ESO needs exactly one secret — the
-  AppRole `secret_id`. Encrypt it in **sops-nix on kepler** and materialize the
-  `vault-approle` Secret via `/var/lib/rancher/k3s/server/manifests/` (encrypted
-  at rest, survives rebuilds, no new tooling). `role_id` committed inline.
-- **Network:** ACL grant `kepler → discovery tcp:8200` in **homelab-iac** (mirror
-  the Loki/Prometheus grant); publish Vault `8200` on discovery (servarr).
+- **Vault deploy:** `platform/vault` (hashicorp/vault chart 0.33.0), **standalone**
+  + **file storage on local-path** (node-local — single writer, no NFS-file-lock
+  risk), **HTTP** (cluster-internal; TLS is a lab-acceptable skip). Injector off
+  (ESO is the only consumer). Sync-wave -4 (before ESO).
+- **Init + unseal:** one-time `vault operator init -key-shares=1 -key-threshold=1`;
+  unseal key + root token stored in the `vault-init-keys` Secret (vault ns).
+- **Auto-unseal:** a small `vault-unsealer` Deployment polls seal-status and
+  unseals from `vault-init-keys` when sealed → survives vault-0 restarts. No KMS,
+  so the unseal key is cluster-readable (inherent trade-off). Verified: killing
+  vault-0 → auto-unsealed in ~30s, ESO reconnected.
+- **Auth: AppRole.** `ClusterSecretStore vault-incluster` (**`external-secrets.io/v1`**
+  — ESO serves v1, NOT v1beta1) with inline `role_id` + `secret_id` from the
+  `vault-approle` Secret (external-secrets ns, seeded out-of-band via kubectl).
+  Policy `eso-read` (read `secret/data/*`), KV v2 at `secret/`.
+- **Consumer:** Harbor admin pw lives at Vault `secret/harbor`; a Harbor
+  `ExternalSecret` recreates `harbor-admin-secret` (ESO-owned). Spell out ESO's
+  server-defaulted fields (conversion/decoding/metadata/nullByte strategies +
+  `deletionPolicy`) or Argo shows perpetual drift.
+
+Follow-ups: wire Vault TLS; auto-unseal via a real KMS/transit if this grows
+beyond a lab; seed `vault-init-keys` declaratively (sops) for clean rebuilds.
 
 ## 6. Registry — Harbor (prod-mimic)
 
@@ -186,7 +189,8 @@ homelab-gitops/
 ├── bootstrap/root-app.yaml       # app-of-apps; kubectl apply'd by `just bootstrap`
 ├── argocd/                       # Argo self-management (Chart.yaml→argo-cd 9.6.0)
 ├── platform/                     # cluster infra, sync-wave ordered
-│   ├── external-secrets/ (-3)    # ESO + ClusterSecretStore→Vault@discovery
+│   ├── vault/            (-4)    # in-cluster Vault (standalone) + auto-unsealer
+│   ├── external-secrets/ (-3)    # ESO + ClusterSecretStore→vault.vault.svc
 │   ├── csi-driver-nfs/   (-2)    # fast + slow StorageClasses (kube-system)
 │   ├── traefik/          (-1)
 │   ├── harbor/           (-1)
@@ -207,11 +211,11 @@ storage → ingress/registry → operators/observability → apps.
 
 ```
 homelab-gitops (Argo CD + platform)   ← bootstrapped by `just`, NOT Nix
-   needs: ESO secret_id seed ──────────▶ desktop-nixos sops-nix (k3s manifests)
+   Vault is IN-CLUSTER → no discovery/ACL dependency for secrets
    needs: registries.yaml Harbor mirror ▶ desktop-nixos _k3s-node.nix
-homelab-iac: ACL grant kepler→discovery tcp:8200 (Vault); + external-dns egress
-servarr/discovery: NEW vault stack (Raft, sops-unseal); Prometheus gains cluster
-                   metrics via remote_write (telemetry RFC)
+homelab-iac: ACL grants for telemetry push (Loki/Prom) only; + any external-dns egress
+servarr/discovery: Prometheus receives cluster metrics via remote_write
+                   (alloy-metrics); Loki receives cluster logs (Alloy DS)
 desktop-nixos substrate (k3s/LB/NAT/PSA, ingress-nginx+Alloy) STAYS as-is
 ```
 
@@ -232,8 +236,9 @@ else the user named is **in**.
 - external-dns provider: AdGuard webhook / Cloudflare / UniFi? (AdGuard is on
   discovery — **postponed** while discovery is busy.)
 - Harbor blob storage: `nfs-fast` vs node-local?
-- Vault unseal automation shape (sops + systemd unit on discovery) — acceptable,
-  or auto-unseal via a transit Vault (over-engineering for a lab)?
+- ~~Vault unseal automation?~~ **DONE: in-cluster Vault + a `vault-unsealer`
+  Deployment** (polls seal-status, unseals from `vault-init-keys`). KMS/transit
+  auto-unseal + TLS are post-lab hardening.
 - Jaeger storage (badger vs ES); traces in Jaeger UI vs also Grafana/Tempo?
 - Repo name + does it own future multi-cluster (ApplicationSet generators)?
 
