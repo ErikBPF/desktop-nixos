@@ -48,6 +48,10 @@
         "tofu-state" = {
           path = "/home/${u}/tofu-state-backup/";
           devices = ["discovery" "kepler"];
+          versioning = {
+            type = "staggered";
+            params.maxAge = toString (30 * 24 * 3600);
+          };
         };
       };
     };
@@ -82,6 +86,10 @@
         "tofu-state" = {
           path = "/home/${u}/tofu-state-backup/";
           devices = ["discovery" "orion"];
+          versioning = {
+            type = "staggered";
+            params.maxAge = toString (30 * 24 * 3600);
+          };
         };
       };
     };
@@ -137,16 +145,21 @@
           id = deviceIDs."${peer}_id";
           addresses = ["tcp://${peer}:22000" "dynamic"];
         });
-        folders =
-          lib.mapAttrs (id: spec: {
+        folders = lib.mapAttrs (id: spec:
+          {
             label = folderLabels.${id};
             path = folderPathOf spec;
             devices =
               if builtins.isAttrs spec && spec ? devices
               then spec.devices
               else shareWith;
+          }
+          # Receivers keep version history so an upstream corruption/wipe
+          # doesn't silently overwrite the only off-host copy.
+          // lib.optionalAttrs (builtins.isAttrs spec && spec ? versioning) {
+            inherit (spec) versioning;
           })
-          folderPaths;
+        folderPaths;
       };
     };
   };
