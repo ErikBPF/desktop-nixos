@@ -31,11 +31,15 @@ in {
     # LAN-published endpoints, fronted by kepler's L4 LB (RFC §5.3).
     apiVip = "192.168.10.245"; # admin / kubectl
     ingressVip = "192.168.10.250"; # ingress (backend = ingress-nginx NodePort, 4c)
-    ingressNodePort = 30443;
+    ingressNodePort = 30443; # ingress-nginx https NodePort (kept, idle post-cutover)
+    # Traefik cutover (RFC §14): the LB now fronts Traefik's NodePort instead of
+    # ingress-nginx. Host-only change (nginx reload) — no guest/CP bounce, unlike
+    # removing ingress-nginx. ingress-nginx stays idle on 30443; remove it later.
+    traefikIngressPort = 30444;
 
     # LB upstream server lists, generated from the topology.
     cpServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (10 + i)}:6443;") [1 2 3];
-    workerServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString ingressNodePort};") (lib.range 1 cfg.workerCount);
+    workerServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString traefikIngressPort};") (lib.range 1 cfg.workerCount);
 
     tokenDir = "/var/lib/k3s-cluster";
 
