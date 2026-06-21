@@ -35,7 +35,10 @@ in {
     # Versioned backup of the tofu-state mirror onto vault (sdb), independent of
     # the primary SSD that holds the live state. Off-host copies go to orion +
     # kepler via Syncthing (discovery-syncthing tofu-state folder).
-    services.resticTofuState.enable = true;
+    services.resticTofuState = {
+      enable = true;
+      ntfyUrl = "https://ntfy.homelab.pastelariadev.com/homelab-alerts";
+    };
 
     # Drift detection for the homelab-iac repo (UniFi/Tailscale/Cloudflare/
     # AdGuard). Runs here because discovery is the 24/7 host with LAN + tailnet
