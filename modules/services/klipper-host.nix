@@ -185,13 +185,15 @@ in {
         };
       };
       # Let Mainsail trigger a backup: klipper (via gcode_shell_command) may start
-      # the unit. Scoped to this one unit, NOPASSWD.
+      # the unit. Scoped to this one unit, NOPASSWD. Use the stable
+      # /run/current-system path (NOT the ${pkgs.systemd} store path) so it
+      # matches what the gcode_shell_command invokes via that path.
       security.sudo.extraRules = [
         {
           users = ["klipper"];
           commands = [
             {
-              command = "${pkgs.systemd}/bin/systemctl start klipper-config-backup.service";
+              command = "/run/current-system/sw/bin/systemctl start klipper-config-backup.service";
               options = ["NOPASSWD"];
             }
           ];
