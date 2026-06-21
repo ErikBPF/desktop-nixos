@@ -19,10 +19,13 @@ _: {
   }: let
     fw = "${pkgs.raspberrypifw}/share/raspberrypi/boot";
 
-    # bcm2837 (Pi3B). Foundation DTB name as shipped by raspberrypifw — the GPU
-    # firmware auto-loads this for a detected Pi3B; device_tree= is explicit for
-    # clarity. (The mainline kernel boots fine against the foundation DTB.)
-    dtb = "bcm2710-rpi-3-b.dtb";
+    # Use the MAINLINE kernel's own DTB, NOT the foundation bcm2710-rpi-3-b.dtb
+    # from raspberrypifw. The pure-mainline kernel's dwc2 USB node only matches
+    # its own bcm2837 DTB; the foundation DTB boots but leaves the whole USB tree
+    # (DWC2 → LAN9514 ethernet + hub → webcam) uninitialised. This is the DTB the
+    # old u-boot/extlinux path loaded, which is why wired ethernet worked there.
+    dtb = "bcm2837-rpi-3-b.dtb";
+    kernelDtb = "${config.boot.kernelPackages.kernel}/dtbs/broadcom/${dtb}";
 
     configTxt = pkgs.writeText "config.txt" ''
       arm_64bit=1
@@ -45,7 +48,7 @@ _: {
       install -m0644 ${fw}/bootcode.bin ${dest}/bootcode.bin
       install -m0644 ${fw}/start.elf    ${dest}/start.elf
       install -m0644 ${fw}/fixup.dat    ${dest}/fixup.dat
-      install -m0644 ${fw}/${dtb}       ${dest}/${dtb}
+      install -m0644 ${kernelDtb}       ${dest}/${dtb}
       install -m0644 ${configTxt}       ${dest}/config.txt
       install -m0644 ${toplevel}/kernel ${dest}/Image
       install -m0644 ${toplevel}/initrd ${dest}/initrd
