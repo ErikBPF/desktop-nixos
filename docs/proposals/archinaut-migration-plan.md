@@ -197,17 +197,18 @@ cd ~/klipper-backup && ./install.sh && bash ./script.sh "resume backups on NixOS
 | Build host | orion `192.168.10.220` (aarch64 binfmt) |
 | Config dir (mutable) | `/var/lib/klipper` |
 | Config source-of-truth | `klipper-biqu` repo (`references/repos/klipper-biqu`) |
-| MCU serial | `/dev/ttyS1` (mini-UART on GPIO14/15) |
+| MCU serial | `/dev/ttyS0` (GPIO mini-UART; kernel-direct `nr_uarts=1`) |
 | Mainsail | `http://192.168.10.187` |
 | Webcam | `http://192.168.10.187:8080/stream` (ustreamer, C270) |
 
 ## Post-bring-up config hardening — implementation plan (2026-06-20)
 
 Printer is **operational** (klippy `ready`, Mainsail, webcam, MCU on
-`/dev/ttyS1`) but on **power-sequencing** (boot Pi → then printer; see the
-kernel-direct RFC). Several fixes landed live / in moonraker's DB only — make
-them declarative so a **reflash reproduces the working state**. Each item lists
-the change + verify. Order: 1→2 required, 3→4 optional, 5 doc, 6 external.
+`/dev/ttyS0`). **Power-sequencing is retired** — kernel-direct boot landed
+(2026-06-21): the Pi boots fine with the printer powered on, no u-boot stage to
+hang. Several fixes landed live / in moonraker's DB only — make them declarative
+so a **reflash reproduces the working state**. Each item lists the change +
+verify. Order: 1→2 required, 3→4 optional, 5 doc, 6 external.
 
 ### 1. Declarative webcam (REQUIRED — reflash-safe)
 The C270 is registered only in moonraker's database (`source:"database"`) — a
@@ -254,6 +255,9 @@ and vendored `KAMP/` are **gitignored** working-tree files (update_manager-style
 — they round-trip via klipper-backup once Step 8 is set up; until then they live
 only in the working tree + on the Pi.
 
-### Out of scope (separate RFC)
-Kernel-direct boot to retire power-sequencing →
-`docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md`.
+### Kernel-direct boot — DONE (2026-06-21)
+Power-sequencing retired. The host boots via GPU-firmware-direct kernel load
+(no u-boot), so the Klipper MCU on the GPIO UART no longer hangs boot. MCU moved
+to `/dev/ttyS0` (kernel-direct sets `8250.nr_uarts=1`). See
+`docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md` and the
+`archinaut-kernel-direct` module.
