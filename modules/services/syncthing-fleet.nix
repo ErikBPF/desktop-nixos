@@ -10,6 +10,36 @@
   stignoreSyncAll = ../common/stignore-sync-all;
   u = config.username;
 
+  # 30-day staggered history on receiver copies of a state mirror.
+  stateVersioning = {
+    type = "staggered";
+    params.maxAge = toString (30 * 24 * 3600);
+  };
+
+  # A folder entry in the topology is either a path string (the common case:
+  # shared with the host's `shareWith` peers, fleet stignore, dir assumed to
+  # already exist under $HOME) or an attrset overriding any of those fields.
+  # Normalize both to one record up front so nothing downstream branches on the
+  # spec's shape. Attrset folders default to syncAll + ensureDir — they're
+  # purpose-built dirs (e.g. the tofu-state mirror) that must replicate
+  # *.tfstate (which the fleet stignore excludes) and be created by tmpfiles.
+  folderDefaults = {
+    devices = null; # null → fall back to the host's shareWith
+    versioning = null; # null → no version history
+    syncAll = false; # true → stignore-sync-all instead of the fleet stignore
+    ensureDir = false; # true → tmpfiles creates the dir
+  };
+  normalizeFolder = spec:
+    if builtins.isString spec
+    then folderDefaults // {path = spec;}
+    else
+      folderDefaults
+      // {
+        syncAll = true;
+        ensureDir = true;
+      }
+      // spec;
+
   folderLabels = {
     "ndykv-cjhly" = "Downloads";
     "ykxhp-khmz2" = "Documents";
@@ -48,10 +78,7 @@
         "tofu-state" = {
           path = "/home/${u}/tofu-state-backup/";
           devices = ["discovery" "kepler"];
-          versioning = {
-            type = "staggered";
-            params.maxAge = toString (30 * 24 * 3600);
-          };
+          versioning = stateVersioning;
         };
       };
     };
@@ -86,44 +113,29 @@
         "tofu-state" = {
           path = "/home/${u}/tofu-state-backup/";
           devices = ["discovery" "orion"];
-          versioning = {
-            type = "staggered";
-            params.maxAge = toString (30 * 24 * 3600);
-          };
+          versioning = stateVersioning;
         };
       };
     };
   };
-
-  # A folder entry is either a path string (shared with the host's `shareWith`
-  # peers) or `{ path; devices; }` to target specific peers — e.g. the
-  # tofu-state backup goes only to orion+kepler, not to the laptop/pathfinder
-  # the user folders share with.
-  folderPathOf = spec:
-    if builtins.isAttrs spec
-    then spec.path
-    else spec;
 
   mkHostModule = name: {
     devices,
     folderPaths,
     shareWith ? devices,
   }: _: let
-    # Create dirs only for explicitly-targeted folders; the string folders
-    # (Downloads/Documents/kube) already exist under $HOME, so leave them be.
-    targetedDirs =
-      map (spec: spec.path)
-      (lib.filter builtins.isAttrs (builtins.attrValues folderPaths));
+    folders = lib.mapAttrs (_: normalizeFolder) folderPaths;
   in {
     systemd.tmpfiles.rules =
-      (map (p: "d ${p} 0700 ${u} users - -") targetedDirs)
+      (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -")
+        (lib.filterAttrs (_: f: f.ensureDir) folders))
       ++ (lib.mapAttrsToList
-        (_: spec: "L+ ${folderPathOf spec}.stignore - - - - ${
-          if builtins.isAttrs spec
+        (_: f: "L+ ${f.path}.stignore - - - - ${
+          if f.syncAll
           then stignoreSyncAll
           else stignore
         }")
-        folderPaths);
+        folders);
 
     services.syncthing = {
       enable = true;
@@ -145,21 +157,21 @@
           id = deviceIDs."${peer}_id";
           addresses = ["tcp://${peer}:22000" "dynamic"];
         });
-        folders = lib.mapAttrs (id: spec:
+        folders = lib.mapAttrs (id: f:
           {
             label = folderLabels.${id};
-            path = folderPathOf spec;
+            inherit (f) path;
             devices =
-              if builtins.isAttrs spec && spec ? devices
-              then spec.devices
+              if f.devices != null
+              then f.devices
               else shareWith;
           }
           # Receivers keep version history so an upstream corruption/wipe
           # doesn't silently overwrite the only off-host copy.
-          // lib.optionalAttrs (builtins.isAttrs spec && spec ? versioning) {
-            inherit (spec) versioning;
+          // lib.optionalAttrs (f.versioning != null) {
+            inherit (f) versioning;
           })
-        folderPaths;
+        folders;
       };
     };
   };

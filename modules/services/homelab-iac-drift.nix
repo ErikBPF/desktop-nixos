@@ -49,6 +49,11 @@ _: {
     };
 
     config = lib.mkIf cfg.enable {
+      systemd.tmpfiles.rules = [
+        "d ${cfg.repoPath}/.terraform.d 0755 ${cfg.user} users - -"
+        "d ${cfg.repoPath}/.terraform.d/plugin-cache 0755 ${cfg.user} users - -"
+      ];
+
       systemd.services.homelab-iac-drift = {
         description = "homelab-iac Terraform drift check";
         after = [
@@ -75,6 +80,9 @@ _: {
           TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
           NTFY_URL = cfg.ntfyUrl;
           SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
+          # Without a shared plugin cache, `run --all` re-downloads every
+          # provider (4 × tens of MB) for all 9 units on every scheduled run.
+          TF_PLUGIN_CACHE_DIR = "${cfg.repoPath}/.terraform.d/plugin-cache";
         };
 
         serviceConfig = {
