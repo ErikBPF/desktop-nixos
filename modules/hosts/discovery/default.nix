@@ -37,6 +37,7 @@ in {
     # kepler via Syncthing (discovery-syncthing tofu-state folder).
     services.resticTofuState = {
       enable = true;
+      healthcheck = true;
       ntfyUrl = "https://ntfy.homelab.pastelariadev.com/homelab-alerts";
       offsiteRepository = "sftp:restic-kepler:/bulk/backups/restic-offsite/tofu-state";
     };

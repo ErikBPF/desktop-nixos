@@ -23,16 +23,11 @@
         description = "ntfy topic URL to alert on backup failure (empty = no alert).";
       };
 
-      healthcheckUrl = lib.mkOption {
-        type = lib.types.str;
-        default = "";
-        description = ''
-          Healthchecks ping URL, pinged after each successful backup as a
-          dead-man's-switch — Healthchecks alerts if the ping stops, catching a
-          dead timer or a down host (which OnFailure can't see). Empty = off.
-          Create the check in the Healthchecks UI and paste its ping URL here.
-        '';
-      };
+      healthcheck = lib.mkEnableOption ''
+        Healthchecks dead-man's-switch: ping after each successful backup so
+        Healthchecks alerts if the ping stops (dead timer / down host, which
+        OnFailure can't see). The ping URL is read at runtime from the sops
+        secret restic_tofu_state_hc_url'';
 
       offsiteRepository = lib.mkOption {
         type = lib.types.str;
@@ -71,11 +66,15 @@
         };
       };
 
-      # Dead-man's-switch: ping Healthchecks after a successful backup.
-      # ExecStartPost only runs if the backup succeeded, so a missed ping means
-      # the backup failed, the timer died, or the host is down.
-      systemd.services.restic-backups-tofu-state.serviceConfig.ExecStartPost = lib.mkIf (cfg.healthcheckUrl != "") [
-        "${pkgs.curl}/bin/curl -fsS -m 10 --retry 3 -o /dev/null ${lib.escapeShellArg cfg.healthcheckUrl}"
+      # Dead-man's-switch: ping Healthchecks after a successful backup
+      # (ExecStartPost runs only on success). A missed ping ⇒ backup failed,
+      # timer dead, or host down. The URL is a capability, so it lives in sops
+      # and is read at runtime rather than baked into the unit.
+      sops.secrets."restic_tofu_state_hc_url" = lib.mkIf cfg.healthcheck {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+      };
+      systemd.services.restic-backups-tofu-state.serviceConfig.ExecStartPost = lib.mkIf cfg.healthcheck [
+        "${pkgs.bash}/bin/bash -c '${pkgs.curl}/bin/curl -fsS -m 10 --retry 3 -o /dev/null \"$(cat ${config.sops.secrets."restic_tofu_state_hc_url".path})\"'"
       ];
 
       # restic init only creates the leaf repo dir; ensure its parent exists.
