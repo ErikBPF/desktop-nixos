@@ -1,0 +1,8 @@
+// Syncthing ignore file for state-mirror folders: sync everything.
+// Managed by NixOS flake (modules/common/stignore-sync-all).
+//
+// The fleet-wide stignore deliberately ignores **/*.tfstate, **/.terraform,
+// etc. The tofu-state backup folder exists precisely to replicate that
+// OpenTofu state (ciphertext), so it must NOT inherit those patterns. No
+// patterns here = nothing ignored. Syncthing never syncs its own
+// .stfolder/.stignore markers regardless.

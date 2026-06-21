@@ -44,7 +44,7 @@
       ];
 
       services.restic.backups.tofu-state = {
-        repository = cfg.repository;
+        inherit (cfg) repository;
         passwordFile = config.sops.secrets."restic_tofu_state_password".path;
         paths = [cfg.sourceDir];
         initialize = true;
