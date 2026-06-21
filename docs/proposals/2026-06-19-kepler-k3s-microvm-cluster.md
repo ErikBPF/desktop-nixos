@@ -715,3 +715,27 @@ quorum-aware rolling restart needs custom ordering on the *stop* side, e.g.:
 Cost/benefit: only worth building if kepler CP deploys become frequent; for now
 Mitigation 1 stands. etcd snapshots already cover the data-loss risk; this is
 purely about avoiding the availability blip.
+
+## 15. etcd restore runbook (grill §7 — documented, NOT yet drilled)
+
+Snapshots land in `/bulk/k3s-etcd-snapshots/<cp>/` (§C). Restore on total
+etcd-state loss (corruption / unrecoverable quorum). Workloads + PVs (on NFS)
+survive — only cluster *state* rewinds to the snapshot point.
+
+1. Pick the newest snapshot: `ls -t /bulk/k3s-etcd-snapshots/cp-1/`.
+2. Stop the control plane: on kepler, `systemctl stop microvm@cp-1 microvm@cp-2
+   microvm@cp-3` (or `systemctl stop k3s` inside each guest).
+3. Start **cp-1 only**, then inside it reset+restore from the host-mounted snapshot
+   (the `/bulk/...` subdir is `/etcd-snapshots` in the guest):
+   `k3s server --cluster-reset
+   --cluster-reset-restore-path=/etcd-snapshots/<snapshot>`
+   This collapses etcd to a single member and loads the snapshot. Wait for it to
+   report the reset is done, then let k3s start normally.
+4. Verify cp-1: `k3s kubectl get nodes`, apiserver healthy.
+5. Rejoin cp-2/cp-3: inside each, `rm -rf /var/lib/rancher/k3s/server/db/etcd`
+   then restart k3s — they re-join the reset cluster as fresh members.
+6. Verify 3-member etcd (`k3s kubectl get nodes` → 3 control-plane Ready) + 5/5.
+
+**Caveat:** untested end-to-end — schedule a real drill in a maintenance window
+(the reset is destructive to current etcd state). Until then this is a
+best-effort runbook from the k3s docs, not a proven procedure.

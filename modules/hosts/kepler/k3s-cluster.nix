@@ -136,8 +136,10 @@ in {
         nodeIp = "${subnet}.${toString (10 + i)}"; # .11 .12 .13
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
-        vcpu = 1; # RFC CP target (G1 tunable post-deploy)
-        mem = 2048;
+        # etcd is memory + fsync sensitive; 2G/1vcpu flapped under sync load
+        # (grill §3). 4G/2vcpu gives etcd+apiserver headroom. 3×4G+2×16G on 62G.
+        vcpu = 2;
+        mem = 4096;
         disk = 8192;
       }
       else let

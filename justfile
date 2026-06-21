@@ -160,6 +160,23 @@ kubeconfig:
     echo ":: kubeconfig → context $(kubectl config current-context)"
     kubectl get nodes
 
+# LAN-direct kubeconfig → apiserver VIP 192.168.10.245 (cert SAN covers it),
+# bypassing discovery's stream-proxy. Use on the kepler LAN or when discovery is
+# down (grill §5 — admin access must not depend on a second host). Separate file;
+# use via `KUBECONFIG=~/.kube/pastelariadev-lan.yaml kubectl …`.
+kubeconfig-lan:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p ~/.kube
+    ssh -A -p 2222 erik@{{ip_kepler}} \
+        'ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 "cat /etc/rancher/k3s/k3s.yaml"' \
+        | sed 's#https://127.0.0.1:6443#https://192.168.10.245:6443#' \
+        | sed 's/: default$/: pastelariadev-lan/' \
+        > ~/.kube/pastelariadev-lan.yaml
+    chmod 600 ~/.kube/pastelariadev-lan.yaml
+    echo ":: LAN kubeconfig → ~/.kube/pastelariadev-lan.yaml (context pastelariadev-lan)"
+    KUBECONFIG=~/.kube/pastelariadev-lan.yaml kubectl get nodes
+
 # ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
 # archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.
 # Bootstrap: build the SD image, dd it, first boot wired (see
