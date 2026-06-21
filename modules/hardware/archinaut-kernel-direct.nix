@@ -43,18 +43,27 @@ _: {
     # `toplevel` is a shell expression yielding the system toplevel path:
     #   - build time (populateFirmwareCommands): the literal store path
     #   - switch time (installHook): "$1"
+    # Writes every file to a `.tmp` sibling, syncs, then renames into place, so
+    # an interrupted switch (power loss) can't leave a half-written Image/initrd
+    # on the live FAT partition the GPU firmware boots from. (Harmless on the
+    # build path, which populates a fresh dir.)
     mkFirmware = {
       dest,
       toplevel,
     }: ''
-      install -m0644 ${fw}/bootcode.bin ${dest}/bootcode.bin
-      install -m0644 ${fw}/start.elf    ${dest}/start.elf
-      install -m0644 ${fw}/fixup.dat    ${dest}/fixup.dat
-      install -m0644 ${kernelDtb}       ${dest}/${dtb}
-      install -m0644 ${configTxt}       ${dest}/config.txt
-      install -m0644 ${toplevel}/kernel ${dest}/Image
-      install -m0644 ${toplevel}/initrd ${dest}/initrd
-      echo "$(cat ${toplevel}/kernel-params) init=${toplevel}/init" > ${dest}/cmdline.txt
+      install -m0644 ${fw}/bootcode.bin ${dest}/bootcode.bin.tmp
+      install -m0644 ${fw}/start.elf    ${dest}/start.elf.tmp
+      install -m0644 ${fw}/fixup.dat    ${dest}/fixup.dat.tmp
+      install -m0644 ${kernelDtb}       ${dest}/${dtb}.tmp
+      install -m0644 ${configTxt}       ${dest}/config.txt.tmp
+      install -m0644 ${toplevel}/kernel ${dest}/Image.tmp
+      install -m0644 ${toplevel}/initrd ${dest}/initrd.tmp
+      echo "$(cat ${toplevel}/kernel-params) init=${toplevel}/init" > ${dest}/cmdline.txt.tmp
+      sync
+      for f in bootcode.bin start.elf fixup.dat ${dtb} config.txt Image initrd cmdline.txt; do
+        mv -f ${dest}/"$f".tmp ${dest}/"$f"
+      done
+      sync
     '';
 
     installHook = pkgs.writeShellScript "archinaut-kernel-direct-install" ''
