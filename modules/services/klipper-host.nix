@@ -133,6 +133,71 @@ in {
         '';
       };
 
+      # Config backup → klipper-biqu, SAFE for the SHARED repo. klipper-backup's
+      # own model wipes the whole repo (would delete orcaslicer/), so we don't
+      # use it. Instead: reset a work clone to origin/main (preserving orcaslicer
+      # and everything else), mirror /var/lib/klipper into printer_data/config/
+      # ONLY, and commit/push just that subtree. SAVE_CONFIG + Mainsail edits thus
+      # round-trip to git and survive a reflash. Pushes via the on-Pi deploy key
+      # (write-scoped to klipper-biqu); reflash → regenerate it + re-add the
+      # deploy key (see archinaut-kernel-direct memory). Runs as erik (owns the
+      # key; /var/lib/klipper is world-readable).
+      systemd.services.klipper-config-backup = {
+        description = "Back up /var/lib/klipper to klipper-biqu (printer_data/config only — never touches orcaslicer/)";
+        after = ["network-online.target"];
+        wants = ["network-online.target"];
+        path = [pkgs.git pkgs.rsync pkgs.openssh pkgs.coreutils];
+        environment = {
+          HOME = "/home/erik";
+          GIT_SSH_COMMAND = "${pkgs.openssh}/bin/ssh -i /home/erik/.ssh/klipper_backup_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new";
+        };
+        serviceConfig = {
+          Type = "oneshot";
+          User = "erik";
+        };
+        script = ''
+          set -euo pipefail
+          work="$HOME/.cache/klipper-config-backup"
+          repo="git@github.com:ErikBPF/klipper-biqu.git"
+          [ -d "$work/.git" ] || git clone --depth 50 "$repo" "$work"
+          cd "$work"
+          git fetch -q origin main
+          git checkout -q -B main origin/main
+          mkdir -p printer_data/config
+          rsync -a --delete --exclude=.git --exclude='*.swp' --exclude='*.tmp' \
+            --exclude='*.bak' --exclude='printer-[0-9]*_[0-9]*.cfg' \
+            /var/lib/klipper/ printer_data/config/
+          git add printer_data/config
+          if git diff --cached --quiet; then
+            echo "no config changes"; exit 0
+          fi
+          git -c user.name=archinaut -c user.email=archinaut@pastelariadev \
+            commit -q -m "auto: klipper config backup"
+          git push -q origin main
+        '';
+      };
+      systemd.timers.klipper-config-backup = {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "daily";
+          Persistent = true;
+          RandomizedDelaySec = "30m";
+        };
+      };
+      # Let Mainsail trigger a backup: klipper (via gcode_shell_command) may start
+      # the unit. Scoped to this one unit, NOPASSWD.
+      security.sudo.extraRules = [
+        {
+          users = ["klipper"];
+          commands = [
+            {
+              command = "${pkgs.systemd}/bin/systemctl start klipper-config-backup.service";
+              options = ["NOPASSWD"];
+            }
+          ];
+        }
+      ];
+
       services.moonraker = {
         enable = true;
         user = "klipper";
