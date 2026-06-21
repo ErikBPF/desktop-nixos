@@ -237,8 +237,8 @@ in {
               location = "printer";
               service = "mjpegstreamer-adaptive";
               target_fps = 15;
-              stream_url = "http://192.168.10.187:8080/stream";
-              snapshot_url = "http://192.168.10.187:8080/snapshot";
+              stream_url = "http://192.168.10.225:8080/stream";
+              snapshot_url = "http://192.168.10.225:8080/snapshot";
             };
             # NOTE: every [update_manager …] git_repo entry from the Debian conf
             # is intentionally dropped — NixOS owns versions; git updaters can't

@@ -5,7 +5,7 @@ ip_discovery := "192.168.10.210"
 ip_orion := "192.168.10.220"
 ip_pathfinder := "192.168.10.125"
 ip_kepler := "192.168.10.230"
-ip_archinaut := "192.168.10.187"  # wired (eth0); wifi .225 is the Phase-9 path
+ip_archinaut := "192.168.10.225"  # wired (eth0), DHCP-reserved; wifi .226 (Phase-9). Roaming/admin → deploy via tailscale
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -237,7 +237,6 @@ _sync-servarr target:
         --exclude '.env' --exclude '.env.sops' \
         --exclude '__pycache__' --exclude '.DS_Store' \
         --exclude 'config/adguard/AdGuardHome.yaml' \
-
         -e "ssh -p 2222" \
         "$SRC/machines/{{target}}/" \
         "erik@$IP:/home/erik/servarr/machines/{{target}}/"
