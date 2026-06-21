@@ -633,7 +633,7 @@ start slower (~one CP-ready interval each) in exchange for no contention spikes.
 
 ### A — fleet observability of the cluster
 
-Surveyed `dataplatform-gitops` (in-cluster kube-prometheus-stack + Alloy). For a
+Surveyed `datahomelab-gitops` (in-cluster kube-prometheus-stack + Alloy). For a
 5-node sandbox that already has an **external** Grafana/Loki/Prometheus on
 discovery, the reusable piece is their **Alloy log pipeline**, not the in-cluster
 operator stack. Adopted **push-only, one agent**:
@@ -675,3 +675,43 @@ mostly don't scrape on k3s' single-binary server — skip them.
    (or force one: `k3s etcd-snapshot save` on a CP).
 6. Bonus: discovery Grafana → Prometheus, `up{instance=~".*"}` now shows host
    metrics flowing (the `:9090` fix) — verify after deploying discovery too.
+
+## 14. Control-plane restart on kepler `switch` — quorum-loss caveat (2026-06-21)
+
+**Observed:** any kepler `nixos-rebuild switch` that changes the CP guest closure
+restarts all three `microvm@cp-*` ~together. The boot stagger (§D) orders the
+*start* (cp-1→cp-2→cp-3) but switch-to-configuration *stops* the changed guests
+in parallel, so for a window 2–3 CPs are down at once → **etcd loses quorum → the
+apiserver goes "not ready" → cluster API outage** (~minutes). Self-heals via the
+stagger + `TimeoutStartSec=300`; etcd data is safe (snapshots → /bulk, §C). It is
+an availability hit only.
+
+*Incident 2026-06-21:* a `switch-to-configuration switch` (gen-57, 09:36) stopped
+cp-2/cp-3 from 09:36–09:44; cp-1 lost both etcd peers (`dial
+10.250.0.{12,13}:2380: no route to host`) → raft pre-vote loop → k3s
+scheduled-restart at 09:42 → ~8-min API outage. Ruled out: OOM (40 GB free on
+kepler, ~0.9 GB free in-guest) and the concurrent GitOps sync (innocent — it
+finished once quorum returned).
+
+### Mitigation 1 — operational (ACTIVE)
+
+Treat a CP-affecting kepler deploy as a maintenance window: don't run it
+concurrently with cluster / GitOps work, and expect a few-minute API blip. The
+cluster recovers on its own; nothing to do. Sufficient for a lab.
+
+### Mitigation 2 — rolling CP restart (future, NOT built — `TODO(erik)`)
+
+The real fix: serialize CP microvm restarts on switch so quorum is never lost —
+stop+start cp-1, gate on etcd health, then cp-2, then cp-3. microvm.nix restarts
+all changed guests in parallel; the existing stagger only orders *start*, so a
+quorum-aware rolling restart needs custom ordering on the *stop* side, e.g.:
+
+- a oneshot run on activation that restarts `microvm@cp-*` one at a time with an
+  `etcdctl endpoint health` (or `k3s kubectl get --raw /readyz`) gate between
+  each, instead of letting switch-to-configuration bounce them together; or
+- `systemd` ordering/`Conflicts` on the restart path (microvm.nix doesn't expose
+  this natively — would need a per-instance drop-in or a custom restart unit).
+
+Cost/benefit: only worth building if kepler CP deploys become frequent; for now
+Mitigation 1 stands. etcd snapshots already cover the data-loss risk; this is
+purely about avoiding the availability blip.

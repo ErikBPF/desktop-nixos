@@ -1,4 +1,4 @@
-# `platform-gitops` — a production-mimicking platform layer for the kepler k3s cluster
+# `homelab-gitops` — a production-mimicking platform layer for the kepler k3s cluster
 
 **Date:** 2026-06-20
 **Status:** Proposal (skeleton — judgment marked `TODO(erik)`)
@@ -18,7 +18,7 @@ stacks. Telemetry hardening of the existing stack is separate —
 ## 1. Deploy model — sister repo on the servarr strategy (NOT Nix)
 
 The new platform components are **not** baked into the NixOS flake. The repo
-mirrors servarr: a git repo, symlinked at `references/repos/platform-gitops`,
+mirrors servarr: a git repo, symlinked at `references/repos/homelab-gitops`,
 with `just` recipes; applied to the live cluster.
 
 - **Engine: Argo CD** (prod-realistic GitOps: drift detect, self-heal, UI),
@@ -71,7 +71,6 @@ middlewares, the dashboard) behind the same kepler L4 LB / a second NodePort.
   Argo + Traefik, verify, then remove ingress-nginx from the Nix `autoDeployCharts`
   and repoint the argocd ingress to traefik. Superseded note: ~~run Traefik
   alongside ingress-nginx (two classes)?~~
-  keeps the working ingress-nginx path while you exercise Traefik.)
 - No `Service type=LoadBalancer` — expose via NodePort behind the kepler L4 LB,
   same as ingress-nginx (NodePort 30443).
 
@@ -179,10 +178,10 @@ Treat the upstream "minimums" as upper bounds — real idle is far lower:
 Net: the whole stack idles comfortably on 2×16 GB with room to spare; the 128 GB
 kepler upgrade just removes any need to think about it.
 
-## 11. Proposed repo layout (`platform-gitops`, servarr-style sister repo)
+## 11. Proposed repo layout (`homelab-gitops`, servarr-style sister repo)
 
 ```
-platform-gitops/
+homelab-gitops/
 ├── justfile                      # bootstrap / sync / app recipes (servarr ergonomics)
 ├── bootstrap/root-app.yaml       # app-of-apps; kubectl apply'd by `just bootstrap`
 ├── argocd/                       # Argo self-management (Chart.yaml→argo-cd 9.6.0)
@@ -200,14 +199,14 @@ platform-gitops/
                                   # thin wrapper charts (Chart.yaml=1 dep+values)
 ```
 
-Symlink: `references/repos/platform-gitops → ~/Documents/erik/platform-gitops`.
+Symlink: `references/repos/homelab-gitops → ~/Documents/erik/homelab-gitops`.
 `just` recipes resolve via the symlink (like servarr). Sync-wave: secrets →
 storage → ingress/registry → operators/observability → apps.
 
 ## 12. Coupling map (6th sister repo)
 
 ```
-platform-gitops (Argo CD + platform)   ← bootstrapped by `just`, NOT Nix
+homelab-gitops (Argo CD + platform)   ← bootstrapped by `just`, NOT Nix
    needs: ESO secret_id seed ──────────▶ desktop-nixos sops-nix (k3s manifests)
    needs: registries.yaml Harbor mirror ▶ desktop-nixos _k3s-node.nix
 homelab-iac: ACL grant kepler→discovery tcp:8200 (Vault); + external-dns egress
@@ -216,7 +215,7 @@ servarr/discovery: NEW vault stack (Raft, sops-unseal); Prometheus gains cluster
 desktop-nixos substrate (k3s/LB/NAT/PSA, ingress-nginx+Alloy) STAYS as-is
 ```
 
-Rule of thumb: land the leaf (platform-gitops / servarr vault) → grant the ACL
+Rule of thumb: land the leaf (homelab-gitops / servarr vault) → grant the ACL
 (homelab-iac) → seed the secret / registries.yaml (desktop-nixos) → `just sync`.
 
 ## 13. Still-skip (even for prod-mimic, single host)

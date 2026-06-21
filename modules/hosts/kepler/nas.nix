@@ -23,7 +23,7 @@ _: {
     # model cache (/fast) or media (/bulk). Exported rw to the cluster subnet only
     # (the nodes mount kepler at its br-k3s gateway IP 10.250.0.1). no_root_squash:
     # the CSI node plugin runs as root and chowns each PV dir. nfs-fast → SSD pool,
-    # nfs-slow → HDD pool (RFC platform-gitops §4).
+    # nfs-slow → HDD pool (RFC homelab-gitops §4).
     systemd.tmpfiles.rules = [
       "d /fast/k8s 0755 root root -"
       "d /bulk/k8s 0755 root root -"

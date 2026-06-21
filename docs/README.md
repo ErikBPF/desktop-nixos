@@ -24,7 +24,7 @@ disagree, the recipe wins — flag the doc as stale.
 | [`proposals/archinaut-migration-plan.md`](proposals/archinaut-migration-plan.md) | Execution checklist for the `archinaut` migration (session handoff). Pairs with the RFC above. Printer config/calibration docs live in the `klipper-biqu` sister repo. |
 | [`proposals/2026-06-20-unifi-declarative-config.md`](proposals/2026-06-20-unifi-declarative-config.md) | **Implemented** — declarative UDM config via OpenTofu/Terragrunt in the `homelab-iac` sister repo (import-first, zero-diff). |
 | [`proposals/2026-06-20-telemetry-hardening.md`](proposals/2026-06-20-telemetry-hardening.md) | Proposal (skeleton) — security/QoL/devex for the push-based Grafana/Loki/Prometheus stack; top-5 + a Loki cardinality fix. |
-| [`proposals/2026-06-20-cluster-platform-gitops.md`](proposals/2026-06-20-cluster-platform-gitops.md) | Proposal (skeleton) — new `platform-gitops` sister repo (servarr-style, NOT Nix): Argo CD + Traefik + Harbor + fast/slow NFS + ESO→Vault@discovery + KEDA/OTel/Jaeger. Prod-mimic lab; judgment pending. |
+| [`proposals/2026-06-20-cluster-homelab-gitops.md`](proposals/2026-06-20-cluster-homelab-gitops.md) | Proposal (skeleton) — new `homelab-gitops` sister repo (servarr-style, NOT Nix): Argo CD + Traefik + Harbor + fast/slow NFS + ESO→Vault@discovery + KEDA/OTel/Jaeger. Prod-mimic lab; judgment pending. |
 
 New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
