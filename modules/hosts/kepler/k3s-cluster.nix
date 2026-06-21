@@ -180,26 +180,10 @@ in {
         # warns about *manual* drift). RFC §5.9 / §13.
         ++ lib.optional (s.role == "server") {
           services.k3s.autoDeployCharts = {
-            # ingress-nginx as a DaemonSet on a fixed NodePort; the kepler LB sends
-            # .250:443 -> workers:30443. No in-cluster LoadBalancer.
-            ingress-nginx = {
-              name = "ingress-nginx";
-              repo = "https://kubernetes.github.io/ingress-nginx";
-              version = "4.12.1";
-              hash = "sha256-WfZke4wKoSJnci+greFnE/sLFqGvkyInryBl/dGn87w=";
-              targetNamespace = "ingress-nginx";
-              createNamespace = true;
-              values.controller = {
-                kind = "DaemonSet";
-                service = {
-                  type = "NodePort";
-                  nodePorts = {
-                    http = 30080;
-                    https = ingressNodePort;
-                  };
-                };
-              };
-            };
+            # Ingress is now Traefik (homelab-gitops platform/traefik), which takes
+            # NodePort 30443 + becomes the default IngressClass — the kepler LB
+            # (.250:443 -> workers:30443) is unchanged, it now fronts Traefik.
+            # ingress-nginx removed (RFC §14 Traefik cutover, 2026-06-21).
 
             # Grafana Alloy DaemonSet → ships pod logs to discovery's Loki.
             # repo mode (not `package`): a baked static chart lands only on cp-1's
