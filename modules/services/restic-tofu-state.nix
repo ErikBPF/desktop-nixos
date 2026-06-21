@@ -43,7 +43,7 @@
             ${pkgs.curl}/bin/curl -s \
               -H "Title: restic tofu-state backup FAILED" \
               -H "Priority: high" -H "Tags: rotating_light" \
-              -d "restic-backups-tofu-state failed on $(${pkgs.nettools}/bin/hostname) — check disk/repo: journalctl -u restic-backups-tofu-state" \
+              -d "restic-backups-tofu-state failed on ${config.networking.hostName} — check disk/repo: journalctl -u restic-backups-tofu-state" \
               ${lib.escapeShellArg cfg.ntfyUrl} >/dev/null || true
           '';
         };
