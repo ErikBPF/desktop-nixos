@@ -38,6 +38,7 @@ in {
     services.resticTofuState = {
       enable = true;
       ntfyUrl = "https://ntfy.homelab.pastelariadev.com/homelab-alerts";
+      offsiteRepository = "sftp:restic-kepler:/bulk/backups/restic-offsite/tofu-state";
     };
 
     # Drift detection for the homelab-iac repo (UniFi/Tailscale/Cloudflare/

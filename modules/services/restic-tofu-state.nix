@@ -33,6 +33,17 @@
           Create the check in the Healthchecks UI and paste its ping URL here.
         '';
       };
+
+      offsiteRepository = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = ''
+          restic SFTP repo URL for an off-machine copy (empty = off), e.g.
+          "sftp:restic-offsite@kepler:/bulk/backups/restic-offsite/tofu-state".
+          Connects with the sops-held restic_offsite_ssh_key as the dedicated
+          restic-offsite user (see restic-offsite-target.nix on the peer).
+        '';
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -68,9 +79,12 @@
       ];
 
       # restic init only creates the leaf repo dir; ensure its parent exists.
-      systemd.tmpfiles.rules = [
-        "d ${builtins.dirOf repository} 0700 root root - -"
-      ];
+      # The off-site path also needs /root/.ssh for the accept-new known_hosts.
+      systemd.tmpfiles.rules =
+        ["d ${builtins.dirOf repository} 0700 root root - -"]
+        ++ lib.optionals (cfg.offsiteRepository != "") [
+          "d /root/.ssh 0700 root root - -"
+        ];
 
       services.restic.backups.tofu-state = {
         inherit repository;
@@ -79,6 +93,44 @@
         initialize = true;
         timerConfig = {
           OnCalendar = "*-*-* 06:30:00"; # after the 06:00 drift check
+          Persistent = true;
+          RandomizedDelaySec = "10m";
+        };
+        pruneOpts = [
+          "--keep-daily 7"
+          "--keep-weekly 4"
+          "--keep-monthly 6"
+        ];
+      };
+
+      # Off-site copy over SFTP to a peer's restic-offsite user. Same encrypted
+      # data, a different machine — the only tier that survives losing discovery.
+      sops.secrets."restic_offsite_ssh_key" = lib.mkIf (cfg.offsiteRepository != "") {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+        mode = "0400";
+      };
+
+      # Connection details live in root's ssh config (not restic extraOptions —
+      # the restic module shell-splits those, breaking a multi-word
+      # sftp.command). Repo URL uses the `restic-kepler` alias below.
+      programs.ssh.extraConfig = lib.mkIf (cfg.offsiteRepository != "") ''
+        Host restic-kepler
+          HostName kepler
+          Port 2222
+          User restic-offsite
+          IdentityFile ${config.sops.secrets."restic_offsite_ssh_key".path}
+          IdentitiesOnly yes
+          StrictHostKeyChecking accept-new
+          UserKnownHostsFile /root/.ssh/known_hosts
+      '';
+
+      services.restic.backups.tofu-state-offsite = lib.mkIf (cfg.offsiteRepository != "") {
+        repository = cfg.offsiteRepository;
+        passwordFile = config.sops.secrets."restic_tofu_state_password".path;
+        paths = [sourceDir];
+        initialize = true;
+        timerConfig = {
+          OnCalendar = "*-*-* 07:00:00"; # after the local backup (06:30)
           Persistent = true;
           RandomizedDelaySec = "10m";
         };

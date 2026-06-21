@@ -28,7 +28,17 @@ in {
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.power-desktop
+      m.nixos.restic-offsite-target
     ];
+
+    # Off-site target for discovery's tofu-state restic backup (dedicated,
+    # sftp-only user; repo on the bulk pool). Pairs with discovery's
+    # services.resticTofuState.offsiteRepository.
+    services.resticOffsiteTarget = {
+      enable = true;
+      dir = "/bulk/backups/restic-offsite";
+      authorizedKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGl9rC3PIKoyAQVUJ2jNRfGwJrxmEea6c2oNhXK4AfkS restic-offsite-discovery-to-kepler";
+    };
 
     # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).
     # ⚠ Brings up systemd-networkd — deploy supervised (see the module header).

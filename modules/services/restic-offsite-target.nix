@@ -3,7 +3,7 @@
 # Contained by design — no root trust between hosts; the authorized key can only
 # act as this user, and `restrict` drops pty/forwarding. The pushing host holds
 # the matching private key (sops); see restic-tofu-state.nix.
-{...}: {
+_: {
   flake.modules.nixos.restic-offsite-target = {
     config,
     lib,
@@ -34,9 +34,10 @@
         group = "restic-offsite";
         home = cfg.dir;
         createHome = true;
-        # sftp runs as the sshd subsystem, not via a login shell — nologin keeps
-        # the account non-interactive while SFTP still works.
-        shell = "${pkgs.shadow}/bin/nologin";
+        # A real shell is needed: a nologin shell makes sshd refuse the session
+        # ("account not available") before the sftp subsystem starts. Interactive
+        # use is still blocked by `restrict` (no pty/forwarding) on the key.
+        shell = "${pkgs.bashInteractive}/bin/bash";
         openssh.authorizedKeys.keys = [
           "restrict ${cfg.authorizedKey}"
         ];
