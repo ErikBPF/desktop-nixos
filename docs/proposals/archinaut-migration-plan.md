@@ -197,18 +197,19 @@ cd ~/klipper-backup && ./install.sh && bash ./script.sh "resume backups on NixOS
 | Build host | orion `192.168.10.220` (aarch64 binfmt) |
 | Config dir (mutable) | `/var/lib/klipper` |
 | Config source-of-truth | `klipper-biqu` repo (`references/repos/klipper-biqu`) |
-| MCU serial | `/dev/ttyS0` (GPIO mini-UART; kernel-direct `nr_uarts=1`) |
+| MCU serial | `/dev/ttyS1` (GPIO mini-UART; 3B+ mainline DTB) |
 | Mainsail | `http://192.168.10.187` |
 | Webcam | `http://192.168.10.187:8080/stream` (ustreamer, C270) |
 
 ## Post-bring-up config hardening — implementation plan (2026-06-20)
 
 Printer is **operational** (klippy `ready`, Mainsail, webcam, MCU on
-`/dev/ttyS0`). **Power-sequencing is retired** — kernel-direct boot landed
+`/dev/ttyS1`). **Power-sequencing is retired** — kernel-direct boot landed
 (2026-06-21): the Pi boots fine with the printer powered on, no u-boot stage to
-hang. Several fixes landed live / in moonraker's DB only — make them declarative
-so a **reflash reproduces the working state**. Each item lists the change +
-verify. Order: 1→2 required, 3→4 optional, 5 doc, 6 external.
+hang, and reaches `ready` unattended on cold boot. Several fixes landed live / in
+moonraker's DB only — make them declarative so a **reflash reproduces the working
+state**. Each item lists the change + verify. Order: 1→2 required, 3→4 optional,
+5 doc, 6 external.
 
 ### 1. Declarative webcam (REQUIRED — reflash-safe)
 The C270 is registered only in moonraker's database (`source:"database"`) — a
@@ -257,7 +258,22 @@ only in the working tree + on the Pi.
 
 ### Kernel-direct boot — DONE (2026-06-21)
 Power-sequencing retired. The host boots via GPU-firmware-direct kernel load
-(no u-boot), so the Klipper MCU on the GPIO UART no longer hangs boot. MCU moved
-to `/dev/ttyS0` (kernel-direct sets `8250.nr_uarts=1`). See
-`docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md` and the
-`archinaut-kernel-direct` module.
+(no u-boot), so the Klipper MCU on the GPIO UART no longer hangs boot. Reaches
+`ready` unattended on cold boot with the printer powered. Key facts learned
+during bring-up (board is a **Pi 3 Model B+**, not a plain 3B):
+- **DTB:** must be the mainline kernel's `bcm2837-rpi-3-b-plus.dtb` (copied from
+  the kernel package), NOT the foundation `bcm2710-*` from raspberrypifw. The
+  foundation DTB boots but leaves the whole USB tree (DWC2 → LAN7515 hub →
+  lan78xx Gigabit ethernet + webcam) dead; the plain 3B DTB misses the 3B+
+  ethernet.
+- **MCU serial:** `/dev/ttyS1` under that DTB (mini-UART; PL011=ttyAMA0 is
+  bluetooth). `/dev/ttyS0` is a phantom 8250 port → I/O error.
+- **Thermal race:** `bcm2835_thermal` registers `thermal_zone0` a few seconds
+  late; klipper has a preStart wait so `[temperature_sensor raspberry_pi]`
+  doesn't hard-halt klippy.
+- **MCU recovery:** the MCU is on the printer PSU (independent of the Pi) so it
+  enters shutdown on a host reboot; `klipper-mcu-recover.service` issues one
+  FIRMWARE_RESTART after boot so klippy reaches `ready` without manual steps.
+
+See `docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md` and the
+`archinaut-kernel-direct` + `klipper-host` modules.
