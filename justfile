@@ -182,23 +182,15 @@ kubeconfig-lan:
 # Bootstrap: build the SD image, dd it, first boot wired (see
 # docs/proposals/2026-06-16-printer-nixos-host.md §9), then seed config.
 
-# Build the bootable SD image (aarch64) on orion. Output: result/sd-image/*.img.zst
-build-archinaut-sd:
-    nix build .#nixosConfigurations.archinaut.config.system.build.sdImage \
+# Build a bootable SD image (aarch64) on orion. target=archinaut (production) or
+# archinaut-base (rescue / kernel-direct prototype — flash a SPARE card, boot
+# with the printer ON to prove no-u-boot boot, RFC 2026-06-20).
+build-archinaut-sd target="archinaut":
+    nix build .#nixosConfigurations.{{target}}.config.system.build.sdImage \
         --builders 'ssh-ng://erik@{{ip_orion}}?ssh-key=/root/.ssh/nix-builder aarch64-linux' \
-        --max-jobs 0 --show-trace --out-link result-archinaut-sd
-    @echo ":: image at result-archinaut-sd/sd-image/ — flash with:"
-    @echo "   zstd -dc result-archinaut-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
-
-# Build the archinaut-base (rescue / kernel-direct prototype) SD image on orion.
-# Use this for the kernel-direct boot spike: flash a SPARE card and boot the Pi
-# with the printer ON to prove no-u-boot boot (RFC 2026-06-20).
-build-archinaut-base-sd:
-    nix build .#nixosConfigurations.archinaut-base.config.system.build.sdImage \
-        --builders 'ssh-ng://erik@{{ip_orion}}?ssh-key=/root/.ssh/nix-builder aarch64-linux' \
-        --max-jobs 0 --show-trace --out-link result-archinaut-base-sd
-    @echo ":: image at result-archinaut-base-sd/sd-image/ — flash a SPARE card with:"
-    @echo "   zstd -dc result-archinaut-base-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
+        --max-jobs 0 --show-trace --out-link result-{{target}}-sd
+    @echo ":: image at result-{{target}}-sd/sd-image/ — flash with:"
+    @echo "   zstd -dc result-{{target}}-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
 
 # Deploy archinaut: evaluate locally, build aarch64 on orion, push to the Pi.
 switch-archinaut:
