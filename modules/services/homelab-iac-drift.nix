@@ -81,11 +81,21 @@ _: {
           Type = "oneshot";
           User = cfg.user;
           WorkingDirectory = cfg.repoPath;
-          # sops exec-env decrypts .env.sops and sets each var safely (no eval),
-          # then runs the drift script which plans all units.
+          # Load the repo's secrets into the environment, then plan all units.
+          # `sops exec-env` can't be used: it has no --input-type flag and
+          # defaults to JSON-parsing the dotenv-format .env.sops (fails). So
+          # decrypt with the explicit dotenv types (same as servarr-pull) and
+          # export via `set -a`. Plaintext stays in a pipe — never on disk.
           ExecStart = pkgs.writeShellScript "homelab-iac-drift" ''
             cd ${lib.escapeShellArg cfg.repoPath}
-            exec ${pkgs.sops}/bin/sops exec-env --input-type dotenv .env.sops 'bash bin/drift-check.sh'
+            # Load each KEY=value via a quoted export (no shell-eval of values,
+            # so spaces/metacharacters in PSKs/passphrases survive intact).
+            # read -r with IFS='=' puts everything after the first '=' in v.
+            while IFS='=' read -r k v; do
+              case "$k" in ""|"#"*) continue ;; esac
+              export "$k=$v"
+            done < <(${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops)
+            exec bash bin/drift-check.sh
           '';
         };
       };

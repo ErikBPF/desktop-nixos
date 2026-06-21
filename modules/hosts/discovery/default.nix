@@ -28,7 +28,18 @@ in {
       m.nixos.discovery-hermes-agent
       m.nixos.power-desktop
       m.nixos.btrfs-snapshots
+      m.nixos.homelab-iac-drift
     ];
+
+    # Drift detection for the homelab-iac repo (UniFi/Tailscale/Cloudflare/
+    # AdGuard). Runs here because discovery is the 24/7 host with LAN + tailnet
+    # reach to every provider and hosts the MinIO state backend it plans against.
+    services.homelabIacDrift = {
+      enable = true;
+      repoPath = "/home/${config.username}/homelab-iac";
+      user = config.username;
+      ntfyUrl = "https://ntfy.homelab.pastelariadev.com/homelab-alerts";
+    };
 
     # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.
     modules.upgradeHealthCheck.criticalUnits = [
