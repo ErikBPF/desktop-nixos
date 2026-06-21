@@ -105,6 +105,34 @@ in {
         done
       '';
 
+      # The Klipper MCU is powered by the printer PSU, independent of the Pi, so
+      # it survives a host reboot and enters "shutdown" on lost comms. klippy
+      # then reconnects to a shut-down MCU and stays in error until a
+      # FIRMWARE_RESTART. (Power-sequencing used to dodge this by powering the
+      # MCU only after the Pi was up; kernel-direct boot retired that.) Poll
+      # klippy after boot and reset the MCU once if it comes up shut down, so the
+      # printer reaches `ready` unattended.
+      systemd.services.klipper-mcu-recover = {
+        description = "FIRMWARE_RESTART the Klipper MCU if it is shut down after a host reboot";
+        after = ["moonraker.service" "klipper.service"];
+        wants = ["moonraker.service"];
+        wantedBy = ["multi-user.target"];
+        serviceConfig.Type = "oneshot";
+        script = ''
+          api=http://localhost:7125/printer
+          n=0
+          while [ $n -lt 60 ]; do
+            info=$(${pkgs.curl}/bin/curl -fs "$api/info" 2>/dev/null || true)
+            case "$info" in
+              *'"state":"ready"'*) exit 0 ;;
+              *shutdown*) ${pkgs.curl}/bin/curl -fs -X POST "$api/firmware_restart" >/dev/null 2>&1 || true; exit 0 ;;
+            esac
+            ${pkgs.coreutils}/bin/sleep 2
+            n=$((n + 1))
+          done
+        '';
+      };
+
       services.moonraker = {
         enable = true;
         user = "klipper";
