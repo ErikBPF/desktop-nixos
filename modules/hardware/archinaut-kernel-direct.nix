@@ -19,12 +19,14 @@ _: {
   }: let
     fw = "${pkgs.raspberrypifw}/share/raspberrypi/boot";
 
-    # Use the MAINLINE kernel's own DTB, NOT the foundation bcm2710-rpi-3-b.dtb
-    # from raspberrypifw. The pure-mainline kernel's dwc2 USB node only matches
-    # its own bcm2837 DTB; the foundation DTB boots but leaves the whole USB tree
-    # (DWC2 → LAN9514 ethernet + hub → webcam) uninitialised. This is the DTB the
-    # old u-boot/extlinux path loaded, which is why wired ethernet worked there.
-    dtb = "bcm2837-rpi-3-b.dtb";
+    # The board is a Raspberry Pi 3 Model B PLUS (LAN7515 → lan78xx Gigabit +
+    # USB2514 hub), so the matching mainline DTB is bcm2837-rpi-3-b-plus.dtb.
+    # Use the MAINLINE kernel's own DTB, NOT the foundation one from raspberrypifw
+    # (bcm2710-*): the pure-mainline kernel's dwc2/lan78xx nodes only match their
+    # own DTB. The foundation DTB boots but leaves the whole USB tree (DWC2 → hub →
+    # ethernet + webcam) dead; the plain 3B DTB brings USB up but not the 3B+
+    # ethernet. This is the DTB the old u-boot/extlinux path loaded.
+    dtb = "bcm2837-rpi-3-b-plus.dtb";
     kernelDtb = "${config.boot.kernelPackages.kernel}/dtbs/broadcom/${dtb}";
 
     configTxt = pkgs.writeText "config.txt" ''
