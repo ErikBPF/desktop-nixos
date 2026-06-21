@@ -22,6 +22,17 @@
         default = "";
         description = "ntfy topic URL to alert on backup failure (empty = no alert).";
       };
+
+      healthcheckUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = ''
+          Healthchecks ping URL, pinged after each successful backup as a
+          dead-man's-switch — Healthchecks alerts if the ping stops, catching a
+          dead timer or a down host (which OnFailure can't see). Empty = off.
+          Create the check in the Healthchecks UI and paste its ping URL here.
+        '';
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -48,6 +59,13 @@
           '';
         };
       };
+
+      # Dead-man's-switch: ping Healthchecks after a successful backup.
+      # ExecStartPost only runs if the backup succeeded, so a missed ping means
+      # the backup failed, the timer died, or the host is down.
+      systemd.services.restic-backups-tofu-state.serviceConfig.ExecStartPost = lib.mkIf (cfg.healthcheckUrl != "") [
+        "${pkgs.curl}/bin/curl -fsS -m 10 --retry 3 -o /dev/null ${lib.escapeShellArg cfg.healthcheckUrl}"
+      ];
 
       # restic init only creates the leaf repo dir; ensure its parent exists.
       systemd.tmpfiles.rules = [
