@@ -1,7 +1,7 @@
 keys:
   - &primary age127vmpu9ps2d2ulukcsp743xvmg5n9dsg9up4gtusc4ehgnjl6y7qg245jt
   - &orion age10tgzh4gyr2myps4y3zj63ppj8cmfmyyusvma9g6suzyn2tjz5gxqekmtls
-  - &archinaut age1d7f56dhtv50vywutwq279fmd62teeaul4n7aeuyqe2p9clf6dpfs94fphr
+  - &archinaut age1rnmn0c3sezwc2y90n66t740se98huva8w4hehyc2xlv32f8pnfssqkqsqj
 creation_rules:
   - path_regex: secrets/sops/secrets.yaml$
     key_groups:
