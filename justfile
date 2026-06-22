@@ -238,6 +238,7 @@ _sync-servarr target:
         --exclude '__pycache__' --exclude '.DS_Store' \
         --exclude 'config/adguard/AdGuardHome.yaml' \
         --exclude 'config/ntfy/cache' \
+        --exclude '.harbor-installer' \
         -e "ssh -p 2222" \
         "$SRC/machines/{{target}}/" \
         "erik@$IP:/home/erik/servarr/machines/{{target}}/"

@@ -1,83 +1,74 @@
-{...}: {
-  # Pushes today's Claude Code usage tally from this workstation's ~/.claude
-  # session logs to the kindle-dash renderer on discovery. The Pro/Max limit %
-  # has no API (see docs), so we report the only locally-available real number:
-  # tokens spent today, summed from the session JSONL. The dashboard draws it as
-  # a bar against a soft target. cost is left null (pricing is model-specific).
-  flake.modules.nixos.laptop-kindle-dash-push = {
-    config,
-    pkgs,
-    ...
-  }: let
-    # discovery LAN IP : kindle-dash published port (see servarr kindle-dash.yml)
-    dashUrl = "http://192.168.10.210:8810/claude-usage";
+{config, ...}: let
+  inherit (config) username;
+in {
+  # Pushes the real Claude subscription usage from this workstation to the
+  # kindle-dash renderer on discovery. Source is `claude -p /usage`, which
+  # reports the actual Pro/Max limits (session % + weekly %); we parse those
+  # and POST them. Machine-local — does not include other devices or claude.ai.
+  flake.modules.nixos.laptop-kindle-dash-push = {pkgs, ...}: let
+    # kindle-dash via SWAG on discovery (plain-HTTP :80, LAN-only vhost — the
+    # jailbroken Kindle can't do modern TLS, so this is not HTTPS).
+    dashUrl = "http://kindle.homelab.pastelariadev.com/claude-usage";
 
     pushScript = pkgs.writeText "kindle-dash-push.py" ''
-      import glob, json, os, urllib.request
-      from datetime import datetime
+      import json, re, subprocess, urllib.request
 
       URL = "${dashUrl}"
-      home = os.path.expanduser("~")
-      today = datetime.now().astimezone().date()
-      total = 0
+      CLAUDE = "${pkgs.claude-code}/bin/claude"
 
-      for path in glob.glob(os.path.join(home, ".claude", "projects", "**", "*.jsonl"), recursive=True):
-          try:
-              with open(path) as f:
-                  for line in f:
-                      line = line.strip()
-                      if not line:
-                          continue
-                      try:
-                          rec = json.loads(line)
-                      except Exception:
-                          continue
-                      ts = rec.get("timestamp")
-                      if not ts:
-                          continue
-                      try:
-                          d = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().date()
-                      except Exception:
-                          continue
-                      if d != today:
-                          continue
-                      usage = (rec.get("message") or {}).get("usage") or {}
-                      # input + output + cache-creation. Cache *reads* are excluded:
-                      # they run to billions and are near-free, so including them
-                      # would swamp the bar and make it meaningless.
-                      total += (
-                          usage.get("input_tokens", 0)
-                          + usage.get("output_tokens", 0)
-                          + usage.get("cache_creation_input_tokens", 0)
-                      )
-          except OSError:
-              continue
+      try:
+          out = subprocess.run(
+              [CLAUDE, "-p", "/usage"],
+              capture_output=True, text=True, timeout=90,
+          ).stdout
+      except Exception as e:
+          print(f"claude -p /usage failed: {e}")
+          raise SystemExit(1)
 
-      body = json.dumps({"tokens": total, "cost": None}).encode()
+      def parse(label):
+          m = re.search(label + r"\s*(\d+)% used(?:\s*.\s*resets\s*([^()\n]+))?", out)
+          if not m:
+              return None, None
+          return int(m.group(1)), (m.group(2) or "").strip()
+
+      s_pct, s_reset = parse(r"Current session:")
+      w_pct, w_reset = parse(r"Current week \(all models\):")
+
+      if s_pct is None and w_pct is None:
+          print("could not parse /usage output:\n" + out[:500])
+          raise SystemExit(1)
+
+      body = json.dumps({
+          "session_pct": s_pct, "session_reset": s_reset,
+          "week_pct": w_pct, "week_reset": w_reset,
+      }).encode()
       req = urllib.request.Request(
           URL, data=body, headers={"Content-Type": "application/json"}, method="POST"
       )
       try:
           urllib.request.urlopen(req, timeout=10)
-          print(f"pushed {total} tokens")
+          print(f"pushed session={s_pct}% week={w_pct}%")
       except Exception as e:
           print(f"push failed: {e}")
           raise SystemExit(1)
     '';
   in {
     systemd.services.kindle-dash-push = {
-      description = "Push today's Claude usage tally to kindle-dash on discovery";
+      description = "Push real Claude usage (claude -p /usage) to kindle-dash on discovery";
       after = ["network-online.target"];
       wants = ["network-online.target"];
       serviceConfig = {
         Type = "oneshot";
-        User = config.username;
+        User = username;
+        # claude -p /usage needs the user's HOME (auth/config in ~/.claude).
+        Environment = "HOME=/home/${username}";
+        TimeoutStartSec = "120";
         ExecStart = "${pkgs.python3}/bin/python3 ${pushScript}";
       };
     };
 
     systemd.timers.kindle-dash-push = {
-      description = "Timer: push Claude usage tally to kindle-dash";
+      description = "Timer: push Claude usage to kindle-dash";
       wantedBy = ["timers.target"];
       timerConfig = {
         OnBootSec = "3min";

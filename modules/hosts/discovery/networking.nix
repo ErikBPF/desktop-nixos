@@ -33,17 +33,20 @@ _: {
     };
 
     # Tailscale subnet router (override client default from profile-base).
-    # Advertises the whole LAN so tailnet devices reach LAN-only hosts (the
-    # swOS switches, the UDM, printer, IoT) that can't run Tailscale. Reach is
-    # gated by the tailnet ACL (admin devices only); SNAT (server default) means
-    # no return route is needed on the UDM. Approved declaratively in homelab-iac.
+    # Advertises /32s for the LAN-only hosts tailnet devices need to reach (the
+    # swOS switch, the UDM) that can't run Tailscale, plus the swag ingress.
+    # Narrowed from 192.168.10.0/24: a /24 subnet route poisons on-LAN hosts
+    # that also run --accept-routes (orion/kepler), which pull their own subnet
+    # into Tailscale's table 52 and blackhole the LAN. Reach is gated by the
+    # tailnet ACL (admin devices only); SNAT (server default) means no return
+    # route is needed on the UDM. Approved declaratively in homelab-iac.
     services.tailscale = {
       useRoutingFeatures = lib.mkForce "server";
       # extraSetFlags (not extraUpFlags): `tailscale set` re-applies on every
-      # activation, so widening the route takes effect on switch. extraUpFlags
+      # activation, so changing the route takes effect on switch. extraUpFlags
       # only runs at first connect, so it wouldn't update an already-up node.
       extraSetFlags = [
-        "--advertise-routes=192.168.10.0/24"
+        "--advertise-routes=192.168.10.210/32,192.168.10.1/32,192.168.10.2/32"
       ];
     };
   };
