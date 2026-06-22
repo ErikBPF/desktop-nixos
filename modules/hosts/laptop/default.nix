@@ -100,7 +100,6 @@ in {
       m.nixos.laptop-syncthing
       m.nixos.laptop-appimage
       m.nixos.laptop-ampagent
-      m.nixos.laptop-kindle-dash-push
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs
