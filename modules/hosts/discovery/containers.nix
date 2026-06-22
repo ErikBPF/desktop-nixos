@@ -3,7 +3,38 @@
     lib,
     pkgs,
     ...
-  }: {
+  }: let
+    # Shared recovery pass: start any container that should be up but isn't.
+    # `created` = made-but-never-started (an interrupted recreate, or a prune
+    # leftover) → safe to start for any keep-up policy. `exited` could be a user
+    # stop, so only force `always` back up. Never creates/duplicates containers,
+    # so it's safe regardless of the (currently inconsistent) compose project
+    # names — unlike `compose up`, which could spawn a second swag/adguard.
+    recover = pkgs.writeShellScript "docker-recover" ''
+      set -euo pipefail
+      docker=${pkgs.docker}/bin/docker
+
+      start_if() {
+        name=$1
+        shift
+        policy=$("$docker" inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$name" 2>/dev/null || echo none)
+        for p in "$@"; do
+          if [ "$policy" = "$p" ]; then
+            echo "docker-recover: starting $name (policy=$policy)"
+            "$docker" start "$name" || echo "docker-recover: FAILED to start $name" >&2
+            return
+          fi
+        done
+      }
+
+      for name in $("$docker" ps -a --filter status=created --format '{{.Names}}'); do
+        start_if "$name" always unless-stopped
+      done
+      for name in $("$docker" ps -a --filter status=exited --format '{{.Names}}'); do
+        start_if "$name" always
+      done
+    '';
+  in {
     # Discovery uses Docker instead of rootless Podman.
     #
     # Rootless Podman on btrfs suffers from a kernel overlayfs issue where
@@ -34,48 +65,36 @@
       };
     };
 
-    # Post-prune recovery.
+    # Recovery — runs the shared `recover` pass two ways:
     #
-    # The weekly `docker system prune -f` can leave a container in the
-    # `created` state — made but never started (observed 2026-06-08: adguard
-    # came back as `created` right after the Mon 00:00 prune). A restart
-    # policy of `unless-stopped`/`always` cannot recover a never-started
-    # container, so it stays down silently until something queries it.
-    #
-    # Run a recovery pass as ExecStartPost of docker-prune.service: same root
-    # scope, fires after every prune, no extra timer. It only touches
-    # containers whose own restart policy says they should be up, and never
-    # resurrects a deliberately user-stopped (`unless-stopped` + `exited`)
-    # container.
-    systemd.services.docker-prune.serviceConfig.ExecStartPost = let
-      recover = pkgs.writeShellScript "docker-prune-recover" ''
-        set -euo pipefail
-        docker=${pkgs.docker}/bin/docker
+    # 1. ExecStartPost of docker-prune.service: the weekly `docker system prune
+    #    -f` can leave a container `created` (observed 2026-06-08: adguard came
+    #    back `created` right after the Mon 00:00 prune). restart=unless-stopped
+    #    can't recover a never-started container.
+    # 2. A standalone 3-min timer (below): the prune hook only fires weekly, so a
+    #    mid-week interrupted recreate (observed 2026-06-22: adguard left
+    #    `created` at 01:14, DNS down for hours) wouldn't heal until next Monday.
+    #    The timer closes that gap — any down-but-should-be-up container is back
+    #    within ~3 min.
+    systemd.services.docker-prune.serviceConfig.ExecStartPost = "${recover}";
 
-        start_if() {
-          name=$1
-          shift
-          policy=$("$docker" inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$name" 2>/dev/null || echo none)
-          for p in "$@"; do
-            if [ "$policy" = "$p" ]; then
-              echo "docker-prune-recover: starting $name (policy=$policy)"
-              "$docker" start "$name" || echo "docker-prune-recover: FAILED to start $name" >&2
-              return
-            fi
-          done
-        }
-
-        # created = never started -> safe to bring up for any "keep it up" policy.
-        for name in $("$docker" ps -a --filter status=created --format '{{.Names}}'); do
-          start_if "$name" always unless-stopped
-        done
-
-        # exited = could be a user-initiated stop; only force `always` back up.
-        for name in $("$docker" ps -a --filter status=exited --format '{{.Names}}'); do
-          start_if "$name" always
-        done
-      '';
-    in "${recover}";
+    systemd.services.docker-recover = {
+      description = "Heal containers left created/exited that should be running";
+      after = ["docker.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${recover}";
+      };
+    };
+    systemd.timers.docker-recover = {
+      description = "Periodic docker recovery (heals e.g. AdGuard DNS within ~3 min)";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnBootSec = "2min";
+        OnUnitActiveSec = "3min";
+        Persistent = true;
+      };
+    };
 
     # Add erik to docker group so compose stacks run without sudo.
     users.users.${config.username}.extraGroups = ["docker"];
