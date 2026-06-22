@@ -25,6 +25,7 @@ in {
       m.nixos.kepler-nfs
       m.nixos.discovery-containers
       m.nixos.discovery-compose
+      m.nixos.discovery-harbor
       m.nixos.discovery-hermes-agent
       m.nixos.power-desktop
       m.nixos.btrfs-snapshots
