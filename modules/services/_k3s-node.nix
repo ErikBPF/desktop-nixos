@@ -78,6 +78,9 @@ in {
         [
           "--flannel-backend=host-gw"
           "--kube-apiserver-arg=admission-control-config-file=${psaConfig}"
+          # Expose embedded-etcd metrics on :2381 (0.0.0.0) so the in-cluster
+          # alloy-metrics scrape can reach etcd health/perf series.
+          "--etcd-expose-metrics=true"
         ]
         ++ map (s: "--tls-san=${s}") tlsSan
         # Relocate embedded-etcd snapshots off the guest's ephemeral root.img onto

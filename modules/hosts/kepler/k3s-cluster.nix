@@ -30,11 +30,9 @@ in {
 
     # LAN-published endpoints, fronted by kepler's L4 LB (RFC §5.3).
     apiVip = "192.168.10.245"; # admin / kubectl
-    ingressVip = "192.168.10.250"; # ingress (backend = ingress-nginx NodePort, 4c)
-    ingressNodePort = 30443; # ingress-nginx https NodePort (kept, idle post-cutover)
-    # Traefik cutover (RFC §14): the LB now fronts Traefik's NodePort instead of
-    # ingress-nginx. Host-only change (nginx reload) — no guest/CP bounce, unlike
-    # removing ingress-nginx. ingress-nginx stays idle on 30443; remove it later.
+    ingressVip = "192.168.10.250"; # ingress (backend = Traefik NodePort, 4c)
+    # Traefik cutover (RFC §14) complete: the LB fronts Traefik's NodePort and
+    # ingress-nginx has been removed from autoDeployCharts.
     traefikIngressPort = 30444;
 
     # LB upstream server lists, generated from the topology.
@@ -184,28 +182,9 @@ in {
         # warns about *manual* drift). RFC §5.9 / §13.
         ++ lib.optional (s.role == "server") {
           services.k3s.autoDeployCharts = {
-            # ingress-nginx as a DaemonSet on a fixed NodePort; the kepler LB sends
-            # .250:443 -> workers:30443. No in-cluster LoadBalancer.
-            # (Traefik cutover deferred — orion build host was down, blocking the
-            # deploy mid-flight; redo it in a maintenance window with orion up.)
-            ingress-nginx = {
-              name = "ingress-nginx";
-              repo = "https://kubernetes.github.io/ingress-nginx";
-              version = "4.12.1";
-              hash = "sha256-WfZke4wKoSJnci+greFnE/sLFqGvkyInryBl/dGn87w=";
-              targetNamespace = "ingress-nginx";
-              createNamespace = true;
-              values.controller = {
-                kind = "DaemonSet";
-                service = {
-                  type = "NodePort";
-                  nodePorts = {
-                    http = 30080;
-                    https = ingressNodePort;
-                  };
-                };
-              };
-            };
+            # ingress-nginx removed (RFC §14 cutover complete) — Traefik is the
+            # default IngressClass, the kepler LB fronts its NodePort (30444), and
+            # all ingresses are traefik-class. Traefik itself is deployed by Argo.
 
             # Grafana Alloy DaemonSet → ships pod logs to discovery's Loki.
             # repo mode (not `package`): a baked static chart lands only on cp-1's
