@@ -223,23 +223,27 @@ references/repos/servarr`); never hard-code the absolute path.
 - Lives at `~/Documents/erik/klipper-biqu`. Reachable in-repo via
   `references/repos/klipper-biqu`.
 - Versions the printer's two disjoint config sets: `printer_data/config/`
-  (Klipper — `printer.cfg`, `moonraker.conf`, macros; pushed by
-  `klipper-backup` **on the Pi**) and `orcaslicer/` (OrcaSlicer presets;
-  pushed from the laptop via that repo's `just orca-sync`).
-- Klipper host: Raspberry Pi 3, Debian, **`192.168.10.225`**. As-built
-  hardware/calibration reference lives in that repo's `references/README.md`.
-- **Planned NixOS migration** (RFC, not yet built): turn the Pi into the
-  fleet `archinaut` host running `services.klipper`/`moonraker`/`mainsail`.
-  Decisions locked — keep the RPi3 (aarch64 build via kepler + cache),
-  **services-only**: the host's value is OS + MCU firmware + package
-  *version* maintainability. **All** config — Klipper `printer.cfg`/
-  `moonraker.conf`, Mainsail `mainsail.cfg`, OrcaSlicer presets — lives in
-  this repo, never in Nix; the Pi's `/var/lib/klipper/config` is a mutable
-  working copy round-tripped via klipper-backup so `SAVE_CONFIG`/Mainsail
-  edits survive. See `docs/proposals/2026-06-16-printer-nixos-host.md` and
-  `docs/proposals/archinaut-migration-plan.md`; printer config/calibration
-  docs live in the `klipper-biqu` sister repo (`references/`). When the host
-  exists it joins the coupling map below.
+  (Klipper — `printer.cfg`, `mainsail.cfg`, macros; pushed by the
+  `klipper-config-backup` service **on the Pi**, which is safe for this shared
+  repo — it mirrors only `printer_data/config/` and never touches
+  `orcaslicer/`) and `orcaslicer/` (OrcaSlicer presets; pushed from the laptop
+  via that repo's `just orca-sync`).
+- Klipper host: the NixOS `archinaut` fleet host (RPi 3 **Model B+**), wired
+  **`192.168.10.225`** (DHCP-reserved). As-built hardware/calibration
+  reference lives in that repo's `references/README.md`.
+- **NixOS migration DONE** (2026-06-21): the Pi is the fleet `archinaut` host
+  running `services.klipper`/`moonraker`/`mainsail` with **kernel-direct boot**
+  (no u-boot — board is a 3B+, MCU on `/dev/ttyS1`). aarch64 closure built on
+  orion (binfmt), the Pi substitutes. **Services-only**: NixOS owns OS +
+  MCU-firmware *build* + package versions; **all** config — Klipper
+  `printer.cfg`, Mainsail `mainsail.cfg`, OrcaSlicer presets — lives in the
+  `klipper-biqu` repo, never in Nix (exception: `moonraker.conf` is declarative
+  `services.moonraker.settings`). The Pi's `/var/lib/klipper` is a mutable
+  working copy round-tripped via the `klipper-config-backup` service so
+  `SAVE_CONFIG`/Mainsail edits survive a reflash. See
+  `docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md` +
+  `docs/proposals/archinaut-migration-plan.md`; calibration docs in the
+  `klipper-biqu` sister repo (`references/`). It is in the coupling map below.
 - This repo is **config/state only** — no flake input, no NixOS module
   today. Touch it like `home-assistant-config`: it owns the app config, this
   flake owns the host OS.

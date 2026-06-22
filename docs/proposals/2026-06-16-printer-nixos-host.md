@@ -1,9 +1,14 @@
 # `archinaut` — BIQU B1 Klipper Printer as a NixOS Fleet Host
 
 **Date:** 2026-06-16
-**Status:** Proposal (skeleton — judgment sections marked `TODO(erik)`)
+**Status:** ✅ IMPLEMENTED (2026-06-21) — kept as the original proposal record.
+As-built deltas: board is a Pi 3 **Model B+**, **kernel-direct boot** (no
+u-boot; see `2026-06-20-archinaut-kernel-direct-boot.md`), MCU `/dev/ttyS1`,
+config backup via the bespoke `klipper-config-backup` service + **SSH deploy
+key** (not the klipper-backup tool / PAT). Live state + next steps:
+`archinaut-migration-plan.md`.
 **Owner:** erik
-**Target host:** `archinaut` (new) — Raspberry Pi 3, `192.168.10.225`
+**Target host:** `archinaut` — Raspberry Pi 3 **Model B+**, wired `192.168.10.225` (DHCP-reserved)
 **Related:** sister repo [`klipper-biqu`](../../references/repos/klipper-biqu) (printer config + as-built reference); fleet host pattern follows `discovery`.
 
 > Naming: fleet hosts are real spacecraft matched to machine focus. **Archinaut

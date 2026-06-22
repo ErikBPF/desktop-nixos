@@ -17,8 +17,9 @@ Scaffold is written and evals green (uncommitted). To execute:
 **0** verify eval → **1** commit (optional) → **2** `just switch-orion` (aarch64
 builds) → **3+4** flash SD, first boot wired, register sops host key → **3**
 add `moonraker/secrets` → **5** `just switch-archinaut` → **6**
-`just seed-archinaut` → **7** verify stack → **8** resume klipper-backup →
-**9** WiFi later. Old Debian SD card = rollback throughout.
+`just seed-archinaut` → **7** verify stack → **8** config backup
+(`klipper-config-backup` service + Mainsail button) → **9** WiFi later. Old
+Debian SD card = rollback throughout.
 
 ## Architecture at a glance (so this doc stands alone)
 
@@ -158,14 +159,23 @@ Confirm in Mainsail: klippy connects (no "Unknown config object" — proves the
 vendored autotune extras loaded), bed mesh/PID/input-shaper present,
 `[power biqu]` toggles the HA plug.
 
-## Step 8 — resume klipper-backup (config → git)
+## Step 8 — config backup → git (klipper-config-backup, DONE 2026-06-21)
 
-klipper-backup is NOT in nixpkgs. On the Pi, under erik:
-```bash
-git clone https://github.com/Staubgeborener/klipper-backup ~/klipper-backup
-# .env: github_repository = ErikBPF/klipper-biqu, token from sops (Step 3 pattern)
-cd ~/klipper-backup && ./install.sh && bash ./script.sh "resume backups on NixOS"
-```
+The klipper-backup *tool* is NOT used: its wipe-and-replace model would delete
+`orcaslicer/` from the **shared** `klipper-biqu` repo. Instead, a bespoke,
+shared-repo-safe NixOS service (in `klipper-host.nix`):
+
+- `systemd.services.klipper-config-backup` + a **daily timer** — resets a work
+  clone to `origin/main`, mirrors `/var/lib/klipper` → `printer_data/config/`
+  **only**, commits/pushes just that subtree. `orcaslicer/` is never touched.
+- Auth: a per-repo **SSH deploy key** (write-scoped to `klipper-biqu`), no PAT.
+  Generated on the Pi (`~/.ssh/klipper_backup_deploy`); reflash → regenerate +
+  re-add the deploy key on GitHub. `git_protocol=ssh` via `core.sshCommand`.
+- **Mainsail button**: `BACKUP_CONFIG` macro (klipper-biqu `shell_command.cfg`)
+  → `gcode_shell_command` → scoped NOPASSWD sudo → starts the service.
+
+Verified end-to-end: a real config change pushed as `auto: klipper config
+backup`, touching only `printer_data/config/`, `orcaslicer/` intact.
 
 ## Step 9 — WiFi migration (later)
 
@@ -193,13 +203,13 @@ cd ~/klipper-backup && ./install.sh && bash ./script.sh "resume backups on NixOS
 | | |
 |---|---|
 | Host attr | `archinaut` (`.#archinaut`) |
-| Pi IP / SSH | `192.168.10.187` (wired/eth0) : 2222 — wifi `.225` is Phase-9 |
+| Pi IP / SSH | `192.168.10.225` (wired/eth0, DHCP-reserved) : 2222 — wifi `.226` is Phase-9. Roaming/admin: reach via tailscale |
 | Build host | orion `192.168.10.220` (aarch64 binfmt) |
 | Config dir (mutable) | `/var/lib/klipper` |
 | Config source-of-truth | `klipper-biqu` repo (`references/repos/klipper-biqu`) |
 | MCU serial | `/dev/ttyS1` (GPIO mini-UART; 3B+ mainline DTB) |
-| Mainsail | `http://192.168.10.187` |
-| Webcam | `http://192.168.10.187:8080/stream` (ustreamer, C270) |
+| Mainsail | `http://192.168.10.225` |
+| Webcam | `http://192.168.10.225:8080/stream` (ustreamer, C270) |
 
 ## Post-bring-up config hardening — implementation plan (2026-06-20)
 
@@ -220,8 +230,8 @@ in `modules/services/klipper-host.nix`:
   location = "printer";
   service = "mjpegstreamer-adaptive";
   target_fps = 15;
-  stream_url = "http://192.168.10.187:8080/stream";
-  snapshot_url = "http://192.168.10.187:8080/snapshot";
+  stream_url = "http://192.168.10.225:8080/stream";
+  snapshot_url = "http://192.168.10.225:8080/snapshot";
 };
 ```
 - Optional robustness: proxy ustreamer through the mainsail nginx at `/webcam/`

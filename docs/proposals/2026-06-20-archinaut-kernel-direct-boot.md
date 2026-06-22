@@ -1,6 +1,24 @@
 # RFC: archinaut kernel-direct boot (drop u-boot) for the Klipper MCU UART
 
-**Status:** proposed · **Host:** `archinaut` (RPi3 / bcm2837) · **Date:** 2026-06-20
+**Status:** ✅ IMPLEMENTED (2026-06-21) · **Host:** `archinaut` (RPi 3 **Model B+** / bcm2837) · **Date:** 2026-06-20
+
+> **Outcome (2026-06-21).** Deployed + cold-boot validated: the Pi boots
+> kernel-direct (no u-boot) with the printer powered ON, klippy reaches `ready`
+> unattended. Power-sequencing retired. Key deltas from the plan below, learned
+> during bring-up (the rest of this RFC is the original proposal, kept for
+> record):
+> - Board is a **Pi 3 Model B+** → DTB must be the **mainline kernel's**
+>   `bcm2837-rpi-3-b-plus.dtb` (NOT the foundation `bcm2710-*` from
+>   raspberrypifw, which leaves USB/ethernet dead; NOT the plain 3B DTB).
+> - MCU serial is **`/dev/ttyS1`** under that DTB (mini-UART; `/dev/ttyS0` is a
+>   phantom port — see `klipper-biqu` printer.cfg).
+> - Module `archinaut-kernel-direct` carries: `boot.loader.external` install
+>   hook (atomic .tmp→rename), 256 M firmware sdImage, `firmwareSize = 256`.
+> - klipper-host adds a **thermal-zone preStart wait** (bcm2835_thermal binds
+>   late) and a **`klipper-mcu-recover`** oneshot (the PSU-powered MCU enters
+>   shutdown on host reboot → one FIRMWARE_RESTART after boot).
+> - DTB-name and `firmwarePartitionSize` notes in the plan below were corrected:
+>   the option is `firmwareSize` (MiB); the DTB is the 3B+ one above.
 
 ## Problem
 
