@@ -55,21 +55,6 @@ in {
     "net.ipv4.ip_forward" = 1;
   };
 
-  # Pull docker.io through the Harbor pull-through cache on discovery (off-cluster,
-  # so no self-hosting deadlock). The upstream is listed as a fallback endpoint —
-  # if Harbor is unreachable, containerd falls through to Docker Hub directly, so
-  # a Harbor outage degrades (no cache) rather than breaks pulls. The nodes can't
-  # resolve the discovery SWAG hostname via fleet DNS, so pin it to discovery's
-  # LAN IP (reached from the private subnet via kepler's NAT).
-  networking.hosts."192.168.10.210" = ["harbor.homelab.pastelariadev.com"];
-  environment.etc."rancher/k3s/registries.yaml".text = ''
-    mirrors:
-      docker.io:
-        endpoint:
-          - "https://harbor.homelab.pastelariadev.com/v2/dockerhub"
-          - "https://registry-1.docker.io"
-  '';
-
   services.k3s = {
     enable = true;
     inherit role clusterInit;

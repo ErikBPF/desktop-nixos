@@ -13,11 +13,7 @@
 {config, ...}: let
   inherit (config) username;
 in {
-  flake.modules.nixos.discovery-harbor = {
-    pkgs,
-    lib,
-    ...
-  }: let
+  flake.modules.nixos.discovery-harbor = {pkgs, ...}: let
     # Keep in sync with HARBOR_VERSION in scripts/harbor-setup.sh.
     harborVersion = "v2.14.4";
     harborInstaller = pkgs.fetchurl {
@@ -52,7 +48,12 @@ in {
         glibc.bin # getent
         curl
       ];
-      environment.HARBOR_INSTALLER_TGZ = harborInstaller;
+      # Single-source the version + pinned tarball to the script (Nix owns it;
+      # the script's HARBOR_VERSION default is only the bare manual-run fallback).
+      environment = {
+        HARBOR_INSTALLER_TGZ = harborInstaller;
+        HARBOR_VERSION = harborVersion;
+      };
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

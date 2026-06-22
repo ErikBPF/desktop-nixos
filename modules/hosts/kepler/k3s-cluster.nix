@@ -297,6 +297,21 @@ in {
       # node firewall.
       networking.firewall.enable = false;
 
+      # Pull docker.io through the Harbor pull-through cache on discovery
+      # (off-cluster, so no self-hosting deadlock). Upstream is a fallback
+      # endpoint — if Harbor is unreachable, containerd falls through to Docker
+      # Hub, so an outage degrades (no cache) rather than breaks pulls. Nodes
+      # can't resolve discovery's SWAG hostname via fleet DNS, so pin it to
+      # discovery's LAN IP (reached from the private subnet via kepler's NAT).
+      networking.hosts."192.168.10.210" = ["harbor.homelab.${domain}"];
+      environment.etc."rancher/k3s/registries.yaml".text = ''
+        mirrors:
+          docker.io:
+            endpoint:
+              - "https://harbor.homelab.${domain}/v2/dockerhub"
+              - "https://registry-1.docker.io"
+      '';
+
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
       users.users.root.openssh.authorizedKeys.keys = sshKeys;
