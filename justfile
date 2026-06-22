@@ -237,6 +237,7 @@ _sync-servarr target:
         --exclude '.env' --exclude '.env.sops' \
         --exclude '__pycache__' --exclude '.DS_Store' \
         --exclude 'config/adguard/AdGuardHome.yaml' \
+        --exclude 'config/ntfy/cache' \
         -e "ssh -p 2222" \
         "$SRC/machines/{{target}}/" \
         "erik@$IP:/home/erik/servarr/machines/{{target}}/"
