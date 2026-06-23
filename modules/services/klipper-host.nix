@@ -237,6 +237,14 @@ in {
             # config-defined webcam is read-only in the Mainsail UI.
             "webcam C270" = {
               location = "printer";
+              # Adaptive (snapshot-poll), NOT continuous mjpegstreamer: the C270
+              # wedges at the USB driver level on this Pi3 ("uvcvideo: Failed to
+              # resubmit video URB (-1)" — camera + onboard LAN9514 share one USB
+              # bus), so capture collapses to 0fps within ~2min and can't sustain
+              # a continuous stream (browser gets a reset → "Error while
+              # connecting"). Adaptive limps via periodic snapshots instead.
+              # Real fix is hardware (powered USB hub / WiFi-offload the bus /
+              # CSI camera). See git log for the investigation.
               service = "mjpegstreamer-adaptive";
               target_fps = 15;
               stream_url = "http://192.168.10.225:8080/stream";
@@ -296,6 +304,15 @@ in {
           SupplementaryGroups = ["video"];
         };
       };
+
+      # Pin the C270 out of USB runtime power management. Default autosuspend is
+      # 2s; when ustreamer idled (no stream clients) the kernel suspended the
+      # camera, so the next capture hit a suspended device → recurring "CAP:
+      # Device select() timeout", and a viewer landing on the stuck camera got a
+      # reset stream ("Error while connecting"). control=on keeps it powered.
+      services.udev.extraRules = ''
+        ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="0825", TEST=="power/control", ATTR{power/control}="on"
+      '';
 
       # HA token for moonraker's [power biqu] (decrypted file is a moonraker
       # secrets ini: [home_assistant] token=…). Only declared when the plugin is
