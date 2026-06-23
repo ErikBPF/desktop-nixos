@@ -1,34 +1,33 @@
 _: {
   flake.modules.nixos.audio = {pkgs, ...}: let
-    # Virtual "Filtered Microphone" exposed by the filter-chain below.
-    virtSrc = "effect_output.deepfilter";
+    # Virtual "NoiseTorch Microphone" exposed by the filter-chain below.
+    virtSrc = "effect_output.noisetorch";
     # Capture side of the filter-chain (where the real mic feeds in).
-    filtIn = "effect_input.deepfilter";
+    filtIn = "effect_input.noisetorch";
 
-    # Tier-2 hotplug daemon: keeps the DeepFilter capture wired to whatever the
-    # active hardware mic is, and re-asserts the treated source as the default.
-    # The capture node has autoconnect=false (see filter-chain config) so it never
+    # Hotplug daemon: keeps the RNNoise capture wired to whatever the active
+    # hardware mic is, and re-asserts the treated source as the default. The
+    # capture node has autoconnect=false (see filter-chain config) so it never
     # auto-links to the default source — that would feed the virtual source back
     # into itself. Only this script links it, deterministically.
     autobind = pkgs.writeShellApplication {
-      name = "deepfilter-autobind";
+      name = "noisetorch-autobind";
       runtimeInputs = with pkgs; [pipewire wireplumber jq gnugrep coreutils];
       text = ''
         FILT_IN="${filtIn}"
         VIRT_SRC="${virtSrc}"
 
-        log() { echo "deepfilter-autobind: $*" >&2; }
+        log() { echo "noisetorch-autobind: $*" >&2; }
 
         mic_output_ports() { pw-link -o 2>/dev/null | grep -E "^$1:" || true; }
         filter_input_ports() { pw-link -i 2>/dev/null | grep -E "^''${FILT_IN}:" || true; }
 
-        # Reconcile from a single pw-dump snapshot (passed on stdin as $1's source
-        # is the cached dump). Poll-based, NOT event-based: every pw-dump/pw-link/
-        # wpctl call is itself a transient pipewire client whose connect+disconnect
-        # emits bus events — a pw-mon watcher would react to its own footprints and
-        # spin forever. Polling a cached snapshot sidesteps that entirely.
-        # Idempotent: relink only when the bound mic changed; set-default only when
-        # the treated source isn't already the default.
+        # Reconcile from a single pw-dump snapshot. Poll-based, NOT event-based:
+        # every pw-dump/pw-link/wpctl call is itself a transient pipewire client
+        # whose connect+disconnect emits bus events — a pw-mon watcher would react
+        # to its own footprints and spin forever. Polling a cached snapshot
+        # sidesteps that. Idempotent: relink only when the bound mic changed;
+        # set-default only when the treated source isn't already the default.
         reconcile() {
           local dump fid mic linked curdef vid inports outports
 
@@ -71,7 +70,7 @@ _: {
                   pw-link "$op" "$ip" 2>/dev/null || true
                 done <<< "$inports"
               done <<< "$outports"
-              log "bound $mic -> deepfilter"
+              log "bound $mic -> noisetorch"
             fi
           fi
 
@@ -105,34 +104,34 @@ _: {
       pulse.enable = true;
       jack.enable = true;
       wireplumber.enable = true;
-      # Makes libdeep_filter_ladspa.so resolvable on pipewire's LADSPA_PATH.
-      extraLadspaPackages = [pkgs.deepfilternet];
+      # Makes librnnoise_ladspa.so resolvable on pipewire's LADSPA_PATH.
+      extraLadspaPackages = [pkgs.rnnoise-plugin];
 
-      # Declarative DeepFilterNet noise-cancelling source. Replaces NoiseTorch:
-      # same idea (RNNoise/DeepFilter LADSPA plugin in a PipeWire filter-chain),
-      # but no GUI, no setcap wrapper, survives reboot. High priority.session so
-      # wireplumber picks it as the default mic; the daemon above re-asserts it.
-      extraConfig.pipewire."99-deepfilter-source" = {
+      # Declarative NoiseTorch-equivalent: the same RNNoise LADSPA plugin
+      # NoiseTorch loads, but as a PipeWire filter-chain — no GUI, no setcap
+      # wrapper, no Hyprland startup hack, survives reboot. High priority.session
+      # so wireplumber picks it as the default mic; the daemon above re-asserts it.
+      extraConfig.pipewire."99-noisetorch-source" = {
         "context.modules" = [
           {
             name = "libpipewire-module-filter-chain";
             args = {
-              "node.description" = "Filtered Microphone (DeepFilter)";
-              "media.name" = "Filtered Microphone (DeepFilter)";
+              "node.description" = "NoiseTorch Microphone (RNNoise)";
+              "media.name" = "NoiseTorch Microphone (RNNoise)";
               "filter.graph" = {
                 nodes = [
                   {
                     type = "ladspa";
-                    name = "deepfilter";
+                    name = "rnnoise";
                     # Bare name, not an absolute path: pipewire's ladspa loader
                     # always prepends its LADSPA search dirs, so an abspath turns
                     # into "/usr/lib/ladspa//nix/store/…" → ENOENT. The dir is
-                    # supplied via LADSPA_PATH on pipewire.service below.
-                    plugin = "libdeep_filter_ladspa";
-                    label = "deep_filter_mono";
-                    # 100 = full suppression; 18-24 medium; 6-12 minimal.
-                    # 30 = balanced: kills steady background, keeps voice natural.
-                    control."Attenuation Limit (dB)" = 30;
+                    # supplied via LADSPA_PATH from extraLadspaPackages above.
+                    plugin = "librnnoise_ladspa";
+                    label = "noise_suppressor_mono";
+                    # VAD threshold %: higher = more aggressive gating. 95 = max
+                    # (was 30 on the old NoiseTorch hack). Voice-gates hard.
+                    control."VAD Threshold (%)" = 95;
                   }
                 ];
               };
@@ -141,7 +140,7 @@ _: {
               "capture.props" = {
                 "node.name" = filtIn;
                 "node.passive" = true;
-                # Never auto-link: only deepfilter-autobind wires this, so the
+                # Never auto-link: only noisetorch-autobind wires this, so the
                 # virtual source can be default without feeding back into itself.
                 "node.autoconnect" = false;
               };
@@ -157,12 +156,12 @@ _: {
     };
     security.rtkit.enable = true;
 
-    systemd.user.services.deepfilter-autobind = {
-      description = "Wire DeepFilter noise-cancel source to the active mic and keep it default";
+    systemd.user.services.noisetorch-autobind = {
+      description = "Wire NoiseTorch (RNNoise) source to the active mic and keep it default";
       after = ["pipewire.service" "wireplumber.service"];
       wantedBy = ["default.target"];
       serviceConfig = {
-        ExecStart = "${autobind}/bin/deepfilter-autobind";
+        ExecStart = "${autobind}/bin/noisetorch-autobind";
         Restart = "on-failure";
         RestartSec = 2;
       };
