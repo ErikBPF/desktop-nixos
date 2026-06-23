@@ -1,0 +1,237 @@
+{
+  "workbench": {
+    "iconTheme": "material-icon-theme",
+    "colorTheme": "Tokyo Night",
+    "secondarySideBar": {
+      "showLabels": true
+    }
+  },
+  "editor": {
+    "fontFamily": "JetBrainsMono Nerd Font",
+    "fontSize": 12,
+    "lineHeight": 24,
+    "fontLigatures": false,
+    "wordWrap": "bounded",
+    "wordWrapColumn": 100,
+    "rulers": [160, 200],
+    "lineNumbers": "relative",
+    "cursorSurroundingLines": 50,
+    "formatOnType": true,
+    "formatOnPaste": true,
+    "formatOnSave": true,
+    "formatOnSaveMode": "file",
+    "unicodeHighlight": {
+      "invisibleCharacters": true
+    },
+    "codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.sortImports": "explicit",
+      "source.organizeImports": "explicit",
+      "source.fixAll.markdownlint": "explicit"
+    }
+  },
+  "files": {
+    "autoSave": "afterDelay",
+    "associations": {
+      "*.hcl": "terraform"
+    }
+  },
+  "terminal": {
+    "integrated": {
+      "fontFamily": "JetBrainsMono Nerd Font",
+      "shellIntegration.enabled": false,
+      "defaultProfile": "bash",
+      "automationProfile": {
+        "path": "/bin/bash"
+      },
+      "defaultProfile.linux": "bash",
+      "automationProfile.linux": {
+        "path": "/bin/bash"
+      }
+    }
+  },
+  "explorer": {
+    "confirmDelete": false,
+    "confirmDragAndDrop": false
+  },
+  "diffEditor": {
+    "ignoreTrimWhitespace": false,
+    "codeLens": true
+  },
+  "git": {
+    "enableCommitSigning": false,
+    "enableSmartCommit": true,
+    "fetchOnPull": true,
+    "confirmSync": false,
+    "ignoreRebaseWarning": true,
+    "autofetch": "all"
+  },
+  "security": {
+    "workspace": {
+      "trust": {
+        "untrustedFiles": "open"
+      }
+    }
+  },
+  "extensions": {
+    "verifySignature": false
+  },
+  "update": {
+    "showReleaseNotes": false
+  },
+  "window": {
+    "newWindowProfile": "Default"
+  },
+  "cSpell": {
+    "language": " en,pt_BR"
+  },
+  "python": {
+    "defaultInterpreterPath": "/bin/python",
+    "languageServer": "Pylance",
+    "linting": {
+      "enabled": true,
+      "pylintEnabled": true,
+      "pylintArgs": ["--max-line-length=100", "--disable=F0401,C0111"]
+    },
+    "formatting": {
+      "provider": "black",
+      "autopep8Path": "black"
+    },
+    "analysis": {
+      "diagnosticSeverityOverrides": {
+        "reportUnusedImport": "information",
+        "reportMissingImports": "none"
+      },
+      "extraPaths": []
+    }
+  },
+  "isort": {
+    "args": ["--profile", "black"]
+  },
+  "yaml": {
+    "customTags": [
+      "!And",
+      "!And sequence",
+      "!If",
+      "!If sequence",
+      "!Not",
+      "!Not sequence",
+      "!Equals",
+      "!Equals sequence",
+      "!Or",
+      "!Or sequence",
+      "!FindInMap",
+      "!FindInMap sequence",
+      "!Base64",
+      "!Join",
+      "!Join sequence",
+      "!Cidr",
+      "!Ref",
+      "!Sub",
+      "!Sub sequence",
+      "!GetAtt",
+      "!GetAZs",
+      "!ImportValue",
+      "!ImportValue sequence",
+      "!Select",
+      "!Select sequence",
+      "!Split",
+      "!Split sequence"
+    ]
+  },
+  "auto-build": {
+    "defaultEnv": {
+      "name": "LPC1768"
+    },
+    "showOnStartup": false
+  },
+  "databricks": {
+    "connection": {
+      "default": {
+        "apiRootUrl": "https://adb-30323666291519.19.azuredatabricks.net",
+        "displayName": "adb",
+        "localSyncFolder": "/home/erik/databricks",
+        "personalAccessTokenSecure": {
+          "keyTarSettingName": "adb-API-Token"
+        }
+      }
+    },
+    "lastActiveConnection": "adb"
+  },
+  "gitlens": {
+    "defaultDateLocale": null
+  },
+  "jupyter": {
+    "interactiveWindow": {
+      "cellMarker": {
+        "codeRegex": "^(#\\s*COMMAND\\s*[-]*|#\\s*%%|#\\s*\\<codecell\\>|#\\s*In\\[\\d*?\\]|#\\s*In\\[ \\])"
+      }
+    },
+    "askForKernelRestart": false
+  },
+  "boot-java": {
+    "rewrite": {
+      "reconcile": true
+    }
+  },
+  "docker": {
+    "extension": {
+      "enableComposeLanguageServer": false
+    }
+  },
+  "nix": {
+    "enableLanguageServer": true,
+    "serverPath": "nixd",
+    "formatterPath": "nixpkgs-fmt",
+    "serverSettings": {
+      "nixd": {
+        "formatting": {
+          "command": ["nixpkgs-fmt"]
+        }
+      }
+    }
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": false,
+    "editor.formatOnType": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit",
+      "source.sortImports": "explicit",
+      "source.fixAll": "explicit",
+      "source.fixAll.markdownlint": "explicit"
+    }
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[yaml]": {},
+  "[go]": {
+    "editor.codeActionsOnSave": {
+      "source.sortImports": "explicit",
+      "source.fixAll.markdownlint": "explicit",
+      "source.fixAll": "explicit"
+    }
+  },
+  "[markdown]": {
+    "editor.wordWrap": "bounded"
+  },
+  "[dockercompose]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced",
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": false,
+      "strings": true
+    },
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "terminal.integrated.confirmOnKill": "never",
+  "jdk.telemetry.enabled": false,
+  "notebook.output.scrolling": true,
+  "extensions.ignoreRecommendations": true
+}

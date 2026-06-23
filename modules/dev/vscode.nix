@@ -3,7 +3,43 @@ _: {
     programs.vscode = {
       enable = true;
       package = pkgs.vscode;
-      mutableExtensionsDir = true;
+      # Fully declarative: extensions come from the store, settings from the
+      # vendored JSON below. No mutable extensions dir, no marketplace installs.
+      mutableExtensionsDir = false;
+      profiles.default = {
+        userSettings = ./vscode-settings.json;
+        extensions = with pkgs.vscode-marketplace; [
+          bierner.markdown-mermaid
+          charliermarsh.ruff
+          eamodio.gitlens
+          enkia.tokyo-night
+          golang.go
+          janisdd.vscode-edit-csv
+          jnoortheen.nix-ide
+          jock.svg
+          kisstkondoros.vscode-gutter-preview
+          ms-python.black-formatter
+          ms-python.debugpy
+          ms-python.isort
+          ms-python.python
+          ms-python.vscode-pylance
+          ms-python.vscode-python-envs
+          ms-vscode.makefile-tools
+          ms-vscode.remote-explorer
+          ms-vscode-remote.remote-ssh
+          ms-vscode-remote.remote-ssh-edit
+          naumovs.color-highlight
+          peterj.proto
+          pkief.material-icon-theme
+          redhat.java
+          redhat.vscode-yaml
+          streetsidesoftware.code-spell-checker
+          streetsidesoftware.code-spell-checker-portuguese-brazilian
+          tamasfe.even-better-toml
+          yzhang.markdown-all-in-one
+          zainchen.json
+        ];
+      };
     };
   };
 }
