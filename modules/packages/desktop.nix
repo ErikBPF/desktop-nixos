@@ -92,7 +92,6 @@ _: {
         whatsapp-electron
         teams-for-linux
         brave
-        noisetorch
         usbimager
         gparted
         orca-slicer

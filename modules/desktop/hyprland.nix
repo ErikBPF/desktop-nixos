@@ -326,7 +326,6 @@
                     hl.exec_cmd("tailscale-systray --accept-routes")
                     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
                     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
-                    hl.exec_cmd([[sleep 10; wpctl status | grep -oP '\d+(?=\.\s+Focusrite Scarlett 2i2 Analog Stereo\b)' | head -1 | xargs -r wpctl set-default; noisetorch -i -t 30; sleep 1; wpctl status | grep -oP '\d+(?=\.\s+NoiseTorch Microphone for Focusrite Scarlett 2i2\b)' | head -1 | xargs -r wpctl set-default]])
                     hl.exec_cmd("ghostty -e btop",            { workspace = 11 })
                     hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
                     hl.exec_cmd("sleep 3; spotify",           { workspace = 12 })

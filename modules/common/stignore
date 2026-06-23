@@ -60,6 +60,9 @@
 **/.kube/cache
 **/.kube/http-cache
 
+// ----- Claude Code per-machine state (agent worktrees churn heavily) -----
+**/.claude
+
 // ----- IDE / editor -----
 **/.idea
 **/.vscode

@@ -10,6 +10,7 @@ disagree, the recipe wins — flag the doc as stale.
 |-----|--------|
 | [`kepler-ai-serving.md`](kepler-ai-serving.md) | AI inference topology on kepler: LiteLLM routing, TTS/whisper services, ports. Cross-check before touching voice wiring in `home-assistant-config`. |
 | [`kepler-zfs-setup.md`](kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. |
+| [`kepler-k3s-platform-status.md`](kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, and cluster gotchas. Pairs with the two cluster proposals below. |
 | [`OBSIDIAN_SETUP.md`](OBSIDIAN_SETUP.md) | Obsidian + sync configuration for the desktop hosts. |
 | [`../INSTALL.md`](../INSTALL.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). |
 
