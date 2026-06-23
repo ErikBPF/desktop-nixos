@@ -52,6 +52,8 @@ in {
       m.home.obsidian-sync
       m.home.vscode
       m.home.claude-code
+      m.home.codex
+      m.home.opencode
       m.home.hermes-agent
       m.home.packages-desktop
       m.home.syncthing-tray
