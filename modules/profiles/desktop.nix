@@ -38,6 +38,7 @@ in {
       m.home.hyprlock
       m.home.quickshell
       m.home.mako
+      m.home.easyeffects
       m.home.rofi
       m.home.wlogout
       m.home.mime
