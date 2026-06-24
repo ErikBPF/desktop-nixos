@@ -230,6 +230,15 @@ _sync-servarr target:
     set -euo pipefail
     IP="$(just _host-ip {{target}})"
     SRC="$(readlink -f references/repos/servarr)"
+    # Single-source the hermes persona: desktop-nixos owns the canonical
+    # SOUL.md; mirror it into the servarr tree so the deployed file can't
+    # drift. hermes only READS SOUL.md at runtime (seed-if-missing), so a
+    # managed read-only mirror is safe. The servarr copy is thus generated —
+    # edit modules/hosts/discovery/homelab-SOUL.md, never the mirror.
+    if [ "{{target}}" = "discovery" ]; then
+        cp modules/hosts/discovery/homelab-SOUL.md \
+           "$SRC/machines/discovery/config/hermes-agent/SOUL.md"
+    fi
     echo ":: Syncing $SRC/machines/{{target}} → erik@$IP:/home/erik/servarr/machines/{{target}}/"
     ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}'
     rsync -azv \

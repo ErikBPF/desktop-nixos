@@ -26,7 +26,14 @@ in {
       m.nixos.discovery-containers
       m.nixos.discovery-compose
       m.nixos.discovery-harbor
-      m.nixos.discovery-hermes-agent
+      # DISABLED 2026-06-23 — inert nspawn deployment. The live hermes is the
+      # servarr Docker container (owns host 8642/8644, up 4d; SWAG routes
+      # hermes.* → hermes-agent:8642). This nspawn guest's inner API can't bind
+      # the ports and serves no traffic — pure dead weight. The module file
+      # (./hermes-agent.nix) is retained as the cutover blueprint; re-enable
+      # ONLY as part of the planned Docker→nspawn migration (state-volume move
+      # + SWAG repoint to the host port). See chat decision of this date.
+      # m.nixos.discovery-hermes-agent
       m.nixos.power-desktop
       m.nixos.btrfs-snapshots
       m.nixos.homelab-iac-drift
