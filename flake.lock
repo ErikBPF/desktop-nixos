@@ -215,11 +215,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1781906911,
-        "narHash": "sha256-2n1dliJuY3lauyhooAmeIepvZL8QR2EQ/JGx6POm2Ug=",
+        "lastModified": 1782418265,
+        "narHash": "sha256-KqnLc4GqA3X/3bZOFY4dPbDzYuXu0VlFtLUSGGlFL98=",
         "owner": "ErikBPF",
         "repo": "hermes-flake",
-        "rev": "98867b94117133226fb632dfda74148add748caf",
+        "rev": "0ad42cfbc365a79d61a4e8d59140876d11a2b288",
         "type": "github"
       },
       "original": {

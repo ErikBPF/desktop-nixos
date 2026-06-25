@@ -26,14 +26,16 @@ in {
       m.nixos.discovery-containers
       m.nixos.discovery-compose
       m.nixos.discovery-harbor
-      # DISABLED 2026-06-23 — inert nspawn deployment. The live hermes is the
-      # servarr Docker container (owns host 8642/8644, up 4d; SWAG routes
-      # hermes.* → hermes-agent:8642). This nspawn guest's inner API can't bind
-      # the ports and serves no traffic — pure dead weight. The module file
-      # (./hermes-agent.nix) is retained as the cutover blueprint; re-enable
-      # ONLY as part of the planned Docker→nspawn migration (state-volume move
-      # + SWAG repoint to the host port). See chat decision of this date.
-      # m.nixos.discovery-hermes-agent
+      # OCI cutover (2026-06-25): replace the live servarr Docker hermes with
+      # the declarative hermes-flake OCI module (official image + Nix-rendered
+      # config/SOUL/sops, rtk store-mounted, git-versioned skills via
+      # external_dirs). Keeps the `hermes-agent` name + ports + homelab-net so
+      # SWAG/litellm wiring is unchanged. The old nspawn blueprint
+      # (./hermes-agent.nix, module discovery-hermes-agent) is superseded and no
+      # longer imported. ⚠ Cutover is NOT live until the servarr hermes stack is
+      # stopped and the sops env gains bare TELEGRAM_BOT_TOKEN/DISCORD_BOT_TOKEN
+      # — see docs/proposals/2026-06-24-hermes-memory-skills.md §8 runbook.
+      m.nixos.discovery-hermes-oci
       m.nixos.power-desktop
       m.nixos.btrfs-snapshots
       m.nixos.homelab-iac-drift

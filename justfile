@@ -252,6 +252,26 @@ _sync-servarr target:
         "$SRC/machines/{{target}}/" \
         "erik@$IP:/home/erik/servarr/machines/{{target}}/"
 
+# Push the git-versioned hermes-skills repo to a host's /home/erik/hermes-skills/
+# so the hermes container can mount it read-only via skills.external_dirs.
+# The compose file bind-mounts /home/erik/hermes-skills → /opt/skills-ext:ro.
+# Run this before bringing the stack up (or after editing a skill) — then
+# recreate the container so it re-scans. Today only discovery runs hermes.
+#   just sync-hermes-skills discovery
+sync-hermes-skills target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    SRC="$(readlink -f references/repos/hermes-skills)"
+    echo ":: Syncing $SRC → erik@$IP:/home/erik/hermes-skills/"
+    ssh -p 2222 erik@$IP 'mkdir -p /home/erik/hermes-skills'
+    rsync -azv --delete \
+        --no-perms --no-owner --no-group --no-times \
+        --exclude '.git' --exclude '__pycache__' --exclude '.DS_Store' \
+        -e "ssh -p 2222" \
+        "$SRC/" \
+        "erik@$IP:/home/erik/hermes-skills/"
+
 # Sync a single host stack file + its config dir (faster, doesn't touch others):
 #   just sync-stack kepler ai-serving
 sync-stack target stack:
