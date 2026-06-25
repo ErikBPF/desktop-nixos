@@ -120,6 +120,39 @@ Remove the `mcp_servers.agentmemory` block + re-enable `memory_enabled`;
 `just switch-discovery`. Vault git repo is additive (leave or remove). No data
 loss — agentmemory state is its own volume.
 
+## 4. Consolidation ownership — move curation to hermes  *(explored 2026-06-25)*
+
+Today **agentmemory owns consolidation**: 4-tier compress + graph extraction +
+auto-forget run automatically on `qwen-chat` via litellm (`OPENAI_MODEL=qwen-chat`,
+`OPENAI_BASE_URL=http://litellm:4000`). Mechanical, cheap, no agent judgment.
+
+"Move to hermes" = let **hermes' agent** decide what's worth remembering
+(spicyphus *humans seed / LLM refines*), driven by a native cron job through the
+agentmemory MCP. **Feasibility verified:** cron agents now receive MCP tools
+(`discover_mcp_tools()`, #4219); cron jobs pin a model + scope `enabled_toolsets`.
+
+**Design:**
+- Disable agentmemory auto-consolidation (`CONSOLIDATION_ENABLED=false`, servarr
+  env) — keep it as raw **store + graph + export**; hermes does the curation.
+  (Verify what disabling consolidation does to graph/export — they may depend on
+  the compress tier; if so, keep agentmemory consolidation and go Hybrid below.)
+- **hermes consolidation cron** (native, nightly ~04:00 after session_reset):
+  `enabled_toolsets` = agentmemory MCP only; pinned model; prompt = recall recent
+  observations → dedupe, extract decisions/lessons/patterns →
+  `memory_crystallize` the keepers, `memory_forget` the noise, `memory_save`
+  syntheses. agentmemory then graph-extracts + Obsidian-exports the result.
+- **Bound cost:** read deltas since last run, not the whole store.
+
+**Trade-offs / open choice:**
+- **Full move** (disable agentmemory consolidation; hermes owns it) — one brain,
+  judgment-driven; but replaces a tested 4-tier engine, and the cron is runtime
+  state (declarative gap: seed-on-boot or accept).
+- **Hybrid (recommended)** — keep agentmemory's cheap mechanical consolidation
+  (qwen) AND add a hermes periodic *review/crystallize* pass on top (judgment
+  where it matters, no engine replacement). Lower risk.
+- **Model:** `qwen-chat` (cheap, parity with current) vs `glm-5` (judgment, bills
+  the brain budget — only worth it if curation quality clearly improves).
+
 ## Decisions (resolved 2026-06-25)
 1. **MCP delivery:** `npx -y @agentmemory/mcp` (egress on first run, cached).
 2. **Memory:** run BOTH as a trial (A/B); disable built-in later if agentmemory wins.
