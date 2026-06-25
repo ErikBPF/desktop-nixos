@@ -76,33 +76,56 @@ hermes agent (OCI) ──MCP(stdio: agentmemory-mcp)──▶ agentmemory REST :
 - If the MCP tool defs are heavy, gate to a minimal subset (save/recall/
   smart_search) via hermes' MCP tool-gating (`config.py` ~2493/2509).
 
-### 3. Git wiki = integrate the existing `git@github.com:ErikBPF/vault.git`  *(decision)*
-State: vault.git is cloned on the **workstation** (`~/Documents/erik/obsidian/
-vault`); agentmemory on **discovery** exports to a *separate*, non-git path
-(`/home/erik/backup/Documents/erik/obsidian/vault`). Bridge them **without
-clobbering the hand-curated vault**:
-- On discovery, **clone vault.git** to a working dir and point
-  `AGENTMEMORY_EXPORT_ROOT` at a **dedicated subdir** of it (e.g.
-  `<clone>/agent-memory/`) — agentmemory writes its own `decisions/ lessons/
-  errors/ _index.md` tree *under that subdir*, never the vault root. (servarr
-  agentmemory config change: repoint `EXPORT_ROOT` + add the clone volume.)
-- **Commit + push timer** on discovery (systemd timer / `just` recipe):
-  `git add agent-memory/ && commit && pull --rebase && push`. Scope the add to
-  the agentmemory subdir so it only touches its own files.
-- **Two-writer safety** (Erik's workstation + discovery agentmemory both push to
-  vault.git): either (a) discovery commits only its `agent-memory/` subdir +
-  pull-rebase before push (low conflict since disjoint paths), or (b) agentmemory
-  pushes to a dedicated `agent-memory` **branch** Erik merges. → decide; (a) is
-  simpler if the subdir is truly disjoint.
-- Mostly a **discovery + servarr** concern (clone + EXPORT_ROOT + timer),
-  independent of the hermes module.
+### 3. Git wiki transport — ALREADY EXISTS (verified 2026-06-25, nothing to build)
+The loop is already wired; my earlier "discovery clone + push timer" was redundant:
+- agentmemory (discovery) exports to `/home/erik/backup/Documents/erik/obsidian/
+  vault` → **syncthing** (fleet folder `/home/erik/backup/Documents/` ↔
+  workstation `/home/erik/Documents/`) → workstation **vault.git clone** →
+  **`obsidian-sync.nix`** home timer (every 30m: commit-all → fetch → `rebase
+  --autostash origin/main` → push) → `git@github.com:ErikBPF/vault.git`.
+- So anything written into the discovery vault path flows to GitHub automatically.
+  No new clone, no new push timer.
 
-## What we DON'T build (cut from deferred §1)
-- `wiki-curator` skill — agentmemory's consolidation + obsidian export covers it.
-- Dreaming nightly cron — agentmemory consolidates automatically on session
-  end / interval. No hermes cron job needed.
+### 4. The curation: hermes is the Karpathy wiki-curator  *(DECISION 2026-06-25)*
+**Vault state:** `memories/` populated (168, agentmemory raw); **every curated
+layer is EMPTY** — agentmemory `crystals/ lessons/` (its auto-consolidation has
+produced nothing in weeks) AND the Karpathy `wiki/` (schema defined in
+`AGENTS.md`, never populated). Raw is captured; nothing refines it.
+
+**Architecture (decided):**
+- **agentmemory = raw capture + semantic search** (input), via MCP (§1).
+- **hermes = the wiki-curator** (output): a glm-5 consolidation cron reads recent
+  raw memories (agentmemory MCP recall/smart_search) + sessions → writes/updates
+  `wiki/` pages **per `AGENTS.md`** (ingest/query/lint, `[[wikilinks]]`, update
+  `index.md`/`log.md`) → syncthing → vault.git. This is the "full move to hermes"
+  consolidation, now targeting the **human-readable git wiki**, not agentmemory
+  crystals.
+- **Vault mounted RW into the hermes container** (decided) so the curator can
+  write files. **Scope the mount** to the curator's surface — `wiki/`, `log/`,
+  `index.md`, `inbox.md` (+ `raw/` read-only) — NOT the whole vault, to bound the
+  YOLO agent's blast radius. The mount target is the discovery vault path that
+  syncthing carries.
+- **agentmemory auto-consolidation** (`CONSOLIDATION_ENABLED`) can stay on (it's
+  inert — produces nothing) or be turned off; hermes owns curation either way.
+
+**Seeding (the "seed if both are needed" step):** `wiki/` is empty. After the
+curator + mount are deployed, run a **one-time ingest**: hermes reads the 168
+existing `memories/` (+ `raw/`) and writes the initial `wiki/` pages + `index.md`
+per `AGENTS.md`. Bound it (batch, glm-5, cap turns). This is a build step, not
+done now.
+
+**Security note:** RW vault mount + YOLO agent + auto-push to GitHub = the agent
+can push wiki content to vault.git. Mitigated by: scoping the mount to curator
+dirs, git-versioned/revertible history, and the workstation rebase loop. Accept
+or tighten (e.g. curator writes to a branch) — decide at build.
+
+## What we DON'T build (architecture settled)
+- Separate `wiki-curator` *skill* package — the curation is the hermes
+  consolidation cron itself (prompt = the `AGENTS.md` ops).
 - `on_session_start` wiki-load hook — `AGENTMEMORY_INJECT_CONTEXT=true` already
-  injects relevant memory; the MCP recall tools cover pull.
+  injects relevant raw memory; recall is via MCP.
+- Discovery vault clone / push timer — the syncthing + `obsidian-sync` loop
+  already publishes to vault.git.
 
 ## Verification plan (before claiming done)
 1. `just dry discovery` green with the new settings.
@@ -120,50 +143,31 @@ Remove the `mcp_servers.agentmemory` block + re-enable `memory_enabled`;
 `just switch-discovery`. Vault git repo is additive (leave or remove). No data
 loss — agentmemory state is its own volume.
 
-## 4. Consolidation ownership — move curation to hermes  *(explored 2026-06-25)*
+## 5. Consolidation cron mechanics  *(the curator's runtime — output target = §4)*
 
-Today **agentmemory owns consolidation**: 4-tier compress + graph extraction +
-auto-forget run automatically on `qwen-chat` via litellm (`OPENAI_MODEL=qwen-chat`,
-`OPENAI_BASE_URL=http://litellm:4000`). Mechanical, cheap, no agent judgment.
+The curation in §4 runs as a **hermes native cron job** (full move to hermes,
+spicyphus *humans seed / LLM refines*). Output is the Karpathy `wiki/` (§4), NOT
+agentmemory crystals — so the earlier "trigger `memory_consolidate` to preserve
+the graph" concern is **moot**: agentmemory keeps its own raw graph for recall
+(`memory_graph_query`), and the wiki carries its own `[[wikilink]]` graph.
 
-"Move to hermes" = let **hermes' agent** decide what's worth remembering
-(spicyphus *humans seed / LLM refines*), driven by a native cron job through the
-agentmemory MCP. **Feasibility verified:** cron agents now receive MCP tools
-(`discover_mcp_tools()`, #4219); cron jobs pin a model + scope `enabled_toolsets`.
+- **Schedule:** nightly (~04:00, after `session_reset`). Native cron (ticker live;
+  cron agents get MCP tools via #4219).
+- **Model:** `glm-5` (brain judgment). **Cost guard:** once/day, read **deltas
+  since last run only** (new `memories/` since the last wiki update), cap
+  `max_turns`; drop to `qwen-chat` if the nightly bill bites.
+- **Toolset:** agentmemory MCP (recall/smart_search — the INPUT) + file write to
+  the scoped vault mount (the OUTPUT). Prompt = the `AGENTS.md` ingest/lint ops.
+- **agentmemory auto-consolidation:** leave as-is (inert) or disable
+  (`CONSOLIDATION_ENABLED=false`) — irrelevant now that hermes curates the wiki,
+  not crystals. Keep `GRAPH_EXTRACTION_ENABLED` for `memory_graph_query` recall.
+- **Cron is runtime state** → **seed-on-boot** (bootstrap creates the job if
+  absent) to stay declarative, or accept as restic-backed state.
 
-**Design:**
-- Disable agentmemory auto-consolidation (`CONSOLIDATION_ENABLED=false`, servarr
-  env) — keep it as raw **store + graph + export**; hermes does the curation.
-  (Verify what disabling consolidation does to graph/export — they may depend on
-  the compress tier; if so, keep agentmemory consolidation and go Hybrid below.)
-- **hermes consolidation cron** (native, nightly ~04:00 after session_reset):
-  `enabled_toolsets` = agentmemory MCP only; pinned model; prompt = recall recent
-  observations → dedupe, extract decisions/lessons/patterns →
-  `memory_crystallize` the keepers, `memory_forget` the noise, `memory_save`
-  syntheses. agentmemory then graph-extracts + Obsidian-exports the result.
-- **Bound cost:** read deltas since last run, not the whole store.
-
-**DECISION (Erik 2026-06-25): Full move to hermes, model = `glm-5`.**
-
-Refined so it does NOT break the graph/export (graph extraction runs *during*
-consolidation — killing consolidation would kill the graph):
-- agentmemory: `CONSOLIDATION_ENABLED=false` (no *automatic* trigger),
-  **keep** `GRAPH_EXTRACTION_ENABLED=true` + `OBSIDIAN_AUTO_EXPORT=true`.
-- hermes **owns the timing + judgment**, agentmemory still does the mechanical
-  compress+graph **when hermes triggers it**: the nightly cron recalls recent
-  observations → curates (`memory_crystallize` keepers, `memory_forget` noise,
-  `memory_save` syntheses) → calls **`memory_consolidate`** (MCP) to run the
-  4-tier compress + graph extraction on demand → agentmemory exports.
-- Model `glm-5` (brain judgment). **Cost guard:** once/day, read **deltas since
-  last run only**, cap `max_turns`; watch the budget — drop to `qwen-chat` if the
-  nightly bill bites.
-- Cron is runtime state → **seed-on-boot** (bootstrap creates the job if absent)
-  to stay declarative, or accept as restic-backed state.
-
-**Build-time verifies (Full-move-specific):**
-- Confirm `memory_consolidate` (MCP) actually triggers compress **+ graph** when
-  `CONSOLIDATION_ENABLED=false` (else graph/export degrade — fall back to Hybrid).
-- Confirm the Obsidian export reflects hermes-triggered consolidation output.
+**Build-time verifies:**
+- hermes can write `wiki/` through the scoped vault mount and it reaches vault.git
+  via syncthing + `obsidian-sync`.
+- The glm-5 nightly cost is acceptable on the shared budget (measure one run).
 
 ## Decisions (resolved 2026-06-25)
 1. **MCP delivery:** `npx -y @agentmemory/mcp` (egress on first run, cached).
@@ -171,9 +175,13 @@ consolidation — killing consolidation would kill the graph):
 3. **Git wiki:** integrate `git@github.com:ErikBPF/vault.git` — discovery-side
    clone, agentmemory exports to a scoped subdir, commit/push timer. (Discovery
    push access verified — authenticates as ErikBPF via `github_erikbpf`.)
-4. **Consolidation:** FULL move to hermes, model `glm-5` — disable agentmemory
-   auto-consolidation; hermes nightly cron curates + triggers `memory_consolidate`
-   (keeps graph/export). See §4.
+4. **Consolidation = wiki curation:** FULL move to hermes, model `glm-5` — hermes
+   nightly cron is the Karpathy wiki-curator (reads agentmemory raw memories via
+   MCP → writes `wiki/` per AGENTS.md → vault.git). Output target = the git wiki,
+   NOT agentmemory crystals. See §4/§5.
+5. **Curation target:** Karpathy `wiki/` (decided). **Vault mount:** RW, scoped to
+   curator dirs (`wiki/ log/ index.md inbox.md`, `raw/` ro). **Seed:** one-time
+   ingest of the 168 existing memories → initial `wiki/`.
 
 ## Still open (resolve during build)
 - **Two-writer strategy** for vault.git: subdir-scoped pull-rebase push from
