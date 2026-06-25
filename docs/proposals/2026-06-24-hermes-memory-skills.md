@@ -604,10 +604,14 @@ Measured from a real request dump (`request.body.{messages,tools}`):
    validated as actually changing output. Treat as unproven, not a win.
 
 ### 9.5 Corrected recommendation
-- **Keep:** OCI cutover, skills `external_dirs`, SOUL, caveman (harmless).
-- **Fix (security):** drop the redundant `0.0.0.0` publish; reconsider
-  `backend: docker`; remove the no-op firewall line; prune dead sops keys.
-- **Drop or accept-idle:** rtk plugin/skill/mount — no functional value here.
+- **Keep:** OCI cutover, skills `external_dirs`, SOUL, caveman (harmless), **rtk
+  (idle, kept by decision 2026-06-25)**.
+- **Fix (security) — APPLIED 2026-06-25** (commit `1fa8c03`): `publishPorts=false`
+  (new hermes-flake oci option) drops the host `0.0.0.0:8642/8644` mapping —
+  verified host port gone + SWAG still 200 over homelab-net; no-op firewall line
+  removed; dead sops keys pruned (now 5: OPENAI/API_SERVER/EXA + bare
+  TELEGRAM/DISCORD). **Still open:** `terminal.backend: docker` (sandbox) given
+  YOLO — deferred, not applied.
 - **Real token work (if pursued):** `agent.disabled_toolsets` for unused
   toolsets; trim/scope the CLAUDE.md injection in coding posture. Measure via
   request dumps, not Langfuse (off).

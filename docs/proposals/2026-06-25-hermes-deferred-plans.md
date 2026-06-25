@@ -73,21 +73,26 @@ rtk targeted tool *output*, the smallest cost. Measured per-turn cost (parent
 
 **Trigger:** when token budget bites; user must pick which toolsets are expendable.
 
-## 3c. Security hardening of the OCI deploy  *(NEW — parent §9.4)*
+## 3c. Security hardening of the OCI deploy  *(parent §9.4 — mostly DONE 2026-06-25)*
 
 The cutover left a risky posture: redundant `0.0.0.0:8642/8644` host publish
-(SWAG reaches hermes over `homelab-net` DNS, so the publish is unneeded LAN
-surface) **+** `terminal.backend: local` (unsandboxed) **+** `HERMES_YOLO_MODE=1`
-+ `approvals.mode=off`. Fixes:
-- Drop the host port publish (bind loopback / omit `ports` in the OCI module) —
-  SWAG still works over homelab-net.
-- Remove the no-op `networking.firewall.allowedTCPPorts = []` line (docker
-  bypasses the nixos firewall).
-- Consider `terminal.backend: docker` (sandboxed) given YOLO.
-- Prune dead sops keys: `LITELLM_API_KEY`, `OPENROUTER_API_KEY`,
-  `HERMES_TELEGRAM_BOT_TOKEN`, `HERMES_DISCORD_BOT_TOKEN`.
+**+** `terminal.backend: local` (unsandboxed) **+** `HERMES_YOLO_MODE=1` +
+`approvals.mode=off`. Status:
+- ✅ **Host port publish dropped** — `publishPorts=false` (new hermes-flake oci
+  option); verified host port gone, SWAG still 200 over homelab-net.
+- ✅ **No-op firewall line removed.**
+- ✅ **Dead sops keys pruned** (now 5 live: OPENAI/API_SERVER/EXA + bare
+  TELEGRAM/DISCORD).
+- ⏳ **`terminal.backend: docker` (sandboxed)** — STILL OPEN. With YOLO on, the
+  agent runs commands unsandboxed as the container user with `/opt/data` +
+  homelab-net reach. SWAG is now the only ingress (key+TLS), so the blast radius
+  needs a leaked API key or a compromised on-net container — lower, but
+  sandboxing is the remaining hardening. Note: `backend: docker` needs the
+  container to spawn sibling sandbox containers (docker socket) — non-trivial;
+  evaluate cost vs the now-reduced exposure.
 
-**Trigger:** soon — this is live exposure, not a future nicety.
+**Trigger:** evaluate `backend: docker` when convenient; the acute LAN exposure
+is closed.
 
 ## 4. Pin the image to a digest  *(hygiene)*
 
