@@ -31,6 +31,39 @@ until a curation loop exists.
 
 **Trigger:** after the OCI cutover is stable and Langfuse shows headroom.
 
+### Grounded design — verified against the running image (2026-06-25)
+
+The primitives all exist; the open choices are design, not feasibility.
+
+- **Dreaming = a native cron job.** `cron/scheduler.py` runs an internal ticker
+  (heartbeat confirmed live) that spawns an agent per due job, with an `approve`
+  auto-mode, **per-job `enabled_toolsets`**, and a **pinnable model**. No
+  external systemd timer needed.
+- **Cron jobs are runtime STATE, not declarative.** They live in
+  `/opt/data/cron/` (created via the `cronjob` tool); the `cron:` config block
+  only tunes the *scheduler* (provider/model defaults), not the jobs. → To fit
+  repo→deploy, **seed the Dreaming job on boot** (a bootstrap step that creates
+  it if absent) or accept it as restic-backed state. This is the main
+  declarative gap.
+- **Session reading must be bounded.** 108 × `/opt/data/sessions/session_*.json`,
+  each `{…, system_prompt, tools, messages:[…]}`. Each file embeds its full
+  system_prompt + tools (~15k+), so naive "read all" is enormous. Dreaming must
+  read **`.messages` (user/assistant) only, since-last-run**, and **pin to MiMo
+  (free)** — never glm-5 — so consolidation doesn't bill the response budget.
+  Give the job `enabled_toolsets = [memory + read]` only.
+- **Output target — THE decision:**
+  - (a) **built-in `memory` store** (`/opt/data/memories/`, `MemoryStore.add()`,
+    auto-injected every turn, capped 10000). Simplest; *actually loaded*. But
+    flat, not git-versioned/reviewable — against §3's ethos.
+  - (b) **git wiki** under the `external_dirs` skills tree + an `on_session_start`
+    plugin hook (exists) to load it. Versioned, portable, Obsidian-viewable —
+    but needs the load hook and risks the Reddit author's "generic store sits
+    unused" failure.
+  - Lean (a) for the loop to actually pay off (auto-injected = used); optionally
+    have Dreaming *also* emit (b) as a reviewable artifact. Don't build (b) alone.
+- **Caps interaction (#2):** Dreaming makes the auto-injected memory high-signal,
+  which is the precondition for keeping caps at 10000 (kept) being worth it.
+
 ## 2. Re-evaluate §1 memory caps against Langfuse  *(cheap, do with #1)*
 
 Caps were raised (10000 / 3000 chars) *before* curation existed — currently
