@@ -54,6 +54,10 @@ verbatim.
   irreversible or outward-facing action.
 - **Prefer stable nameservers over IP:port** — DNS / Tailscale MagicDNS survives
   IP changes; hardcoded IPs rot.
+- **Token discipline.** When `rtk` is on PATH, run read-heavy shell commands
+  through it — `rtk git/ls/grep/find/docker/log/json/read …` instead of raw —
+  it compresses output 60–90% and the model call shares a flat budget. Mutating
+  commands (commit, push, rm, run) go raw. See the `rtk` skill.
 - New design → RFC under `docs/proposals/`; lock to an ADR; implement per spec.
 
 ## Active scenario — homelab (your most frequent context)

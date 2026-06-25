@@ -84,8 +84,18 @@ in {
         "/home/${username}/hermes-skills:/opt/skills-ext:ro"
       ];
 
-      # Discord allow-list has no typed wrapper option; set the bare env var.
-      extraEnvironment.DISCORD_ALLOWED_USERS = "319270715129856010";
+      extraEnvironment = {
+        # Discord allow-list has no typed wrapper option; set the bare env var.
+        DISCORD_ALLOWED_USERS = "319270715129856010";
+        # YOLO: bypass the per-command dangerous-command approval gate (which is
+        # frozen at process import and keys off this env var). Pairs with
+        # approvals.mode = "off" below. hermes' hardcoded catastrophic floor
+        # (rm -rf /, mkfs, shutdown, …) still blocks regardless. Needed because
+        # config.yaml is mounted :ro, so a runtime "always" choice can't persist
+        # (the "Could not save allowlist: Read-only file system" warning) —
+        # declarative is the only durable path.
+        HERMES_YOLO_MODE = "1";
+      };
 
       # Canonical persona (single-sourced; same file the live deploy mirrors).
       soulFile = ./homelab-SOUL.md;
@@ -139,6 +149,11 @@ in {
         # Git-versioned read-only skills (hermes-skills repo), mounted at
         # /opt/skills-ext above. Local /opt/data/skills wins on name collision.
         skills.external_dirs = ["/opt/skills-ext"];
+
+        # Permanent auto-approve (declarative). The runtime "always" choice can't
+        # persist (config.yaml is :ro), so set it here. Covers the non-command
+        # approval paths; the shell-command gate is HERMES_YOLO_MODE above.
+        approvals.mode = "off";
 
         # /model <alias> switches — all routed through LiteLLM.
         model_aliases = {
