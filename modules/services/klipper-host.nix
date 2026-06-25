@@ -237,15 +237,14 @@ in {
             # config-defined webcam is read-only in the Mainsail UI.
             "webcam C270" = {
               location = "printer";
-              # Adaptive (snapshot-poll), NOT continuous mjpegstreamer: the C270
-              # wedges at the USB driver level on this Pi3 ("uvcvideo: Failed to
-              # resubmit video URB (-1)" — camera + onboard LAN9514 share one USB
-              # bus), so capture collapses to 0fps within ~2min and can't sustain
-              # a continuous stream (browser gets a reset → "Error while
-              # connecting"). Adaptive limps via periodic snapshots instead.
-              # Real fix is hardware (powered USB hub / WiFi-offload the bus /
-              # CSI camera). See git log for the investigation.
-              service = "mjpegstreamer-adaptive";
+              # Continuous MJPEG. This used to wedge ("uvcvideo: Failed to
+              # resubmit video URB (-1)", capture → 0fps within minutes) because
+              # the C270 shares the Pi3's single dwc2 USB-2.0 bus with the onboard
+              # lan78xx NIC, which starved the camera's isochronous bandwidth even
+              # idle. Fixed by going WiFi-only and blacklisting lan78xx (see
+              # hosts/archinaut/default.nix) — with the NIC off the bus the stream
+              # holds a steady ~24fps, so continuous (not adaptive) is fine now.
+              service = "mjpegstreamer";
               target_fps = 15;
               stream_url = "http://192.168.10.225:8080/stream";
               snapshot_url = "http://192.168.10.225:8080/snapshot";

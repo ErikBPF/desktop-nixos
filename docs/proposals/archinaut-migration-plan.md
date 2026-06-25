@@ -235,14 +235,22 @@ in `modules/services/klipper-host.nix`:
 ```nix
 "webcam C270" = {
   location = "printer";
-  service = "mjpegstreamer-adaptive";
+  service = "mjpegstreamer";
   target_fps = 15;
   stream_url = "http://192.168.10.225:8080/stream";
   snapshot_url = "http://192.168.10.225:8080/snapshot";
 };
 ```
+- **Stream wedge — FIXED 2026-06-25.** The C270 used to collapse to 0fps within
+  minutes ("uvcvideo: Failed to resubmit video URB (-1)") because it shares the
+  Pi3's single dwc2 USB-2.0 bus with the onboard lan78xx NIC, which starved the
+  camera's isochronous bandwidth **even idle/link-down** (not a traffic issue —
+  unbinding the NIC while ethernet was already unplugged fixed it instantly).
+  Now that the host is WiFi-only, `hosts/archinaut/default.nix` blacklists
+  `lan78xx`; the stream holds a steady ~24fps, so `service = "mjpegstreamer"`
+  (continuous, not the old `-adaptive` workaround).
 - Optional robustness: proxy ustreamer through the mainsail nginx at `/webcam/`
-  and use **relative** URLs, so it's IP-independent (survives wired↔wifi).
+  and use **relative** URLs, so it's IP-independent.
 - Verify: `just dry archinaut`; after `just switch-archinaut`,
   `curl localhost:7125/server/webcams/list` shows a `source:"config"` C270 and
   Mainsail renders the feed. (A config-defined webcam is read-only in the UI —

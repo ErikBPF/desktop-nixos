@@ -56,6 +56,14 @@ in {
     security.auditd.enable = lib.mkForce false;
     security.audit.enable = lib.mkForce false;
 
+    # WiFi-only: blacklist the onboard USB ethernet (lan78xx). The C270 webcam
+    # shares the Pi3's single dwc2 USB-2.0 bus with the NIC, and even an
+    # idle/link-down lan78xx starved the camera's isochronous bandwidth —
+    # continuous capture collapsed to 0fps within ~40s. With the NIC off the bus
+    # (host is on WiFi now) the stream holds a steady ~24fps. Re-enable only if
+    # reverting to wired. See modules/services/klipper-host.nix webcam block.
+    boot.blacklistedKernelModules = ["lan78xx"];
+
     services.openssh.enable = true;
   };
 }

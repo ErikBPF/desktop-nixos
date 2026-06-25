@@ -20,11 +20,14 @@
 
     networking.hostName = "archinaut";
 
-    # WiFi is the primary link now — the USB lan78xx wired NIC proved flaky.
-    # NetworkManager manages both interfaces (matches laptop/pathfinder/orion):
-    # the wired port auto-connects via NM's default DHCP profile and stays as a
-    # fallback, while WiFi connects via the declarative profile below. NM runs
-    # its own DHCP, so `networking.useDHCP` is intentionally left unset.
+    # WiFi is the link — the USB lan78xx wired NIC proved flaky and is retired.
+    # NetworkManager manages networking (matches laptop/pathfinder/orion): WiFi
+    # connects via the declarative profile below; NM would also auto-connect the
+    # wired port via its default DHCP profile, which is what the rescue image
+    # (archinaut-base) still uses as a fallback. The full `archinaut` host goes
+    # further and blacklists lan78xx (frees the shared USB bus for the C270
+    # webcam — see hosts/archinaut/default.nix), so there WiFi is the only link.
+    # NM runs its own DHCP, so `networking.useDHCP` is intentionally left unset.
     #
     # The earlier WiFi attempt used wpa_supplicant's `ext:` file password backend
     # (networking.wireless.secretsFile + pskRaw="ext:…"), which returned "No PSK
