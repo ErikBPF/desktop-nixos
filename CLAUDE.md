@@ -228,9 +228,9 @@ references/repos/servarr`); never hard-code the absolute path.
   repo — it mirrors only `printer_data/config/` and never touches
   `orcaslicer/`) and `orcaslicer/` (OrcaSlicer presets; pushed from the laptop
   via that repo's `just orca-sync`).
-- Klipper host: the NixOS `archinaut` fleet host (RPi 3 **Model B+**), wired
-  **`192.168.10.225`** (DHCP-reserved). As-built hardware/calibration
-  reference lives in that repo's `references/README.md`.
+- Klipper host: the NixOS `archinaut` fleet host (RPi 3 **Model B+**), on WiFi
+  **`192.168.10.225`** (DHCP-reserved on the wlan0 MAC; wired retired). As-built
+  hardware/calibration reference lives in that repo's `references/README.md`.
 - **NixOS migration DONE** (2026-06-21): the Pi is the fleet `archinaut` host
   running `services.klipper`/`moonraker`/`mainsail` with **kernel-direct boot**
   (no u-boot — board is a 3B+, MCU on `/dev/ttyS1`). aarch64 closure built on
@@ -258,7 +258,7 @@ references/repos/servarr`); never hard-code the absolute path.
   the `filipowm/unifi` provider (Terragrunt units per stack, config under
   `unifi/`). Two envs: `home` (live) and `lab` (stub).
 - **Addressing contract** with this flake: the reservations there assign the
-  IPs hosts use here — `kepler .230`, `homeassistant .205`, `archinaut .225`,
+  IPs hosts use here — `kepler .230`, `homeassistant .115`, `archinaut .225`,
   `nix-erik .125`, … Change a host's IP in one repo → update the matching
   reservation in the other, or DHCP and the host config disagree.
 - **Config/state only** — no flake input, no NixOS module. Touch it like
