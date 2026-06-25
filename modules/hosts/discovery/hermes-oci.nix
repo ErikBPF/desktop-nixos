@@ -82,6 +82,11 @@ in {
       extraVolumes = [
         "${rtk}/bin/rtk:/usr/local/bin/rtk:ro"
         "/home/${username}/hermes-skills:/opt/skills-ext:ro"
+        # Native hermes plugin: pre_tool_call rewrites terminal commands to
+        # `rtk <cmd>` (output compressed before entering context). Read-only
+        # store mount into the plugin search dir (~/.hermes/plugins = /opt/data
+        # /plugins); enabled via settings.plugins.enabled below.
+        "${./hermes-plugins/rtk-rewrite}:/opt/data/plugins/rtk-rewrite:ro"
       ];
 
       extraEnvironment = {
@@ -154,6 +159,10 @@ in {
         # persist (config.yaml is :ro), so set it here. Covers the non-command
         # approval paths; the shell-command gate is HERMES_YOLO_MODE above.
         approvals.mode = "off";
+
+        # Opt-in the rtk-rewrite plugin (mounted at /opt/data/plugins above).
+        # Plugins are opt-in by default; only names listed here load.
+        plugins.enabled = ["rtk-rewrite"];
 
         # /model <alias> switches — all routed through LiteLLM.
         model_aliases = {

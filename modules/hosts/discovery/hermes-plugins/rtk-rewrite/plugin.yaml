@@ -1,0 +1,11 @@
+name: rtk-rewrite
+version: 0.1.0
+description: >-
+  Rewrite read-heavy terminal commands to `rtk <cmd>` via `rtk rewrite`, so
+  command output is compressed 60-90% before it enters the LLM context. Output-
+  side token saving that does not depend on the model choosing rtk itself.
+license: MIT
+author: Erik
+kind: standalone
+hooks:
+  - pre_tool_call
