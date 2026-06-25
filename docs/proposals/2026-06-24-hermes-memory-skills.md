@@ -1,10 +1,19 @@
 # Hermes Agent — Memory, SOUL & Skills Improvements
 
-**Status:** Proposal (draft — judgment calls flagged for Erik)
-**Date:** 2026-06-24
-**Scope:** the live discovery hermes-agent (Docker) + the flake cutover target.
-Touches `servarr` (config), `desktop-nixos` (SOUL canonical), `hermes-flake`
-(OCI module / skills wiring).
+**Status:** Partially implemented — **§9 is the authoritative corrected record.**
+**Date:** 2026-06-24 (proposal); 2026-06-25 (implementation + corrections)
+**Scope:** the live discovery hermes-agent + the flake cutover target.
+Touches `servarr` (config), `desktop-nixos` (SOUL canonical + OCI host module),
+`hermes-flake` (OCI module / skills wiring).
+
+> ⚠ **Read §9 first.** The implementation (2026-06-25) disproved several core
+> premises of §1–§8 against the *running image*. Where §1 (memory framing),
+> §4c/§4d/§5 (rtk as a token win), §7 (hook mechanism), or §8 conflict with §9,
+> **§9 wins.** Headline: the OCI cutover + skills + SOUL shipped and work; the
+> **rtk token-optimization thesis is invalidated on this agent** (rtk never
+> fires); the real token levers were never in the original scope; and the deploy
+> has a **security posture worth fixing** (redundant `0.0.0.0` publish + YOLO +
+> unsandboxed local terminal).
 
 ## 0. Context
 
@@ -510,3 +519,95 @@ compose stack (`docker compose -f hermes-agent.yml --env-file .env up -d`),
 - **`config.yaml` drift** — the OCI path mounts the Nix-rendered config `:ro`
   (same as compose), so the live `/opt/data/config.yaml` `.bak-*` churn stops;
   any runtime-written config state is shadowed. Expected.
+
+---
+
+## 9. Post-implementation verdict & implementation grill — 2026-06-25 (authoritative)
+
+Everything below is validated against the **running container** (live `docker
+exec`, real chat-completion turns, request-dump measurement). It supersedes the
+rtk / cost / hook claims in §1, §4c–§4d, §5, §7, §8 wherever they conflict.
+
+### 9.1 What actually shipped and works
+- **OCI cutover (§8): DONE, live, durable.** discovery hermes runs the
+  hermes-flake OCI module (official image + Nix-rendered config/SOUL/sops,
+  `homelab-net`, reused state dir). Telegram/Discord/SWAG/litellm all verified.
+  Pushed → survives autoUpgrade.
+- **skills `external_dirs` (§3): works.** caveman/rtk/reddit/skill-forge render
+  in the index; the git `hermes-skills` repo is the source, synced via
+  `just sync-hermes-skills`.
+- **SOUL `:ro`/declarative (§7): correct.**
+- **YOLO auto-approve: works** (`HERMES_YOLO_MODE=1` + `approvals.mode=off`) —
+  but see 9.4, it interacts badly with the network exposure.
+
+### 9.2 The rtk thesis is INVALIDATED on this agent  *(corrects §1/§4c/§5/§7/§8)*
+rtk **never fires** in normal operation. Chain of evidence:
+- rtk is a *command proxy* — it only helps when it is the thing running the
+  command (`rtk git status`).
+- The rtk-rewrite **plugin works mechanically** — `pre_tool_call` *can* rewrite
+  by mutating `args["command"]` in place (a Python plugin gets the live dict by
+  reference via `get_pre_tool_call_block_message` → `invoke_hook(args=args)`).
+  **This corrects §7's wrong claim that `pre_tool_call` can only block** — that
+  is true for *shell* hooks, not Python plugins.
+- BUT the hook only fires for the **`terminal` tool**, which lives in the
+  **coding toolset**, exposed only in coding posture (`agent.coding_context=
+  focus` or cwd=git-repo). The default gateway posture (Telegram/Discord/API
+  chat) exposes only **`execute_code`** (python sandbox) which runs shell via
+  raw `subprocess` → bypasses the tool layer entirely.
+- Measured: `rtk-rewrite` logged **0 rewrites**; `rtk gain` empty after multiple
+  real turns.
+- The instruction-based nudge (rtk skill + SOUL line) **was ignored** by the
+  model — adoption-by-prompt does not work here.
+- Only reliable way to force rtk: `agent.disabled_toolsets=["code_execution"]`
+  (loses the python sandbox) — **declined.**
+
+→ **rtk is installed but idle.** §5.4's "fastest token win at both ends" is
+false for this deployment. The rtk plugin/skill/mount are dead weight kept by
+choice; they can be ripped out with no functional loss.
+
+### 9.3 The real token levers — never in the original scope  *(corrects §1/§5)*
+Measured from a real request dump (`request.body.{messages,tools}`):
+- **tools array ≈ 13k tok/turn** (27 defs; `delegate_task` + `cronjob` ~1.9k
+  *each*, `browser_*` ~1.7k) — every turn, every session.
+- **SOUL ≈ 4k**, **memory/profile ≈ up to 3k** (caps 10000/3000, kept by choice).
+- **Coding sessions add ≈ 14k**: coding posture injects the cwd's `CLAUDE.md`
+  files (global + repo) verbatim as a `developer` message.
+- rtk targets *tool output*, the **smallest** lever. The actual reductions are:
+  `agent.disabled_toolsets` (drop delegation/cron/browser/vision → ~6k/turn) and
+  trimming CLAUDE.md injection — **neither appears in §1–§6.** Lever identified,
+  not applied (user kept current state).
+- **The cited cost gate doesn't exist:** §7 says "watch Langfuse." The Langfuse
+  plugin is **off** (`plugins.enabled` lacks it, 0 log mentions) — hermes is not
+  tracing there. Measure via request dumps (error-only) or enable the plugin.
+
+### 9.4 Implementation grill — security & hygiene
+1. **Redundant `0.0.0.0` port publish.** Container publishes `0.0.0.0:8642/8644`
+   on the host, but SWAG reaches it over `homelab-net` DNS (`hermes-agent:8642`).
+   The host publish is **unnecessary LAN attack surface**. Combined with
+   `terminal.backend: local` (unsandboxed) + YOLO + `approvals.mode=off`, the
+   API on the LAN = autonomous dangerous-command execution surface — the exact
+   trifecta the api_server log warns about. **Fix:** drop the host port publish
+   (bind loopback or omit `ports`; SWAG still works over homelab-net); consider
+   `terminal.backend: docker`. The hardcoded catastrophic floor is the only
+   remaining guard.
+2. **`networking.firewall.allowedTCPPorts = lib.mkDefault []` is a no-op.** Docker
+   publishes via its own iptables chain, bypassing the nixos firewall; the line
+   + comment imply control that doesn't exist. Remove.
+3. **Dead sops keys** post-cutover: `LITELLM_API_KEY`, `OPENROUTER_API_KEY`,
+   `HERMES_TELEGRAM_BOT_TOKEN`, `HERMES_DISCORD_BOT_TOKEN` (OCI uses the bare
+   names + `OPENAI_API_KEY`). Prune.
+4. **`enableHealthcheck` is a silent no-op on the OCI path** — `nixos/oci.nix`
+   never imports `healthcheck.nix`. The option lies. → hermes-flake bug.
+5. **homelab-net boot ordering** — no unit dependency on the external network;
+   crash-loops at boot until the servarr networking stack creates it.
+6. **caveman "DONE" = installed, not used.** Same adoption gap as rtk — never
+   validated as actually changing output. Treat as unproven, not a win.
+
+### 9.5 Corrected recommendation
+- **Keep:** OCI cutover, skills `external_dirs`, SOUL, caveman (harmless).
+- **Fix (security):** drop the redundant `0.0.0.0` publish; reconsider
+  `backend: docker`; remove the no-op firewall line; prune dead sops keys.
+- **Drop or accept-idle:** rtk plugin/skill/mount — no functional value here.
+- **Real token work (if pursued):** `agent.disabled_toolsets` for unused
+  toolsets; trim/scope the CLAUDE.md injection in coding posture. Measure via
+  request dumps, not Langfuse (off).

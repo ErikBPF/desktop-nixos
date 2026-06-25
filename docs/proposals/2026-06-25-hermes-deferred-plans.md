@@ -41,16 +41,53 @@ the parent doc §7.
 
 **Trigger:** when #1 lands (caps and curation are coupled).
 
-## 3. rtk skill  *(small — gated on the OCI cutover)*
+## 3. rtk  *(REJECTED — doesn't fire on this agent; see parent §9.2)*
 
-`hermes-skills/meta/rtk/SKILL.md` — instruct the agent to call `rtk <cmd>` for
-supported ops (`git`, `ls`, `grep`, `docker`, `kubectl`, `log`, `json`, `find`,
-…). Instruction-based is the ONLY sound integration (proposal §7: `pre_tool_call`
-can't rewrite; rtk has no stdin filter; transform hooks would re-exec).
+**Resolved 2026-06-25: rtk does not work for this deployment.** Binary is on the
+container PATH (OCI store-mount), the `rtk-rewrite` plugin loads, the skill is
+shipped — and rtk **never fires** (`rtk gain` empty, 0 rewrites after real
+turns). Root cause: rtk only hooks the `terminal` tool, which the default
+gateway posture doesn't expose — the agent runs shell via `execute_code` (python
+sandbox / raw subprocess), bypassing rtk. The only reliable fix
+(`agent.disabled_toolsets=["code_execution"]`) was declined (loses the python
+sandbox). The instruction nudge (skill + SOUL line) was ignored by the model.
 
-**Trigger:** the moment the OCI cutover puts `rtk` on the container PATH —
-NOT before (a skill telling the agent to use a missing `rtk` trips
-`tool_loop_guardrails`). Then `just sync-hermes-skills discovery` + recreate.
+Plugin/skill/mount are installed but **idle dead weight** — kept by choice; rip
+out any time with no functional loss. Note: the §7 claim "`pre_tool_call` can't
+rewrite" was itself wrong — a *Python plugin* rewrites `args["command"]` in
+place; it just never gets a terminal call to rewrite. Do **not** revisit rtk
+unless the terminal toolset becomes the agent's shell path.
+
+## 3b. Cut input tokens — the real lever  *(NEW — replaces the rtk premise)*
+
+rtk targeted tool *output*, the smallest cost. Measured per-turn cost (parent
+§9.3): tools array ~13k tok + SOUL ~4k + memory ~3k, and coding sessions add
+~14k of verbatim CLAUDE.md injection. Actual reductions:
+- **`agent.disabled_toolsets`** — drop unused toolsets (delegation/cron/browser/
+  vision) → up to ~6k tok/turn off *every* turn. `delegate_task`+`cronjob` alone
+  are ~1.9k each. (NOTE: cron is needed by #1's Dreaming plan — keep if pursuing.)
+- **Trim/scope the coding-posture CLAUDE.md injection** (~14k in repo sessions).
+- **Memory caps** kept at 10000/3000 by choice (#2); lower when curation exists.
+- Measure via request dumps (`/opt/data/sessions/request_dump_*.json`, error-only)
+  — **not** Langfuse (its plugin is off).
+
+**Trigger:** when token budget bites; user must pick which toolsets are expendable.
+
+## 3c. Security hardening of the OCI deploy  *(NEW — parent §9.4)*
+
+The cutover left a risky posture: redundant `0.0.0.0:8642/8644` host publish
+(SWAG reaches hermes over `homelab-net` DNS, so the publish is unneeded LAN
+surface) **+** `terminal.backend: local` (unsandboxed) **+** `HERMES_YOLO_MODE=1`
++ `approvals.mode=off`. Fixes:
+- Drop the host port publish (bind loopback / omit `ports` in the OCI module) —
+  SWAG still works over homelab-net.
+- Remove the no-op `networking.firewall.allowedTCPPorts = []` line (docker
+  bypasses the nixos firewall).
+- Consider `terminal.backend: docker` (sandboxed) given YOLO.
+- Prune dead sops keys: `LITELLM_API_KEY`, `OPENROUTER_API_KEY`,
+  `HERMES_TELEGRAM_BOT_TOKEN`, `HERMES_DISCORD_BOT_TOKEN`.
+
+**Trigger:** soon — this is live exposure, not a future nicety.
 
 ## 4. Pin the image to a digest  *(hygiene)*
 
