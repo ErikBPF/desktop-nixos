@@ -8,7 +8,6 @@
 in {
   flake.modules.nixos.discovery-hermes-oci = {
     config,
-    lib,
     pkgs,
     ...
   }: let
@@ -68,7 +67,13 @@ in {
       hostDataDir = "/home/${username}/homelab/apps/hermes-agent";
       environmentFile = config.sops.secrets."hermes_agent/server_env".path;
 
+      # Container binds 0.0.0.0 (API_SERVER_HOST) so SWAG + litellm reach it
+      # over homelab-net by name — but do NOT publish to the host (publishPorts
+      # below). With local/unsandboxed terminal + YOLO, a host-published API is
+      # autonomous-command-exec surface on the LAN; SWAG (with its key/TLS) is
+      # the only ingress we want.
       openBindAddress = "0.0.0.0";
+      publishPorts = false;
       apiPort = 8642;
       webhookPort = 8644;
       openaiBaseUrl = litellmUrl;
@@ -205,7 +210,8 @@ in {
       };
     };
 
-    # SWAG fronts external access; no host firewall ports needed.
-    networking.firewall.allowedTCPPorts = lib.mkDefault [];
+    # No host firewall rules here: ports aren't published to the host
+    # (publishPorts = false), and docker would bypass the nixos firewall anyway.
+    # SWAG over homelab-net is the only ingress.
   };
 }
