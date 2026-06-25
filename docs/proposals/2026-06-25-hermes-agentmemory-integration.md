@@ -143,21 +143,37 @@ agentmemory MCP. **Feasibility verified:** cron agents now receive MCP tools
   syntheses. agentmemory then graph-extracts + Obsidian-exports the result.
 - **Bound cost:** read deltas since last run, not the whole store.
 
-**Trade-offs / open choice:**
-- **Full move** (disable agentmemory consolidation; hermes owns it) — one brain,
-  judgment-driven; but replaces a tested 4-tier engine, and the cron is runtime
-  state (declarative gap: seed-on-boot or accept).
-- **Hybrid (recommended)** — keep agentmemory's cheap mechanical consolidation
-  (qwen) AND add a hermes periodic *review/crystallize* pass on top (judgment
-  where it matters, no engine replacement). Lower risk.
-- **Model:** `qwen-chat` (cheap, parity with current) vs `glm-5` (judgment, bills
-  the brain budget — only worth it if curation quality clearly improves).
+**DECISION (Erik 2026-06-25): Full move to hermes, model = `glm-5`.**
+
+Refined so it does NOT break the graph/export (graph extraction runs *during*
+consolidation — killing consolidation would kill the graph):
+- agentmemory: `CONSOLIDATION_ENABLED=false` (no *automatic* trigger),
+  **keep** `GRAPH_EXTRACTION_ENABLED=true` + `OBSIDIAN_AUTO_EXPORT=true`.
+- hermes **owns the timing + judgment**, agentmemory still does the mechanical
+  compress+graph **when hermes triggers it**: the nightly cron recalls recent
+  observations → curates (`memory_crystallize` keepers, `memory_forget` noise,
+  `memory_save` syntheses) → calls **`memory_consolidate`** (MCP) to run the
+  4-tier compress + graph extraction on demand → agentmemory exports.
+- Model `glm-5` (brain judgment). **Cost guard:** once/day, read **deltas since
+  last run only**, cap `max_turns`; watch the budget — drop to `qwen-chat` if the
+  nightly bill bites.
+- Cron is runtime state → **seed-on-boot** (bootstrap creates the job if absent)
+  to stay declarative, or accept as restic-backed state.
+
+**Build-time verifies (Full-move-specific):**
+- Confirm `memory_consolidate` (MCP) actually triggers compress **+ graph** when
+  `CONSOLIDATION_ENABLED=false` (else graph/export degrade — fall back to Hybrid).
+- Confirm the Obsidian export reflects hermes-triggered consolidation output.
 
 ## Decisions (resolved 2026-06-25)
 1. **MCP delivery:** `npx -y @agentmemory/mcp` (egress on first run, cached).
 2. **Memory:** run BOTH as a trial (A/B); disable built-in later if agentmemory wins.
 3. **Git wiki:** integrate `git@github.com:ErikBPF/vault.git` — discovery-side
-   clone, agentmemory exports to a scoped subdir, commit/push timer.
+   clone, agentmemory exports to a scoped subdir, commit/push timer. (Discovery
+   push access verified — authenticates as ErikBPF via `github_erikbpf`.)
+4. **Consolidation:** FULL move to hermes, model `glm-5` — disable agentmemory
+   auto-consolidation; hermes nightly cron curates + triggers `memory_consolidate`
+   (keeps graph/export). See §4.
 
 ## Still open (resolve during build)
 - **Two-writer strategy** for vault.git: subdir-scoped pull-rebase push from
