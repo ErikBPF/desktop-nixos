@@ -5,7 +5,7 @@ ip_discovery := "192.168.10.210"
 ip_orion := "192.168.10.220"
 ip_pathfinder := "192.168.10.125"
 ip_kepler := "192.168.10.230"
-ip_archinaut := "192.168.10.225"  # wired (eth0), DHCP-reserved; wifi .226 (Phase-9). Roaming/admin → deploy via tailscale
+ip_archinaut := "192.168.10.225"  # wifi (wlan0), DHCP-reserved on the wlan0 MAC; wired retired. Roaming/admin → deploy via tailscale
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"

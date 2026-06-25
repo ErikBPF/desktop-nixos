@@ -13,8 +13,9 @@ in {
   # holds SSH, giving a stable foothold to converge from (nixos-rebuild
   # switch / nixos-anywhere --target-host) when the full image wedges.
   #
-  # Same MAC as the full host, so it lands on the same DHCP leases
-  # (.187 wired / .225 wifi). sshd on 2222 (see modules/networking/openssh.nix).
+  # Same MACs as the full host, so it lands on the same DHCP lease:
+  # .225 on the wlan0 MAC (wired retired). sshd on 2222 (see
+  # modules/networking/openssh.nix).
   configurations.nixos.archinaut-base.module = {modulesPath, ...}: {
     imports = [
       # Base SD-image builder only (NOT sd-image-aarch64.nix, which hardcodes

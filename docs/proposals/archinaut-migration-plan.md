@@ -177,13 +177,20 @@ shared-repo-safe NixOS service (in `klipper-host.nix`):
 Verified end-to-end: a real config change pushed as `auto: klipper config
 backup`, touching only `printer_data/config/`, `orcaslicer/` intact.
 
-## Step 9 — WiFi migration (later)
+## Step 9 — WiFi migration (DONE 2026-06-25)
 
-1. Add SSID/PSK to sops (`secrets/sops/secrets.yaml`).
-2. In `modules/hardware/archinaut-hardware.nix`: enable `wpa_supplicant`/
-   networkmanager with the sops PSK; keep wired as fallback.
-3. Router: reserve `192.168.10.225` on the WiFi MAC.
-4. `just switch-archinaut`, then unplug ethernet and confirm reachability.
+Done via NetworkManager (the wpa_supplicant `ext:` secret backend never
+resolved the PSK and nixpkgs dropped the `@var@` escape hatch):
+
+1. PSK already in sops as `wifi_secrets` (`psk_quewifi=<64-hex>`).
+2. `modules/hardware/archinaut-hardware.nix`: `networking.networkmanager`
+   with `ensureProfiles.profiles.quewifi` (SSID "Que Wifi?"), PSK injected via
+   `environmentFiles` → `$psk_quewifi` (never enters the store). NM auto-connects
+   wired too, so it served as the fallback during validation.
+3. UDM reservation `.225` pinned to the wlan0 MAC `b8:27:eb:15:7e:48`
+   (homelab-iac reservations unit). Validated first on a temporary `.226`, then
+   the wired link was retired.
+4. `just switch-archinaut`, validated, then ethernet unplugged.
 
 ## Known gotchas
 
@@ -203,7 +210,7 @@ backup`, touching only `printer_data/config/`, `orcaslicer/` intact.
 | | |
 |---|---|
 | Host attr | `archinaut` (`.#archinaut`) |
-| Pi IP / SSH | `192.168.10.225` (wired/eth0, DHCP-reserved) : 2222 — wifi `.226` is Phase-9. Roaming/admin: reach via tailscale |
+| Pi IP / SSH | `192.168.10.225` (wifi/wlan0, DHCP-reserved on the wlan0 MAC; wired retired) : 2222. Roaming/admin: reach via tailscale |
 | Build host | orion `192.168.10.220` (aarch64 binfmt) |
 | Config dir (mutable) | `/var/lib/klipper` |
 | Config source-of-truth | `klipper-biqu` repo (`references/repos/klipper-biqu`) |
