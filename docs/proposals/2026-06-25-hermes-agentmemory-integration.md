@@ -1,6 +1,12 @@
 # Hermes memory backbone via agentmemory (git wiki) — PLAN
 
-**Status:** Plan — not deployed. Supersedes deferred-plan §1 (wiki-curator +
+> ⏸ **DEFERRED 2026-06-26.** Pivoted to a native hermes LLM wiki first (no
+> agentmemory) — see `2026-06-26-hermes-native-llm-wiki.md`. This agentmemory
+> integration is parked for the later "unified approach"; the research/findings
+> here remain valid. The party grill's multi-writer risk is why we start native +
+> branch-isolated.
+
+**Status:** Deferred (was: Plan — not deployed). Supersedes deferred-plan §1 (wiki-curator +
 Dreaming): we **integrate the already-running agentmemory** instead of building
 a curator + nightly cron from scratch.
 **Date:** 2026-06-25
