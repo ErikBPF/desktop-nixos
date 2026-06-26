@@ -3,6 +3,13 @@ _: {
     networking = {
       hostName = "discovery";
 
+      # AdGuard (local container on .210) is the primary resolver. fallbackDns
+      # (services.resolved below) keeps DNS alive at boot / whenever AdGuard is
+      # briefly down, so the container DNS race that took hermes down can't
+      # recur. Tailscale keeps accept-dns ON → *.taild71d3.ts.net still routes
+      # to MagicDNS (split-DNS preserved).
+      nameservers = ["192.168.10.210"];
+
       # Headless server — use systemd-networkd style config, not NetworkManager.
       # NetworkManager is disabled to avoid fighting with the declarative bridge.
       networkmanager.enable = false;
@@ -31,6 +38,10 @@ _: {
         ];
       };
     };
+
+    # Resolution survives AdGuard being down (boot window / outage): resolved
+    # falls back to the UDM + public DNS rather than hard-failing.
+    services.resolved.settings.Resolve.FallbackDNS = "192.168.10.1 1.1.1.1 9.9.9.9";
 
     # Tailscale subnet router (override client default from profile-base).
     # Advertises /32s for the LAN-only hosts tailnet devices need to reach (the
