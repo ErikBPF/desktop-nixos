@@ -92,6 +92,14 @@ in {
         # store mount into the plugin search dir (~/.hermes/plugins = /opt/data
         # /plugins); enabled via settings.plugins.enabled below.
         "${./hermes-plugins/rtk-rewrite}:/opt/data/plugins/rtk-rewrite:ro"
+        # Native LLM-wiki base: a clone of vault.git @ `hermes` branch (Karpathy
+        # AGENTS.md schema). hermes curates wiki/ here and pushes via a
+        # vault.git-SCOPED deploy key (read-write deploy key, cannot touch Erik's
+        # other repos). The clone + key are owned by uid 10000 on the host.
+        # git ssh is scoped to this repo via its .git/config core.sshCommand
+        # (set in-container, points at /opt/wiki-key). Push → vault.git `hermes`.
+        "/home/${username}/hermes-wiki:/opt/wiki:rw"
+        "/home/${username}/hermes-wiki-deploy/id_ed25519:/opt/wiki-key:ro"
       ];
 
       extraEnvironment = {
