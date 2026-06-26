@@ -3,7 +3,11 @@
   config,
   ...
 }: {
-  flake.modules.home.hyprlock = {config, ...}: let
+  flake.modules.home.hyprlock = {
+    config,
+    pkgs,
+    ...
+  }: let
     inherit (config.colorScheme) palette;
     convert = inputs.nix-colors.lib.conversions.hexToRGBString;
     wallpaper = "/home/${config.home.username}/Pictures/Wallpapers/wallpaper.png";
@@ -79,6 +83,25 @@
           valign = "center";
         };
       };
+    };
+
+    # hyprlock (screencopy_mode = 1) leaks ~14M .hyprlock_sc_* capture
+    # buffers into $XDG_RUNTIME_DIR when killed; sweep stale ones every 15min.
+    systemd.user.services.hyprlock-orphan-cleanup = {
+      Unit.Description = "Remove stale hyprlock screencopy buffers";
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.findutils}/bin/find %t -maxdepth 1 -name '.hyprlock_sc_*' -type f -mmin +15 -delete";
+      };
+    };
+
+    systemd.user.timers.hyprlock-orphan-cleanup = {
+      Unit.Description = "Periodically clean orphaned hyprlock screencopy buffers";
+      Timer = {
+        OnBootSec = "15min";
+        OnUnitActiveSec = "15min";
+      };
+      Install.WantedBy = ["timers.target"];
     };
   };
 }
