@@ -237,14 +237,17 @@ in {
             # config-defined webcam is read-only in the Mainsail UI.
             "webcam C270" = {
               location = "printer";
-              # Continuous MJPEG. This used to wedge ("uvcvideo: Failed to
-              # resubmit video URB (-1)", capture → 0fps within minutes) because
-              # the C270 shares the Pi3's single dwc2 USB-2.0 bus with the onboard
-              # lan78xx NIC, which starved the camera's isochronous bandwidth even
-              # idle. Fixed by going WiFi-only and blacklisting lan78xx (see
-              # hosts/archinaut/default.nix) — with the NIC off the bus the stream
-              # holds a steady ~24fps, so continuous (not adaptive) is fine now.
-              service = "mjpegstreamer";
+              # Adaptive: Mainsail renders this by polling /snapshot (plain
+              # image/jpeg), NOT ustreamer's multipart /stream. A browser <img>
+              # on /stream fails with "Error while connecting" across every
+              # browser (curl pulls /stream fine, so it's a browser-side render
+              # quirk of the multipart response, not the server). /snapshot works,
+              # and adaptive now looks smooth — the old "snapshot limp" was the
+              # capture wedge, which is fixed (lan78xx blacklisted, steady 24fps;
+              # see hosts/archinaut/default.nix). For a true continuous stream,
+              # proxy ustreamer through the mainsail nginx at a relative path
+              # (deferred — see archinaut-migration-plan.md).
+              service = "mjpegstreamer-adaptive";
               target_fps = 15;
               stream_url = "http://192.168.10.225:8080/stream";
               snapshot_url = "http://192.168.10.225:8080/snapshot";
