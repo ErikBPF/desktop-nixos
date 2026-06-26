@@ -87,7 +87,7 @@
   },
   "python": {
     "defaultInterpreterPath": "/bin/python",
-    "languageServer": "Pylance",
+    "languageServer": "None",
     "linting": {
       "enabled": true,
       "pylintEnabled": true,
@@ -180,7 +180,7 @@
     }
   },
   "nix": {
-    "enableLanguageServer": true,
+    "enableLanguageServer": false,
     "serverPath": "nixd",
     "formatterPath": "nixpkgs-fmt",
     "serverSettings": {

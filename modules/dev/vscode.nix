@@ -13,17 +13,12 @@ _: {
           charliermarsh.ruff
           eamodio.gitlens
           enkia.tokyo-night
-          golang.go
           janisdd.vscode-edit-csv
           jnoortheen.nix-ide
           jock.svg
           kisstkondoros.vscode-gutter-preview
           ms-python.black-formatter
-          ms-python.debugpy
           ms-python.isort
-          ms-python.python
-          ms-python.vscode-pylance
-          ms-python.vscode-python-envs
           ms-vscode.makefile-tools
           ms-vscode.remote-explorer
           ms-vscode-remote.remote-ssh
@@ -31,7 +26,6 @@ _: {
           naumovs.color-highlight
           peterj.proto
           pkief.material-icon-theme
-          redhat.java
           redhat.vscode-yaml
           streetsidesoftware.code-spell-checker
           streetsidesoftware.code-spell-checker-portuguese-brazilian
