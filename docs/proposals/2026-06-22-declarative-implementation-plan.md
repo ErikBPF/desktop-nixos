@@ -1,9 +1,10 @@
 # Implementation plan — declarative cluster/registry setup
 
 **Date:** 2026-06-22
+**Status:** In progress — partially applied (mixed `[x]`/`[ ]`/`[~]` below); open decisions marked `TODO(erik)`.
 **Type:** Spec / work-items (executable breakdown). Rationale lives in the RFCs:
-- [`2026-06-22-harbor-declarative.md`](2026-06-22-harbor-declarative.md) — Harbor → static stack
-- [`harbor-discovery-registry.md`](../harbor-discovery-registry.md) — the deployed (imperative) baseline
+- [`2026-06-22-harbor-declarative.md`](../implemented/2026-06-22-harbor-declarative.md) — Harbor → static stack
+- [`harbor-discovery-registry.md`](../reference/harbor-discovery-registry.md) — the deployed (imperative) baseline
 - [`2026-06-22-harbor-pullthrough-mirror.md`](2026-06-22-harbor-pullthrough-mirror.md) — mirror design
 
 **Scope:** move every imperative/stateful edge of the Harbor + k3s-mirror setup
@@ -33,7 +34,7 @@ The remaining imperative edges are the targets below.
 
 **Outcome:** the static-stack path (A1–A4 below) was attempted and abandoned —
 capturing `prepare`'s output to git flips config ownership and breaks
-`harbor-log`/registry (see [`2026-06-22-harbor-declarative.md`](2026-06-22-harbor-declarative.md)
+`harbor-log`/registry (see [`2026-06-22-harbor-declarative.md`](../implemented/2026-06-22-harbor-declarative.md)
 §Outcome). Implemented instead as a **NixOS oneshot**
 (`modules/hosts/discovery/harbor.nix`): pinned installer (`fetchurl`),
 `harbor.yml` rendered from `.env`, `prepare` + `compose up` run by a root

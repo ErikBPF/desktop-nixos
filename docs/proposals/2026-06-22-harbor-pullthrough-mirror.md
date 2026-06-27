@@ -4,7 +4,7 @@
 **Status:** Proposal (scoped, not applied) — `TODO(erik)` decisions marked
 **Scope:** point k3s nodes at Harbor as a Docker Hub pull-through cache, to cut
 external pulls + dodge Docker Hub rate limits (prod-mimic). Pairs with
-[`kepler-k3s-platform-status.md`](../kepler-k3s-platform-status.md).
+[`kepler-k3s-platform-status.md`](../reference/kepler-k3s-platform-status.md).
 
 ## TL;DR
 

@@ -82,15 +82,25 @@ modules).
 
 Before claiming done: `just lint && just fmt-check`, then `just dry <host>`
 for touched hosts (or `nix build .#nixosConfigurations.<host>.config.system.build.toplevel --dry-run`
-without sudo). `just check` runs the full pre-flight. CI evaluates all five
-hosts on push/PR. After a remote `switch`, verify services per the rules
-below — a green rebuild is not proof the service came up.
+without sudo). For doc edits, `just docs-check` verifies every in-repo markdown
+link resolves. `just check` runs the full pre-flight (docs-check + lint +
+fmt-check + dry-all). CI evaluates all five hosts on push/PR. After a remote
+`switch`, verify services per the rules below — a green rebuild is not proof
+the service came up.
 
 ## Docs map
 
 `docs/README.md` is the index. Operational truth lives in `justfile`
-recipes; `docs/` explains why (kepler AI serving, kepler ZFS setup,
-proposals/RFCs). If doc and recipe disagree, the recipe wins.
+recipes; `docs/` explains why. If doc and recipe disagree, the recipe wins.
+Layout is typed:
+
+- `docs/guides/` — how-to walkthroughs (`install.md`, `obsidian.md`).
+- `docs/reference/` — operational "why" + as-built (kepler AI serving, kepler
+  ZFS, k3s platform status, harbor registry).
+- `docs/implemented/` — shipped designs, kept as the record.
+- `docs/proposals/` — active RFCs only (`YYYY-MM-DD-<slug>.md`); finished ones
+  graduate to `implemented/` or are deleted. Every doc carries a `**Status:**`
+  line; the README index mirrors it. Run `just docs-check` after doc edits.
 
 ## Commit policy
 
@@ -201,7 +211,7 @@ references/repos/servarr`); never hard-code the absolute path.
   `desktop-nixos`'s `flake.lock` (`nix flake lock --update-input
   hermes-flake`) and deploy with `just switch-kepler`.
 - TTS / LiteLLM routing nuances are recorded in recent commits and in
-  `docs/kepler-ai-serving.md` — follow those before changing wiring.
+  `docs/reference/kepler-ai-serving.md` — follow those before changing wiring.
 
 ### `code/home-assistant-config` — HA config on the HA host
 
@@ -214,7 +224,7 @@ references/repos/servarr`); never hard-code the absolute path.
 - Voice-assistant integration touches `kepler` (LiteLLM / piper-openai /
   whisper). When changing voice routing on the HA side, cross-check ports
   and service names against `desktop-nixos/machines/kepler/` and
-  `docs/kepler-ai-serving.md`.
+  `docs/reference/kepler-ai-serving.md`.
 - See `memory/ha_voice_assistant.md` for locked decisions and the active
   Phase-1 branch.
 
@@ -241,9 +251,9 @@ references/repos/servarr`); never hard-code the absolute path.
   `services.moonraker.settings`). The Pi's `/var/lib/klipper` is a mutable
   working copy round-tripped via the `klipper-config-backup` service so
   `SAVE_CONFIG`/Mainsail edits survive a reflash. See
-  `docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md` +
-  `docs/proposals/archinaut-migration-plan.md`; calibration docs in the
-  `klipper-biqu` sister repo (`references/`). It is in the coupling map below.
+  `docs/implemented/2026-06-20-archinaut-kernel-direct-boot.md`; calibration
+  docs in the `klipper-biqu` sister repo (`references/`). It is in the coupling
+  map below.
 - This repo is **config/state only** — no flake input, no NixOS module
   today. Touch it like `home-assistant-config`: it owns the app config, this
   flake owns the host OS.

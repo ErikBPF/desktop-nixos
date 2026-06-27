@@ -28,7 +28,7 @@ containers. The static plan below is retained for the record only.
 **Original status:** Proposal — judgment calls marked `TODO(erik)` (RFC content is
 human-owned; this is structure + analysis only)
 **Supersedes the imperative bits of:**
-[`harbor-discovery-registry.md`](../harbor-discovery-registry.md)
+[`harbor-discovery-registry.md`](../reference/harbor-discovery-registry.md)
 
 ## Goal
 

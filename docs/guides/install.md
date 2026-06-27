@@ -9,6 +9,13 @@
 | laptop     | Laptop  | Intel i7-1165G7 + Iris Xe, NVMe LUKS+btrfs   | DHCP           |
 | orion      | HTPC    | AMD Ryzen + RX 9070XT, Jovian Steam UI        | 192.168.10.220 |
 | kepler     | NAS/AI  | AMD Ryzen 5 3600 + RTX 3070, ZFS pools        | 192.168.10.230 |
+| archinaut  | Printer | RPi 3 Model B+ (BCM2837), BIQU B1 Klipper, WiFi | 192.168.10.225 |
+
+`archinaut` is **services-only** (kernel-direct boot, no u-boot): NixOS owns the
+OS + MCU-firmware build + package versions; all printer config lives in the
+`klipper-biqu` sister repo, never in Nix. It is not provisioned by the
+disko/nixos-anywhere flow below — see
+[`../implemented/2026-06-20-archinaut-kernel-direct-boot.md`](../implemented/2026-06-20-archinaut-kernel-direct-boot.md).
 
 ## Prerequisites
 
@@ -99,12 +106,19 @@ just deploy pathfinder 192.168.10.125 2222
 
 ### Fleet auto-update
 
-Orion builds and caches all host closures at 03:00. All hosts (including orion) update at 05:00 once the cache is warm.
+Orion builds and caches all host closures at 03:00. All hosts (including orion)
+update at 05:00 once the cache is warm. Every fleet host — pathfinder,
+discovery, laptop, orion, kepler, **archinaut** — has `system.autoUpgrade`
+enabled.
 
 - orion `nix-cache-builder`: 03:00
 - all hosts: 05:00
 
 No manual deploys needed after merging to main.
+
+> **kepler generation cap:** kepler's ESP is 512 MB and holds ~2 generations
+> (`configurationLimit = 2` in `modules/hosts/kepler/default.nix`). More
+> overflows `/boot` and breaks activation. Don't raise it without a bigger ESP.
 
 ## Orion (HTPC — Jovian Steam UI)
 
@@ -124,7 +138,7 @@ just switch-orion   # deploy changes to running system
 
 ## Kepler (NAS / AI workstation)
 
-Kepler is provisioned via nixos-anywhere. ZFS pools are **not** created by disko — they are created manually after first boot (see `docs/kepler-zfs-setup.md`).
+Kepler is provisioned via nixos-anywhere. ZFS pools are **not** created by disko — they are created manually after first boot (see [`../reference/kepler-zfs-setup.md`](../reference/kepler-zfs-setup.md)).
 
 ```bash
 just deploy-kepler   # fresh install from NixOS ISO (boots to 192.168.10.230)
@@ -142,7 +156,7 @@ just switch-kepler   # deploy changes to running system
 ```bash
 # After nixos-anywhere completes and host has booted:
 ssh -p 2222 erik@192.168.10.230
-# Follow docs/kepler-zfs-setup.md
+# Follow ../reference/kepler-zfs-setup.md
 ```
 
 **Post-install — Samba password:**
@@ -163,23 +177,57 @@ ssh -p 2222 erik@192.168.10.230 'syncthing show -deviceid'
 
 ## Just Commands Reference
 
+`just` (no args) lists every recipe — it is the authority; the list below is
+just the common ones and will drift, so trust `just` when they disagree.
+
 ```
-just                        # List all commands
-just build [target]         # Build and switch locally
-just boot [target]          # Build and set for next boot
-just update                 # Update flake inputs
-just lint                   # Run statix linter
-just fmt                    # Format with alejandra
-just fmt-check              # Check formatting
-just check                  # Lint + fmt-check + dry-build all hosts
-just deploy <t> <ip> [port] # Remote deploy via SSH
-just nixos-anywhere ...     # Fresh remote install
-just bootstrap <target>     # Fresh local install from ISO
-just verify <t> <ip> [port] # Verify host health
-just gc [days]              # Garbage collect nix store
-just sops                   # Edit sops secrets
-just age-private            # Generate age key from SSH key
-just age-public             # Show age public key
-just rsync-sops <ip> [port] # Copy sops key to remote host
-just cache-keygen           # Generate nix cache signing key
+# Local
+just build [target]          # Build and switch locally
+just boot [target]           # Build and set for next boot
+just check                   # docs-check + lint + fmt-check + dry-build all hosts
+just docs-check              # Verify in-repo doc links resolve
+just dry <target>            # Dry-build one host
+just gc [days]               # Garbage collect nix store
+
+# Remote deploy (per host; laptop roams — use `just deploy laptop <ts-ip> 2222`)
+just deploy <t> <ip> [port]  # Generic remote deploy via SSH
+just switch-pathfinder       # Deploy changes to a running host
+just switch-discovery / switch-orion / switch-kepler / switch-archinaut
+just switch-all              # Deploy to the whole fleet
+just verify <t> <ip> [port]  # Verify host health
+
+# Fresh install
+just nixos-anywhere ...      # Fresh remote install
+just bootstrap <target>      # Fresh local install from ISO
+just deploy-orion / deploy-kepler / deploy-discovery   # per-host fresh install
+just build-archinaut-sd / seed-archinaut               # RPi printer host bring-up
+
+# Sister repos
+just sync-servarr <host>     # rsync servarr stacks to a host
+just sync-stack <host> <s>   # sync one stack
+just sync-hermes-skills      # push hermes skills
+
+# Secrets / cache
+just sops                    # Edit sops secrets
+just age-private / age-public        # age key from SSH key / show public key
+just rsync-sops <ip> [port]  # Copy sops key to a remote host
+just cache-keygen            # Generate nix cache signing key
 ```
+
+## Working in this repo
+
+The authoritative rules — never-commit patterns, commit hygiene, remote-deploy
+policy — live in [`../../CLAUDE.md`](../../CLAUDE.md). Read it before committing
+or deploying. A few install-time specifics:
+
+- **Secrets are sops-encrypted only.** No plaintext credentials ever land in the
+  repo. Edit with `just sops`; push the age key to a host with `just rsync-sops`.
+  `secrets/*.yaml` must carry a `sops:` block before staging.
+- **New files must be `git add`ed before any `nix` command sees them** — flake
+  eval ignores untracked files (the error is a misleading "attribute missing").
+- **Local junk is gitignored and safe to delete** — it regenerates on demand:
+  `.direnv/`, `.ruff_cache/`, `result`/`result-*` symlinks, and agent runtime
+  state (`.ralph/`, `.bg-shell/`, `_bmad-output/`, `logs/`).
+- **`ampagent-*.deb` at the repo root is local-only and token-bearing** — the
+  source `just add-ampagent` imports into the nix store. Never commit it; don't
+  delete the only copy unless it is already in the store.

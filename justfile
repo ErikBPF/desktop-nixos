@@ -77,7 +77,34 @@ fmt:
 fmt-check:
     alejandra --check .
 
+# Verify every in-repo markdown link under docs/ (plus the root README/INSTALL)
+# resolves to a real file. Fails on any broken link — keeps the docs index honest.
+docs-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    broken=0
+    files=$(find docs -type f -name '*.md'; ls README.md 2>/dev/null || true)
+    for f in $files; do
+        dir=$(dirname "$f")
+        while IFS= read -r link; do
+            case "$link" in http://*|https://*|mailto:*|\#*|"") continue;; esac
+            target="${link%%#*}"
+            [ -z "$target" ] && continue
+            if [ ! -e "$dir/$target" ]; then
+                echo "BROKEN: $f -> $link"
+                broken=$((broken+1))
+            fi
+        done < <(grep -oE '\]\([^)]+\)' "$f" | sed -E 's/^\]\(//; s/\)$//')
+    done
+    if [ "$broken" -gt 0 ]; then
+        echo ":: docs-check FAILED — $broken broken link(s)"
+        exit 1
+    fi
+    echo ":: docs-check OK — all in-repo doc links resolve"
+
 check:
+    @echo ":: Checking docs..."
+    just docs-check
     @echo ":: Linting..."
     just lint
     @echo ":: Checking format..."

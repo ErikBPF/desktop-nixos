@@ -5,8 +5,8 @@
 As-built deltas: board is a Pi 3 **Model B+**, **kernel-direct boot** (no
 u-boot; see `2026-06-20-archinaut-kernel-direct-boot.md`), MCU `/dev/ttyS1`,
 config backup via the bespoke `klipper-config-backup` service + **SSH deploy
-key** (not the klipper-backup tool / PAT). Live state + next steps:
-`archinaut-migration-plan.md`.
+key** (not the klipper-backup tool / PAT). As-built boot details:
+`2026-06-20-archinaut-kernel-direct-boot.md`.
 **Owner:** erik
 **Target host:** `archinaut` — Raspberry Pi 3 **Model B+**, wired `192.168.10.225` (DHCP-reserved)
 **Related:** sister repo [`klipper-biqu`](../../references/repos/klipper-biqu) (printer config + as-built reference); fleet host pattern follows `discovery`.

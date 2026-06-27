@@ -7,7 +7,7 @@ _: {
   # because it has NO u-boot stage — the GPU firmware loads the kernel directly.
   # This module reproduces that: the GPU firmware reads config.txt and loads the
   # mainline kernel + initrd straight from the FAT firmware partition.
-  # See docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md.
+  # See docs/implemented/2026-06-20-archinaut-kernel-direct-boot.md.
   #
   # Hosts that import this MUST import the base installer/sd-card/sd-image.nix
   # (NOT sd-image-aarch64.nix, which hardcodes u-boot + extlinux).

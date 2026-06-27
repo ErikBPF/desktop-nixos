@@ -16,7 +16,7 @@ in {
       # supplies a GPU-firmware-direct bootloader (no u-boot). This is what lets
       # the Pi boot with the printer powered — the Klipper MCU on the GPIO UART
       # used to hang u-boot's serial console. See
-      # docs/proposals/2026-06-20-archinaut-kernel-direct-boot.md.
+      # docs/implemented/2026-06-20-archinaut-kernel-direct-boot.md.
       (modulesPath + "/installer/sd-card/sd-image.nix")
       m.nixos.archinaut-kernel-direct
       inputs.sops-nix.nixosModules.sops

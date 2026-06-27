@@ -7,7 +7,7 @@
 in {
   # Klipper print-host stack for the BIQU B1 (`archinaut`).
   #
-  # Principle (see docs/proposals/2026-06-16-printer-nixos-host.md): NixOS owns
+  # Principle (see docs/implemented/2026-06-16-printer-nixos-host.md): NixOS owns
   # packages, services and MCU-firmware *builds* only. ALL printer config lives
   # in the klipper-biqu repo and is rsync-seeded into a MUTABLE configDir, so
   # SAVE_CONFIG + Mainsail edits survive. The one exception is moonraker.conf,
@@ -246,7 +246,7 @@ in {
               # capture wedge, which is fixed (lan78xx blacklisted, steady 24fps;
               # see hosts/archinaut/default.nix). For a true continuous stream,
               # proxy ustreamer through the mainsail nginx at a relative path
-              # (deferred — see archinaut-migration-plan.md).
+              # (deferred).
               service = "mjpegstreamer-adaptive";
               target_fps = 15;
               stream_url = "http://192.168.10.225:8080/stream";

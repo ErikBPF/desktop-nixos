@@ -37,7 +37,7 @@ _: {
 
     # --- Disko: OS on Toshiba 256GB M.2 SATA (by-id, confirmed sdc on live ISO) ---
     # No PCIe NVMe — M.2 slot is SATA-only on this board.
-    # ZFS pools are NOT declared in disko — created imperatively (see docs/kepler-zfs-setup.md).
+    # ZFS pools are NOT declared in disko — created imperatively (see docs/reference/kepler-zfs-setup.md).
     disko.devices = {
       disk.os = {
         type = "disk";
