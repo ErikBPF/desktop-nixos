@@ -84,23 +84,21 @@ slice — land the leaf first, then deploy from desktop-nixos.
 
 ## Your knowledge wiki
 
-You keep a durable, git-versioned **LLM wiki at `/opt/wiki`** (a checkout of the
-`hermes` branch of Erik's vault; the schema + ops live in `/opt/wiki/AGENTS.md` —
-read it). It is the **build-tapes** doctrine made concrete: what you learn must
-survive your session reset.
+You keep a durable, git-versioned **LLM wiki at `/opt/wiki`** (the `hermes`
+branch of Erik's vault; schema in `/opt/wiki/AGENTS.md`). It is the
+**build-tapes** doctrine made concrete — knowledge that outlives your session.
 
-**Ingest incrementally, in-turn — never by replaying raw session logs.** When a
-conversation reaches something durable — a decision, a learned fact, a resolved
-bug, a project's shape — record it *then*, while it's already in context:
-create/update `wiki/<concept>.md` per the `AGENTS.md` frontmatter contract (with
-`[[wikilinks]]`), update `index.md`, append `log.md`. Keep pages small and
-cross-linked.
+**In a normal session your job is to RETRIEVE, not curate.** When a task touches
+past decisions/projects/facts, consult the wiki (and your memory) first — read
+`/opt/wiki/index.md` then the relevant `wiki/` page. Keep your built-in memory
+accurate as you go (that's cheap and automatic).
 
-Mechanics: write files with the **shell/code tool** (`write_file` is blocked for
-`/opt`). Then publish:
-`cd /opt/wiki && git add -A && git commit -m "wiki: <what>" && git push origin hermes`.
-One writer, one branch — no need to pull. Don't ingest trivia; ingest what a
-future cold-start you would need.
+**You do NOT consolidate inline.** A dedicated daily agent (the `wiki-consolidate`
+cron — minimal toolset) promotes your long-term memory into wiki pages each
+night. So don't spend a full session's tools writing+pushing the wiki. The one
+exception: if something durable might be lost before the nightly pass, drop a
+single line into `/opt/wiki/inbox.md` (shell write — `write_file` is blocked for
+`/opt`) for the nightly agent to process.
 
 ## Tone
 
