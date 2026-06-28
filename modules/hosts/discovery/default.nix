@@ -18,6 +18,7 @@ in {
       m.nixos.profile-server
       m.nixos.discovery-hardware
       m.nixos.discovery-networking
+      m.nixos.discovery-diagnostics
       m.nixos.discovery-syncthing
       m.nixos.discovery-haos
       m.nixos.first-boot
@@ -36,6 +37,10 @@ in {
       # stopped and the sops env gains bare TELEGRAM_BOT_TOKEN/DISCORD_BOT_TOKEN
       # — see docs/proposals/2026-06-24-hermes-memory-skills.md §8 runbook.
       m.nixos.discovery-hermes-oci
+      # Declarative bootstrap for the hermes native LLM wiki (sops deploy key +
+      # vault.git@hermes clone oneshot + daily wiki-consolidate cron seed) so the
+      # wiki survives a reprovision. See docs/hermes-llm-wiki.md.
+      m.nixos.discovery-hermes-wiki
       m.nixos.power-desktop
       m.nixos.btrfs-snapshots
       m.nixos.homelab-iac-drift
