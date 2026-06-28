@@ -12,6 +12,7 @@ bmalph
 .ralph/
 .claude/
 .direnv/
+.devenv/
 .bg-shell/
 
 # ── GSD baseline (auto-generated) ──
