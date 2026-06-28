@@ -105,20 +105,31 @@ leaves the host up). kepler + orion are fine. Deploy of #5/#6 waits on discovery
 returning. Recovery is physical (power/console; if a wedged boot, pick a prior
 GRUB generation).
 
-## Consolidation cron (runtime state)
-`wiki-consolidate` job in `/opt/data/cron/jobs.json` (id `bbdd3b58f845`): glm-5,
-`enabled_toolsets=[terminal]`, `0 4 * * *`, cwd `/opt/wiki`. Created via
-`cron.jobs.create_job`. **First run validated** (`a15f5be`): promoted memory →
-2 wiki pages, self-healed 2 dangling wikilinks, committed + pushed.
-- **Declarative gap:** the job is runtime state (restic-backed `/opt/data`), not
-  in nix. If state is wiped it must be recreated (seed-on-boot is the future fix).
-- Token cost: per-call base ~3–4k (vs 17k base sessions) × a few steps — far
-  below the 134k in-session ingest, and it never reads raw sessions.
+## Consolidation cron + declarative bootstrap (2026-06-28)
+The whole wiki now survives a reprovision — no manual host state. Module
+`modules/hosts/discovery/hermes-wiki.nix` (`discovery-hermes-wiki`):
+- **sops** `hermes_wiki/deploy_key` (scoped vault.git deploy key) → host user
+  `hermes` (uid 10000), materialized at `/run/secrets/hermes_wiki/deploy_key`.
+- **`hermes-wiki-clone.service`** (oneshot, before `docker-hermes-agent`): clone
+  `vault.git@hermes` → `/var/lib/hermes-wiki` if absent (else fetch+reset), set
+  `core.sshCommand`/identity. (Clone moved off `/home/erik`.)
+- **`hermes-wiki-cron-seed.service`** (oneshot, after the agent): idempotently
+  (re)create the `wiki-consolidate` cron in-container from a canonical spec, so
+  prompt/schedule/toolset edits propagate on every deploy.
+- OCI mounts repointed → `/var/lib/hermes-wiki:/opt/wiki:rw` + the sops key.
+
+`wiki-consolidate`: glm-5, `enabled_toolsets=[terminal]`, `0 4 * * *`, cwd
+`/opt/wiki`. Sources = `/opt/data/memories/{MEMORY,USER}.md` + `/opt/wiki/inbox.md`
+(processed+cleared) — never raw sessions. Posts an ntfy summary; ~one tight pass.
+Per-call base ~3–4k (vs 17k base sessions). **Validated** (`a15f5be`: 2 pages,
+wikilink self-heal, pushed).
 
 ## Dropped / deferred
-- agentmemory MCP integration → unified approach later.
+- agentmemory: **stopped** 2026-06-28 (servarr `memory.yml` retired + de-listed;
+  container down). The MCP "unified approach" is deferred — re-enable later.
+  NB: the workstation's agentmemory MCP now errors until re-enabled.
 - Batch "Dreaming" raw-session-replay → never; consolidation reads distilled
-  built-in memory, not session logs.
-- In-turn inline ingest in base sessions → dropped; base sessions retrieve only,
-  the daily cron consolidates.
-- Declarative cron seeding; merge `hermes` → `main` once trusted.
+  built-in memory + inbox, not session logs.
+- In-turn inline ingest in base sessions → dropped; base sessions retrieve only.
+- **Still open:** hermes-skills has no git remote (rsync-only backup); merge
+  `hermes` → `main` once trusted; confirm the first *unattended* 04:00 cron fire.
