@@ -29,19 +29,30 @@ batch that re-reads raw session logs.
   step. Lesson: don't feed raw sessions. Ingest from the live conversation
   instead (marginal cost). Any backfill of old history is a one-off, pre-digested.
 
-## Architecture
+## Architecture (split roles — 2026-06-28)
+Two distinct agent roles so base sessions stay fully capable and consolidation stays cheap:
 ```
-hermes (OCI container, discovery)
-  └─ during a conversation, on durable knowledge:
-       write wiki/<concept>.md per /opt/wiki/AGENTS.md  (shell/code tool)
-       git commit && git push origin hermes
-            │  (scoped deploy key, single writer)
-   /opt/wiki  ──RW bind mount──  /home/erik/hermes-wiki  (clone @ hermes branch)
-            │
+BASE sessions (ALL 31 tools)         DAILY agent: `wiki-consolidate` cron
+  · keep built-in memory accurate      · minimal toolset = [terminal] only (~1.9k vs 15.5k tools)
+  · RETRIEVE: read /opt/wiki to recall · glm-5, schedule 0 4 * * *, cwd /opt/wiki
+  · (optional) drop 1 line to inbox.md · source = /opt/data/memories/{MEMORY,USER}.md (distilled,
+  · do NOT consolidate inline            small) — NEVER raw session logs
+                                        · promote → wiki/ pages + index + log, lint, commit+push
+            \                                /
+             \                              /
+      /opt/wiki  ──RW bind mount──  /home/erik/hermes-wiki  (clone @ hermes branch)
+            │  scoped vault.git deploy key (single writer)
    git@github.com:ErikBPF/vault.git  branch `hermes`
             │  later: review, then merge hermes → main  ("unified approach")
    Erik's vault on `main` (Obsidian + obsidian-sync) — untouched
 ```
+
+**Why split:** an in-session ingest cost ~134k tokens — because every agent-loop
+step re-sends the full ~17k base (15.5k of it the tools array), and ingest took
+~8 steps. Moving consolidation to a dedicated cron with `enabled_toolsets=
+[terminal]` drops the per-call base by ~13.5k; base sessions keep all tools for
+the actual work and only *retrieve*. (Measured: 1 model-call floor = 17.4k full
+vs ~3–4k terminal-only.)
 
 ## Components (status)
 
@@ -94,7 +105,20 @@ leaves the host up). kepler + orion are fine. Deploy of #5/#6 waits on discovery
 returning. Recovery is physical (power/console; if a wedged boot, pick a prior
 GRUB generation).
 
+## Consolidation cron (runtime state)
+`wiki-consolidate` job in `/opt/data/cron/jobs.json` (id `bbdd3b58f845`): glm-5,
+`enabled_toolsets=[terminal]`, `0 4 * * *`, cwd `/opt/wiki`. Created via
+`cron.jobs.create_job`. **First run validated** (`a15f5be`): promoted memory →
+2 wiki pages, self-healed 2 dangling wikilinks, committed + pushed.
+- **Declarative gap:** the job is runtime state (restic-backed `/opt/data`), not
+  in nix. If state is wiped it must be recreated (seed-on-boot is the future fix).
+- Token cost: per-call base ~3–4k (vs 17k base sessions) × a few steps — far
+  below the 134k in-session ingest, and it never reads raw sessions.
+
 ## Dropped / deferred
 - agentmemory MCP integration → unified approach later.
-- Batch "Dreaming" session-replay → replaced by incremental in-turn ingest.
-- One-off backfill of existing history → optional, pre-digested, run once.
+- Batch "Dreaming" raw-session-replay → never; consolidation reads distilled
+  built-in memory, not session logs.
+- In-turn inline ingest in base sessions → dropped; base sessions retrieve only,
+  the daily cron consolidates.
+- Declarative cron seeding; merge `hermes` → `main` once trusted.
