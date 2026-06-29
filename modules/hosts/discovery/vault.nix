@@ -220,7 +220,7 @@
         ExecStart = pkgs.writeShellScript "vault-backup-onfail" ''
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
             --data "$(${jq} -nc --arg c "🔴 **OpenBao snapshot backup FAILED** on discovery — check: journalctl -u restic-backups-vault" '{content:$c}')" \
-            "$(cat /run/secrets/discord_webhook_incidents)" >/dev/null || true
+            "$(cat /run/vault-agent/discord_webhook_incidents)" >/dev/null || true
         '';
       };
     };

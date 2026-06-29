@@ -1,7 +1,6 @@
 {
   config,
   inputs,
-  self,
   ...
 }: let
   m = config.flake.modules;
@@ -51,15 +50,10 @@ in {
     ];
 
     # Discord webhook for incident alerts (cert monitor, restic failure, iac
-    # drift). Read at runtime from sops so the URL never enters the Nix store.
-    # mode 0444 because the three consumers run as different users (root,
-    # ${config.username}, and a DynamicUser) — a webhook URL is low-stakes on a
-    # single-admin host. Alerts go to Discord, not ntfy: ntfy here rides SWAG,
-    # so a "SWAG down" alert couldn't escape the box; Discord is off-host.
-    sops.secrets."discord_webhook_incidents" = {
-      sopsFile = self + "/secrets/sops/secrets.yaml";
-      mode = "0444";
-    };
+    # drift) now comes from OpenBao via vault-agent (P3.2) — rendered to
+    # /run/vault-agent/discord_webhook_incidents, not sops. Vault is the
+    # runtime-secret SSOT; the sops copy was removed to de-dup. Alerts go to
+    # Discord (off-host) so a SWAG/ingress outage can't silence them.
 
     # Liveness probe for the SWAG ingress cert. The 2026-06-29 outage was silent
     # (cert failed to mint, every subdomain 000) — this alerts on a dead :443
@@ -68,7 +62,7 @@ in {
     services.swagCertMonitor = {
       enable = true;
       host = "kindle.homelab.pastelariadev.com";
-      discordWebhookFile = "/run/secrets/discord_webhook_incidents";
+      discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
     };
 
     # Versioned backup of the tofu-state mirror onto vault (sdb), independent of
@@ -77,7 +71,7 @@ in {
     services.resticTofuState = {
       enable = true;
       healthcheck = true;
-      discordWebhookFile = "/run/secrets/discord_webhook_incidents";
+      discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
       offsiteRepository = "sftp:restic-kepler:/bulk/backups/restic-offsite/tofu-state";
     };
 
@@ -88,7 +82,7 @@ in {
       enable = true;
       repoPath = "/home/${config.username}/homelab-iac";
       user = config.username;
-      discordWebhookFile = "/run/secrets/discord_webhook_incidents";
+      discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
     };
 
     # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.
