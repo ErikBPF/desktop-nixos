@@ -1,3 +1,5 @@
+> ⏭ **SUPERSEDED 2026-06-29** by `2026-06-29-hermes-deferred-improvements.md` (consolidated, current). Kept for history.
+
 # Hermes — Deferred Plans (backlog)
 
 **Status:** Backlog (tracked, not scheduled)
