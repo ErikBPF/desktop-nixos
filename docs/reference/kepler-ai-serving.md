@@ -13,9 +13,9 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
    hermes-agent ──────┤   LiteLLM gateway ──── whisper-pt-br ──────┼──► kepler:9000   (faster-whisper, pt-BR)
    HAOS VM ──────────-┤   model_list:          tts-pt-br ──────────┼──► kepler:8002   (edge-tts, Thalita)
    OpenWebUI / n8n ───┤                        tts-pt-br-piper ────┼──► kepler:8003   (piper-openai, faber)
-                      │                        embeddings-qwen3 ───┼──► kepler:7997   (qwen3-embed, 1024-dim)
-                      │                        vision-qwen2vl ─────┼──► kepler:8082   (Qwen2.5-VL-7B)
-                      │                        qwen-chat ──────────┼──► orion:8080    (Qwen3.6-35B-A3B)
+│                        embeddings-qwen3 ───┼──► kepler:7997   (qwen3-embed, 1024-dim)
+                       │                        vision-qwen2vl ─────┼──► kepler:8082   (Gemma 4 E4B) **DISABLED 2026-06-29**
+                       │                        qwen-chat ──────────┼──► orion:8080    (Qwen3.6-35B-A3B)
                       │   piper-wyoming (legacy direct) ───────────┼──► kepler:10200  (Piper TTS, Wyoming TCP)
                       └────────────────────────────────────────────────────────┘
                                           ▲
@@ -27,10 +27,10 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
                       │     • edge-tts-openai          8002   TTS primary (Thalita +25%)
                       │     • piper-openai             8003   TTS offline fallback
                       │     • piper-wyoming           10200   TTS (Wyoming, legacy direct)
-                      │     • f5-tts-server            8001   TTS voice cloning (not in LiteLLM yet)
-                      │     • qwen3-embed              7997   embeddings (Qwen3-Embedding-0.6B)
-                      │     • qwen-vl                  8082   vision (Qwen2.5-VL-7B)
-                      │   models cached at /fast/ai-models                     │
+│     • f5-tts-server            8001   TTS voice cloning (not in LiteLLM yet)
+│     • qwen3-embed              7997   embeddings (Qwen3-Embedding-0.6B)  ← sole GPU resident
+│     • gemma-vl                8082   vision/chat (Gemma 4 E4B)  **disabled — `vision` profile**
+│   models cached at /fast/ai-models                     │
                       └────────────────────────────────────────────────────────┘
 ```
 
@@ -46,7 +46,8 @@ new consumer at a Kepler port directly.
 
 - **`faster-whisper-wyoming`** (port 10300) — removed 2026-05. `wyoming-faster-whisper 3.1.0` forces a stale `dropbox-dash/faster-whisper-large-v3-turbo` model that doesn't load on driver 595+. HA now reaches STT through the LiteLLM `whisper-pt-br` route (which lands at `:9000`, the OpenAI-shim variant), so no Wyoming STT is needed.
 - **`infinity-embeddings`** (port 7997, `michaelf34/infinity:latest`, BAAI/bge-m3) — replaced 2026-05 by the llama.cpp `qwen3-embed` service on the same port. Same 1024-dim, same multilingual, higher MTEB, 32K context, Matryoshka. LiteLLM route name kept `embeddings-qwen3` either way; consumers don't move.
-- **Qwen2.5-VL-3B** (vision) — replaced 2026-05 by Qwen2.5-VL-7B-Instruct (Q4_K_M + f16 mmproj, mmproj kept on CPU via `--no-mmproj-offload`). Same `vision-qwen2vl` route; +5.5 MMMU, +75 OCRBench. See commit history of `ai-serving.yml` for the VRAM-tuning rationale.
+- **Qwen2.5-VL-3B** (vision) — replaced 2026-05 by Qwen2.5-VL-7B-Instruct (Q4_K_M + f16 mmproj, mmproj kept on CPU via `--no-mmproj-offload`). Same `vision-qwen2vl` route; +5.5 MMMU, +75 OCRBench.
+- **`gemma-vl` / `vision-qwen2vl` route** — **disabled 2026-06-29**. Gemma 4 E4B (~3.4 GB VRAM) co-resident with `qwen3-embed` (~3.1 GB) overcommits the 8 GB GPU: embed `/health` stays 200 but `/v1/embeddings` hangs (llama.cpp `should_stop` task-cancel storm), silently breaking the LiteLLM `embeddings-qwen3` route (clients saw HTTP 000). embed is 24/7 (hermes memory, HA RAG); vision is optional → `gemma-vl` moved behind the `vision` compose profile so `compose up -d` (boot, `kick-stack`) no longer starts it. `vision-qwen2vl` + `gemma-chat` LiteLLM routes are now **dead** until manual revive: `docker compose -p ai-serving --env-file .env -f ai-serving.yml --profile vision up -d gemma-vl` (stop embed first — two GPU llama-servers do not coexist). Reviving chat needs a dedicated GPU or smaller embed stack. See `references/repos/servarr/machines/kepler/ai-serving.yml` gemma-vl block.
 
 ## Current container set
 
@@ -56,8 +57,8 @@ new consumer at a Kepler port directly.
 | `edge-tts-openai` | `kepler/edge-tts-openai:latest` (locally built) | 8002 | `/health` | `tts-pt-br` |
 | `piper-openai` | `kepler/piper-openai:latest` (locally built) | 8003 | `/health` | `tts-pt-br-piper` |
 | `f5-tts-server` | `kepler/f5-tts-server:pt-br` (locally built) | 8001 | `/health` | none yet (Phase 4 voice-clone candidate) |
-| `qwen3-embed` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 7997 | `/health` | `embeddings-qwen3` |
-| `qwen-vl` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 8082 | `/health` | `vision-qwen2vl` |
+| `qwen3-embed` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 7997 | `/health` | `embeddings-qwen3` (sole GPU resident) |
+| `gemma-vl` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 8082 | `/health` | `vision-qwen2vl`, `gemma-chat` — **DISABLED** (`vision` profile; see History) |
 | `piper-wyoming` | `rhasspy/wyoming-piper:latest` | 10200 | `nc localhost 10200` | none (legacy direct, Wyoming protocol) |
 
 ## Components
@@ -70,7 +71,7 @@ new consumer at a Kepler port directly.
 | `servarr/machines/kepler/ai-serving.yml` | Compose definition for the 4 services |
 | `servarr/machines/kepler/config/whisper/` | Dockerfile + FastAPI shim — required because upstream lscr.io/linuxserver/faster-whisper ships a CT2 runtime that rejects NVIDIA driver 595 |
 | `servarr/machines/kepler/config/f5-tts/` | Dockerfile + FastAPI shim for F5-TTS PT-BR voice cloning |
-| `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Routes: `whisper-pt-br`, `tts-pt-br` (edge-tts), `tts-pt-br-piper`, `embeddings-qwen3`, `vision-qwen2vl`, `qwen-chat` |
+| `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Routes: `whisper-pt-br`, `tts-pt-br` (edge-tts), `tts-pt-br-piper`, `embeddings-qwen3`, `vision-qwen2vl` (dead — backend disabled), `qwen-chat` |
 | `modules/hosts/discovery/hermes-agent.nix` | Wires the new routes into hermes auxiliary models |
 | `machines/kepler/scripts/ai-smoke.sh` | End-to-end smoke test |
 
@@ -83,7 +84,7 @@ new consumer at a Kepler port directly.
 | TTS — offline fallback | Piper `pt_BR-faber-medium` via OpenAI shim | MIT | CPU | Route `tts-pt-br-piper`. Local, no internet; lower quality. Wyoming variant at `:10200` exists for legacy HA direct hookups but is being phased out. |
 | TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) | CC BY-NC 4.0 | ~3.0 GB | Not yet routed through LiteLLM — Phase 4 voice-clone synergy. Switch `F5_MODEL_REPO=mrfakename/OpenF5-TTS-Base` for an Apache-2.0 base. |
 | Embeddings | `Qwen/Qwen3-Embedding-0.6B` via llama.cpp `server-cuda` | Apache 2.0 | ~0.4 GB | Route `embeddings-qwen3`. 1024-dim, multilingual, 32K context, Matryoshka (MRL) up to 1024. Replaced earlier `BAAI/bge-m3 via Infinity` 2026-05 — higher MTEB, 4× longer context, ~18 ms single-call latency vs 30 ms on the same hardware. |
-| OCR / Vision | `Qwen2.5-VL-7B-Instruct` via llama.cpp `server-cuda` + mmproj-f16 | Apache 2.0 | ~4.5 GB (auto-fit, layer-spill to CPU; mmproj stays on CPU via `--no-mmproj-offload`) | Route `vision-qwen2vl`. OCR-as-VLM for hermes-agent + planned HA Phase 4 camera-describe. Upgraded from 3B in 2026-05: +5.5 MMMU, +75 OCRBench, +1.8 DocVQA. KV cache must stay f16 — `-ctk q4_0` measurably degrades vision attention output. |
+| OCR / Vision | `Gemma 4 E4B-it` via llama.cpp `server-cuda` | Apache 2.0 | ~3.4 GB | Route `vision-qwen2vl`. **DISABLED 2026-06-29** — backend behind `vision` profile, route dead. See History. Recap: Qwen2.5-VL-7B (2026-05) → Gemma 4 E4B (2026-06) → disabled (VRAM contention with qwen3-embed wedged embeddings). Revive via `--profile vision` (stop embed first). |
 
 ## Deploy
 
