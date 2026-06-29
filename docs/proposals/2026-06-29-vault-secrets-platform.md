@@ -34,15 +34,22 @@ methods, path layout, migration cadence), then execute phases P3.1–P3.5.
 on `127.0.0.1:8200` (host) + `100.76.140.121:8200` (tailnet, lab ESO).
 
 **In progress:**
-- **P3.3** — servarr `.env.sops` → Vault. **Pattern established + first stack
-  (tunneling) done + verified e2e 2026-06-29.** Mechanism: vault-agent renders
-  `secret/home/<stack>` → `/run/vault-agent/<stack>.env`; `orchestration.nix`
-  `vaultEnvStacks` adds a second `--env-file` (Vault wins over the sops `.env`),
-  so compose keeps its `${VAR}` interpolation. Analysis: **~55 of 119 vars are
-  real secrets**, the rest config (stays in sops `.env`); dedup found 3 reused
-  secrets + several dead/placeholder vars to drop. **harbor is special-cased**
-  (prepare-generated compose; only 2 real secrets; the 7-var `harbor.yml` is
-  dead) — deferred to its own pass. ~120 vars remain.
+- **P3.3** — servarr `.env.sops` → Vault. **7 stacks migrated + verified
+  2026-06-29** (`.env.sops` 119→97 keys): tunneling, monitoring, media-server,
+  tools, media, ai-serving, networking + a **shared-db render** (POSTGRES/REDIS
+  consumed by infra/ai-serving/media-server). Mechanism: vault-agent renders
+  `secret/home/<name>` → `/run/vault-agent/<name>.env`; `orchestration.nix`
+  `vaultEnvStacks` (now an **attrset** stack→[basenames]) layers each as an extra
+  `--env-file` (Vault wins over the sops `.env`); compose keeps its `${VAR}`
+  interpolation. Cutovers verified non-disruptively via `compose config` (0 unset
+  warnings) — running containers keep identical values, no recreate.
+  **Deferred:** cross-host `LITELLM_MASTER_KEY`/`MINIO_ROOT_USER` (need a kepler
+  vault-agent), shared `*ARR_API_KEY` + `GRAFANA_ADMIN_PASSWORD` (need homepage
+  coordination), infra-local vault/vaultwarden/minio-tfstate creds (critical +
+  circular), and **harbor** (special-cased: prepare-generated, 2 real secrets,
+  dead 7-var `harbor.yml`). **OPERATIONAL: run all `sops` via `rtk proxy sops` —
+  the RTK hook truncates `sops -d` and corrupted `.env.sops` once (recovered via
+  git); see memory `rtk-sops-truncation`.**
 
 **Next (not started):**
 - **P3.4** — iac provider tokens → Vault.
