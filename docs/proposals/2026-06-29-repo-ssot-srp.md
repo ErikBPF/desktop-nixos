@@ -1,6 +1,8 @@
 # Repo ecosystem — single source of truth (SSOT) & single responsibility (SRP)
 
-**Status:** Proposal (exploration — judgment marked `TODO(erik)`)
+**Status:** Plan — core decisions **locked 2026-06-29** (see *Locked decisions*);
+per-SSOT implementation plans below. A few low-risk items keep proposed defaults
+marked `TODO(erik)`.
 **Date:** 2026-06-29
 **Audience:** Maintainers of the whole homelab repo set
 **Post-read action:** Decide the ownership boundaries + the `TODO(erik)` forks
@@ -94,27 +96,118 @@ Crisp ownership table (network → iac; OS/cluster-substrate → nixos; k8s work
 repos; agent software → hermes-flake). Write it into CLAUDE.md and keep it true.
 
 ### Consolidation roadmap (what absorbs what)
-- **`servarr` → `homelab-gitops` (gradual).** With k8s live, **new stateless
-  workloads default to k8s (gitops)**; `servarr` retains only host-bound /
-  not-yet-migrated stacks (discovery DNS/ingress/SWAG, host-pinned services).
-  Long-term `servarr` shrinks toward absorption. `TODO(erik)`: migration criteria
-  + what is *intentionally* host-bound and stays in compose forever.
-- **`kindle-dash`** — move the container half into the workload owner (servarr or
-  gitops), keep device scripts in its own repo; stop spanning three.
-- **`hermes-skills`** — keep separate (content) or fold into `hermes-flake`.
-  `TODO(erik)`.
-- **Cloudflare tokens** — finish moving to `homelab-iac` ownership (the
-  cloudflare-token RFC); servarr *consumes*, doesn't own.
+**Corrected 2026-06-29:** `servarr` and `homelab-gitops` are **peer permanent
+environments**, not a migration — `servarr` *owns the home env* (household
+services: plex, adguard, backups) and stays; `homelab-gitops` *owns the lab env*
+(production-mimic study). New work is placed by **purpose**, not absorbed:
+- **Household / always-on home service** → `servarr` (compose).
+- **Study / prod-mimic / ephemeral experiment** → `homelab-gitops` (k8s; vcluster
+  for throwaways).
+- **`kindle-dash`** → becomes a **standalone OSS project**: it owns its
+  container build + scripts and publishes the image (GHCR public + Harbor
+  private); consuming stacks only *reference* the image and document usage. Strip
+  homelab-specific deploy glue out of it.
+- **Cloudflare tokens** — `homelab-iac` owns; consumers reference.
+- **`hermes-skills`** — keep separate (content ≠ package). `TODO(erik)` if ever
+  noisy.
 
-## Decisions `TODO(erik)`
+## Locked decisions (2026-06-29)
 
-1. Topology SSOT mechanism + which repo is authoritative for addressing.
-2. New-workload default: **k8s (gitops)** vs compose (servarr); migration trigger.
-3. Secret SSOT: Vault scope for runtime vs sops for build/host; de-dupe webhook.
-4. `servarr` end-state: mostly-absorbed vs retained for host-bound stacks.
-5. `kindle-dash` / `hermes-skills` consolidation.
-6. First concrete step (recommend: fix the repo-map in CLAUDE.md + pick the
-   addressing SSOT — highest drift-risk, lowest effort).
+| # | Decision |
+|---|----------|
+| D1 | **Two peer envs:** home (`servarr`, household) + lab (`homelab-gitops`, prod-mimic study). Not a migration; placed by purpose. |
+| D2 | **Lab is self-contained:** own in-cluster Prometheus/Grafana/ingress/CoreDNS. Home keeps servarr/discovery. Only the **network** is shared. |
+| D3 | **Ephemeral lab workloads = vcluster** (virtual clusters in the one k3s; delete = teardown). |
+| D4 | **Lab on the home LAN** (no dedicated VLAN for now). |
+| D5 | **One shared platform Vault** = runtime-secret SSOT (docker via vault-agent, k8s via ESO, iac via Vault provider). **sops = root-of-trust + host/build/bootstrap only.** |
+| D6 | **VMs stay Nix-native** in `desktop-nixos` (microvm.nix). `homelab-iac` = network only. "Cluster substrate" is its own documented layer. |
+| D7 | **Images:** Harbor = private SSOT both envs pull; GHCR = public for OSS (kindle-dash). |
+| D8 | **kindle-dash = standalone OSS** — owns build+scripts, publishes image; stacks only reference it. |
+| D9 | **Atomicity contract = publish-and-pin.** SSOT owner publishes a versioned artifact; consumers vendor/pin it. No live cross-repo reads at build/apply. Runtime secret fetch from Vault is the one allowed *runtime* dependency. |
+
+Proposed defaults for the still-soft items (override if wrong): TF state stays in
+MinIO@discovery (bootstrap-tier, accepted); **lab cluster state is not backed up**
+(rebuildable from gitops); **no home↔lab promotion** (isolated envs).
+
+## Bootstrap / DR order (the backbone atomicity rests on)
+
+Rebuild-from-zero sequence — also the dependency order that keeps repos atomic:
+
+1. **Root of trust** — sops **age key** (restored from offline/break-glass).
+2. **Network** — `homelab-iac` apply (VLANs/DHCP/DNS/Tailscale).
+3. **Hosts + cluster substrate** — `desktop-nixos` deploy (OS, NFS, k3s microvms).
+4. **Platform** — **Vault** (unseal via sops bootstrap), then Argo CD + lab obs.
+5. **Workloads** — home: `servarr` git pull; lab: Argo syncs `homelab-gitops`.
+
+Each layer depends only on the ones above it, and only on their **published
+artifacts** — so any single repo rebuilds against pinned inputs without the
+others present.
+
+## Implementation plans (per SSOT concern)
+
+Each follows publish-and-pin (D9). Ordered by drift-risk ÷ effort.
+
+### P0 — Repo-map + SRP ownership table (SSOT: the inventory) · *S*
+- **Own:** `desktop-nixos` CLAUDE.md "Cross-repo synergies".
+- **Do:** rewrite to the **8 repos** + the home/lab/platform/substrate model + a
+  one-owner-per-concern table; add the D1–D9 summary. Add a one-line "owns X /
+  consumes Y (pinned)" header to each sister repo's README.
+- **Atomic:** doc-only. **Verify:** `just docs-check`; table matches
+  `references/repos/`.
+
+### P1 — Fleet topology / addressing SSOT · *M*
+- **Author:** `desktop-nixos` — extend `modules/meta.nix` with
+  `fleet.hosts.<name> = { ip; mac; role; tailscaleIp?; }`. Host `networking.nix`
+  consume it natively.
+- **Publish:** flake output `fleet` → `nix eval .#fleet --json` committed as
+  `fleet.json` (the pinned artifact).
+- **Consume (vendor/pin):** `justfile` `ip_*` derive from it; `homelab-iac`
+  reservations + AdGuard static DNS read a **vendored** `fleet.json`
+  (`jsondecode(file(...))`), re-synced on a deliberate bump.
+- **Atomic:** iac builds against its pinned snapshot. **Verify:** `just dry`
+  hosts + iac `plan` clean; change one IP → regenerate → both consumers reflect.
+
+### P2 — Domains / hostnames SSOT · *M* (after P1)
+- **Author:** extend the fleet artifact with `services.<sub> = { host; port;
+  scope = home|public }`. **Lab hostnames live in `homelab-gitops`** (D2,
+  self-contained) — *not* here; this source covers home + public + cross-env only.
+- **Consume:** SWAG proxy-confs (home), AdGuard rewrites + Cloudflare records
+  (iac) become **generated** from the artifact, not hand-authored.
+- **Verify:** generated configs diff-clean vs current; a new home service needs
+  one edit (the source), not four.
+
+### P3 — Secrets SSOT: platform Vault + sops bootstrap · *L* (own sub-RFC)
+- **Stand up** the platform Vault (auto-unseal; unseal key + root token →
+  **sops**, the only bootstrap secret it needs). Position: a **platform** service
+  (runs on discovery for now, labelled platform, not "home").
+- **Boundary doc:** sops = host SSH/age keys, unit-baked secrets (wifi/restic),
+  Vault bootstrap, iac bootstrap token. Vault = everything a *running* workload
+  reads.
+- **Wire consumers:** k8s ESO (exists) · **docker/compose** via **vault-agent**
+  rendering `.env` (replaces `.env.sops` per stack) · **host systemd** via
+  vault-agent for cross-boundary secrets · **iac** via the Vault provider.
+- **Proof migration:** move the **Discord webhook** sops→Vault; host (vault-agent)
+  and containers both read it from Vault; **delete the two sops copies** — kills
+  the duplication created this week.
+- **Atomic:** build/activation still sops (offline-safe); runtime fetch from Vault
+  is the one sanctioned runtime dep (D9). **Verify:** each consumer renders its
+  secret; webhook fires from the Vault value; `nixos-rebuild` still works with
+  Vault down (sops bootstrap intact).
+- Phased: Vault up → webhook proof → compose `.env` → iac tokens → shrink sops.
+
+### P4 — Image / artifact SSOT: Harbor + GHCR · *M*
+- **kindle-dash:** CI builds → publish to **GHCR** (public OSS) + push/mirror to
+  **Harbor** (private). Strip homelab deploy glue; keep build + scripts; document
+  usage (env/ports) in its README. It must `git clone && build` standalone.
+- **Consumers** (servarr/gitops): reference the **pinned digest** + supply their
+  own deploy config. Harbor proxy-cache already exists (harbor RFC).
+- **Verify:** kindle-dash builds standalone; servarr references the published
+  tag; image pulls on both envs.
+
+### P5 — SRP placement rule (no absorption) · *S*
+- Write the **placement decision tree** (D1): household/always-on → `servarr`;
+  study/prod-mimic/ephemeral → `homelab-gitops` (+ vcluster). No forced migration
+  of existing home stacks. Record in CLAUDE.md alongside P0.
 
 ## Non-goals
 
