@@ -143,6 +143,17 @@
             destination = "/run/vault-agent/discord.env"
             perms = "0444"
           }
+          # P3.3 proof: the tunneling stack's one secret, rendered as a second
+          # --env-file for podman-compose-tunneling (orchestration.nix
+          # vaultEnvStacks). cloudflared keeps its CLOUDFLARE_TUNNEL_TOKEN
+          # interpolation; the value comes from OpenBao (secret/home/tunneling)
+          # instead of the sops .env. 0444 so the rootless-compose user reads it
+          # (matches discord.env; /run is tmpfs).
+          template {
+            contents = "CLOUDFLARE_TUNNEL_TOKEN={{ with secret \"secret/data/home/tunneling\" }}{{ .Data.data.CLOUDFLARE_TUNNEL_TOKEN }}{{ end }}\n"
+            destination = "/run/vault-agent/tunneling.env"
+            perms = "0444"
+          }
         ''}";
       };
     };

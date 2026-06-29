@@ -38,6 +38,19 @@ in {
         '';
       };
 
+      vaultEnvStacks = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        description = ''
+          Stacks whose secrets are sourced from OpenBao via vault-agent (P3.3).
+          For each, compose gets a second `--env-file /run/vault-agent/<name>.env`
+          (rendered by the discovery vault-agent), layered after the sops .env so
+          its keys win. The compose yml keeps its existing interpolation; only the
+          values' origin moves from the sops .env to Vault. The named stacks'
+          secrets are removed from .env.sops once verified.
+        '';
+      };
+
       dockerSocket = lib.mkOption {
         type = lib.types.str;
         default = "unix:///run/user/1000/podman/podman.sock";
@@ -65,7 +78,13 @@ in {
       cfg = config.homelab.compose;
       declaredStacks = cfg.stacks;
 
-      makeService = idx: name: {
+      # Stacks in vaultEnvStacks get a second --env-file from vault-agent, layered
+      # after the sops .env (later --env-file wins for overlapping keys).
+      makeService = idx: name: let
+        vaultEnvFlag =
+          lib.optionalString (builtins.elem name cfg.vaultEnvStacks)
+          " --env-file /run/vault-agent/${name}.env";
+      in {
         "podman-compose-${name}" = {
           Unit = {
             Description = "Podman compose stack: ${name}";
@@ -94,8 +113,8 @@ in {
             EnvironmentFile = "-${cfg.composeDir}/.env";
             # Docker socket — rootless Podman by default, override for rootful Docker.
             Environment = "DOCKER_HOST=${cfg.dockerSocket}";
-            ExecStart = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
-            ExecStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env -f ${cfg.composeDir}/${name}.yml stop";
+            ExecStart = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlag} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
+            ExecStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlag} -f ${cfg.composeDir}/${name}.yml stop";
             TimeoutStopSec = 60;
           };
           # Empty WantedBy — these units are enabled (symlinked) but not pulled
