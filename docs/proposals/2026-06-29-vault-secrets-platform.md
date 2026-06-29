@@ -33,10 +33,21 @@ methods, path layout, migration cadence), then execute phases P3.1–P3.5.
 `vault_restic_password`, `vault_agent_role_id`, `vault_agent_secret_id`. OpenBao
 on `127.0.0.1:8200` (host) + `100.76.140.121:8200` (tailnet, lab ESO).
 
+**In progress:**
+- **P3.3** — servarr `.env.sops` → Vault. **Pattern established + first stack
+  (tunneling) done + verified e2e 2026-06-29.** Mechanism: vault-agent renders
+  `secret/home/<stack>` → `/run/vault-agent/<stack>.env`; `orchestration.nix`
+  `vaultEnvStacks` adds a second `--env-file` (Vault wins over the sops `.env`),
+  so compose keeps its `${VAR}` interpolation. Analysis: **~55 of 119 vars are
+  real secrets**, the rest config (stays in sops `.env`); dedup found 3 reused
+  secrets + several dead/placeholder vars to drop. **harbor is special-cased**
+  (prepare-generated compose; only 2 real secrets; the 7-var `harbor.yml` is
+  dead) — deferred to its own pass. ~120 vars remain.
+
 **Next (not started):**
-- **P3.3** — migrate the remaining ~123 servarr `.env.sops` vars to Vault.
 - **P3.4** — iac provider tokens → Vault.
-- Operator action for DR: **offline break-glass copy of the primary age key**.
+- Operator action for DR: **offline break-glass copy of the primary age key**
+  (a git-ignored `BREAK-GLASS-age-key.md` generator exists; copy off-fleet).
 
 ## Context
 
@@ -158,9 +169,13 @@ the one bootstrap store, no cloud dependency.
   `http://discovery:8200` with the new roleId/secret_id; then **delete
   `platform/vault` + `clusters/kepler/apps/vault.yaml`**. Verify ESO re-syncs.
   Blast radius = lab only (disposable).
-- **P3.3 — servarr `.env.sops` (125 vars) → Vault.** Per-stack, vault-agent
-  templates `.env`. *Verify:* each recreated stack reads identical values; backup
-  the pre-migration `.env.sops` until proven.
+- **P3.3 — servarr `.env.sops` → Vault.** ✅ *Pattern + first stack (tunneling)
+  done 2026-06-29.* Per-stack: vault-agent renders `secret/home/<stack>` to
+  `/run/vault-agent/<stack>.env`; `orchestration.nix` `vaultEnvStacks` layers it
+  as a second `--env-file` (Vault wins). Only **real secrets** move (~55/119);
+  config stays in sops `.env`. *Verify:* recreated stack reads identical values
+  (compare via `docker inspect`, **not** `docker exec printenv | pipe` — that
+  truncates long values over ssh). harbor deferred (special-cased). ~120 remain.
 - **P3.4 — iac tokens → Vault** (composes with the cloudflare-token RFC).
 - **P3.5 — Shrink sops** to the bootstrap set; document the final boundary.
 
