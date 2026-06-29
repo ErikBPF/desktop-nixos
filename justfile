@@ -318,19 +318,24 @@ prep-servarr:
     echo ":: Mirrored homelab-SOUL.md → servarr/machines/discovery/config/hermes-agent/SOUL.md"
     echo ":: Now commit + push in the servarr repo, then: just pull-servarr <host>"
 
-# Trigger a host to sync its servarr clone to origin/main (fetch + reset --hard)
+# Trigger a host to sync its servarr clone to a branch (fetch + reset --hard)
 # and re-decrypt .env.sops. Run after committing + pushing servarr changes. The
-# change MUST be on origin/main — the host resets to it; any local host edits
-# are discarded by design (git is authoritative).
-#   just pull-servarr discovery
-pull-servarr target:
+# ref MUST exist on origin — the host resets to it; any local host edits are
+# discarded by design (git is authoritative). Branch defaults to `main`; pass a
+# feature branch to deploy it for testing, then `just pull-servarr <host>` (no
+# branch) to return the host to main. The branch sticks across reboots via an
+# untracked `.deploy-branch` pointer.
+#   just pull-servarr discovery                 # → origin/main
+#   just pull-servarr discovery feature/new-svc # → origin/feature/new-svc
+pull-servarr target branch="main":
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip {{target}})"
-    echo ":: Triggering servarr-pull on {{target}} ($IP)..."
+    echo ":: Pointing {{target}} servarr clone at origin/{{branch}} and pulling..."
+    ssh -p 2222 erik@"$IP" "printf '%s\n' {{branch}} > /home/erik/servarr/.deploy-branch"
     ssh -p 2222 erik@"$IP" "systemctl --user start servarr-pull.service"
     ssh -p 2222 erik@"$IP" "systemctl --user status servarr-pull.service --no-pager -n15"
-    echo ":: Host tree now matches origin/main. Recreate changed stacks: just kick-stack {{target}} <stack>"
+    echo ":: {{target}} now on origin/{{branch}}. Recreate changed stacks: just kick-stack {{target}} <stack>"
 
 # Push the git-versioned hermes-skills repo to a host's /home/erik/hermes-skills/
 # so the hermes container can mount it read-only via skills.external_dirs.

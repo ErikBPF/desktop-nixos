@@ -204,7 +204,7 @@ just build-archinaut-sd / seed-archinaut               # RPi printer host bring-
 
 # Sister repos
 just prep-servarr            # refresh generated mirrors before committing servarr
-just pull-servarr <host>     # host fetches + resets servarr clone to origin/main
+just pull-servarr <host> [branch]   # host resets servarr clone to origin/<branch> (default main)
 just kick-stack <host> <s>   # recreate a stack on the host after a pull
 just sync-hermes-skills      # push hermes skills (separate non-git path)
 

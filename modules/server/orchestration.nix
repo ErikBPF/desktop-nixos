@@ -46,6 +46,19 @@ in {
           Podman socket. Override to /run/docker.sock for rootful Docker.
         '';
       };
+
+      defaultBranch = lib.mkOption {
+        type = lib.types.str;
+        default = "main";
+        description = ''
+          Branch servarr-pull syncs to when no per-host override is set.
+          A feature-branch deploy is opt-in: `just pull-servarr <host> <branch>`
+          writes a `.deploy-branch` pointer next to the clone; servarr-pull reads
+          it (falling back to this default) and `reset --hard`s to origin/<branch>.
+          The pointer is untracked so it survives reset --hard and persists across
+          reboots until you `just pull-servarr <host>` (no branch ⇒ back to default).
+        '';
+      };
     };
 
     config = let
@@ -134,24 +147,35 @@ in {
                       export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i /home/${username}/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new -F /home/${username}/.ssh/config"
                       REPO="${cfg.repoPath}"
                       MACHINE_DIR="${cfg.composeDir}"
+                      # Target branch: a `.deploy-branch` pointer (written by
+                      # `just pull-servarr <host> <branch>`) overrides the baked
+                      # default. The pointer is untracked, so reset --hard below
+                      # leaves it in place — a feature-branch deploy stays put
+                      # across reboots until `just pull-servarr <host>` (no arg)
+                      # rewrites it to the default. Trim whitespace; ignore empty.
+                      BRANCH="${cfg.defaultBranch}"
+                      if [ -s "$REPO/.deploy-branch" ]; then
+                        PINNED="$(tr -d '[:space:]' < "$REPO/.deploy-branch")"
+                        [ -n "$PINNED" ] && BRANCH="$PINNED"
+                      fi
                       if [ ! -d "$REPO/.git" ]; then
                         ${pkgs.git}/bin/git clone ${cfg.repoUrl} "$REPO"
-                      else
-                        # Authoritative sync: the host tree must match origin/main
-                        # regardless of local drift. The old `pull --ff-only ||
-                        # true` silently no-op'd once rsync (sync-servarr) dirtied
-                        # the tree, so the host never received new commits
-                        # (2026-06-29 incident). reset --hard makes git the single
-                        # source→host path; rsync delivery is retired. Tracked
-                        # config (compose files, AdGuardHome.yaml) is reset to
-                        # origin — commit host config changes, don't hand-edit on
-                        # the host. Gitignored runtime state (.env, config/swag
-                        # certs, adguard/work, caches) is left untouched. No
-                        # `|| true`: a fetch/reset failure now fails the unit
-                        # loudly instead of leaving the host silently stale.
-                        ${pkgs.git}/bin/git -C "$REPO" fetch --prune origin main
-                        ${pkgs.git}/bin/git -C "$REPO" reset --hard origin/main
                       fi
+                      # Authoritative sync: the host tree must match origin/$BRANCH
+                      # regardless of local drift. The old `pull --ff-only || true`
+                      # silently no-op'd once rsync (sync-servarr) dirtied the tree,
+                      # so the host never received new commits (2026-06-29 incident).
+                      # reset --hard makes git the single source→host path; rsync
+                      # delivery is retired. Tracked config (compose files,
+                      # AdGuardHome.yaml) is reset to origin — commit host config
+                      # changes, don't hand-edit on the host. Untracked runtime
+                      # state (.env, config/swag certs, adguard/work, caches, the
+                      # .deploy-branch pointer) is left untouched. No `|| true`: a
+                      # fetch/reset failure now fails the unit loudly instead of
+                      # leaving the host silently stale.
+                      echo "servarr-pull: syncing $REPO → origin/$BRANCH"
+                      ${pkgs.git}/bin/git -C "$REPO" fetch --prune origin "$BRANCH"
+                      ${pkgs.git}/bin/git -C "$REPO" reset --hard "origin/$BRANCH"
                       # Decrypt .env.sops → .env if stale or missing.
                       # --input-type/--output-type dotenv is required: sops
                       # uses file-extension auto-detection, and a `.env.sops`

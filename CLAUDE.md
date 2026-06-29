@@ -199,6 +199,11 @@ references/repos/servarr`); never hard-code the absolute path.
   `just pull-servarr <host>` → `just kick-stack <host> <stack>` to **recreate**
   (not restart) containers whose compose/env changed. See
   `memory/servarr_env_flow.md`.
+- **Branch-aware**: `just pull-servarr <host>` deploys `origin/main`. Pass a
+  branch (`just pull-servarr <host> feature/x`) to deploy a feature branch for
+  testing — the host pins it via an untracked `.deploy-branch` pointer (sticky
+  across reboots). Merge to main, then `just pull-servarr <host>` (no branch) to
+  return. Same pattern can front other host-pull repos.
 - Targets today: `kepler`, `discovery`, `orion`. Each host owns a stack
   directory under `references/repos/servarr/machines/<host>/`.
 
