@@ -1,11 +1,12 @@
 # Secrets platform — Vault as runtime SSOT, sops as root-of-trust
 
-**Status:** Proposal (sub-RFC — implements **P3** of
-`2026-06-29-repo-ssot-srp.md`; judgment marked `TODO(erik)`)
+**Status:** Implemented (sub-RFC of `2026-06-29-repo-ssot-srp.md`, P3) — P3.0–P3.2
++ P3.1b done & verified; P3.3 done on discovery (`.env.sops` 119→85); P3.4 decided
+(declined — iac stays in sops); P3.5 boundary documented as-built. All `TODO(erik)`
+forks resolved (OpenBao on discovery, sops-key unseal, AppRole auth, `secret/home`
++ `secret/shared` layout). Remaining operator action: offline break-glass age-key copy.
 **Date:** 2026-06-29
 **Audience:** Maintainers of desktop-nixos + servarr + homelab-gitops + homelab-iac
-**Post-read action:** Resolve the `TODO(erik)` forks (Vault home, unseal, auth
-methods, path layout, migration cadence), then execute phases P3.1–P3.5.
 
 ## Execution status (resume here — 2026-06-29)
 
@@ -57,10 +58,22 @@ on `127.0.0.1:8200` (host) + `100.76.140.121:8200` (tailnet, lab ESO).
   `sops -d` and corrupted `.env.sops` once (recovered via git); see memory
   `rtk-sops-truncation`.**
 
-**Next (not started):**
-- **P3.4** — iac provider tokens → Vault.
-- Operator action for DR: **offline break-glass copy of the primary age key**
-  (a git-ignored `BREAK-GLASS-age-key.md` generator exists; copy off-fleet).
+**Decided / closed:**
+- **P3.4 — iac provider tokens → Vault: DECLINED 2026-06-29 (kept in sops).**
+  homelab-iac runs in two places — drift-check on discovery (loopback → OpenBao
+  reachable) and manual `terragrunt apply` on the admin workstation (CANNOT reach
+  `discovery:8200`; the tailnet ACL is kepler-only by design). A clean single-source
+  migration would require either widening the OpenBao ACL to admin laptops (surface
+  increase) or forcing all applies onto discovery (workflow change) — not worth it
+  for 7 low-rotation provider tokens (`UNIFI_API_KEY_home`, `UNIFI_WLAN_PSK_*`,
+  `TAILSCALE_OAUTH_*`, `ADGUARD_PASSWORD`) that sops already holds safely. Bootstrap
+  creds (`MINIO_TFSTATE_*`, `UNIFI_STATE_PASSPHRASE`, the `CLOUDFLARE_API_TOKEN`
+  management token, `OCI_*`) stay in sops regardless (state-access / circular-vault).
+  **iac is a pragmatic sops resident — documented exception, not a gap.**
+
+**Operator action still open:**
+- DR: **offline break-glass copy of the primary age key** (a git-ignored
+  `BREAK-GLASS-age-key.md` generator exists; copy off-fleet, then delete).
 
 ## Context
 
@@ -189,8 +202,14 @@ the one bootstrap store, no cloud dependency.
   config stays in sops `.env`. *Verify:* recreated stack reads identical values
   (compare via `docker inspect`, **not** `docker exec printenv | pipe` — that
   truncates long values over ssh). harbor deferred (special-cased). ~120 remain.
-- **P3.4 — iac tokens → Vault** (composes with the cloudflare-token RFC).
-- **P3.5 — Shrink sops** to the bootstrap set; document the final boundary.
+- **P3.4 — iac tokens → Vault.** ✅ *Decided 2026-06-29: **DECLINED**, iac
+  tokens stay in sops* (run-location split — workstation can't reach OpenBao; not
+  worth widening the ACL for 7 low-rotation tokens). See the resume block.
+- **P3.5 — Shrink sops** to the bootstrap set; document the final boundary. The
+  boundary is now as-built: sops holds host/build/bootstrap + the documented
+  pragmatic exceptions (cross-host LiteLLM/MinIO, infra-local vault/vaultwarden/
+  minio-tfstate, all iac tokens + state creds, OCI); OpenBao holds the rest of the
+  runtime secrets (host vault-agent + lab ESO).
 
 ## Risks
 
