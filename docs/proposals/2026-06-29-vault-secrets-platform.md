@@ -7,6 +7,30 @@
 **Post-read action:** Resolve the `TODO(erik)` forks (Vault home, unseal, auth
 methods, path layout, migration cadence), then execute phases P3.1–P3.5.
 
+## Execution status (resume here — 2026-06-29)
+
+**Done + deployed + verified:**
+- **P3.0** — OpenBao (OSS, raft) live on discovery, auto-unseal, dual restic
+  backup (local vault-disk + off-site kepler), liveness metric + Grafana
+  `vault-backup-stale` alert. **DR proven** (fresh-cluster restore → unseal with
+  the OLD sops key; runbook `reference/vault-disaster-recovery.md`).
+- **P3.2** — Discord webhook **fully de-duped**: in OpenBao `secret/shared/discord`;
+  host services via **vault-agent** files; grafana/scrutiny via vault-agent
+  `env_file`; removed from **both** sops stores. AppRole `vault-agent` (policy
+  `discord-read`) + creds in sops (`vault_agent_role_id/secret_id`).
+
+**sops bootstrap secrets** (desktop-nixos `secrets.yaml`): `vault_unseal_key`,
+`vault_root_token`, `vault_snapshot_token`, `vault_restic_password`,
+`vault_agent_role_id`, `vault_agent_secret_id`. OpenBao on `127.0.0.1:8200` only.
+
+**Next (not started):**
+- **P3.1b** — repoint lab ESO → discovery OpenBao (4 touchpoints; exposes the
+  store on the tailnet — see that phase below). Open call: TLS now vs tailscale
+  transport-encryption first.
+- **P3.3** — migrate the remaining ~123 servarr `.env.sops` vars to Vault.
+- **P3.4** — iac provider tokens → Vault.
+- Operator action for DR: **offline break-glass copy of the primary age key**.
+
 ## Context
 
 Per the SSOT/SRP plan (D5): **one platform Vault = runtime-secret SSOT** (docker
