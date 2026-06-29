@@ -155,8 +155,8 @@
             perms = "0444"
           }
           # P3.3: monitoring stack-local secrets (grafana/healthchecks/scrutiny).
-          # GRAFANA_ADMIN_PASSWORD stays in the sops .env for now (shared with the
-          # homepage stack); it migrates when homepage does.
+          # GRAFANA_ADMIN_{USER,PASSWORD} are shared with homepage → in the
+          # shared-grafana render above, not here.
           template {
             contents = "{{ with secret \"secret/data/home/monitoring\" }}GRAFANA_SECRET_KEY={{ .Data.data.GRAFANA_SECRET_KEY }}\nHEALTHCHECKS_SECRET_KEY={{ .Data.data.HEALTHCHECKS_SECRET_KEY }}\nHEALTHCHECKS_SUPERUSER_PASSWORD={{ .Data.data.HEALTHCHECKS_SUPERUSER_PASSWORD }}\nSCRUTINY_INFLUXDB_PASSWORD={{ .Data.data.SCRUTINY_INFLUXDB_PASSWORD }}\nSCRUTINY_INFLUXDB_TOKEN={{ .Data.data.SCRUTINY_INFLUXDB_TOKEN }}\nTELEGRAM_BOT_TOKEN={{ .Data.data.TELEGRAM_BOT_TOKEN }}\n{{ end }}"
             destination = "/run/vault-agent/monitoring.env"
@@ -168,6 +168,18 @@
           template {
             contents = "{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
             destination = "/run/vault-agent/shared-db.env"
+            perms = "0444"
+          }
+          # P3.3 shared: arr API keys (media + homepage) and grafana admin creds
+          # (monitoring + homepage). Each consumer lists these in vaultEnvStacks.
+          template {
+            contents = "{{ with secret \"secret/data/home/shared-arr\" }}RADARR_API_KEY={{ .Data.data.RADARR_API_KEY }}\nSONARR_API_KEY={{ .Data.data.SONARR_API_KEY }}\nLIDARR_API_KEY={{ .Data.data.LIDARR_API_KEY }}\n{{ end }}"
+            destination = "/run/vault-agent/shared-arr.env"
+            perms = "0444"
+          }
+          template {
+            contents = "{{ with secret \"secret/data/home/shared-grafana\" }}GRAFANA_ADMIN_USER={{ .Data.data.GRAFANA_ADMIN_USER }}\nGRAFANA_ADMIN_PASSWORD={{ .Data.data.GRAFANA_ADMIN_PASSWORD }}\n{{ end }}"
+            destination = "/run/vault-agent/shared-grafana.env"
             perms = "0444"
           }
           # P3.3 per-stack local secrets (batch 2). Each compose stack keeps its
