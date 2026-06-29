@@ -5,8 +5,12 @@
 `vault_backup_last_success_seconds` liveness + Discord-on-fail (B1b); **mock-state
 restore drill PASSED** (deleted key recovered, count restored — B2); Grafana
 `vault-backup-stale` rule provisioned + metric confirmed in Prometheus (B3).
-**Remaining:** timed force-fire to Discord (B4, needs a ~15-min stale window) →
-then **B5** unblocks real-secret migration (P3.2). Forks below still `TODO(erik)`.
+**Off-site to kepler: done** (restic repo created). **Fresh-cluster DR restore:
+PROVEN** (see *Disaster recovery* below — restore into a new OpenBao, unseal with
+the OLD sops key, secret recovered). **Remaining:** timed force-fire to Discord
+(B4, in progress) → then **B5** unblocks real-secret migration (P3.2). Forks
+below still `TODO(erik)`; the offline primary-age-key break-glass copy is the one
+operator action DR depends on.
 **Date:** 2026-06-29
 **Audience:** Maintainers of desktop-nixos + homelab-gitops
 **Post-read action:** Confirm the storage + Vault-home forks, then execute
@@ -97,6 +101,39 @@ Mirror the proven `restic-tofu-state` shape:
 - **Force-fire**: stop the timer / age the metric → rule goes Alerting → **lands
   in Discord #incidents** → resolves after the next backup. (Same drill that
   validated the restic rule today.)
+
+## Disaster recovery — proven procedure (tested 2026-06-29)
+
+The in-place restore (B2) and a **fresh-cluster restore** were both tested. The
+fresh-cluster path is the real DR case and has a subtlety that B2 doesn't show:
+**after restoring a snapshot into a brand-new OpenBao, it seals, and you must
+unseal with the ORIGINAL `vault_unseal_key` (from sops), not the new cluster's
+key.** Verified end-to-end (a seeded secret came back).
+
+Recovery from total discovery loss:
+
+1. **Root of trust.** Recover the **primary age key**. `secrets/sops/secrets.yaml`
+   is encrypted to `primary` + `orion` + `archinaut`, so an age key from **any**
+   surviving recipient (orion/archinaut host key, or an offline primary copy)
+   decrypts it. ⚠ **If all three are lost, everything is unrecoverable** — keep an
+   **offline/break-glass copy of the primary age key** (`age_key` is itself inside
+   secrets.yaml, so any one recipient bootstraps the rest).
+2. **Rebuild discovery** (nixos-anywhere + age key) → `openbao.service` runs
+   fresh/sealed.
+3. **Fetch the snapshot** with restic (password = `vault_restic_password` from
+   sops): off-site `restic -r sftp:restic-kepler:/bulk/backups/restic-offsite/openbao restore latest`
+   (or the local vault-disk repo if the disk survived).
+4. **Restore into the fresh cluster:** `bao operator init -key-shares=1
+   -key-threshold=1` + unseal (throwaway key) → `bao operator raft snapshot
+   restore -force <snap>` → cluster seals.
+5. **Unseal with the OLD key:** `bao operator unseal "$(sops … vault_unseal_key)"`
+   → secrets back. Verify (`bao kv get …`).
+
+Recoverability of each input: `vault_unseal_key`, `vault_root_token`,
+`vault_restic_password`, `restic_offsite_ssh_key` all live in sops → recovered via
+the age key in step 1. The off-site snapshot on kepler is useless to an attacker
+without the unseal key (kepler is not a sops recipient for these). **Caveat:**
+single key-share (no Shamir threshold) — acceptable for a solo homelab, noted.
 
 ## Migration gate (B5)
 
