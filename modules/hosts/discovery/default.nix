@@ -47,6 +47,7 @@ in {
       m.nixos.homelab-iac-drift
       m.nixos.restic-tofu-state
       m.nixos.swag-cert-monitor
+      m.nixos.discovery-vault
     ];
 
     # Discord webhook for incident alerts (cert monitor, restic failure, iac
