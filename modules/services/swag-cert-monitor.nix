@@ -1,10 +1,20 @@
 # SWAG cert / ingress liveness probe. The 2026-06-29 outage was silent: SWAG's
 # Let's Encrypt cert had failed to (re)mint and nothing noticed until a
 # subdomain returned 000. This probes the cert SWAG actually serves on :443 —
-# one daily TLS handshake against a canary subdomain on the wildcard cert. A
-# failed handshake means SWAG is down or has no cert (connect refused / TLS
-# error); a near-future notAfter means renewal has been failing. Either way it
-# fires an ntfy alert before a user hits a dead subdomain. See
+# one daily TLS handshake against a canary subdomain on the wildcard cert.
+#
+# It checks three failure modes, each of which alerts to Discord:
+#   1. handshake fails       → SWAG is down / no cert at all
+#   2. issuer is not LE       → SWAG fell back to its self-signed cert because
+#                               the LE mint failed (this is the silent-outage
+#                               trap: a self-signed cert has a far-future expiry,
+#                               so checking notAfter alone reads as healthy)
+#   3. notAfter < warnDays    → renewal has been failing
+#
+# Alerting goes to a Discord webhook, NOT ntfy: ntfy on this host rides SWAG
+# (ntfy.homelab → SWAG proxy), so a "SWAG is down" alert could never leave the
+# box. Discord is off-host (discord.com) — it only needs outbound DNS (public
+# fallback resolver), not the local ingress it is monitoring. See
 # docs/proposals/2026-06-29-discovery-resilience-fixes.md (P0-1).
 _: {
   flake.modules.nixos.swag-cert-monitor = {
@@ -16,12 +26,15 @@ _: {
     cfg = config.services.swagCertMonitor;
   in {
     options.services.swagCertMonitor = {
-      enable = lib.mkEnableOption "daily SWAG cert/ingress liveness probe with ntfy alert";
+      enable = lib.mkEnableOption "daily SWAG cert/ingress liveness probe with Discord alert";
 
-      ntfyUrl = lib.mkOption {
+      discordWebhookFile = lib.mkOption {
         type = lib.types.str;
         default = "";
-        description = "ntfy topic URL for cert alerts (empty = log only).";
+        description = ''
+          Path to a file containing the Discord webhook URL for alerts (read at
+          runtime so the secret never enters the Nix store). Empty = log only.
+        '';
       };
 
       host = lib.mkOption {
@@ -29,7 +42,7 @@ _: {
         description = ''
           Canary subdomain (SNI) covered by SWAG's wildcard cert. The probe
           opens a TLS handshake to 127.0.0.1:443 with this SNI and reads the
-          served leaf cert's notAfter.
+          served leaf cert's notAfter + issuer.
         '';
       };
 
@@ -42,13 +55,13 @@ _: {
 
     config = lib.mkIf cfg.enable {
       systemd.services.swag-cert-monitor = {
-        description = "Probe SWAG's served cert on :443 and alert via ntfy on failure/expiry";
-        # Needs the host network up; SWAG is a container so don't hard-order on it.
+        description = "Probe SWAG's served cert on :443 and alert to Discord on failure/expiry";
         after = ["network-online.target"];
         wants = ["network-online.target"];
         serviceConfig = {
           Type = "oneshot";
-          # Read-only, no privileges needed beyond loopback TCP.
+          # Read-only, no privileges needed beyond outbound TCP. ProtectSystem
+          # keeps /etc (CA bundle) readable so curl can reach https://discord.com.
           DynamicUser = true;
           ProtectSystem = "strict";
           ProtectHome = true;
@@ -58,42 +71,52 @@ _: {
           ExecStart = pkgs.writeShellScript "swag-cert-monitor" ''
             set -uo pipefail
             HOST=${lib.escapeShellArg cfg.host}
-            NTFY=${lib.escapeShellArg cfg.ntfyUrl}
+            WEBHOOK_FILE=${lib.escapeShellArg cfg.discordWebhookFile}
 
-            alert() { # $1=title $2=priority $3=tags $4=body
-              echo "$4"
-              [ -n "$NTFY" ] && ${pkgs.curl}/bin/curl -s \
-                -H "Title: $1" -H "Priority: $2" -H "Tags: $3" \
-                -d "$4" "$NTFY" >/dev/null || true
+            alert() { # $1=message (markdown)
+              echo "$1"
+              [ -n "$WEBHOOK_FILE" ] && [ -r "$WEBHOOK_FILE" ] || return 0
+              ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
+                --data "$(${pkgs.jq}/bin/jq -nc --arg c "$1" '{content:$c}')" \
+                "$(cat "$WEBHOOK_FILE")" >/dev/null || true
             }
 
             # Pull the served leaf cert via a real TLS handshake on the path
-            # users hit. Empty enddate ⇒ handshake failed ⇒ SWAG down / no cert.
-            ENDDATE=$(echo | ${pkgs.openssl}/bin/openssl s_client \
+            # users hit. Empty ⇒ handshake failed ⇒ SWAG down / no cert.
+            CERT=$(echo | ${pkgs.openssl}/bin/openssl s_client \
               -connect 127.0.0.1:443 -servername "$HOST" 2>/dev/null \
-              | ${pkgs.openssl}/bin/openssl x509 -noout -enddate 2>/dev/null \
-              | cut -d= -f2)
+              | ${pkgs.openssl}/bin/openssl x509 -noout -enddate -issuer 2>/dev/null)
 
-            if [ -z "$ENDDATE" ]; then
-              alert "SWAG ingress DOWN on ${config.networking.hostName}" "urgent" "rotating_light" \
-                "TLS handshake to 127.0.0.1:443 (SNI $HOST) failed — SWAG is down or has no cert. Check: docker logs swag; docker exec swag ls /config/etc/letsencrypt/live/"
+            if [ -z "$CERT" ]; then
+              alert "🔴 **SWAG ingress DOWN** on ${config.networking.hostName} — TLS handshake to :443 (SNI $HOST) failed. SWAG is down or has no cert. Check: \`docker logs swag\`"
               exit 0
             fi
+
+            ISSUER=$(printf '%s\n' "$CERT" | sed -n 's/^issuer=//p')
+            ENDDATE=$(printf '%s\n' "$CERT" | sed -n 's/^notAfter=//p')
+
+            # Issuer guard: when LE mint fails, SWAG serves a self-signed cert
+            # (far-future expiry → notAfter alone reads healthy). Real cert is
+            # issued by Let's Encrypt; anything else means the mint failed.
+            case "$ISSUER" in
+              *"Let's Encrypt"*) : ;;
+              *)
+                alert "🔴 **SWAG serving NON-LE cert** on ${config.networking.hostName} — issuer: \`$ISSUER\`. LE mint failed; SWAG fell back to a self-signed cert. Check certbot DNS-01 / cloudflare token."
+                exit 0
+                ;;
+            esac
 
             END_EPOCH=$(${pkgs.coreutils}/bin/date -d "$ENDDATE" +%s 2>/dev/null)
-            NOW=$(${pkgs.coreutils}/bin/date +%s)
             if [ -z "$END_EPOCH" ]; then
-              alert "SWAG cert unparseable on ${config.networking.hostName}" "high" "warning" \
-                "Got a cert from SWAG but could not parse notAfter ('$ENDDATE')."
+              alert "🟠 **SWAG cert unparseable** on ${config.networking.hostName} — notAfter='$ENDDATE'."
               exit 0
             fi
-
+            NOW=$(${pkgs.coreutils}/bin/date +%s)
             DAYS=$(( (END_EPOCH - NOW) / 86400 ))
             if [ "$DAYS" -lt ${toString cfg.warnDays} ]; then
-              alert "SWAG cert expiring in $DAYS d on ${config.networking.hostName}" "high" "warning" \
-                "Served leaf cert for $HOST expires $ENDDATE ($DAYS days). LE renews at 30d left — renewal is failing. Check certbot DNS-01 / cloudflare token."
+              alert "🟠 **SWAG cert expiring in $DAYS d** on ${config.networking.hostName} — $HOST notAfter $ENDDATE. LE renews at 30d left; renewal is failing."
             else
-              echo "SWAG cert OK: $HOST valid $DAYS more days (notAfter $ENDDATE)"
+              echo "SWAG cert OK: $HOST valid $DAYS more days (issuer $ISSUER, notAfter $ENDDATE)"
             fi
           '';
         };

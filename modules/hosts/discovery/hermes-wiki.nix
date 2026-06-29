@@ -26,7 +26,7 @@
       3. Lint: fix broken [[wikilinks]] and obvious duplicate pages. Remove processed lines from inbox.md.
       4. Write files with shell redirection (the write_file tool is blocked for /opt).
       5. Publish (skip if nothing changed): git add -A && git commit -m "wiki: daily consolidation" && git push origin hermes
-      6. Post a one-line result to ntfy: curl -s -d "wiki-consolidate: <short summary>" https://ntfy.homelab.pastelariadev.com/homelab-alerts
+      6. Post a one-line result to Discord (skip if $DISCORD_WEBHOOK_DEPLOYS is unset): [ -n "$DISCORD_WEBHOOK_DEPLOYS" ] && curl -fsS -H "Content-Type: application/json" -d "{\"content\":\"wiki-consolidate: <short summary>\"}" "$DISCORD_WEBHOOK_DEPLOYS"
     '';
 
     # Idempotent-by-replace seed: drop any existing wiki-consolidate, recreate

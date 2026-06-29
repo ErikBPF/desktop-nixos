@@ -34,10 +34,10 @@ _: {
         description = "systemd OnCalendar schedule for the drift check.";
       };
 
-      ntfyUrl = lib.mkOption {
+      discordWebhookFile = lib.mkOption {
         type = lib.types.str;
         default = "";
-        description = "Full ntfy topic URL for drift alerts (empty = log only).";
+        description = "Path to a file holding the Discord webhook URL for drift alerts (read at runtime; empty = log only).";
       };
 
       sopsAgeKeyFile = lib.mkOption {
@@ -78,7 +78,6 @@ _: {
 
         environment = {
           TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
-          NTFY_URL = cfg.ntfyUrl;
           SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
           # Without a shared plugin cache, `run --all` re-downloads every
           # provider (4 × tens of MB) for all 9 units on every scheduled run.
@@ -96,6 +95,11 @@ _: {
           # export via `set -a`. Plaintext stays in a pipe — never on disk.
           ExecStart = pkgs.writeShellScript "homelab-iac-drift" ''
             cd ${lib.escapeShellArg cfg.repoPath}
+            # Read the Discord webhook from its secret file (kept out of the Nix
+            # store / process env baked at eval). drift-check.sh alerts if set.
+            ${lib.optionalString (cfg.discordWebhookFile != "") ''
+              [ -r ${lib.escapeShellArg cfg.discordWebhookFile} ] && export DISCORD_WEBHOOK_URL="$(cat ${lib.escapeShellArg cfg.discordWebhookFile})"
+            ''}
             # Load each KEY=value via a quoted export (no shell-eval of values,
             # so spaces/metacharacters in PSKs/passphrases survive intact).
             # read -r with IFS='=' puts everything after the first '=' in v.

@@ -17,10 +17,10 @@
     options.services.resticTofuState = {
       enable = lib.mkEnableOption "restic backup of the tofu-state mirror";
 
-      ntfyUrl = lib.mkOption {
+      discordWebhookFile = lib.mkOption {
         type = lib.types.str;
         default = "";
-        description = "ntfy topic URL to alert on backup failure (empty = no alert).";
+        description = "Path to a file holding the Discord webhook URL to alert on backup failure (read at runtime; empty = no alert).";
       };
 
       healthcheck = lib.mkEnableOption ''
@@ -47,21 +47,20 @@
       };
 
       # A failed backup (full disk, locked/corrupt repo) is otherwise silent —
-      # alert via ntfy. restic has no built-in notifier, so hang it off the
-      # systemd unit's OnFailure.
+      # alert to Discord. restic has no built-in notifier, so hang it off the
+      # systemd unit's OnFailure. Discord (off-host) is used over ntfy because
+      # ntfy on discovery rides SWAG and wouldn't survive an ingress outage.
       systemd.services.restic-backups-tofu-state.onFailure =
-        lib.mkIf (cfg.ntfyUrl != "") ["restic-tofu-state-onfail.service"];
+        lib.mkIf (cfg.discordWebhookFile != "") ["restic-tofu-state-onfail.service"];
 
-      systemd.services.restic-tofu-state-onfail = lib.mkIf (cfg.ntfyUrl != "") {
-        description = "ntfy alert when the tofu-state restic backup fails";
+      systemd.services.restic-tofu-state-onfail = lib.mkIf (cfg.discordWebhookFile != "") {
+        description = "Discord alert when the tofu-state restic backup fails";
         serviceConfig = {
           Type = "oneshot";
           ExecStart = pkgs.writeShellScript "restic-tofu-state-onfail" ''
-            ${pkgs.curl}/bin/curl -s \
-              -H "Title: restic tofu-state backup FAILED" \
-              -H "Priority: high" -H "Tags: rotating_light" \
-              -d "restic-backups-tofu-state failed on ${config.networking.hostName} — check disk/repo: journalctl -u restic-backups-tofu-state" \
-              ${lib.escapeShellArg cfg.ntfyUrl} >/dev/null || true
+            ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
+              --data "$(${pkgs.jq}/bin/jq -nc --arg c "🔴 **restic tofu-state backup FAILED** on ${config.networking.hostName} — check disk/repo: \`journalctl -u restic-backups-tofu-state\`" '{content:$c}')" \
+              "$(cat ${lib.escapeShellArg cfg.discordWebhookFile})" >/dev/null || true
           '';
         };
       };
