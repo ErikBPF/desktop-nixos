@@ -162,6 +162,41 @@
             destination = "/run/vault-agent/monitoring.env"
             perms = "0444"
           }
+          # P3.3 shared: DB creds consumed by several stacks (infra/ai-serving/
+          # media-server). One render, layered into each consumer via vaultEnvStacks
+          # (secret/home/shared-db). POSTGRES_USER stays config in the sops .env.
+          template {
+            contents = "{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
+            destination = "/run/vault-agent/shared-db.env"
+            perms = "0444"
+          }
+          # P3.3 per-stack local secrets (batch 2). Each compose stack keeps its
+          # interpolation; values move from the sops .env to these renders.
+          template {
+            contents = "{{ with secret \"secret/data/home/media-server\" }}JELLYSTAT_JWT_SECRET={{ .Data.data.JELLYSTAT_JWT_SECRET }}\n{{ end }}"
+            destination = "/run/vault-agent/media-server.env"
+            perms = "0444"
+          }
+          template {
+            contents = "{{ with secret \"secret/data/home/tools\" }}SEARXNG_SECRET_KEY={{ .Data.data.SEARXNG_SECRET_KEY }}\n{{ end }}"
+            destination = "/run/vault-agent/tools.env"
+            perms = "0444"
+          }
+          template {
+            contents = "{{ with secret \"secret/data/home/media\" }}NORDVPN_USER={{ .Data.data.NORDVPN_USER }}\nNORDVPN_PASSWORD={{ .Data.data.NORDVPN_PASSWORD }}\nQBITTORRENT_USER={{ .Data.data.QBITTORRENT_USER }}\nQBITTORRENT_PASSWORD={{ .Data.data.QBITTORRENT_PASSWORD }}\n{{ end }}"
+            destination = "/run/vault-agent/media.env"
+            perms = "0444"
+          }
+          template {
+            contents = "{{ with secret \"secret/data/home/ai-serving\" }}LITELLM_SALT_KEY={{ .Data.data.LITELLM_SALT_KEY }}\nLANGFUSE_PUBLIC_KEY={{ .Data.data.LANGFUSE_PUBLIC_KEY }}\nLANGFUSE_SECRET_KEY={{ .Data.data.LANGFUSE_SECRET_KEY }}\nLANGFUSE_SALT={{ .Data.data.LANGFUSE_SALT }}\nLANGFUSE_INIT_USER_PASSWORD={{ .Data.data.LANGFUSE_INIT_USER_PASSWORD }}\nOPENCODE_GO_KEY={{ .Data.data.OPENCODE_GO_KEY }}\nUI_PASSWORD={{ .Data.data.UI_PASSWORD }}\nMINIO_ROOT_PASSWORD={{ .Data.data.MINIO_ROOT_PASSWORD }}\nCLICKHOUSE_PASSWORD={{ .Data.data.CLICKHOUSE_PASSWORD }}\n{{ end }}"
+            destination = "/run/vault-agent/ai-serving.env"
+            perms = "0444"
+          }
+          template {
+            contents = "{{ with secret \"secret/data/home/networking\" }}CLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"
+            destination = "/run/vault-agent/networking.env"
+            perms = "0444"
+          }
         ''}";
       };
     };

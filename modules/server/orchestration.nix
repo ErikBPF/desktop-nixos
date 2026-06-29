@@ -39,15 +39,24 @@ in {
       };
 
       vaultEnvStacks = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [];
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = {};
+        example = lib.literalExpression ''
+          {
+            tunneling = [ "tunneling" ];
+            "ai-serving" = [ "ai-serving" "shared-db" ];
+          }
+        '';
         description = ''
           Stacks whose secrets are sourced from OpenBao via vault-agent (P3.3).
-          For each, compose gets a second `--env-file /run/vault-agent/<name>.env`
-          (rendered by the discovery vault-agent), layered after the sops .env so
-          its keys win. The compose yml keeps its existing interpolation; only the
-          values' origin moves from the sops .env to Vault. The named stacks'
-          secrets are removed from .env.sops once verified.
+          Maps a stack name to the list of vault-agent env-file basenames it
+          consumes (each at `/run/vault-agent/<basename>.env`, rendered by the
+          discovery vault-agent). compose gets a `--env-file` for each, layered
+          after the sops .env so Vault wins. A stack lists its own
+          `<stack>.env` (stack-local secrets) plus any shared renders like
+          `shared-db` (POSTGRES/REDIS). The compose yml keeps its existing
+          interpolation; only the values' origin moves. Migrated keys are removed
+          from .env.sops once verified.
         '';
       };
 
@@ -78,12 +87,12 @@ in {
       cfg = config.homelab.compose;
       declaredStacks = cfg.stacks;
 
-      # Stacks in vaultEnvStacks get a second --env-file from vault-agent, layered
-      # after the sops .env (later --env-file wins for overlapping keys).
+      # Stacks in vaultEnvStacks get one --env-file per listed vault-agent render,
+      # layered after the sops .env (later --env-file wins for overlapping keys).
       makeService = idx: name: let
-        vaultEnvFlag =
-          lib.optionalString (builtins.elem name cfg.vaultEnvStacks)
-          " --env-file /run/vault-agent/${name}.env";
+        vaultEnvFlags =
+          lib.concatMapStrings (b: " --env-file /run/vault-agent/${b}.env")
+          (cfg.vaultEnvStacks.${name} or []);
       in {
         "podman-compose-${name}" = {
           Unit = {
@@ -113,8 +122,8 @@ in {
             EnvironmentFile = "-${cfg.composeDir}/.env";
             # Docker socket — rootless Podman by default, override for rootful Docker.
             Environment = "DOCKER_HOST=${cfg.dockerSocket}";
-            ExecStart = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlag} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
-            ExecStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlag} -f ${cfg.composeDir}/${name}.yml stop";
+            ExecStart = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
+            ExecStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
             TimeoutStopSec = 60;
           };
           # Empty WantedBy — these units are enabled (symlinked) but not pulled
