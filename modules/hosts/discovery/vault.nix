@@ -79,11 +79,14 @@
       wantedBy = ["multi-user.target"];
       after = ["openbao-unseal.service"];
       wants = ["openbao-unseal.service"];
+      # `bao agent` resolves a token-helper path via `sh` at startup — give it one.
+      path = [pkgs.bash];
       serviceConfig = {
         Restart = "on-failure";
         RestartSec = "10s";
         RuntimeDirectory = "vault-agent";
         RuntimeDirectoryMode = "0755";
+        Environment = "HOME=/run/vault-agent";
         ExecStart = "${pkgs.openbao}/bin/bao agent -config=${pkgs.writeText "vault-agent.hcl" ''
           pid_file = "/run/vault-agent/pid"
           vault { address = "${addr}" }
