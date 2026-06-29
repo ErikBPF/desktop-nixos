@@ -33,9 +33,11 @@ in {
     systemd.services.harbor = {
       description = "Harbor registry — declarative prepare + compose up (pinned installer)";
       # Needs docker up and egress (prepare/compose pull images on a fresh host).
-      after = ["docker.service" "network-online.target"];
+      # vault-agent must render harbor.env before harbor-setup.sh reads it; `wants`
+      # (not `requires`) keeps harbor recoverable while the .env fallback remains.
+      after = ["docker.service" "network-online.target" "vault-agent.service"];
       requires = ["docker.service"];
-      wants = ["network-online.target"];
+      wants = ["network-online.target" "vault-agent.service"];
       wantedBy = ["multi-user.target"];
       # Tools harbor-setup.sh + Harbor's `prepare` wrapper shell out to (runs as
       # root → $SUDO is a no-op). prepare needs awk/openssl/hostname/getent etc.
