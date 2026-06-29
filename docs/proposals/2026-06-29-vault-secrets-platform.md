@@ -18,15 +18,22 @@ methods, path layout, migration cadence), then execute phases P3.1–P3.5.
   host services via **vault-agent** files; grafana/scrutiny via vault-agent
   `env_file`; removed from **both** sops stores. AppRole `vault-agent` (policy
   `discord-read`) + creds in sops (`vault_agent_role_id/secret_id`).
+- **P3.1b** — lab ESO **repointed to discovery OpenBao** (2026-06-29). Tailnet
+  listener `100.76.140.121:8200` beside loopback (firewalled to `tailscale0`, no
+  TLS — WireGuard transport); ACL `kepler → discovery:8200`; OpenBao `eso` AppRole
+  (policy reads `secret/data/{lab,shared}/*`). gitops `ClusterSecretStore`
+  renamed `vault-incluster → vault-discovery` (raw tailnet IP), demo at
+  `secret/lab/demo`. **In-cluster vault chart + Argo app deleted.** **Verified
+  e2e:** ESO re-synced `demo-secret` from discovery over the tailnet. NOTE:
+  `generate-root` is unsupported on this OpenBao build — the **root token was
+  rotated** (orphan root-policy token) after an operator-session leak.
 
 **sops bootstrap secrets** (desktop-nixos `secrets.yaml`): `vault_unseal_key`,
-`vault_root_token`, `vault_snapshot_token`, `vault_restic_password`,
-`vault_agent_role_id`, `vault_agent_secret_id`. OpenBao on `127.0.0.1:8200` only.
+`vault_root_token` (rotated 2026-06-29), `vault_snapshot_token`,
+`vault_restic_password`, `vault_agent_role_id`, `vault_agent_secret_id`. OpenBao
+on `127.0.0.1:8200` (host) + `100.76.140.121:8200` (tailnet, lab ESO).
 
 **Next (not started):**
-- **P3.1b** — repoint lab ESO → discovery OpenBao (4 touchpoints; exposes the
-  store on the tailnet — see that phase below). Open call: TLS now vs tailscale
-  transport-encryption first.
 - **P3.3** — migrate the remaining ~123 servarr `.env.sops` vars to Vault.
 - **P3.4** — iac provider tokens → Vault.
 - Operator action for DR: **offline break-glass copy of the primary age key**.
@@ -139,8 +146,9 @@ the one bootstrap store, no cloud dependency.
   crons were vestigial — no live timer). **Webhook fully de-duped — single-sourced
   from OpenBao `secret/shared/discord`.**
 
-- **P3.1b — Repoint lab ESO to the discovery OpenBao (decision A).** *Not yet
-  done — own focused pass; exposes the secrets store on the network, 4
+- **P3.1b — Repoint lab ESO to the discovery OpenBao (decision A).** ✅ **DONE
+  2026-06-29 — verified e2e** (ESO re-synced the demo secret from discovery over
+  the tailnet; in-cluster vault chart + Argo app removed). 4
   touchpoints:* (a) **desktop-nixos** — OpenBao listener on discovery's tailnet IP
   (`100.76.140.121:8200`) beside loopback + firewall to `tailscale0`; consider TLS
   (tailscale already encrypts transport). (b) **homelab-iac** — tailnet ACL
