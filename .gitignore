@@ -1,5 +1,8 @@
 secret-key
 secret-key-base64
+# Break-glass DR copy of the primary age key — plaintext root of trust.
+# NEVER commit. Created on demand, copied off-fleet, then deleted.
+BREAK-GLASS-age-key.md
 result
 result-*
 result.json
