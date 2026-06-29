@@ -82,6 +82,9 @@
             echo "# TYPE restic_tofu_state_last_success_seconds gauge"
             echo "restic_tofu_state_last_success_seconds $t"
           } > "$tmp"
+          # 0644 so the alloy user (textfile collector) can read what root wrote
+          # (mktemp creates 0600).
+          ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
           ${pkgs.coreutils}/bin/mv "$tmp" "$d/restic_tofu_state.prom"
         '')
       ];
