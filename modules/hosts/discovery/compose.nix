@@ -6,7 +6,7 @@ _: {
       dockerSocket = "unix:///run/docker.sock";
       # P3.3: these stacks' secrets come from OpenBao via vault-agent — compose
       # gets a second --env-file /run/vault-agent/<stack>.env (see orchestration.nix).
-      vaultEnvStacks = ["tunneling"];
+      vaultEnvStacks = ["tunneling" "monitoring"];
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard

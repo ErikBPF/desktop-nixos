@@ -154,6 +154,14 @@
             destination = "/run/vault-agent/tunneling.env"
             perms = "0444"
           }
+          # P3.3: monitoring stack-local secrets (grafana/healthchecks/scrutiny).
+          # GRAFANA_ADMIN_PASSWORD stays in the sops .env for now (shared with the
+          # homepage stack); it migrates when homepage does.
+          template {
+            contents = "{{ with secret \"secret/data/home/monitoring\" }}GRAFANA_SECRET_KEY={{ .Data.data.GRAFANA_SECRET_KEY }}\nHEALTHCHECKS_SECRET_KEY={{ .Data.data.HEALTHCHECKS_SECRET_KEY }}\nHEALTHCHECKS_SUPERUSER_PASSWORD={{ .Data.data.HEALTHCHECKS_SUPERUSER_PASSWORD }}\nSCRUTINY_INFLUXDB_PASSWORD={{ .Data.data.SCRUTINY_INFLUXDB_PASSWORD }}\nSCRUTINY_INFLUXDB_TOKEN={{ .Data.data.SCRUTINY_INFLUXDB_TOKEN }}\nTELEGRAM_BOT_TOKEN={{ .Data.data.TELEGRAM_BOT_TOKEN }}\n{{ end }}"
+            destination = "/run/vault-agent/monitoring.env"
+            perms = "0444"
+          }
         ''}";
       };
     };
