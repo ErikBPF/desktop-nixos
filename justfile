@@ -333,7 +333,10 @@ pull-servarr target branch="main":
     IP="$(just _host-ip {{target}})"
     echo ":: Pointing {{target}} servarr clone at origin/{{branch}} and pulling..."
     ssh -p 2222 erik@"$IP" "printf '%s\n' {{branch}} > /home/erik/servarr/.deploy-branch"
-    ssh -p 2222 erik@"$IP" "systemctl --user start servarr-pull.service"
+    # daemon-reload picks up a freshly-deployed unit; restart (not start) is
+    # required because servarr-pull is RemainAfterExit — `start` no-ops once it
+    # has run, so the reset --hard would never re-fire.
+    ssh -p 2222 erik@"$IP" "systemctl --user daemon-reload && systemctl --user restart servarr-pull.service"
     ssh -p 2222 erik@"$IP" "systemctl --user status servarr-pull.service --no-pager -n15"
     echo ":: {{target}} now on origin/{{branch}}. Recreate changed stacks: just kick-stack {{target}} <stack>"
 
@@ -363,7 +366,9 @@ kick-stack target stack:
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip {{target}})"
-    ssh -p 2222 erik@$IP "systemctl --user start podman-compose-{{stack}}.service"
+    # restart (not start): the unit is RemainAfterExit, so `start` no-ops once
+    # active and would not re-run `compose up -d --remove-orphans`.
+    ssh -p 2222 erik@$IP "systemctl --user restart podman-compose-{{stack}}.service"
     ssh -p 2222 erik@$IP "systemctl --user status podman-compose-{{stack}}.service --no-pager -n10"
 
 # Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
