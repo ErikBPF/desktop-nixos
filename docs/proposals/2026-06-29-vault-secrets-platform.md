@@ -46,11 +46,13 @@ on `127.0.0.1:8200` (host) + `100.76.140.121:8200` (tailnet, lab ESO).
   `vaultEnvStacks` (attrset stack→[basenames]) layers each as an extra
   `--env-file` (Vault wins); compose keeps `${VAR}` interpolation. All cutovers
   verified non-disruptively via `compose config` (0 unset warnings) — no recreate.
-  **Remaining:** cross-host `LITELLM_MASTER_KEY` / `MINIO_ROOT_USER`+`_PASSWORD`
-  (need a **kepler vault-agent** — designed; introduces a hard kepler→discovery
-  boot dependency + a new kepler sops age-key recipient — **operator decision
-  pending**) and **infra-local** `VAULT_DEV_ROOT_TOKEN` / `VAULTWARDEN_ADMIN_TOKEN`
-  / `MINIO_TFSTATE_*` (most critical stack, circular-vault risk — defer).
+  **Intentionally kept in sops** (decided 2026-06-29, not gaps): cross-host
+  `LITELLM_MASTER_KEY` / `MINIO_ROOT_USER`+`_PASSWORD` — a kepler vault-agent was
+  designed but **declined**: not worth a hard kepler→discovery-at-boot dependency
+  + a new kepler sops age-key recipient for 2–3 secrets whose only cost is
+  dual-sourcing on rotation. And **infra-local** `VAULT_DEV_ROOT_TOKEN` /
+  `VAULTWARDEN_ADMIN_TOKEN` / `MINIO_TFSTATE_*` (most critical stack, circular-vault
+  risk). These are pragmatic sops residents; P3.3 is otherwise complete.
   **OPERATIONAL: run all `sops` via `rtk proxy sops` — the RTK hook truncates
   `sops -d` and corrupted `.env.sops` once (recovered via git); see memory
   `rtk-sops-truncation`.**
