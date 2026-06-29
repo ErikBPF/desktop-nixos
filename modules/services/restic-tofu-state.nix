@@ -24,10 +24,11 @@
       };
 
       healthcheck = lib.mkEnableOption ''
-        Healthchecks dead-man's-switch: ping after each successful backup so
-        Healthchecks alerts if the ping stops (dead timer / down host, which
-        OnFailure can't see). The ping URL is read at runtime from the sops
-        secret restic_tofu_state_hc_url'';
+        dead-man's-switch liveness metric: after each successful backup, write
+        restic_tofu_state_last_success_seconds to the node_exporter textfile dir
+        (/var/lib/node-exporter-textfile). Grafana alerts on staleness — catches
+        a dead timer / failed run that OnFailure can't see. Replaces the old
+        Healthchecks ping (declarative, in the metrics pipeline)'';
 
       offsiteRepository = lib.mkOption {
         type = lib.types.str;
@@ -65,15 +66,24 @@
         };
       };
 
-      # Dead-man's-switch: ping Healthchecks after a successful backup
-      # (ExecStartPost runs only on success). A missed ping ⇒ backup failed,
-      # timer dead, or host down. The URL is a capability, so it lives in sops
-      # and is read at runtime rather than baked into the unit.
-      sops.secrets."restic_tofu_state_hc_url" = lib.mkIf cfg.healthcheck {
-        sopsFile = self + "/secrets/sops/secrets.yaml";
-      };
+      # Dead-man's-switch: on success (ExecStartPost runs only on success) write
+      # a last-success timestamp to the node_exporter textfile dir. Grafana
+      # alerts when it goes stale — catches a dead timer or failed run that
+      # OnFailure can't observe. Atomic write (mktemp + mv) so the collector
+      # never reads a half-written file. Replaces the old Healthchecks ping.
       systemd.services.restic-backups-tofu-state.serviceConfig.ExecStartPost = lib.mkIf cfg.healthcheck [
-        "${pkgs.bash}/bin/bash -c '${pkgs.curl}/bin/curl -fsS -m 10 --retry 3 -o /dev/null \"$(cat ${config.sops.secrets."restic_tofu_state_hc_url".path})\"'"
+        (pkgs.writeShellScript "restic-tofu-state-liveness" ''
+          set -eu
+          d=/var/lib/node-exporter-textfile
+          t=$(${pkgs.coreutils}/bin/date +%s)
+          tmp=$(${pkgs.coreutils}/bin/mktemp "$d/.restic_tofu_state.XXXXXX")
+          {
+            echo "# HELP restic_tofu_state_last_success_seconds Unix time of last successful tofu-state restic backup."
+            echo "# TYPE restic_tofu_state_last_success_seconds gauge"
+            echo "restic_tofu_state_last_success_seconds $t"
+          } > "$tmp"
+          ${pkgs.coreutils}/bin/mv "$tmp" "$d/restic_tofu_state.prom"
+        '')
       ];
 
       # restic init only creates the leaf repo dir; ensure its parent exists.

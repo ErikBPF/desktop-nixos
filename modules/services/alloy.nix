@@ -14,6 +14,13 @@ _: {
     # Restart policy: upstream NixOS module already sets Restart=always.
     systemd.services.alloy.serviceConfig.TimeoutStopSec = "1s";
 
+    # Textfile-collector drop dir: host cron/batch jobs write <job>.prom here on
+    # success (e.g. `<job>_last_success_seconds <epoch>`), the unix exporter
+    # surfaces it, and Grafana alerts on staleness — a declarative dead-man's
+    # switch in the metrics pipeline (replaces self-hosted Healthchecks for
+    # host-systemd jobs). 0755 so the alloy user can read what root-run jobs write.
+    systemd.tmpfiles.rules = ["d /var/lib/node-exporter-textfile 0755 root root - -"];
+
     environment.etc."alloy/config.alloy".text = ''
       // Grafana Alloy configuration — fleet-wide NixOS module
       // Ships systemd journal logs to Discovery Loki, host metrics to Discovery Prometheus.
@@ -37,7 +44,13 @@ _: {
       // ============================================================================
       // Host metrics (native NixOS — no path overrides needed)
       // ============================================================================
-      prometheus.exporter.unix "host" {}
+      prometheus.exporter.unix "host" {
+        // Dead-man's-switch source: jobs write <job>_last_success_seconds to a
+        // .prom file in this dir on success; Grafana alerts when it goes stale.
+        textfile {
+          directory = "/var/lib/node-exporter-textfile"
+        }
+      }
 
       prometheus.scrape "host_metrics" {
         targets         = prometheus.exporter.unix.host.targets
