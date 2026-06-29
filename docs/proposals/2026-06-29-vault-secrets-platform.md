@@ -109,10 +109,23 @@ the one bootstrap store, no cloud dependency.
   `swag-cert-monitor` / `restic-tofu-state` / `homelab-iac-drift` /
   `vault-backup-onfail` cut over; **`discord_webhook_{incidents,deploys}` deleted
   from desktop-nixos sops** (verified: alert POST via the Vault-sourced value lands
-  in #incidents). **Remaining:** the **servarr container** copy (grafana/scrutiny/
-  litellm crons read `DISCORD_*` from `.env.sops`) — migrates with P3.3 to fully
-  de-dup; and repoint **lab ESO** from the scaffolded in-cluster vault to this
-  discovery OpenBao (decision A), then drop the in-cluster vault chart.
+  in #incidents). **Container side also done 2026-06-29:** vault-agent renders
+  `/run/vault-agent/discord.env`; grafana + scrutiny `env_file` it;
+  `DISCORD_*`/`SCRUTINY_DISCORD_URL` **removed from servarr `.env.sops`** (litellm
+  crons were vestigial — no live timer). **Webhook fully de-duped — single-sourced
+  from OpenBao `secret/shared/discord`.**
+
+- **P3.1b — Repoint lab ESO to the discovery OpenBao (decision A).** *Not yet
+  done — own focused pass; exposes the secrets store on the network, 4
+  touchpoints:* (a) **desktop-nixos** — OpenBao listener on discovery's tailnet IP
+  (`100.76.140.121:8200`) beside loopback + firewall to `tailscale0`; consider TLS
+  (tailscale already encrypts transport). (b) **homelab-iac** — tailnet ACL
+  `kepler → discovery:8200` (currently default-deny). (c) **OpenBao** — an `eso`
+  AppRole (policy reading `secret/data/lab/*` + `shared`). (d) **homelab-gitops** —
+  `ClusterSecretStore vault-incluster` (`http://vault.vault.svc:8200`) →
+  `http://discovery:8200` with the new roleId/secret_id; then **delete
+  `platform/vault` + `clusters/kepler/apps/vault.yaml`**. Verify ESO re-syncs.
+  Blast radius = lab only (disposable).
 - **P3.3 — servarr `.env.sops` (125 vars) → Vault.** Per-stack, vault-agent
   templates `.env`. *Verify:* each recreated stack reads identical values; backup
   the pre-migration `.env.sops` until proven.
