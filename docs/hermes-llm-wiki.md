@@ -58,27 +58,26 @@ vs ~3–4k terminal-only.)
 
 | # | Component | Where | Status |
 |---|---|---|---|
-| 1 | `hermes` branch (Karpathy scaffold: AGENTS.md, templates/, raw/ wiki/ log/, stubs) | vault.git `hermes` | **DONE** (`d508a10`) |
-| 2 | vault.git-scoped **write deploy key** (`hermes-discovery-wiki`) | GitHub repo + discovery `~/hermes-wiki-deploy/` | **DONE** (scoped — can't touch other repos) |
-| 3 | Discovery clone @ `hermes`, owned uid 10000, `core.sshCommand` scoped to key | discovery `/home/erik/hermes-wiki` | **DONE** |
-| 4 | RW mount `/opt/wiki` + ro key `/opt/wiki-key` | `modules/hosts/discovery/hermes-oci.nix` | **DONE + deployed** earlier |
-| 5 | **SOUL directive** — "## Your knowledge wiki" (ingest in-turn, shell-write, push) | `modules/hosts/discovery/homelab-SOUL.md` | **BUILT — deploy pending** |
-| 6 | **`wiki-curator` skill** — the how-to (AGENTS.md ops, /opt/wiki, shell-write, git) | `hermes-skills/meta/wiki-curator/` | **BUILT — sync pending** |
+| 1 | `hermes` branch (Karpathy scaffold) | vault.git `hermes` | **DONE** (`d508a10`) |
+| 2 | vault.git-scoped **write deploy key** | **sops** `hermes_wiki/deploy_key` → host user `hermes` | **DONE** (scoped) |
+| 3 | Wiki clone @ `hermes`, `core.sshCommand` scoped | `/var/lib/hermes-wiki` via `hermes-wiki-clone.service` | **DONE + declarative** |
+| 4 | RW mount `/opt/wiki` + ro key `/opt/wiki-key` | `hermes-oci.nix` | **DEPLOYED** |
+| 5 | **SOUL directive** — "## Your knowledge wiki" (retrieve-only) | `homelab-SOUL.md` | **DEPLOYED** |
+| 6 | **`wiki-curator` skill** | `hermes-skills/meta/wiki-curator/` | **DEPLOYED** (synced) |
+| 7 | **Daily `wiki-consolidate` cron** (glm-5, `[terminal]`, 04:00) + seed oneshot | `hermes-wiki.nix` | **DEPLOYED + running** |
 
-Proven on the live agent (before discovery went offline): the agent can write
-`/opt/wiki` (via execute_code; `write_file` is guarded for `/opt`) and **push to
-`origin/hermes`** with the scoped key. One manual ingest pass produced 2 quality
-wiki pages + index/log updates and pushed (`2be5171`).
+**Validated end-to-end, unattended:** the 04:00 cron fired on its own
+(`2026-06-29T04:02`, status ok), processed an `inbox.md` capture into a wiki page,
+committed + pushed (`85dc3ba`). Manual ingest + lint self-heal also proven
+(`a15f5be`). Source = distilled built-in memory + inbox; never raw sessions.
 
-## How "it's on" works
-- **SOUL directive (#5)** is injected every turn → the always-present trigger to
-  ingest durable knowledge in-turn.
-- **`wiki-curator` skill (#6)** carries the detailed ops, loaded on demand.
-- Plumbing (#1–#4) is live. So once #5/#6 deploy, hermes has the standing
-  instruction + the means. "Guarantee" = directive present + plumbing live +
-  a demonstrated in-turn ingest (verification below). NB: a SOUL directive is a
-  *soft* guarantee (the model must follow it); a *hard* deterministic trigger
-  (on-session-end hook) is a possible future hardening, not built here.
+## How "it's on"
+- **Base sessions** (all tools): SOUL directive #5 says *retrieve* from the wiki;
+  built-in memory captures notes cheaply; optional one-line `inbox.md` drop.
+- **Daily cron #7** consolidates: distilled memory + inbox → wiki pages, lint,
+  commit+push, ntfy summary. Minimal toolset → cheap (~3–4k/call base).
+- Whole chain is declaratively bootstrapped (#2/#3/#7 via `discovery-hermes-wiki`)
+  → survives a reprovision.
 
 ## Deploy + verify (when discovery is back)
 1. `just switch-discovery` (ships SOUL #5 + the mounts).
@@ -98,12 +97,10 @@ wiki pages + index/log updates and pushed (`2be5171`).
 - API not host-published (`publishPorts=false`); reachable only via homelab-net /
   SWAG. (Note: test the API from inside the container, not host localhost.)
 
-## Current blocker
-**discovery is offline** (ARP FAILED from kepler — powered off / NIC / switch /
-cable; not a deploy issue: autoUpgrade is `switch`+`allowReboot=false`, so it
-leaves the host up). kepler + orion are fine. Deploy of #5/#6 waits on discovery
-returning. Recovery is physical (power/console; if a wedged boot, pick a prior
-GRUB generation).
+## Status (2026-06-29)
+Live + self-running. discovery had a ~19h physical outage 06-27→28 (ARP FAILED —
+power/NIC; recovered on its own), since when everything redeployed and the daily
+cron has fired unattended. No open blockers; remaining items are deferred (below).
 
 ## Consolidation cron + declarative bootstrap (2026-06-28)
 The whole wiki now survives a reprovision — no manual host state. Module
