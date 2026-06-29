@@ -111,6 +111,11 @@
             destination = "/run/vault-agent/discord_webhook_deploys"
             perms = "0444"
           }
+          template {
+            contents = "DISCORD_WEBHOOK_INCIDENTS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.incidents }}{{ end }}\nDISCORD_WEBHOOK_DEPLOYS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.deploys }}{{ end }}\nSCRUTINY_NOTIFY_URLS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.scrutiny }}{{ end }}\n"
+            destination = "/run/vault-agent/discord.env"
+            perms = "0444"
+          }
         ''}";
       };
     };
