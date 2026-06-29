@@ -137,7 +137,7 @@ command, **on the strict condition** that every remote-touching action goes
 through a documented entry point:
 
 - `just` recipes in `desktop-nixos/justfile` (`just deploy …`,
-  `just switch-<host>`, `just sync-servarr <host>`, `just sync-stack <host>
+  `just switch-<host>`, `just pull-servarr <host>`, `just kick-stack <host>
   <stack>`, etc.)
 - `just` recipes in sister repos (`servarr/justfile`,
   `hermes-flake/Justfile`).
@@ -188,18 +188,19 @@ references/repos/servarr`); never hard-code the absolute path.
 
 - Lives at `~/Documents/erik/servarr`. Reachable in-repo via
   `references/repos/servarr`.
-- `just sync-servarr <host>` rsyncs
-  `references/repos/servarr/machines/<host>/` to
-  `erik@<host>:/home/erik/servarr/machines/<host>/`. Excludes `.env` and
-  `.env.sops` — those flow through a separate `just push-env <host>` path.
-- After a sync, **recreate** (not restart) any containers whose env or
-  compose file changed: `docker compose up -d --force-recreate <service>`.
-  See `memory/servarr_env_flow.md`.
+- **Delivery is git-only** (since 2026-06-29). Each host's `servarr-pull`
+  service does `git fetch + reset --hard origin/main` and decrypts `.env.sops`
+  → `.env`. rsync (`sync-servarr`/`sync-stack`) was retired — it dirtied the
+  git tree and silently broke the pull. **git is authoritative**: never
+  hand-edit the servarr clone on a host; it is reset to origin on the next
+  pull.
+- Flow: edit `references/repos/servarr/machines/<host>/` → `just prep-servarr`
+  (refresh generated SOUL.md mirror) → commit + push in the servarr repo →
+  `just pull-servarr <host>` → `just kick-stack <host> <stack>` to **recreate**
+  (not restart) containers whose compose/env changed. See
+  `memory/servarr_env_flow.md`.
 - Targets today: `kepler`, `discovery`, `orion`. Each host owns a stack
   directory under `references/repos/servarr/machines/<host>/`.
-- When adding a new stack: edit
-  `references/repos/servarr/machines/<host>/`, run `just sync-stack <host>
-  <stack>`, then bring it up on the host.
 
 ### `hermes-flake` — hermes-agent package + NixOS module
 

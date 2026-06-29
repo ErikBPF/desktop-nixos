@@ -49,7 +49,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`proposals/2026-06-25-hermes-deferred-plans.md`](proposals/2026-06-25-hermes-deferred-plans.md) | Backlog — partly superseded by `hermes-agentmemory-integration`. |
 | [`proposals/2026-06-26-docs-reorg-and-install.md`](proposals/2026-06-26-docs-reorg-and-install.md) | Proposal — this docs reorganization + INSTALL relocation/refresh. |
 | [`proposals/2026-06-28-cloudflare-token-terraform-migration.md`](proposals/2026-06-28-cloudflare-token-terraform-migration.md) | Proposal (exploration) — make Cloudflare API tokens Terraform-managed in homelab-iac (least-scope, rotatable); one bootstrap token stays manual. |
-| [`proposals/2026-06-29-discovery-resilience-fixes.md`](proposals/2026-06-29-discovery-resilience-fixes.md) | Proposal — persistent fixes from the SWAG cert incident: deploy-pipeline rsync/git conflict, compose project-name drift, DNS self-dependency, cert monitoring. |
+| [`implemented/2026-06-29-discovery-resilience-fixes.md`](implemented/2026-06-29-discovery-resilience-fixes.md) | ✅ Implemented (core, 2026-06-29) — pull-servarr reset-hard, swag-cert-monitor, AdGuard mem fix. P1-1 (compose drift) + P2 (instability root-cause) remain. |
 | [`implemented/2026-06-29-session-landing-plan.md`](implemented/2026-06-29-session-landing-plan.md) | ✅ Done (2026-06-29) — landed the session's deployed/applied work onto main across all three repos. |
 
 > The original dendritic-migration design (`superpowers/specs/2026-03-18-…`) was

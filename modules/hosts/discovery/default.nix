@@ -45,7 +45,18 @@ in {
       m.nixos.btrfs-snapshots
       m.nixos.homelab-iac-drift
       m.nixos.restic-tofu-state
+      m.nixos.swag-cert-monitor
     ];
+
+    # Liveness probe for the SWAG ingress cert. The 2026-06-29 outage was silent
+    # (cert failed to mint, every subdomain 000) — this fires an ntfy alert on a
+    # dead :443 handshake or a near-expiry leaf cert before a user hits a dead
+    # subdomain. Canary subdomain rides the *.homelab wildcard cert.
+    services.swagCertMonitor = {
+      enable = true;
+      host = "kindle.homelab.pastelariadev.com";
+      ntfyUrl = "https://ntfy.homelab.pastelariadev.com/homelab-alerts";
+    };
 
     # Versioned backup of the tofu-state mirror onto vault (sdb), independent of
     # the primary SSD that holds the live state. Off-host copies go to orion +

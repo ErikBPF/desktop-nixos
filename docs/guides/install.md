@@ -203,9 +203,10 @@ just deploy-orion / deploy-kepler / deploy-discovery   # per-host fresh install
 just build-archinaut-sd / seed-archinaut               # RPi printer host bring-up
 
 # Sister repos
-just sync-servarr <host>     # rsync servarr stacks to a host
-just sync-stack <host> <s>   # sync one stack
-just sync-hermes-skills      # push hermes skills
+just prep-servarr            # refresh generated mirrors before committing servarr
+just pull-servarr <host>     # host fetches + resets servarr clone to origin/main
+just kick-stack <host> <s>   # recreate a stack on the host after a pull
+just sync-hermes-skills      # push hermes skills (separate non-git path)
 
 # Secrets / cache
 just sops                    # Edit sops secrets

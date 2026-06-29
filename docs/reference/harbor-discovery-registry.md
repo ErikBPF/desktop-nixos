@@ -46,9 +46,9 @@ see step 6. This supersedes the in-cluster bits of
    ```
 2. **DNS** — add `harbor.homelab.pastelariadev.com → 192.168.10.210` (AdGuard
    rewrite / homelab-iac), like the other discovery services.
-3. **Sync** — `just sync-servarr discovery` (carries the template, scripts, SWAG
-   conf). Reload SWAG so the new proxy-conf loads:
-   `docker exec swag nginx -s reload` (or recreate swag).
+3. **Deliver** — commit + push the servarr changes (template, scripts, SWAG
+   conf), then `just pull-servarr discovery`. Reload SWAG so the new proxy-conf
+   loads: `docker exec swag nginx -s reload` (or recreate swag).
 4. **Install Harbor** on the host:
    ```
    ssh -p 2222 erik@discovery 'bash /home/erik/servarr/machines/discovery/scripts/harbor-setup.sh'

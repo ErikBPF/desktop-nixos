@@ -137,7 +137,20 @@ in {
                       if [ ! -d "$REPO/.git" ]; then
                         ${pkgs.git}/bin/git clone ${cfg.repoUrl} "$REPO"
                       else
-                        ${pkgs.git}/bin/git -C "$REPO" pull --ff-only origin main || true
+                        # Authoritative sync: the host tree must match origin/main
+                        # regardless of local drift. The old `pull --ff-only ||
+                        # true` silently no-op'd once rsync (sync-servarr) dirtied
+                        # the tree, so the host never received new commits
+                        # (2026-06-29 incident). reset --hard makes git the single
+                        # source→host path; rsync delivery is retired. Tracked
+                        # config (compose files, AdGuardHome.yaml) is reset to
+                        # origin — commit host config changes, don't hand-edit on
+                        # the host. Gitignored runtime state (.env, config/swag
+                        # certs, adguard/work, caches) is left untouched. No
+                        # `|| true`: a fetch/reset failure now fails the unit
+                        # loudly instead of leaving the host silently stale.
+                        ${pkgs.git}/bin/git -C "$REPO" fetch --prune origin main
+                        ${pkgs.git}/bin/git -C "$REPO" reset --hard origin/main
                       fi
                       # Decrypt .env.sops → .env if stale or missing.
                       # --input-type/--output-type dotenv is required: sops

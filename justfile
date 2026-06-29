@@ -198,6 +198,24 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
 
+# Audit a host's actual exposure: listening sockets, the live nftables ruleset,
+# and Docker/Podman published ports. Docker may rewrite firewall rules
+# (https://wiki.nixos.org/wiki/Firewall), so on container hosts the published
+# ports are the real attack surface — not just the NixOS firewall config.
+# Read-only. Cross-check the output against the intended exposure manifest.
+#   just verify-firewall discovery
+verify-firewall target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    echo ":: [{{target}}] Listening TCP/UDP sockets (ss -tulpn):"
+    ssh -p 2222 erik@"$IP" "sudo ss -tulpn | grep -v '127.0.0.1\|::1' || true"
+    echo ":: [{{target}}] nftables ruleset (input chain):"
+    ssh -p 2222 erik@"$IP" "sudo nft list ruleset 2>/dev/null | sed -n '/chain input/,/}/p' || echo '(nft unavailable)'"
+    echo ":: [{{target}}] Docker published ports (host-reachable):"
+    ssh -p 2222 erik@"$IP" "command -v docker >/dev/null && docker ps --format '{{{{.Names}}}}\t{{{{.Ports}}}}' | grep '0.0.0.0\|:::' || echo '(no docker / no published ports)'"
+    echo ":: Compare against the intended exposure manifest before trusting this host."
+
 # ── kepler k3s cluster ────────────────────────────────────
 
 # Fetch cp-1's admin kubeconfig → repoint at the LB admin endpoint (via discovery)
@@ -276,38 +294,43 @@ seed-archinaut:
 # `references/repos/home-assistant-config`).
 # Use these when you want to test compose changes before pushing main.
 
-sync-servarr target:
-    just _sync-servarr {{target}}
+# Git is the single source→host path for servarr stacks. Each host's
+# servarr-pull service does `git fetch + reset --hard origin/main` (see
+# modules/server/orchestration.nix). rsync delivery was retired 2026-06-29: it
+# dirtied the git tree and silently broke servarr-pull's old ff-only pull, so
+# hosts stopped receiving commits. New flow:
+#   1. edit references/repos/servarr/machines/<host>/...
+#   2. just prep-servarr            # refresh generated mirrors (SOUL.md)
+#   3. (in the servarr repo) git commit + push origin main
+#   4. just pull-servarr <host>     # host fetches + resets to origin/main
+#   5. just kick-stack <host> <stack>   # recreate containers whose files changed
 
-_sync-servarr-default:
-    just _sync-servarr {{profile}}
+# Refresh generated files in the servarr tree before you commit. Today: mirror
+# the canonical hermes SOUL.md (owned here) into the discovery stack so the
+# deployed copy can't drift. Edit modules/hosts/discovery/homelab-SOUL.md, never
+# the mirror. Run this, then commit + push in the servarr repo.
+prep-servarr:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SRC="$(readlink -f references/repos/servarr)"
+    cp modules/hosts/discovery/homelab-SOUL.md \
+       "$SRC/machines/discovery/config/hermes-agent/SOUL.md"
+    echo ":: Mirrored homelab-SOUL.md → servarr/machines/discovery/config/hermes-agent/SOUL.md"
+    echo ":: Now commit + push in the servarr repo, then: just pull-servarr <host>"
 
-_sync-servarr target:
+# Trigger a host to sync its servarr clone to origin/main (fetch + reset --hard)
+# and re-decrypt .env.sops. Run after committing + pushing servarr changes. The
+# change MUST be on origin/main — the host resets to it; any local host edits
+# are discarded by design (git is authoritative).
+#   just pull-servarr discovery
+pull-servarr target:
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip {{target}})"
-    SRC="$(readlink -f references/repos/servarr)"
-    # Single-source the hermes persona: desktop-nixos owns the canonical
-    # SOUL.md; mirror it into the servarr tree so the deployed file can't
-    # drift. hermes only READS SOUL.md at runtime (seed-if-missing), so a
-    # managed read-only mirror is safe. The servarr copy is thus generated —
-    # edit modules/hosts/discovery/homelab-SOUL.md, never the mirror.
-    if [ "{{target}}" = "discovery" ]; then
-        cp modules/hosts/discovery/homelab-SOUL.md \
-           "$SRC/machines/discovery/config/hermes-agent/SOUL.md"
-    fi
-    echo ":: Syncing $SRC/machines/{{target}} → erik@$IP:/home/erik/servarr/machines/{{target}}/"
-    ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}'
-    rsync -azv \
-        --no-perms --no-owner --no-group --no-times \
-        --exclude '.env' --exclude '.env.sops' \
-        --exclude '__pycache__' --exclude '.DS_Store' \
-        --exclude 'config/adguard/AdGuardHome.yaml' \
-        --exclude 'config/ntfy/cache' \
-        --exclude '.harbor-installer' \
-        -e "ssh -p 2222" \
-        "$SRC/machines/{{target}}/" \
-        "erik@$IP:/home/erik/servarr/machines/{{target}}/"
+    echo ":: Triggering servarr-pull on {{target}} ($IP)..."
+    ssh -p 2222 erik@"$IP" "systemctl --user start servarr-pull.service"
+    ssh -p 2222 erik@"$IP" "systemctl --user status servarr-pull.service --no-pager -n15"
+    echo ":: Host tree now matches origin/main. Recreate changed stacks: just kick-stack {{target}} <stack>"
 
 # Push the git-versioned hermes-skills repo to a host's /home/erik/hermes-skills/
 # so the hermes container can mount it read-only via skills.external_dirs.
@@ -329,25 +352,7 @@ sync-hermes-skills target:
         "$SRC/" \
         "erik@$IP:/home/erik/hermes-skills/"
 
-# Sync a single host stack file + its config dir (faster, doesn't touch others):
-#   just sync-stack kepler ai-serving
-sync-stack target stack:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip {{target}})"
-    SRC="$(readlink -f references/repos/servarr)"
-    echo ":: Syncing {{stack}} files → erik@$IP:/home/erik/servarr/machines/{{target}}/"
-    ssh -p 2222 erik@$IP 'mkdir -p /home/erik/servarr/machines/{{target}}/config/{{stack}}'
-    rsync -azv --no-perms --no-owner --no-group --no-times -e "ssh -p 2222" \
-        "$SRC/machines/{{target}}/{{stack}}.yml" \
-        "erik@$IP:/home/erik/servarr/machines/{{target}}/{{stack}}.yml" || true
-    if [ -d "$SRC/machines/{{target}}/config/{{stack}}" ]; then
-        rsync -azv --no-perms --no-owner --no-group --no-times -e "ssh -p 2222" \
-            "$SRC/machines/{{target}}/config/{{stack}}/" \
-            "erik@$IP:/home/erik/servarr/machines/{{target}}/config/{{stack}}/"
-    fi
-
-# After syncing, kick the compose stack on the remote host:
+# After pulling, kick the compose stack on the remote host:
 #   just kick-stack kepler ai-serving
 kick-stack target stack:
     #!/usr/bin/env bash

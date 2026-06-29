@@ -1,12 +1,20 @@
 ---
 title: Discovery resilience — persistent fixes from the SWAG cert incident
-status: Proposal
+status: Implemented (core, 2026-06-29)
 date: 2026-06-29
 audience: Maintainers of desktop-nixos + servarr
-post-read-action: Pick the deploy-pipeline + compose-hygiene options, then execute by priority.
+post-read-action: P1-1 (compose drift) + P2 (instability root-cause) remain — tracked below.
 ---
 
 # Discovery resilience — persistent fixes
+
+> **Implemented 2026-06-29:** **P0-1** swag-cert-monitor (`modules/services/swag-cert-monitor.nix`,
+> ntfy on expiry/health) + SWAG cert-gate comment + Terraform swag-dns01 token;
+> **P0-2** `just pull-servarr` (git fetch + **reset --hard origin/main**,
+> retires the rsync overlap) + `just kick-stack`; **P1-2** AdGuard `mem_limit`
+> 512m→1.5g (the OOM that took LAN DNS down). **Still open:** P1-1 (compose
+> project-name drift / orphan cleanup), P2 (instability root-cause from the
+> diagnostics data).
 
 ## Context
 
@@ -116,8 +124,13 @@ explicitly *not* recommended.
 
 ## Priority / sequence
 
-1. **P0** — SWAG re-pin (**done**) · deploy-pipeline reconciliation (P0-2) so
-   future deploys aren't silently broken · cert/SWAG monitoring (P0-1).
+1. **P0** — SWAG re-pin (**done**) · deploy-pipeline reconciliation (P0-2,
+   **done** — `servarr-pull` now `fetch + reset --hard`, rsync recipes
+   `sync-servarr`/`sync-stack` retired for git-only `prep-servarr` →
+   `pull-servarr` → `kick-stack`; staged, not yet deployed) · cert/SWAG
+   monitoring (P0-1, **done** — `swag-cert-monitor` module: daily :443 TLS
+   probe → ntfy on dead handshake or <14d expiry; cert gate comment added to
+   the SWAG image pin; staged, not yet deployed).
 2. **P1** — compose project-name hygiene + orphan cleanup (P1-1) · host DNS
    split (P1-2).
 3. **P2** — instability root-cause from diagnostics data (P2-1) · renovate-driven

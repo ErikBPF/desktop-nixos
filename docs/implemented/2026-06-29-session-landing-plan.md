@@ -60,6 +60,6 @@ Most of the docs reorg + diagnostics already committed earlier. Remaining:
 ## Not in scope (tracked elsewhere)
 - The resilience fixes (deploy-pipeline rsync/git conflict, compose project-name
   drift, DNS self-dependency, cert monitoring) live in
-  [`2026-06-29-discovery-resilience-fixes.md`](../proposals/2026-06-29-discovery-resilience-fixes.md)
+  [`2026-06-29-discovery-resilience-fixes.md`](2026-06-29-discovery-resilience-fixes.md)
   — landing *that work* is a separate effort; this plan only lands the **commits**
   already made/deployed this session.
