@@ -56,8 +56,61 @@
       inherit sopsFile;
       mode = "0400";
     };
+    # AppRole creds for vault-agent (read-only `discord-read` policy). The
+    # secret-id is low-blast-radius (reads only secret/shared/discord) and Bao is
+    # loopback-only.
+    sops.secrets."vault_agent_role_id" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
+    sops.secrets."vault_agent_secret_id" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
 
     systemd.tmpfiles.rules = ["d ${snapDir} 0700 openbao openbao - -"];
+
+    # vault-agent (P3.2): renders runtime secrets from OpenBao to files under
+    # /run/vault-agent so host services consume Vault, not sops. First secret:
+    # the Discord webhooks (de-dups the sops copies once consumers cut over).
+    # This is the home-side equivalent of ESO in the lab cluster.
+    systemd.services.vault-agent = {
+      description = "OpenBao agent — render runtime secrets (Discord webhooks) from Vault";
+      wantedBy = ["multi-user.target"];
+      after = ["openbao-unseal.service"];
+      wants = ["openbao-unseal.service"];
+      serviceConfig = {
+        Restart = "on-failure";
+        RestartSec = "10s";
+        RuntimeDirectory = "vault-agent";
+        RuntimeDirectoryMode = "0755";
+        ExecStart = "${pkgs.openbao}/bin/bao agent -config=${pkgs.writeText "vault-agent.hcl" ''
+          pid_file = "/run/vault-agent/pid"
+          vault { address = "${addr}" }
+          auto_auth {
+            method "approle" {
+              mount_path = "auth/approle"
+              config = {
+                role_id_file_path = "/run/secrets/vault_agent_role_id"
+                secret_id_file_path = "/run/secrets/vault_agent_secret_id"
+                remove_secret_id_file_after_reading = false
+              }
+            }
+            sink "file" { config = { path = "/run/vault-agent/token" } }
+          }
+          template {
+            contents = "{{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.incidents }}{{ end }}"
+            destination = "/run/vault-agent/discord_webhook_incidents"
+            perms = "0444"
+          }
+          template {
+            contents = "{{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.deploys }}{{ end }}"
+            destination = "/run/vault-agent/discord_webhook_deploys"
+            perms = "0444"
+          }
+        ''}";
+      };
+    };
 
     # Raft seals on every restart/reboot. Unseal automatically from the
     # sops-held key so an unattended reboot doesn't leave the platform secrets
