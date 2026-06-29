@@ -123,6 +123,17 @@ Metrics exist; **alert rules don't**. Add (PromQL → Grafana rules → Discord)
 - **Host-death SPOF.** Prometheus/Grafana run on discovery and monitor
   discovery; if discovery dies, alerting dies. An external watchdog was
   **declined** (2026-06-29) — documented, not solved here.
+
+### Deferred plans
+
+- **Cross-host liveness ping.** Instead of (or alongside) an external watchdog,
+  have each host's Alloy / a tiny systemd timer **ping a peer** (e.g. kepler and
+  orion each post a heartbeat that discovery alerts on if it stops, and at least
+  one non-discovery host watches discovery's heartbeat). A peer noticing a
+  missing heartbeat is the cheapest on-prem mitigation for the host-death SPOF
+  without an off-box dependency. Mechanism TBD (textfile heartbeat scraped
+  cross-host via the existing remote_write mesh, or a Discord push from a peer
+  on missed ping). Deferred — not scheduled.
 - Long-term metric/log retention & cardinality budget (Prometheus TSDB sizing,
   the known Loki cardinality item) — track separately; note any high-cardinality
   labels new scrapes introduce (k8s labels especially).
