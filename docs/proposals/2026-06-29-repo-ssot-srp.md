@@ -3,6 +3,20 @@
 **Status:** Plan — core decisions **locked 2026-06-29** (see *Locked decisions*);
 per-SSOT implementation plans below. A few low-risk items keep proposed defaults
 marked `TODO(erik)`.
+
+**Execution status (2026-06-29):**
+- **P3 (Secrets SSOT) — DONE** (own sub-RFC `2026-06-29-vault-secrets-platform.md`,
+  status Implemented): OpenBao on discovery; lab ESO + host vault-agent + harbor +
+  8 servarr stacks + shared renders migrated (`.env.sops` 119→85); iac tokens
+  decided-kept-in-sops; boundary documented.
+- **P0** (CLAUDE.md → 8-repo + one-owner table + D1–D9) — *not done* (doc-only, S).
+- **P1** (fleet topology SSOT: `meta.nix fleet.hosts` → `fleet.json` → justfile/iac
+  consumers) — *not done*; **next substantive implementation**. No `fleet.hosts`,
+  no `fleet.json` yet; justfile `ip_*` are hand-authored (the consumer to migrate).
+- **P2** (domains/hostnames SSOT) — *not done*, gated after P1.
+- **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — *partial*
+  (Harbor proxy-cache live; kindle-dash not yet standalone/published).
+- **P5** (SRP placement decision tree in CLAUDE.md) — *not done* (doc-only, S).
 **Date:** 2026-06-29
 **Audience:** Maintainers of the whole homelab repo set
 **Post-read action:** Decide the ownership boundaries + the `TODO(erik)` forks
