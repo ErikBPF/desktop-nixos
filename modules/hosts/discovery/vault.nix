@@ -114,6 +114,29 @@
       ];
     };
 
+    # Off-site copy to kepler — DR-mandatory: a backup that only lives on the
+    # vault disk dies with discovery. Reuses the `restic-kepler` ssh alias +
+    # restic_offsite_ssh_key set up by restic-tofu-state on this host. Backs up
+    # the snapshot the local job (03:00) just produced. kepler is NOT a sops
+    # recipient for this repo's secrets, so the snapshot there is unreadable
+    # without the unseal key (which is not on kepler) — safe off-site.
+    services.restic.backups.vault-offsite = {
+      repository = "sftp:restic-kepler:/bulk/backups/restic-offsite/openbao";
+      passwordFile = "/run/secrets/vault_restic_password";
+      initialize = true;
+      paths = [snapFile];
+      timerConfig = {
+        OnCalendar = "*-*-* 03:20:00"; # after the local backup (03:00)
+        Persistent = true;
+        RandomizedDelaySec = "10m";
+      };
+      pruneOpts = [
+        "--keep-daily 7"
+        "--keep-weekly 4"
+        "--keep-monthly 6"
+      ];
+    };
+
     # Liveness metric on success (P3.0 dead-man's-switch): Grafana alerts when
     # vault_backup_last_success_seconds goes stale/absent. Atomic 0644 write so
     # the alloy textfile collector (non-root) can read it.
