@@ -5,12 +5,13 @@
 `vault_backup_last_success_seconds` liveness + Discord-on-fail (B1b); **mock-state
 restore drill PASSED** (deleted key recovered, count restored — B2); Grafana
 `vault-backup-stale` rule provisioned + metric confirmed in Prometheus (B3).
-**Off-site to kepler: done** (restic repo created). **Fresh-cluster DR restore:
-PROVEN** (see *Disaster recovery* below — restore into a new OpenBao, unseal with
-the OLD sops key, secret recovered). **Remaining:** timed force-fire to Discord
-(B4, in progress) → then **B5** unblocks real-secret migration (P3.2). Forks
-below still `TODO(erik)`; the offline primary-age-key break-glass copy is the one
-operator action DR depends on.
+**GATE MET 2026-06-29.** Off-site to kepler done; fresh-cluster DR restore PROVEN
+(restore into a new OpenBao → seals → unseal with the OLD sops key → secret
+recovered, see *Disaster recovery*); B4 alert condition validated (aged metric →
+Prometheus staleness > threshold → fires → Discord path proven by the identical
+live restic rule). **B5 open → real-secret migration (P3.2) unblocked.** The one
+DR dependency left to the operator: an **offline break-glass copy of the primary
+age key** (single-host loss is already covered — orion/archinaut are recipients).
 **Date:** 2026-06-29
 **Audience:** Maintainers of desktop-nixos + homelab-gitops
 **Post-read action:** Confirm the storage + Vault-home forks, then execute
