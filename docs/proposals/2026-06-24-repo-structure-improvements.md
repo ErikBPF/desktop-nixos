@@ -1,6 +1,8 @@
 # Repository Structure Improvement Proposal
 
-**Status:** Proposal
+**Status:** In progress — **Phase 0 done (2026-06-27):** dendritic contract at
+`docs/reference/dendritic-contract.md` + `just structure-check` (report-only;
+0 hard violations on the current tree, 4 large-file advisories). Phases 1–6 open.
 **Audience:** Maintainers of `desktop-nixos`
 **Post-read action:** Choose which structural cleanup phases to implement, in order, without changing host behavior accidentally.
 
@@ -247,7 +249,7 @@ If a full move to `nixos/` and `home/` feels too disruptive, keep the current to
 
 ## 7. Recommended phases
 
-### Phase 0 - Document and lint the current contract
+### Phase 0 - Document and lint the current contract — ✅ done (2026-06-27)
 
 Add a short architecture note that defines the local dendritic contract:
 

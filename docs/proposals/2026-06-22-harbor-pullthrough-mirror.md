@@ -1,7 +1,16 @@
 # Harbor pull-through mirror for the kepler k3s cluster
 
 **Date:** 2026-06-22
-**Status:** Proposal (scoped, not applied) — `TODO(erik)` decisions marked
+**Status:** Implemented (2026-06-28). As-built: the node side is **live** —
+`registries.yaml` (proxy-first `harbor.homelab.<domain>/v2/dockerhub` + upstream
+`registry-1.docker.io` fallback) and the DNS pin (`192.168.10.210`) are in the
+shared k3s guest config (`modules/hosts/kepler/k3s-cluster.nix:306`). Auth
+decision = **public project** (no creds). P1 made declarative: the proxy-cache
+registry + public `dockerhub` project creation (`harbor-proxycache.sh`) is now a
+non-fatal `ExecStartPost` on the discovery `harbor` oneshot — survives a Harbor
+reinstall (= declarative-impl §B). **Deploy of that fold pending a stable
+discovery window** (host flapping 2026-06-28); the project already exists from
+the prior manual run, so the mirror is functional meanwhile.
 **Scope:** point k3s nodes at Harbor as a Docker Hub pull-through cache, to cut
 external pulls + dodge Docker Hub rate limits (prod-mimic). Pairs with
 [`kepler-k3s-platform-status.md`](../reference/kepler-k3s-platform-status.md).

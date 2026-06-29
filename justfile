@@ -102,6 +102,36 @@ docs-check:
     fi
     echo ":: docs-check OK — all in-repo doc links resolve"
 
+# Dendritic contract checks (docs/reference/dendritic-contract.md). Hard-fails on
+# duplicate registered module names or a _-prefixed file that registers (import-tree
+# skips it, so the registration silently never happens). Reports — does NOT fail —
+# large files and missing generated-file headers. Report-only by design; not wired
+# into `just check` until the large domains are split (repo-structure RFC phases).
+structure-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail=0
+    echo ":: registered module name uniqueness"
+    dups=$(grep -rhoE 'flake\.modules\.(nixos|home)\.[A-Za-z0-9_-]+' modules/ | sort | uniq -d || true)
+    if [ -n "$dups" ]; then
+        echo "FAIL: duplicate registered module names:"; echo "$dups" | sed 's/^/  /'; fail=1
+    fi
+    echo ":: _-prefixed files must not register (import-tree skips them)"
+    while IFS= read -r f; do
+        if grep -qE 'flake\.modules\.' "$f"; then
+            echo "FAIL: $f registers into flake.modules but is _-prefixed"; fail=1
+        fi
+    done < <(find modules -name '_*.nix')
+    echo ":: large files (>400 lines) — candidate domains to split (advisory)"
+    find modules -name '*.nix' -exec wc -l {} + \
+        | awk '$2!="total" && $1>400 {printf "  WARN: %s (%d lines)\n", $2, $1}'
+    echo ":: generated hw files missing a generated-file header (advisory)"
+    while IFS= read -r f; do
+        head -3 "$f" | grep -qiE 'generated|do not edit' || echo "  WARN: $f has no generated-file header"
+    done < <(find modules -name '_hw-generated.nix')
+    if [ "$fail" -ne 0 ]; then echo ":: structure-check FAILED"; exit 1; fi
+    echo ":: structure-check OK (warnings above are advisory)"
+
 check:
     @echo ":: Checking docs..."
     just docs-check

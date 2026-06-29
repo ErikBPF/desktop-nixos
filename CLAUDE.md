@@ -43,7 +43,8 @@ This flake is **dendritic**: `flake.nix` is just `flake-parts.mkFlake` +
 as a flake-parts module — there are no aggregator `default.nix` import lists.
 Files whose path contains a segment starting with `_` are skipped by
 import-tree (`_hw-generated.nix` is imported explicitly by host hardware
-modules).
+modules). The full contract — registration, naming, `_` helpers — lives in
+`docs/reference/dendritic-contract.md` and is checked by `just structure-check`.
 
 - Feature modules register themselves under `flake.modules.nixos.<name>` /
   `flake.modules.home.<name>` (deferredModule). Hosts compose them via

@@ -1,11 +1,14 @@
 # Telemetry hardening — security, QoL, devex
 
 **Date:** 2026-06-20
-**Status:** Proposal (skeleton — judgment marked `TODO(erik)`)
+**Status:** ✅ Implemented (2026-06-27) — §1, §2.2–2.5 already live; §5 Loki
+structured-metadata flags + Logs Drilldown plugin deployed to discovery and
+verified in the running config. §4 log-alerting deferred (fact-based, see §9).
+Decisions in §7 resolved.
 **Owner:** erik
 **Scope:** the existing push-based observability stack (fleet + k3s Alloy →
 discovery's Grafana/Loki/Prometheus). NOT the new platform repo — see
-[`2026-06-20-cluster-homelab-gitops.md`](2026-06-20-cluster-homelab-gitops.md).
+[`2026-06-20-cluster-homelab-gitops.md`](../proposals/2026-06-20-cluster-homelab-gitops.md).
 
 > Researched against 2025–2026 guidance (Grafana, Prometheus, OTel, Tailscale,
 > CNCF/SRE) and cross-checked against our actual config. Headline: the stack is
@@ -108,17 +111,22 @@ OTLP migration, Tempo+exemplars without an instrumented app, Perses today,
 dashboards-as-code tooling beyond file provisioning, k8s/Loki-mixin dashboards
 before cluster metrics exist.
 
-## 7. Decisions — `TODO(erik)`
+## 7. Decisions — resolved 2026-06-27
 
-- §1 cardinality fix — `pod` to structured metadata vs drop-as-label? (recommend
-  structured metadata; keep it queryable.)
-- §3 basic-auth on push — worth the toil given default-deny tailnet, or rely on
-  the ACL? (lean: rely on ACL now; add basic-auth if/when untrusted workloads
-  land on the cluster.)
-- §4 Loki ruler — adopt now (logs are the only cluster signal) or wait for the
-  metrics rollout to give Prometheus alerting instead?
-- Sequencing vs the platform repo's metrics rollout (kube-state-metrics +
-  cAdvisor) — that unblocks §4's deferred dashboards.
+- §1 cardinality — **drop `pod` as a label** (not structured metadata). Already
+  shipped: `k3s-cluster.nix` `alloyConfig` promotes only namespace/app/container
+  and comments that `pod` is deliberately omitted. Structured-metadata
+  prerequisites (`allow_structured_metadata`, `discover_log_levels`) enabled in
+  `loki.yml` so `pod`/`trace_id` can move to metadata later without a label.
+- §3 basic-auth on push — **rely on the ACL.** Default-deny tailnet + WireGuard
+  mutual auth; basic-auth deferred until untrusted workloads land on the cluster.
+- §4 Loki ruler / log-alerting — **deferred** (was "adopt now or wait"; facts say
+  wait — see §9). The cluster ships container stdout only; CrashLoopBackOff/OOM
+  are kubelet/kernel events absent from stdout, so meaningful pod-failure alerts
+  need kube-state-metrics/cAdvisor (platform repo). An ERROR-rate-only LogQL
+  alert would be noisy/app-specific — net-negative to provision now.
+- Sequencing — log-based alerting + the deferred k8s dashboards both unblock when
+  the platform repo's metrics rollout (kube-state-metrics + cAdvisor) lands.
 
 ## 8. Verify (per change)
 
@@ -126,3 +134,29 @@ before cluster metrics exist.
 force-recreate for monitoring.yml/Grafana provisioning; then in Grafana: Loki
 cardinality (`/loki/api/v1/series` stream count steady across pod restarts),
 the disk-fill alert fires on a synthetic threshold, 1860 populated.
+
+## 9. As-built (2026-06-27)
+
+Fact-checked against live config; the original skeleton overstated the gap.
+
+**Already live on discovery (no action needed):**
+- §1 pod-cardinality fix — `modules/hosts/kepler/k3s-cluster.nix` (pod not a label).
+- §2.2 Grafana hardening — `cookie_secure`, `samesite=strict`, `disable_gravatar`,
+  `allow_sign_up=false`, non-default `secret_key` (`hide_version` confirmed to be
+  a non-existent flag).
+- §2.3 disk-fill alert — Grafana-managed `disk-fill-24h` rule (`predict_linear`,
+  <20% AND 24h-trend) → ntfy contactpoint + policy.
+- §2.4 Prometheus `--storage.tsdb.retention.size=50GB`.
+- §2.5 Node Exporter Full (1860) provisioned (`node-exporter-full.json`).
+- §4 labeldrop — moot: the Alloy relabel is allow-list, so stray
+  `*_hash`/`__meta_*` labels are never promoted.
+
+**Edited in `servarr` config, deploy pending (this change):**
+- §5 `allow_structured_metadata: true` + `discover_log_levels: true` in `loki.yml`.
+- §5 Logs Drilldown plugin (`grafana-lokiexplore-app`) in `monitoring.yml`.
+
+**Deferred (correctly, per proposal + §7):**
+- §4 log-based alerting — blocked on cluster metrics (above).
+- §5 structured app-logging (SWAG/nginx JSON) — separate app-side project.
+- Tempo/tracing, OTLP rewrite, k8s dashboards — all gated on instrumented apps /
+  cluster metrics that don't exist yet.

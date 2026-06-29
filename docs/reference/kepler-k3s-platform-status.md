@@ -148,7 +148,11 @@ Synced + Healthy:**
   staggered CP restart. Build locally (`--option builders ""`) or wait for orion.
 - **Host-only vs guest changes**: the LB (host nginx) reloads with no bounce;
   anything in the guest NixOS config (registries, charts, node flags) restarts
-  the microvm. Plan guest changes as a scheduled rolling window.
+  the microvms. **A `switch` restarts *all* changed guests at once — a
+  full-cluster bounce, not a graceful one-at-a-time roll** (confirmed
+  2026-06-27; the closure is shared, so a fleet-wide change bounces every CP +
+  worker together, risking etcd quorum). Plan guest changes for a maintenance
+  window and stagger the CP restarts manually if availability matters.
 - **ESO CRDs are `v1`** (not `v1beta1`); spell out the server-default fields
   (conversion/decoding/metadata/nullByte/deletion policies) or the
   ExternalSecret sits perpetually OutOfSync.

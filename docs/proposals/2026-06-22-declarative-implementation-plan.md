@@ -84,15 +84,17 @@ edge 200. The A1–A4 static breakdown below is kept for the record only.
 
 ---
 
-## B. harbor-proxycache → declarative  `[ ]`
+## B. harbor-proxycache → declarative  `[x]` (2026-06-28, deploy pending)
 
 The Docker Hub proxy-cache project is created by an imperative API script.
-- [ ] `TODO(erik)`: keep `harbor-proxycache.sh` as a documented one-shot, **or**
-  fold into a `harbor-init` oneshot (systemd, `After` the harbor compose unit)
-  that runs the idempotent API calls once Harbor is healthy. (Recommend the
-  oneshot — makes project creation part of the declarative bring-up.)
-- **Verify:** fresh `nixos-rebuild switch` on an empty Harbor yields the
-  `dockerhub` proxy project with no manual step.
+- [x] **Folded into the harbor oneshot.** `harbor-proxycache.sh` (idempotent,
+  public project) now runs as a non-fatal `ExecStartPost` on
+  `systemd.services.harbor` (`modules/hosts/discovery/harbor.nix`) — `After` the
+  compose-up, best-effort (`-` prefix) so a transient Harbor-not-ready never flaps
+  the unit. Decided: **public** project (= harbor-pullthrough P2). Dry-built;
+  deploy pending a stable discovery window.
+- **Verify (on deploy):** fresh `nixos-rebuild switch` on an empty Harbor yields
+  the `dockerhub` proxy project with no manual step.
 
 ---
 
@@ -122,9 +124,9 @@ Track here so it isn't lost; fix alongside the above.
   elevation (new nixos-rebuild 26.11 wants `--ask-elevate-password` or
   passwordless sudo). Switch applied anyway, but the recipe should report clean.
   Fix the `deploy` recipe (`justfile`).
-- [ ] **Status-doc correction** — `kepler-k3s-platform-status.md` "host-only vs
-  guest changes" gotcha claims `switch` doesn't bounce guests; this session
-  proved `switch` **restarts all guests** (a full-cluster bounce). Correct it.
+- [x] **Status-doc correction** (2026-06-27) — `kepler-k3s-platform-status.md`
+  "host-only vs guest changes" gotcha corrected: `switch` restarts **all** guests
+  at once (full-cluster bounce), not a graceful rolling window.
 - [ ] **etcd observability follow-on** — etcd metrics now flow on `:2381`. Add
   the `alloy-metrics` etcd scrape (gitops) + an etcd Grafana dashboard (servarr).
 

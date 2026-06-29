@@ -7,7 +7,7 @@
 `just` recipes) that adds a production-grade platform layer to the kepler k3s
 cluster. **Not NixOS-deployed** — applied to the cluster like servarr's docker
 stacks. Telemetry hardening of the existing stack is separate —
-[`2026-06-20-telemetry-hardening.md`](2026-06-20-telemetry-hardening.md).
+[`2026-06-20-telemetry-hardening.md`](../implemented/2026-06-20-telemetry-hardening.md).
 
 > **Intent (changed from v1): this is a LAB to MIMIC PRODUCTION**, not a minimal
 > homelab. "Overkill" is the point — Traefik, Harbor, external-dns, ESO+Vault,

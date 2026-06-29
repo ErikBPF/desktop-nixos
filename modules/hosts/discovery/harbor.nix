@@ -21,6 +21,14 @@ in {
       sha256 = "1hc77c6ad25xipncppjy80ljw9gi3840499b8yr569vf45zs4ddz";
     };
     setup = "/home/${username}/servarr/machines/discovery/scripts/harbor-setup.sh";
+    # Idempotent: creates the docker-hub registry endpoint + the PUBLIC `dockerhub`
+    # proxy-cache project (anonymous pull → no creds in the k3s registries.yaml).
+    # Folded in as a non-fatal ExecStartPost so the proxy-cache survives a Harbor
+    # reinstall declaratively (harbor-pullthrough RFC P1 / declarative-impl §B),
+    # instead of a manual one-shot. Best-effort: a `-` prefix means a transient
+    # Harbor-not-ready failure never flaps the harbor unit (the script also retries
+    # the API for ~90s internally; next switch reconciles).
+    proxycache = "/home/${username}/servarr/machines/discovery/scripts/harbor-proxycache.sh";
   in {
     systemd.services.harbor = {
       description = "Harbor registry — declarative prepare + compose up (pinned installer)";
@@ -58,6 +66,7 @@ in {
         Type = "oneshot";
         RemainAfterExit = true;
         ExecStart = "${pkgs.bash}/bin/bash ${setup}";
+        ExecStartPost = "-${pkgs.bash}/bin/bash ${proxycache}";
         # servarr-pull (a user service) drops the decrypted .env; if it isn't
         # there yet on first boot, harbor-setup.sh exits non-zero → retry.
         Restart = "on-failure";

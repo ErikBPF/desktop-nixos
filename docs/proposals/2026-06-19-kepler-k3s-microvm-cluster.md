@@ -1,10 +1,15 @@
 # k3s test cluster on `kepler` via microvm.nix
 
 **Date:** 2026-06-19
-**Status:** Proposal — grilled twice (§10, §10b: round 2 simplified the LB design
-— kepler-as-L4-LB drops kube-vip + MetalLB). Core decisions locked; NixOS-native
-distro survey added (§12). Remaining opens are implementation details
-(§6 "Still open"); ready for module work.
+**Status:** Implemented (core, running). The cluster is live on kepler — 3 CP +
+workers, embedded-etcd HA, kepler L4 LB (N4 timeouts done), private subnet,
+Harbor pull-through (registries.yaml), etcd snapshots → /bulk (§C), staggered
+boot (§D), Alloy log push (§A). Confirmed 2026-06-28. **Remaining is deferred /
+decision-only:** §14 Mitigation 2 (rolling CP restart — not built, only worth it
+if CP deploys get frequent; needs live testing, do NOT build blind), the cluster
+**metrics** rollout (§13 deferred — kube-state-metrics/cAdvisor, live-only), and
+the §6 judgment opens (CNI, kubenix, distro spike, GitOps controller, repo
+split). Grilled twice (§10/§10b).
 **Owner:** erik
 **Target host:** `kepler` (existing) — adds a VM-hosted k3s cluster aspect
 **Related:** microvm.nix (currently a *transitive* dep via `hermes-flake`, to be
@@ -442,8 +447,9 @@ QEMU**, then asserts health — caught in CI *before* a single byte hits kepler.
 - **SWAG `stream{}` + IP reservations** (§5.3): confirm SWAG's nginx `stream`
   module is enabled for the apiserver TLS-passthrough (default off); reserve
   `192.168.10.245`/`.250` in the router so DHCP never collides.
-- **LB stream timeouts** (§10b/N4): set generous `proxy_timeout` on the kepler
-  stream LB + SWAG so long-lived `kubectl watch/exec/logs -f/port-forward` survive.
+- ~~**LB stream timeouts** (§10b/N4)~~ → **done**: `proxy_timeout 600s` on both
+  kepler stream servers (`k3s-cluster.nix:417-418`). (SWAG-side timeout still to
+  confirm if a stream proxy is ever added there.)
 - **Distro spike?** (§12): accept `services.k3s`-native, or spike
   `services.kubernetes`+`easyCerts` to compare the "NixOS-owns-PKI" feel.
 - **Whole-cluster bounce on nixpkgs bumps** (G2): exclude VM units from
