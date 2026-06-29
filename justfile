@@ -6,6 +6,7 @@ ip_orion := "192.168.10.220"
 ip_pathfinder := "192.168.10.125"
 ip_kepler := "192.168.10.230"
 ip_archinaut := "192.168.10.225"  # wifi (wlan0), DHCP-reserved on the wlan0 MAC; wired retired. Roaming/admin → deploy via tailscale
+ip_voyager := "129.148.45.145"
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -23,6 +24,7 @@ _host-ip target:
         pathfinder) echo "{{ip_pathfinder}}" ;;
         kepler)     echo "{{ip_kepler}}" ;;
         archinaut)  echo "{{ip_archinaut}}" ;;
+        voyager)    echo "{{ip_voyager}}" ;;
         *) echo "Unknown target: {{target}}" >&2; exit 1 ;;
     esac
 
@@ -67,6 +69,7 @@ dry-all:
     sudo nixos-rebuild dry-build --flake .#laptop --show-trace
     sudo nixos-rebuild dry-build --flake .#orion --show-trace
     sudo nixos-rebuild dry-build --flake .#kepler --show-trace
+    sudo nixos-rebuild dry-build --flake .#voyager --show-trace
 
 lint:
     statix check . -c .statix.toml -i '.direnv/*'
@@ -161,6 +164,9 @@ switch-pathfinder:
 switch-kepler:
     just deploy kepler {{ip_kepler}} 2222
 
+switch-voyager:
+    just deploy voyager {{ip_voyager}} 2222
+
 # kepler intentionally excluded — deploy it on its own window so the AI
 # serving stack isn't restarted as a side effect: just switch-kepler
 switch-all:
@@ -215,6 +221,107 @@ verify-firewall target:
     echo ":: [{{target}}] Docker published ports (host-reachable):"
     ssh -p 2222 erik@"$IP" "command -v docker >/dev/null && docker ps --format '{{{{.Names}}}}\t{{{{.Ports}}}}' | grep '0.0.0.0\|:::' || echo '(no docker / no published ports)'"
     echo ":: Compare against the intended exposure manifest before trusting this host."
+
+# Validate the declared disko /dev/sda layout end-to-end: partition, install, and
+# boot in a throwaway VM (does NOT touch Oracle). This is the same install path
+# `deploy-voyager` runs. Complements voyager-vm-* which exercise runtime/compose
+# on the build.vm ephemeral disk — vm-test is the only thing that exercises disko.
+voyager-vm-test:
+    nix run github:nix-community/nixos-anywhere -- --vm-test --flake .#voyager
+
+# Build the Voyager VM runner locally, offloading compilation to Orion when useful.
+voyager-vm-build:
+    nix build .#nixosConfigurations.voyager.config.system.build.vm --show-trace \
+        --option builders "{{orion_builder}}" \
+        --option builders-use-substitutes true
+
+# Start a detached Voyager validation VM on Orion. Disk and logs live in /scratch.
+voyager-vm-start:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just voyager-vm-build
+    VM_PATH="$(readlink -f result)"
+    VM_RUNNER=""
+    for candidate in "$VM_PATH"/bin/*; do VM_RUNNER="$candidate"; break; done
+    test -n "$VM_RUNNER"
+    nix copy --no-check-sigs --to "ssh-ng://erik@{{ip_orion}}" "$VM_PATH"
+    remote_script='
+    set -euo pipefail
+    # If any setup step fails, tear down the tap + NAT rules we just added so a
+    # partial start does not orphan host network state.
+    cleanup() {
+      sudo iptables -t nat -D POSTROUTING -s 10.88.0.0/24 -o enp4s0 -j MASQUERADE 2>/dev/null || true
+      sudo iptables -D FORWARD -i voyager-vm-tap -o enp4s0 -j ACCEPT 2>/dev/null || true
+      sudo iptables -D FORWARD -i enp4s0 -o voyager-vm-tap -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+      sudo ip link delete voyager-vm-tap 2>/dev/null || true
+    }
+    trap cleanup ERR
+    if ! ip link show voyager-vm-tap >/dev/null 2>&1; then
+      sudo ip tuntap add dev voyager-vm-tap mode tap user erik
+    fi
+    sudo ip addr replace 10.88.0.1/24 dev voyager-vm-tap
+    sudo ip link set voyager-vm-tap up
+    sudo sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    sudo iptables -t nat -C POSTROUTING -s 10.88.0.0/24 -o enp4s0 -j MASQUERADE 2>/dev/null || \
+      sudo iptables -t nat -A POSTROUTING -s 10.88.0.0/24 -o enp4s0 -j MASQUERADE
+    sudo iptables -C FORWARD -i voyager-vm-tap -o enp4s0 -j ACCEPT 2>/dev/null || \
+      sudo iptables -A FORWARD -i voyager-vm-tap -o enp4s0 -j ACCEPT
+    sudo iptables -C FORWARD -i enp4s0 -o voyager-vm-tap -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+      sudo iptables -A FORWARD -i enp4s0 -o voyager-vm-tap -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+    mkdir -p /scratch/voyager-vm
+    if [ -f /scratch/voyager-vm/vm.pid ] && kill -0 "$(cat /scratch/voyager-vm/vm.pid)" 2>/dev/null; then
+      echo ":: Voyager VM already running"
+      exit 0
+    fi
+    cd /scratch/voyager-vm
+    nohup env NIX_DISK_IMAGE=/scratch/voyager-vm/voyager.qcow2 "$VM_RUNNER" \
+      > /scratch/voyager-vm/console.log 2>&1 < /dev/null &
+    echo $! > /scratch/voyager-vm/vm.pid
+    echo ":: Voyager VM started on Orion"
+    echo ":: SSH: ssh -p 2222 erik@10.88.0.2 from Orion"
+    echo ":: Restic REST: http://10.88.0.2:8000 from Orion"
+    '
+    printf "%s" "$remote_script" | ssh -p 2222 erik@{{ip_orion}} "env VM_RUNNER='$VM_RUNNER' bash -s"
+
+voyager-vm-stop:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    remote_script='
+    set -euo pipefail
+    if [ -f /scratch/voyager-vm/vm.pid ] && kill -0 "$(cat /scratch/voyager-vm/vm.pid)" 2>/dev/null; then
+      kill "$(cat /scratch/voyager-vm/vm.pid)"
+      echo ":: Voyager VM stopped"
+    else
+      echo ":: Voyager VM is not running"
+    fi
+    sudo iptables -t nat -D POSTROUTING -s 10.88.0.0/24 -o enp4s0 -j MASQUERADE 2>/dev/null || true
+    sudo iptables -D FORWARD -i voyager-vm-tap -o enp4s0 -j ACCEPT 2>/dev/null || true
+    sudo iptables -D FORWARD -i enp4s0 -o voyager-vm-tap -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+    sudo ip link delete voyager-vm-tap 2>/dev/null || true
+    '
+    printf "%s" "$remote_script" | ssh -p 2222 erik@{{ip_orion}} bash -s
+
+voyager-vm-smoke:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    remote_script='
+    set -euo pipefail
+    for _ in $(seq 1 60); do
+      if ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/voyager-vm-known_hosts -p 2222 erik@10.88.0.2 "hostname"; then
+        # podman-compose-offsite is a rootless *user* unit; query it in --user
+        # scope. It can take minutes to come up, so report it, do not gate on it.
+        ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/voyager-vm-known_hosts -p 2222 erik@10.88.0.2 \
+          "systemctl --user is-active podman-compose-offsite.service || true"
+        code=$(curl -sS -o /dev/null -w "%{http_code}" http://10.88.0.2:8000/ || true)
+        echo ":: restic-rest HTTP status: $code"
+        exit 0
+      fi
+      sleep 5
+    done
+    echo ":: Voyager VM did not become reachable" >&2
+    exit 1
+    '
+    printf "%s" "$remote_script" | ssh -p 2222 erik@{{ip_orion}} bash -s
 
 # ── kepler k3s cluster ────────────────────────────────────
 
@@ -461,6 +568,23 @@ deploy-kepler:
         --generate-hardware-config nixos-generate-config \
             ./modules/hosts/kepler/_hw-generated.nix \
         nixos@192.168.10.112
+
+deploy-voyager:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /tmp/nixos-extra-voyager/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-voyager/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra-voyager/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra-voyager' EXIT
+    # Oracle VM nanda-colors: Ubuntu entrypoint is ubuntu@129.148.45.145:22.
+    # WARNING: nixos-anywhere will wipe /dev/sda, including the nanda-colors stack.
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#voyager \
+        --extra-files /tmp/nixos-extra-voyager \
+        --show-trace \
+        --generate-hardware-config nixos-generate-config \
+            ./modules/hosts/voyager/_hw-generated.nix \
+        ubuntu@{{ip_voyager}}
 
 bootstrap target:
     #!/usr/bin/env bash

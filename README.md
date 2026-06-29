@@ -14,6 +14,7 @@ top-level module, options replace `specialArgs`, no aggregator boilerplate.
 | **orion** | HTPC / Build server | Ryzen 9 5950X | 64 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SSD ext4 | 192.168.10.220 |
 | **discovery** | Home server | i5-4670 | 32 GB | Quadro P2000 | 2×SSD btrfs RAID1 · 3.6TB HDD | 192.168.10.210 |
 | **kepler** | NAS / AI inference | Ryzen 5 3600 | 64 GB | RTX 3070 LHR | M.2 btrfs · ZFS RAIDZ1 | 192.168.10.230 |
+| **voyager** | Offsite backup receiver | Oracle VM | 1 GB | — | 46 GB boot volume · btrfs | 129.148.45.145 / Tailscale |
 
 SSH runs on **port 2222** fleet-wide.
 

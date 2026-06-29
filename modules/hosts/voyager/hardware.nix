@@ -70,7 +70,9 @@ _: {
       efi.canTouchEfiVariables = true;
       systemd-boot = {
         enable = true;
-        configurationLimit = 3;
+        # 512M ESP: cap generations low so kernel+initrd copies never overflow
+        # /boot (cf. kepler ESP-overflow lesson).
+        configurationLimit = 2;
       };
     };
   };
