@@ -4,38 +4,145 @@
 # (ESO), and iac (provider). sops stays the root-of-trust/bootstrap. Lives on
 # discovery (not the disposable lab cluster) so tearing down the lab never
 # touches secrets. See docs/proposals/2026-06-29-vault-secrets-platform.md (P3)
-# and -vault-backup-plan.md (P3.0 — backup/restore must pass before real secrets).
+# and -vault-backup-plan.md (P3.0).
 #
-# OpenBao over Vault: nixpkgs `vault` is BUSL/unfree; OpenBao is API-compatible
-# (`bao` CLI, raft snapshots, ESO `vault` provider all work).
-#
-# B1a (this module): stand up the sealed, raft-backed server. It holds NOTHING
-# until `bao operator init` + unseal (a deliberate, irreversible step that mints
-# the unseal keys → sops). Backup/monitoring (B1b) is added after init, once the
-# snapshot token exists. The module's StateDirectory=openbao (0700) owns
-# /var/lib/openbao; restartIfChanged=false so a rebuild doesn't reseal it.
-_: {
-  flake.modules.nixos.discovery-vault = _: {
+# OpenBao over Vault: nixpkgs `vault` is BUSL/unfree; OpenBao is API-compatible.
+# StateDirectory=openbao (0700) owns /var/lib/openbao; restartIfChanged=false so
+# a rebuild doesn't reseal it. Initialised 2026-06-29 (unseal key + root +
+# snapshot token in sops).
+{self, ...}: {
+  flake.modules.nixos.discovery-vault = {
+    pkgs,
+    lib,
+    ...
+  }: let
+    addr = "http://127.0.0.1:8200";
+    snapDir = "/var/lib/vault-snapshots";
+    snapFile = "${snapDir}/openbao.snap";
+    textfileDir = "/var/lib/node-exporter-textfile";
+    bao = "${pkgs.openbao}/bin/bao";
+    jq = "${pkgs.jq}/bin/jq";
+    sopsFile = self + "/secrets/sops/secrets.yaml";
+  in {
+    environment.systemPackages = [pkgs.openbao];
+
     services.openbao = {
       enable = true;
       settings = {
         ui = true;
-        # Loopback only, no TLS on the local listener for now. Network reach for
-        # lab ESO / remote vault-agent is added deliberately (Tailscale or SWAG,
-        # with TLS) after the server is initialised and backed up.
         listener.default = {
           type = "tcp";
           address = "127.0.0.1:8200";
           tls_disable = true;
         };
-        # Raft (integrated) storage → consistent online snapshots
-        # (`bao operator raft snapshot save`), the backbone of the P3.0 backup plan.
         storage.raft = {
           path = "/var/lib/openbao";
           node_id = "discovery";
         };
         api_addr = "http://127.0.0.1:8200";
         cluster_addr = "http://127.0.0.1:8201";
+      };
+    };
+
+    sops.secrets."vault_unseal_key" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
+    sops.secrets."vault_snapshot_token" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
+    sops.secrets."vault_restic_password" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
+
+    systemd.tmpfiles.rules = ["d ${snapDir} 0700 openbao openbao - -"];
+
+    # Raft seals on every restart/reboot. Unseal automatically from the
+    # sops-held key so an unattended reboot doesn't leave the platform secrets
+    # store sealed (and every consumer broken). Semi-auto by design (P3.0): the
+    # key lives in sops, so a disk stolen without the age key stays sealed.
+    systemd.services.openbao-unseal = {
+      description = "Unseal OpenBao on boot (raft seals on restart)";
+      wantedBy = ["multi-user.target"];
+      after = ["openbao.service"];
+      requires = ["openbao.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = pkgs.writeShellScript "openbao-unseal" ''
+          export BAO_ADDR=${addr}
+          # Wait until the server responds (sealed status still answers).
+          for _ in $(seq 1 30); do
+            ${bao} status -format=json 2>/dev/null | ${jq} -e 'has("sealed")' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          if ${bao} status -format=json 2>/dev/null | ${jq} -e '.sealed == true' >/dev/null 2>&1; then
+            ${bao} operator unseal "$(cat /run/secrets/vault_unseal_key)" >/dev/null
+          fi
+        '';
+      };
+    };
+
+    # Backup (P3.0): restic backs up a raft snapshot taken in backupPrepareCommand
+    # (consistent online snapshot). Local repo on the vault disk (sdb), separate
+    # from the root SSD. The unseal key is NOT here (it's in sops/git) — snapshot
+    # and unseal key stay in different trust domains. Off-site to kepler is the
+    # immediate follow-up (kepler can't decrypt discovery's sops, so a snapshot
+    # there is safe).
+    services.restic.backups.vault = {
+      repository = "/home/erik/vault/restic/openbao";
+      passwordFile = "/run/secrets/vault_restic_password";
+      initialize = true;
+      paths = [snapFile];
+      backupPrepareCommand = ''
+        export BAO_ADDR=${addr}
+        export BAO_TOKEN="$(cat /run/secrets/vault_snapshot_token)"
+        ${bao} operator raft snapshot save ${snapFile}
+        ${pkgs.coreutils}/bin/chmod 0600 ${snapFile}
+      '';
+      timerConfig = {
+        OnCalendar = "*-*-* 03:00:00";
+        Persistent = true;
+        RandomizedDelaySec = "10m";
+      };
+      pruneOpts = [
+        "--keep-daily 7"
+        "--keep-weekly 4"
+        "--keep-monthly 6"
+      ];
+    };
+
+    # Liveness metric on success (P3.0 dead-man's-switch): Grafana alerts when
+    # vault_backup_last_success_seconds goes stale/absent. Atomic 0644 write so
+    # the alloy textfile collector (non-root) can read it.
+    systemd.services.restic-backups-vault.serviceConfig.ExecStartPost = [
+      (pkgs.writeShellScript "vault-backup-liveness" ''
+        set -eu
+        t=$(${pkgs.coreutils}/bin/date +%s)
+        tmp=$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.vault_backup.XXXXXX)
+        {
+          echo "# HELP vault_backup_last_success_seconds Unix time of last successful openbao raft snapshot backup."
+          echo "# TYPE vault_backup_last_success_seconds gauge"
+          echo "vault_backup_last_success_seconds $t"
+        } > "$tmp"
+        ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+        ${pkgs.coreutils}/bin/mv "$tmp" ${textfileDir}/vault_backup.prom
+      '')
+    ];
+
+    # A failed backup is otherwise silent — alert to Discord (off-host).
+    systemd.services.restic-backups-vault.onFailure = ["vault-backup-onfail.service"];
+    systemd.services.vault-backup-onfail = {
+      description = "Discord alert when the OpenBao snapshot backup fails";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = pkgs.writeShellScript "vault-backup-onfail" ''
+          ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
+            --data "$(${jq} -nc --arg c "🔴 **OpenBao snapshot backup FAILED** on discovery — check: journalctl -u restic-backups-vault" '{content:$c}')" \
+            "$(cat /run/secrets/discord_webhook_incidents)" >/dev/null || true
+        '';
       };
     };
   };
