@@ -35,6 +35,17 @@
           address = "127.0.0.1:8200";
           tls_disable = true;
         };
+        # Tailnet listener (P3.1b): lab ESO on kepler reaches the store over the
+        # tailnet to repoint off the in-cluster vault. Bound to discovery's
+        # tailnet IP (not 0.0.0.0) so it's only on tailscale0; firewalled to
+        # tailscale0 below; tailnet ACL default-denies all but kepler→:8200.
+        # No TLS: WireGuard already authenticates+encrypts the only transport
+        # (see RFC P3.1b TLS decision); revisit in P3.5 hardening.
+        listener.tailnet = {
+          type = "tcp";
+          address = "100.76.140.121:8200";
+          tls_disable = true;
+        };
         storage.raft = {
           path = "/var/lib/openbao";
           node_id = "discovery";
@@ -42,6 +53,22 @@
         api_addr = "http://127.0.0.1:8200";
         cluster_addr = "http://127.0.0.1:8201";
       };
+    };
+
+    # Expose 8200 only on the tailnet interface — the global firewall in
+    # discovery-networking stays default-closed (8200 not in allowedTCPPorts),
+    # so the store is unreachable from the LAN/eno1/br0.
+    networking.firewall.interfaces.tailscale0.allowedTCPPorts = [8200];
+
+    # The tailnet listener binds 100.76.140.121, which only exists once tailscaled
+    # has brought the interface up. openbao starts after network.target, so a cold
+    # boot can race the IP and the bind fails. Order after tailscaled and retry
+    # without a start-limit cap so the unit self-heals once the IP appears
+    # (rather than tripping the default 5-in-10s limit and staying dead).
+    systemd.services.openbao = {
+      after = ["tailscaled.service"];
+      startLimitIntervalSec = 0;
+      serviceConfig.RestartSec = "2s";
     };
 
     sops.secrets."vault_unseal_key" = {
