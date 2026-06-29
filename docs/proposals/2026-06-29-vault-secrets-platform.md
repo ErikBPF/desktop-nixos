@@ -103,12 +103,16 @@ the one bootstrap store, no cloud dependency.
   (or contract the base cluster, per the fork); automate unseal; put unseal key +
   root token + vault-agent AppRole in sops. Point lab ESO `ClusterSecretStore` at
   it. *Verify:* `vault status` sealed→unsealed on boot; ESO syncs the demo secret.
-- **P3.2 — Proof migration: the Discord webhook.** Write it to Vault
-  (`shared/discord/{incidents,deploys}`); render to home docker (vault-agent) +
-  host systemd (vault-agent) + k8s (ESO); **delete both sops copies**
-  (desktop-nixos + servarr). De-dup achieved. *Verify:* `swag-cert-monitor` +
-  Grafana + scrutiny all fire from the Vault-sourced value; the webhook exists in
-  exactly one place.
+- **P3.2 — Proof migration: the Discord webhook.** ✅ **Host side done 2026-06-29:**
+  webhook in OpenBao `secret/shared/discord`; **vault-agent** on discovery (AppRole,
+  read-only `discord-read`) renders it to `/run/vault-agent/discord_webhook_incidents`;
+  `swag-cert-monitor` / `restic-tofu-state` / `homelab-iac-drift` /
+  `vault-backup-onfail` cut over; **`discord_webhook_{incidents,deploys}` deleted
+  from desktop-nixos sops** (verified: alert POST via the Vault-sourced value lands
+  in #incidents). **Remaining:** the **servarr container** copy (grafana/scrutiny/
+  litellm crons read `DISCORD_*` from `.env.sops`) — migrates with P3.3 to fully
+  de-dup; and repoint **lab ESO** from the scaffolded in-cluster vault to this
+  discovery OpenBao (decision A), then drop the in-cluster vault chart.
 - **P3.3 — servarr `.env.sops` (125 vars) → Vault.** Per-stack, vault-agent
   templates `.env`. *Verify:* each recreated stack reads identical values; backup
   the pre-migration `.env.sops` until proven.
