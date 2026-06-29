@@ -34,22 +34,26 @@ methods, path layout, migration cadence), then execute phases P3.1–P3.5.
 on `127.0.0.1:8200` (host) + `100.76.140.121:8200` (tailnet, lab ESO).
 
 **In progress:**
-- **P3.3** — servarr `.env.sops` → Vault. **7 stacks migrated + verified
-  2026-06-29** (`.env.sops` 119→97 keys): tunneling, monitoring, media-server,
-  tools, media, ai-serving, networking + a **shared-db render** (POSTGRES/REDIS
-  consumed by infra/ai-serving/media-server). Mechanism: vault-agent renders
+- **P3.3** — servarr `.env.sops` → Vault. **~Done on discovery (`.env.sops`
+  119→85 keys, verified 2026-06-29).** Migrated: tunneling, monitoring,
+  media-server, tools, media, ai-serving, networking (per-stack renders) +
+  **shared-db** (POSTGRES/REDIS → infra/ai-serving/media-server) + **shared-arr**
+  (RADARR/SONARR/LIDARR_API_KEY → media/homepage) + **shared-grafana**
+  (GRAFANA_ADMIN_USER/PASSWORD → monitoring/homepage) + **harbor** (special-cased:
+  2 real secrets via a vault-agent render read by `harbor-setup.sh`; dead
+  `harbor.yml` + 5 prepare-generated vars deleted). Mechanism: vault-agent renders
   `secret/home/<name>` → `/run/vault-agent/<name>.env`; `orchestration.nix`
-  `vaultEnvStacks` (now an **attrset** stack→[basenames]) layers each as an extra
-  `--env-file` (Vault wins over the sops `.env`); compose keeps its `${VAR}`
-  interpolation. Cutovers verified non-disruptively via `compose config` (0 unset
-  warnings) — running containers keep identical values, no recreate.
-  **Deferred:** cross-host `LITELLM_MASTER_KEY`/`MINIO_ROOT_USER` (need a kepler
-  vault-agent), shared `*ARR_API_KEY` + `GRAFANA_ADMIN_PASSWORD` (need homepage
-  coordination), infra-local vault/vaultwarden/minio-tfstate creds (critical +
-  circular), and **harbor** (special-cased: prepare-generated, 2 real secrets,
-  dead 7-var `harbor.yml`). **OPERATIONAL: run all `sops` via `rtk proxy sops` —
-  the RTK hook truncates `sops -d` and corrupted `.env.sops` once (recovered via
-  git); see memory `rtk-sops-truncation`.**
+  `vaultEnvStacks` (attrset stack→[basenames]) layers each as an extra
+  `--env-file` (Vault wins); compose keeps `${VAR}` interpolation. All cutovers
+  verified non-disruptively via `compose config` (0 unset warnings) — no recreate.
+  **Remaining:** cross-host `LITELLM_MASTER_KEY` / `MINIO_ROOT_USER`+`_PASSWORD`
+  (need a **kepler vault-agent** — designed; introduces a hard kepler→discovery
+  boot dependency + a new kepler sops age-key recipient — **operator decision
+  pending**) and **infra-local** `VAULT_DEV_ROOT_TOKEN` / `VAULTWARDEN_ADMIN_TOKEN`
+  / `MINIO_TFSTATE_*` (most critical stack, circular-vault risk — defer).
+  **OPERATIONAL: run all `sops` via `rtk proxy sops` — the RTK hook truncates
+  `sops -d` and corrupted `.env.sops` once (recovered via git); see memory
+  `rtk-sops-truncation`.**
 
 **Next (not started):**
 - **P3.4** — iac provider tokens → Vault.
