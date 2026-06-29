@@ -1,7 +1,12 @@
 # Vault backup — prove backup/restore + monitoring before any real secret
 
-**Status:** Proposal (gate **P3.0** — must pass before P3.2 secret migration in
-`2026-06-29-vault-secrets-platform.md`; judgment marked `TODO(erik)`)
+**Status:** In progress (gate **P3.0**). **Done 2026-06-29:** OpenBao on discovery
+(raft, OSS) initialised + auto-unseal (B1a/B1b); restic snapshot backup +
+`vault_backup_last_success_seconds` liveness + Discord-on-fail (B1b); **mock-state
+restore drill PASSED** (deleted key recovered, count restored — B2); Grafana
+`vault-backup-stale` rule provisioned + metric confirmed in Prometheus (B3).
+**Remaining:** timed force-fire to Discord (B4, needs a ~15-min stale window) →
+then **B5** unblocks real-secret migration (P3.2). Forks below still `TODO(erik)`.
 **Date:** 2026-06-29
 **Audience:** Maintainers of desktop-nixos + homelab-gitops
 **Post-read action:** Confirm the storage + Vault-home forks, then execute
