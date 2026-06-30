@@ -1,11 +1,14 @@
 # OpenCode improvement — global + per-repo config
 
-**Status:** Draft RFC, awaiting decisions. **Date:** 2026-06-29.
+**Status:** Implemented (Phases G + L1-L3 + items 2+4). **Date:** 2026-06-29.
+**Late edit 2026-06-30:** Nix flake scope changed — items 2+4 land a NixOS
+opencode-client sops module in this flake (§ Implemented items). All claims
+verified against docs.opencode.ai (Jun 29 2026 build).
 **Scope:** two-layer opencode config — **global** (`~/.config/opencode/`, user
 scope, follows you across machines) + **per-repo** (`opencode.json` at each
-sister-repo root, project scope, ships in git). **Nix flake untouched** — both
-layers live in user/dotfiles vs repo roots. All claims verified against
-docs.opencode.ai (Jun 29 2026 build).
+sister-repo root, project scope, ships in git). Plus durable sops-decrypted
+keys on every desktop host (Item 2) and a scoped LiteLLM virtual key in place
+of the master key (Item 4). All claims verified against docs.opencode.ai.
 
 ## Why
 
@@ -393,3 +396,95 @@ per-repo proposals.
 - Skills symlink (D6) — defer per user 2026-06-29.
 - Containerized `opencode serve` (D5) — defer per user 2026-06-29, study
   preserved above.
+
+---
+
+## Implemented items 2 + 4 (2026-06-30)
+
+Locked post-implementation, retroactive ADR entries:
+
+### Item 2 — durable sops-nix secret source (was D-sops followup)
+
+**Decision:** opencode provider keys go in `secrets/sops/secrets.yaml` and
+decrypt to `/run/secrets/opencode/<key>` on every desktop host via a new
+NixOS module `laptop-opencode-client` (imported in `profile-desktop.nix`,
+same posture as `laptop-hermes-client`).
+
+**Implemented:**
+- `secrets/sops/secrets.yaml` += `opencode.litellm_key` +
+  `opencode.zen_key` (sops-set by `mint-litellm-keys.sh` consumer rotation,
+  values encrypted via the primary+orion+archinaut age key group).
+- `modules/hosts/laptop/opencode-client.nix` (new): sops-nix consumer
+  mirroring `hermes-agent/client_api_key`. `owner = erik`, mode `0400`,
+  `path = /run/secrets/opencode/<key>`.
+- `modules/profiles/desktop.nix` += `m.nixos.laptop-opencode-client`
+  next to `m.nixos.laptop-hermes-client` (all desktop hosts can run
+  opencode; the sops keys decrypt where opencode might run).
+- `~/.config/fish/conf.d/zz-opencode-secrets.fish` (user-scope, ships in
+  dotfiles later): prefer `/run/secrets/opencode/<key>` over the
+  gitignored `~/.config/opencode/secrets.env` fallback.
+
+**Rejected — dotenv file in user dotfiles only:** rejected as the *primary*
+path because the secrets live in this flake already (age keys, hermes
+pattern proven). A gitignored `secrets.env` remains as fallback for
+bootstrapping a fresh host before /run/secrets populates.
+
+**Verification (2026-06-30):**
+- `sudo ls /run/secrets/opencode/` lists `litellm_key` (25 B) + `zen_key`
+  (67 B), both 0400 owner `erik:users`. Symlinks →
+  `/run/secrets.d/41/opencode/<key>`.
+- Fresh `fish -c env`: `OPENCODE_LITELLM_KEY` + `OPENCODE_GO_KEY` set from
+  the sops path (prefixes match the minted values, not the sops prior state).
+- `opencode run --model litellm/qwen-chat` returns pong (qwen-chat
+  round-trips through the gateway using the virtual key).
+
+### Item 4 — scoped LiteLLM virtual key in place of master key
+
+**Decision:** replace the LiteLLM master key (full admin) in opencode
+consumer config with a per-consumer virtual key (`key_alias = opencode`)
+minted via `POST /key/generate`. Allowlist + budget cap.
+
+**Implemented:**
+- Minted via curl (`schemas/mint-litellm-keys.sh` is unchanged — out of
+  scope to modify that dirty servarr script in this pass):
+  - `key_alias = opencode`
+  - `max_budget = 20` (USD/day parity cap), `budget_duration = 1d`
+  - `models = ["qwen-chat","embeddings-qwen3","kimi-k2-code","glm-5",
+              "qwen3-max","minimax-m2","mimo","mimo-pro"]`
+  - `metadata.consumer = "opencode"`, `purpose = "opencode-cli-coding-agent"`
+- Stored in `secrets/sops/secrets.yaml` slot `opencode/litellm_key`.
+
+**Verification (2026-06-30):**
+- `GET /v1/models` with the virtual key returns 8 entries (the allowlist);
+  rejected models (`whisper-pt-br`, `vision-qwen2vl`) return HTTP 403.
+- `POST /v1/chat/completions` with `qwen-chat` and `glm-5` return 200 with
+  valid completion. Cloud `kimi-k2-code` round-trips through opencode.ai
+  Zen end-to-end on the virtual key.
+- LiteLLM Postgres records the key for Langfuse spend attribution via the
+  `key_alias=opencode` consumer tag (`POST /key/generate` returns a
+  `token_id` joined to `LiteLLM_VerificationTokenTable`).
+
+**Rotation:** re-run `mint-litellm-keys.sh` with a new alias version
+(opencode-cli, opencode-cli-stable) or DELETE /key/delete the old alias
+record; re-key via `sops set secrets/sops/secrets.yaml '["opencode"]' …`.
+
+### OpenAI Codex subscription + gpt-5.5 (post-bugfix)
+
+Live probe revealed:
+- `openai/gpt-5.5`, `openai/gpt-5.4`, `openai/gpt-5.4-mini` — **work
+  via existing ChatGPT-account OAuth** (`opencode auth login openai`).
+- `openai/gpt-5-codex`, `openai/gpt-5.3-codex-spark`,
+  `openai/gpt-5.5-pro` — rejected: "model is not supported when using
+  Codex with a ChatGPT account." Require a **real OpenAI API key** (not
+  OAuth). The opencode config includes all five anyway, ready for the key
+  swap.
+
+**Pending decision:** when you obtain a real OpenAI API key (vs ChatGPT
+subscription OAuth), swap by either:
+- `opencode auth logout openai` + `opencode auth login openai` reinstalling
+  with the new key, or
+- set `OPENAI_API_KEY` env var to the real key (overrides OAuth from env
+  precedence).
+
+Either unlocks the codex + gpt-5.5-pro routes. Config will be live at
+swap time — no edit needed.
