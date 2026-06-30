@@ -192,20 +192,32 @@ orion, kepler, pathfinder, archinaut, voyager, laptop (roaming → `ip=null`), a
 **and** discovery's tailscale route, then reverted). `lint`/`fmt-check`/`fleet-check`
 green; `discovery`+`orion` dry-build clean; route string byte-identical.
 
-**iac consumer — open follow-on (needs a human reconciliation call first).** The
-UniFi reservations in `homelab-iac` drift from the flake's host names/IPs, so
-vendoring `fleet.json` to drive reservations would *rename/repoint* live entries.
-Resolve before wiring:
-- `discovery` (.210) is reserved as **"Moon"** in UniFi; a separate **"Discovery"**
-  holds **.40**. (MAC 64:51:06:1a:f8:1a = the .210/Moon reservation, used here.)
-- `pathfinder` (.125) is reserved as **"nix-erik"** (MAC 54:bf:64:28:cb:2e).
-- Home Assistant: flake/`haos.nix` says **.115** (MAC 52:54:00:d6:a5:ce); UniFi has
-  **homeassistant @.205** (MAC 52:54:00:80:4a:0e) and no .115 — IP **and** MAC differ.
-- orion/kepler/archinaut match cleanly.
-Also: `homelab-iac` had **uncommitted OCI/voyager work** (`.env.sops`,
-`.env.example`, `oracle/`) — don't disturb when landing the consumer. iac reads
-external data today via Terragrunt `file()` (tailscale ACL); add
-`jsondecode(file("fleet.json"))` for the reservations + AdGuard rewrites map.
+**iac consumer — open follow-on (live-UDM apply = the user's wired-LAN step).**
+Reconciliation **truth settled 2026-06-29** by live LAN probe (ARP):
+- **`.115` is UP, MAC `52:54:00:d6:a5:ce`** → matches `haos.nix` + `fleet.json`.
+  **The flake is correct**; HA is live at .115. The UniFi reservation for .115 is
+  **manual on the UDM, unmanaged by terraform** (not in `reservations/terragrunt.hcl`).
+- **`.205` is DOWN** → UniFi "homeassistant @.205" (MAC 52:54:00:80:4a:0e) is a
+  **stale** reservation (dead old instance).
+- **`.40` is DOWN** → UniFi "Discovery @.40" (MAC bc:24:11:57:ac:19) is **stale**.
+- discovery .210 is named **"Moon"**, pathfinder .125 is named **"nix-erik"** in
+  UniFi (MACs match — cosmetic label drift). orion/kepler/archinaut match cleanly.
+
+Ready-to-apply design (the actual apply is the user's, from a wired-LAN host):
+`reservations/terragrunt.hcl` keeps the **non-fleet** entries (Mikrotik, Starlink,
+truenas, roborock, …) as a static map, and `merge()`s in a fleet-derived map built
+from a **vendored `fleet.json`** —
+`{ for n,h in jsondecode(file("fleet.json")).hosts : h.mac => {name=n; fixed_ip=h.ip; …}
+  if h.mac!=null && h.ip!=null }` — yielding discovery/orion/kepler/pathfinder/
+archinaut + **adopting .115 HA** (via the module's `allow_existing`). Apply effect:
+renames Moon→discovery + nix-erik→pathfinder, adopts .115, possible `network_id`
+churn (preserve current values in the static side to minimize the plan diff). Leave
+the stale .205/.40 entries for a **separate** cleanup (out of fleet scope).
+Caveats when landing it: `homelab-iac` has **uncommitted OCI/voyager work**
+(`.env.sops`, `.env.example`, `oracle/`) — don't disturb; decrypt `.env` only via
+`rtk proxy sops -d` (RTK hook truncates plain `sops -d`); `TG_TF_PATH=tofu`; review
+`tofu plan` before apply. AdGuard rewrites stay service→SWAG (.210) — that's **P2**
+(domains), not host A-records, so P1 doesn't touch them.
 
 ### P2 — Domains / hostnames SSOT · *M* (after P1)
 - **Author:** extend the fleet artifact with `services.<sub> = { host; port;
