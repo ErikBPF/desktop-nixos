@@ -156,6 +156,34 @@ _: {
     };
     security.rtkit.enable = true;
 
+    # rtkit alone wasn't elevating PipeWire: data-loop.0 (the thread that feeds
+    # the DAC) ran SCHED_OTHER prio 0, so under heavy CPU load it lost the race
+    # to fill the buffer → DAC starved → playback audibly slowed/stretched.
+    # Root cause: no PAM rtprio/memlock limits (ulimit -r was 0), so module-rt's
+    # direct sched_setscheduler(SCHED_FIFO) hit EPERM. Granting @audio the RT
+    # budget lets module-rt put the audio loop on a realtime policy that
+    # preempts ordinary compute. memlock unlimited stops RT pages being swapped.
+    security.pam.loginLimits = [
+      {
+        domain = "@audio";
+        item = "rtprio";
+        type = "-";
+        value = "95";
+      }
+      {
+        domain = "@audio";
+        item = "memlock";
+        type = "-";
+        value = "unlimited";
+      }
+      {
+        domain = "@audio";
+        item = "nice";
+        type = "-";
+        value = "-19";
+      }
+    ];
+
     systemd.user.services.noisetorch-autobind = {
       description = "Wire NoiseTorch (RNNoise) source to the active mic and keep it default";
       after = ["pipewire.service" "wireplumber.service"];
