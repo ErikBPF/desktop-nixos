@@ -11,8 +11,12 @@ marked `TODO(erik)`.
   decided-kept-in-sops; boundary documented.
 - **P0** (CLAUDE.md → 8-repo + one-owner table + D1–D9) — *not done* (doc-only, S).
 - **P1** (fleet topology SSOT: `meta.nix fleet.hosts` → `fleet.json` → justfile/iac
-  consumers) — *not done*; **next substantive implementation**. No `fleet.hosts`,
-  no `fleet.json` yet; justfile `ip_*` are hand-authored (the consumer to migrate).
+  consumers) — **desktop-nixos side DONE** (commit `feat(fleet): topology/addressing
+  SSOT`): `fleet.hosts.<name> = {ip;mac?;role;tailscaleIp?}` in `modules/meta.nix`,
+  published as `flake.fleet` → `fleet.json` (`just fleet-json`, drift-guarded by
+  `just fleet-check` in `just check`); `justfile` `ip_*`/`_host-ip` derive via jq;
+  discovery advertise-routes consumes its self-IP natively. **iac consumer = open
+  follow-on** (in-flight OCI work + reservation-name drift, see below).
 - **P2** (domains/hostnames SSOT) — *not done*, gated after P1.
 - **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — *partial*
   (Harbor proxy-cache live; kindle-dash not yet standalone/published).
@@ -180,6 +184,28 @@ Each follows publish-and-pin (D9). Ordered by drift-risk ÷ effort.
   (`jsondecode(file(...))`), re-synced on a deliberate bump.
 - **Atomic:** iac builds against its pinned snapshot. **Verify:** `just dry`
   hosts + iac `plan` clean; change one IP → regenerate → both consumers reflect.
+
+**As-built (desktop-nixos side, 2026-06-29):** `fleet.hosts` covers discovery,
+orion, kepler, pathfinder, archinaut, voyager, laptop (roaming → `ip=null`), and
+`homeassistant` (`role=appliance`, HAOS KVM guest, addressing-only). `flake.fleet`
+→ `fleet.json` committed; round-trip verified (`.210`→`.211` flows to `ip_discovery`
+**and** discovery's tailscale route, then reverted). `lint`/`fmt-check`/`fleet-check`
+green; `discovery`+`orion` dry-build clean; route string byte-identical.
+
+**iac consumer — open follow-on (needs a human reconciliation call first).** The
+UniFi reservations in `homelab-iac` drift from the flake's host names/IPs, so
+vendoring `fleet.json` to drive reservations would *rename/repoint* live entries.
+Resolve before wiring:
+- `discovery` (.210) is reserved as **"Moon"** in UniFi; a separate **"Discovery"**
+  holds **.40**. (MAC 64:51:06:1a:f8:1a = the .210/Moon reservation, used here.)
+- `pathfinder` (.125) is reserved as **"nix-erik"** (MAC 54:bf:64:28:cb:2e).
+- Home Assistant: flake/`haos.nix` says **.115** (MAC 52:54:00:d6:a5:ce); UniFi has
+  **homeassistant @.205** (MAC 52:54:00:80:4a:0e) and no .115 — IP **and** MAC differ.
+- orion/kepler/archinaut match cleanly.
+Also: `homelab-iac` had **uncommitted OCI/voyager work** (`.env.sops`,
+`.env.example`, `oracle/`) — don't disturb when landing the consumer. iac reads
+external data today via Terragrunt `file()` (tailscale ACL); add
+`jsondecode(file("fleet.json"))` for the reservations + AdGuard rewrites map.
 
 ### P2 — Domains / hostnames SSOT · *M* (after P1)
 - **Author:** extend the fleet artifact with `services.<sub> = { host; port;
