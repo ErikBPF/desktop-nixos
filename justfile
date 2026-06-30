@@ -1,12 +1,15 @@
 profile := `hostname`
 
 # Host IPs (LAN, SSH port 2222). laptop is Tailscale-only (roaming).
-ip_discovery := "192.168.10.210"
-ip_orion := "192.168.10.220"
-ip_pathfinder := "192.168.10.125"
-ip_kepler := "192.168.10.230"
-ip_archinaut := "192.168.10.225"  # wifi (wlan0), DHCP-reserved on the wlan0 MAC; wired retired. Roaming/admin → deploy via tailscale
-ip_voyager := "129.148.45.145"
+# Derived from the fleet SSOT (modules/meta.nix → fleet.json); regenerate with
+# `just fleet-json` after changing an IP. archinaut is wifi (wlan0, DHCP-reserved
+# on the wlan0 MAC; wired retired) — roaming/admin → deploy via tailscale.
+ip_discovery := `jq -r '.hosts.discovery.ip' fleet.json`
+ip_orion := `jq -r '.hosts.orion.ip' fleet.json`
+ip_pathfinder := `jq -r '.hosts.pathfinder.ip' fleet.json`
+ip_kepler := `jq -r '.hosts.kepler.ip' fleet.json`
+ip_archinaut := `jq -r '.hosts.archinaut.ip' fleet.json`
+ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -14,19 +17,29 @@ orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-bui
 default:
     @just --list
 
-# Resolve a host name to its LAN IP (used by sync/kick recipes)
+# Resolve a host name to its LAN IP from the fleet SSOT (used by sync/kick recipes)
 _host-ip target:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{target}}" in
-        discovery)  echo "{{ip_discovery}}" ;;
-        orion)      echo "{{ip_orion}}" ;;
-        pathfinder) echo "{{ip_pathfinder}}" ;;
-        kepler)     echo "{{ip_kepler}}" ;;
-        archinaut)  echo "{{ip_archinaut}}" ;;
-        voyager)    echo "{{ip_voyager}}" ;;
-        *) echo "Unknown target: {{target}}" >&2; exit 1 ;;
-    esac
+    ip="$(jq -r --arg h "{{target}}" '.hosts[$h].ip // empty' fleet.json)"
+    if [ -z "$ip" ]; then echo "Unknown target or no IP: {{target}}" >&2; exit 1; fi
+    echo "$ip"
+
+# Regenerate fleet.json from the flake SSOT (modules/meta.nix). Run after editing
+# fleet.hosts; commit the result. Consumers (justfile ip_*, homelab-iac) read it.
+fleet-json:
+    nix eval .#fleet --json | jq . > fleet.json
+    @echo ":: fleet.json regenerated — review the diff and commit"
+
+# Fail if fleet.json is stale vs the flake (drift guard for `just check` / CI).
+fleet-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! diff -u fleet.json <(nix eval .#fleet --json | jq .) >/dev/null; then
+        echo ":: fleet-check FAILED — fleet.json is stale; run: just fleet-json" >&2
+        exit 1
+    fi
+    echo ":: fleet-check OK — fleet.json matches the flake"
 
 # ── Local System ──────────────────────────────────────────
 
@@ -138,6 +151,8 @@ structure-check:
 check:
     @echo ":: Checking docs..."
     just docs-check
+    @echo ":: Checking fleet.json freshness..."
+    just fleet-check
     @echo ":: Linting..."
     just lint
     @echo ":: Checking format..."

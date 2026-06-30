@@ -1,4 +1,7 @@
-_: {
+{config, ...}: let
+  # Self IP from the fleet SSOT (modules/meta.nix) — don't re-type the literal.
+  selfIp = config.fleet.hosts.discovery.ip;
+in {
   flake.modules.nixos.discovery-networking = {lib, ...}: {
     networking = {
       hostName = "discovery";
@@ -57,7 +60,8 @@ _: {
       # activation, so changing the route takes effect on switch. extraUpFlags
       # only runs at first connect, so it wouldn't update an already-up node.
       extraSetFlags = [
-        "--advertise-routes=192.168.10.210/32,192.168.10.1/32,192.168.10.2/32"
+        # selfIp (.210) from fleet SSOT; .1 = UDM, .2 = swOS switch (not fleet hosts).
+        "--advertise-routes=${selfIp}/32,192.168.10.1/32,192.168.10.2/32"
       ];
     };
   };
