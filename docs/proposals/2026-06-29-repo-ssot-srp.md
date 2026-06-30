@@ -18,15 +18,16 @@ marked `TODO(erik)`.
   SSOT`): `fleet.hosts.<name> = {ip;mac?;role;tailscaleIp?}` in `modules/meta.nix`,
   published as `flake.fleet` → `fleet.json` (`just fleet-json`, drift-guarded by
   `just fleet-check` in `just check`); `justfile` `ip_*`/`_host-ip` derive via jq;
-  discovery advertise-routes consumes its self-IP natively. **iac consumer = open
-  follow-on** (in-flight OCI work + reservation-name drift, see below).
+  discovery advertise-routes consumes its self-IP natively. **iac consumer
+  partially applied** (reservations renamed live; .115 adoption deferred — see below).
 - **P2** (domains/hostnames SSOT) — **desktop-nixos side DONE** (commit
   `feat(fleet): domains/hostnames SSOT`): **thin scope** — `fleet.ingress.<zone>`
   (homelab→discovery, ai→kepler) + `fleet.services.<name>={fqdn?;backend;scope}`
   for public (ha, rpg) + cross-host home (immich/openwebui→kepler, n8n→orion),
   published in `flake.fleet`/fleet.json. Per-service SWAG container routes stay
   servarr-owned; lab *.k8s in homelab-gitops. rpg/*.ai backend corrected .112→kepler.
-  **iac + servarr consumers = follow-on** (live-apply).
+  **iac consumer applied live** (UniFi DNS *.ai + Cloudflare rpg → .230; kepler:7860
+  backend not yet serving). **servarr SWAG generation = follow-on.**
 - **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — *partial*
   (Harbor proxy-cache live; kindle-dash not yet standalone/published).
 - **P5** (SRP placement decision tree in CLAUDE.md) — **DONE** (same `docs(ssot)`
@@ -202,8 +203,14 @@ orion, kepler, pathfinder, archinaut, voyager, laptop (roaming → `ip=null`), a
 **and** discovery's tailscale route, then reverted). `lint`/`fmt-check`/`fleet-check`
 green; `discovery`+`orion` dry-build clean; route string byte-identical.
 
-**iac consumer — open follow-on (live-UDM apply = the user's wired-LAN step).**
-Reconciliation **truth settled 2026-06-29** by live LAN probe (ARP):
+**iac consumer — PARTIALLY APPLIED 2026-06-29** (homelab-iac commit `feat(fleet):
+consume vendored fleet.json …`, applied to the live UDM from a wired host):
+reservations **renamed** Moon→discovery, nix-erik→pathfinder (in-place, 0
+destroyed). **Deferred:** adopting the **.115 HA** reservation — it exists
+manually on the UDM, so terraform would try to *create* and fail; needs
+`terragrunt import '<addr>' <reservation-id>` first. Full jsondecode generation of
+the reservations map (network_id reconciliation, stale .205/.40 cleanup) also
+deferred. Reconciliation **truth settled 2026-06-29** by live LAN probe (ARP):
 - **`.115` is UP, MAC `52:54:00:d6:a5:ce`** → matches `haos.nix` + `fleet.json`.
   **The flake is correct**; HA is live at .115. The UniFi reservation for .115 is
   **manual on the UDM, unmanaged by terraform** (not in `reservations/terragrunt.hcl`).
@@ -254,13 +261,18 @@ the fleet artifact owns only the **DNS/edge + cross-host** layer:
   install IP); SSOT now says **kepler**. iac records (UniFi `*.ai`, Cloudflare
   `rpg` tunnel) must be fixed to .230 on the next apply.
 
-**Consumers — open follow-on (live-apply = user's wired-LAN step):**
-- *iac:* AdGuard rewrites + UniFi DNS generate the wildcard `*.<zone>` →
-  `hosts[ingress.host].ip` from vendored fleet.json; Cloudflare tunnel ingress
-  generates from `services` where `scope==public` (`http://hosts[backend.host].ip:port`).
-- *servarr:* SWAG **cross-host** proxy-confs (immich/openwebui/n8n/ha/rpg) can be
-  generated from `services`; the 41 local container routes stay hand-authored in
-  servarr (out of fleet scope).
+**Consumers — iac APPLIED 2026-06-29** (homelab-iac commit `feat(fleet): consume
+vendored fleet.json …`, live UDM + Cloudflare from a wired host):
+- *UniFi DNS:* `*.<zone>` A-records now generated from `jsondecode(fleet.json).ingress`
+  (host→IP via `fleet.hosts`). `*.ai` **corrected .112 → kepler .230** (1 in-place).
+- *Cloudflare tunnel:* public-service backends from `fleet.services` (scope=public).
+  `rpg` **corrected .112 → .230** (1 in-place). ha unchanged.
+- ⚠️ **Backend gap:** kepler **:7860 is not currently listening**, so `rpg`/`*.ai`
+  now point at the right host but reach no live Gradio backend until the ai-serving
+  stack is up on kepler:7860 (or the port is corrected). Routing fixed; service isn't.
+- *servarr (follow-on):* SWAG **cross-host** proxy-confs (immich/openwebui/n8n/ha/rpg)
+  can be generated from `services`; the 41 local container routes stay hand-authored
+  in servarr (out of fleet scope).
 
 ### P3 — Secrets SSOT: platform Vault + sops bootstrap · *L* (own sub-RFC)
 - **Stand up** the platform Vault (auto-unseal; unseal key + root token →
