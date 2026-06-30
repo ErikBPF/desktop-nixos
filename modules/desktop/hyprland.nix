@@ -538,6 +538,18 @@
               size = "1056 603";
             }
             {
+              match.class = "^discord$";
+              float = true;
+            }
+            {
+              match.class = "^discord$";
+              move = "12 1304";
+            }
+            {
+              match.class = "^discord$";
+              size = "1056 603";
+            }
+            {
               match.class = "^.*\\.spotify_tui$";
               float = true;
             }
@@ -570,6 +582,10 @@
               workspace = "10";
             }
             {
+              match.class = "^discord$";
+              workspace = "10";
+            }
+            {
               match.title = "^(btop ~)$";
               workspace = "11 silent";
             }
@@ -587,6 +603,10 @@
             }
             {
               match.class = "^.*\\.discord_tui$";
+              workspace = "10 silent";
+            }
+            {
+              match.class = "^discord$";
               workspace = "10 silent";
             }
             {
