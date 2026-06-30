@@ -106,14 +106,14 @@ directive in `servarr` `config/swag/nginx/proxy-confs/harbor.subdomain.conf`
 
 ## Follow-ups
 
-- **Seal the robot secret.** It currently sits in `/home/erik/harbor-mirror-robot.env`
-  (mode 600, owned `erik`) on discovery — fine to run mirrors from, but not the
-  SSOT. Move it into OpenBao `secret/home/harbor`
-  (`HARBOR_ROBOT_USER`/`HARBOR_ROBOT_SECRET`) and have vault-agent render it
-  beside the admin/db passwords (D5). Blocked today: the `vault_root_token` in
-  desktop-nixos sops is **stale** (rotated 2026-06-29 to an orphan root-policy
-  token, sops copy not updated) — reseal it, or use the current root token to
-  `bao kv patch`, then drop the plaintext file.
+- **Robot secret sealed (DONE 2026-06-30).** `HARBOR_ROBOT_USER`/`HARBOR_ROBOT_SECRET`
+  now live in OpenBao `secret/home/harbor` beside the admin/db passwords; the 600
+  plaintext file on discovery is removed. (Required recovering the lost root token
+  first — see [`../implemented/2026-06-30-openbao-root-recovery.md`](../implemented/2026-06-30-openbao-root-recovery.md).)
+  Fetch for a mirror with the root token: `bao kv get -mount=secret
+  -field=HARBOR_ROBOT_SECRET home/harbor`. Optional follow-up: add the two keys to
+  the vault-agent `harbor.env` render template so they land in
+  `/run/vault-agent/harbor.env` (currently only admin/db are templated).
 - **The X-Forwarded-Proto fix is registry-wide**, not kindle-dash-specific: it
   unblocks *every* future `docker push` to Harbor. Keep the defensive comment in
   `harbor.subdomain.conf` so the duplicate header isn't reintroduced.
