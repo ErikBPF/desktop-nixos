@@ -1,6 +1,5 @@
 _: {
   flake.modules.nixos.voyager-hardware = {
-    config,
     lib,
     modulesPath,
     ...
@@ -14,8 +13,7 @@ _: {
     boot.initrd.availableKernelModules = ["xhci_pci" "virtio_pci" "virtio_scsi" "sd_mod"];
 
     networking.useDHCP = lib.mkDefault true;
-    nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-    hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    nixpkgs.hostPlatform = lib.mkDefault "aarch64-linux";
 
     disko.devices.disk.sda = {
       type = "disk";

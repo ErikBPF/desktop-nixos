@@ -30,11 +30,13 @@ in {
     ];
 
     system.stateVersion = "25.11";
-    nixpkgs.hostPlatform = "x86_64-linux";
+    # Oracle Ampere A1 free-tier shape: aarch64, ample RAM (kexec install works,
+    # unlike the 1 GB x86 micro). Closure is cross-built on Orion (binfmt).
+    nixpkgs.hostPlatform = "aarch64-linux";
 
-    # Oracle VM is ~1GB RAM with no swap: give the kernel compressed swap and
-    # keep /tmp off tmpfs so builds/activation don't exhaust RAM (cf. archinaut).
-    zramSwap.enable = true;
+    # Oracle VM is ~1GB RAM. zram is intentionally disabled on this host; keep
+    # /tmp off tmpfs so activation does not consume scarce RAM.
+    zramSwap.enable = false;
     boot.tmp.useTmpfs = lib.mkForce false;
     boot.tmp.cleanOnBoot = true;
 

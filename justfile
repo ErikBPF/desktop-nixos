@@ -12,7 +12,7 @@ ip_archinaut := `jq -r '.hosts.archinaut.ip' fleet.json`
 ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
-orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
+orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
 
 default:
     @just --list
@@ -591,6 +591,11 @@ deploy-voyager:
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-voyager/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra-voyager/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra-voyager' EXIT
+    # Build the closure on Orion, not this laptop: max-jobs=0 forces every
+    # derivation onto the remote builder (the 1 GB Oracle target can't build).
+    export NIX_CONFIG="builders = {{orion_builder}}
+    max-jobs = 0
+    builders-use-substitutes = true"
     # Oracle VM nanda-colors: Ubuntu entrypoint is ubuntu@129.148.45.145:22.
     # WARNING: nixos-anywhere will wipe /dev/sda, including the nanda-colors stack.
     nix run github:nix-community/nixos-anywhere -- \
