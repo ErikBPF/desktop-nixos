@@ -1,0 +1,50 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "edit": {
+      "*": "allow",
+      "flake.lock": "ask",
+      "*.sops": "deny",
+      "*.env*": "deny",
+      "secrets/**": "deny",
+      "*.age": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "just *": "allow",
+      "nix build *": "allow",
+      "nix flake *": "allow",
+      "rm -rf /*": "deny",
+      "rm -rf ~*": "deny",
+      "*nixos-rebuild*--target-host*": "deny",
+      "**ssh*nixos-rebuild*switch*": "deny",
+      "docker volume rm *": "deny",
+      "docker rm -f *": "deny"
+    },
+    "external_directory": {
+      "~/Documents/erik/servarr/**": "allow",
+      "~/Documents/erik/hermes-flake/**": "allow",
+      "~/Documents/erik/homelab-iac/**": "allow",
+      "~/Documents/erik/code/home-assistant-config/**": "allow",
+      "~/Documents/erik/klipper-biqu/**": "allow"
+    }
+  },
+  "mcp": {
+    "nix": {
+      "type": "local",
+      "command": ["nix", "run", "github:utensils/mcp-nixos"],
+      "enabled": true
+    },
+    "filesystem": {
+      "type": "local",
+      "command": [
+        "bun", "x", "@modelcontextprotocol/server-filesystem",
+        "/home/erik/Documents/erik/desktop-nixos",
+        "/home/erik/Documents/erik/servarr",
+        "/home/erik/Documents/erik/hermes-flake",
+        "/home/erik/Documents/erik/homelab-iac"
+      ],
+      "enabled": true
+    }
+  }
+}
