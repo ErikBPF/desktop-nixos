@@ -124,6 +124,17 @@
       "d /scratch 0755 erik users -"
     ];
 
+    # --- Steam library on /scratch (declarative) ---
+    # Steam's data dir (client + game library) is bind-mounted from /scratch,
+    # keeping the ~290G of games off the btrfs /home subvolume: frees the root
+    # SSD, keeps games out of /home snapshots, and survives nixos-rebuild.
+    # Steam still sees its normal path, so no libraryfolders.vdf juggling.
+    fileSystems."/home/erik/.local/share/Steam" = {
+      device = "/scratch/Steam";
+      fsType = "none";
+      options = ["bind"];
+    };
+
     # --- Silent boot ---
     boot.kernelParams = lib.mkAfter [
       "quiet"
