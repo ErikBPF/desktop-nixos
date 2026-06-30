@@ -17,7 +17,13 @@ marked `TODO(erik)`.
   `just fleet-check` in `just check`); `justfile` `ip_*`/`_host-ip` derive via jq;
   discovery advertise-routes consumes its self-IP natively. **iac consumer = open
   follow-on** (in-flight OCI work + reservation-name drift, see below).
-- **P2** (domains/hostnames SSOT) — *not done*, gated after P1.
+- **P2** (domains/hostnames SSOT) — **desktop-nixos side DONE** (commit
+  `feat(fleet): domains/hostnames SSOT`): **thin scope** — `fleet.ingress.<zone>`
+  (homelab→discovery, ai→kepler) + `fleet.services.<name>={fqdn?;backend;scope}`
+  for public (ha, rpg) + cross-host home (immich/openwebui→kepler, n8n→orion),
+  published in `flake.fleet`/fleet.json. Per-service SWAG container routes stay
+  servarr-owned; lab *.k8s in homelab-gitops. rpg/*.ai backend corrected .112→kepler.
+  **iac + servarr consumers = follow-on** (live-apply).
 - **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — *partial*
   (Harbor proxy-cache live; kindle-dash not yet standalone/published).
 - **P5** (SRP placement decision tree in CLAUDE.md) — *not done* (doc-only, S).
@@ -227,6 +233,30 @@ Caveats when landing it: `homelab-iac` has **uncommitted OCI/voyager work**
   (iac) become **generated** from the artifact, not hand-authored.
 - **Verify:** generated configs diff-clean vs current; a new home service needs
   one edit (the source), not four.
+
+**As-built (desktop-nixos side, 2026-06-29) — thin scope (decided this session).**
+The SWAG discovery reshaped P2: discovery (.210) fronts **41 proxy-confs whose
+backends are Docker container names** on its compose net — i.e. servarr-internal
+routing, *not* fleet-level facts. Centralizing all 41 into the flake would
+duplicate servarr's truth and invert SRP (D1/D2: servarr owns home workloads). So
+the fleet artifact owns only the **DNS/edge + cross-host** layer:
+- `fleet.ingress` = wildcard zones → fronting fleet host (`homelab`→discovery,
+  `ai`→kepler). `*.k8s` excluded (lab → homelab-gitops, D2).
+- `fleet.services` = **public** (Cloudflare tunnel: `ha`→homeassistant:8123,
+  `rpg`→kepler:7860) + **cross-host home** (immich→kepler:2283,
+  openwebui→kepler:3003, n8n→orion:5678). `backend.host` is a `fleet.hosts` key, so
+  consumers join service→host→ip from one artifact.
+- **Drift corrected:** `*.ai` + `rpg` were pointed at `.112` (kepler's stale
+  install IP); SSOT now says **kepler**. iac records (UniFi `*.ai`, Cloudflare
+  `rpg` tunnel) must be fixed to .230 on the next apply.
+
+**Consumers — open follow-on (live-apply = user's wired-LAN step):**
+- *iac:* AdGuard rewrites + UniFi DNS generate the wildcard `*.<zone>` →
+  `hosts[ingress.host].ip` from vendored fleet.json; Cloudflare tunnel ingress
+  generates from `services` where `scope==public` (`http://hosts[backend.host].ip:port`).
+- *servarr:* SWAG **cross-host** proxy-confs (immich/openwebui/n8n/ha/rpg) can be
+  generated from `services`; the 41 local container routes stay hand-authored in
+  servarr (out of fleet scope).
 
 ### P3 — Secrets SSOT: platform Vault + sops bootstrap · *L* (own sub-RFC)
 - **Stand up** the platform Vault (auto-unseal; unseal key + root token →
