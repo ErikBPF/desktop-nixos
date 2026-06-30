@@ -37,6 +37,7 @@ in {
       m.nixos.xdg-portal
       m.nixos.fonts
       m.nixos.alloy
+      m.nixos.alloy-containers
       m.nixos.nix-cache
       m.nixos.kepler-nfs
       m.nixos.orchestration
@@ -46,6 +47,11 @@ in {
       m.nixos.orion-lact
       m.nixos.btrfs-snapshots
     ];
+
+    # Per-container metrics via the cAdvisor exporter in the host Alloy. Rootless
+    # Podman socket (orchestration default, matches orion-compose). Feeds the
+    # fleet container-down / crash-loop alerts on discovery.
+    homelab.alloy.containerSocket = "unix:///run/user/1000/podman/podman.sock";
 
     # Rollback guard: orion is the fleet binary cache + build offload target.
     modules.upgradeHealthCheck.criticalUnits = [

@@ -17,6 +17,14 @@ _: {
     };
 
     config = lib.mkIf (config.homelab.alloy.containerSocket != null) {
+      # Grant the alloy service read access to the rootless Podman socket.
+      # The upstream module sets SupplementaryGroups = ["systemd-journal"]; NixOS
+      # merges list-valued serviceConfig entries across module definitions, so this
+      # appends "users" without dropping "systemd-journal". The socket is mode 660
+      # owned by erik:users, and alloy runs DynamicUser=yes — without this group
+      # the cadvisor exporter gets EACCES on /run/user/1000/podman/podman.sock.
+      systemd.services.alloy.serviceConfig.SupplementaryGroups = ["users"];
+
       # Second Alloy config file in the same /etc/alloy dir. The upstream module
       # loads every *.alloy file in configPath (default /etc/alloy) and merges
       # them into one config graph, so this references the base config's
