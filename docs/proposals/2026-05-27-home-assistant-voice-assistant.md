@@ -39,7 +39,7 @@ Everything below already exists and is reachable. STT/TTS/vision/embeddings live
 | TTS (offline) | piper `pt_BR-faber-medium` | kepler:8003 | `http://kepler:8003/v1` | `tts-pt-br-piper` |
 | TTS (Wyoming) | piper `pt_BR-faber-medium` | kepler:10200 | Wyoming TCP | — (not OpenAI) |
 | TTS (clone) | F5-TTS PT-BR | kepler:8001 | `http://kepler:8001/v1` | — (not in model_list yet) |
-| Embeddings | Qwen3-Embedding-0.6B | kepler:7997 | `http://kepler:7997/v1` | `embeddings-qwen3` |
+| Embeddings | BAAI/bge-m3 (TEI) | kepler:8085 | `http://kepler:8085/v1` | `bge-m3` |
 | Gateway | LiteLLM v1.86 + Langfuse traces | discovery (`:4000` docker-internal only) | `https://litellm.homelab.pastelariadev.com/v1` (SWAG vhost, LAN via split-DNS) | — |
 | Agent | hermes-agent (Telegram + HTTP + tools) | discovery:8642/8644 | `https://hermes.homelab.pastelariadev.com/v1` | uses `qwen-chat` |
 | HA | HAOS 17.3 / Core 2026.5.4 VM (bridge `br0`) | discovery → 192.168.10.115:8123 | — | — |
@@ -173,7 +173,7 @@ Ranked by value/effort. Core loop is §4–5; these are follow-ups.
 | **Langfuse observability** | Every voice turn already traced once routed through LiteLLM — build a dashboard for STT/LLM/TTS latency + cost per turn. Free. | Low |
 | **hermes-agent as super-brain** | HA's built-in **MCP Server** exposes entities as tools; `hermes-agent` (already on LiteLLM, Telegram, tool-calling) becomes one agent for house + homelab. Or hermes drives HA via its webhook (8644). Powerful but needs a bridge (hermes isn't a streaming Assist conversation entity). | High |
 | **f5-tts voice clone** | Add `tts-pt-br-f5` to the LiteLLM `model_list`, clone a custom assistant voice. | Medium |
-| **Embeddings memory/RAG** | `embeddings-qwen3` for semantic memory or RAG over house docs/notes the assistant can cite. | Medium |
+| **Embeddings memory/RAG** | `bge-m3` for semantic memory or RAG over house docs/notes the assistant can cite. | Medium |
 | **Alexa Echo announcements** | Existing `media_player.*` Echos as TTS announcement targets ("avisa na cozinha que o jantar está pronto"). | Low |
 
 ---

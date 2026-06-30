@@ -449,7 +449,7 @@ minted via `POST /key/generate`. Allowlist + budget cap.
   scope to modify that dirty servarr script in this pass):
   - `key_alias = opencode`
   - `max_budget = 20` (USD/day parity cap), `budget_duration = 1d`
-  - `models = ["qwen-chat","embeddings-qwen3","kimi-k2-code","glm-5",
+  - `models = ["qwen-chat","bge-m3","kimi-k2-code","glm-5",
               "qwen3-max","minimax-m2","mimo","mimo-pro"]`
   - `metadata.consumer = "opencode"`, `purpose = "opencode-cli-coding-agent"`
 - Stored in `secrets/sops/secrets.yaml` slot `opencode/litellm_key`.
