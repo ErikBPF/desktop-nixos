@@ -93,11 +93,30 @@ directive in `servarr` `config/swag/nginx/proxy-confs/harbor.subdomain.conf`
 
 - **Public `library` project** holds OSS mirrors (anon pull, authed push) — e.g.
   `harbor.homelab.pastelariadev.com/library/kindle-dash:<tag>`.
-- **Push auth:** admin (`HARBOR_ADMIN_PASSWORD`, now in OpenBao
-  `secret/home/harbor`, rendered to `/run/vault-agent/harbor.env` on discovery).
-  A scoped robot is the right pattern for repeated/automated mirrors.
-- **Mirror tool:** `servarr` `machines/discovery/scripts/harbor-mirror.sh`
-  (GHCR→Harbor copy; skopeo if present, else docker pull/tag/push).
+- **Push auth:** a **scoped robot `robot$library+mirror`** (project `library`,
+  `repository` push+pull, no expiry) — created 2026-06-29 via the admin API
+  (admin pw from OpenBao `secret/home/harbor` → `/run/vault-agent/harbor.env`,
+  `sudo`-read). Least-priv: it can push only `library`, not the whole registry.
+- **Mirror tool:** `servarr` `machines/discovery/scripts/harbor-mirror.sh` reads
+  `HARBOR_ROBOT_USER`/`HARBOR_ROBOT_SECRET` from env, copies GHCR→Harbor `library`
+  (skopeo if present, else docker pull/tag/push), and **strips a leading `v`** —
+  pass `0.1.0` or `v0.1.0`, it mirrors the v-less tag CI publishes
+  (`docker/metadata-action` drops the `v`). Run on discovery (reaches GHCR + the
+  LAN-only Harbor); public GH runners can't, so CI publishes GHCR only.
+
+## Follow-ups
+
+- **Seal the robot secret.** It currently sits in `/home/erik/harbor-mirror-robot.env`
+  (mode 600, owned `erik`) on discovery — fine to run mirrors from, but not the
+  SSOT. Move it into OpenBao `secret/home/harbor`
+  (`HARBOR_ROBOT_USER`/`HARBOR_ROBOT_SECRET`) and have vault-agent render it
+  beside the admin/db passwords (D5). Blocked today: the `vault_root_token` in
+  desktop-nixos sops is **stale** (rotated 2026-06-29 to an orphan root-policy
+  token, sops copy not updated) — reseal it, or use the current root token to
+  `bao kv patch`, then drop the plaintext file.
+- **The X-Forwarded-Proto fix is registry-wide**, not kindle-dash-specific: it
+  unblocks *every* future `docker push` to Harbor. Keep the defensive comment in
+  `harbor.subdomain.conf` so the duplicate header isn't reintroduced.
 
 ## Rollback
 
