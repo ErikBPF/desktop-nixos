@@ -130,12 +130,6 @@ in {
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
-          embeddings = {
-            provider = "custom";
-            model = "embeddings-qwen3";
-            base_url = litellmUrl;
-            api_key = "\${OPENAI_API_KEY}";
-          };
         };
 
         model_aliases.qwen = {
