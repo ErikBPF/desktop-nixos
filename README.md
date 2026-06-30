@@ -18,6 +18,12 @@ top-level module, options replace `specialArgs`, no aggregator boilerplate.
 
 SSH runs on **port 2222** fleet-wide.
 
+Host addressing is a **single source of truth**: `modules/meta.nix` `fleet.hosts`
+(ip/mac/role), published as the `flake.fleet` output and pinned to `fleet.json`
+(`just fleet-json`; drift-guarded by `just fleet-check`). The IPs above, the
+`justfile` `ip_*` recipes, and the `homelab-iac` DHCP reservations all derive from
+it — change an IP once in `meta.nix`, regenerate, and consumers follow.
+
 ## Stack
 
 - **Window manager:** Hyprland + Quickshell bar + SDDM
@@ -132,9 +138,12 @@ just rsync-sops <ip> 2222
    - `hardware.nix` — imports `_hw-generated.nix` + GPU/microcode
    - `networking.nix` — static IP, hostName, /etc/hosts
    - `_hw-generated.nix` — auto-generated (nixos-anywhere does this; or run `nixos-generate-config`)
-2. Add the host's age public key to `.sops.yaml` and re-encrypt: `just sops`
-3. Add any host-specific secrets to `secrets/sops/secrets.yaml`
-4. Run `just dry <name>` to validate before deploying
+2. Register addressing in `modules/meta.nix` `fleet.hosts.<name>` (ip/mac/role), then
+   `just fleet-json` to regenerate `fleet.json` (the `justfile` `ip_*` recipes +
+   homelab-iac DHCP reservation derive from it).
+3. Add the host's age public key to `.sops.yaml` and re-encrypt: `just sops`
+4. Add any host-specific secrets to `secrets/sops/secrets.yaml`
+5. Run `just dry <name>` to validate before deploying
 
 ## Distributed builds
 

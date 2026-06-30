@@ -1,8 +1,9 @@
 # Repo ecosystem — single source of truth (SSOT) & single responsibility (SRP)
 
-**Status:** Plan — core decisions **locked 2026-06-29** (see *Locked decisions*);
-per-SSOT implementation plans below. A few low-risk items keep proposed defaults
-marked `TODO(erik)`.
+**Status:** Implementing — **P0/P1/P2/P3/P5 DONE** (desktop-nixos + live homelab-iac
+applies, 2026-06-29); **P4** (kindle-dash → standalone OSS + image publish) is the
+only phase remaining. Core decisions locked 2026-06-29 (see *Locked decisions*);
+per-phase detail in *Execution status* below.
 
 **Execution status (2026-06-29):**
 - **P3 (Secrets SSOT) — DONE** (own sub-RFC `2026-06-29-vault-secrets-platform.md`,
