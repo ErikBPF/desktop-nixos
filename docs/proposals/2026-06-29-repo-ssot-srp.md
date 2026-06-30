@@ -11,15 +11,19 @@ marked `TODO(erik)`.
   decided-kept-in-sops; boundary documented.
 - **P0** (CLAUDE.md → 8-repo + one-owner table + D1–D9) — **DONE in CLAUDE.md**
   (`docs(ssot)` commit): 8(+1 in-flight) repo list, layered model, one-owner-per-
-  concern table, D1–D9 one-liners, updated coupling map. *Remaining:* the one-line
-  "owns X / consumes Y" header in each **sister repo's** README (8 repos) — follow-on.
+  concern table, D1–D9 one-liners, updated coupling map. README "owns/consumes"
+  headers added in **7 sister repos** (servarr, homelab-gitops, homelab-iac,
+  hermes-flake, hermes-skills, klipper-biqu, kindle-dash); home-assistant-config
+  pending (its PR-flow); codex-flake skipped (in-flight).
 - **P1** (fleet topology SSOT: `meta.nix fleet.hosts` → `fleet.json` → justfile/iac
   consumers) — **desktop-nixos side DONE** (commit `feat(fleet): topology/addressing
   SSOT`): `fleet.hosts.<name> = {ip;mac?;role;tailscaleIp?}` in `modules/meta.nix`,
   published as `flake.fleet` → `fleet.json` (`just fleet-json`, drift-guarded by
   `just fleet-check` in `just check`); `justfile` `ip_*`/`_host-ip` derive via jq;
-  discovery advertise-routes consumes its self-IP natively. **iac consumer
-  partially applied** (reservations renamed live; .115 adoption deferred — see below).
+  discovery advertise-routes consumes its self-IP natively. **iac consumer applied**:
+  reservations now generated from vendored fleet.json (renames live; 2 stale entries
+  removed; 0-change on the 20 kept). Only the **.115 HA** adoption is deferred (manual
+  UDM reservation → needs `terragrunt import`).
 - **P2** (domains/hostnames SSOT) — **desktop-nixos side DONE** (commit
   `feat(fleet): domains/hostnames SSOT`): **thin scope** — `fleet.ingress.<zone>`
   (homelab→discovery, ai→kepler) + `fleet.services.<name>={fqdn?;backend;scope}`
@@ -270,9 +274,12 @@ vendored fleet.json …`, live UDM + Cloudflare from a wired host):
 - ⚠️ **Backend gap:** kepler **:7860 is not currently listening**, so `rpg`/`*.ai`
   now point at the right host but reach no live Gradio backend until the ai-serving
   stack is up on kepler:7860 (or the port is corrected). Routing fixed; service isn't.
-- *servarr (follow-on):* SWAG **cross-host** proxy-confs (immich/openwebui/n8n/ha/rpg)
-  can be generated from `services`; the 41 local container routes stay hand-authored
-  in servarr (out of fleet scope).
+- *servarr SWAG generation — deferred (low value post-kepler-removal).* After
+  removing the kepler-backed services, the only cross-host `fleet.services` left are
+  `ha` and `n8n`, which already have hand-authored proxy-confs; servarr has no
+  conf-generation mechanism (41 static files), so building one to render 2 confs from
+  fleet.json isn't worth it. The 41 local container routes stay servarr-owned. Revisit
+  only if many cross-host services accrue.
 
 ### P3 — Secrets SSOT: platform Vault + sops bootstrap · *L* (own sub-RFC)
 - **Stand up** the platform Vault (auto-unseal; unseal key + root token →
