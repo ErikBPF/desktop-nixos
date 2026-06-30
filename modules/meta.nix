@@ -137,11 +137,8 @@
           zone = "homelab.pastelariadev.com";
           host = "discovery";
         };
-        # *.ai was pointed at the stale install IP .112; corrected to kepler (.230).
-        ai = {
-          zone = "ai.pastelariadev.com";
-          host = "kepler";
-        };
+        # *.ai (kepler/AI) removed: it's a lab/AI concern — lab hostnames live in
+        # homelab-gitops (D2), and the wildcard had no live backend.
       };
     };
 
@@ -184,27 +181,10 @@
           };
           scope = "public";
         };
-        rpg = {
-          # Backend corrected .112 → kepler (.112 was the stale install IP).
-          fqdn = "rpg.pastelariadev.com";
-          backend = {
-            host = "kepler";
-            port = 7860;
-          };
-          scope = "public";
-        };
-        immich = {
-          backend = {
-            host = "kepler";
-            port = 2283;
-          };
-        };
-        openwebui = {
-          backend = {
-            host = "kepler";
-            port = 3003;
-          };
-        };
+        # kepler-backed services (rpg, immich, openwebui) removed — kepler is the
+        # lab/AI host; its service hostnames belong to homelab-gitops (D2), and
+        # rpg/*.ai had no live backend. Re-add here only if a service becomes a
+        # genuine home (non-lab) cross-host fact.
         n8n = {
           backend = {
             host = "orion";
