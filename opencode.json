@@ -38,7 +38,7 @@
     "filesystem": {
       "type": "local",
       "command": [
-        "bun", "x", "@modelcontextprotocol/server-filesystem",
+        "npx", "-y", "@modelcontextprotocol/server-filesystem",
         "/home/erik/Documents/erik/desktop-nixos",
         "/home/erik/Documents/erik/servarr",
         "/home/erik/Documents/erik/hermes-flake",
