@@ -9,7 +9,10 @@ marked `TODO(erik)`.
   status Implemented): OpenBao on discovery; lab ESO + host vault-agent + harbor +
   8 servarr stacks + shared renders migrated (`.env.sops` 119→85); iac tokens
   decided-kept-in-sops; boundary documented.
-- **P0** (CLAUDE.md → 8-repo + one-owner table + D1–D9) — *not done* (doc-only, S).
+- **P0** (CLAUDE.md → 8-repo + one-owner table + D1–D9) — **DONE in CLAUDE.md**
+  (`docs(ssot)` commit): 8(+1 in-flight) repo list, layered model, one-owner-per-
+  concern table, D1–D9 one-liners, updated coupling map. *Remaining:* the one-line
+  "owns X / consumes Y" header in each **sister repo's** README (8 repos) — follow-on.
 - **P1** (fleet topology SSOT: `meta.nix fleet.hosts` → `fleet.json` → justfile/iac
   consumers) — **desktop-nixos side DONE** (commit `feat(fleet): topology/addressing
   SSOT`): `fleet.hosts.<name> = {ip;mac?;role;tailscaleIp?}` in `modules/meta.nix`,
@@ -26,7 +29,8 @@ marked `TODO(erik)`.
   **iac + servarr consumers = follow-on** (live-apply).
 - **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — *partial*
   (Harbor proxy-cache live; kindle-dash not yet standalone/published).
-- **P5** (SRP placement decision tree in CLAUDE.md) — *not done* (doc-only, S).
+- **P5** (SRP placement decision tree in CLAUDE.md) — **DONE** (same `docs(ssot)`
+  commit): "SRP placement — where does a new thing go?" tree added to CLAUDE.md.
 **Date:** 2026-06-29
 **Audience:** Maintainers of the whole homelab repo set
 **Post-read action:** Decide the ownership boundaries + the `TODO(erik)` forks

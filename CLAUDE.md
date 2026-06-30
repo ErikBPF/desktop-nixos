@@ -169,20 +169,74 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. Five sister repos plug into it. Each is exposed as a
-gitignored symlink under `references/repos/` for quick local access (the
-real working trees live at `~/Documents/erik/...`):
+configuration. **Eight** sister repos plug into it (a ninth, `codex-flake`, is
+emerging/in-flight — not yet RFC'd). Each is exposed as a gitignored symlink
+under `references/repos/` for quick local access (the real working trees live at
+`~/Documents/erik/...`):
 
 ```
-references/repos/servarr               → ~/Documents/erik/servarr
-references/repos/hermes-flake          → ~/Documents/erik/hermes-flake
-references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config
-references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu
-references/repos/homelab-iac           → ~/Documents/erik/homelab-iac
+references/repos/servarr               → ~/Documents/erik/servarr            (home compose workloads)
+references/repos/homelab-gitops        → ~/Documents/erik/homelab-gitops     (lab k8s workloads, Argo CD)
+references/repos/homelab-iac           → ~/Documents/erik/homelab-iac        (UniFi/network substrate)
+references/repos/hermes-flake          → ~/Documents/erik/hermes-flake       (hermes-agent package + module)
+references/repos/hermes-skills         → ~/Documents/erik/hermes-skills      (hermes skill content)
+references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config  (HA app config)
+references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu       (printer config/state)
+references/repos/kindle-dash           → ~/Documents/erik/kindle-dash        (e-ink dashboard; standalone OSS — P4)
+references/repos/codex-flake           → ~/Documents/erik/codex-flake        (emerging / in-flight)
 ```
 
 Justfile recipes resolve through these symlinks (`readlink -f
 references/repos/servarr`); never hard-code the absolute path.
+
+### Layered model + one owner per concern (SSOT/SRP)
+
+Three clean layers: **network/physical** (`homelab-iac`) → **host/cluster
+substrate** (`desktop-nixos`, incl. k3s microvms) → **workloads** (`servarr`
+compose **and** `homelab-gitops` k8s — two *peer* permanent envs, not a
+migration). Full rationale + decisions D1–D9 live in
+`docs/proposals/2026-06-29-repo-ssot-srp.md` (and the P3 secrets sub-RFC). One
+owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
+
+| Concern | Owner (SSOT) |
+|---------|--------------|
+| Network: VLAN/WLAN/**DHCP reservations**/static DNS/Tailscale ACL/Cloudflare tokens | `homelab-iac` |
+| Host OS + fleet system config; **hosts/roles/addressing** (`fleet.json`) + **domains** (`fleet.ingress`/`fleet.services`) | `desktop-nixos` |
+| Cluster substrate (k3s microvms, NFS) | `desktop-nixos` (Nix-native, D6) |
+| Home / always-on household workloads (compose) | `servarr` |
+| Lab / prod-mimic / ephemeral workloads (k8s, Argo; vcluster for throwaways) | `homelab-gitops` |
+| **Runtime** secrets (docker via vault-agent, k8s via ESO, iac via provider) | platform **Vault** @discovery (D5) |
+| **Host/build/bootstrap** secrets (SSH/age keys, wifi/restic, Vault+iac bootstrap) | **sops** (D5) |
+| Container images: private SSOT / public OSS | **Harbor** / **GHCR** (D7) |
+| hermes-agent software (package + module) | `hermes-flake` |
+| hermes skill content | `hermes-skills` |
+| HA app config · printer config/state | `home-assistant-config` · `klipper-biqu` |
+| Kindle dashboard image (standalone OSS) | `kindle-dash` (D8) |
+
+D1–D9 one-liners: D1 two peer envs (home=servarr, lab=gitops), placed by purpose;
+D2 lab self-contained (own obs/ingress/CoreDNS), only the network is shared; D3
+ephemeral lab = vcluster; D4 lab on the home LAN; D5 shared platform Vault =
+runtime-secret SSOT, sops = root-of-trust + host/build/bootstrap only; D6 VMs stay
+Nix-native (microvm.nix); D7 Harbor = private SSOT both envs pull, GHCR = public
+OSS; D8 kindle-dash = standalone OSS (owns build+scripts, publishes image); D9
+**publish-and-pin** — SSOT owner publishes a versioned artifact, consumers
+vendor/pin it; no live cross-repo reads at build/apply (runtime Vault fetch is the
+one sanctioned runtime dep).
+
+### SRP placement — where does a new thing go?
+
+1. **Network/DNS/DHCP/reservation/ACL/Cloudflare** → `homelab-iac`.
+2. **Host OS aspect, cluster substrate, or a VM** → `desktop-nixos`.
+3. **A workload (service/app):**
+   - household / always-on home service → **`servarr`** (compose).
+   - study / prod-mimic / ephemeral experiment → **`homelab-gitops`** (k8s; vcluster for throwaways).
+4. **App config of an existing appliance** (HA, printer) → that appliance's repo
+   (`home-assistant-config`, `klipper-biqu`) — this flake owns its OS, not its config.
+5. **A fleet-wide *fact*** (host IP/MAC/role, ingress zone, public/cross-host
+   service) → `desktop-nixos` `modules/meta.nix` (`fleet.*`) → `fleet.json`.
+
+No forced migration of existing home stacks; peer envs are placed by **purpose**,
+not absorbed.
 
 ### `servarr` — container stacks on homelab hosts
 
@@ -283,21 +337,50 @@ references/repos/servarr`); never hard-code the absolute path.
   the hosts. Apply **only from a wired LAN host** (Wi-Fi changes can self-lock);
   state is local + encrypted. See its `README.md`.
 
+### `homelab-gitops` — lab k8s workloads (Argo CD)
+
+- Lives at `~/Documents/erik/homelab-gitops`. Reachable via
+  `references/repos/homelab-gitops`. **Not Nix** (prod-mimic, servarr-style repo).
+- Owns the **lab** env (D1): k8s workloads synced by Argo CD onto the kepler k3s
+  cluster, with ESO→Vault@discovery for secrets, in-cluster Prometheus/Grafana/
+  ingress/CoreDNS (D2 — lab is self-contained; only the *network* is shared).
+  Ephemeral experiments use **vcluster** (D3). Lab hostnames live here, not in the
+  fleet domains SSOT. See `memory/platform_gitops_repo.md`.
+
+### `hermes-skills` — hermes skill content
+
+- Lives at `~/Documents/erik/hermes-skills`. Reachable via
+  `references/repos/hermes-skills`. **Content, not package** (kept separate from
+  `hermes-flake` by design). Synced to a host and mounted read-only into the
+  hermes container via `skills.external_dirs` — `just sync-hermes-skills <host>`,
+  then recreate the stack so it re-scans.
+
+### `kindle-dash` — Kindle e-ink wall dashboard
+
+- Lives at `~/Documents/erik/kindle-dash`. Reachable via
+  `references/repos/kindle-dash`. See `memory/kindle_dashboard.md`.
+- **Target state (D8, P4 — in progress):** standalone OSS project that owns its
+  container **build + device scripts** and publishes the image (**GHCR** public +
+  **Harbor** private, D7). Consuming stacks (servarr) only *reference* the pinned
+  digest + supply deploy config. Strip homelab-specific deploy glue out of it.
+
 ### Coupling map
 
 ```
-desktop-nixos (system config)
-├── inputs.servarr      → containers on kepler/discovery/orion
-├── inputs.hermes-flake → hermes-agent on kepler
+desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
+├── inputs.servarr      → home compose workloads on kepler/discovery/orion
+├── inputs.hermes-flake → hermes-agent (+ hermes-skills content, git-synced)
+├── k3s microvms (kepler) ← homelab-gitops syncs lab k8s workloads via Argo CD
 ├── deploys / hosts     → kepler also serves HA voice backend
 │                         ↑
 │                         home-assistant-config (HA app config)
-└── (planned) archinaut host → klipper-biqu seeds /var/lib/klipper/config
-                               klipper-backup keeps it as git source-of-truth
+├── archinaut host      → klipper-biqu owns /var/lib/klipper config (git source-of-truth)
+└── kindle-dash         → standalone OSS image (GHCR+Harbor); servarr references it
 
 homelab-iac (UniFi network)  ← the substrate all the above run on:
-  DHCP reservations pin every host's IP; static DNS pins service hostnames.
-  desktop-nixos owns the hosts; homelab-iac owns the network they live on.
+  DHCP reservations pin every host's IP; static DNS pins service hostnames —
+  both VENDOR desktop-nixos's fleet.json (D9 publish-and-pin), re-synced on a
+  deliberate bump. desktop-nixos owns the hosts; homelab-iac owns the network.
 ```
 
 Rule of thumb: when a change touches more than one of these repos, land the
