@@ -12,6 +12,7 @@
 # snapshot token in sops).
 {self, ...}: {
   flake.modules.nixos.discovery-vault = {
+    config,
     pkgs,
     lib,
     ...
@@ -96,6 +97,18 @@
     };
 
     systemd.tmpfiles.rules = ["d ${snapDir} 0700 openbao openbao - -"];
+
+    # Guard: vault-offsite reuses the `restic-kepler` SSH alias declared by
+    # restic-tofu-state (programs.ssh.extraConfig, gated on its offsiteRepository).
+    # That coupling is implicit — if restic-tofu-state is ever disabled the
+    # off-site vault backup breaks at runtime, not at eval. Assert the alias is
+    # present so it fails loudly instead.
+    assertions = [
+      {
+        assertion = builtins.match ".*Host restic-kepler.*" config.programs.ssh.extraConfig != null;
+        message = "discovery-vault: restic-backups-vault-offsite depends on the `restic-kepler` SSH alias, but it is not present in programs.ssh.extraConfig. Enable services.resticTofuState with an offsiteRepository, or declare the alias directly.";
+      }
+    ];
 
     # vault-agent (P3.2): renders runtime secrets from OpenBao to files under
     # /run/vault-agent so host services consume Vault, not sops. First secret:
@@ -327,6 +340,39 @@
         ExecStart = pkgs.writeShellScript "vault-backup-onfail" ''
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
             --data "$(${jq} -nc --arg c "🔴 **OpenBao snapshot backup FAILED** on discovery — check: journalctl -u restic-backups-vault" '{content:$c}')" \
+            "$(cat /run/vault-agent/discord_webhook_incidents)" >/dev/null || true
+        '';
+      };
+    };
+
+    # Off-site liveness metric — mirrors the local job's dead-man's-switch. The
+    # local ExecStartPost (above) only proves the 03:00 job ran; a silent SFTP
+    # failure of the 03:20 off-site copy would go unnoticed until a DR drill.
+    # Separate metric name so Grafana can tell local from off-site staleness.
+    systemd.services.restic-backups-vault-offsite.serviceConfig.ExecStartPost = [
+      (pkgs.writeShellScript "vault-offsite-backup-liveness" ''
+        set -eu
+        t=$(${pkgs.coreutils}/bin/date +%s)
+        tmp=$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.vault_offsite_backup.XXXXXX)
+        {
+          echo "# HELP vault_offsite_backup_last_success_seconds Unix time of last successful OpenBao off-site restic backup."
+          echo "# TYPE vault_offsite_backup_last_success_seconds gauge"
+          echo "vault_offsite_backup_last_success_seconds $t"
+        } > "$tmp"
+        ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+        ${pkgs.coreutils}/bin/mv "$tmp" ${textfileDir}/vault_offsite_backup.prom
+      '')
+    ];
+
+    # A failed off-site copy is otherwise silent — alert to Discord (off-host).
+    systemd.services.restic-backups-vault-offsite.onFailure = ["vault-offsite-backup-onfail.service"];
+    systemd.services.vault-offsite-backup-onfail = {
+      description = "Discord alert when the OpenBao off-site snapshot backup fails";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = pkgs.writeShellScript "vault-offsite-backup-onfail" ''
+          ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
+            --data "$(${jq} -nc --arg c "🔴 **OpenBao off-site backup FAILED** on discovery — SFTP to kepler failed; check: journalctl -u restic-backups-vault-offsite" '{content:$c}')" \
             "$(cat /run/vault-agent/discord_webhook_incidents)" >/dev/null || true
         '';
       };
