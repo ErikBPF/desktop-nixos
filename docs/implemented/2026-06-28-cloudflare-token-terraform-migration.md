@@ -1,9 +1,9 @@
 ---
 title: Migrate Cloudflare API tokens to Terraform-managed (homelab-iac)
-status: In progress — Phase 1+2 DONE (2026-06-29): bootstrap perms added to the iac token, swag-dns01 minted + bridged to SWAG, temp token revoked. Phase 3 (tunnel) + 4 (sweep) open.
+status: Implemented (2026-06-30). Ph1+2 (2026-06-29): bootstrap perms added to the iac token, swag-dns01 minted + bridged to SWAG, temp token revoked. Ph3 (2026-06-30): HA tunnel fe892a2a adopted into terraform (cloudflare_zero_trust_tunnel_cloudflared + ingress config); connector secret is write-only so ignore_changes=[secret] adopts without rotating — no outage, existing token in Vault stays valid (no re-bridge). Ph4: docs updated (servarr + homelab-iac .env.example).
 date: 2026-06-28
 audience: Maintainers of desktop-nixos + homelab-iac
-post-read-action: Decide the bootstrap-credential shape + per-token scope, then execute the phases.
+post-read-action: As-built record. The write-only-secret adoption (no token bridge) is the key deviation from the original plan.
 ---
 
 # Migrate Cloudflare API tokens to Terraform-managed

@@ -1,9 +1,43 @@
 # Codex flake — global profile module
 
-**Status:** Draft RFC, ready for first implementation spike. **Date:** 2026-06-29.
+**Status:** ✅ Implemented (2026-06-30). **Date:** 2026-06-29.
 **Scope:** a new sister repo, `codex-flake`, modeled after `hermes-flake`.
 It exports a Home Manager module for Codex global instructions and optional
 config, then `desktop-nixos` consumes it as a flake input.
+
+## Implemented state
+
+Shipped artifacts:
+
+- Sister repo: `git@github.com:ErikBPF/codex-flake.git`.
+- Current release: FlakeHub `https://flakehub.com/f/ErikBPF/codex-flake/*`.
+- Published revision: `dde0da8f3b4693a4dbba9716386c7db2862ac6db`
+  (`0.2.4+rev-dde0da8...`).
+- Desktop integration: `desktop-nixos` commit `a1e8fe1 feat(codex): adopt
+  codex-flake + opencode client on laptop`.
+- Consumer input: `codex-flake.url =
+  "https://flakehub.com/f/ErikBPF/codex-flake/*"` with `flake-parts`,
+  `home-manager`, and `nixpkgs` following this repo's inputs.
+- Home Manager wrapper: `modules/dev/codex.nix` imports
+  `inputs.codex-flake.homeManagerModules.default` and enables package install,
+  inline RTK guidance, and caveman full style.
+
+Verified on 2026-06-30:
+
+- `codex-flake`: `nix flake check --print-build-logs` passed.
+- `codex-flake` GitHub Actions run `28416216970` passed, including
+  `flakehub-publish` and `flakehub-verify`.
+- FlakeHub wildcard resolves to revision
+  `dde0da8f3b4693a4dbba9716386c7db2862ac6db`.
+- `desktop-nixos`: `just fmt-check`, `just docs-check`, and
+  `just build laptop` passed.
+- Activated laptop toplevel:
+  `/nix/store/cr40pddwwln1jwp6s1cwsgm505xh528m-nixos-system-laptop-26.11.20260616.567a49d`.
+- Deployed files:
+  - `~/.codex/AGENTS.md` is a Home Manager symlink and contains inline RTK +
+    caveman full style.
+  - `~/.codex/RTK.md` is a Home Manager symlink.
+  - `~/.codex/config.toml` is absent by default.
 
 ## Why
 
@@ -52,7 +86,7 @@ module, not a novel dotfile trick.
 Codex does **not** need the NixOS/container half at first. Codex is a user CLI
 with mutable user state, so Home Manager is the correct first API boundary.
 
-## Proposed flake API
+## Implemented flake API
 
 ```nix
 {
@@ -79,8 +113,8 @@ with mutable user state, so Home Manager is the correct first API boundary.
 
     rtkFile.enable = true;
 
-    config.enable = false;
-    config.settings = {};
+    configFile.enable = false;
+    configFile.settings = {};
   };
 }
 ```
@@ -89,7 +123,7 @@ Rendered files:
 
 - `~/.codex/AGENTS.md` when `agents.enable = true`.
 - `~/.codex/RTK.md` when `rtkFile.enable = true`.
-- `~/.codex/config.toml` only when `config.enable = true`.
+- `~/.codex/config.toml` only when `configFile.enable = true`.
 
 Defaults:
 
@@ -97,19 +131,24 @@ Defaults:
 - RTK wording is scoped: prefer for read-only/high-output commands; raw commands
   for side effects, quoting, redirection, sandboxing, approval prompts, or exact
   shell semantics.
-- `config.enable = false` to avoid overwriting mutable Codex config by accident.
+- `configFile.enable = false` to avoid overwriting mutable Codex config by
+  accident.
 - No auth/session/cache/history/state file management.
+- `package.enable = false` in the reusable module by default; consumers opt in
+  when they want this flake to install Codex itself.
+- `rtk.source = "reduced"` by default, with `rtk.source = "generated"` available
+  as an opt-in that runs `rtk init -g --codex --show` from a caller-provided RTK
+  package.
 
 ## Grilled decisions
 
 ### D1 — Separate flake or keep local?
 
-**Decision:** separate flake only after the local module stays stable for one
-more iteration.
+**Decision:** implemented as a separate flake.
 
-**Reason:** `hermes-flake` is worthwhile because it packages a real upstream
-application plus NixOS deployment surfaces. Codex-profile starts as text
-rendering. Extract when its API is clean enough that another user can consume it.
+**Reason:** the local module proved enough behavior to define a small stable API:
+global instruction rendering, inline RTK guidance, style guidance, and opt-in
+TOML config.
 
 ### D2 — Manage `config.toml` by default?
 
@@ -134,13 +173,13 @@ behavior must be inline in `AGENTS.md`.
 `rtk`". That is too broad for state-changing commands and shell edge cases. The
 flake should carry safer Codex-specific wording.
 
-### D5 — Install `rtk`?
+### D5 — Install or generate RTK?
 
-**Decision:** not in v1.
+**Decision:** do not install RTK by default; support generated guidance only
+when the consumer provides an RTK package.
 
-**Reason:** RTK is not in nixpkgs here and may be installed by another channel.
-Instruction rendering should not hide package provenance. Add an optional package
-later if we pin upstream release hashes like `discovery-hermes-oci` does.
+**Reason:** RTK package provenance is external, but generation can be useful for
+users who already package RTK. Default remains the safer reduced wording.
 
 ### D6 — Name `programs.codex`?
 
@@ -150,26 +189,34 @@ later if we pin upstream release hashes like `discovery-hermes-oci` does.
 Squatting the obvious name creates future migration pain. A profile module can
 later be folded into or renamed around an official module.
 
-## First implementation spike
+## Implementation checklist
 
-1. Create `~/Documents/erik/codex-flake`.
-2. Scaffold like `hermes-flake`: `flake.nix`, `modules/home-manager.nix`,
+1. ✅ Created `~/Documents/erik/codex-flake`.
+2. ✅ Scaffolded like `hermes-flake`: `flake.nix`, `modules/home-manager.nix`,
    `checks.nix`, `README.md`, `Justfile`, `templates/default`.
-3. Add checks:
+3. ✅ Added checks:
    - Home Manager module evaluates.
    - rendered `AGENTS.md` contains RTK inline and caveman text.
-   - `config.enable = false` does not create `.codex/config.toml`.
-   - opt-in `config.settings` renders TOML.
-4. Add `desktop-nixos` input:
-   `codex-flake.url = "github:ErikBPF/codex-flake"; inputs.nixpkgs.follows = "nixpkgs";`
-5. Replace local `modules/dev/codex.nix` text rendering with:
+   - `configFile.enable = false` does not create `.codex/config.toml`.
+   - opt-in `configFile.settings` renders TOML.
+   - Codex package is not installed by default.
+   - generated RTK mode renders from a provided RTK package.
+4. ✅ Added `desktop-nixos` input through FlakeHub:
+   `codex-flake.url = "https://flakehub.com/f/ErikBPF/codex-flake/*";`
+5. ✅ Replaced local `modules/dev/codex.nix` text rendering with:
    `imports = [inputs.codex-flake.homeManagerModules.default];`
    plus local policy under `programs.codex-profile`.
-6. Verify with:
+6. ✅ Verified with:
    - `just fmt-check`
-   - `nix flake check ~/Documents/erik/codex-flake`
+   - `just docs-check`
+   - `nix flake check --print-build-logs` in `~/Documents/erik/codex-flake`
    - `just build laptop`
-   - fresh `codex exec` probes for inline RTK + caveman + `rtk git status --short`.
+   - deployed file checks for inline RTK, caveman full style, and unmanaged
+     `config.toml`.
+
+Live Codex behavioral probes were done during the original validation and proved
+that global `AGENTS.md` loads while `@RTK.md` include expansion did not. The
+final implemented state therefore intentionally relies on inline RTK guidance.
 
 ## Rejected shortcuts
 
@@ -182,9 +229,10 @@ later be folded into or renamed around an official module.
   cache, shell snapshots, and mutable app state.
 - **Force `config.toml`:** convenient for one user, hostile as reusable default.
 
-## Open question
+## Closed question
 
 Whether the first external repo should be called `codex-flake` or a broader
-`agent-profile-flake`. Recommendation: `codex-flake` first. The Codex file
-layout and behavior probes are specific enough that a generic agent framework
-would dilute the first version.
+`agent-profile-flake`.
+
+**Decision:** `codex-flake`. The Codex file layout and behavior probes are
+specific enough that a generic agent framework would dilute the first version.
