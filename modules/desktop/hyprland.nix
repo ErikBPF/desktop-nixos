@@ -89,6 +89,8 @@
           terminal = {_var = "ghostty";};
           fileManager = {_var = "nautilus --new-window";};
           browser = {_var = "brave";};
+          teamsApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/teams --no-first-run --no-default-browser-check --app=https://teams.microsoft.com/v2/";};
+          whatsappApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/whatsapp --no-first-run --no-default-browser-check --app=https://web.whatsapp.com/";};
           monitor = lib.mkDefault [
             {
               output = "";
@@ -328,10 +330,10 @@
                     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
                     hl.exec_cmd("ghostty -e btop",            { workspace = 11 })
                     hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
-                    hl.exec_cmd("sleep 3; spotify",           { workspace = 12 })
-                    hl.exec_cmd("teams-for-linux",            { workspace = 10 })
-                    hl.exec_cmd("sleep 3; discord",           { workspace = 10 })
-                    hl.exec_cmd("sleep 3; whatsapp-electron", { workspace = 10 })
+                    hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
+                    hl.exec_cmd(teamsApp, { workspace = 10 })
+                    hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.discord_tui --title=discord-tui -e discordo", { workspace = 10 })
+                    hl.exec_cmd("sleep 3; " .. whatsappApp, { workspace = 10 })
                     hl.exec_cmd("sleep 3; " .. browser .. " --restore-last-session", { workspace = 1 })
                   end
                 '')
@@ -524,19 +526,31 @@
               opacity = "1 1";
             }
             {
-              match.class = "^(discord)$";
+              match.class = "^.*\\.discord_tui$";
               float = true;
             }
             {
-              match.class = "^(discord)$";
+              match.class = "^.*\\.discord_tui$";
               move = "12 1304";
             }
             {
-              match.class = "^(discord)$";
+              match.class = "^.*\\.discord_tui$";
               size = "1056 603";
             }
             {
-              match.class = "^(brave-browser)$";
+              match.class = "^.*\\.spotify_tui$";
+              float = true;
+            }
+            {
+              match.class = "^.*\\.spotify_tui$";
+              move = "12 47";
+            }
+            {
+              match.class = "^.*\\.spotify_tui$";
+              size = "1056 585";
+            }
+            {
+              match.class = "^(brave-browser|chromium|google-chrome|google-chrome-unstable)$";
               workspace = "1";
             }
             {
@@ -544,11 +558,15 @@
               workspace = "11";
             }
             {
-              match.class = "^(spotify)$";
+              match.class = "^(obsidian)$";
+              workspace = "11";
+            }
+            {
+              match.class = "^.*\\.spotify_tui$";
               workspace = "12";
             }
             {
-              match.class = "^(discord)$";
+              match.class = "^.*\\.discord_tui$";
               workspace = "10";
             }
             {
@@ -560,7 +578,51 @@
               workspace = "11 silent";
             }
             {
-              match.class = "^(discord)$";
+              match.class = "^(obsidian)$";
+              workspace = "11 silent";
+            }
+            {
+              match.class = "^.*\\.spotify_tui$";
+              workspace = "12 silent";
+            }
+            {
+              match.class = "^.*\\.discord_tui$";
+              workspace = "10 silent";
+            }
+            {
+              match.class = "^brave-.*teams\\.microsoft\\.com.*$";
+              float = true;
+            }
+            {
+              match.class = "^brave-.*teams\\.microsoft\\.com.*$";
+              workspace = "10 silent";
+            }
+            {
+              match.class = "^brave-.*teams\\.microsoft\\.com.*$";
+              size = "1056 585";
+            }
+            {
+              match.class = "^brave-.*teams\\.microsoft\\.com.*$";
+              move = "12 47";
+            }
+            {
+              match.class = "^brave-.*web\\.whatsapp\\.com.*$";
+              float = true;
+            }
+            {
+              match.class = "^brave-.*web\\.whatsapp\\.com.*$";
+              move = "12 646";
+            }
+            {
+              match.class = "^brave-.*web\\.whatsapp\\.com.*$";
+              size = "1056 643";
+            }
+            {
+              match.class = "^brave-.*web\\.whatsapp\\.com.*$";
+              workspace = "10";
+            }
+            {
+              match.class = "^brave-.*web\\.whatsapp\\.com.*$";
               workspace = "10 silent";
             }
             {
