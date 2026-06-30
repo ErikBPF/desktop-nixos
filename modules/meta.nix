@@ -111,10 +111,112 @@
         };
       };
     };
+
+    # Domains/hostnames SSOT (RFC 2026-06-29 P2) — the DNS/edge layer only.
+    # Per-service SWAG routes (container backends on discovery) stay servarr-owned
+    # (SRP D1/D2); lab *.k8s hostnames live in homelab-gitops. This source covers
+    # only the fleet-level facts: ingress zones + public + cross-host backends.
+    fleet.ingress = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            zone = lib.mkOption {
+              type = lib.types.singleLineStr;
+              description = "Wildcard DNS zone; *.<zone> resolves to the fronting host's IP.";
+            };
+            host = lib.mkOption {
+              type = lib.types.singleLineStr;
+              description = "Fleet host (key in fleet.hosts) running the reverse proxy for the zone.";
+            };
+          };
+        }
+      );
+      description = "Home ingress zones. Consumers resolve *.<zone> → fleet.hosts.<host>.ip.";
+      default = {
+        homelab = {
+          zone = "homelab.pastelariadev.com";
+          host = "discovery";
+        };
+        # *.ai was pointed at the stale install IP .112; corrected to kepler (.230).
+        ai = {
+          zone = "ai.pastelariadev.com";
+          host = "kepler";
+        };
+      };
+    };
+
+    fleet.services = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            fqdn = lib.mkOption {
+              type = lib.types.nullOr lib.types.singleLineStr;
+              default = null;
+              description = "Edge FQDN for scope=public (Cloudflare). null for home services (reached via *.<ingress zone>).";
+            };
+            backend = lib.mkOption {
+              description = "Where the reverse proxy forwards.";
+              type = lib.types.submodule {
+                options = {
+                  host = lib.mkOption {
+                    type = lib.types.singleLineStr;
+                    description = "Fleet host (key in fleet.hosts) the proxy forwards to.";
+                  };
+                  port = lib.mkOption {type = lib.types.port;};
+                };
+              };
+            };
+            scope = lib.mkOption {
+              type = lib.types.enum ["home" "public"];
+              default = "home";
+              description = "home = LAN via *.<ingress zone>/SWAG; public = also exposed via Cloudflare tunnel (needs fqdn).";
+            };
+          };
+        }
+      );
+      description = "Fleet-level service routing: public (Cloudflare) + cross-host home backends. Single-host container routes stay servarr-owned.";
+      default = {
+        ha = {
+          fqdn = "ha.pastelariadev.com";
+          backend = {
+            host = "homeassistant";
+            port = 8123;
+          };
+          scope = "public";
+        };
+        rpg = {
+          # Backend corrected .112 → kepler (.112 was the stale install IP).
+          fqdn = "rpg.pastelariadev.com";
+          backend = {
+            host = "kepler";
+            port = 7860;
+          };
+          scope = "public";
+        };
+        immich = {
+          backend = {
+            host = "kepler";
+            port = 2283;
+          };
+        };
+        openwebui = {
+          backend = {
+            host = "kepler";
+            port = 3003;
+          };
+        };
+        n8n = {
+          backend = {
+            host = "orion";
+            port = 5678;
+          };
+        };
+      };
+    };
   };
 
   # Publish the fleet table as a flake output so it can be pinned to disk:
   #   nix eval .#fleet --json | jq . > fleet.json   (`just fleet-json`)
   # Vendored by homelab-iac (jsondecode) on a deliberate bump — never read live.
-  config.flake.fleet = {inherit (config.fleet) hosts;};
+  config.flake.fleet = {inherit (config.fleet) hosts ingress services;};
 }
