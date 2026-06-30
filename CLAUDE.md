@@ -195,7 +195,7 @@ Three clean layers: **network/physical** (`homelab-iac`) → **host/cluster
 substrate** (`desktop-nixos`, incl. k3s microvms) → **workloads** (`servarr`
 compose **and** `homelab-gitops` k8s — two *peer* permanent envs, not a
 migration). Full rationale + decisions D1–D9 live in
-`docs/proposals/2026-06-29-repo-ssot-srp.md` (and the P3 secrets sub-RFC). One
+`docs/implemented/2026-06-29-repo-ssot-srp.md` (and the P3 secrets sub-RFC). One
 owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 
 | Concern | Owner (SSOT) |

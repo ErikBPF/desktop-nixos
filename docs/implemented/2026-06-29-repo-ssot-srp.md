@@ -1,9 +1,10 @@
 # Repo ecosystem — single source of truth (SSOT) & single responsibility (SRP)
 
-**Status:** Implementing — **P0/P1/P2/P3/P5 DONE** (desktop-nixos + live homelab-iac
-applies, 2026-06-29); **P4** (kindle-dash → standalone OSS + image publish) is the
-only phase remaining. Core decisions locked 2026-06-29 (see *Locked decisions*);
-per-phase detail in *Execution status* below.
+**Status:** **All phases (P0–P5) DONE** (2026-06-29). P4 shipped: kindle-dash is a
+standalone OSS repo publishing `ghcr.io/erikbpf/kindle-dash` via CI on a version
+tag, mirrored to Harbor's public `library`; servarr consumes the pinned digest.
+Core decisions locked 2026-06-29 (see *Locked decisions*); per-phase detail in
+*Execution status* below.
 
 **Execution status (2026-06-29):**
 - **P3 (Secrets SSOT) — DONE** (own sub-RFC `2026-06-29-vault-secrets-platform.md`,
@@ -35,8 +36,11 @@ per-phase detail in *Execution status* below.
   servarr-owned; lab *.k8s in homelab-gitops. rpg/*.ai backend corrected .112→kepler.
   **iac consumer applied live** (UniFi DNS *.ai + Cloudflare rpg → .230; kepler:7860
   backend not yet serving). **servarr SWAG generation = follow-on.**
-- **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — *partial*
-  (Harbor proxy-cache live; kindle-dash not yet standalone/published).
+- **P4** (image/artifact SSOT: Harbor+GHCR, kindle-dash standalone) — **DONE**
+  (2026-06-29). kindle-dash CI publishes `ghcr.io/erikbpf/kindle-dash:0.1.0`
+  (amd64, public), mirrored to Harbor `library`; servarr de-vendored + pins the
+  digest `@sha256:e0d9826…`. Fixed a Harbor push ingress bug (duplicate
+  `X-Forwarded-Proto`) found by the first real push.
 - **P5** (SRP placement decision tree in CLAUDE.md) — **DONE** (same `docs(ssot)`
   commit): "SRP placement — where does a new thing go?" tree added to CLAUDE.md.
 **Date:** 2026-06-29
@@ -310,6 +314,14 @@ vendored fleet.json …`, live UDM + Cloudflare from a wired host):
   own deploy config. Harbor proxy-cache already exists (harbor RFC).
 - **Verify:** kindle-dash builds standalone; servarr references the published
   tag; image pulls on both envs.
+- **Shipped 2026-06-29:** `.github/workflows/publish.yml` publishes
+  `ghcr.io/erikbpf/kindle-dash:{0.1.0,0.1,latest}` (amd64, public) on a `v*` tag;
+  `servarr/scripts/harbor-mirror.sh` copies it to Harbor `library` (LAN-only, so
+  public CI can't push there directly). servarr drops the vendored renderer +
+  device scripts and pins `harbor.…/library/kindle-dash:0.1.0@sha256:e0d9826…`;
+  verified anon GHCR + Harbor pulls (matching digest) and a live render on
+  discovery. Device scripts now live only in the OSS repo (set `DASH_URL` per
+  device). Fixed a Harbor push-ingress bug (duplicate `X-Forwarded-Proto`).
 
 ### P5 — SRP placement rule (no absorption) · *S*
 - Write the **placement decision tree** (D1): household/always-on → `servarr`;

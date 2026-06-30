@@ -1,7 +1,7 @@
 # Harbor on discovery — registry + Docker Hub pull-through
 
-**Date:** 2026-06-22
-**Status:** Prepared, not yet deployed.
+**Date:** 2026-06-22 (deployed; push fixed 2026-06-29)
+**Status:** Deployed + live. Proxy-cache **and** push both work.
 **Decision:** Harbor runs as a Docker stack on **discovery** (the 24/7 infra
 host), not in-cluster. Moving it off the k3s cluster kills the self-hosting
 bootstrapping trap (a cluster mirror can't depend on a registry living inside
@@ -79,6 +79,25 @@ see step 6. This supersedes the in-cluster bits of
 7. **Remove the in-cluster Harbor** — only after step 5 is healthy. Delete the
    Harbor Argo app + `platform/harbor/` from homelab-gitops (Argo prunes it).
    Staged on a branch / held for your push.
+
+## Pushing images (as-built, 2026-06-29)
+
+Only the proxy-cache path was exercised at install; the **first real `docker
+push`** (the `kindle-dash` OSS image, P4/D8) surfaced an ingress bug. The SWAG
+vhost set `X-Forwarded-Proto https` on top of the included `proxy.conf` (which
+already sets it to `$scheme`); nginx emitted the header twice, Harbor's core
+joined it to `https, https` and built a malformed blob-upload `Location`
+(`https, https://…`) — push failed, pulls were fine. Fix: drop the redundant
+directive in `servarr` `config/swag/nginx/proxy-confs/harbor.subdomain.conf`
+(committed there with a defensive comment).
+
+- **Public `library` project** holds OSS mirrors (anon pull, authed push) — e.g.
+  `harbor.homelab.pastelariadev.com/library/kindle-dash:<tag>`.
+- **Push auth:** admin (`HARBOR_ADMIN_PASSWORD`, now in OpenBao
+  `secret/home/harbor`, rendered to `/run/vault-agent/harbor.env` on discovery).
+  A scoped robot is the right pattern for repeated/automated mirrors.
+- **Mirror tool:** `servarr` `machines/discovery/scripts/harbor-mirror.sh`
+  (GHCR→Harbor copy; skopeo if present, else docker pull/tag/push).
 
 ## Rollback
 

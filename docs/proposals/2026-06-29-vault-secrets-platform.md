@@ -231,6 +231,6 @@ the one bootstrap store, no cloud dependency.
 
 ## Links
 
-- Parent: `proposals/2026-06-29-repo-ssot-srp.md` (P3). Composes with
+- Parent: `implemented/2026-06-29-repo-ssot-srp.md` (P3). Composes with
   `proposals/2026-06-28-cloudflare-token-terraform-migration.md` (iac tokens) and
   `proposals/2026-06-20-cluster-homelab-gitops.md` (the gitops/ESO scaffold).
