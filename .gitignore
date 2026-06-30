@@ -53,6 +53,7 @@ haos-backup/
 # Local-only sister-repo symlinks (see references/repos/):
 #   references/repos/servarr               → ~/Documents/erik/servarr
 #   references/repos/hermes-flake          → ~/Documents/erik/hermes-flake
+#   references/repos/codex-flake           → ~/Documents/erik/codex-flake
 #   references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config
 references/
 ampagent*

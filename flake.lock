@@ -68,6 +68,31 @@
         "type": "github"
       }
     },
+    "codex-flake": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1782786600,
+        "narHash": "sha256-+ofVHDsfyUaqcnE2zfvGGDnDCkduLz13Wqf5UbBlJAM=",
+        "rev": "dde0da8f3b4693a4dbba9716386c7db2862ac6db",
+        "revCount": 4,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/ErikBPF/codex-flake/0.2.4%2Brev-dde0da8f3b4693a4dbba9716386c7db2862ac6db/019f165d-f9b2-7bf2-a0cd-a1b2afc0211c/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/ErikBPF/codex-flake/%2A"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -107,27 +132,6 @@
     "flake-parts": {
       "inputs": {
         "nixpkgs-lib": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1778716662,
-        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
-        "owner": "hercules-ci",
-        "repo": "flake-parts",
-        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
-        "type": "github"
-      },
-      "original": {
-        "owner": "hercules-ci",
-        "repo": "flake-parts",
-        "type": "github"
-      }
-    },
-    "flake-parts_2": {
-      "inputs": {
-        "nixpkgs-lib": [
-          "hermes-flake",
           "nixpkgs"
         ]
       },
@@ -204,7 +208,9 @@
     },
     "hermes-flake": {
       "inputs": {
-        "flake-parts": "flake-parts_2",
+        "flake-parts": [
+          "flake-parts"
+        ],
         "hermes-agent-src": "hermes-agent-src",
         "microvm": "microvm",
         "nixpkgs": [
@@ -215,17 +221,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1782425229,
-        "narHash": "sha256-uQ4mf61pfB6EjO4xTEeSgTRESnsmQrQqT0ehbCx32s0=",
-        "owner": "ErikBPF",
-        "repo": "hermes-flake",
-        "rev": "fc91a7c77228ba77528e97aff08c36b6636c8125",
-        "type": "github"
+        "lastModified": 1782786602,
+        "narHash": "sha256-/V9vGPx5y4x6+if4veUZfOllO7E4bhrlCPg4MGJ+aww=",
+        "rev": "f9b21a00b9606f30ebaaffcb8fb2c0e7c9d1b3a8",
+        "revCount": 19,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/ErikBPF/hermes-flake/0.2.19%2Brev-f9b21a00b9606f30ebaaffcb8fb2c0e7c9d1b3a8/019f1661-23a3-7273-b2f0-7b99134a7435/source.tar.gz"
       },
       "original": {
-        "owner": "ErikBPF",
-        "repo": "hermes-flake",
-        "type": "github"
+        "type": "tarball",
+        "url": "https://flakehub.com/f/ErikBPF/hermes-flake/%2A"
       }
     },
     "home-manager": {
@@ -917,6 +922,7 @@
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
+        "codex-flake": "codex-flake",
         "disko": "disko",
         "flake-parts": "flake-parts",
         "hermes-flake": "hermes-flake",

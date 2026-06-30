@@ -53,7 +53,15 @@
     import-tree.url = "github:vic/import-tree";
 
     hermes-flake = {
-      url = "github:ErikBPF/hermes-flake";
+      url = "https://flakehub.com/f/ErikBPF/hermes-flake/*";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    codex-flake = {
+      url = "https://flakehub.com/f/ErikBPF/codex-flake/*";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.home-manager.follows = "home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

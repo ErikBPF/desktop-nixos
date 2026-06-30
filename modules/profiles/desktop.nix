@@ -13,6 +13,7 @@ in {
       m.nixos.file-systems
 
       m.nixos.laptop-hermes-client
+      m.nixos.laptop-opencode-client
       m.nixos.hyprland
       m.nixos.sddm
       m.nixos.fonts
