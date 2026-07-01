@@ -8,8 +8,6 @@ _: {
         enable = true;
         checkReversePath = "loose";
         allowedTCPPorts = [
-          80
-          443
           22000
         ];
         allowedUDPPorts = [21027];
