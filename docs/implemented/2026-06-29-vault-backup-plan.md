@@ -1,6 +1,6 @@
 # Vault backup — prove backup/restore + monitoring before any real secret
 
-**Status:** In progress (gate **P3.0**). **Done 2026-06-29:** OpenBao on discovery
+**Status:** Implemented (gate **P3.0** met 2026-06-29; graduated 2026-07-01). **Done 2026-06-29:** OpenBao on discovery
 (raft, OSS) initialised + auto-unseal (B1a/B1b); restic snapshot backup +
 `vault_backup_last_success_seconds` liveness + Discord-on-fail (B1b); **mock-state
 restore drill PASSED** (deleted key recovered, count restored — B2); Grafana
@@ -10,12 +10,33 @@ restore drill PASSED** (deleted key recovered, count restored — B2); Grafana
 recovered, see *Disaster recovery*); B4 alert condition validated (aged metric →
 Prometheus staleness > threshold → fires → Discord path proven by the identical
 live restic rule). **B5 open → real-secret migration (P3.2) unblocked.** The one
-DR dependency left to the operator: an **offline break-glass copy of the primary
-age key** (single-host loss is already covered — orion/archinaut are recipients).
+DR dependency that was left to the operator — an **offline break-glass copy of the
+primary age key** (single-host loss is already covered — orion/archinaut are
+recipients) — is now **CLOSED** by the crown-jewels §4b passphrase-age escrow (see
+*As-built corrections* below).
 **Date:** 2026-06-29
 **Audience:** Maintainers of desktop-nixos + homelab-gitops
 **Post-read action:** Confirm the storage + Vault-home forks, then execute
 B1→B5 (backup → mock test → monitor → Grafana validate → **then** migrate).
+
+## As-built corrections (2026-07-01, on graduation)
+
+Two things landed differently / better than this plan described:
+
+- **Off-site is now three tiers, not "kepler only."** As-built
+  (`modules/hosts/discovery/vault.nix`): local vault-disk repo (03:00) + SFTP →
+  **kepler** (03:20) + **off-PREMISE restic-REST → voyager** (03:40, Oracle,
+  append-only, tailnet-only). Each tier has its own
+  `*_backup_last_success_seconds` liveness metric + Grafana staleness alert. The
+  voyager off-premise tier was added by `implemented/2026-06-30-offsite-dr-crown-jewels.md`.
+- **The one open DR dependency is CLOSED.** "Offline break-glass copy of the
+  primary age key" is now the passphrase-age escrow (`age-key.age` at
+  `voyager:~/escrow` + local) shipped in crown-jewels §4b — no longer an operator
+  TODO.
+
+**Remaining follow-up (ops cadence, not a build gap):** the restore-drill was run
+once (2026-06-29); open decision #4 wants it **quarterly + after any Vault
+upgrade**. Not yet scheduled.
 
 ## Why backup-first
 

@@ -164,7 +164,7 @@ the one bootstrap store, no cloud dependency.
 
 - **P3.0 — Backup-first gate.** Before any real secret enters Vault, prove
   backup **and restore** + monitor it. See
-  `proposals/2026-06-29-vault-backup-plan.md` (raft snapshot → restic → textfile
+  `implemented/2026-06-29-vault-backup-plan.md` (raft snapshot → restic → textfile
   dead-man's-switch → Grafana/Discord; mock-state restore drill). P3.2 is blocked
   until this passes.
 - **P3.1 — Stand up / reposition Vault (decision A).** Deploy Vault on discovery

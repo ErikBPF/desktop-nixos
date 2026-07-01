@@ -1,11 +1,44 @@
 # Voyager Oracle Offsite Host
 
 **Date:** 2026-06-29
-**Status:** Proposal / validation in progress
+**Status:** Superseded (graduated 2026-07-01) — the *goal* shipped, the *method*
+did not. Kept as the as-built record.
 **Owner:** erik
 **Scope:** Convert the Oracle Ubuntu VM at `129.148.45.145` into the fleet's
 `voyager` offsite backup receiver, but only after validating the same NixOS
 configuration in a small VM on `orion`.
+
+## Superseded — read this first (2026-07-01)
+
+The **goal** — Oracle `voyager` as the fleet's off-premise append-only restic
+receiver — **shipped** and is the as-built record in
+[`../implemented/2026-06-30-offsite-dr-crown-jewels.md`](2026-06-30-offsite-dr-crown-jewels.md)
+(voyager receives tofu-state, the `.env.sops` bundle, and the OpenBao snapshot).
+
+The **method** in this doc did **not** survive contact:
+
+- **Install path.** The disko `/dev/sda` wipe via `deploy-voyager`/nixos-anywhere
+  (§4, §9) was abandoned — the 1 GB micro can't kexec and Oracle free-tier
+  `custom-image-count=0` blocks image import. voyager was brought up **in place
+  via nixos-infect** instead; the host modules (`modules/hosts/voyager/*`) use
+  by-label filesystems, **not** the §4 disko layout.
+- **Validation path.** The orion VM-tap dance (§5–§6: `eth0`/`ens3`,
+  `10.88.0.2`, MASQUERADE/FORWARD) was not the final route; iteration happened on
+  the infected host directly.
+- **Switch tooling.** `switch-voyager` now goes through **deploy-rs**
+  (`implemented/2026-06-30-deploy-rs-as-deploy-standard.md`), not the recipes
+  sketched here.
+
+Treat §4, §5, §6, §9 as historical. The receiver behaviour (§3, §5's restic-REST
+`--append-only --private-repos` findings) is accurate and live.
+
+### One live gap, not covered elsewhere
+
+`--append-only` means the off-premise repo **never prunes → grows unbounded**, and
+there is currently **no disk-fill alert on voyager `/srv/backups`**. Follow-up:
+either a periodic privileged prune, or a `node_filesystem_avail`-based Grafana
+alert on voyager. Tracked here until built; §10 "append-only retention" is the
+origin of this item.
 
 ## 1. Goal
 
