@@ -168,17 +168,26 @@ eval:
 # ── Remote Deploy ─────────────────────────────────────────
 # laptop is Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
 
+# Remote switches go through deploy-rs (magic rollback + build on Orion). The
+# generic `deploy` recipe below stays as the escape hatch (plain nixos-rebuild,
+# local build, no rollback) if deploy-rs itself is ever the problem.
 switch-discovery:
-    just deploy discovery {{ip_discovery}} 2222
+    just deploy-rs discovery
 
 switch-orion:
-    just deploy orion {{ip_orion}} 2222
+    just deploy-rs orion
 
 switch-pathfinder:
-    just deploy pathfinder {{ip_pathfinder}} 2222
+    just deploy-rs pathfinder
 
+# kepler is a GPU host: an nvidia driver bump in the closure mismatches the
+# running kernel module on a LIVE switch (breaks the AI stack — verified). Stage
+# the new generation for next boot, then reboot to activate. Own window (AI
+# serving restarts on reboot).
 switch-kepler:
-    just deploy kepler {{ip_kepler}} 2222
+    just deploy-rs-boot kepler
+    @echo ":: kepler staged for next boot. Reboot to activate (AI stack restarts):"
+    @echo "   ssh -p 2222 erik@{{ip_kepler}} sudo systemctl reboot"
 
 # voyager is the 1 GB x86 Oracle micro: it can't compile, so build on Orion and
 # substitute/activate on the target. First run after `just infect-voyager` the
@@ -260,6 +269,18 @@ deploy target ip port="2222" user="erik":
 #   just deploy-rs voyager
 deploy-rs target:
     nix run .#deploy-rs -- --skip-checks .#{{target}} \
+        -- --option builders "{{orion_builder}}" \
+           --option builders-use-substitutes true \
+           --max-jobs 0
+
+# Like deploy-rs, but --boot: set the new generation as the NEXT-BOOT target
+# WITHOUT live-activating. For GPU/driver hosts (kepler, discovery) where an
+# nvidia driver bump in the closure would mismatch the running kernel module on a
+# live switch — the running services stay up until you reboot into the new gen
+# (kernel + driver then match). No magic rollback (it's boot-not-activate), so
+# reboot deliberately. Follow with: ssh -p 2222 erik@<ip> sudo systemctl reboot
+deploy-rs-boot target:
+    nix run .#deploy-rs -- --skip-checks --boot .#{{target}} \
         -- --option builders "{{orion_builder}}" \
            --option builders-use-substitutes true \
            --max-jobs 0
@@ -537,10 +558,7 @@ build-archinaut-sd target="archinaut":
 
 # Deploy archinaut: evaluate locally, build aarch64 on orion, push to the Pi.
 switch-archinaut:
-    NIX_SSHOPTS="-p 2222" nixos-rebuild switch --flake .#archinaut \
-        --target-host erik@{{ip_archinaut}} \
-        --build-host erik@{{ip_orion}} \
-        --use-substitutes --sudo --show-trace
+    just deploy-rs archinaut
 
 # Seed /var/lib/klipper from the klipper-biqu repo (printer.cfg, mainsail.cfg,
 # macros). mutableConfig keeps these; SAVE_CONFIG/Mainsail edits persist.
@@ -650,6 +668,35 @@ verify-port target ip port:
     @nc -z -w 2 {{ip}} {{port}} && echo ":: {{target}}:{{port}} ✅" || echo ":: {{target}}:{{port}} ❌"
 
 # ── Provisioning (first install) ──────────────────────────
+# Method by host class (see docs/proposals/2026-06-30-deploy-rs-as-deploy-standard.md):
+#   • RAM-ample host (LAN server, A1 ARM) → `just provision <host> <user@ip[:port]>`
+#     (nixos-anywhere; kexec works; disko partitions). Then deploy-rs for switches.
+#   • 1 GB x86 Oracle micro (can't kexec) → `just infect-voyager` (nixos-infect).
+#   • Raspberry Pi (archinaut) → SD image: `just build-archinaut-sd`, dd, first boot.
+
+# Provision a NEW remote host: convert a fresh box (cloud Ubuntu entrypoint, or a
+# NixOS-ISO installer) to NixOS via nixos-anywhere. Builds the closure on Orion
+# (--max-jobs 0 → this machine only orchestrates + the target substitutes from
+# Orion's cache), stages the sops age key so first-boot secrets decrypt, and lets
+# the host's disko config partition the disk. <target> = user@ip[:port] of the
+# installer entrypoint (ubuntu@<ip> for a cloud image, nixos@<ip> for the NixOS
+# ISO). WARNING: wipes the target disk. After it lands: set the host IP in
+# meta.nix → `just fleet-json` → `just deploy-rs <host>` for subsequent switches.
+provision host target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /tmp/nixos-extra-{{host}}/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-{{host}}/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra-{{host}}/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra-{{host}}' EXIT
+    export NIX_CONFIG="builders = {{orion_builder}}
+    max-jobs = 0
+    builders-use-substitutes = true"
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#{{host}} \
+        --extra-files /tmp/nixos-extra-{{host}} \
+        --show-trace \
+        {{target}}
 
 nixos-anywhere target ip luks-pass="" user="nixos":
     #!/usr/bin/env bash
