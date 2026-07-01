@@ -13,6 +13,7 @@ in {
   }: let
     apiKeyPath = "/run/secrets/hermes_agent_client_api_key";
     discoveryApiUrl = "https://hermes.homelab.${domain}/v1";
+    system = pkgs.stdenv.hostPlatform.system;
   in {
     imports = [inputs.hermes-flake.homeManagerModules.default];
 
@@ -45,9 +46,8 @@ in {
 
     programs.hermes-agent = {
       enable = true;
-      # No explicit `package` — let the HM module compute it from `extras`
-      # via the flake's `withExtras` passthru. Add `extras = [...]` here
-      # to pull in optional dep groups (voice, anthropic, mcp, etc.).
+      # Avoid upstream module default using deprecated `pkgs.system`.
+      package = inputs.hermes-flake.packages.${system}.hermes-agent.withExtras config.programs.hermes-agent.extras;
 
       # Keep user's existing ~/.hermes (migrated state lives here)
       dataDir = "/home/${config.home.username or "erik"}/.hermes";
