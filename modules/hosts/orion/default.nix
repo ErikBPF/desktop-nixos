@@ -46,7 +46,11 @@ in {
       m.nixos.lact
       m.nixos.orion-lact
       m.nixos.btrfs-snapshots
+      m.nixos.sccache-cache
     ];
+
+    # Host the fleet's shared sccache (dev-loop cargo) cache on the tailnet.
+    services.sccacheCache.enable = true;
 
     # Per-container metrics via the cAdvisor exporter in the host Alloy. Rootless
     # Podman socket (orchestration default, matches orion-compose). Feeds the
