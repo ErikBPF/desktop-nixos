@@ -55,6 +55,70 @@ in {
     "net.ipv4.ip_forward" = 1;
   };
 
+  # Reconcile the manifests dir to the declared set (servers only). NixOS links
+  # autoDeployCharts/manifests into /var/lib/rancher/k3s/server/manifests as
+  # /nix/store symlinks via tmpfiles but never removes entries it no longer
+  # manages, and k3s keeps redeploying the leftover file (the ingress-nginx
+  # removal needed manual rm + HelmChart CR deletion on all 3 servers). Only
+  # store-symlinks are treated as ours — k3s's own regular files are left alone.
+  # For each stale entry: `kubectl delete -f` the file (its exact inverse — kills
+  # the HelmChart CR, so helm-controller uninstalls the release), then drop the
+  # symlink. Idempotent across servers; re-runs on switch when the declared set
+  # changes (script text changes → unit restarts).
+  systemd.services.k3s-manifest-reconcile = lib.mkIf (role == "server") {
+    description = "Remove k3s auto-deploy manifests no longer declared";
+    wantedBy = ["multi-user.target"];
+    after = ["k3s.service"];
+    wants = ["k3s.service"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [config.services.k3s.package];
+    script = let
+      declaredTargets = lib.mapAttrsToList (_: m: m.target) (
+        lib.filterAttrs (_: v: v.enable)
+        (config.services.k3s.autoDeployCharts // config.services.k3s.manifests)
+      );
+    in ''
+      shopt -s nullglob
+      dir=/var/lib/rancher/k3s/server/manifests
+      declared=" ${toString declaredTargets} "
+      if [ ! -d "$dir" ]; then exit 0; fi
+      stale=()
+      for f in "$dir"/*; do
+        if [ ! -L "$f" ]; then continue; fi
+        case "$(readlink "$f")" in
+          /nix/store/*) ;;
+          *) continue ;;
+        esac
+        case "$declared" in
+          *" $(basename "$f") "*) ;;
+          *) stale+=("$f") ;;
+        esac
+      done
+      if [ "''${#stale[@]}" -eq 0 ]; then exit 0; fi
+      # apiserver must answer before the stale CRs can be deleted
+      ready=0
+      for _ in $(seq 60); do
+        if k3s kubectl get --raw /readyz >/dev/null 2>&1; then
+          ready=1
+          break
+        fi
+        sleep 5
+      done
+      if [ "$ready" -ne 1 ]; then
+        echo "apiserver not ready; leaving stale manifests for next run" >&2
+        exit 1
+      fi
+      for f in "''${stale[@]}"; do
+        echo "reconciling away stale manifest $(basename "$f")"
+        k3s kubectl delete --ignore-not-found -f "$f"
+        rm "$f"
+      done
+    '';
+  };
+
   services.k3s = {
     enable = true;
     inherit role clusterInit;
