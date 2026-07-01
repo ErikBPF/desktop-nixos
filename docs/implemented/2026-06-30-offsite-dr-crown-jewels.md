@@ -298,7 +298,9 @@ An adversarial review surfaced holes; the confirmed ones were fixed:
 
 Open follow-ups (accepted, not yet done): (a) **restore never drilled** — verify
 a restic restore *from voyager* → decrypt → `terragrunt plan` no-diff; (b)
-**voyager disk** — `/` is ~51% full and shared with kepler's append-only pushes
+~~**voyager disk** — `/` is ~51% full and shared with kepler's append-only pushes
 that never prune → add a disk-usage alert, a scheduled `restic check`, and a
-documented prune window; (c) **escrow passphrase custody** — confirm the offline
-copy is off-premise.
+documented prune window~~ **done 2026-07-01** — voyager node_exporter + Grafana
+alerts, weekly `restic-check-voyager` on discovery, prune window in
+[`reference/voyager-offsite-maintenance.md`](../reference/voyager-offsite-maintenance.md);
+(c) **escrow passphrase custody** — confirm the offline copy is off-premise.
