@@ -52,9 +52,18 @@
 
     import-tree.url = "github:vic/import-tree";
 
+    # Remote deploy with magic rollback (auto-revert on lost reachability).
+    # Subsequent switches only; first install stays nixos-anywhere/nixos-infect.
+    # See modules/deploy-rs.nix and docs/proposals/2026-06-30-deploy-rs-as-deploy-standard.md.
+    deploy-rs = {
+      url = "github:serokell/deploy-rs";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     hermes-flake = {
       url = "https://flakehub.com/f/ErikBPF/hermes-flake/*";
       inputs.flake-parts.follows = "flake-parts";
+      inputs.microvm.follows = "microvm";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

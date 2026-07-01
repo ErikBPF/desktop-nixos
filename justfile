@@ -10,6 +10,7 @@ ip_pathfinder := `jq -r '.hosts.pathfinder.ip' fleet.json`
 ip_kepler := `jq -r '.hosts.kepler.ip' fleet.json`
 ip_archinaut := `jq -r '.hosts.archinaut.ip' fleet.json`
 ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
+ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -179,8 +180,44 @@ switch-pathfinder:
 switch-kepler:
     just deploy kepler {{ip_kepler}} 2222
 
-switch-voyager:
-    just deploy voyager {{ip_voyager}} 2222
+# voyager is the 1 GB x86 Oracle micro: it can't compile, so build on Orion and
+# substitute/activate on the target. First run after `just infect-voyager` the
+# base NixOS is root@22 → `just switch-voyager root 22`; the flake config then
+# moves SSH to erik@2222 → steady state `just switch-voyager`. Stages the sops
+# age key so sops-nix can decrypt tailscale_authkey + the compose .env.sops.
+switch-voyager user="erik" port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="{{ip_voyager}}"
+    ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
+    scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
+    ssh -p {{port}} {{user}}@"$IP" \
+        'sudo mv /tmp/age-keys.txt /var/lib/sops-staging/age-keys.txt && sudo chmod 600 /var/lib/sops-staging/age-keys.txt'
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#voyager \
+        --target-host {{user}}@"$IP" \
+        --option builders "{{orion_builder}}" \
+        --option builders-use-substitutes true \
+        --max-jobs 0 \
+        --use-substitutes --sudo --show-trace
+
+# telstar (public projects host, Oracle A1 aarch64, 12 GB). Build on Orion
+# (aarch64 via binfmt), activate on the target. First run after `just
+# deploy-telstar` the base is erik@2222 already (nixos-anywhere set it). Stages
+# the sops age key so sops-nix can decrypt secrets.
+switch-telstar user="erik" port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="{{ip_telstar}}"
+    ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
+    scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
+    ssh -p {{port}} {{user}}@"$IP" \
+        'sudo mv /tmp/age-keys.txt /var/lib/sops-staging/age-keys.txt && sudo chmod 600 /var/lib/sops-staging/age-keys.txt'
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#telstar \
+        --target-host {{user}}@"$IP" \
+        --option builders "{{orion_builder}}" \
+        --option builders-use-substitutes true \
+        --max-jobs 0 \
+        --use-substitutes --sudo --show-trace
 
 # kepler intentionally excluded — deploy it on its own window so the AI
 # serving stack isn't restarted as a side effect: just switch-kepler
@@ -203,6 +240,29 @@ deploy target ip port="2222" user="erik":
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
         --use-substitutes --sudo --show-trace
+
+# deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
+# auto-revert if the host lost reachability). Builds on orion and substitutes to
+# the target, matching the --build-host model of switch-<host> (--builders +
+# builders-use-substitutes; the closure never compiles on the 1 GB/aarch64
+# target). Node config (hostname from fleet SSOT, erik@2222, per-host magic
+# rollback) lives in modules/deploy-rs.nix.
+#
+# Rollout is canary-first: voyager is the canary (public IP, free, recreatable —
+# a bad switch auto-reverts instead of bricking it). Once proven there, the same
+# recipe deploys discovery/orion/pathfinder/kepler/archinaut. The legacy
+# switch-<host>/deploy recipes stay as the escape hatch — deploy-rs adds an
+# output + a recipe, it changes no host config, so reverting is "use switch-X".
+#
+# Pinned from the flake input (NOT `nix run github:…`) so the deployed tool
+# matches flake.lock. archinaut (aarch64) activates fine here: activate.nixos is
+# selected per host system in the module.
+#   just deploy-rs voyager
+deploy-rs target:
+    nix run .#deploy-rs -- --skip-checks .#{{target}} \
+        -- --option builders "{{orion_builder}}" \
+           --option builders-use-substitutes true \
+           --max-jobs 0
 
 deploy-boot target ip port="2222" user="erik":
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild boot --flake .#{{target}} \
@@ -337,6 +397,92 @@ voyager-vm-smoke:
     exit 1
     '
     printf "%s" "$remote_script" | ssh -p 2222 erik@{{ip_orion}} bash -s
+
+# ── drtest deploy-rs proof-of-concept VM ─────────────────
+# Throwaway QEMU VM on orion used to prove deploy-rs magic rollback end-to-end.
+# Uses QEMU usermode networking: orion:2224 → VM:2222 (sshd). No tap/iptables.
+# deploy-rs node: drtest (see modules/deploy-rs.nix). After testing, run drtest-vm-stop.
+
+# Build the drtest VM on orion (x86_64), copy closure back locally.
+drtest-vm-build:
+    nix build .#nixosConfigurations.drtest.config.system.build.vm --show-trace \
+        --option builders "{{orion_builder}}" \
+        --option builders-use-substitutes true
+
+# Start a detached drtest VM on orion. Disk lives in /scratch/drtest-vm/.
+drtest-vm-start:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just drtest-vm-build
+    VM_PATH="$(readlink -f result)"
+    VM_RUNNER=""
+    for candidate in "$VM_PATH"/bin/*; do VM_RUNNER="$candidate"; break; done
+    test -n "$VM_RUNNER"
+    nix copy --no-check-sigs --to "ssh-ng://erik@{{ip_orion}}" "$VM_PATH"
+    remote_script='
+    set -euo pipefail
+    mkdir -p /scratch/drtest-vm
+    if [ -f /scratch/drtest-vm/vm.pid ] && kill -0 "$(cat /scratch/drtest-vm/vm.pid)" 2>/dev/null; then
+      echo ":: drtest VM already running (pid $(cat /scratch/drtest-vm/vm.pid))"
+      exit 0
+    fi
+    cd /scratch/drtest-vm
+    # QEMU usermode: host port 2224 → guest port 2222 (sshd). The -netdev user
+    # hostfwd is passed via NIX_QEMU_OPTS so the vm runner picks it up.
+    # The vm runner script already sets -netdev user,id=user.0,... via vmVariant;
+    # those networkingOptions replace the default, so hostfwd is baked in.
+    nohup env NIX_DISK_IMAGE=/scratch/drtest-vm/drtest.qcow2 "$VM_RUNNER" \
+      > /scratch/drtest-vm/console.log 2>&1 < /dev/null &
+    echo $! > /scratch/drtest-vm/vm.pid
+    echo ":: drtest VM started on Orion (pid $!)"
+    echo ":: Hostfwd: orion:2224 → VM:2222"
+    echo ":: SSH from orion: ssh -p 2224 erik@127.0.0.1"
+    echo ":: SSH from laptop: ssh -p 2224 erik@{{ip_orion}}"
+    '
+    printf "%s" "$remote_script" | ssh -p 2222 erik@{{ip_orion}} "env VM_RUNNER='$VM_RUNNER' bash -s"
+
+# Stop the drtest VM on orion and clean up the scratch disk.
+drtest-vm-stop:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    remote_script='
+    set -euo pipefail
+    if [ -f /scratch/drtest-vm/vm.pid ] && kill -0 "$(cat /scratch/drtest-vm/vm.pid)" 2>/dev/null; then
+      kill "$(cat /scratch/drtest-vm/vm.pid)"
+      rm -f /scratch/drtest-vm/vm.pid
+      echo ":: drtest VM stopped"
+    else
+      echo ":: drtest VM is not running"
+    fi
+    rm -f /scratch/drtest-vm/drtest.qcow2
+    echo ":: scratch disk removed"
+    '
+    printf "%s" "$remote_script" | ssh -p 2222 erik@{{ip_orion}} bash -s
+
+# Wait until the drtest VM's SSH is reachable (from laptop via orion:2224).
+drtest-vm-wait:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ":: Waiting for drtest VM SSH on {{ip_orion}}:2224 ..."
+    for i in $(seq 1 60); do
+      if ssh -o BatchMode=yes -o ConnectTimeout=3 \
+             -o StrictHostKeyChecking=accept-new \
+             -o UserKnownHostsFile=/tmp/drtest-vm-known_hosts \
+             -p 2224 erik@{{ip_orion}} "hostname" 2>/dev/null; then
+        echo ":: drtest VM is reachable"
+        exit 0
+      fi
+      echo "  attempt $i/60..."
+      sleep 5
+    done
+    echo ":: drtest VM did not become reachable within 5m" >&2
+    exit 1
+
+# SSH directly into the drtest VM (via orion:2224).
+drtest-vm-ssh:
+    ssh -o StrictHostKeyChecking=accept-new \
+        -o UserKnownHostsFile=/tmp/drtest-vm-known_hosts \
+        -p 2224 erik@{{ip_orion}}
 
 # ── kepler k3s cluster ────────────────────────────────────
 
@@ -528,6 +674,29 @@ nixos-anywhere target ip luks-pass="" user="nixos":
             ./modules/hosts/{{target}}/_hw-generated.nix \
         {{user}}@{{ip}}
 
+# telstar first install: convert the Oracle A1 Ubuntu entrypoint to NixOS via
+# nixos-anywhere. A1 (12 GB) has the RAM to kexec, unlike the x86 micro — so the
+# standard path works (no infect, no image import). Closure builds on Orion
+# (aarch64 binfmt); disko + the explicit hardware.nix own the disk, so no
+# --generate-hardware-config. Run AFTER the capacity-retry cron creates the
+# instance and meta.nix hosts.telstar.ip (+ fleet.json) is set to its public IP.
+# WARNING: nixos-anywhere wipes /dev/sda. Entrypoint ubuntu@{{ip_telstar}}:22.
+deploy-telstar:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p /tmp/nixos-extra-telstar/var/lib/sops-staging/
+    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-telstar/var/lib/sops-staging/age-keys.txt
+    chmod 600 /tmp/nixos-extra-telstar/var/lib/sops-staging/age-keys.txt
+    trap 'rm -rf /tmp/nixos-extra-telstar' EXIT
+    export NIX_CONFIG="builders = {{orion_builder}}
+    max-jobs = 0
+    builders-use-substitutes = true"
+    nix run github:nix-community/nixos-anywhere -- \
+        --flake .#telstar \
+        --extra-files /tmp/nixos-extra-telstar \
+        --show-trace \
+        ubuntu@{{ip_telstar}}
+
 deploy-orion:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -584,27 +753,34 @@ deploy-kepler:
             ./modules/hosts/kepler/_hw-generated.nix \
         nixos@192.168.10.112
 
-deploy-voyager:
+# Provision voyager by converting the stock Ubuntu cloud image to NixOS IN
+# PLACE with nixos-infect, reusing Ubuntu's existing GPT layout (sda1 /, sda16
+# /boot, sda15 ESP) — no repartition, no disko. This is the only viable path on
+# the 1 GB x86 micro: it can't kexec-install (nixos-anywhere OOMs on
+# `kexec --load`) and disko's image builder is broken against the pinned
+# nixpkgs. infect installs a minimal NixOS + GRUB-UEFI and reboots; afterwards
+# `just switch-voyager root 22` converges to the full flake config (built on
+# Orion). 4 GB swap on the Ubuntu entrypoint keeps the infect build off the OOM
+# killer. Entrypoint ubuntu@{{ip_voyager}}:22; the SSH session drops on reboot.
+#
+# (The aarch64 A1 path — nixos-anywhere + disko — lives in git history; restore
+# disko + flip hostPlatform to aarch64 if/when A1 capacity lands.)
+# noreboot=1 runs infect WITHOUT the final reboot, leaving the box on reachable
+# Ubuntu so the generated /etc/nixos can be inspected/hardened (add console=ttyS0,
+# verify DHCP) before booting into NixOS the first time.
+infect-voyager noreboot="":
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p /tmp/nixos-extra-voyager/var/lib/sops-staging/
-    cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-voyager/var/lib/sops-staging/age-keys.txt
-    chmod 600 /tmp/nixos-extra-voyager/var/lib/sops-staging/age-keys.txt
-    trap 'rm -rf /tmp/nixos-extra-voyager' EXIT
-    # Build the closure on Orion, not this laptop: max-jobs=0 forces every
-    # derivation onto the remote builder (the 1 GB Oracle target can't build).
-    export NIX_CONFIG="builders = {{orion_builder}}
-    max-jobs = 0
-    builders-use-substitutes = true"
-    # Oracle VM nanda-colors: Ubuntu entrypoint is ubuntu@129.148.45.145:22.
-    # WARNING: nixos-anywhere will wipe /dev/sda, including the nanda-colors stack.
-    nix run github:nix-community/nixos-anywhere -- \
-        --flake .#voyager \
-        --extra-files /tmp/nixos-extra-voyager \
-        --show-trace \
-        --generate-hardware-config nixos-generate-config \
-            ./modules/hosts/voyager/_hw-generated.nix \
-        ubuntu@{{ip_voyager}}
+    ssh -o StrictHostKeyChecking=accept-new ubuntu@{{ip_voyager}} '
+        set -eu
+        if ! sudo swapon --show | grep -q /swapfile; then
+            sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+            sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+        fi
+        curl -fsSL https://raw.githubusercontent.com/elitak/nixos-infect/master/nixos-infect -o /tmp/nixos-infect
+        sudo env NIX_CHANNEL=nixos-unstable NO_REBOOT="{{noreboot}}" bash /tmp/nixos-infect
+    ' || true
+    echo ":: nixos-infect done. noreboot={{noreboot}}"
 
 bootstrap target:
     #!/usr/bin/env bash
@@ -711,3 +887,72 @@ cache-keygen:
     cat /tmp/cache-pub-key.pem
     echo
     echo ":: Add this public key to nix.settings.trusted-public-keys in Story 3.3"
+
+# ── sops age-key off-site escrow (RFC 2026-06-30 §4b) ──────
+
+# Encrypt the sops age key as a passphrase-sealed age blob (age -p) so the root
+# of trust can live in git + off-premise on voyager WITHOUT exposing the key —
+# recovery needs only the memorized passphrase. Store that passphrase in a
+# password manager + one offline copy (paper/USB).
+#
+# INTERACTIVE: age -p reads the passphrase from the TTY — run in a real
+# terminal (`! just escrow-age-key`), never over a non-tty pipe. age is pulled
+# via nix (not installed fleet-wide). Produces the blob and self-verifies the
+# round-trip; it does NOT commit or push — those are deliberate manual steps
+# it prints for you.
+#   ! just escrow-age-key
+escrow-age-key:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    key="$HOME/.config/sops/age/keys.txt"
+    blob="secrets/escrow/age-key.age"
+    test -f "$key" || { echo ":: no age key at $key" >&2; exit 1; }
+    age="$(nix build nixpkgs#age --no-link --print-out-paths)/bin/age"
+    mkdir -p "$(dirname "$blob")"
+    echo ":: Encrypting the sops age key — enter a STRONG passphrase (typed twice)."
+    "$age" -p -o "$blob" "$key"
+    echo ":: Verifying round-trip — re-enter the SAME passphrase to decrypt…"
+    tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
+    "$age" -d -o "$tmp" "$blob"
+    if cmp -s "$tmp" "$key"; then
+      echo ":: OK — $blob decrypts back to the live key (byte-identical)."
+    else
+      echo ":: MISMATCH — escrow blob does NOT match the key; do not trust it." >&2
+      exit 1
+    fi
+    ls -l "$blob"
+    echo ":: NEXT (deliberate):"
+    echo "     git add $blob && git commit -m 'chore(dr): escrow sops age key (passphrase-sealed)'"
+    echo "     just escrow-age-key-push       # copy off-premise to voyager"
+    echo "   Save the passphrase: password manager + one offline copy."
+
+# Copy the passphrase-sealed escrow blob off-premise to voyager (tailnet, :2222).
+#   just escrow-age-key-push
+escrow-age-key-push:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    blob="secrets/escrow/age-key.age"
+    test -f "$blob" || { echo ":: run 'just escrow-age-key' first" >&2; exit 1; }
+    ssh -p 2222 erik@{{ip_voyager}} 'mkdir -p ~/escrow && chmod 700 ~/escrow'
+    scp -P 2222 "$blob" erik@{{ip_voyager}}:~/escrow/age-key.age
+    ssh -p 2222 erik@{{ip_voyager}} 'chmod 600 ~/escrow/age-key.age && ls -l ~/escrow/age-key.age'
+    echo ":: escrow copied off-premise → voyager:~/escrow/age-key.age"
+
+# DR drill (run quarterly): prove the escrow blob still decrypts with the
+# passphrase and is byte-identical to the live key. INTERACTIVE.
+#   ! just escrow-age-key-verify
+escrow-age-key-verify:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    key="$HOME/.config/sops/age/keys.txt"
+    blob="secrets/escrow/age-key.age"
+    age="$(nix build nixpkgs#age --no-link --print-out-paths)/bin/age"
+    tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
+    echo ":: Decrypting escrow — enter the passphrase…"
+    "$age" -d -o "$tmp" "$blob"
+    if cmp -s "$tmp" "$key"; then
+      echo ":: OK — escrow matches the live key."
+    else
+      echo ":: MISMATCH — escrow and live key differ; re-run escrow-age-key." >&2
+      exit 1
+    fi
