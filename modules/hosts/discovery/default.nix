@@ -67,12 +67,16 @@ in {
 
     # Versioned backup of the tofu-state mirror onto vault (sdb), independent of
     # the primary SSD that holds the live state. Off-host copies go to orion +
-    # kepler via Syncthing (discovery-syncthing tofu-state folder).
+    # kepler via Syncthing (discovery-syncthing tofu-state folder). The SFTP
+    # peer copy (kepler) and the REST copy (voyager) are the off-machine tiers;
+    # only voyager is off-premise (Oracle), the append-only escape from a
+    # whole-house loss.
     services.resticTofuState = {
       enable = true;
       healthcheck = true;
       discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
       offsiteRepository = "sftp:restic-kepler:/bulk/backups/restic-offsite/tofu-state";
+      restRepository = true;
     };
 
     # Drift detection for the homelab-iac repo (UniFi/Tailscale/Cloudflare/

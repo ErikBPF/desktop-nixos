@@ -40,6 +40,15 @@
           restic-offsite user (see restic-offsite-target.nix on the peer).
         '';
       };
+
+      restRepository = lib.mkEnableOption ''
+        an **off-premise** copy to voyager's append-only restic REST server
+        (Oracle Always-Free, tailnet-only). The credential-bearing repo URL
+        (rest:http://discovery:PASS@voyager:8000/tofu-state) is held in the sops
+        secret `restic_tofu_rest_url` and passed via repositoryFile so it never
+        lands in the nix store. Append-only means this job never prunes — a
+        compromised sender cannot delete history (retention is server-side /
+        manual). Distinct failure domain from the SFTP peer copy'';
     };
 
     config = lib.mkIf cfg.enable {
@@ -150,6 +159,29 @@
           "--keep-weekly 4"
           "--keep-monthly 6"
         ];
+      };
+
+      # Off-premise copy to voyager's append-only restic REST server (Oracle).
+      # The only tier outside the house — survives losing the whole building.
+      # The full URL (incl. basic-auth password) lives in sops and is read via
+      # repositoryFile so it never enters the nix store. No pruneOpts: the
+      # server is --append-only, so client-side forget/prune would fail anyway,
+      # and refusing to prune is the point (immutable off-site history).
+      sops.secrets."restic_tofu_rest_url" = lib.mkIf cfg.restRepository {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+        mode = "0400";
+      };
+
+      services.restic.backups.tofu-state-rest = lib.mkIf cfg.restRepository {
+        repositoryFile = config.sops.secrets."restic_tofu_rest_url".path;
+        passwordFile = config.sops.secrets."restic_tofu_state_password".path;
+        paths = [sourceDir];
+        initialize = true;
+        timerConfig = {
+          OnCalendar = "*-*-* 07:30:00"; # after the SFTP off-site copy (07:00)
+          Persistent = true;
+          RandomizedDelaySec = "10m";
+        };
       };
     };
   };
