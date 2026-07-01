@@ -12,10 +12,10 @@ in {
   }: {
     imports = [
       (modulesPath + "/installer/scan/not-detected.nix")
-      inputs.disko.nixosModules.disko
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
+      m.nixos.profile-oci-guest
       m.nixos.voyager-hardware
       m.nixos.voyager-networking
       m.nixos.containers
@@ -30,15 +30,21 @@ in {
     ];
 
     system.stateVersion = "25.11";
-    # Oracle Ampere A1 free-tier shape: aarch64, ample RAM (kexec install works,
-    # unlike the 1 GB x86 micro). Closure is cross-built on Orion (binfmt).
-    nixpkgs.hostPlatform = "aarch64-linux";
+    # Oracle Always-Free x86 shape (VM.Standard.E2.1.Micro, 1 GB).
+    # A1 (aarch64) capacity is scarce in sa-saopaulo-1, so voyager runs on the
+    # x86 micro. The 1 GB micro can't kexec-install (OOMs), so it is provisioned
+    # via nixos-infect on a stock Ubuntu cloud image.
+    nixpkgs.hostPlatform = "x86_64-linux";
 
     # Oracle VM is ~1GB RAM. zram is intentionally disabled on this host; keep
     # /tmp off tmpfs so activation does not consume scarce RAM.
     zramSwap.enable = false;
     boot.tmp.useTmpfs = lib.mkForce false;
     boot.tmp.cleanOnBoot = true;
+
+    # Oracle block volumes don't support SMART; smartd exits non-zero and
+    # marks the system degraded. Disable it on this guest.
+    services.smartd.enable = lib.mkForce false;
 
     virtualisation.vmVariant = {
       # Force legacy eth0 naming so the static config below lands on the real
