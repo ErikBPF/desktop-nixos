@@ -24,6 +24,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. | As-built |
 | [`reference/harbor-discovery-registry.md`](reference/harbor-discovery-registry.md) | Harbor registry on discovery — the imperative baseline. | As-built (proxy-cache + push, 2026-06-29) |
 | [`reference/vault-disaster-recovery.md`](reference/vault-disaster-recovery.md) | OpenBao DR runbook — sealed/corrupt/total-loss recovery; the fresh-cluster restore (unseal with the OLD sops key) tested 2026-06-29. | As-built (tested) |
+| [`reference/key-rotation.md`](reference/key-rotation.md) | When (and when not) to rotate each fleet key/secret + how — trigger-driven, weighted by blast radius; the age key, escrow passphrase, voyager REST creds, restic/OpenBao keys. | Reference |
 | [`guides/obsidian.md`](guides/obsidian.md) | Obsidian + sync configuration for the desktop hosts. | Guide |
 | [`guides/install.md`](guides/install.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). | Guide |
 
