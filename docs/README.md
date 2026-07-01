@@ -26,6 +26,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`reference/vault-disaster-recovery.md`](reference/vault-disaster-recovery.md) | OpenBao DR runbook — sealed/corrupt/total-loss recovery; the fresh-cluster restore (unseal with the OLD sops key) tested 2026-06-29. | As-built (tested) |
 | [`reference/key-rotation.md`](reference/key-rotation.md) | When (and when not) to rotate each fleet key/secret + how — trigger-driven, weighted by blast radius; the age key, escrow passphrase, voyager REST creds, restic/OpenBao keys. | Reference |
 | [`reference/voyager-offsite-maintenance.md`](reference/voyager-offsite-maintenance.md) | Voyager append-only restic tier: what lives there, monitoring/alerts, weekly `restic check`, manual prune window, owed restore drill. | As-built (2026-07-01) |
+| [`reference/service-exposure.md`](reference/service-exposure.md) | Discovery exposure audit: what's LAN/tailnet/internet-reachable and why — Docker-published ports bypass the NixOS firewall. Re-audit with `just verify-firewall`. | As-built (2026-07-01) |
 | [`guides/obsidian.md`](guides/obsidian.md) | Obsidian + sync configuration for the desktop hosts. | Guide |
 | [`guides/install.md`](guides/install.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). | Guide |
 

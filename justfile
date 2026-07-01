@@ -304,7 +304,7 @@ verify target ip port="2222" user="erik":
 # and Docker/Podman published ports. Docker may rewrite firewall rules
 # (https://wiki.nixos.org/wiki/Firewall), so on container hosts the published
 # ports are the real attack surface — not just the NixOS firewall config.
-# Read-only. Cross-check the output against the intended exposure manifest.
+# Read-only. Cross-check the output against docs/reference/service-exposure.md.
 #   just verify-firewall discovery
 verify-firewall target:
     #!/usr/bin/env bash

@@ -98,32 +98,36 @@ The Docker Hub proxy-cache project is created by an imperative API script.
 
 ---
 
-## C. Self-cleaning autoDeployCharts removal  `[ ]`
+## C. Self-cleaning autoDeployCharts removal  `[~]` (code done 2026-07-01, deploy pending bounce window)
 
 Gotcha hit this session: removing a chart from `services.k3s.autoDeployCharts`
 leaves the **stale manifest file** in `/var/lib/rancher/k3s/server/manifests/`
 (NixOS doesn't delete stateful files it no longer manages), so k3s keeps
 redeploying it — ingress-nginx had to be removed manually on all 3 servers + the
 HelmChart CR deleted by hand.
-- [ ] Make removal self-cleaning so the next chart removal needs no manual `rm`.
-  `TODO(erik)` approach:
-  - **Narrow:** a `systemd.tmpfiles.rules` `r` (remove) entry per retired chart
-    manifest (explicit, simple, but a per-removal special case), **or**
-  - **General (preferred):** an activation/oneshot that reconciles the manifests
-    dir to exactly the declared `autoDeployCharts` set (removes extras) — fixes
-    the whole class, not one file.
-- **Verify:** add then remove a throwaway chart from `autoDeployCharts`, switch
-  → the manifest file and its HelmChart CR are gone with no manual action.
+- [x] **Decision (2026-07-01): general reconciler.** Implemented as
+  `systemd.services.k3s-manifest-reconcile` in `modules/services/_k3s-node.nix`
+  (servers only): treats exactly the `/nix/store` symlinks in the manifests dir
+  as managed, and for each one not in the declared
+  `autoDeployCharts // manifests` set runs `kubectl delete -f <file>` (the
+  manifest's inverse — kills the HelmChart CR so helm-controller uninstalls),
+  then removes the symlink. k3s's own regular files are untouched. Re-runs on
+  switch whenever the declared set changes. Dry-built; **deploy pending** the
+  next kepler bounce window (switch restarts all guests).
+- **Verify (on deploy):** add then remove a throwaway chart from
+  `autoDeployCharts`, switch → the manifest file and its HelmChart CR are gone
+  with no manual action.
 
 ---
 
 ## D. Related operational debt (not declarative, surfaced this session)  `[ ]`
 
 Track here so it isn't lost; fix alongside the above.
-- [ ] **Deploy-recipe sudo** — `just switch-kepler` exited 4 on remote-sudo
-  elevation (new nixos-rebuild 26.11 wants `--ask-elevate-password` or
-  passwordless sudo). Switch applied anyway, but the recipe should report clean.
-  Fix the `deploy` recipe (`justfile`).
+- [x] **Deploy-recipe sudo** — resolved by the deploy-rs adoption: remote
+  switches (`switch-kepler` = `deploy-rs-boot`) no longer invoke nixos-rebuild
+  remote-sudo at all (deploy-rs activates as root via `sshUser erik`,
+  `modules/deploy-rs.nix`), and the escape-hatch `deploy` recipe carries
+  `--sudo`. Verified 2026-07-01.
 - [x] **Status-doc correction** (2026-06-27) — `kepler-k3s-platform-status.md`
   "host-only vs guest changes" gotcha corrected: `switch` restarts **all** guests
   at once (full-cluster bounce), not a graceful rolling window.

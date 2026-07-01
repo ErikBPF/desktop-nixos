@@ -1,10 +1,31 @@
 # Fleet observability — complete the Grafana monitoring stack
 
-**Status:** Proposal (skeleton — judgment marked `TODO(erik)`)
+**Status:** In progress — forks decided + Phase 1 implemented 2026-07-01 (see
+below); Phase 2 blocked on the cadvisor name-metric gap, Phase 3 not started.
 **Date:** 2026-06-29
 **Audience:** Maintainers of `desktop-nixos` + `servarr`
-**Post-read action:** Decide the `TODO(erik)` forks (container-alert scope, k3s
-metrics path, severity→channel routing), then execute by phase.
+
+**Decisions (erik, 2026-07-01):**
+
+1. **Container-alert scope → curated critical set** (dashboard for the rest).
+   NOTE: the curated container-down rules were attempted earlier and dropped —
+   compose hosts emit no name-labeled cadvisor series (rootless podman socket
+   perms on kepler/orion; discovery docker not emitting names). They are
+   tombstoned in `rules.yaml` (`deleteRules`) until the pipeline is fixed;
+   that fix is the real Phase 2 work.
+2. **k3s metrics path → (b) Alloy in-cluster → remote_write** to the discovery
+   Prometheus (single Prometheus/Grafana, matches the fleet push pattern).
+3. **Severity routing → split**: critical → `#incidents` (1h repeat),
+   info → `#deploys`, warning falls through to root (`#incidents`, 4h) —
+   provisioned in `policies.yaml` + `contactpoints.yaml`.
+
+**Phase 1 status (2026-07-01, servarr `0a0fb96`):** `host-health` group live in
+`provisioning/alerting/rules.yaml` — host-alloy-down (critical), memory <5%,
+OOM-kill, fleet disk-fill (retires `disk-fill-24h` via tombstone), plus
+load-per-core, swap-thrash, and inode-exhaustion. Also fixed never-firing
+`lt 0` evaluators on host-memory-critical / voyager-disk-low. Deploy =
+pull-servarr discovery + recreate grafana; then force-fire per the Verify
+section.
 
 ## Context
 
@@ -90,18 +111,15 @@ Metrics exist; **alert rules don't**. Add (PromQL → Grafana rules → Discord)
   cadvisor doesn't expose it; may need a small docker-state exporter or compose
   healthcheck → log-based alert).
 - resource: per-container mem vs `mem_limit`, CPU throttling.
-- **`TODO(erik)`**: alert on **every** container down (noisy) vs a **curated
-  critical set** (swag, adguard, litellm, postgres, …). Recommend curated +
-  a dashboard for the rest.
+- **Decided (2026-07-01)**: **curated critical set** (swag, adguard, litellm,
+  postgres, …) + a dashboard for the rest. Blocked on the cadvisor
+  name-metric gap (see Decisions above).
 - per-host **stack dashboard** (container grid: state, cpu, mem, restarts).
 
 ### C. k3s cluster
-- **`TODO(erik)` — metrics path:** (a) deploy in-cluster Prometheus
-  (kube-prometheus-stack) and **federate**/remote_write to discovery, or
-  (b) **Alloy in-cluster** scraping cluster components → `remote_write` to the
-  discovery Prometheus (matches the existing push pattern; single Prometheus,
-  single Grafana). *Recommendation: (b)* unless cluster-local retention/HA is
-  wanted.
+- **Decided (2026-07-01) — metrics path: (b) Alloy in-cluster** scraping
+  cluster components → `remote_write` to the discovery Prometheus (matches the
+  existing push pattern; single Prometheus, single Grafana).
 - Components to scrape: **kube-state-metrics** (workload health — the big gap),
   kubelet **cAdvisor** (pod/container metrics), node-exporter DaemonSet,
   control-plane (apiserver/scheduler/controller-manager), **etcd** (partly
@@ -113,8 +131,11 @@ Metrics exist; **alert rules don't**. Add (PromQL → Grafana rules → Discord)
 - Feed `k8s-cluster-health.json`; confirm datasource/labels match.
 
 ### D. Alert routing & dashboards
-- Severity labels → notification policy: **critical → `#incidents`**, warning/
-  info → `#incidents` or `#deploys`. **`TODO(erik)`**: channel-per-severity?
+- Severity labels → notification policy: **decided (2026-07-01)** — critical →
+  `#incidents` (1h repeat), info → `#deploys`, warning → root/`#incidents`
+  (4h). Provisioned in `policies.yaml`/`contactpoints.yaml`; the
+  `DISCORD_WEBHOOK_DEPLOYS` pre-deploy gate was verified live (var present in
+  the grafana container env).
 - Dashboards: a **fleet alert overview** (firing/pending by host) + the per-host
   stack and the fed k8s dashboard. Link runbook snippets in alert annotations.
 
