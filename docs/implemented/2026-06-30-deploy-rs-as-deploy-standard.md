@@ -348,10 +348,13 @@ Host modules keep only the layout-specific bits (fileSystems, disko-vs-in-place,
 
 ### Open / follow-ups
 
-- **Tailscale enrollment key** is the remaining reliability gap: the static sops
+- ~~**Tailscale enrollment key** is the remaining reliability gap: the static sops
   `tailscale_authkey` expired and broke `tailscaled-autoconnect` on voyager.
   Durable fix is an OAuth-client secret in sops (no expiry) rather than a
-  90-day-capped auth key; tracked separately.
+  90-day-capped auth key; tracked separately.~~ **Done (2026-07-01):**
+  `modules/networking/tailscale.nix` now enrolls with a non-expiring OAuth
+  client secret (sops `tailscale_authkey`, `tag:server` advertised by fleet
+  role); applies on each host's next (re-)enrollment.
 - Canary the real fleet (voyager → discovery/orion/pathfinder → kepler on its
   own window → archinaut), then settle the §9 replace-vs-complement question.
 
