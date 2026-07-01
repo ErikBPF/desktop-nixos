@@ -84,6 +84,14 @@
       inherit sopsFile;
       mode = "0400";
     };
+    # Off-premise vault backup (RFC 4d): credential-bearing restic REST URL to
+    # voyager's append-only server (rest:http://discovery:PASS@voyager:8000/
+    # discovery/openbao). Passed via repositoryFile so the password never enters
+    # the nix store; the path must start with the REST username (--private-repos).
+    sops.secrets."restic_vault_rest_url" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
     # AppRole creds for vault-agent (read-only `discord-read` policy). The
     # secret-id is low-blast-radius (reads only secret/shared/discord) and Bao is
     # loopback-only.
@@ -312,6 +320,44 @@
         "--keep-monthly 6"
       ];
     };
+
+    # Off-PREMISE copy to voyager's append-only restic REST server (Oracle,
+    # tailnet-only) — the only vault snapshot tier outside the house. Backs up
+    # the same raft snapshot the local job (03:00) produced. Append-only: no
+    # pruneOpts (client-side forget is rejected and refusing to prune is the
+    # point — immutable off-site history). URL (incl. basic-auth) lives in sops
+    # and is read via repositoryFile so it never enters the nix store. Reuses the
+    # `discovery` REST user set up for tofu-state (isolated to /discovery/ via
+    # --private-repos). The snapshot is unreadable without the unseal key (not on
+    # voyager, not a sops recipient) — safe off-site.
+    services.restic.backups.vault-rest = {
+      repositoryFile = "/run/secrets/restic_vault_rest_url";
+      passwordFile = "/run/secrets/vault_restic_password";
+      initialize = true;
+      paths = [snapFile];
+      timerConfig = {
+        OnCalendar = "*-*-* 03:40:00"; # after the SFTP off-site copy (03:20)
+        Persistent = true;
+        RandomizedDelaySec = "10m";
+      };
+    };
+
+    # Liveness for the off-premise copy: Grafana alerts when it goes stale.
+    systemd.services.restic-backups-vault-rest.serviceConfig.ExecStartPost = [
+      (pkgs.writeShellScript "vault-rest-backup-liveness" ''
+        set -eu
+        t=$(${pkgs.coreutils}/bin/date +%s)
+        tmp=$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.vault_rest_backup.XXXXXX)
+        {
+          echo "# HELP vault_rest_backup_last_success_seconds Unix time of last successful off-premise (voyager) OpenBao snapshot backup."
+          echo "# TYPE vault_rest_backup_last_success_seconds gauge"
+          echo "vault_rest_backup_last_success_seconds $t"
+        } > "$tmp"
+        ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+        ${pkgs.coreutils}/bin/mv "$tmp" ${textfileDir}/vault_rest_backup.prom
+      '')
+    ];
+    systemd.services.restic-backups-vault-rest.onFailure = ["vault-offsite-backup-onfail.service"];
 
     # Liveness metric on success (P3.0 dead-man's-switch): Grafana alerts when
     # vault_backup_last_success_seconds goes stale/absent. Atomic 0644 write so

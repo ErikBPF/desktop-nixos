@@ -956,3 +956,39 @@ escrow-age-key-verify:
       echo ":: MISMATCH — escrow and live key differ; re-run escrow-age-key." >&2
       exit 1
     fi
+
+# GitHub-independent off-premise copy of every encrypted secret file (RFC 4c).
+# Tars all sops-encrypted files across this repo + the sister repos and scps the
+# bundle to voyager (~/escrow). The files are already age-encrypted, so the
+# bundle is ciphertext — safe on voyager, still needs the age key (see the
+# passphrase-age escrow, `just escrow-age-key`) to open. Run periodically; it is
+# a belt-and-suspenders copy for the "GitHub lost AND laptop lost" corner.
+# REFUSES to ship any candidate file that is not sops-encrypted (no ENC[ marker).
+#   just escrow-secrets
+escrow-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+    stage="$tmp/sops-config"; mkdir -p "$stage"
+    # Candidate files: this repo + sister working trees (via references/repos).
+    mapfile -t files < <(
+      { ls secrets/sops/*.yaml 2>/dev/null || true
+        f="$(readlink -f references/repos/homelab-iac)"; [ -n "$f" ] && ls "$f"/.env.sops 2>/dev/null || true
+        f="$(readlink -f references/repos/servarr)"; [ -n "$f" ] && ls "$f"/machines/*/.env.sops 2>/dev/null || true
+      } | sort -u)
+    test "${#files[@]}" -gt 0 || { echo ":: no candidate secret files found" >&2; exit 1; }
+    n=0
+    for f in "${files[@]}"; do
+      if ! grep -qa 'ENC\[' "$f"; then
+        echo ":: REFUSING $f — not sops-encrypted (no ENC[ marker)" >&2; exit 1
+      fi
+      # Flatten to repo-tagged names so the bundle is self-describing.
+      rel="$(printf '%s' "$f" | sed "s#$HOME/Documents/erik/##; s#$(pwd)/##; s#/#__#g")"
+      cp -a "$f" "$stage/$rel"
+      n=$((n+1)); echo "   + $f"
+    done
+    tar -C "$tmp" -czf "$tmp/sops-config.tar.gz" sops-config
+    ssh -p 2222 erik@{{ip_voyager}} 'mkdir -p ~/escrow && chmod 700 ~/escrow'
+    scp -P 2222 "$tmp/sops-config.tar.gz" erik@{{ip_voyager}}:~/escrow/sops-config.tar.gz
+    ssh -p 2222 erik@{{ip_voyager}} 'chmod 600 ~/escrow/sops-config.tar.gz && ls -l ~/escrow/sops-config.tar.gz'
+    echo ":: $n encrypted secret files bundled → voyager:~/escrow/sops-config.tar.gz"
