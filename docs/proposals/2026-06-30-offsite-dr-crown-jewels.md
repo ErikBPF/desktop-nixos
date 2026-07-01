@@ -1,10 +1,9 @@
 # Off-premise DR anchor for tf state, sops, and Vault seal (voyager)
 
-**Status:** Proposal (draft). **Date:** 2026-06-30.
+**Status:** Implemented (2026-06-30) — all four tiers (4a–4d) live; see §10.
+**Date:** 2026-06-30.
 **Audience:** Fleet maintainer (`desktop-nixos` + `homelab-iac`).
-**Post-read action:** Decide whether to adopt voyager as the off-premise DR
-anchor for the "crown-jewel" config tier, and in what order to land the four
-work items in §4.
+**Post-read action:** None — shipped. Kept as the design record.
 
 ## 1. Context
 
@@ -256,3 +255,27 @@ Residual risks:
 - **Append-only retention:** append-only repos need periodic maintenance from a
   privileged path (prune can't run as the sender). Document a manual/rare prune
   window or accept unbounded (tiny) growth.
+
+## 10. Implementation status (2026-06-30 — all shipped)
+
+| Tier | What shipped | Where |
+|---|---|---|
+| **4b** age-key escrow | `just escrow-age-key` (passphrase-age blob, self-verifying) + `escrow-age-key-push` (→ voyager) + `escrow-age-key-verify` drill. `keys.age` committed + on `voyager:~/escrow`. | `justfile`, `secrets/escrow/` |
+| **4a** tf state | `services.resticTofuState.restRepository` → voyager append-only REST `/discovery/tofu-state`, daily 07:30, no prune. Snapshot verified landing. | `modules/services/restic-tofu-state.nix`, `modules/hosts/discovery/default.nix` |
+| **4c** encrypted-secrets copy | `just escrow-secrets` bundles every `ENC[`-verified sops file (this repo + homelab-iac + servarr) → `voyager:~/escrow/sops-config.tar.gz`. | `justfile` |
+| **4d** Vault snapshot | `services.restic.backups.vault-rest` → voyager append-only REST `/discovery/openbao`, daily 03:40, no prune, liveness + Discord on-fail. | `modules/hosts/discovery/vault.nix` |
+
+Voyager receiver: `restic/rest-server --append-only --private-repos`; a second
+htpasswd user `discovery` (isolated to `/data/discovery/`) added alongside
+`kepler` (servarr `machines/voyager/offsite.yml`). Credentials: `discovery`
+REST password in servarr `.env.sops`; the credential-bearing repo URLs in
+desktop-nixos `secrets.yaml` (`restic_tofu_rest_url`, `restic_vault_rest_url`),
+passed via `repositoryFile` so they never enter the nix store.
+
+**Gotcha (cost a redeploy):** restic REST with `--private-repos` returns **401**
+(not 403) when the URL path does not start with the authenticated username — the
+repo path must be `/<user>/<repo>` (e.g. `/discovery/tofu-state`).
+
+Not covered (accepted): bulk restic data stays on-prem (1 GB micro); `4c` runs
+from the workstation (only host with every repo) so it is periodic/opportunistic,
+not a timer; append-only repos are never pruned (tiny growth accepted).
