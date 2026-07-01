@@ -104,6 +104,7 @@ in {
       m.nixos.alloy
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots
+      m.nixos.sccache-client
     ];
 
     home-manager.users.${config.username} = {
@@ -233,6 +234,9 @@ in {
 
     # Offload heavy builds to Orion (Ryzen 9 5950X, 32t, 62GB RAM)
     nix.distributedBuildsOrion.enable = true;
+
+    # Route dev-loop `cargo build` through the shared sccache cache on Orion.
+    programs.sccacheClient.enable = true;
 
     zramSwap = {
       enable = true;
