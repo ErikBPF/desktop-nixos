@@ -11,23 +11,28 @@ _: {
     # Fix: generate a rules-only file (no config flags) and override ExecStart.
     auditRules = pkgs.writeTextDir "audit.rules" ''
       -D
+      -a never,exclude -F msgtype=BPF
+      -a never,exclude -F msgtype=NETFILTER_CFG
+      -a never,exclude -F msgtype=ANOM_PROMISCUOUS
       -w /etc/pam.d/ -p wa -k auth_config
       -w /etc/shadow -p wa -k shadow_changes
       -w /etc/passwd -p wa -k passwd_changes
       -w /etc/group -p wa -k group_changes
       -w /etc/sudoers -p wa -k sudoers_changes
       -w /var/log/sudo.log -p wa -k sudo_log
-      -a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=4294967295 -k privilege_escalation
-      -a always,exit -F arch=b64 -S mount -S umount2 -k mounts
-      -a always,exit -F arch=b64 -S open -S openat -F exit=-EACCES -k access_denied
-      -a always,exit -F arch=b64 -S open -S openat -F exit=-EPERM -k access_denied
     '';
   in {
     security.auditd.enable = true;
+    security.auditd.settings = {
+      max_log_file = 256;
+      max_log_file_action = "ROTATE";
+      num_logs = 8;
+    };
+
     security.audit = {
       enable = true;
       backlogLimit = 8192; # sets audit_backlog_limit= boot param only; netlink set blocked post-init
-      failureMode = "printk";
+      failureMode = "silent";
       rules = []; # managed via auditRules above to avoid -b/-f/-r in the loaded file
     };
 

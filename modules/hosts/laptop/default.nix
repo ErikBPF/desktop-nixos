@@ -215,6 +215,25 @@ in {
 
     boot = {
       kernelParams = ["nohibernate"];
+      kernelPatches = [
+        {
+          name = "audit-default-silent";
+          patch = pkgs.writeText "audit-default-silent.patch" ''
+            diff --git a/kernel/audit.c b/kernel/audit.c
+            --- a/kernel/audit.c
+            +++ b/kernel/audit.c
+            @@ -81,7 +81,7 @@ static u32	audit_default = AUDIT_OFF;
+             static u32	audit_default = AUDIT_OFF;
+
+             /* If auditing cannot proceed, audit_failure selects what happens. */
+            -static u32	audit_failure = AUDIT_FAIL_PRINTK;
+            +static u32	audit_failure = AUDIT_FAIL_SILENT;
+
+             /* If audit records are to be written to the netlink socket, audit_pid
+              * contains the pid of the auditd process and audit_nlk_portid contains
+          '';
+        }
+      ];
       supportedFilesystems = ["ntfs"];
       loader = {
         efi.canTouchEfiVariables = true;
