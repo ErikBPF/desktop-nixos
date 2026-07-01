@@ -17,11 +17,5 @@ _: {
     };
 
     services.tailscale.useRoutingFeatures = lib.mkForce "client";
-
-    # voyager enrolls with the OAuth-client secret (sops tailscale_authkey), which
-    # mints a TAGGED key — the node must advertise a tag the client owns. Scoped
-    # here (not fleet-wide) so already-enrolled user-owned hosts aren't re-tagged;
-    # tag:server ownership is declared in homelab-iac tailscale/acl/policy.hujson.
-    services.tailscale.extraUpFlags = ["--advertise-tags=tag:server"];
   };
 }
