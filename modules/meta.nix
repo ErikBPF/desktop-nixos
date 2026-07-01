@@ -76,31 +76,43 @@
           ip = "192.168.10.220";
           mac = "b4:2e:99:92:4f:8b";
           role = "server";
+          tailscaleIp = "100.102.11.127";
         };
         kepler = {
           ip = "192.168.10.230";
           mac = "74:56:3c:47:d1:77";
           role = "server";
+          tailscaleIp = "100.94.239.46";
         };
         pathfinder = {
           ip = "192.168.10.125";
           mac = "54:bf:64:28:cb:2e";
           role = "workstation";
+          tailscaleIp = "100.104.92.5";
         };
         archinaut = {
           # WiFi-only (wlan0); wired NIC retired (see archinaut memory).
           ip = "192.168.10.225";
           mac = "b8:27:eb:15:7e:48";
           role = "server";
+          tailscaleIp = "100.75.250.107";
         };
         voyager = {
-          # Public Oracle Cloud VM; no LAN MAC reservation.
-          ip = "129.148.45.145";
+          # Public Oracle Cloud VM (ephemeral public IP, changes on recreate).
+          ip = "147.15.7.254";
+          role = "server";
+          tailscaleIp = "100.105.38.10";
+        };
+        telstar = {
+          # Public Oracle Cloud Ampere A1 VM (2 OCPU / 12 GB, aarch64) for
+          # exposing personal projects outside the home. Ephemeral public IP,
+          # filled in after the capacity-retry provisioning lands.
           role = "server";
         };
         laptop = {
           # Roaming — Tailscale-only, no fixed LAN reservation.
           role = "laptop";
+          tailscaleIp = "100.74.137.124";
         };
         # Non-NixOS device tracked for addressing only: Home Assistant OS,
         # a KVM guest on discovery (MAC from modules/hosts/discovery/haos.nix).
