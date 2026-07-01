@@ -27,6 +27,7 @@ in {
       m.nixos.discovery-containers
       m.nixos.discovery-compose
       m.nixos.discovery-harbor
+      m.nixos.discovery-restic-voyager-check
       # OCI cutover (2026-06-25): replace the live servarr Docker hermes with
       # the declarative hermes-flake OCI module (official image + Nix-rendered
       # config/SOUL/sops, rtk store-mounted, git-versioned skills via

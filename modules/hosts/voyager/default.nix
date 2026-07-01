@@ -20,6 +20,7 @@ in {
       m.nixos.voyager-networking
       m.nixos.containers
       m.nixos.voyager-compose
+      m.nixos.node-exporter
       m.nixos.first-boot
     ];
 
