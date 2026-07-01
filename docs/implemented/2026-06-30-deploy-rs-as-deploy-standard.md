@@ -1,15 +1,17 @@
 # deploy-rs as the fleet remote-deploy standard
 
-**Status:** Accepted — implementing. deploy-rs is wired (`modules/deploy-rs.nix`)
-and its magic rollback is validated end-to-end (§11). Scope extended from
-"deploy-rs for switches" to the **full two-phase deploy toolchain** (install +
-switch) — see [§11](#11-implementation--two-phase-toolchain-standard). The
-[§9](#9-open-questions) judgment calls remain the maintainer's to set; RFC
-content stays human-written.
+**Status:** Implemented (2026-06-30). deploy-rs is the fleet's remote-switch
+standard and the two-phase toolchain (install + switch) is live: `modules/deploy-rs.nix`
+exposes `flake.deploy.nodes`; every `switch-<host>` delegates to `deploy-rs`
+(GPU hosts via `deploy-rs-boot` + reboot); `provision <host> <target>` is the
+generic first-install. Magic rollback was proven on a throwaway VM and on the
+real voyager host. All [§9](#9-open-questions) judgment calls were decided
+(replace `switch-<host>`; pilot = voyager; kepler = boot+reboot on its window;
+`magicRollback` per reach-path; fleet-wide OAuth by role). Rollout:
+orion/discovery/kepler switched (GPU hosts rebooted — drivers matched);
+archinaut in progress; telstar pending Oracle A1 capacity. Kept as the as-built
+record.
 **Audience:** Maintainer of `desktop-nixos` (fleet operator).
-**Post-read action:** Decide whether to adopt [deploy-rs](https://github.com/serokell/deploy-rs)
-as the standard mechanism for *subsequent* remote switches, and if so, pick the
-pilot host and the replace-vs-complement posture for `switch-<host>`.
 
 ## 1. Context — how deploys work today
 
