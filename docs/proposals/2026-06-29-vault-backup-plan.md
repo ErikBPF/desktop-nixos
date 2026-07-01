@@ -171,7 +171,7 @@ secret). Backup precedes data, always.
 
 ## Links
 
-- Parent: `proposals/2026-06-29-vault-secrets-platform.md` (P3). Reuses the
+- Parent: `implemented/2026-06-29-vault-secrets-platform.md` (P3). Reuses the
   `restic-tofu-state` module + the textfile dead-man's-switch from
   `implemented/2026-06-20-telemetry-hardening.md` lineage / the 2026-06-29
   Healthchecks-replacement work.

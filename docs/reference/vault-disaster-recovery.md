@@ -96,5 +96,5 @@ unseals with the **original** key, not the new one):
   protection is sops + the age key.
 - The off-site snapshot on kepler is unreadable without the unseal key (kepler is
   not a sops recipient for these secrets).
-- Design: `docs/proposals/2026-06-29-vault-secrets-platform.md`,
+- Design: `docs/implemented/2026-06-29-vault-secrets-platform.md`,
   `…-vault-backup-plan.md`. Memory: `openbao-platform-vault`.

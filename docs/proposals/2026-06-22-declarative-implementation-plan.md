@@ -5,7 +5,7 @@
 **Type:** Spec / work-items (executable breakdown). Rationale lives in the RFCs:
 - [`2026-06-22-harbor-declarative.md`](../implemented/2026-06-22-harbor-declarative.md) — Harbor → static stack
 - [`harbor-discovery-registry.md`](../reference/harbor-discovery-registry.md) — the deployed (imperative) baseline
-- [`2026-06-22-harbor-pullthrough-mirror.md`](2026-06-22-harbor-pullthrough-mirror.md) — mirror design
+- [`2026-06-22-harbor-pullthrough-mirror.md`](../implemented/2026-06-22-harbor-pullthrough-mirror.md) — mirror design
 
 **Scope:** move every imperative/stateful edge of the Harbor + k3s-mirror setup
 into declarative source. Ordered by dependency; each item has a verify gate.

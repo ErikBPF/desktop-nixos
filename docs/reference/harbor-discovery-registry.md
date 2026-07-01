@@ -19,7 +19,7 @@ Artifacts live in the `servarr` repo under `machines/discovery/`:
 
 The k3s mirror wiring is in **desktop-nixos** (`_k3s-node.nix`, a guest bounce) —
 see step 6. This supersedes the in-cluster bits of
-[`proposals/2026-06-22-harbor-pullthrough-mirror.md`](../proposals/2026-06-22-harbor-pullthrough-mirror.md).
+[`implemented/2026-06-22-harbor-pullthrough-mirror.md`](../implemented/2026-06-22-harbor-pullthrough-mirror.md).
 
 ## Host facts
 
