@@ -44,9 +44,10 @@
       restRepository = lib.mkEnableOption ''
         an **off-premise** copy to voyager's append-only restic REST server
         (Oracle Always-Free, tailnet-only). The credential-bearing repo URL
-        (rest:http://discovery:PASS@voyager:8000/tofu-state) is held in the sops
-        secret `restic_tofu_rest_url` and passed via repositoryFile so it never
-        lands in the nix store. Append-only means this job never prunes — a
+        (rest:http://discovery:PASS@voyager:8000/discovery/tofu-state — the path
+        MUST start with the REST username, which --private-repos enforces with a
+        401) is held in the sops secret `restic_tofu_rest_url` and passed via
+        repositoryFile so it never lands in the nix store. Append-only means this job never prunes — a
         compromised sender cannot delete history (retention is server-side /
         manual). Distinct failure domain from the SFTP peer copy'';
     };
