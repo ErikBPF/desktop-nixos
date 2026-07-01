@@ -81,6 +81,11 @@ _: {
     };
     fileSystems."/var/log".neededForBoot = true;
 
+    # Dev/agent workloads can spill multi-GB scratch trees into /tmp. Keep it on
+    # the encrypted btrfs root instead of letting tmpfs compete with RAM/zram.
+    boot.tmp.useTmpfs = lib.mkForce false;
+    boot.tmp.cleanOnBoot = true;
+
     # --- Intel Iris Xe (TigerLake, no nvidia) ---
     services.xserver.videoDrivers = ["modesetting"];
 
