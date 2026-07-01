@@ -123,22 +123,22 @@ age -p ~/.config/sops/age/keys.txt > keys.age   # scrypt recipient, no key file 
 age -d keys.age > keys.txt                       # only input: the memorized passphrase
 ```
 
-`keys.age` is ciphertext sealed by a passphrase that lives **only in your head
-(and a password manager)** — never on any fleet host, never in git plaintext.
-Because it's sealed independently of the fleet age key, it is safe to store in
-places the fleet key itself must never go:
+`keys.age` is ciphertext sealed by a passphrase that lives **only in a password
+manager + one offline copy (off-premise)** — never on any fleet host, never in
+git. It is held in two private failure domains:
 
-- committed to a repo (off-fleet via GitHub), **and**
-- copied to **voyager** (off-premise, off-GitHub).
+- a **password manager** entry (cold-reachable from a fresh laptop), **and**
+- `voyager:~/escrow/age-key.age` (off-premise, tailnet/break-glass only).
 
 Two readable copies in different failure domains, both useless without the
 passphrase. This is the item that closes the "single point of total loss."
 
-Open sub-decisions (for the human, §9): where `keys.age` is committed (a private
-repo vs. `desktop-nixos`), and whether generation is a documented manual
-ceremony or a scripted `just escrow-age-key`. A manual, deliberate ceremony is
-defensible here — the key rotates rarely and the passphrase must never touch a
-script's env.
+> **Post-grill correction (2026-06-30):** an initial version committed `keys.age`
+> to `desktop-nixos` — which is **public** — making the sealed blob world-readable
+> and offline-brute-forceable, secured only by passphrase entropy. That was
+> wrong: the blob is now **gitignored** (`secrets/escrow/*.age`) and lives only
+> in the two domains above. The git-history copy still exists; if the passphrase
+> is not high-entropy, rotate the age key (see `reference/key-rotation.md`).
 
 ### 4c. Encrypted secrets → GitHub-independent copy on voyager
 
@@ -260,7 +260,7 @@ Residual risks:
 
 | Tier | What shipped | Where |
 |---|---|---|
-| **4b** age-key escrow | `just escrow-age-key` (passphrase-age blob, self-verifying) + `escrow-age-key-push` (→ voyager) + `escrow-age-key-verify` drill. `keys.age` committed + on `voyager:~/escrow`. | `justfile`, `secrets/escrow/` |
+| **4b** age-key escrow | `just escrow-age-key` (passphrase-age blob, self-verifying) + `escrow-age-key-push` (→ voyager) + `escrow-age-key-verify` drill. `keys.age` is **gitignored** — lives on `voyager:~/escrow` + a password manager, **not** in this public repo (see post-grill note in §4b). | `justfile`, `secrets/escrow/` |
 | **4a** tf state | `services.resticTofuState.restRepository` → voyager append-only REST `/discovery/tofu-state`, daily 07:30, no prune. Snapshot verified landing. | `modules/services/restic-tofu-state.nix`, `modules/hosts/discovery/default.nix` |
 | **4c** encrypted-secrets copy | `just escrow-secrets` bundles every `ENC[`-verified sops file (this repo + homelab-iac + servarr) → `voyager:~/escrow/sops-config.tar.gz`. | `justfile` |
 | **4d** Vault snapshot | `services.restic.backups.vault-rest` → voyager append-only REST `/discovery/openbao`, daily 03:40, no prune, liveness + Discord on-fail. | `modules/hosts/discovery/vault.nix` |
@@ -279,3 +279,26 @@ repo path must be `/<user>/<repo>` (e.g. `/discovery/tofu-state`).
 Not covered (accepted): bulk restic data stays on-prem (1 GB micro); `4c` runs
 from the workstation (only host with every repo) so it is periodic/opportunistic,
 not a timer; append-only repos are never pruned (tiny growth accepted).
+
+## 11. Post-grill hardening (2026-06-30)
+
+An adversarial review surfaced holes; the confirmed ones were fixed:
+
+- **`keys.age` was in a PUBLIC repo** (🔴) → removed from the tree, gitignored
+  (`secrets/escrow/*.age`), lives only on voyager + a password manager. History
+  still holds the old blob — rotate the age key if the passphrase is weak (§4b).
+- **DR reachability was circular** (🟠) — voyager's tailnet REST/ssh are
+  ACL-gated to existing admin devices, and the SSH key to break in lived on the
+  (lost) laptop. Fix: `just escrow-ssh-key` seals the admin SSH key (password
+  manager + voyager); recovery uses voyager's **public-IP** break-glass SSH, not
+  the tailnet ACL.
+- **4a (tofu-state off-premise) was unmonitored** (🟠) while 4d had liveness +
+  on-fail → added the same `restic_tofu_state_rest_last_success_seconds` metric
+  + Discord `onFailure` to `tofu-state-rest`.
+
+Open follow-ups (accepted, not yet done): (a) **restore never drilled** — verify
+a restic restore *from voyager* → decrypt → `terragrunt plan` no-diff; (b)
+**voyager disk** — `/` is ~51% full and shared with kepler's append-only pushes
+that never prune → add a disk-usage alert, a scheduled `restic check`, and a
+documented prune window; (c) **escrow passphrase custody** — confirm the offline
+copy is off-premise.

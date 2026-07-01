@@ -184,6 +184,28 @@
           RandomizedDelaySec = "10m";
         };
       };
+
+      # Monitoring parity with the local + SFTP jobs: the off-PREMISE copy is the
+      # one that matters most, so it must not fail silently. Discord on failure +
+      # a distinct liveness metric Grafana alerts on when it goes stale/absent.
+      systemd.services.restic-backups-tofu-state-rest.onFailure =
+        lib.mkIf (cfg.restRepository && cfg.discordWebhookFile != "") ["restic-tofu-state-onfail.service"];
+
+      systemd.services.restic-backups-tofu-state-rest.serviceConfig.ExecStartPost = lib.mkIf (cfg.restRepository && cfg.healthcheck) [
+        (pkgs.writeShellScript "restic-tofu-state-rest-liveness" ''
+          set -eu
+          d=/var/lib/node-exporter-textfile
+          t=$(${pkgs.coreutils}/bin/date +%s)
+          tmp=$(${pkgs.coreutils}/bin/mktemp "$d/.restic_tofu_state_rest.XXXXXX")
+          {
+            echo "# HELP restic_tofu_state_rest_last_success_seconds Unix time of last successful off-premise (voyager) tofu-state restic backup."
+            echo "# TYPE restic_tofu_state_rest_last_success_seconds gauge"
+            echo "restic_tofu_state_rest_last_success_seconds $t"
+          } > "$tmp"
+          ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+          ${pkgs.coreutils}/bin/mv "$tmp" "$d/restic_tofu_state_rest.prom"
+        '')
+      ];
     };
   };
 }

@@ -922,9 +922,10 @@ escrow-age-key:
     fi
     ls -l "$blob"
     echo ":: NEXT (deliberate):"
-    echo "     git add $blob && git commit -m 'chore(dr): escrow sops age key (passphrase-sealed)'"
     echo "     just escrow-age-key-push       # copy off-premise to voyager"
-    echo "   Save the passphrase: password manager + one offline copy."
+    echo "   Store the blob in your password manager too. Do NOT commit it — this"
+    echo "   repo is public; the blob is gitignored. Save the passphrase: password"
+    echo "   manager + one offline copy kept off-premise."
 
 # Copy the passphrase-sealed escrow blob off-premise to voyager (tailnet, :2222).
 #   just escrow-age-key-push
@@ -956,6 +957,33 @@ escrow-age-key-verify:
       echo ":: MISMATCH — escrow and live key differ; re-run escrow-age-key." >&2
       exit 1
     fi
+
+# Break-glass reachability (RFC 4a/4d recovery): passphrase-seal the admin SSH
+# private key so a re-imaged laptop can reach voyager's PUBLIC-IP SSH and pull
+# the off-premise restic repos — without it, recovery is circular (voyager's
+# tailnet REST/ssh are ACL-gated to existing admin devices, and the SSH key that
+# would let you in lived on the lost laptop). INTERACTIVE (age -p needs a TTY).
+# The sealed blob is gitignored; store it in your PASSWORD MANAGER (cold-
+# reachable) — the on-voyager copy can't help you reach voyager.
+#   ! just escrow-ssh-key
+escrow-ssh-key key="~/.ssh/id_ed25519":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="${key/#\~/$HOME}"
+    blob="secrets/escrow/ssh-key.age"
+    test -f "$src" || { echo ":: no SSH key at $src" >&2; exit 1; }
+    age="$(nix build nixpkgs#age --no-link --print-out-paths)/bin/age"
+    mkdir -p "$(dirname "$blob")"
+    echo ":: Sealing $src with a passphrase (typed twice)…"
+    "$age" -p -o "$blob" "$src"
+    echo ":: Verifying round-trip — re-enter the SAME passphrase…"
+    tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
+    "$age" -d -o "$tmp" "$blob"
+    cmp -s "$tmp" "$src" && echo ":: OK — $blob decrypts back to the key." || { echo ":: MISMATCH — do not trust it." >&2; exit 1; }
+    ls -l "$blob"
+    echo ":: NEXT: store $blob in your password manager (cold-reachable), then:"
+    echo "     scp -P 2222 $blob erik@{{ip_voyager}}:~/escrow/ssh-key.age   # secondary copy"
+    echo "   Recover: age -d ssh-key.age > id; chmod 600 id; ssh -i id erik@<voyager-public-ip>"
 
 # GitHub-independent off-premise copy of every encrypted secret file (RFC 4c).
 # Tars all sops-encrypted files across this repo + the sister repos and scps the

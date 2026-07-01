@@ -3,6 +3,11 @@ secret-key-base64
 # Break-glass DR copy of the primary age key — plaintext root of trust.
 # NEVER commit. Created on demand, copied off-fleet, then deleted.
 BREAK-GLASS-age-key.md
+# Passphrase-sealed escrow blobs (age -p). Even sealed, the root of trust must
+# NOT live in this PUBLIC repo — a committed blob is world-readable ciphertext,
+# brute-forceable offline. They live on voyager (~/escrow) + a password manager
+# only. See docs/reference/key-rotation.md and secrets/escrow/README.md.
+secrets/escrow/*.age
 result
 result-*
 result.json
