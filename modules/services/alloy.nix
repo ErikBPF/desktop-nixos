@@ -50,6 +50,15 @@ _: {
         textfile {
           directory = "/var/lib/node-exporter-textfile"
         }
+        // An amdgpu SMU firmware hang leaves hwmon sysfs reads blocked in
+        // uninterruptible D-state; NodeCollector.Collect waits on every
+        // collector, so one wedged read killed ALL host metrics on orion
+        // (2026-07-02, up==0 while the host was fine). Excluding the amdgpu
+        // chip caps the blast radius to GPU temps; CPU/board sensors still
+        // report. No-op on hosts without an AMD GPU.
+        hwmon {
+          chip_exclude = "amdgpu"
+        }
       }
 
       prometheus.scrape "host_metrics" {
