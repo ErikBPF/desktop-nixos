@@ -1,7 +1,11 @@
 # Fleet observability — complete the Grafana monitoring stack
 
 **Status:** In progress — forks decided + Phase 1 implemented 2026-07-01 (see
-below); Phase 2 blocked on the cadvisor name-metric gap, Phase 3 not started.
+below); Phase 2 blocked on the cadvisor name-metric gap. Phase 3 metrics are
+**half-live** (audit 2026-07-02): kube-state-metrics + kubelet cAdvisor flow
+into the discovery Prometheus via homelab-gitops `alloy-metrics` (`b0773ea`);
+control-plane scrape, traefik metrics, and all k8s alert rules still missing.
+See "Audit findings (2026-07-02)" below.
 **Date:** 2026-06-29
 **Audience:** Maintainers of `desktop-nixos` + `servarr`
 
@@ -68,17 +72,61 @@ host metrics→Prometheus, etcd metrics→`/bulk`. In-cluster workload/control-p
 metrics (kube-state-metrics, kubelet cAdvisor, apiserver/scheduler/cm) are the
 suspected gap — the dashboard exists but may be partially unfed.
 
-### Coverage matrix (fill during Phase 0 audit)
+### Coverage matrix (audited 2026-07-02, live Prometheus queries)
 
 | Host | Host metrics | Container metrics | Logs | Alerts today |
 |------|:---:|:---:|:---:|---|
-| discovery | ✅ unix | ✅ cadvisor | ✅ | disk, backup |
-| kepler | ✅ unix | ❓ cadvisor? | ✅ | — |
-| orion | ✅ unix | ❓ cadvisor? | ✅ | — |
-| pathfinder | ✅ unix | n/a | ✅ | — |
-| laptop | ✅ unix | n/a | ✅ | — |
-| archinaut (RPi3) | ❓ (low-mem) | n/a | ❓ | — |
-| k3s cluster | partial (nodes/etcd) | ❓ kubelet | ✅ | — |
+| discovery | ✅ unix | ✅ cadvisor (no `name` label) | ✅ | host-health, disk, backup, openbao |
+| kepler | ✅ unix | ✅ cadvisor (no `name` label) | ✅ | host-health group (fleet-wide) |
+| orion | ⚠️ `up==0` (see audit) | ✅ cadvisor (no `name` label) | ✅ | host-health group (fleet-wide) |
+| pathfinder | ❌ absent ≥7d (see audit) | n/a | ❓ | host-health group (fleet-wide) |
+| laptop | ✅ unix | n/a | ✅ | host-health group (fleet-wide) |
+| archinaut (RPi3) | ❌ deliberate (alloy omitted, ~260 MB RSS) | n/a | ❌ | — |
+| voyager | ✅ node-exporter scrape | n/a | n/a | scrape-down, disk, restic-check |
+| k3s cluster | ✅ KSM (3.7k series) + kubelet cAdvisor pods | ❌ control-plane, ❌ traefik | ✅ | — |
+
+### Audit findings (2026-07-02)
+
+Live issues found while auditing the matrix:
+
+1. **orion `up{job="integrations/unix"} == 0`** — host is up (its servarr
+   Alloy pushes cadvisor fine) but the NixOS fleet Alloy's unix-exporter
+   scrape fails. `host-alloy-down` should be firing; investigate + fix.
+2. **Absent-host hole.** pathfinder has emitted nothing for ≥7 days and no
+   alert fired: `host-alloy-down` matches `up == 0`, but a host that vanishes
+   from the vector produces no series (and no NoData while other hosts keep
+   the query non-empty). The "or series `absent` per host" bullet in section A
+   was never implemented. Fix: per-host `absent_over_time()` rules for
+   **always-on** hosts only (kepler, orion — voyager already covered;
+   pathfinder/laptop are workstations that legitimately power off; discovery
+   monitoring itself is the accepted SPOF).
+3. **remote_write lag ~5–15 min** observed (instant queries empty while
+   `-10m` evaluations return data). Alert `for:` + relative windows must
+   tolerate this; prefer ≥15 m lookbacks for push-fed rules.
+4. **Traefik "gap" is not a bug** (diagnosed 2026-07-02): the scrape is fully
+   healthy (`up{job="traefik"} == 1` continuously, 21.7k samples/14d). Traefik
+   registers `traefik_entrypoint_requests_total` & co. **lazily per label
+   combination** and they reset on pod restart — the lab ingresses have simply
+   had zero traffic since the c91172d validation curls (2026-06-21). Use
+   `... or vector(0)` in panels; alert on `up{job="traefik"}`, never on
+   request-counter presence. Optional: a periodic probe against a lab ingress
+   keeps the series registered and validates LB→NodePort→router end-to-end.
+5. **k3s pods restart every few hours-days** (exit 255, reason Unknown; 16–32
+   restarts/12d fleet-wide in the cluster) — the microvm nodes themselves
+   appear to reboot. Not what suppressed the traefik counters, but worth a
+   separate investigation.
+6. **archinaut** — Alloy intentionally omitted
+   (`modules/hosts/archinaut/default.nix`); section A's "lightweight external
+   check" remains undecided/unbuilt.
+7. **orion root cause** (diagnosed 2026-07-02): amdgpu **SMU firmware hang**
+   (since 19:43 same day, after the 19:21 reboot) wedges node_exporter's hwmon
+   collector in an uninterruptible sysfs read → `/metrics` never returns →
+   `up==0`; cadvisor in the same Alloy process is unaffected. Unrecoverable
+   from userspace (D-state victims incl. a stuck torch CUDA check) — needs a
+   reboot, which folds into the pending b3daafc deploy-rs-boot window.
+   Hardening option: exclude the hwmon collector on GPU hosts in
+   `modules/services/alloy.nix` so a firmware wedge degrades one collector
+   instead of killing all host metrics.
 
 ## Goals
 
@@ -120,10 +168,12 @@ Metrics exist; **alert rules don't**. Add (PromQL → Grafana rules → Discord)
 - **Decided (2026-07-01) — metrics path: (b) Alloy in-cluster** scraping
   cluster components → `remote_write` to the discovery Prometheus (matches the
   existing push pattern; single Prometheus, single Grafana).
-- Components to scrape: **kube-state-metrics** (workload health — the big gap),
-  kubelet **cAdvisor** (pod/container metrics), node-exporter DaemonSet,
-  control-plane (apiserver/scheduler/controller-manager), **etcd** (partly
-  done), ingress controller, CSI/NFS.
+  **Implemented 2026-07-02-ish** in homelab-gitops (`platform/alloy-metrics`,
+  `platform/kube-state-metrics`, commits `b0773ea`/`c91172d`) — KSM + kubelet
+  cAdvisor verified flowing into the discovery Prometheus.
+- Still to scrape: control-plane (apiserver/scheduler/controller-manager —
+  `apiserver_request_total` absent), kubelet's own metrics (`kubelet_*`
+  absent), ingress controller (traefik broken, see audit), CSI/NFS.
 - Alerts: node `NotReady`, pod `CrashLoopBackOff`, deployment replicas
   unavailable, PVC `Pending`, job/cronjob failed, etcd unhealthy, cert expiry,
   control-plane down. (kube-prometheus ships a vetted rule set — port the subset
