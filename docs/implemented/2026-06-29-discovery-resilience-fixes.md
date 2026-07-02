@@ -50,8 +50,10 @@ Three compounding causes, only one of which we'd been chasing:
 - **Least-scope token** — finish the Terraform `swag-dns01` token (the
   `cloudflare-token-terraform-migration` RFC). Now unblocked-ish: SWAG is up, so
   the iac state backend (MinIO behind SWAG) is reachable again; still gated on the
-  iac token genuinely getting `API Tokens:Edit`. **Revoke the temp token**
-  (`cfut_9tU2…`, pasted in chat) once swag-dns01 lands.
+  iac token genuinely getting `API Tokens:Edit`. ~~**Revoke the temp token**
+  (`cfut_9tU2…`, pasted in chat) once swag-dns01 lands.~~ **Done** — revoked
+  2026-06-29 (migration RFC Ph1+2); API-verified 2026-07-01: the account holds
+  only `Homelab IAC` (bootstrap) + `swag-dns01`, no strays (Ph4 sweep clean).
 
 ### P0-2. Deploy pipeline conflict (rsync vs git-pull)
 
