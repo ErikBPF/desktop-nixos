@@ -1,15 +1,16 @@
 # Home Assistant Intelligent Voice Assistant (LiteLLM-routed)
 
 **Date:** 2026-05-27
-**Status:** Mostly implemented (audit 2026-07-02) — Phases 0–2 shipped in
+**Status:** Implemented (audit 2026-07-02) — Phases 0–3 core shipped in
 `home-assistant-config` (LiteLLM-routed whisper STT + openai_tts `83afe08`,
 LLM brain via custom-conversation `3230105` then extended_openai_conversation
-for web search `a53c175`); Phase 3 partial (openWakeWord + Atom Echo live,
-brain upgraded). Open: §6 synergies only (camera vision, hermes MCP bridge,
-f5-tts clone, RAG memory, Alexa announcements).
+for web search `a53c175`, openWakeWord + Atom Echo live). §6 synergies
+(camera vision, hermes MCP bridge, f5-tts clone, RAG memory, Alexa
+announcements) are future enhancements — tracked as backlog decision A12 in
+[`../proposals/2026-07-02-open-decisions-and-work.md`](../proposals/2026-07-02-open-decisions-and-work.md).
 **Owner:** erik
 **Target hosts:** `discovery` (HAOS + LiteLLM), `kepler` (STT/TTS/vision), `orion` (reasoning LLM)
-**Related:** [`2026-05-23-home-assistant-declarative.md`](./2026-05-23-home-assistant-declarative.md) — this proposal's config changes land in the `home-assistant-config` repo per that doc's Phase 1 workflow.
+**Related:** [`2026-05-23-home-assistant-declarative.md`](../proposals/2026-05-23-home-assistant-declarative.md) — this proposal's config changes land in the `home-assistant-config` repo per that doc's Phase 1 workflow.
 
 ---
 

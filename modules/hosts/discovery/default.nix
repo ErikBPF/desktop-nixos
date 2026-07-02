@@ -36,7 +36,7 @@ in {
       # (./hermes-agent.nix, module discovery-hermes-agent) is superseded and no
       # longer imported. ⚠ Cutover is NOT live until the servarr hermes stack is
       # stopped and the sops env gains bare TELEGRAM_BOT_TOKEN/DISCORD_BOT_TOKEN
-      # — see docs/proposals/2026-06-24-hermes-memory-skills.md §8 runbook.
+      # — see docs/implemented/2026-06-24-hermes-memory-skills.md §8 runbook.
       m.nixos.discovery-hermes-oci
       # Declarative bootstrap for the hermes native LLM wiki (sops deploy key +
       # vault.git@hermes clone oneshot + daily wiki-consolidate cron seed) so the

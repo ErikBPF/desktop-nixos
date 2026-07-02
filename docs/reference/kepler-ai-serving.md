@@ -185,7 +185,7 @@ just ai-smoke             # full E2E (embedding + ASR + TTS + LiteLLM round-trip
 
 The current ("Phase 1") design routes HA's entire Assist pipeline through
 LiteLLM — see the proposal at
-`docs/proposals/2026-05-27-home-assistant-voice-assistant.md` and the
+`docs/implemented/2026-05-27-home-assistant-voice-assistant.md` and the
 runbook at `<home-assistant-config>/docs/voice-assistant.md`.
 
 **Earlier docs and earlier iterations of this file** suggested wiring HA's

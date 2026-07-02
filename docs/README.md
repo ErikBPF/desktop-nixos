@@ -35,7 +35,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | Doc | Status |
 |-----|--------|
 | [`proposals/2026-05-23-home-assistant-declarative.md`](proposals/2026-05-23-home-assistant-declarative.md) | Proposal — declarative HA management. |
-| [`proposals/2026-05-27-home-assistant-voice-assistant.md`](proposals/2026-05-27-home-assistant-voice-assistant.md) | Mostly implemented (audit 2026-07-02) — Phases 0–2 shipped in `home-assistant-config` (LiteLLM STT/TTS, LLM brain, web search), Phase 3 partial (openWakeWord + Atom Echo live). Open: §6 synergies. |
+| [`implemented/2026-05-27-home-assistant-voice-assistant.md`](implemented/2026-05-27-home-assistant-voice-assistant.md) | ✅ Implemented (audit 2026-07-02) — Phases 0–3 core shipped in `home-assistant-config` (LiteLLM STT/TTS, LLM brain, web search, openWakeWord + Atom Echo). §6 synergies are future enhancements (backlog A12). |
 | [`implemented/2026-06-16-printer-nixos-host.md`](implemented/2026-06-16-printer-nixos-host.md) | ✅ Implemented (2026-06-21) — BIQU B1 Klipper host `archinaut`. |
 | [`implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](implemented/2026-06-19-kepler-k3s-microvm-cluster.md) | ✅ Implemented (core, live) — kepler k3s MicroVM cluster; 3 CP + workers running. |
 | [`implemented/2026-06-20-archinaut-kernel-direct-boot.md`](implemented/2026-06-20-archinaut-kernel-direct-boot.md) | ✅ Implemented (2026-06-21) — kernel-direct boot on the RPi 3B+. |
@@ -46,7 +46,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`proposals/2026-06-22-declarative-implementation-plan.md`](proposals/2026-06-22-declarative-implementation-plan.md) | In progress — Spec/work-items for Harbor + k3s-mirror → declarative. |
 | [`implemented/2026-06-22-harbor-declarative.md`](implemented/2026-06-22-harbor-declarative.md) | Implemented — **oneshot variant shipped, not this RFC's static stack**. |
 | [`implemented/2026-06-22-harbor-pullthrough-mirror.md`](implemented/2026-06-22-harbor-pullthrough-mirror.md) | ✅ Implemented (2026-06-28) — Harbor pull-through mirror; node side live. |
-| [`proposals/2026-06-24-hermes-memory-skills.md`](proposals/2026-06-24-hermes-memory-skills.md) | Partially implemented (§9 is the authoritative record). |
+| [`implemented/2026-06-24-hermes-memory-skills.md`](implemented/2026-06-24-hermes-memory-skills.md) | ✅ Implemented (record closed 2026-07-02) — §9 is the authoritative record: OCI cutover + skills `external_dirs` + SOUL `:ro` shipped; rtk thesis invalidated. Remaining items re-tracked in `hermes-deferred-improvements`. |
 | [`proposals/2026-06-24-repo-structure-improvements.md`](proposals/2026-06-24-repo-structure-improvements.md) | Proposal — tighten the dendritic module structure. |
 | [`proposals/2026-06-24-source-backed-host-improvements.md`](proposals/2026-06-24-source-backed-host-improvements.md) | Proposal — source-backed host security/perf/usability review. |
 | [`proposals/2026-06-25-hermes-agentmemory-integration.md`](proposals/2026-06-25-hermes-agentmemory-integration.md) | Plan — **supersedes** `hermes-deferred-plans` §1. |

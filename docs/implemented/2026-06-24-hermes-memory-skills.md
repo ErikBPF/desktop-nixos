@@ -1,6 +1,11 @@
 # Hermes Agent — Memory, SOUL & Skills Improvements
 
-**Status:** Partially implemented — **§9 is the authoritative corrected record.**
+**Status:** Implemented (record closed 2026-07-02) — **§9 is the authoritative
+corrected record** of what shipped (OCI cutover, skills `external_dirs`, SOUL
+`:ro`) and what was invalidated (rtk never fires under `execute_code`).
+Everything still open was re-tracked in
+[`../proposals/2026-06-29-hermes-deferred-improvements.md`](../proposals/2026-06-29-hermes-deferred-improvements.md)
+(P1–P7) and superseded plans; this doc is kept as the shipped record.
 **Date:** 2026-06-24 (proposal); 2026-06-25 (implementation + corrections)
 **Scope:** the live discovery hermes-agent + the flake cutover target.
 Touches `servarr` (config), `desktop-nixos` (SOUL canonical + OCI host module),
