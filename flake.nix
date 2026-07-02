@@ -74,6 +74,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    opencode-flake = {
+      url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.home-manager.follows = "home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # k3s test cluster on kepler runs each node as a NixOS MicroVM.
     # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.
     microvm = {

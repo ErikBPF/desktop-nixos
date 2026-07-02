@@ -1,10 +1,16 @@
 # opencode-flake
 
-**Status:** Ready — all judgment calls resolved (2026-07-02). Next step:
-create the repo.
+**Status:** ✅ Implemented (2026-07-02) — all four slices live.
+`github.com/ErikBPF/opencode-flake` (FlakeHub-published, daily auto-merge
+updater, `opencode-v*` tags); laptop adopted `withPackage` and migrated per
+§5. Deviations from this RFC: **no Cachix** — the fleet substitutes from
+orion's nix-serve (warmed nightly by `nix-cache-builder`), so a third-party
+cache would serve nobody; CI `package-build` is a required verification
+gate instead. And the profile installs `pkgs.opencode` by default (upstream
+`programs.opencode` crashes on `package = null`, so files-only was
+impossible).
 **Date:** 2026-07-01.
 **Audience:** Maintainer of `codex-flake`, `hermes-flake`, and `desktop-nixos`.
-**Post-read action:** Implement per §4/§5; slice order in §8.
 
 ## 1. Context
 
