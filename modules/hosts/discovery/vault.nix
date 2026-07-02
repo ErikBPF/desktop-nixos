@@ -257,21 +257,25 @@
         RemainAfterExit = true;
         ExecStart = pkgs.writeShellScript "openbao-unseal" ''
           export BAO_ADDR=${addr}
-          # Wait until the server responds (sealed status still answers). Raft
-          # log replay after an unclean shutdown can outlast a short window —
-          # the 2026-06-30 boot took >60s to answer, the old 30×2s loop timed
-          # out, both checks below fell through, and the unit reported success
-          # while the store stayed sealed for ~21h. Poll generously.
+          # Status checks go through curl, not the bao CLI: during the
+          # 2026-07-01 activation the CLI produced no stdout in unit context
+          # (jq -e exit 4 = empty input) for 5 straight minutes while curl on
+          # the same endpoint succeeded concurrently (seal-probe). seal-status
+          # is unauthenticated and answers while sealed. Poll generously — raft
+          # log replay after an unclean shutdown outlasted the old 60s window
+          # (2026-06-30 boot → sealed ~21h with a green unit).
+          status() { ${pkgs.curl}/bin/curl -fsS -m 5 ${addr}/v1/sys/seal-status; }
           for _ in $(seq 1 150); do
-            ${bao} status -format=json 2>/dev/null | ${jq} -e 'has("sealed")' >/dev/null 2>&1 && break
+            status | ${jq} -e 'has("sealed")' >/dev/null 2>&1 && break
             sleep 2
           done
-          if ${bao} status -format=json 2>/dev/null | ${jq} -e '.sealed == true' >/dev/null 2>&1; then
+          if status | ${jq} -e '.sealed == true' >/dev/null 2>&1; then
+            # stderr NOT swallowed — an unseal failure must reach the journal.
             ${bao} operator unseal "$(cat /run/secrets/vault_unseal_key)" >/dev/null
           fi
           # Fail loudly unless the store is verifiably unsealed — a silent
           # fall-through must show as a red unit, not "Finished".
-          ${bao} status -format=json 2>/dev/null | ${jq} -e '.sealed == false' >/dev/null 2>&1
+          status | ${jq} -e '.sealed == false' >/dev/null 2>&1
         '';
       };
     };
