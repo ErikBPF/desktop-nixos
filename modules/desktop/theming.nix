@@ -12,6 +12,22 @@
         gtk-theme = "Tokyonight-Dark";
         icon-theme = "Papirus-Dark";
       };
+      # Nautilus (plan-B GUI file manager): right-click "Open in Terminal" → ghostty.
+      "com/github/stunkymonkey/nautilus-open-any-terminal" = {
+        terminal = "ghostty";
+        new-tab = false;
+        flatpak = "off";
+      };
+      "org/gnome/nautilus/preferences" = {
+        default-folder-viewer = "list-view";
+        show-hidden-files = true;
+        show-delete-permanently = true;
+        click-policy = "double";
+      };
+      "org/gtk/gtk4/settings/file-chooser" = {
+        sort-directories-first = true;
+        show-hidden = true;
+      };
     };
     gtk = {
       enable = true;

@@ -33,6 +33,8 @@ _: {
       ghostty
       libnotify
       nautilus
+      nautilus-python # loads nautilus-open-any-terminal extension
+      nautilus-open-any-terminal # right-click "Open in Terminal" → ghostty
       blueman
       clipse
       cliphist
