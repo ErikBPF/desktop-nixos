@@ -1,6 +1,6 @@
 ---
 title: Docs reorganization + INSTALL relocation and refresh
-status: Proposal
+status: Implemented (verified 2026-07-02) — all five phases executed. guides/ + reference/ + implemented/ + proposals/ layout live, INSTALL relocated to guides/install.md, docs-check wired into just check, README index regenerated with fact-based statuses. The §11 open question (restore old dendritic design vs write a contract) was resolved by the repo-structure proposal choosing docs/reference/dendritic-contract.md.
 date: 2026-06-26
 audience: Maintainers of desktop-nixos
 post-read-action: Approve the target docs layout and the INSTALL.md update scope, then execute the phases in order.
@@ -26,7 +26,7 @@ This proposal does two things:
    regenerated index.
 
 This is documentation-only. No host behavior changes. It complements, and does
-not replace, [`2026-06-24-repo-structure-improvements.md`](2026-06-24-repo-structure-improvements.md)
+not replace, [`2026-06-24-repo-structure-improvements.md`](../proposals/2026-06-24-repo-structure-improvements.md)
 (that proposal's Phase 6 "Refresh docs" is the seed for this one).
 
 ## 2. Current state (findings)

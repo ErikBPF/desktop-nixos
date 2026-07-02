@@ -5,7 +5,7 @@ recovered; SOUL directive + wiki-curator skill live; an in-turn ingest wrote
 `wiki/memory-architecture.md` and pushed `hermes` (`0a978dd`) with no
 session-reading (~134k tok — vs 253k for the old batch-read; remainder is the
 inherent multi-step agent-loop tax, reducible via fewer steps / disabled_toolsets).
-**Plan:** `docs/proposals/2026-06-26-hermes-native-llm-wiki.md`.
+**Plan:** `docs/implemented/2026-06-26-hermes-native-llm-wiki.md`.
 **Deferred sibling:** `docs/proposals/2026-06-25-hermes-agentmemory-integration.md`
 (agentmemory integration — parked for a later "unified approach").
 

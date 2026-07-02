@@ -5,7 +5,7 @@ microvms, this repo) plus the GitOps workloads (`homelab-gitops` sister repo,
 servarr-style — **not** Nix-deployed). Pairs with the two design docs:
 [`implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md)
 (the cluster) and
-[`proposals/2026-06-20-cluster-homelab-gitops.md`](../proposals/2026-06-20-cluster-homelab-gitops.md)
+[`implemented/2026-06-20-cluster-homelab-gitops.md`](../implemented/2026-06-20-cluster-homelab-gitops.md)
 (the workloads). Recipes in `justfile` remain the operational source of truth;
 this doc explains the shape and tracks what's left.
 

@@ -1,7 +1,15 @@
 # `homelab-gitops` — a production-mimicking platform layer for the kepler k3s cluster
 
 **Date:** 2026-06-20
-**Status:** Proposal (skeleton — judgment marked `TODO(erik)`)
+**Status:** Implemented (2026-07-02 audit) — the skeleton became the live
+`homelab-gitops` sister repo: 14 Argo CD applications Synced+Healthy on the
+kepler k3s cluster (Argo self-managed, in-cluster Vault + ESO AppRole,
+csi-driver-nfs fast/slow, Traefik default IngressClass, Harbor, KEDA,
+Jaeger+OTel, kube-state-metrics/alloy-metrics, podinfo demo). As-built record:
+[`reference/kepler-k3s-platform-status.md`](../reference/kepler-k3s-platform-status.md).
+Remaining `TODO(erik)` items below are enhancements, not gaps: external-dns
+provider choice, Jaeger storage/dual-sink tracing, Harbor blob-storage policy
+on the cluster side, multi-cluster ApplicationSet patterns.
 **Owner:** erik
 **Scope:** a NEW sister repo (servarr-style: symlink under `references/repos/`,
 `just` recipes) that adds a production-grade platform layer to the kepler k3s

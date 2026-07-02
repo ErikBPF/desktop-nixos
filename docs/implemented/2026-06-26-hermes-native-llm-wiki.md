@@ -1,6 +1,14 @@
 # Hermes native LLM wiki (no agentmemory) — PLAN
 
-**Status:** Active plan. **Pivot 2026-06-26:** drop agentmemory for now; hermes
+**Status:** Implemented (deployed 2026-06-27; unattended cron validated
+2026-06-29 04:02; audit 2026-07-02). All seven components shipped — `hermes`
+branch scaffold, scoped deploy key, declarative clone
+(`hermes-wiki-clone.service`), RW mount + ro key in `hermes-oci.nix`, SOUL
+directive, `wiki-curator` skill, daily `wiki-consolidate` cron. As-built
+record: [`../hermes-llm-wiki.md`](../hermes-llm-wiki.md). Remaining follow-ups
+(merge cadence, hard ingest trigger, token budget) are tracked in
+[`2026-06-29-hermes-deferred-improvements.md`](../proposals/2026-06-29-hermes-deferred-improvements.md)
+P2–P4. **Pivot 2026-06-26:** drop agentmemory for now; hermes
 maintains a Karpathy LLM Wiki natively (its own tools, no MCP). Unify with
 agentmemory later once the wiki structure is comfortable.
 **Supersedes (for now):** `2026-06-25-hermes-agentmemory-integration.md` (parked

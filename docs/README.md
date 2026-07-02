@@ -9,7 +9,7 @@ actually shipped. *Proposal* / *Plan* / *Backlog* = not built. *In progress* =
 partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 > This tree was reorganized per
-> [`proposals/2026-06-26-docs-reorg-and-install.md`](proposals/2026-06-26-docs-reorg-and-install.md):
+> [`implemented/2026-06-26-docs-reorg-and-install.md`](implemented/2026-06-26-docs-reorg-and-install.md):
 > `guides/` (install, obsidian), `reference/` (operational docs), `implemented/`
 > (shipped designs), `proposals/` (active RFCs only), and a `docs-check` link
 > gate wired into `just check`.
@@ -35,11 +35,11 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | Doc | Status |
 |-----|--------|
 | [`proposals/2026-05-23-home-assistant-declarative.md`](proposals/2026-05-23-home-assistant-declarative.md) | Proposal — declarative HA management. |
-| [`proposals/2026-05-27-home-assistant-voice-assistant.md`](proposals/2026-05-27-home-assistant-voice-assistant.md) | Proposal — HA voice assistant (Phase 1 branch lives in `home-assistant-config`). |
+| [`proposals/2026-05-27-home-assistant-voice-assistant.md`](proposals/2026-05-27-home-assistant-voice-assistant.md) | Mostly implemented (audit 2026-07-02) — Phases 0–2 shipped in `home-assistant-config` (LiteLLM STT/TTS, LLM brain, web search), Phase 3 partial (openWakeWord + Atom Echo live). Open: §6 synergies. |
 | [`implemented/2026-06-16-printer-nixos-host.md`](implemented/2026-06-16-printer-nixos-host.md) | ✅ Implemented (2026-06-21) — BIQU B1 Klipper host `archinaut`. |
 | [`implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](implemented/2026-06-19-kepler-k3s-microvm-cluster.md) | ✅ Implemented (core, live) — kepler k3s MicroVM cluster; 3 CP + workers running. |
 | [`implemented/2026-06-20-archinaut-kernel-direct-boot.md`](implemented/2026-06-20-archinaut-kernel-direct-boot.md) | ✅ Implemented (2026-06-21) — kernel-direct boot on the RPi 3B+. |
-| [`proposals/2026-06-20-cluster-homelab-gitops.md`](proposals/2026-06-20-cluster-homelab-gitops.md) | Proposal (skeleton, `TODO`) — `homelab-gitops` sister repo (Argo CD, ESO→Vault). |
+| [`implemented/2026-06-20-cluster-homelab-gitops.md`](implemented/2026-06-20-cluster-homelab-gitops.md) | ✅ Implemented (audit 2026-07-02) — `homelab-gitops` sister repo live: 14 Argo CD apps Synced+Healthy on kepler k3s (Argo self-managed, in-cluster Vault+ESO, csi-driver-nfs, Traefik, Harbor, KEDA, Jaeger+OTel). Remaining `TODO`s are enhancements (external-dns, dual tracing sinks, multi-cluster). |
 | [`proposals/2026-06-20-lazy-trees-determinate-nix.md`](proposals/2026-06-20-lazy-trees-determinate-nix.md) | Plan (skeleton, `TODO`) — lazy-trees / Determinate Nix. |
 | [`implemented/2026-06-20-telemetry-hardening.md`](implemented/2026-06-20-telemetry-hardening.md) | ✅ Implemented (2026-06-27) — Grafana/Loki/Prometheus hardening; core was already live, §5 structured-metadata + Logs Drilldown deployed. |
 | [`implemented/2026-06-20-unifi-declarative-config.md`](implemented/2026-06-20-unifi-declarative-config.md) | ✅ Implemented — declarative UDM config in the `homelab-iac` sister repo. |
@@ -51,9 +51,10 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`proposals/2026-06-24-source-backed-host-improvements.md`](proposals/2026-06-24-source-backed-host-improvements.md) | Proposal — source-backed host security/perf/usability review. |
 | [`proposals/2026-06-25-hermes-agentmemory-integration.md`](proposals/2026-06-25-hermes-agentmemory-integration.md) | Plan — **supersedes** `hermes-deferred-plans` §1. |
 | [`proposals/2026-06-25-hermes-deferred-plans.md`](proposals/2026-06-25-hermes-deferred-plans.md) | Backlog — partly superseded by `hermes-agentmemory-integration`. |
-| [`proposals/2026-06-26-docs-reorg-and-install.md`](proposals/2026-06-26-docs-reorg-and-install.md) | Proposal — this docs reorganization + INSTALL relocation/refresh. |
+| [`implemented/2026-06-26-docs-reorg-and-install.md`](implemented/2026-06-26-docs-reorg-and-install.md) | ✅ Implemented (verified 2026-07-02) — this docs layout (guides/reference/implemented/proposals), INSTALL → `guides/install.md`, `docs-check` gate in `just check`. |
+| [`implemented/2026-06-26-hermes-native-llm-wiki.md`](implemented/2026-06-26-hermes-native-llm-wiki.md) | ✅ Implemented (2026-06-27; unattended cron validated 2026-06-29) — hermes-maintained Karpathy LLM wiki on the `hermes` branch (deploy key, declarative clone, wiki-curator skill, daily consolidate cron). As-built: [`hermes-llm-wiki.md`](hermes-llm-wiki.md). Follow-ups tracked in `hermes-deferred-improvements` P2–P4. |
 | [`implemented/2026-06-28-cloudflare-token-terraform-migration.md`](implemented/2026-06-28-cloudflare-token-terraform-migration.md) | ✅ Implemented (2026-06-30) — Cloudflare tokens Terraform-managed in homelab-iac (least-scope, rotatable); one bootstrap token stays manual. Ph3 adopted the HA tunnel via `ignore_changes=[secret]` (write-only secret, no rotation/outage). |
-| [`proposals/2026-06-29-grafana-fleet-monitoring.md`](proposals/2026-06-29-grafana-fleet-monitoring.md) | Proposal (skeleton, `TODO`) — complete Grafana monitoring: host health, per-host container stacks (docker/podman), k3s cluster; all alerting to Discord. |
+| [`proposals/2026-06-29-grafana-fleet-monitoring.md`](proposals/2026-06-29-grafana-fleet-monitoring.md) | In progress — Phase 1 implemented 2026-07-01 (host-health + voyager-offsite + platform-vault + backups alert groups live); Phase 2 blocked on the cadvisor name-metric gap, Phase 3 (k3s rules) not started. |
 | [`implemented/2026-06-29-repo-ssot-srp.md`](implemented/2026-06-29-repo-ssot-srp.md) | ✅ Implemented (2026-06-29) — SSOT per fact + SRP per repo across the 8-repo ecosystem. P0/P1/P2/P3/P5 (`fleet.json` topology+domains SSOT, consumers live in justfile + homelab-iac + servarr drift-check; CLAUDE.md ownership map + D1–D9 + SRP tree) + **P4** (kindle-dash → standalone OSS, `ghcr.io/erikbpf/kindle-dash` + Harbor `library` mirror, servarr pins the digest). |
 | [`implemented/2026-06-29-vault-secrets-platform.md`](implemented/2026-06-29-vault-secrets-platform.md) | ✅ Implemented (P3.0–P3.2) — platform Vault as runtime-secret SSOT (docker via vault-agent, k8s via ESO, iac via provider), sops as root-of-trust/bootstrap; in-cluster Vault repositioned to discovery. P3.3 servarr→Vault in progress. |
 | [`implemented/2026-06-29-opencode-improvements.md`](implemented/2026-06-29-opencode-improvements.md) | ✅ Implemented (2026-06-29) — opencode config improvements (Phases G + L1–L3 + items 2+4). |

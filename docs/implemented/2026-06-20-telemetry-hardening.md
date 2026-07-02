@@ -8,7 +8,7 @@ Decisions in §7 resolved.
 **Owner:** erik
 **Scope:** the existing push-based observability stack (fleet + k3s Alloy →
 discovery's Grafana/Loki/Prometheus). NOT the new platform repo — see
-[`2026-06-20-cluster-homelab-gitops.md`](../proposals/2026-06-20-cluster-homelab-gitops.md).
+[`2026-06-20-cluster-homelab-gitops.md`](2026-06-20-cluster-homelab-gitops.md).
 
 > Researched against 2025–2026 guidance (Grafana, Prometheus, OTel, Tailscale,
 > CNCF/SRE) and cross-checked against our actual config. Headline: the stack is
