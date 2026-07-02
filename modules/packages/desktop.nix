@@ -72,12 +72,10 @@ _: {
       kdePackages.polkit-kde-agent-1
       qt6.qtbase
       qt6.qtwayland
-      tokyonight-gtk-theme
       papirus-icon-theme
       bibata-cursors
       vimix-cursors
       vimix-icon-theme
-      vimix-gtk-themes
       seahorse
       libsecret
 

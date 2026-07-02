@@ -35,6 +35,12 @@
     };
 
     nix-colors.url = "github:misterio77/nix-colors";
+
+    stylix = {
+      url = "github:nix-community/stylix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     sops-nix.url = "github:Mic92/sops-nix";
     claude-code-nix.url = "github:sadjow/claude-code-nix";
 

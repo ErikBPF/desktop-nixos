@@ -65,7 +65,6 @@
         {_args = ["EDITOR" "cursor"];}
         {_args = ["BROWSER" "brave"];}
         {_args = ["FILEMANAGER" "ghostty -e yazi"];}
-        {_args = ["GTK_THEME" "Tokyonight-Dark"];}
         {_args = ["ADW_DEBUG_COLOR_SCHEME" "prefer-dark"];}
       ];
 
@@ -327,8 +326,8 @@
                     hl.exec_cmd("blueman-applet")
                     hl.exec_cmd("nm-applet --indicator")
                     hl.exec_cmd("tailscale-systray --accept-routes")
-                    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
-                    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
+                    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP ADW_DEBUG_COLOR_SCHEME")
+                    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP ADW_DEBUG_COLOR_SCHEME")
                     hl.exec_cmd("ghostty -e btop",            { workspace = 11 })
                     hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
                     hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })

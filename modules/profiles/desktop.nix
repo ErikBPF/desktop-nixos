@@ -14,6 +14,7 @@ in {
 
       m.nixos.laptop-hermes-client
       m.nixos.laptop-opencode-client
+      m.nixos.stylix
       m.nixos.hyprland
       m.nixos.sddm
       m.nixos.fonts
@@ -42,6 +43,7 @@ in {
       m.home.easyeffects
       m.home.rofi
       m.home.wlogout
+      m.home.stylix
       m.home.mime
       m.home.yazi-desktop
       m.home.fonts
