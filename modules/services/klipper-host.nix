@@ -210,7 +210,6 @@ in {
         klipperSocket = config.services.klipper.apiSocket;
         settings =
           {
-            server.enable_debug_logging = false;
             file_manager.enable_object_processing = true;
             authorization = {
               cors_domains = [
