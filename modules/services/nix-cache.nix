@@ -48,13 +48,23 @@
         git fetch --prune origin
         git reset --hard origin/main
 
+        # One host's broken closure must not skip the others' warm (observed
+        # 2026-07-02: laptop's requireFile ampagent failed and aborted the
+        # run before discovery/kepler were built). Attempt every host, fail
+        # the unit at the end so the failure still surfaces.
         echo ":: Building host closures..."
-        nix build .#nixosConfigurations.orion.config.system.build.toplevel --no-link
-        nix build .#nixosConfigurations.pathfinder.config.system.build.toplevel --no-link
-        nix build .#nixosConfigurations.laptop.config.system.build.toplevel --no-link
-        nix build .#nixosConfigurations.discovery.config.system.build.toplevel --no-link
-        nix build .#nixosConfigurations.kepler.config.system.build.toplevel --no-link
+        failed=""
+        for host in orion pathfinder laptop discovery kepler; do
+          if ! nix build ".#nixosConfigurations.$host.config.system.build.toplevel" --no-link; then
+            echo ":: WARNING: $host closure failed" >&2
+            failed="$failed $host"
+          fi
+        done
 
+        if [ -n "$failed" ]; then
+          echo ":: Cache builder finished with failures:$failed" >&2
+          exit 1
+        fi
         echo ":: Cache builder complete"
       '';
     };
