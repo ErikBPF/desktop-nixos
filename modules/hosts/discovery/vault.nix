@@ -257,15 +257,58 @@
         RemainAfterExit = true;
         ExecStart = pkgs.writeShellScript "openbao-unseal" ''
           export BAO_ADDR=${addr}
-          # Wait until the server responds (sealed status still answers).
-          for _ in $(seq 1 30); do
+          # Wait until the server responds (sealed status still answers). Raft
+          # log replay after an unclean shutdown can outlast a short window —
+          # the 2026-06-30 boot took >60s to answer, the old 30×2s loop timed
+          # out, both checks below fell through, and the unit reported success
+          # while the store stayed sealed for ~21h. Poll generously.
+          for _ in $(seq 1 150); do
             ${bao} status -format=json 2>/dev/null | ${jq} -e 'has("sealed")' >/dev/null 2>&1 && break
             sleep 2
           done
           if ${bao} status -format=json 2>/dev/null | ${jq} -e '.sealed == true' >/dev/null 2>&1; then
             ${bao} operator unseal "$(cat /run/secrets/vault_unseal_key)" >/dev/null
           fi
+          # Fail loudly unless the store is verifiably unsealed — a silent
+          # fall-through must show as a red unit, not "Finished".
+          ${bao} status -format=json 2>/dev/null | ${jq} -e '.sealed == false' >/dev/null 2>&1
         '';
+      };
+    };
+
+    # Seal-status probe: the 2026-06-30 incident left the store sealed for ~21h
+    # with every consumer (vault-agent renders, lab ESO) silently broken —
+    # nothing watched seal state. Write an openbao_sealed gauge to the
+    # node_exporter textfile dir every 5 min; Grafana alerts on sealed==1
+    # (servarr rules.yaml, uid openbao-sealed). /v1/sys/seal-status is
+    # unauthenticated, so no token dependency (it must work exactly when the
+    # store is sealed). Probe failure writes sealed=1: unreachable == unusable.
+    systemd.services.openbao-seal-probe = {
+      description = "Export OpenBao seal status as a node_exporter textfile metric";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = pkgs.writeShellScript "openbao-seal-probe" ''
+          set -eu
+          sealed=$(${pkgs.curl}/bin/curl -fsS -m 10 ${addr}/v1/sys/seal-status \
+            | ${jq} -r 'if .sealed then 1 else 0 end' || echo 1)
+          d=/var/lib/node-exporter-textfile
+          tmp=$(${pkgs.coreutils}/bin/mktemp "$d/.openbao_sealed.XXXXXX")
+          {
+            echo "# HELP openbao_sealed 1 when the OpenBao store is sealed or unreachable, 0 when unsealed."
+            echo "# TYPE openbao_sealed gauge"
+            echo "openbao_sealed $sealed"
+          } > "$tmp"
+          ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+          ${pkgs.coreutils}/bin/mv "$tmp" "$d/openbao_sealed.prom"
+        '';
+      };
+    };
+
+    systemd.timers.openbao-seal-probe = {
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnBootSec = "2m";
+        OnUnitActiveSec = "5m";
       };
     };
 
