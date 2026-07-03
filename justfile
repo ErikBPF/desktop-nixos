@@ -13,7 +13,7 @@ ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
 ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
-orion_builder := "ssh-ng://erik@" + ip_orion + " x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
+orion_builder := "ssh-ng://erik@" + ip_orion + " i686-linux,x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
 
 default:
     @just --list
