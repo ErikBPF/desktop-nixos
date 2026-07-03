@@ -48,6 +48,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-desktop
+      m.nixos.systemd-boot-counting
       m.nixos.pathfinder-hardware
       m.nixos.pathfinder-networking
       m.nixos.pathfinder-syncthing
@@ -71,19 +72,17 @@ in {
     hardware.cpu.intel.updateMicrocode = true;
     boot.kernelPackages = pkgs.linuxPackages_zen;
 
+    # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
+    # module imported above (it force-disables GRUB and adds panic/watchdog
+    # wiring). systemd-boot auto-detects the Windows Boot Manager, so the
+    # dual-boot entry survives the switch; GRUB os-prober's other-Linux entries
+    # (if any) would not carry over.
     boot = {
       kernelParams = ["nohibernate"];
       supportedFilesystems = ["ntfs"];
       loader = {
         efi.canTouchEfiVariables = true;
-        grub = {
-          device = "nodev";
-          efiSupport = true;
-          enable = true;
-          useOSProber = true;
-          timeoutStyle = "menu";
-          configurationLimit = 3;
-        };
+        systemd-boot.configurationLimit = 3;
         timeout = 1;
       };
     };
@@ -105,6 +104,8 @@ in {
       flags = ["--show-trace"];
       allowReboot = false;
       dates = "05:00";
+      # Stagger off the 05:00 herd (orion cache settles by 04:30).
+      randomizedDelaySec = "900";
     };
 
     services.openssh.enable = true;

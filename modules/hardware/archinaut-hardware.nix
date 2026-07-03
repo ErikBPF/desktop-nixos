@@ -50,6 +50,11 @@
           wifi = {
             ssid = "Que Wifi?";
             mode = "infrastructure";
+            # 2 = disable NM WiFi power-save. brcmfmac (RPi3 onboard radio)
+            # defaults PS on; the idle link silently blackholed overnight (STA
+            # stayed "associated", AP aged it out, no reconnect) — host up but
+            # unreachable. Force PS off so the radio holds association when idle.
+            powersave = 2;
           };
           wifi-security = {
             key-mgmt = "wpa-psk";

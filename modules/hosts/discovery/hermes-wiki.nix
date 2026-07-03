@@ -87,14 +87,24 @@
       description = "Bootstrap the hermes LLM-wiki clone (vault.git @ hermes)";
       wantedBy = ["multi-user.target"];
       before = ["docker-hermes-agent.service"];
-      after = ["network-online.target" "sops-nix.service"];
-      wants = ["network-online.target"];
+      # nss-lookup.target for DNS; but network-online.target still fires before
+      # the default route is actually usable on this host (seen at boot:
+      # "ssh: connect to github.com port 22: Network is unreachable"), so retry.
+      after = ["network-online.target" "nss-lookup.target" "sops-nix.service"];
+      wants = ["network-online.target" "nss-lookup.target"];
       path = [pkgs.git pkgs.openssh pkgs.coreutils];
+      # Boot network race: the github clone runs before routing is up on a cold
+      # boot and fails. Retry a handful of times until the network settles rather
+      # than failing the unit for the rest of the session.
+      startLimitIntervalSec = 300;
+      startLimitBurst = 10;
       serviceConfig = {
         Type = "oneshot";
         User = "hermes";
         Group = "hermes";
         RemainAfterExit = true;
+        Restart = "on-failure";
+        RestartSec = "15s";
       };
       script = ''
         set -euo pipefail

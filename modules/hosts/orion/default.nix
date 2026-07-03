@@ -17,6 +17,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       inputs.jovian.nixosModules.default
       m.nixos.profile-base
+      m.nixos.systemd-boot-counting
       m.nixos.orion-hardware
       m.nixos.orion-networking
       m.nixos.orion-syncthing
@@ -110,16 +111,12 @@ in {
         # (warn+sleep) stutters game threads. Disable on a single-user HTPC.
         "kernel.split_lock_mitigate" = 0;
       };
+      # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
+      # module imported above (grub off, panic=10). Migrated GRUB → systemd-boot
+      # 2026-07-03; /boot is the vfat ESP; cap at 2 generations for the 512M ESP.
       loader = {
         efi.canTouchEfiVariables = true;
-        grub = {
-          device = "nodev";
-          efiSupport = true;
-          enable = true;
-          useOSProber = false;
-          timeoutStyle = "menu";
-          configurationLimit = 3;
-        };
+        systemd-boot.configurationLimit = 2;
         timeout = 3;
       };
     };
@@ -177,10 +174,19 @@ in {
     system.autoUpgrade = {
       enable = true;
       flake = "github:ErikBPF/desktop-nixos#orion";
-      operation = "switch";
+      # boot (not live switch): a nightly kernel/GPU-driver bump activated live
+      # mismatches the running module. Staging for next boot + rebooting in-window
+      # keeps kernel and driver in lockstep. orion is the fleet cache/builder, so
+      # it upgrades and reboots FIRST (04:00–04:30) — dependents then substitute
+      # from a settled cache at 05:00 instead of hammering it mid-reboot.
+      operation = "boot";
       flags = ["--show-trace"];
-      allowReboot = false;
-      dates = "05:00";
+      allowReboot = true;
+      dates = "04:00";
+      rebootWindow = {
+        lower = "04:00";
+        upper = "04:30";
+      };
     };
 
     services.openssh.enable = true;

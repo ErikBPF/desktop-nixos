@@ -16,6 +16,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
+      m.nixos.systemd-boot-counting
       m.nixos.discovery-hardware
       m.nixos.discovery-networking
       m.nixos.discovery-diagnostics
@@ -113,16 +114,11 @@ in {
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.intel.updateMicrocode = true;
 
-    boot.loader = {
-      efi.canTouchEfiVariables = true;
-      grub = {
-        enable = true;
-        device = "nodev";
-        efiSupport = true;
-        useOSProber = false;
-        configurationLimit = 3;
-      };
-    };
+    # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
+    # module imported above (grub off, panic=10). Migrated GRUB → systemd-boot
+    # 2026-07-03. /boot is the vfat ESP; cap at ~2 generations for the 512M ESP.
+    boot.loader.efi.canTouchEfiVariables = true;
+    boot.loader.systemd-boot.configurationLimit = 2;
 
     boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 53;
 
@@ -131,10 +127,18 @@ in {
     system.autoUpgrade = {
       enable = true;
       flake = "github:ErikBPF/desktop-nixos#discovery";
-      operation = "switch";
+      # boot + in-window reboot: avoids a live nvidia/kernel-bump driver mismatch.
+      # discovery runs OpenBao — a reboot seals it, but boot auto-unseal recovers
+      # (see openbao seal-probe). randomizedDelaySec staggers off the orion cache.
+      operation = "boot";
       flags = ["--show-trace"];
-      allowReboot = false;
+      allowReboot = true;
       dates = "05:00";
+      randomizedDelaySec = "900";
+      rebootWindow = {
+        lower = "05:00";
+        upper = "06:00";
+      };
     };
   };
 }

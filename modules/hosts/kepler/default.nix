@@ -16,6 +16,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
+      m.nixos.systemd-boot-counting
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
       m.nixos.kepler-syncthing
@@ -58,19 +59,12 @@ in {
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.amd.updateMicrocode = true;
 
-    boot.loader = {
-      efi.canTouchEfiVariables = true;
-      grub = {
-        enable = true;
-        device = "nodev";
-        efiSupport = true;
-        useOSProber = false;
-        # kepler's initrds are ~180 MB (ZFS + nvidia + modules) and the ESP is only
-        # 512 MB, so it can hold ~2 generations. 5 overflowed /boot. Keep 2.
-        # NOTE: the deeper fix is a smaller initrd or a larger ESP — see below.
-        configurationLimit = 2;
-      };
-    };
+    # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
+    # module imported above (grub off, panic=10). Migrated GRUB → systemd-boot
+    # 2026-07-03; /boot is already the vfat ESP. ESP is 512 MB / initrds ~180 MB,
+    # so cap at ~2 generations (same as GRUB held).
+    boot.loader.efi.canTouchEfiVariables = true;
+    boot.loader.systemd-boot.configurationLimit = 2;
 
     # ZFS hostId — generated from /etc/machine-id on live ISO (head -c 8 /etc/machine-id)
     networking.hostId = "cf7e11b5";
@@ -88,10 +82,19 @@ in {
     system.autoUpgrade = {
       enable = true;
       flake = "github:ErikBPF/desktop-nixos#kepler";
-      operation = "switch";
+      # boot + in-window reboot: a live switch of an nvidia/kernel bump breaks the
+      # running CUDA driver (module vs kernel mismatch) — the same reason the manual
+      # path uses deploy-rs-boot. A fresh boot keeps them matched. randomizedDelaySec
+      # staggers the 05:00 herd off the orion cache (which settles by 04:30).
+      operation = "boot";
       flags = ["--show-trace"];
-      allowReboot = false;
+      allowReboot = true;
       dates = "05:00";
+      randomizedDelaySec = "900";
+      rebootWindow = {
+        lower = "05:00";
+        upper = "06:00";
+      };
     };
   };
 }

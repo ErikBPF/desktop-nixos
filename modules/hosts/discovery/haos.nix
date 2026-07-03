@@ -7,6 +7,11 @@
     # --- KVM / libvirt ---
     virtualisation.libvirtd = {
       enable = true;
+      # Cleanly shut the VM down on host shutdown instead of suspending (saving
+      # RAM state). A saved state is invalid after a kernel/generation change, so
+      # libvirt-guests fails to resume it on the next boot; HAOS then starts fresh
+      # anyway (onBoot defaults to "start"). Shutting down avoids the failed unit.
+      onShutdown = "shutdown";
       qemu = {
         # ovmf.enable removed in NixOS 25.05 — OVMF bundled with QEMU by default
         swtpm.enable = true; # TPM 2.0 emulator (HAOS requires it)

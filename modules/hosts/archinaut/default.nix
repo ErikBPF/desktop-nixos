@@ -48,6 +48,9 @@ in {
       flags = ["--show-trace"];
       allowReboot = false;
       dates = "05:00";
+      # Stagger off the 05:00 herd so this 1 GB aarch64 Pi substitutes from a
+      # settled orion cache (done by 04:30) instead of racing a busy builder.
+      randomizedDelaySec = "900";
     };
 
     # 1 GB RPi3 trims: no SMART-capable disk (SD card), and the RPi kernel

@@ -272,6 +272,8 @@ in {
       flags = ["--show-trace"];
       allowReboot = false;
       dates = "05:00";
+      # Stagger off the 05:00 herd (orion cache settles by 04:30).
+      randomizedDelaySec = "900";
     };
 
     services.openssh.enable = true;
