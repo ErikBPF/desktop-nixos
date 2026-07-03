@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.alloy = _: {
+  flake.modules.nixos.alloy = {config, ...}: {
     services.alloy = {
       enable = true;
       # Bind the Alloy HTTP UI/API to localhost only — it contains pipeline
@@ -32,7 +32,11 @@ _: {
       // ============================================================================
       loki.source.journal "journal" {
         forward_to = [loki.write.loki.receiver]
-        labels     = { "source" = "journal", "host" = sys.env("HOSTNAME") }
+        // Hostname is baked in at build time: sys.env("HOSTNAME") is unset in
+        // the systemd unit environment, which left the host label EMPTY on all
+        // fleet hosts (found 2026-07-03 building the Logs dashboard — journal
+        // was one unlabeled fleet-wide stream).
+        labels     = { "source" = "journal", "host" = "${config.networking.hostName}" }
       }
 
       loki.write "loki" {
@@ -93,7 +97,9 @@ _: {
       prometheus.scrape "tailscale" {
         targets = [{
           __address__ = "100.100.100.100:80",
-          instance    = sys.env("HOSTNAME"),
+          // Build-time hostname — sys.env("HOSTNAME") is empty in the unit env
+          // (same bug as the journal host label above).
+          instance    = "${config.networking.hostName}",
         }]
         metrics_path    = "/metrics"
         forward_to      = [prometheus.remote_write.prometheus.receiver]
