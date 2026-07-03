@@ -63,3 +63,6 @@ haos-backup/
 references/
 ampagent*
 data/
+
+# git-hooks.nix generated (symlink to nix store)
+.pre-commit-config.yaml

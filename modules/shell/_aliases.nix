@@ -103,6 +103,13 @@ _: {
   cc = "code . ; claude --dangerously-skip-permissions"; # open editor + claude
   e = "code ."; # editor in cwd
 
+  # --- Codex / OpenCode (yolo by default, mirroring `c`) ---
+  cx = "codex --dangerously-bypass-approvals-and-sandbox"; # default codex
+  cxc = "code . ; codex --dangerously-bypass-approvals-and-sandbox"; # editor + codex
+  oc = "opencode --auto"; # default opencode (auto-approve)
+  occ = "code . ; opencode --auto"; # editor + opencode
+  nv = "nvim ."; # neovim in cwd (mirrors `e`)
+
   # --- Repo jumps ---
   dnix = "cd ~/Documents/erik/desktop-nixos";
   ddp = "cd ~/Documents/nstech/dataplatform";

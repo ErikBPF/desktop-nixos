@@ -35,7 +35,18 @@ _: {
     programs.yazi = {
       # Put helper binaries on yazi's own PATH (not the whole session).
       # wl-clipboard = wl-copy, needed for yazi's `c` copy-to-clipboard menu on Wayland.
-      extraPackages = [pkgs.ripdrag pkgs.ouch pkgs.wl-clipboard];
+      # The rest enrich the preview pane: chafa (images), poppler_utils (PDF text),
+      # exiftool (media metadata), p7zip/unzip (archive browse alongside ouch).
+      extraPackages = [
+        pkgs.ripdrag
+        pkgs.ouch
+        pkgs.wl-clipboard
+        pkgs.chafa
+        pkgs.poppler-utils
+        pkgs.exiftool
+        pkgs.p7zip
+        pkgs.unzip
+      ];
 
       plugins = {
         # setup = true → HM emits require("<name>"):setup(settings) in init.lua.

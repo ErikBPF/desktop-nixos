@@ -29,6 +29,7 @@ in {
       m.nixos.common
       m.nixos.user
       m.nixos.packages-shared
+      m.nixos.nix-tooling
       m.nixos.overlays
       m.nixos.sops
       m.nixos.upgrade-health-check

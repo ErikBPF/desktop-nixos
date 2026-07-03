@@ -44,6 +44,7 @@ in {
       m.home.rofi
       m.home.wlogout
       m.home.stylix
+      m.home.udiskie
       m.home.mime
       m.home.yazi-desktop
       m.home.fonts
@@ -56,6 +57,7 @@ in {
       m.home.obsidian
       m.home.obsidian-sync
       m.home.vscode
+      m.home.nvim
       m.home.claude-code
       m.home.codex
       m.home.opencode

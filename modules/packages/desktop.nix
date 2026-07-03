@@ -28,6 +28,17 @@ _: {
       gnome.gvfs
       imv
 
+      # --- CLI / QoL ---
+      zellij # terminal multiplexer (splits, tabs, session persistence)
+      tealdeer # tldr — command cheatsheets
+      television # fast fuzzy picker (files/git/env)
+      procs # modern ps
+      bandwhich # live per-process network usage
+      glow # render markdown in the terminal
+      wf-recorder # screen recording (Wayland)
+      wl-screenrec # screen recording (Wayland, hw-encoded)
+      satty # screenshot annotation
+
       # --- Desktop Utilities ---
       kitty
       ghostty

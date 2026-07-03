@@ -36,6 +36,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | Doc | Status |
 |-----|--------|
 | [`proposals/2026-05-23-home-assistant-declarative.md`](proposals/2026-05-23-home-assistant-declarative.md) | Proposal — declarative HA management. |
+| [`proposals/2026-07-03-impermanence-ephemeral-root.md`](proposals/2026-07-03-impermanence-ephemeral-root.md) | Proposal (skeleton, `TODO`) — ephemeral root on btrfs via nix-community/impermanence; wipe `/` on boot, persist only declared paths. Decision gates: wipe mechanism, home strategy, rollout order. |
 | [`implemented/2026-05-27-home-assistant-voice-assistant.md`](implemented/2026-05-27-home-assistant-voice-assistant.md) | ✅ Implemented (audit 2026-07-02) — Phases 0–3 core shipped in `home-assistant-config` (LiteLLM STT/TTS, LLM brain, web search, openWakeWord + Atom Echo). §6 synergies are future enhancements (backlog A12). |
 | [`implemented/2026-06-16-printer-nixos-host.md`](implemented/2026-06-16-printer-nixos-host.md) | ✅ Implemented (2026-06-21) — BIQU B1 Klipper host `archinaut`. |
 | [`implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](implemented/2026-06-19-kepler-k3s-microvm-cluster.md) | ✅ Implemented (core, live) — kepler k3s MicroVM cluster; 3 CP + workers running. |
