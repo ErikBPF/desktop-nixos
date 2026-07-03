@@ -62,7 +62,6 @@
             (mkLuaInline ''(os.getenv("HOME") or "") .. "/.XCompose"'')
           ];
         }
-        {_args = ["EDITOR" "cursor"];}
         {_args = ["BROWSER" "brave"];}
         {_args = ["FILEMANAGER" "ghostty -e yazi"];}
         {_args = ["ADW_DEBUG_COLOR_SCHEME" "prefer-dark"];}

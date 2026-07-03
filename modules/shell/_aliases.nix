@@ -53,7 +53,6 @@ _: {
 
   # --- Ides ---
   code = "code 2>/dev/null"; # Launch code cleanly
-  cursor = "cursor 2>/dev/null"; # Launch cursor cleanly
 
   nrs = "sudo nixos-rebuild switch";
   urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";

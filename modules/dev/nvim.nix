@@ -9,7 +9,7 @@
 
     programs.nixvim = {
       enable = true;
-      defaultEditor = false; # leave $EDITOR as-is (cursor); nvim is opt-in
+      defaultEditor = true; # $EDITOR = nvim (cursor removed; VSCode + nvim are the editors)
 
       # Formatter/linter binaries on nvim's PATH (conform/nvim-lint call these).
       extraPackages = with pkgs; [

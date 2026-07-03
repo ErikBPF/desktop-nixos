@@ -35,7 +35,6 @@ _: {
       procs # modern ps
       bandwhich # live per-process network usage
       glow # render markdown in the terminal
-      wf-recorder # screen recording (Wayland)
       wl-screenrec # screen recording (Wayland, hw-encoded)
       satty # screenshot annotation
 
@@ -104,11 +103,6 @@ _: {
       freecad # gen_step.py STEP export (import FreeCAD, Part)
       mongodb-compass
       github-desktop
-      code-cursor-fhs
-      kiro-fhs
-      kiro-cli
-      cursor-cli
-      antigravity-fhs
       opencode
       gemini-cli
       claude-code

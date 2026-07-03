@@ -15,6 +15,7 @@ in {
       m.nixos.laptop-hermes-client
       m.nixos.laptop-opencode-client
       m.nixos.stylix
+      m.nixos.nix-index
       m.nixos.hyprland
       m.nixos.sddm
       m.nixos.fonts
