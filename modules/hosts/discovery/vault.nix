@@ -270,8 +270,16 @@
             sleep 2
           done
           if status | ${jq} -e '.sealed == true' >/dev/null 2>&1; then
-            # stderr NOT swallowed — an unseal failure must reach the journal.
-            ${bao} operator unseal "$(cat /run/secrets/vault_unseal_key)" >/dev/null
+            # curl, not the bao CLI: the CLI shells out for its token helper
+            # and died with `exec: "sh": executable file not found in $PATH`
+            # in unit context (2026-07-03 cold boot — store stayed sealed
+            # until a manual unseal). /v1/sys/unseal is unauthenticated by
+            # design. jq --rawfile keeps the key out of argv/proc; stderr NOT
+            # swallowed — an unseal failure must reach the journal.
+            ${jq} -n --rawfile k /run/secrets/vault_unseal_key \
+              '{key: ($k | rtrimstr("\n"))}' \
+              | ${pkgs.curl}/bin/curl -fsS -m 10 -X PUT --data @- \
+                  ${addr}/v1/sys/unseal >/dev/null
           fi
           # Fail loudly unless the store is verifiably unsealed — a silent
           # fall-through must show as a red unit, not "Finished".
