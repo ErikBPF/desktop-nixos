@@ -29,6 +29,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`reference/service-exposure.md`](reference/service-exposure.md) | Discovery exposure audit: what's LAN/tailnet/internet-reachable and why — Docker-published ports bypass the NixOS firewall. Re-audit with `just verify-firewall`. | As-built (2026-07-01) |
 | [`guides/obsidian.md`](guides/obsidian.md) | Obsidian + sync configuration for the desktop hosts. | Guide |
 | [`guides/install.md`](guides/install.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). | Guide |
+| [`guides/yazi.md`](guides/yazi.md) | Yazi file manager for GUI users: GUI→yazi keymap bridge, cheatsheet popup, Nautilus fallback. | Guide |
 
 ## Designs and proposals
 

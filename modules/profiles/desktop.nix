@@ -43,6 +43,7 @@ in {
       m.home.rofi
       m.home.wlogout
       m.home.mime
+      m.home.yazi-desktop
       m.home.fonts
       m.home.theming
       m.home.clipboard

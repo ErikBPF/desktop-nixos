@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.alloy = _: {
+  flake.modules.nixos.alloy = {config, ...}: {
     services.alloy = {
       enable = true;
       # Bind the Alloy HTTP UI/API to localhost only — it contains pipeline
@@ -32,7 +32,11 @@ _: {
       // ============================================================================
       loki.source.journal "journal" {
         forward_to = [loki.write.loki.receiver]
-        labels     = { "source" = "journal", "host" = sys.env("HOSTNAME") }
+        // Hostname is baked in at build time: sys.env("HOSTNAME") is unset in
+        // the systemd unit environment, which left the host label EMPTY on all
+        // fleet hosts (found 2026-07-03 building the Logs dashboard — journal
+        // was one unlabeled fleet-wide stream).
+        labels     = { "source" = "journal", "host" = "${config.networking.hostName}" }
       }
 
       loki.write "loki" {
@@ -50,6 +54,20 @@ _: {
         textfile {
           directory = "/var/lib/node-exporter-textfile"
         }
+        // An amdgpu SMU firmware hang leaves hwmon sysfs reads blocked in
+        // uninterruptible D-state; NodeCollector.Collect waits on every
+        // collector, so one wedged read killed ALL host metrics on orion
+        // (2026-07-02, up==0 while the host was fine). Excluding the amdgpu
+        // chip caps the blast radius to GPU temps; CPU/board sensors still
+        // report. No-op on hosts without an AMD GPU.
+        hwmon {
+          chip_exclude = "amdgpu"
+        }
+        // AMD GPU busy % + VRAM (node_drm_gpu_busy_percent,
+        // node_drm_memory_vram_*) from /sys/class/drm. No-op on hosts without
+        // DRM devices; GPU temps stay excluded via the amdgpu chip_exclude
+        // above.
+        enable_collectors = ["drm"]
       }
 
       prometheus.scrape "host_metrics" {
@@ -68,6 +86,24 @@ _: {
         metrics_path    = "/metrics"
         forward_to      = [prometheus.remote_write.prometheus.receiver]
         scrape_interval = "30s"
+      }
+
+      // ============================================================================
+      // Tailscale client metrics — tailscaled serves Prometheus metrics on the
+      // magic IP (local-only, no auth, GA since 1.78). Differentiated value over
+      // node_network{device="tailscale0"}: direct-vs-DERP path split on
+      // tailscaled_{inbound,outbound}_bytes_total and tailscaled_health_messages.
+      // ============================================================================
+      prometheus.scrape "tailscale" {
+        targets = [{
+          __address__ = "100.100.100.100:80",
+          // Build-time hostname — sys.env("HOSTNAME") is empty in the unit env
+          // (same bug as the journal host label above).
+          instance    = "${config.networking.hostName}",
+        }]
+        metrics_path    = "/metrics"
+        forward_to      = [prometheus.remote_write.prometheus.receiver]
+        scrape_interval = "60s"
       }
 
       // ============================================================================

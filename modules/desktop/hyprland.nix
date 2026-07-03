@@ -87,7 +87,8 @@
 
         settings = {
           terminal = {_var = "ghostty";};
-          fileManager = {_var = "nautilus --new-window";};
+          fileManager = {_var = "ghostty -e yazi";};
+          fileManagerGui = {_var = "nautilus --new-window";};
           browser = {_var = "brave";};
           teamsApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/teams --no-first-run --no-default-browser-check --app=https://teams.microsoft.com/v2/";};
           whatsappApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/whatsapp --no-first-run --no-default-browser-check --app=https://web.whatsapp.com/";};
@@ -347,6 +348,8 @@
               {_args = ["SUPER + N" (mkLuaInline ''hl.dsp.exec_cmd(terminal .. " -e nvim")'')];}
               {_args = ["SUPER + T" (mkLuaInline "hl.dsp.exec_cmd(terminal)")];}
               {_args = ["SUPER + E" (mkLuaInline "hl.dsp.exec_cmd(fileManager)")];}
+              {_args = ["SUPER + SHIFT + E" (mkLuaInline "hl.dsp.exec_cmd(fileManagerGui)")];}
+              {_args = ["SUPER + slash" (mkLuaInline ''hl.dsp.exec_cmd("yazi-help")'')];}
               {_args = ["SUPER + D" (mkLuaInline ''hl.dsp.exec_cmd("pkill rofi || rofi -show drun")'')];}
               {_args = ["SUPER + W" (mkLuaInline "hl.dsp.window.close()")];}
               {_args = ["SUPER + Backspace" (mkLuaInline "hl.dsp.window.close()")];}
