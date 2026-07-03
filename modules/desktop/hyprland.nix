@@ -64,6 +64,11 @@
         }
         {_args = ["BROWSER" "brave"];}
         {_args = ["FILEMANAGER" "ghostty -e yazi"];}
+        # Force dark across toolkits for apps that ignore gsettings/settings.ini:
+        #   GTK_THEME → GTK2/3/4 apps (swappy, etc). Points at the EXISTING dark
+        #   variant (the earlier white-out was GTK_THEME=Tokyonight-Dark, deleted).
+        #   ADW_DEBUG_COLOR_SCHEME → libadwaita apps, portal-independent.
+        {_args = ["GTK_THEME" "adw-gtk3-dark"];}
         {_args = ["ADW_DEBUG_COLOR_SCHEME" "prefer-dark"];}
       ];
 
@@ -325,8 +330,8 @@
                     hl.exec_cmd("blueman-applet")
                     hl.exec_cmd("nm-applet --indicator")
                     hl.exec_cmd("tailscale-systray --accept-routes")
-                    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP ADW_DEBUG_COLOR_SCHEME")
-                    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP ADW_DEBUG_COLOR_SCHEME")
+                    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
+                    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
                     hl.exec_cmd("ghostty -e btop",            { workspace = 11 })
                     hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
                     hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
