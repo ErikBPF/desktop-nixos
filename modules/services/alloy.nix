@@ -59,6 +59,11 @@ _: {
         hwmon {
           chip_exclude = "amdgpu"
         }
+        // AMD GPU busy % + VRAM (node_drm_gpu_busy_percent,
+        // node_drm_memory_vram_*) from /sys/class/drm. No-op on hosts without
+        // DRM devices; GPU temps stay excluded via the amdgpu chip_exclude
+        // above.
+        enable_collectors = ["drm"]
       }
 
       prometheus.scrape "host_metrics" {
