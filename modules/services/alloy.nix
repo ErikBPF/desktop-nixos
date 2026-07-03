@@ -80,6 +80,22 @@ _: {
       }
 
       // ============================================================================
+      // Tailscale client metrics — tailscaled serves Prometheus metrics on the
+      // magic IP (local-only, no auth, GA since 1.78). Differentiated value over
+      // node_network{device="tailscale0"}: direct-vs-DERP path split on
+      // tailscaled_{inbound,outbound}_bytes_total and tailscaled_health_messages.
+      // ============================================================================
+      prometheus.scrape "tailscale" {
+        targets = [{
+          __address__ = "100.100.100.100:80",
+          instance    = sys.env("HOSTNAME"),
+        }]
+        metrics_path    = "/metrics"
+        forward_to      = [prometheus.remote_write.prometheus.receiver]
+        scrape_interval = "60s"
+      }
+
+      // ============================================================================
       // Prometheus remote write -> Discovery Prometheus (via Tailscale).
       // :9090/api/v1/write, --web.enable-remote-write-receiver enabled on the
       // Prometheus container (servarr discovery/monitoring.yml). The old :9009
