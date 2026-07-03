@@ -1,11 +1,14 @@
 # Fleet observability — complete the Grafana monitoring stack
 
-**Status:** In progress — forks decided + Phase 1 implemented 2026-07-01 (see
-below); Phase 2 blocked on the cadvisor name-metric gap. Phase 3 metrics are
-**half-live** (audit 2026-07-02): kube-state-metrics + kubelet cAdvisor flow
-into the discovery Prometheus via homelab-gitops `alloy-metrics` (`b0773ea`);
-control-plane scrape, traefik metrics, and all k8s alert rules still missing.
-See "Audit findings (2026-07-02)" below.
+**Status:** ✅ Implemented (2026-07-03) — deployed fleet-wide and verified
+end-to-end: 15 provisioned dashboards, 9 new scrape integrations (adguard,
+cloudflared, litellm, nvidia + AMD-drm GPU, tailscale client metrics, kubelet
+volume stats, Argo CD app health, llama.cpp), host-health + absent-host alert
+rules tuned against 7d of alert history, and four Alloy pipeline fixes (hwmon
+amdgpu exclusion, baked journal host label, i686 builder, OpenBao boot-unseal).
+Remaining scope (k8s alert rules, cadvisor name-label gap, unpoller, compose
+logs → Loki, …) graduated to
+`proposals/2026-07-03-observability-continuation.md`.
 **Date:** 2026-06-29
 **Audience:** Maintainers of `desktop-nixos` + `servarr`
 
