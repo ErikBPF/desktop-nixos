@@ -102,8 +102,21 @@ _: {
           instance    = "${config.networking.hostName}",
         }]
         metrics_path    = "/metrics"
-        forward_to      = [prometheus.remote_write.prometheus.receiver]
+        forward_to      = [prometheus.relabel.tailscale_keep.receiver]
         scrape_interval = "60s"
+      }
+
+      // Keep only the differentiated series named above — the rest of the
+      // endpoint duplicates node_network or is static gauges, ~40-60
+      // series/host across the fleet for nothing (mirrors the keep-stage
+      // discipline of the homelab-gitops in-cluster Alloy).
+      prometheus.relabel "tailscale_keep" {
+        rule {
+          source_labels = ["__name__"]
+          regex         = "tailscaled_(inbound|outbound)_(bytes|packets)_total|tailscaled_health_messages"
+          action        = "keep"
+        }
+        forward_to = [prometheus.remote_write.prometheus.receiver]
       }
 
       // ============================================================================
