@@ -77,6 +77,14 @@
       },
       "fqdn": null,
       "scope": "home"
+    },
+    "whisper": {
+      "backend": {
+        "host": "discovery",
+        "port": 4000
+      },
+      "fqdn": "whisper.pastelariadev.com",
+      "scope": "public"
     }
   }
 }

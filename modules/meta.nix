@@ -193,6 +193,19 @@
           };
           scope = "public";
         };
+        # whisper (LiteLLM STT) exposed for the cosmo-notes device outside home.
+        # LiteLLM is container-only on discovery's homelab-net (no host port), so
+        # the tunnel ingress targets http://litellm:4000 directly (see
+        # homelab-iac cloudflare/tunnel); backend here records the owning host.
+        # Edge is gated by Cloudflare Access (cloudflare/access).
+        whisper = {
+          fqdn = "whisper.pastelariadev.com";
+          backend = {
+            host = "discovery";
+            port = 4000;
+          };
+          scope = "public";
+        };
         # kepler-backed services (rpg, immich, openwebui) removed — kepler is the
         # lab/AI host; its service hostnames belong to homelab-gitops (D2), and
         # rpg/*.ai had no live backend. Re-add here only if a service becomes a
