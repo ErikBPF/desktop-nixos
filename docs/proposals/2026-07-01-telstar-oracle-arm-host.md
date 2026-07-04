@@ -2,8 +2,15 @@
 
 **Date:** 2026-07-01
 **Status:** Ready — fully staged, **blocked only on Oracle A1 host capacity**
-(external, not a work item). Not yet deployed. Graduates to `implemented/` on
-first successful cutover.
+(external, not a work item). Capture is now driven by a **persistent,
+declarative service** — `discovery-telstar-capture` (NixOS system service on the
+always-on discovery, `modules/hosts/discovery/telstar-capture.nix`, added
+2026-07-04) — which retries `terragrunt apply` on the `oracle/compute-telstar`
+unit every 60s until a free-tier slot appears, then prints the `public_ip`. On
+success: set `hosts.telstar.ip` in `meta.nix` → `just fleet-json` →
+`just deploy-telstar`. Runbook + auth details:
+`homelab-iac/oracle/telstar-capture-status.md`. Not yet deployed (still no
+capacity). Graduates to `implemented/` on first successful cutover.
 **Owner:** erik
 **Scope:** A second Oracle Always-Free VM, `telstar` — an **Ampere A1** (aarch64,
 2 OCPU / 12 GB) — to expose personal projects to the public internet, kept off
