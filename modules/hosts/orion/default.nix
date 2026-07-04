@@ -96,6 +96,14 @@ in {
         "transparent_hugepage=always"
         # Unlock amdgpu power-management features (CoreCtrl/LACT controls).
         "amdgpu.ppfeaturemask=0xffffffff"
+        # Disable deep CPU C-states. The "uncorrected error caused a data fabric
+        # sync flood event" (reset reason 0x08000800) that hard-resets the box
+        # under sustained ROCm LoRA load is an Infinity-Fabric/SoC machine-check,
+        # not a GPU defect — it's triggered by C-state/power-transition edges and
+        # is the documented top fix on AMD Ryzen + Linux (stable on Windows). Cap
+        # at C1 to stop the fabric idle/wake churn while a compute job runs.
+        # Fuller fix (PBO off, EXPO/RAM OC off, AGESA update) needs BIOS.
+        "processor.max_cstate=1"
         # NOTE: `pci=realloc=on` was tried here and bricked boot — the kernel
         # tried to reassign BARs without firmware-reserved 64-bit MMIO above
         # 4 GiB and something downstream (NVMe/NIC enumeration) hung. ReBAR
