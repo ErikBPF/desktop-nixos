@@ -22,7 +22,6 @@ próprios ([`2026-06-25-hermes-deferred-plans.md`](2026-06-25-hermes-deferred-pl
 | A5 | **Sudo hardening nos servers (P0.3)** | [`2026-06-24-source-backed-host-improvements.md`](2026-06-24-source-backed-host-improvements.md) — foi adiado até o caminho de sudo do deploy provar estabilidade; deploy-rs agora é padrão da frota → possivelmente desbloqueado | Apertar agora vs esperar mais ciclos de deploy-rs |
 | A6 | **Escopo P2+ de host-improvements** | mesmo doc — impermanence seletiva, sandboxing de serviços, testes de aceitação, role-profiles estreitos | Priorizar subconjunto vs backlog permanente |
 | A7 | **Harbor pull-through P1: Job declarativo vs setup manual documentado** | [`../implemented/2026-06-22-harbor-pullthrough-mirror.md`](../implemented/2026-06-22-harbor-pullthrough-mirror.md) — mirror já funcional de execução manual; RFC recomenda o Job (sobrevive a reinstall do Harbor) | Job no homelab-gitops (recomendado) vs doc manual |
-| A8 | **Cloudflare bootstrap: token escopado vs Global API Key; provider v4→v5** | [`../implemented/2026-06-28-cloudflare-token-terraform-migration.md`](../implemented/2026-06-28-cloudflare-token-terraform-migration.md) — RFC recomenda escopado (revogável/auditável); v5 retrabalha os resources de token | Também: helper `just sync-cf-token` quando houver >1 token bridged |
 | A9 | **kepler-k3s: julgamentos adiados** | [`../implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) §5–§14 — rolling CP restart (vale o custo?), helper `just scale-down N`/`cluster-status`/`cluster-reset`, split de repo (Option 0 agora vs Option 2 depois) | Observar padrão de deploys antes de decidir o rolling restart |
 | A10 | **OpenBao: segundo guardião de unseal-key / root break-glass no password manager** | [`../implemented/2026-06-30-openbao-root-recovery.md`](../implemented/2026-06-30-openbao-root-recovery.md) — token perdido uma vez; incidente sealed-21h de 2026-07-01 reforça | Definir custódia antes do próximo incidente |
 | A11 | **HA declarative: seguir Fase 1 ou aposentar** | [`2026-05-23-home-assistant-declarative.md`](2026-05-23-home-assistant-declarative.md) — git-sync (`backup2git.sh`), GHA validate e Direction B nunca começaram; o fluxo PR atual + auto-update na prática cobre parte do valor | Executar Fase 1, re-escopar, ou aposentar o RFC |
@@ -32,10 +31,9 @@ próprios ([`2026-06-25-hermes-deferred-plans.md`](2026-06-25-hermes-deferred-pl
 
 | # | Trabalho | Doc-fonte / onde | Próximo passo concreto |
 |---|----------|------------------|------------------------|
-| B1 | **Drill de restore do voyager** (nunca feito) | [`../implemented/2026-06-30-offsite-dr-crown-jewels.md`](../implemented/2026-06-30-offsite-dr-crown-jewels.md) §11a; [`../reference/voyager-offsite-maintenance.md`](../reference/voyager-offsite-maintenance.md) | restic restore *a partir do voyager* → decrypt → `terragrunt plan` sem diff; registrar resultado no doc de manutenção |
 | B2 | **Drill trimestral de restore do OpenBao** (agendar + executar 1º) | [`../implemented/2026-06-29-vault-backup-plan.md`](../implemented/2026-06-29-vault-backup-plan.md) §7; runbook [`../reference/vault-disaster-recovery.md`](../reference/vault-disaster-recovery.md) | Janela de manutenção; considerar lembrete automatizado (cron/ntfy) |
 | B3 | **Drill do runbook etcd (k3s)** — documentado, nunca testado | [`../implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) §15 | Janela própria no kepler |
-| B4 | **Custódia do escrow**: confirmar cópia offline da passphrase fora de casa; cópia break-glass da age key para fora da frota (+ apagar output do generator) | crown-jewels §11c; [`../implemented/2026-06-29-vault-secrets-platform.md`](../implemented/2026-06-29-vault-secrets-platform.md) | Verificação física/password-manager; 30 min |
+| B4 | **Custódia do escrow — parte física restante**: escrow ON voyager verificado 2026-07-04 (`~/escrow/age-key.age` = age-scrypt válido + `sops-config.tar.gz` presentes, offsite). Falta só o que é físico: cópia offline da passphrase fora de casa + cópia break-glass da age key **fora da frota** (+ apagar output do generator) | crown-jewels §11c; [`../implemented/2026-06-29-vault-secrets-platform.md`](../implemented/2026-06-29-vault-secrets-platform.md) | Verificação física/password-manager (só erik); 30 min |
 | B5 | **Deploy do `k3s-manifest-reconcile`** — código pronto em `modules/services/_k3s-node.nix`, falta bounce dos guests | [`2026-06-22-declarative-implementation-plan.md`](2026-06-22-declarative-implementation-plan.md) item C | Combinar na MESMA janela: bounce staggered + verificação Harbor P1 (`crictl pull` via mirror) — um restart, não três |
 | B6 | **Observabilidade etcd** — scrape no alloy-metrics (gitops) + dashboard (servarr) | mesmo doc, item D.3 — métricas já fluem em `:2381` | Par com B5/Fase 3 |
 | B7 | **Grafana Fase 3: alertas do cluster k3s** | [`2026-06-29-grafana-fleet-monitoring.md`](../implemented/2026-06-29-grafana-fleet-monitoring.md) — kube-state-metrics já roda no cluster | Escrever rules KSM (pod crashloop, PVC, node) no rules.yaml do servarr |
@@ -52,4 +50,10 @@ reabrirem: monitoramento do voyager (§11b), guard `rtk proxy sops` no hook,
 unseal fail-loud + probe `openbao_sealed` + rule Grafana, cloudflare.ini do
 SWAG (dry-run de renovação provado), revogação do token temporário
 `cfut_9tU2…` (sweep da conta limpo — só bootstrap + swag-dns01), tailscale
-OAuth sem expiração, kepler `:7860` (rota removida do SSOT).
+OAuth sem expiração, kepler `:7860` (rota removida do SSOT), **migração do
+token Cloudflare** (escopado/revogável, implementada — RFC 2026-06-28; um
+bootstrap token permanece manual por design; helper `just sync-cf-token` para
+>1 token bridged é opcional, não bloqueia), **drill de restore do voyager**
+(2026-07-04 PASS — restore da REST append-only via creds sops: 38 arquivos, tier
+de tofu-state completo/atual, JSON OpenTofu válido com envelope pbkdf2; registrado
+em `../reference/voyager-offsite-maintenance.md`).

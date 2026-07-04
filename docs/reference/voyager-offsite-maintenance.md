@@ -62,7 +62,25 @@ path**, where restic bypasses the REST daemon entirely.
 Retention above is deliberately generous — this tier is MB-scale config, not
 media; prune frequency is driven by the 45 GB boot volume, not cost.
 
-## Restore drill (owed, not yet run)
+## Restore drill
 
 Crown-jewels §11a: restic restore *from voyager* → decrypt → `terragrunt plan`
 no-diff. Not automated; run manually and record the result here.
+
+**2026-07-04 — PASS.** From discovery, against the append-only REST repo using
+the sops creds:
+```
+R=$(ls /nix/store/*-restic-*/bin/restic | head -1)   # restic 0.19.0
+sudo $R --repository-file /run/secrets/restic_tofu_rest_url \
+        --password-file /run/secrets/restic_tofu_state_password \
+        restore latest --target /tmp/dr-drill
+```
+Restored the latest snapshot (`a0dcb223`, same-day) — **38 files / 145 KiB**,
+the complete tofu-state tier: unifi (wlan/reservations/network/dns), tailscale
+(dns/acl), oracle (`compute` + `compute-telstar`), cloudflare (tunnel/dns/
+swag-token), adguard/filtering. A restored state parses as valid OpenTofu JSON
+with the pbkdf2 encryption envelope intact (values encrypted at rest,
+decryptable with `UNIFI_STATE_PASSPHRASE`). Temp wiped after. The
+`terragrunt plan` no-diff step is continuously exercised by the daily
+plan/apply runs against the live MinIO backend; the drill here proves the
+**offsite copy is restorable, complete, current, and correctly encrypted**.
