@@ -169,7 +169,7 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. **Eight** sister repos plug into it (a ninth, `codex-flake`, is
+configuration. **Nine** sister repos plug into it (a tenth, `codex-flake`, is
 emerging/in-flight — not yet RFC'd). Each is exposed as a gitignored symlink
 under `references/repos/` for quick local access (the real working trees live at
 `~/Documents/erik/...`):
@@ -183,6 +183,7 @@ references/repos/hermes-skills         → ~/Documents/erik/hermes-skills      (
 references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config  (HA app config)
 references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu       (printer config/state)
 references/repos/kindle-dash           → ~/Documents/erik/kindle-dash        (e-ink dashboard; standalone OSS — P4)
+references/repos/ha-agent              → ~/Documents/erik/ha-agent           (PT-BR HA tool-caller fine-tune; local-only)
 references/repos/codex-flake           → ~/Documents/erik/codex-flake        (emerging / in-flight)
 ```
 
@@ -364,6 +365,25 @@ not absorbed.
   **Harbor** private, D7). Consuming stacks (servarr) only *reference* the pinned
   digest + supply deploy config. Strip homelab-specific deploy glue out of it.
 
+### `ha-agent` — PT-BR Home Assistant tool-caller fine-tune
+
+- Lives at `~/Documents/erik/ha-agent`. Reachable via `references/repos/ha-agent`.
+- Trains a small offline **PT-BR tool-calling** model for HA voice commands
+  (lights, whole-house, forecast, escalate-to-reasoner, clarify/decline/noop).
+  The intended runtime home is the **kepler AI-serving** host behind LiteLLM,
+  as the fast local first-responder that escalates hard queries to the 35B —
+  the natural language backend for the HA voice-assistant (see
+  `docs/proposals/2026-07-02-home-assistant-ai-consolidation.md` and
+  `docs/reference/kepler-ai-serving.md`).
+- **Local-only, never pushed public:** the corpus embeds real home `entity_id`s.
+  Secrets (LiteLLM/Kaggle keys) stay in a gitignored `.env`, not committed.
+- **Config/data + model repo — no flake input, no NixOS module** (today). Touch
+  it like `home-assistant-config`/`klipper-biqu`: it owns the model + corpus,
+  this flake owns the host that will serve it. Training runs on **orion** (RX
+  9070 XT, fp16 LoRA only — no bnb on gfx1201) and **Kaggle** (big models).
+  Iterate-small-then-big loop + all training gotchas:
+  `ha-agent/docs/LOOP-improve-4b.md` and `docs/RUNBOOK-corpus-and-train.md`.
+
 ### Coupling map
 
 ```
@@ -375,7 +395,8 @@ desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
 │                         ↑
 │                         home-assistant-config (HA app config)
 ├── archinaut host      → klipper-biqu owns /var/lib/klipper config (git source-of-truth)
-└── kindle-dash         → standalone OSS image (GHCR+Harbor); servarr references it
+├── kindle-dash         → standalone OSS image (GHCR+Harbor); servarr references it
+└── kepler AI serving   ← ha-agent trains the PT-BR HA tool-caller LiteLLM will front (local-only)
 
 homelab-iac (UniFi network)  ← the substrate all the above run on:
   DHCP reservations pin every host's IP; static DNS pins service hostnames —
