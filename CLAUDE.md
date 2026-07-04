@@ -169,8 +169,7 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. **Ten** sister repos plug into it (an eleventh, `codex-flake`, is
-emerging/in-flight — not yet RFC'd). Each is exposed as a gitignored symlink
+configuration. **Eleven** sister repos plug into it. Each is exposed as a gitignored symlink
 under `references/repos/` for quick local access (the real working trees live at
 `~/Documents/erik/...`):
 
@@ -185,7 +184,7 @@ references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-
 references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu       (printer config/state)
 references/repos/kindle-dash           → ~/Documents/erik/kindle-dash        (e-ink dashboard; standalone OSS — P4)
 references/repos/ha-agent              → ~/Documents/erik/ha-agent           (PT-BR HA tool-caller fine-tune; local-only)
-references/repos/codex-flake           → ~/Documents/erik/codex-flake        (emerging / in-flight)
+references/repos/codex-flake           → ~/Documents/erik/codex-flake        (codex CLI package + HM module; flake input)
 ```
 
 Justfile recipes resolve through these symlinks (`readlink -f
@@ -381,6 +380,21 @@ not absorbed.
   (HM crash on `package=null` HM#9589, placeholder jsonschema nixpkgs#537917, rtk=plugin
   not markdown, permissions need `dag.entryAfter`): `memory/opencode_flake_rfc.md`.
 
+### `codex-flake` — codex CLI package + Home-Manager module
+
+- Lives at `~/Documents/erik/codex-flake`. Reachable via
+  `references/repos/codex-flake`. Remote
+  `git@github_erikbpf:ErikBPF/codex-flake.git`.
+- **Vendored as a flake input via FlakeHub** (`url =
+  "https://flakehub.com/f/ErikBPF/codex-flake/*"`, pinned in `flake.lock`). Provides
+  `packages.codex`, a Home-Manager module (`homeManagerModules.{default,codex-profile}`
+  + a `withPackage` helper), and a `codex-latest` overlay. Twin of `opencode-flake`;
+  consumed by the **laptop** dev env via `modules/dev/codex.nix`
+  (`flake.modules.home.codex`, imported by `profile-desktop`).
+- Ships **official prebuilt openai codex binaries** (4 platforms, hourly build, required
+  package-build gate). Bump flow like `opencode-flake`/`hermes-flake`: land upstream in the
+  leaf → FlakeHub republishes → `nix flake update codex-flake` here → `just build laptop`.
+
 ### `ha-agent` — PT-BR Home Assistant tool-caller fine-tune
 
 - Lives at `~/Documents/erik/ha-agent`. Reachable via `references/repos/ha-agent`.
@@ -407,6 +421,7 @@ desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
 ├── inputs.servarr      → home compose workloads on kepler/discovery/orion
 ├── inputs.hermes-flake → hermes-agent (+ hermes-skills content, git-synced)
 ├── inputs.opencode-flake → opencode pkg + HM module (FlakeHub); laptop dev env
+├── inputs.codex-flake  → codex CLI pkg + HM module (FlakeHub); laptop dev env
 ├── k3s microvms (kepler) ← homelab-gitops syncs lab k8s workloads via Argo CD
 ├── deploys / hosts     → kepler also serves HA voice backend
 │                         ↑
