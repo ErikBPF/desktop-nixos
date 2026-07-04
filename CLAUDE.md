@@ -169,7 +169,7 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. **Nine** sister repos plug into it (a tenth, `codex-flake`, is
+configuration. **Ten** sister repos plug into it (an eleventh, `codex-flake`, is
 emerging/in-flight — not yet RFC'd). Each is exposed as a gitignored symlink
 under `references/repos/` for quick local access (the real working trees live at
 `~/Documents/erik/...`):
@@ -180,6 +180,7 @@ references/repos/homelab-gitops        → ~/Documents/erik/homelab-gitops     (
 references/repos/homelab-iac           → ~/Documents/erik/homelab-iac        (UniFi/network substrate)
 references/repos/hermes-flake          → ~/Documents/erik/hermes-flake       (hermes-agent package + module)
 references/repos/hermes-skills         → ~/Documents/erik/hermes-skills      (hermes skill content)
+references/repos/opencode-flake         → ~/Documents/erik/opencode-flake      (opencode package + HM module; flake input)
 references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config  (HA app config)
 references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu       (printer config/state)
 references/repos/kindle-dash           → ~/Documents/erik/kindle-dash        (e-ink dashboard; standalone OSS — P4)
@@ -365,6 +366,21 @@ not absorbed.
   **Harbor** private, D7). Consuming stacks (servarr) only *reference* the pinned
   digest + supply deploy config. Strip homelab-specific deploy glue out of it.
 
+### `opencode-flake` — opencode package + Home-Manager module
+
+- Lives at `~/Documents/erik/opencode-flake`. Reachable via
+  `references/repos/opencode-flake`. Remote
+  `git@github_erikbpf:ErikBPF/opencode-flake.git`.
+- **Vendored as a flake input**, but *not* pinned to the local tree — consumed via
+  **FlakeHub** (`url = "https://flakehub.com/f/ErikBPF/opencode-flake/*"`). Provides
+  the opencode package (`withPackage`) + a Home-Manager module; the **laptop** dev
+  env is fully HM-managed off it (config, permissions, rtk plugin). Ships a **daily
+  auto-merge lane** + FlakeHub publish; no Cachix (the orion cache covers the fleet).
+- Bump flow like `hermes-flake`: land upstream in the leaf → the daily lane republishes
+  to FlakeHub → `nix flake update opencode-flake` here → `just build laptop`. Gotchas
+  (HM crash on `package=null` HM#9589, placeholder jsonschema nixpkgs#537917, rtk=plugin
+  not markdown, permissions need `dag.entryAfter`): `memory/opencode_flake_rfc.md`.
+
 ### `ha-agent` — PT-BR Home Assistant tool-caller fine-tune
 
 - Lives at `~/Documents/erik/ha-agent`. Reachable via `references/repos/ha-agent`.
@@ -390,6 +406,7 @@ not absorbed.
 desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
 ├── inputs.servarr      → home compose workloads on kepler/discovery/orion
 ├── inputs.hermes-flake → hermes-agent (+ hermes-skills content, git-synced)
+├── inputs.opencode-flake → opencode pkg + HM module (FlakeHub); laptop dev env
 ├── k3s microvms (kepler) ← homelab-gitops syncs lab k8s workloads via Argo CD
 ├── deploys / hosts     → kepler also serves HA voice backend
 │                         ↑
