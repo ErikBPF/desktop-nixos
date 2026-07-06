@@ -31,10 +31,18 @@ in {
       openFirewall = true;
       useRoutingFeatures = "client";
       authKeyFile = config.sops.secrets."tailscale_authkey".path;
+      # Client prefs that must survive re-enrollment go in extraSetFlags (re-run
+      # by `tailscale set` on every activation). extraUpFlags only apply on the
+      # first `tailscale up`, so a node already enrolled without them never picks
+      # them up — this stranded the roaming laptop at RouteAll=false, unable to
+      # reach discovery's advertised 192.168.10.210/32 (AdGuard) route, so every
+      # *.homelab.* name timed out off-LAN.
+      extraSetFlags = [
+        "--accept-dns=true"
+        "--accept-routes"
+      ];
       extraUpFlags =
         [
-          "--accept-dns=true"
-          "--accept-routes"
           "--hostname=${config.networking.hostName}"
         ]
         ++ lib.optional (role == "server") "--advertise-tags=tag:server";
