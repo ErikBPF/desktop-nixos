@@ -102,6 +102,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Terminal multiplexer for AI coding agents (claude-code/codex/opencode/
+    # hermes). Third-party Rust flake — pinned to a release tag, and left on
+    # its own nixpkgs (no `follows`) so the Rust toolchain it builds against
+    # stays the one upstream tested. See modules/dev/herdr.nix.
+    herdr.url = "github:ogulcancelik/herdr/v0.7.1";
+
     # k3s test cluster on kepler runs each node as a NixOS MicroVM.
     # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.
     microvm = {

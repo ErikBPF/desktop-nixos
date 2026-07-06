@@ -63,6 +63,7 @@ in {
       m.home.codex
       m.home.opencode
       m.home.hermes-agent
+      m.home.herdr
       m.home.packages-desktop
       m.home.syncthing-tray
     ];
