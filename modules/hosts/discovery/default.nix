@@ -90,6 +90,10 @@ in {
       repoPath = "/home/${config.username}/homelab-iac";
       user = config.username;
       discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
+      # The oracle/compute* units cat this at plan time; without it they fall
+      # back to ~/.ssh/id_ed25519.pub (absent here) and fail the whole run.
+      # This is the laptop pubkey (== the key in OCI state), copied here.
+      ociSshPubKeyFile = "/home/${config.username}/telstar-ssh-key.pub";
     };
 
     # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.

@@ -46,6 +46,18 @@ _: {
         defaultText = lib.literalExpression ''"/home/<user>/.config/sops/age/keys.txt"'';
         description = "Age key used to decrypt the repo's .env.sops.";
       };
+
+      ociSshPubKeyFile = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = ''
+          Path to the SSH public key the oracle/compute* units inject
+          (OCI_SSH_PUBKEY_FILE). The units `cat` it at plan time; on a headless
+          host it must exist and match the key in state, else `run --all` errors
+          out and the whole drift check fails. Empty = leave unset (defaults to
+          ~/.ssh/id_ed25519.pub).
+        '';
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -76,13 +88,17 @@ _: {
           bash
         ];
 
-        environment = {
-          TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
-          SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
-          # Without a shared plugin cache, `run --all` re-downloads every
-          # provider (4 × tens of MB) for all 9 units on every scheduled run.
-          TF_PLUGIN_CACHE_DIR = "${cfg.repoPath}/.terraform.d/plugin-cache";
-        };
+        environment =
+          {
+            TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
+            SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
+            # Without a shared plugin cache, `run --all` re-downloads every
+            # provider (4 × tens of MB) for all 9 units on every scheduled run.
+            TF_PLUGIN_CACHE_DIR = "${cfg.repoPath}/.terraform.d/plugin-cache";
+          }
+          // lib.optionalAttrs (cfg.ociSshPubKeyFile != "") {
+            OCI_SSH_PUBKEY_FILE = cfg.ociSshPubKeyFile;
+          };
 
         serviceConfig = {
           Type = "oneshot";
@@ -102,10 +118,13 @@ _: {
             ''}
             # Load each KEY=value via a quoted export (no shell-eval of values,
             # so spaces/metacharacters in PSKs/passphrases survive intact).
-            # read -r with IFS='=' puts everything after the first '=' in v.
-            while IFS='=' read -r k v; do
-              case "$k" in ""|"#"*) continue ;; esac
-              export "$k=$v"
+            # IFS= (empty) + parameter expansion: split on the FIRST '=' only.
+            # `IFS='=' read` would strip a single trailing '=' from the value —
+            # i.e. base64 padding — corrupting keys like OCI_private_key_b64
+            # (base64decode then fails and the oracle units error out).
+            while IFS= read -r line; do
+              case "$line" in ""|"#"*) continue ;; esac
+              export "''${line%%=*}=''${line#*=}"
             done < <(${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops)
             exec bash bin/drift-check.sh
           '';
