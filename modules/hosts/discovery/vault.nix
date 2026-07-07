@@ -67,7 +67,8 @@
     # without a start-limit cap so the unit self-heals once the IP appears
     # (rather than tripping the default 5-in-10s limit and staying dead).
     systemd.services.openbao = {
-      after = ["tailscaled.service"];
+      after = ["tailscaled.service" "network-online.target"];
+      wants = ["network-online.target"];
       startLimitIntervalSec = 0;
       serviceConfig.RestartSec = "2s";
     };
@@ -100,6 +101,16 @@
       mode = "0400";
     };
     sops.secrets."vault_agent_secret_id" = {
+      inherit sopsFile;
+      mode = "0400";
+    };
+    # Incidents Discord webhook — sops copy of the value vault-agent renders to
+    # /run/vault-agent/discord_webhook_incidents. That render VANISHES exactly
+    # when OpenBao is sealed, so the seal-related alert (openbao-unseal-onfail)
+    # must read the webhook from sops: the bootstrap trust tier that still works
+    # when the runtime secret store is down (D5). Breaks the circular blind spot
+    # where the only seal alarm depended on the thing being down.
+    sops.secrets."discord_webhook_incidents" = {
       inherit sopsFile;
       mode = "0400";
     };
@@ -248,13 +259,28 @@
     # store sealed (and every consumer broken). Semi-auto by design (P3.0): the
     # key lives in sops, so a disk stolen without the age key stays sealed.
     systemd.services.openbao-unseal = {
-      description = "Unseal OpenBao on boot (raft seals on restart)";
+      description = "Ensure OpenBao is unsealed (raft seals on every restart)";
       wantedBy = ["multi-user.target"];
       after = ["openbao.service"];
-      requires = ["openbao.service"];
+      # `wants`, NOT `requires`: openbao crash-restarts at boot until its tailnet
+      # listener IP appears (see the openbao RestartSec block above). With
+      # `requires`, that transient failure CANCELS this oneshot with result
+      # `dependency` — and a boot-only oneshot never retries, so the store stays
+      # sealed for hours (2026-06-30 / 07-01 / 07-03, and twice on 07-06). `wants`
+      # keeps the ordering without the cancel; the script polls seal-status for up
+      # to 5 min, so it tolerates openbao coming up late on its own.
+      wants = ["openbao.service"];
+      # A flapping openbao must never trip a start limit and wedge this dead.
+      startLimitIntervalSec = 0;
+      # Page (off-host, sops-sourced webhook) only when unseal genuinely fails —
+      # openbao unreachable >5 min or the key is rejected. Not on the boot race
+      # (the script waits that out). Rate-limited inside the alert script.
+      onFailure = ["openbao-unseal-onfail.service"];
       serviceConfig = {
         Type = "oneshot";
-        RemainAfterExit = true;
+        # NOT RemainAfterExit: the timer below re-runs this every minute, so any
+        # re-seal (crash, rebuild restart, boot race) self-heals within ~60 s.
+        # The script is idempotent — a no-op when the store is already unsealed.
         ExecStart = pkgs.writeShellScript "openbao-unseal" ''
           export BAO_ADDR=${addr}
           # Status checks go through curl, not the bao CLI: during the
@@ -284,6 +310,43 @@
           # Fail loudly unless the store is verifiably unsealed — a silent
           # fall-through must show as a red unit, not "Finished".
           status | ${jq} -e '.sealed == false' >/dev/null 2>&1
+        '';
+      };
+    };
+
+    # Re-run the unseal check every minute so ANY re-seal — a crash, a rebuild
+    # restart, or the boot tailnet-IP race — self-heals in <=60 s, regardless of
+    # why openbao sealed. Boot still gets an immediate run via wantedBy +
+    # OnBootSec. The oneshot won't pile up: systemd won't start a second run
+    # while one is active.
+    systemd.timers.openbao-unseal = {
+      description = "Periodically ensure OpenBao is unsealed (self-heal any re-seal)";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnBootSec = "30s";
+        OnUnitActiveSec = "1m";
+        Persistent = true;
+      };
+    };
+
+    # Fires (via onFailure) only when auto-unseal genuinely can't recover the
+    # store. Reads the webhook from sops, not /run/vault-agent — that render is
+    # gone precisely when the store is sealed. Rate-limited to once / 30 min so a
+    # prolonged outage doesn't spam the every-minute timer's failures.
+    systemd.services.openbao-unseal-onfail = {
+      description = "Discord alert when OpenBao auto-unseal fails (store stuck sealed)";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = pkgs.writeShellScript "openbao-unseal-onfail" ''
+          stamp=/run/openbao-unseal-alert.stamp
+          now=$(${pkgs.coreutils}/bin/date +%s)
+          if [ -f "$stamp" ] && [ $((now - $(${pkgs.coreutils}/bin/cat "$stamp"))) -lt 1800 ]; then
+            exit 0
+          fi
+          echo "$now" > "$stamp"
+          ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
+            --data "$(${jq} -nc --arg c "🔴 **OpenBao auto-unseal FAILED** on discovery — the store is sealed and did not self-heal. Every vault-agent consumer (LAN DNS/AdGuard, compose stacks) is down. Check: journalctl -u openbao-unseal" '{content:$c}')" \
+            "$(${pkgs.coreutils}/bin/cat /run/secrets/discord_webhook_incidents)" >/dev/null || true
         '';
       };
     };
