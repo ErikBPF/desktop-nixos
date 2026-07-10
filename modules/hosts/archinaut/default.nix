@@ -25,9 +25,14 @@ in {
       m.nixos.archinaut-hardware
       m.nixos.klipper-host
       m.nixos.first-boot
+      # Lite journal→Loki shipper (vector, ~30-60 MB) in place of alloy: alloy's
+      # ~260 MB starved sshd during boot on this 1 GB Pi. vector gives the same
+      # {source="journal",host=…} Loki stream at a Pi-tolerable footprint, so
+      # archinaut stays visible in the fleet Logs dashboard.
+      m.nixos.vector-logs
       # NOTE: btrfs-snapshots intentionally omitted — the SD root is ext4.
-      # NOTE: alloy (monitoring) intentionally omitted — ~260 MB RSS + CPU is
-      # too heavy for the 1 GB Pi; it starved sshd during boot activation.
+      # NOTE: alloy (full metrics+logs agent) omitted — too heavy; vector-logs
+      # above ships journal logs only (host metrics not shipped from this Pi).
     ];
 
     # Rollback guard: the print stack must come back after an unattended upgrade.
@@ -47,7 +52,10 @@ in {
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
-      dates = "05:00";
+      # Weekly, not nightly: each switch writes a fresh system closure to the
+      # microSD. Weekly cuts that write volume ~7x — meaningful SD-longevity on
+      # a Pi (the 2026-07-07 card death was worn by a crash-loop + daily churn).
+      dates = "Wed 05:00";
       # Stagger off the 05:00 herd so this 1 GB aarch64 Pi substitutes from a
       # settled orion cache (done by 04:30) instead of racing a busy builder.
       randomizedDelaySec = "900";
@@ -58,6 +66,14 @@ in {
     services.smartd.enable = lib.mkForce false;
     security.auditd.enable = lib.mkForce false;
     security.audit.enable = lib.mkForce false;
+
+    # Keep the journal persistent (auto would fall back to volatile if
+    # /var/log/journal is missing on a fresh SD). On-card journal is what let us
+    # diagnose the 2026-07-07 SD-death post-mortem; with the atuin/postgres
+    # crash-loop gone (the real wear source), the capped journal (SystemMaxUse
+    # =50M via logrotate.nix) writes little. vector-logs mirrors it to Loki so
+    # logs survive even total card death.
+    services.journald.storage = "persistent";
 
     # WiFi-only: blacklist the onboard USB ethernet (lan78xx). The C270 webcam
     # shares the Pi3's single dwc2 USB-2.0 bus with the NIC, and even an

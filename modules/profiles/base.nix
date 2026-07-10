@@ -22,7 +22,6 @@ in {
       m.nixos.pam
       m.nixos.polkit
       m.nixos.sudo
-      m.nixos.atuin
       m.nixos.logrotate
       m.nixos.maintenance
       m.nixos.tor-monitor
