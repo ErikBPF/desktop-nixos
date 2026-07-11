@@ -116,4 +116,11 @@ _: {
   dspark = "cd ~/Documents/nstech/dataplatform-spark";
   dair = "cd ~/Documents/nstech/dataplatform-airflow";
   dcon = "cd ~/Documents/nstech/dataplatform-datacontracts";
+
+  # --- Gemini repo jumps (ssh into the orion dev-sandbox at the same dir) ---
+  snix = "ssh -t gemini 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
+  sdp = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
+  sspark = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";
+  sair = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-airflow && exec zsh -l'";
+  scon = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-datacontracts && exec zsh -l'";
 }
