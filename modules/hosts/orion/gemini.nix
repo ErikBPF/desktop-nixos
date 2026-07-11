@@ -23,6 +23,7 @@
 {
   config,
   inputs,
+  self,
   ...
 }: let
   m = config.flake.modules;
@@ -40,6 +41,12 @@
   # Host dir bind-mounted into the container, holding the decrypted tailscale
   # authkey (populated by the pre-provision oneshot below).
   tsAuthHostDir = "/var/lib/${ctName}/ts-auth";
+
+  # Host dir holding the decrypted hermes client API key. The container has no
+  # sops identity of its own, so orion decrypts it and the pre-provision
+  # oneshot copies it here; a single-file bind mount then exposes it inside the
+  # container at the path the hermes-agent home module hard-codes.
+  hermesAuthHostDir = "/var/lib/${ctName}/hermes-auth";
 in {
   flake.modules.nixos.orion-gemini = {
     config,
@@ -63,6 +70,12 @@ in {
         "/var/lib/tailscale-auth" = {
           hostPath = tsAuthHostDir;
           isReadOnly = false;
+        };
+        # hermes client API key at the path the hermes-agent home module reads
+        # (owner erik/uid 1000, matching the container user). Decrypted on orion.
+        "/run/secrets/hermes_agent_client_api_key" = {
+          hostPath = "${hermesAuthHostDir}/client_api_key";
+          isReadOnly = true;
         };
       };
       # NOTE: we deliberately do NOT forward orion's nix-daemon socket. Bind-
@@ -92,6 +105,16 @@ in {
           # The shared CLI toolbox (eza/ripgrep/fd/fzf/… — a NixOS module via
           # environment.systemPackages) that the zsh aliases assume.
           m.nixos.packages-shared
+          # Full language dev toolbox — same set the laptop gets via
+          # profile-desktop (this container doesn't import profile-desktop,
+          # so wire the dev-* modules directly).
+          m.nixos.dev-dotnet
+          m.nixos.dev-go
+          m.nixos.dev-java
+          m.nixos.dev-javascript
+          m.nixos.dev-python
+          m.nixos.dev-paths
+          m.nixos.dev-nix-ld
           # Auto-generated from the syncthing-fleet topology (hosts.gemini).
           m.nixos."${ctName}-syncthing"
         ];
@@ -170,7 +193,10 @@ in {
               m.home.codex
               m.home.opencode
               m.home.vscode
+              m.home.nvim
+              m.home.hermes-agent
               m.home.herdr
+              m.home.grafatui
               m.home.tmux
             ];
             home = {
@@ -235,9 +261,17 @@ in {
       '';
     };
 
-    # --- pre-provision the tailscale authkey before the container starts ---
+    # Hermes client API key, decrypted on orion (the container has no sops
+    # identity) and copied out for the bind mount by the pre-provision oneshot.
+    # NixOS-side sops has no defaultSopsFile (only the home module sets one), so
+    # name the sops file explicitly, exactly as the tailscale secret does.
+    sops.secrets."hermes_agent/client_api_key" = {
+      sopsFile = self + "/secrets/sops/secrets.yaml";
+    };
+
+    # --- pre-provision container secrets before the container starts ---
     systemd.services."${ctName}-preprovision" = {
-      description = "Provision ${ctName} tailscale authkey";
+      description = "Provision ${ctName} tailscale authkey + hermes API key";
       wantedBy = ["container@${ctName}.service"];
       before = ["container@${ctName}.service"];
       serviceConfig = {
@@ -247,6 +281,13 @@ in {
       script = ''
         install -d -m 0700 ${tsAuthHostDir}
         install -m 0600 ${config.sops.secrets."tailscale_authkey".path} ${tsAuthHostDir}/authkey
+
+        # uid 1000 = the container's erik (declared above); the bind-mounted
+        # file must be owned by that uid to be readable inside the container.
+        install -d -m 0700 ${hermesAuthHostDir}
+        install -m 0400 -o 1000 -g users \
+          ${config.sops.secrets."hermes_agent/client_api_key".path} \
+          ${hermesAuthHostDir}/client_api_key
       '';
     };
   };
