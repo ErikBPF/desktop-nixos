@@ -37,16 +37,15 @@ in {
     ];
   };
 
+  # Lean fleet-wide home: admin/infra essentials only — enough to SSH in and
+  # work. The interactive shell QoL (rich zsh, prompt, atuin, yazi, btop,
+  # zoxide) lives in profile-interactive, imported by profile-desktop, so it
+  # does NOT land on headless hosts (archinaut / Oracle VMs). The zsh *login
+  # shell* itself is still fleet-wide via modules/user.nix.
   flake.modules.home.profile-base = {...}: {
     imports = [
-      m.home.zsh
       m.home.bash
-      m.home.starship
-      m.home.atuin
-      m.home.btop
       m.home.direnv
-      m.home.yazi
-      m.home.zoxide
       m.home.git
       m.home.gpg
       m.home.nix-tools

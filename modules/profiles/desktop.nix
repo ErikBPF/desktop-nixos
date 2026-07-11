@@ -36,6 +36,9 @@ in {
 
   flake.modules.home.profile-desktop = {...}: {
     imports = [
+      # interactive shell QoL (zsh-rich/starship/atuin/yazi/zoxide/btop),
+      # concentrated on the workstations — kept out of the lean profile-base.
+      m.home.profile-interactive
       m.home.hyprland
       m.home.hypridle
       m.home.hyprlock
