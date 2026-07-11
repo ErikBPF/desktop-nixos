@@ -3,7 +3,7 @@ title: Discovery resilience — persistent fixes from the SWAG cert incident
 status: Implemented (core, 2026-06-29)
 date: 2026-06-29
 audience: Maintainers of desktop-nixos + servarr
-post-read-action: P1-1 (compose drift) + P2 (instability root-cause) remain — tracked below.
+post-read-action: P1-1 (compose drift) remains. P2-1 root-caused + fixed 2026-07-06 (e1000e TX hang). Tracked below.
 ---
 
 # Discovery resilience — persistent fixes
@@ -12,9 +12,9 @@ post-read-action: P1-1 (compose drift) + P2 (instability root-cause) remain — 
 > ntfy on expiry/health) + SWAG cert-gate comment + Terraform swag-dns01 token;
 > **P0-2** `just pull-servarr` (git fetch + **reset --hard origin/main**,
 > retires the rsync overlap) + `just kick-stack`; **P1-2** AdGuard `mem_limit`
-> 512m→1.5g (the OOM that took LAN DNS down). **Still open:** P1-1 (compose
-> project-name drift / orphan cleanup), P2 (instability root-cause from the
-> diagnostics data).
+> 512m→1.5g (the OOM that took LAN DNS down). **P2-1 (instability root-cause)**
+> resolved 2026-07-06: e1000e TX Hardware Unit Hang → TSO/GSO disabled on eno1.
+> **Still open:** P1-1 (compose project-name drift / orphan cleanup).
 
 ## Context
 
@@ -104,14 +104,28 @@ e.g. resolved with the UDM/public as primary for the host, AdGuard for LAN
 clients; or verify `FallbackDNS` actually engages promptly on AdGuard downtime.
 `TODO(erik)`: confirm the desired split (host vs client DNS).
 
-### P2-1. Discovery instability (the root symptom)
+### P2-1. Discovery instability (the root symptom) — **root-caused 2026-07-06**
 
 Discovery has been rebooting repeatedly (uptime 2–9 min across this session).
 The **`discovery-diagnostics`** module (persistent 2 GB journal + `net-watch` +
-2-min sysstat) was deployed for exactly this — it now survives reboots and will
-capture the cause. **Fix = analyze after the next event** (`journalctl
---list-boots`, `journalctl -b -1 -e`, `sar`, `net-watch` gap). Until then this is
-data-collection, not yet a fix.
+2-min sysstat) was deployed for exactly this — it now survives reboots and
+captured the cause.
+
+**Root cause (from `journalctl -b -1`):** the onboard Intel NIC's `e1000e`
+driver wedges its TX ring — repeated `e1000e 0000:00:19.0 eno1: Detected
+Hardware Unit Hang` (TDH/TDT desync) every 2 s. Transmit stops, the whole host
+drops off the network until it reboots. Classic long-standing e1000e bug on this
+PCH-LM-class controller, triggered by the TSO/GSO segmentation-offload path.
+
+**Fix (deployed 2026-07-06):** disable TCP/generic segmentation offload on eno1
+via a udev `.link` matched by MAC — `systemd.network.links."10-eno1-no-tso"` in
+`modules/hosts/discovery/networking.nix`. Segmentation moves to the kernel,
+which sidesteps the offending hardware path. Cost is a few % of one core under
+sustained line-rate transfer (negligible at this host's gigabit workload); GRO
+(receive) left on since the hang is a transmit bug. Applies on next device
+add/boot; on a live host apply immediately with
+`ethtool -K eno1 tso off gso off`. Watch for recurrence via `net-watch` +
+`journalctl -k -g 'Hardware Unit Hang'`.
 
 ### P2-2. Image-update strategy
 
