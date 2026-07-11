@@ -73,6 +73,19 @@ in {
     # back to NixOS's removable BOOT<arch>.EFI. Nothing host-specific to override
     # here.
 
+    # DIAGNOSTIC (2026-07-11): make GRUB itself emit to the Oracle serial console
+    # (ttyS0). NixOS GRUB defaults to gfxterm on the VGA tty0, so a GRUB-level
+    # hang/rescue is invisible on the OCI serial console (which only shows the
+    # firmware POST, then goes dark the instant GRUB takes over — exactly what we
+    # observed). The kernel already logs to ttyS0 via profile-oci-guest's
+    # console=; this extends that to the bootloader so we can watch the menu and
+    # any error. Harmless if it boots fine.
+    boot.loader.grub.extraConfig = ''
+      serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+      terminal_input console serial
+      terminal_output console serial
+    '';
+
     # Relay#2 identity for this host (RFC §4a/§R3/§R5): vanguard advertises
     # itself as relayHosts[1] (relay2.<zone>), not voyager's relay.<zone>. Only
     # takes effect once services.netbirdRelay.enable is flipped on — these are
