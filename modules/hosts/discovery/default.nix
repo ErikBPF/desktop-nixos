@@ -58,6 +58,17 @@ in {
       m.nixos.discovery-netbird-server
     ];
 
+    # NetBird IdP bring-up (RFC docs/proposals/2026-07-11-pocketid-idp-for-netbird.md
+    # §6 step 3): idpOnly starts ONLY PocketID + its one sops secret — the IdP that
+    # must exist before the OIDC client and the full control plane. This is the
+    # landmine-free first switch (no unminted management/relay secrets). Flip
+    # idpOnly=false to add management/signal/dashboard/relay once the OIDC client
+    # and their secrets exist (§6 step 6).
+    services.netbirdServer = {
+      enable = true;
+      idpOnly = true;
+    };
+
     # Discord webhook for incident alerts (cert monitor, restic failure, iac
     # drift) now comes from OpenBao via vault-agent (P3.2) — rendered to
     # /run/vault-agent/discord_webhook_incidents, not sops. Vault is the

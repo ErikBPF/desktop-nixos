@@ -111,138 +111,38 @@ in {
   in {
     options.services.netbirdServer = {
       enable = lib.mkEnableOption "self-hosted NetBird control plane (management/signal/dashboard/PocketID/relay#1) on discovery — disabled by default, see the NetBird RFC (Phase S/O are human-gated)";
+      idpOnly = lib.mkEnableOption "IdP-only bring-up: start ONLY PocketID (NetBird's OIDC IdP) and declare ONLY its encryption-key secret, so a first switch-discovery cannot fail the crown-jewel hub on the not-yet-minted management/relay secrets — see docs/proposals/2026-07-11-pocketid-idp-for-netbird.md";
     };
 
-    config = lib.mkIf cfg.enable {
-      # Q1: discovery force-disables podman (see discovery-containers.nix) and
-      # oci-containers defaults to "podman" on stateVersion >= 22.05 — must be
-      # set explicitly or these containers silently try (and fail) to use a
-      # backend that's off.
-      virtualisation.oci-containers.backend = "docker";
+    config = lib.mkIf cfg.enable (lib.mkMerge [
+      # === Always on when the module is enabled (idpOnly OR full) ============
+      # PocketID is the IdP that must exist FIRST (its OIDC client is created in
+      # it before management is configured), so it — and ONLY its secret — lives
+      # in this unconditional block. idpOnly stops here; full mode (below) adds
+      # the rest, so a first idpOnly `switch-discovery` needs only this one
+      # minted secret and cannot fail the crown-jewel hub on the others (RFC §3).
+      {
+        # Q1: discovery force-disables podman (see discovery-containers.nix) and
+        # oci-containers defaults to "podman" on stateVersion >= 22.05 — must be
+        # set explicitly or these containers silently try (and fail) to use a
+        # backend that's off.
+        virtualisation.oci-containers.backend = "docker";
 
-      # --- Secrets (Phase S mints the real values; placeholders only) --------
-      # Single-purpose dotenv-style secrets, same shape as
-      # discovery-hermes-oci.nix's `hermes_agent/server_env` — sops-nix drops
-      # the decrypted scalar verbatim to `path`; docker's `environmentFiles`
-      # reads it as KEY=VALUE lines.
-      sops.secrets."netbird/postgres_dsn" = {
-        inherit sopsFile;
-        format = "yaml";
-        key = "netbird/postgres_dsn";
-        mode = "0400";
-        path = "/run/secrets/netbird-postgres-dsn";
-        # Q5: reuse discovery's infra Postgres (the `postgres` container on
-        # homelab-net) rather than a dedicated instance. Content is the FULL
-        # DSN line, e.g.:
-        #   NETBIRD_STORE_ENGINE_POSTGRES_DSN=postgresql://netbird:<pw>@postgres:5432/netbird?sslmode=disable
-        # TODO(Phase-O, servarr repo): provision the `netbird` role + database
-        # in discovery's infra Postgres (scripts/provision-db.sql) before this
-        # DSN is real.
-        restartUnits = ["docker-netbird-management.service"];
-      };
-      sops.secrets."netbird/auth_secret" = {
-        inherit sopsFile;
-        format = "yaml";
-        key = "netbird/auth_secret";
-        mode = "0400";
-        path = "/run/secrets/netbird-auth-secret";
-        # Content: `NB_AUTH_SECRET=<openssl rand -base64 32>` (§6b-H7 — must be
-        # IDENTICAL on management and every relay; mismatch fails silently at
-        # the relay, so verify a real peer connection in Phase-O §10-2).
-        restartUnits = ["docker-netbird-management.service" "docker-netbird-relay.service"];
-      };
-      sops.secrets."netbird/oidc_client_secret" = {
-        inherit sopsFile;
-        format = "yaml";
-        key = "netbird/oidc_client_secret";
-        mode = "0400";
-        path = "/run/secrets/netbird-oidc-client-secret";
-        # Content: `NETBIRD_AUTH_CLIENT_SECRET=<value>` — the confidential
-        # client secret PocketID issues once an OIDC client for NetBird is
-        # registered there (Phase-O: "PocketID first-run + passkey enrol").
-        # Only management needs it; the dashboard SPA uses the public/PKCE
-        # side of the same client (no secret in browser-shipped code).
-        restartUnits = ["docker-netbird-management.service"];
-      };
-      sops.secrets."netbird/pocketid_jwt_key" = {
-        inherit sopsFile;
-        format = "yaml";
-        key = "netbird/pocketid_jwt_key";
-        mode = "0400";
-        path = "/run/secrets/netbird-pocketid-jwt-key";
-        # Content: `ENCRYPTION_KEY=<value>` — PocketID's at-rest encryption key
-        # for its stored JWT signing keys (§6/§9 "JWT signing"). TODO(Phase-O):
-        # confirm the exact env var name against pocket-id's current docs
-        # before first switch.
-        restartUnits = ["docker-netbird-pocketid.service"];
-      };
-
-      virtualisation.oci-containers.containers = {
-        netbird-management = {
-          image = "netbirdio/management:${netbirdTag}";
-          volumes = [
-            "${managementConfig}:/etc/netbird/management.json:ro"
-            "${dataDir}/management:/var/lib/netbird"
-          ];
-          cmd = [
-            "--port"
-            "443"
-            "--log-file"
-            "console"
-            "--log-level"
-            "info"
-            "--disable-anonymous-metrics=true"
-            "--dns-domain=${nb.dnsDomain}"
-          ];
-          environment = {
-            # Q5: store engine is postgres, not the SQLite default.
-            NETBIRD_STORE_ENGINE = "postgres";
-            # OIDC bootstrap wiring for the initial (PocketID) identity
-            # provider. Beyond this bootstrap set, ongoing identity-provider
-            # config is a WP4/homelab-iac concern (the netbirdio/netbird
-            # Terraform provider's `identity_provider` resource, §8) — not
-            # re-declared here.
-            NETBIRD_AUTH_CLIENT_ID = "netbird"; # TODO(Phase-O): replace with the real PocketID client ID once created
-            NETBIRD_AUTH_AUTHORITY = idUrl;
-            NETBIRD_AUTH_AUDIENCE = "netbird";
-            NETBIRD_USE_AUTH0 = "false";
-          };
-          # NB_AUTH_SECRET (the best-effort second attempt at the relay HMAC,
-          # see managementConfig.Relay.Secret above) arrives via this file, not
-          # a literal `environment` entry — a literal `-e NB_AUTH_SECRET=`
-          # would risk clobbering the real value depending on docker's
-          # env/env-file precedence.
-          environmentFiles = [
-            config.sops.secrets."netbird/postgres_dsn".path
-            config.sops.secrets."netbird/auth_secret".path
-            config.sops.secrets."netbird/oidc_client_secret".path
-          ];
-          # No published host ports: SWAG (servarr) reaches this by container
-          # name over homelab-net, same ingress model as discovery-hermes-oci.
-          networks = ["homelab-net"];
+        # PocketID's at-rest encryption key. §2: the env var is ENCRYPTION_KEY
+        # (confirmed against pocket-id.org); the old `pocketid_jwt_key` sops
+        # label was a misnomer (not a JWT key) — renamed to
+        # `netbird/pocketid_encryption_key`. Content, Phase-S human-minted:
+        # `ENCRYPTION_KEY=<openssl rand -base64 32>`.
+        sops.secrets."netbird/pocketid_encryption_key" = {
+          inherit sopsFile;
+          format = "yaml";
+          key = "netbird/pocketid_encryption_key";
+          mode = "0400";
+          path = "/run/secrets/netbird-pocketid-encryption-key";
+          restartUnits = ["docker-netbird-pocketid.service"];
         };
 
-        netbird-signal = {
-          image = "netbirdio/signal:${netbirdTag}";
-          cmd = ["--port" "80" "--log-file" "console"];
-          networks = ["homelab-net"];
-        };
-
-        netbird-dashboard = {
-          image = "netbirdio/dashboard:${dashboardTag}";
-          environment = {
-            NETBIRD_MGMT_API_ENDPOINT = nb.managementUrl;
-            NETBIRD_MGMT_GRPC_API_ENDPOINT = nb.managementUrl;
-            AUTH_AUTHORITY = idUrl;
-            AUTH_CLIENT_ID = "netbird"; # TODO(Phase-O): same PocketID client ID as management
-            AUTH_SUPPORTED_SCOPES = "openid profile email";
-            AUTH_AUDIENCE = "netbird";
-            USE_AUTH0 = "false";
-          };
-          networks = ["homelab-net"];
-        };
-
-        netbird-pocketid = {
+        virtualisation.oci-containers.containers.netbird-pocketid = {
           image = "ghcr.io/pocket-id/pocket-id:${pocketIdTag}";
           volumes = ["${dataDir}/pocket-id:/app/data"];
           environment = {
@@ -250,46 +150,161 @@ in {
             TRUST_PROXY = "true"; # behind SWAG (§5 — tailnet/LAN-only ingress)
           };
           environmentFiles = [
-            config.sops.secrets."netbird/pocketid_jwt_key".path
+            config.sops.secrets."netbird/pocketid_encryption_key".path
           ];
           networks = ["homelab-net"];
         };
+      }
 
-        netbird-relay = {
-          # "relay#1" (§3/§4): the discovery-side, tailnet/LAN-only relay.
-          # Distinct from the voyager/public relay (WP3, netbird-relay.nix,
-          # not this module).
-          image = "netbirdio/relay:${netbirdTag}";
-          environment = {
-            NB_LISTEN_ADDRESS = ":${toString relay1Port}";
-            NB_EXPOSED_ADDRESS = "rels://${relay1Fqdn}:443"; # reached via SWAG on 443, not the raw container port
-            # NB_ENABLE_STUN left unset → defaults false (Q9/§6b-H1: no
-            # self-hosted STUN reflector, ever, on any relay in this design).
+      # === Full control plane (idpOnly = false) ==============================
+      # management/signal/dashboard/relay#1 + their three secrets. Reached only
+      # after the PocketID OIDC client and the real secrets exist (RFC §6 step 6).
+      (lib.mkIf (!cfg.idpOnly) {
+        # --- Secrets (Phase S mints the real values; placeholders only) --------
+        # Single-purpose dotenv-style secrets, same shape as
+        # discovery-hermes-oci.nix's `hermes_agent/server_env` — sops-nix drops
+        # the decrypted scalar verbatim to `path`; docker's `environmentFiles`
+        # reads it as KEY=VALUE lines.
+        sops.secrets."netbird/postgres_dsn" = {
+          inherit sopsFile;
+          format = "yaml";
+          key = "netbird/postgres_dsn";
+          mode = "0400";
+          path = "/run/secrets/netbird-postgres-dsn";
+          # Q5: reuse discovery's infra Postgres (the `postgres` container on
+          # homelab-net) rather than a dedicated instance. Content is the FULL
+          # DSN line, e.g.:
+          #   NETBIRD_STORE_ENGINE_POSTGRES_DSN=postgresql://netbird:<pw>@postgres:5432/netbird?sslmode=disable
+          # TODO(Phase-O, servarr repo): provision the `netbird` role + database
+          # in discovery's infra Postgres (scripts/provision-db.sql) before this
+          # DSN is real.
+          restartUnits = ["docker-netbird-management.service"];
+        };
+        sops.secrets."netbird/auth_secret" = {
+          inherit sopsFile;
+          format = "yaml";
+          key = "netbird/auth_secret";
+          mode = "0400";
+          path = "/run/secrets/netbird-auth-secret";
+          # Content: `NB_AUTH_SECRET=<openssl rand -base64 32>` (§6b-H7 — must be
+          # IDENTICAL on management and every relay; mismatch fails silently at
+          # the relay, so verify a real peer connection in Phase-O §10-2).
+          restartUnits = ["docker-netbird-management.service" "docker-netbird-relay.service"];
+        };
+        sops.secrets."netbird/oidc_client_secret" = {
+          inherit sopsFile;
+          format = "yaml";
+          key = "netbird/oidc_client_secret";
+          mode = "0400";
+          path = "/run/secrets/netbird-oidc-client-secret";
+          # Content: `NETBIRD_AUTH_CLIENT_SECRET=<value>` — the confidential
+          # client secret PocketID issues once an OIDC client for NetBird is
+          # registered there (Phase-O: "PocketID first-run + passkey enrol").
+          # Only management needs it; the dashboard SPA uses the public/PKCE
+          # side of the same client (no secret in browser-shipped code).
+          restartUnits = ["docker-netbird-management.service"];
+        };
+        virtualisation.oci-containers.containers = {
+          netbird-management = {
+            image = "netbirdio/management:${netbirdTag}";
+            volumes = [
+              "${managementConfig}:/etc/netbird/management.json:ro"
+              "${dataDir}/management:/var/lib/netbird"
+            ];
+            cmd = [
+              "--port"
+              "443"
+              "--log-file"
+              "console"
+              "--log-level"
+              "info"
+              "--disable-anonymous-metrics=true"
+              "--dns-domain=${nb.dnsDomain}"
+            ];
+            environment = {
+              # Q5: store engine is postgres, not the SQLite default.
+              NETBIRD_STORE_ENGINE = "postgres";
+              # OIDC bootstrap wiring for the initial (PocketID) identity
+              # provider. Beyond this bootstrap set, ongoing identity-provider
+              # config is a WP4/homelab-iac concern (the netbirdio/netbird
+              # Terraform provider's `identity_provider` resource, §8) — not
+              # re-declared here.
+              NETBIRD_AUTH_CLIENT_ID = "netbird"; # TODO(Phase-O): replace with the real PocketID client ID once created
+              NETBIRD_AUTH_AUTHORITY = idUrl;
+              NETBIRD_AUTH_AUDIENCE = "netbird";
+              NETBIRD_USE_AUTH0 = "false";
+            };
+            # NB_AUTH_SECRET (the best-effort second attempt at the relay HMAC,
+            # see managementConfig.Relay.Secret above) arrives via this file, not
+            # a literal `environment` entry — a literal `-e NB_AUTH_SECRET=`
+            # would risk clobbering the real value depending on docker's
+            # env/env-file precedence.
+            environmentFiles = [
+              config.sops.secrets."netbird/postgres_dsn".path
+              config.sops.secrets."netbird/auth_secret".path
+              config.sops.secrets."netbird/oidc_client_secret".path
+            ];
+            # No published host ports: SWAG (servarr) reaches this by container
+            # name over homelab-net, same ingress model as discovery-hermes-oci.
+            networks = ["homelab-net"];
           };
-          environmentFiles = [
-            config.sops.secrets."netbird/auth_secret".path
-          ];
-          networks = ["homelab-net"];
+
+          netbird-signal = {
+            image = "netbirdio/signal:${netbirdTag}";
+            cmd = ["--port" "80" "--log-file" "console"];
+            networks = ["homelab-net"];
+          };
+
+          netbird-dashboard = {
+            image = "netbirdio/dashboard:${dashboardTag}";
+            environment = {
+              NETBIRD_MGMT_API_ENDPOINT = nb.managementUrl;
+              NETBIRD_MGMT_GRPC_API_ENDPOINT = nb.managementUrl;
+              AUTH_AUTHORITY = idUrl;
+              AUTH_CLIENT_ID = "netbird"; # TODO(Phase-O): same PocketID client ID as management
+              AUTH_SUPPORTED_SCOPES = "openid profile email";
+              AUTH_AUDIENCE = "netbird";
+              USE_AUTH0 = "false";
+            };
+            networks = ["homelab-net"];
+          };
+
+          netbird-relay = {
+            # "relay#1" (§3/§4): the discovery-side, tailnet/LAN-only relay.
+            # Distinct from the voyager/public relay (WP3, netbird-relay.nix,
+            # not this module).
+            image = "netbirdio/relay:${netbirdTag}";
+            environment = {
+              NB_LISTEN_ADDRESS = ":${toString relay1Port}";
+              NB_EXPOSED_ADDRESS = "rels://${relay1Fqdn}:443"; # reached via SWAG on 443, not the raw container port
+              # NB_ENABLE_STUN left unset → defaults false (Q9/§6b-H1: no
+              # self-hosted STUN reflector, ever, on any relay in this design).
+            };
+            environmentFiles = [
+              config.sops.secrets."netbird/auth_secret".path
+            ];
+            networks = ["homelab-net"];
+          };
         };
-      };
 
-      # No host firewall rules here: nothing is published to the host
-      # (no `ports` on any container above), and docker would bypass the
-      # nixos firewall anyway. SWAG over homelab-net is the only ingress —
-      # matching §5 (tailnet/LAN-only control plane, zero new public surface
-      # on discovery; the only public surface in the whole RFC is the
-      # voyager relay, WP3).
+        # No host firewall rules here: nothing is published to the host
+        # (no `ports` on any container above), and docker would bypass the
+        # nixos firewall anyway. SWAG over homelab-net is the only ingress —
+        # matching §5 (tailnet/LAN-only control plane, zero new public surface
+        # on discovery; the only public surface in the whole RFC is the
+        # voyager relay, WP3).
 
-      # TODO(Phase-O, servarr repo): SWAG proxy-conf for nb.<zone> (dashboard +
-      # management, HTTP/2 + gRPC passthrough) and id.<zone> (pocket-id), plus
-      # an internal-only vhost for relay1Fqdn (nb-relay.<zone>) proxying to
-      # netbird-relay:33080 — see docs/implemented/... servarr flow
-      # (references/repos/servarr/machines/discovery/networking.yml).
+        # TODO(Phase-O, servarr repo): SWAG proxy-conf for nb.<zone> (dashboard +
+        # management, HTTP/2 + gRPC passthrough) and id.<zone> (pocket-id), plus
+        # an internal-only vhost for relay1Fqdn (nb-relay.<zone>) proxying to
+        # netbird-relay:33080 — see docs/implemented/... servarr flow
+        # (references/repos/servarr/machines/discovery/networking.yml).
 
-      # TODO(Phase-O, homelab-iac repo): add the Tailscale ACL rule
-      # restricting nb.<zone>/id.<zone> (discovery :443) to admin devices only
-      # (RFC §6 "Control-plane reachability is gated, not flat-trusted") —
-      # same shape as the existing admin-SSH rule in tailscale/acl.
-    };
+        # TODO(Phase-O, homelab-iac repo): add the Tailscale ACL rule
+        # restricting nb.<zone>/id.<zone> (discovery :443) to admin devices only
+        # (RFC §6 "Control-plane reachability is gated, not flat-trusted") —
+        # same shape as the existing admin-SSH rule in tailscale/acl.
+      })
+    ]);
   };
 }

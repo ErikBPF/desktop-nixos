@@ -1,6 +1,8 @@
 # PocketID as NetBird's OIDC IdP — bring-up on discovery, idpOnly-first
 
-**Status:** Proposed (focused bring-up pass; not yet deployed) — 2026-07-11
+**Status:** Partially implemented — idpOnly slice (§6 steps 0–3) shipped and PocketID
+live on discovery behind SWAG at `https://id.homelab.pastelariadev.com` 2026-07-11;
+steps 4–6 (human passkey enrol, NetBird OIDC client, full control plane) pending
 
 > Scaffold for human judgment. PocketID env vars, the OIDC-client model, and the
 > first-run/recovery flow are **researched and cited** (pocket-id.org,
