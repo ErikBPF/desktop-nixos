@@ -130,6 +130,10 @@
     gemini = {
       devices = ["laptop"];
       folderPaths = {
+        # Full Documents + Downloads mirror from the laptop (repos incl .git —
+        # see the stignore note). dev-workspace kept for scratch.
+        "ndykv-cjhly" = "/home/${u}/Downloads/";
+        "ykxhp-khmz2" = "/home/${u}/Documents/";
         "dev-workspace" = {
           path = "/home/${u}/dev/";
           devices = ["laptop"];

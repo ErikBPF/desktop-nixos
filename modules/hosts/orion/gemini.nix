@@ -178,9 +178,25 @@ in {
               homeDirectory = "/home/${username}";
               stateVersion = "25.11";
             };
+            # Create ~/Documents, ~/Downloads etc. so the synced syncthing
+            # folders have their paths present at start.
+            xdg.userDirs = {
+              enable = true;
+              createDirectories = true;
+            };
             programs.home-manager.enable = true;
           };
         };
+
+        # Own the synced folder roots as erik BEFORE syncthing starts. The
+        # string-path fleet folders (Documents/Downloads) aren't auto-created by
+        # the syncthing module (only ensureDir attrset folders are), so without
+        # this they get created root-owned and syncthing (erik) can't write the
+        # .stfolder marker → folder stuck in error, 0 files pulled.
+        systemd.tmpfiles.rules = [
+          "d /home/${username}/Documents 0755 ${username} users - -"
+          "d /home/${username}/Downloads 0755 ${username} users - -"
+        ];
 
         system.stateVersion = "25.11";
       };
