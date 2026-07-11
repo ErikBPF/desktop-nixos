@@ -99,15 +99,18 @@ in {
       terminal_output console serial
     '';
 
-    # Relay#2 identity for this host (RFC §4a/§R3/§R5): vanguard advertises
-    # itself as relayHosts[1] (relay2.<zone>), not voyager's relay.<zone>. Only
-    # takes effect once services.netbirdRelay.enable is flipped on — these are
-    # just the option VALUES for when that happens.
+    # Relay#2 (R3a — enabled): vanguard advertises itself as relayHosts[1]
+    # (relay2.<zone>), a distinct public relay from voyager's relay.<zone>. Its
+    # public :443 (WSS/QUIC) is opened on the shared Oracle security list
+    # (homelab-iac oracle/compute relay_public_surface=true); the relay's
+    # built-in Let's-Encrypt client obtains the cert for relay2.<zone>.
+    # NB_AUTH_SECRET (sops netbird/auth_secret) is byte-identical to discovery's
+    # management (§6b-H7) — decryptable here via the shared primary age key.
+    services.netbirdRelay.enable = true;
     services.netbirdRelay.relayHostname = builtins.elemAt nb.relayHosts 1;
-    # vanguard holds only an ephemeral public IP (unlike voyager's reserved
-    # one) — see netbird-relay.nix's enableDdclient doc comment: this is a
-    # documented placeholder value, not a wired ddclient config (that's a
-    # TODO in netbird-relay.nix itself, not implemented here or there yet).
-    services.netbirdRelay.enableDdclient = true;
+    # DNS: relay2.<zone> is a STATIC A record at vanguard's ephemeral IP, managed
+    # in homelab-iac (cloudflare/dns), bumped on reprovision — so no on-host
+    # ddclient/Cloudflare-token is needed. Keep the module's ddclient path off.
+    services.netbirdRelay.enableDdclient = false;
   };
 }
