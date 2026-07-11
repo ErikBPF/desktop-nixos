@@ -301,7 +301,12 @@ infect-vanguard noreboot="":
             sudo efibootmgr -b "$n" -B
         done
         sudo rm -rf /boot/efi/EFI/ubuntu
-        curl -fsSL https://raw.githubusercontent.com/elitak/nixos-infect/master/nixos-infect -o /tmp/nixos-infect
+        # Pinned to a pre-#264 commit (2026-01-21, voyager-era known-good):
+        # nixos-infect master (#264, 2026-03-22) is suspected in the broken
+        # conversion on the Ubuntu noble image (boot lands in a Ubuntu-userland
+        # hybrid — Ubuntu /sbin/init runs, not init=/nix/store/...). Re-evaluate
+        # /unpin once the conversion is proven clean via the serial console.
+        curl -fsSL https://raw.githubusercontent.com/elitak/nixos-infect/7563801d3ae6/nixos-infect -o /tmp/nixos-infect
         sudo env NIX_CHANNEL=nixos-unstable NO_REBOOT="{{noreboot}}" bash /tmp/nixos-infect
     ' || true
     echo ":: nixos-infect done. noreboot={{noreboot}}"

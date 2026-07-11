@@ -15,6 +15,11 @@ _: {
       escapeTime = 10;
       historyLimit = 50000;
       terminal = "tmux-256color";
+      extraConfig = ''
+        # Pass 24-bit truecolor through from the outer terminal so
+        # zsh-syntax-highlighting's fg=#hex styles render inside tmux.
+        set -ga terminal-features "*:RGB"
+      '';
       plugins = with pkgs.tmuxPlugins; [
         sensible
         vim-tmux-navigator

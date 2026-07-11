@@ -1,9 +1,10 @@
 # OpenCode Zen account pooling, orchestration & declarative management
 
-**Status:** Proposed (decision scaffold) — 2026-07-11. **Ph1-lite validated
-2026-07-11:** free-tier `zen-free`/`zen-free-pickle` routes live on discovery
-LiteLLM and wired end-to-end into opencode (§8). Real 2-key pool **rotation** still
-pending a 2nd Go account.
+**Status:** ✅ Implemented (Ph1-lite) — 2026-07-11. Free-tier `zen-free`/`zen-free-pickle`
+routes live on discovery LiteLLM and wired end-to-end into opencode (§8), validated
+`cost:0`. **Full multi-account pooling (the "5x") is future work** — gated on a 2nd Go
+account; the design, decision gates, and Ph1/Ph2/Ph3 plan below stand as the record for
+that follow-on. The as-built free-tier delivery is §8 "Ph1-lite".
 
 > Scaffold for human judgment. The as-built inventory and the plan/vendor facts
 > below are **researched** (a read-only recon pass over `servarr/machines/discovery`
