@@ -99,7 +99,7 @@ in {
 
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#pathfinder";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#pathfinder";
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;

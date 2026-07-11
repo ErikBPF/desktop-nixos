@@ -131,7 +131,7 @@ in {
 
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#discovery";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#discovery";
       # boot + in-window reboot: avoids a live nvidia/kernel-bump driver mismatch.
       # discovery runs OpenBao — a reboot seals it, but boot auto-unseal recovers
       # (see openbao seal-probe). randomizedDelaySec staggers off the orion cache.

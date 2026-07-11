@@ -187,7 +187,7 @@ in {
 
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#orion";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#orion";
       # boot (not live switch): a nightly kernel/GPU-driver bump activated live
       # mismatches the running module. Staging for next boot + rebooting in-window
       # keeps kernel and driver in lockstep. orion is the fleet cache/builder, so

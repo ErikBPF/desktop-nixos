@@ -81,7 +81,7 @@ in {
 
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#kepler";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#kepler";
       # boot + in-window reboot: a live switch of an nvidia/kernel bump breaks the
       # running CUDA driver (module vs kernel mismatch) — the same reason the manual
       # path uses deploy-rs-boot. A fresh boot keeps them matched. randomizedDelaySec

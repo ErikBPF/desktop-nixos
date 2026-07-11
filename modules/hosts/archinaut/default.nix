@@ -48,7 +48,7 @@ in {
     # Unattended upgrades — built on orion (aarch64 via binfmt), substituted here.
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#archinaut";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#archinaut";
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;

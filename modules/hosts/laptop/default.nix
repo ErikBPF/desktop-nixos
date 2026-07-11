@@ -267,7 +267,7 @@ in {
 
     system.autoUpgrade = {
       enable = true;
-      flake = "github:ErikBPF/desktop-nixos#laptop";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#laptop";
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
