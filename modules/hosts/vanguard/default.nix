@@ -63,6 +63,19 @@ in {
     # marks the system degraded. Disable it on this guest.
     services.smartd.enable = lib.mkForce false;
 
+    # Phase 1 roles (docs/proposals/2026-07-10-vanguard-second-oracle-node.md
+    # §enablement): the light pair — R1 CoreDNS secondary resolver (tailnet
+    # fallback, tens of MB, bound to tailscale0) + R2 offsite dead-man's-switch
+    # prober (a plain systemd timer). Both cheap on the 1 GB box; R3/R4 stay off
+    # until later phases.
+    services.fleetDns.enable = true;
+    services.deadMansSwitch.enable = true;
+    # The role's default checkUrl is the ingress apex, which SWAG has no cert
+    # for (curl --fail would fail every probe → false alarms). Probe PocketID
+    # instead: SWAG-fronted on discovery (the ingress host), public, always-on,
+    # returns 200 — the closest single "home ingress reachable" signal.
+    services.deadMansSwitch.checkUrl = "https://id.${config.flake.fleet.ingress.homelab.zone}";
+
     # EFI boot: keep profile-oci-guest's removable-fallback path
     # (efiInstallAsRemovable=true / canTouchEfiVariables=false), the
     # voyager-proven route. A declarative NVRAM entry does NOT survive Oracle's

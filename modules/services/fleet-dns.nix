@@ -26,6 +26,7 @@ in {
     # so it works even when that host's own resolver is down.
     zoneBlock = zone: hostIp: ''
       ${zone} {
+        bind tailscale0
         template IN A {
           answer "{{ .Name }} 300 IN A ${hostIp}"
         }
@@ -53,11 +54,23 @@ in {
           )
           + ''
             . {
+              bind tailscale0
               forward . ${lib.concatStringsSep " " cfg.upstream}
               log
               errors
             }
           '';
+      };
+
+      # Bind only tailscale0 (see the `bind` lines above): a tailnet-only
+      # fallback resolver must not collide with systemd-resolved's 127.0.0.53
+      # stub on :53, and must never listen publicly. tailscale0 gets its address
+      # a beat after tailscaled activates, so order after it and let the
+      # module's default Restart=on-failure retry (slower RestartSec) until the
+      # interface address exists.
+      systemd.services.coredns = {
+        after = ["tailscaled.service"];
+        serviceConfig.RestartSec = "3s";
       };
 
       # Fallback resolver for fleet peers over the tailnet, not a public DNS
