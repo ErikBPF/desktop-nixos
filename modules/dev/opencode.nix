@@ -72,6 +72,30 @@
                 output = 0;
               };
             };
+            # OpenCode Zen free tier (Homelab workspace, 100 req/day, $0) via the
+            # litellm zen-free* routes. deepseek is a heavy reasoner — prefer pickle.
+            zen-free = {
+              name = "Zen Free — DeepSeek V4 Flash (free, reasoner)";
+              cost = {
+                input = 0.0;
+                output = 0.0;
+              };
+              limit = {
+                context = 163840;
+                output = 8192;
+              };
+            };
+            zen-free-pickle = {
+              name = "Zen Free — Big Pickle (free, coder)";
+              cost = {
+                input = 0.0;
+                output = 0.0;
+              };
+              limit = {
+                context = 204800;
+                output = 8192;
+              };
+            };
           };
         };
         opencode = {

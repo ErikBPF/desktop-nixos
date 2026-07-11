@@ -36,6 +36,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+# One-off plaintext credential handoff (Homelab Zen key) — never commit; delete after wiring.
+zen.md
 node_modules/
 .next/
 dist/
