@@ -11,6 +11,7 @@ ip_kepler := `jq -r '.hosts.kepler.ip' fleet.json`
 ip_archinaut := `jq -r '.hosts.archinaut.ip' fleet.json`
 ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
 ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
+ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " i686-linux,x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -227,6 +228,45 @@ switch-telstar user="erik" port="2222":
         --option builders-use-substitutes true \
         --max-jobs 0 \
         --use-substitutes --sudo --show-trace
+
+# vanguard: the 2nd 1 GB x86 Oracle micro (sibling of voyager) — same class, same
+# path. First run after `just infect-vanguard` the base NixOS is root@22 →
+# `just switch-vanguard root 22`; the flake then moves SSH to erik@2222 → steady
+# state `just switch-vanguard`. Stages the sops age key. Roles (fleet-dns,
+# dead-mans-switch, netbird relay2, pg-replica) are opt-in — enable per the
+# vanguard proposal after provisioning.
+switch-vanguard user="erik" port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="{{ip_vanguard}}"
+    ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
+    scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
+    ssh -p {{port}} {{user}}@"$IP" \
+        'sudo mv /tmp/age-keys.txt /var/lib/sops-staging/age-keys.txt && sudo chmod 600 /var/lib/sops-staging/age-keys.txt'
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#vanguard \
+        --target-host {{user}}@"$IP" \
+        --option builders "{{orion_builder}}" \
+        --option builders-use-substitutes true \
+        --max-jobs 0 \
+        --use-substitutes --sudo --show-trace
+
+# Provision vanguard exactly like voyager: nixos-infect the stock Ubuntu cloud
+# image in place (1 GB x86 micro can't kexec/disko). Entrypoint
+# ubuntu@{{ip_vanguard}}:22; SSH drops on reboot. noreboot=1 leaves it on Ubuntu
+# for inspection. Then `just switch-vanguard root 22` converges the flake config.
+infect-vanguard noreboot="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -o StrictHostKeyChecking=accept-new ubuntu@{{ip_vanguard}} '
+        set -eu
+        if ! sudo swapon --show | grep -q /swapfile; then
+            sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+            sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+        fi
+        curl -fsSL https://raw.githubusercontent.com/elitak/nixos-infect/master/nixos-infect -o /tmp/nixos-infect
+        sudo env NIX_CHANNEL=nixos-unstable NO_REBOOT="{{noreboot}}" bash /tmp/nixos-infect
+    ' || true
+    echo ":: nixos-infect done. noreboot={{noreboot}}"
 
 # kepler intentionally excluded — deploy it on its own window so the AI
 # serving stack isn't restarted as a side effect: just switch-kepler
