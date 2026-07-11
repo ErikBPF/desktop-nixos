@@ -100,6 +100,17 @@ in {
       activationTimeout = 600;
     };
 
+    # vanguard: 2nd Oracle Always-Free AMD micro, multi-role offsite node
+    # (docs/proposals/2026-07-10-vanguard-second-oracle-node.md). Sibling of
+    # voyager; reached on its public IP via sshd once provisioned → magic
+    # rollback safe, same reasoning as voyager/telstar. hostname is null until
+    # Terraform lands it + meta.nix gets the IP (fleet.hosts.vanguard.ip).
+    vanguard = mkNode {
+      host = "vanguard";
+      magicRollback = true;
+      activationTimeout = 600;
+    };
+
     # LAN hosts reached on their LAN IP via sshd (sops-independent) → magic
     # rollback safe. A keyboard is reachable, but auto-revert still beats a
     # manual recovery trip.

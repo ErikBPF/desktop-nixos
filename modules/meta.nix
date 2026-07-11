@@ -109,6 +109,14 @@
           # filled in after the capacity-retry provisioning lands.
           role = "server";
         };
+        vanguard = {
+          # Second Always-Free Oracle VM (AMD VM.Standard.E2.1.Micro, 1 OCPU /
+          # 1 GB, x86_64, São Paulo) — sibling of voyager, multi-role offsite
+          # node (docs/proposals/2026-07-10-vanguard-second-oracle-node.md).
+          # Not yet provisioned; ephemeral public IP filled in after
+          # `terragrunt apply` (homelab-iac oracle/compute-vanguard).
+          role = "server";
+        };
         laptop = {
           # Roaming — Tailscale-only, no fixed LAN reservation.
           role = "laptop";

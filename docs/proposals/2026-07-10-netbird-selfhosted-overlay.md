@@ -216,8 +216,11 @@ only, no secrets at rest); a **full standby management** does not, without that 
 
 > **Net:** Track 1 kills the SPOF severity cheaply and now; Track 2 is the fuller
 > answer but gated on Oracle capacity and a threat-model decision. Neither requires
-> Enterprise; both stay within Always-Free. The 2nd VM is best understood as
-> **telstar's role, extended** — same shape, same staging, already in `fleet.json`.
+> Enterprise; both stay within Always-Free. **The Track-1 2nd VM is `vanguard`** —
+> the second free AMD micro — specified as a multi-role offsite node in
+> [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md)
+> (relay#2 + PG replica here, plus secondary DNS + dead-man's-switch + optional Vault
+> Raft witness). Track 2's full-standby management stays the A1/`telstar` path.
 
 ## 4b. Addressing — NetBird overlay CIDR (fixes the 100.64/10 collision)
 

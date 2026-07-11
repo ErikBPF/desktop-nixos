@@ -48,6 +48,12 @@
       "role": "server",
       "tailscaleIp": null
     },
+    "vanguard": {
+      "ip": null,
+      "mac": null,
+      "role": "server",
+      "tailscaleIp": null
+    },
     "voyager": {
       "ip": "147.15.7.254",
       "mac": null,
