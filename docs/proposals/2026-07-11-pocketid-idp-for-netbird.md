@@ -216,8 +216,13 @@ In PocketID → **Administration → OIDC Clients → Add**, create client **"Ne
 
 - **Public Client: On**, **PKCE: On** → **no client secret is issued**.
 - **Callback / redirect URLs:**
-  - `https://nb.homelab.pastelariadev.com/auth`
-  - `https://nb.homelab.pastelariadev.com/silent-auth`
+  - `https://nb.homelab.pastelariadev.com/` — the dashboard SPA. **Correction
+    (verified against `dashboardTag = v2.90.3` at bring-up 2026-07-11):** this
+    dashboard build sends its OIDC `redirect_uri` as the **origin root** and its
+    nginx has no SPA fallback (`try_files … =404`), so `/auth` and `/silent-auth`
+    (the paths NetBird's PocketID doc lists) **404** here and MUST NOT be used.
+    Register the root; the dashboard's `AUTH_REDIRECT_URI`/`AUTH_SILENT_REDIRECT_URI`
+    are left unset (→ root).
   - `http://localhost:53000` (the CLI loopback for interactive `netbird up`)
 - **Logout callback:** `https://nb.homelab.pastelariadev.com/`
 - **Client Launch URL:** `https://nb.homelab.pastelariadev.com`
