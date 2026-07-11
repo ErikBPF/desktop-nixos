@@ -53,6 +53,7 @@ _: {
     systemd.user.services."uv-tool-specify-cli" = {
       description = "Install specify-cli uv tool";
       wantedBy = ["default.target"];
+      path = [pkgs.git];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
