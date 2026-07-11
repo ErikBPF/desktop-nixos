@@ -42,6 +42,36 @@ in {
       };
     };
 
+    # Disable TCP segmentation offload on the onboard Intel NIC (eno1). Its
+    # e1000e driver periodically wedges the TX ring — `Detected Hardware Unit
+    # Hang` (TDH/TDT desync), which kills the whole host's network until a
+    # reboot. This was P2-1, the root cause of discovery's "intermittent network
+    # loss" (see docs/implemented/2026-06-29-discovery-resilience-fixes.md). The
+    # hang is triggered by the TSO/GSO offload path; moving segmentation to the
+    # kernel avoids it, at a few % of one core under sustained line-rate transfer
+    # (negligible at this host's gigabit workload). GRO (receive) left on — the
+    # hang is a transmit bug. udev .link matched by MAC so it applies before the
+    # interface is enslaved to br0; takes effect on next device add / boot.
+    #
+    # CRITICAL: .link files are first-match-wins (not merged). At priority 10 this
+    # matches the NIC before systemd's built-in 99-default.link, so it MUST carry
+    # the naming policy itself — otherwise the NIC is never renamed to eno1, stays
+    # `eth0`, and the scripted br0 bridge (which enslaves eno1) fails to build →
+    # total network loss. The NamePolicy below mirrors 99-default.link so eno1
+    # naming still happens. (Regression fixed 2026-07-09 after a boot lost the
+    # NIC name and took the whole host offline.)
+    systemd.network.links."10-eno1-no-tso" = {
+      matchConfig.PermanentMACAddress = "64:51:06:1a:f8:1a";
+      linkConfig = {
+        NamePolicy = "keep kernel database onboard slot path";
+        AlternativeNamesPolicy = "database onboard slot path";
+        MACAddressPolicy = "persistent";
+        TCPSegmentationOffload = false;
+        TCP6SegmentationOffload = false;
+        GenericSegmentationOffload = false;
+      };
+    };
+
     # Resolution survives AdGuard being down (boot window / outage): resolved
     # falls back to the UDM + public DNS rather than hard-failing.
     services.resolved.settings.Resolve.FallbackDNS = "192.168.10.1 1.1.1.1 9.9.9.9";

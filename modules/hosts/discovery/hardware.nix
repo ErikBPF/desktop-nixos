@@ -133,7 +133,12 @@ _: {
       "nvidia_uvm"
       "nvidia_drm"
     ];
-    boot.initrd.kernelModules = ["nvidia"];
+    # nvidia is deliberately NOT in boot.initrd.kernelModules: discovery is
+    # headless, so early KMS is pointless, and the nvidia module + GSP firmware
+    # bloat the initrd to ~199 MB — which overflows the 512 MB ESP on deploy
+    # (systemd-boot writes the new gen before pruning old). nvidia loads fine at
+    # stage 2 from boot.kernelModules above; the GPU (transcode/compute/nvtop)
+    # is unaffected. Do not re-add it here without shrinking the initrd first.
     boot.extraModulePackages = [config.boot.kernelPackages.nvidiaPackages.legacy_580];
     boot.blacklistedKernelModules = ["nouveau"];
 
