@@ -24,6 +24,28 @@ _: {
           HostName github.com
           User git
           IdentityFile ~/.ssh/id_rsa
+
+        # Fleet hosts: resolve via tailnet MagicDNS (no LAN HostName override).
+        # sshd is fleet-wide on port 2222 (modules/networking/openssh.nix).
+        Host orion 192.168.10.220
+          Port 2222
+          User erik
+
+        Host kepler
+          Port 2222
+          User erik
+
+        Host archinaut
+          Port 2222
+          User erik
+
+        Host pathfinder
+          Port 2222
+          User erik
+
+        Host voyager
+          Port 2222
+          User erik
       '';
       onChange = ''
         cp ~/.ssh/ro_config ~/.ssh/config
