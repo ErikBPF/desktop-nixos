@@ -66,15 +66,31 @@ in {
     relay1Fqdn = "nb-relay.${ingressZone}";
     relay1Port = 33080; # native relay port behind the reverse proxy (RFC §3 port table)
 
-    # Non-secret management config: external STUN only (Q9 — no self-hosted
-    # reflector), and the relay list (built-in relay#1 + the two public
-    # relayHosts from the fleet.netbird SSOT). CredentialsTTL raised from the
-    # 24h default to 168h (7d) per §7, widening the reconnect-survival window
-    # for a control-plane outage. The shared relay HMAC (`Secret`) is
-    # deliberately NOT a literal value here — see the comment on
-    # netbird-management's environment below.
-    managementConfig = pkgs.writeText "netbird-management.json" (builtins.toJSON {
+    # PocketID OIDC client for NetBird — public client + PKCE (RFC §5 / G4), so
+    # there is NO client secret; this ID is public (shipped in the dashboard SPA)
+    # and is BOTH the client_id and the audience. Minted in PocketID's admin UI
+    # (Administration -> OIDC Clients -> "NetBird"), captured 2026-07-11.
+    oidcClientId = "579d2f64-2bd0-4c5d-9796-f5a4ba2268d0";
+
+    # Management config. The netbird management BINARY reads concrete values
+    # from this JSON (the upstream getting-started envsubst's a template BEFORE
+    # the binary sees it — the binary does NOT expand env vars in the JSON), so
+    # every value here is literal. Auth/OIDC lives in HttpConfig + the flow
+    # blocks (NOT in container env — those NETBIRD_AUTH_* names are the
+    # getting-started's templating vars, not runtime config). Schema verified
+    # against netbirdio/netbird v0.74.3 infrastructure_files/management.json.tmpl.
+    #
+    # The ONE value that must NOT be baked into the Nix store is the relay HMAC
+    # (`Relay.Secret`): it is left as the literal placeholder `$NB_AUTH_SECRET`
+    # and rendered at activation by the netbird-management-config oneshot
+    # (envsubst from the sops secret into /run/netbird-management/management.json,
+    # which the container mounts). CredentialsTTL raised 24h->168h (§7).
+    managementConfig = pkgs.writeText "netbird-management.json.tmpl" (builtins.toJSON {
       StoreConfig.Engine = "postgres";
+      # Placeholder — rendered at activation (see netbird-management-config).
+      # Provided (not left empty) so management does not generate a key and try
+      # to persist it back to the read-only config file.
+      DataStoreEncryptionKey = "\$NB_DATASTORE_ENC_KEY";
       Stuns = [
         {
           Proto = "udp";
@@ -97,15 +113,50 @@ in {
           ["rels://${relay1Fqdn}:443"]
           ++ map (h: "rels://${h}:443") nb.relayHosts;
         CredentialsTTL = "168h";
-        # TODO(Phase-O): verify netbird's config loader actually expands
-        # "$NB_AUTH_SECRET" inside a JSON string (some Go config loaders do
-        # env-expansion on load, some don't). NB_AUTH_SECRET is ALSO set as a
-        # real container env var below as a second attempt. If neither works,
-        # this field must move to a config file rendered at activation time
-        # (envsubst from the sops secret into a RuntimeDirectory path) instead
-        # of this static, Nix-store-readable file — a real secret must never
-        # be baked into a writeText derivation.
+        # Placeholder — rendered at activation (see netbird-management-config).
         Secret = "\$NB_AUTH_SECRET";
+      };
+      # Where clients reach signal: the public nb.<zone> host on 443 (SWAG routes
+      # the signalexchange gRPC service to the netbird-signal container).
+      Signal = {
+        Proto = "https";
+        URI = "nb.${ingressZone}:443";
+        Username = "";
+        Password = null;
+      };
+      ReverseProxy = {
+        TrustedHTTPProxies = [];
+        TrustedHTTPProxiesCount = 0;
+        TrustedPeers = ["0.0.0.0/0"];
+      };
+      # OIDC via PocketID. OIDCConfigEndpoint lets management self-discover the
+      # issuer's endpoints; the explicit endpoints below are belt-and-suspenders
+      # (verified from PocketID's /.well-known 2026-07-11).
+      HttpConfig = {
+        Address = "0.0.0.0:443";
+        AuthIssuer = idUrl;
+        AuthAudience = oidcClientId;
+        AuthKeysLocation = "${idUrl}/.well-known/jwks.json";
+        AuthUserIDClaim = "";
+        IdpSignKeyRefreshEnabled = false;
+        OIDCConfigEndpoint = "${idUrl}/.well-known/openid-configuration";
+      };
+      # IdP-management API integration deferred (G5): group ACLs read the JWT
+      # `groups` claim directly, no PocketID API token needed.
+      IdpManagerConfig.ManagerType = "none";
+      # Device-code flow off (G4/§5): PocketID's device flow is unused; servers
+      # enrol via setup-key, humans via the loopback PKCE browser flow.
+      DeviceAuthorizationFlow.Provider = "none";
+      # Interactive `netbird up` — public client + PKCE (no secret), idToken.
+      PKCEAuthorizationFlow.ProviderConfig = {
+        Audience = oidcClientId;
+        ClientID = oidcClientId;
+        ClientSecret = "";
+        AuthorizationEndpoint = "${idUrl}/authorize";
+        TokenEndpoint = "${idUrl}/api/oidc/token";
+        Scope = "openid profile email offline_access";
+        RedirectURLs = ["http://localhost:53000"];
+        UseIDToken = true;
       };
     });
   in {
@@ -189,26 +240,56 @@ in {
           # Content: `NB_AUTH_SECRET=<openssl rand -base64 32>` (§6b-H7 — must be
           # IDENTICAL on management and every relay; mismatch fails silently at
           # the relay, so verify a real peer connection in Phase-O §10-2).
-          restartUnits = ["docker-netbird-management.service" "docker-netbird-relay.service"];
+          restartUnits = ["netbird-management-config.service" "docker-netbird-management.service" "docker-netbird-relay.service"];
         };
-        sops.secrets."netbird/oidc_client_secret" = {
+        sops.secrets."netbird/datastore_enc_key" = {
           inherit sopsFile;
           format = "yaml";
-          key = "netbird/oidc_client_secret";
+          key = "netbird/datastore_enc_key";
           mode = "0400";
-          path = "/run/secrets/netbird-oidc-client-secret";
-          # Content: `NETBIRD_AUTH_CLIENT_SECRET=<value>` — the confidential
-          # client secret PocketID issues once an OIDC client for NetBird is
-          # registered there (Phase-O: "PocketID first-run + passkey enrol").
-          # Only management needs it; the dashboard SPA uses the public/PKCE
-          # side of the same client (no secret in browser-shipped code).
-          restartUnits = ["docker-netbird-management.service"];
+          path = "/run/secrets/netbird-datastore-enc-key";
+          # Content: `NB_DATASTORE_ENC_KEY=<openssl rand -base64 32>` — encrypts
+          # netbird's at-rest data store. MUST stay stable: rotating it makes the
+          # existing store unreadable. Provided so management does NOT generate a
+          # key and try to write it back to the read-only management.json.
+          # Rendered into management.json (not env) by netbird-management-config.
+          restartUnits = ["netbird-management-config.service" "docker-netbird-management.service"];
         };
+        # NOTE: no netbird/oidc_client_secret secret — the NetBird OIDC client is
+        # public + PKCE (RFC §5 / G4), so PocketID issues no client secret.
+
+        # Render management.json at activation, substituting the relay HMAC from
+        # the sops secret into the store template (a real secret must never be
+        # baked into a world-readable /nix/store path). Ordered before — and
+        # required by — the management container so it always has a fresh render
+        # (/run is tmpfs, cleared each boot). Dir 0700 keeps the rendered secret
+        # host-private; file 0444 lets the container read it regardless of its uid.
+        systemd.services.netbird-management-config = {
+          description = "Render netbird management.json with the relay HMAC from sops";
+          before = ["docker-netbird-management.service"];
+          requiredBy = ["docker-netbird-management.service"];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+          };
+          script = ''
+            install -d -m 0700 /run/netbird-management
+            # Extract the value (the sops secret is a `NB_AUTH_SECRET=<hmac>`
+            # dotenv line); do NOT source it — a stray line would be executed.
+            export NB_AUTH_SECRET="$(${pkgs.gnused}/bin/sed -n 's/^NB_AUTH_SECRET=//p' ${config.sops.secrets."netbird/auth_secret".path})"
+            export NB_DATASTORE_ENC_KEY="$(${pkgs.gnused}/bin/sed -n 's/^NB_DATASTORE_ENC_KEY=//p' ${config.sops.secrets."netbird/datastore_enc_key".path})"
+            ${pkgs.envsubst}/bin/envsubst '$NB_AUTH_SECRET $NB_DATASTORE_ENC_KEY' \
+              < ${managementConfig} \
+              > /run/netbird-management/management.json
+            chmod 0444 /run/netbird-management/management.json
+          '';
+        };
+
         virtualisation.oci-containers.containers = {
           netbird-management = {
             image = "netbirdio/management:${netbirdTag}";
             volumes = [
-              "${managementConfig}:/etc/netbird/management.json:ro"
+              "/run/netbird-management/management.json:/etc/netbird/management.json:ro"
               "${dataDir}/management:/var/lib/netbird"
             ];
             cmd = [
@@ -222,27 +303,18 @@ in {
               "--dns-domain=${nb.dnsDomain}"
             ];
             environment = {
-              # Q5: store engine is postgres, not the SQLite default.
+              # Q5: store engine = postgres (the DSN itself arrives via the
+              # NETBIRD_STORE_ENGINE_POSTGRES_DSN env file below). All OIDC/auth
+              # config lives in management.json (HttpConfig + the flow blocks) —
+              # the management binary does NOT read NETBIRD_AUTH_* env vars (those
+              # are the getting-started's templating vars), so none are set here.
               NETBIRD_STORE_ENGINE = "postgres";
-              # OIDC bootstrap wiring for the initial (PocketID) identity
-              # provider. Beyond this bootstrap set, ongoing identity-provider
-              # config is a WP4/homelab-iac concern (the netbirdio/netbird
-              # Terraform provider's `identity_provider` resource, §8) — not
-              # re-declared here.
-              NETBIRD_AUTH_CLIENT_ID = "netbird"; # TODO(Phase-O): replace with the real PocketID client ID once created
-              NETBIRD_AUTH_AUTHORITY = idUrl;
-              NETBIRD_AUTH_AUDIENCE = "netbird";
-              NETBIRD_USE_AUTH0 = "false";
             };
-            # NB_AUTH_SECRET (the best-effort second attempt at the relay HMAC,
-            # see managementConfig.Relay.Secret above) arrives via this file, not
-            # a literal `environment` entry — a literal `-e NB_AUTH_SECRET=`
-            # would risk clobbering the real value depending on docker's
-            # env/env-file precedence.
+            # Only the Postgres DSN comes via env. The relay HMAC is rendered
+            # into management.json by the netbird-management-config oneshot, not
+            # passed as env here.
             environmentFiles = [
               config.sops.secrets."netbird/postgres_dsn".path
-              config.sops.secrets."netbird/auth_secret".path
-              config.sops.secrets."netbird/oidc_client_secret".path
             ];
             # No published host ports: SWAG (servarr) reaches this by container
             # name over homelab-net, same ingress model as discovery-hermes-oci.
@@ -261,9 +333,9 @@ in {
               NETBIRD_MGMT_API_ENDPOINT = nb.managementUrl;
               NETBIRD_MGMT_GRPC_API_ENDPOINT = nb.managementUrl;
               AUTH_AUTHORITY = idUrl;
-              AUTH_CLIENT_ID = "netbird"; # TODO(Phase-O): same PocketID client ID as management
+              AUTH_CLIENT_ID = oidcClientId;
               AUTH_SUPPORTED_SCOPES = "openid profile email";
-              AUTH_AUDIENCE = "netbird";
+              AUTH_AUDIENCE = oidcClientId;
               USE_AUTH0 = "false";
             };
             networks = ["homelab-net"];

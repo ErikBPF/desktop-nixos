@@ -66,7 +66,7 @@ in {
     # and their secrets exist (§6 step 6).
     services.netbirdServer = {
       enable = true;
-      idpOnly = true;
+      idpOnly = false;
     };
 
     # Discord webhook for incident alerts (cert monitor, restic failure, iac

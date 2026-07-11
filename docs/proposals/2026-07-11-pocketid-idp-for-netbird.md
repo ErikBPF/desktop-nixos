@@ -1,8 +1,14 @@
 # PocketID as NetBird's OIDC IdP — bring-up on discovery, idpOnly-first
 
-**Status:** Partially implemented — idpOnly slice (§6 steps 0–3) shipped and PocketID
-live on discovery behind SWAG at `https://id.homelab.pastelariadev.com` 2026-07-11;
-steps 4–6 (human passkey enrol, NetBird OIDC client, full control plane) pending
+**Status:** Implemented — full self-hosted NetBird control plane (PocketID IdP +
+management/signal/dashboard/relay#1) LIVE on discovery behind SWAG
+(`id`/`nb`/`nb-relay.homelab.pastelariadev.com`) 2026-07-11. Management runs on the
+infra Postgres (dedicated `netbird` role) with PocketID OIDC (public + PKCE);
+`nb/` → 200, `nb/api` → 401 (auth-gated). §5's env-var wiring was corrected to
+`management.json` (`HttpConfig` + flow blocks) — the binary reads the file, not
+`NETBIRD_AUTH_*` env; the relay HMAC + datastore key are rendered from sops at
+activation (never baked). Remaining (human): dashboard passkey login + first
+`netbird up` client enrolment (validates the gRPC routes + relay HMAC end-to-end).
 
 > Scaffold for human judgment. PocketID env vars, the OIDC-client model, and the
 > first-run/recovery flow are **researched and cited** (pocket-id.org,
