@@ -19,7 +19,11 @@ in {
           hostName = "192.168.10.220";
           sshUser = username;
           sshKey = "/root/.ssh/nix-builder";
-          systems = ["x86_64-linux"];
+          # aarch64 via orion's binfmt/qemu emulation (Pi hosts: archinaut).
+          # Emulation is slower per-build than native, but registering it here
+          # lets aarch64 jobs run at maxJobs parallelism instead of the serial
+          # default-1 you get from an ad-hoc --builders override.
+          systems = ["x86_64-linux" "aarch64-linux"];
           protocol = "ssh-ng";
           maxJobs = 16;
           speedFactor = 4;

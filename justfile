@@ -550,8 +550,13 @@ kubeconfig-lan:
 # archinaut-base (rescue / kernel-direct prototype — flash a SPARE card, boot
 # with the printer ON to prove no-u-boot boot, RFC 2026-06-20).
 build-archinaut-sd target="archinaut":
+    # Builder spec fields: uri system sshkey maxjobs speed features mandatory.
+    # maxjobs=16 is the key one — omitting it defaults to 1 (serial builds on a
+    # single core of orion's 32, the old bottleneck). Redundant once orion has
+    # aarch64 in its persistent buildMachines entry + the laptop is rebuilt, but
+    # harmless and works immediately without a laptop switch.
     nix build .#nixosConfigurations.{{target}}.config.system.build.sdImage \
-        --builders 'ssh-ng://erik@{{ip_orion}}?ssh-key=/root/.ssh/nix-builder aarch64-linux' \
+        --builders 'ssh-ng://erik@{{ip_orion}}?ssh-key=/root/.ssh/nix-builder aarch64-linux - 16 4 big-parallel -' \
         --max-jobs 0 --show-trace --out-link result-{{target}}-sd
     @echo ":: image at result-{{target}}-sd/sd-image/ — flash with:"
     @echo "   zstd -dc result-{{target}}-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
