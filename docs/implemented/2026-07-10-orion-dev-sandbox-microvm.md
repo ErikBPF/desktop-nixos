@@ -1,6 +1,6 @@
 # Orion dev sandbox — isolated MicroVM for remote Claude Code / VS Code
 
-**Status:** ✅ Implemented (2026-07-11) — `lander` MicroVM live on orion (tailnet-active `100.112.114.95`, sshd on 2222). BIOS SVM enabled (was the blocker); guest closure builds. Follow-ups: laptop `ssh lander` convenience entry + syncthing pairing.
+**Status:** ⚠️ Superseded by a container pivot (2026-07-11) — the `lander` MicroVM was built and briefly live (BIOS SVM enabled, tailnet-active, sshd 2222), then **replaced by the `gemini` NixOS container** (`modules/hosts/orion/gemini.nix`; commits `74a45fd`, `ed1417f`). Reason: a MicroVM cannot share orion's GPU/resources — the container shares CPU/RAM (GPU deferred). Live approach now: `ssh gemini` + VS Code Remote-SSH + in-container nix via the forwarded daemon. This doc is kept as the record of the MicroVM path and the pivot rationale.
 
 **Author:** Erik (LLM-assisted structure)
 **Date:** 2026-07-10
