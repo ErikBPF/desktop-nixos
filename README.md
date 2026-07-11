@@ -1,6 +1,7 @@
 # desktop-nixos
 
-NixOS configuration for a 5-host homelab. Built on [flake-parts](https://flake.parts) +
+NixOS configuration for a homelab fleet (workstations, servers, a 3D-printer Pi, and
+offsite Oracle nodes). Built on [flake-parts](https://flake.parts) +
 [import-tree](https://github.com/vic/import-tree) following the
 [dendritic](https://github.com/mightyiam/dendritic) pattern — every `.nix` file is a
 top-level module, options replace `specialArgs`, no aggregator boilerplate.
@@ -11,12 +12,17 @@ top-level module, options replace `specialArgs`, no aggregator boilerplate.
 |------|------|-----|-----|-----|---------|-----|
 | **pathfinder** | Desktop | i7-8750H | 32 GB | GTX 1060 Max-Q + UHD 630 (PRIME sync) | SATA · LUKS+btrfs | 192.168.10.125 |
 | **laptop** | Laptop | Intel (mobile) | — | Intel Iris Xe | NVMe · LUKS+btrfs · FIDO2 | Tailscale (roaming) |
-| **orion** | HTPC / Build server | Ryzen 9 5950X | 64 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SSD ext4 | 192.168.10.220 |
+| **orion** | HTPC · build server · dev sandbox | Ryzen 9 5950X | 96 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SATA SSD btrfs | 192.168.10.220 |
 | **discovery** | Home server | i5-4670 | 32 GB | Quadro P2000 | 2×SSD btrfs RAID1 · 3.6TB HDD | 192.168.10.210 |
 | **kepler** | NAS / AI inference | Ryzen 5 3600 | 64 GB | RTX 3070 LHR | M.2 btrfs · ZFS RAIDZ1 | 192.168.10.230 |
-| **voyager** | Offsite backup receiver | Oracle VM | 1 GB | — | 46 GB boot volume · btrfs | 129.148.45.145 / Tailscale |
+| **archinaut** | 3D-printer host (Klipper) | RPi 3B+ | 1 GB | — | microSD | 192.168.10.225 (WiFi) |
+| **voyager** | Offsite backup receiver | Oracle VM (x86) | 1 GB | — | 46 GB boot · btrfs | 147.15.7.254 (ephemeral) / Tailscale |
 
-SSH runs on **port 2222** fleet-wide.
+SSH runs on **port 2222** fleet-wide. Two more Oracle Always-Free nodes are
+expanding the offsite tier — **vanguard** (2nd x86 micro, resilience roles) and
+**telstar** (Ampere A1 aarch64, public projects) — both provisioning. orion also
+hosts **`gemini`**, a NixOS-container dev sandbox (`ssh gemini`, VS Code Remote-SSH)
+that shares its CPU/RAM.
 
 Host addressing is a **single source of truth**: `modules/meta.nix` `fleet.hosts`
 (ip/mac/role), published as the `flake.fleet` output and pinned to `fleet.json`
@@ -27,10 +33,10 @@ it — change an IP once in `meta.nix`, regenerate, and consumers follow.
 ## Stack
 
 - **Window manager:** Hyprland + Quickshell bar + SDDM
-- **Shell:** Fish + Starship + Atuin
+- **Shell:** Zsh (vi-mode, zsh-abbr) + Starship + Atuin
 - **Secrets:** sops-nix (age encryption)
 - **Disk layout:** disko (LUKS+btrfs on desktops/laptop, RAID1 on discovery, ZFS on kepler)
-- **Containers:** Docker / Podman + Compose (discovery, orion)
+- **Containers:** Docker / Podman + Compose (discovery, orion); systemd-nspawn dev sandbox (orion `gemini`)
 - **Monitoring:** Grafana Alloy
 - **VPN:** Tailscale
 - **Binary cache:** nix-serve on orion (LAN, port 5000)
