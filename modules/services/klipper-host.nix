@@ -139,10 +139,14 @@ in {
       # use it. Instead: reset a work clone to origin/main (preserving orcaslicer
       # and everything else), mirror /var/lib/klipper into printer_data/config/
       # ONLY, and commit/push just that subtree. SAVE_CONFIG + Mainsail edits thus
-      # round-trip to git and survive a reflash. Pushes via the on-Pi deploy key
-      # (write-scoped to klipper-biqu); reflash → regenerate it + re-add the
-      # deploy key (see archinaut-kernel-direct memory). Runs as erik (owns the
-      # key; /var/lib/klipper is world-readable).
+      # round-trip to git and survive a reflash. Pushes via a dedicated deploy
+      # key (write-scoped to klipper-biqu) provisioned from sops, so it survives
+      # a reflash with no manual re-add. Runs as erik (owns the key;
+      # /var/lib/klipper is world-readable).
+      sops.secrets."klipper_backup_deploy" = {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+        owner = "erik";
+      };
       systemd.services.klipper-config-backup = {
         description = "Back up /var/lib/klipper to klipper-biqu (printer_data/config only — never touches orcaslicer/)";
         after = ["network-online.target"];
@@ -150,7 +154,7 @@ in {
         path = [pkgs.git pkgs.rsync pkgs.openssh pkgs.coreutils];
         environment = {
           HOME = "/home/erik";
-          GIT_SSH_COMMAND = "${pkgs.openssh}/bin/ssh -i /home/erik/.ssh/klipper_backup_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new";
+          GIT_SSH_COMMAND = "${pkgs.openssh}/bin/ssh -i ${config.sops.secrets."klipper_backup_deploy".path} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new";
         };
         serviceConfig = {
           Type = "oneshot";
@@ -320,12 +324,10 @@ in {
       # secrets ini: [home_assistant] token=…). Only declared when the plugin is
       # enabled — sops-nix validates secret presence at BUILD time, so declaring
       # it unconditionally blocks the build until the key exists in the sops file.
-      sops.secrets = lib.mkIf cfg.enable {
-        "moonraker/secrets" = {
-          sopsFile = self + "/secrets/sops/secrets.yaml";
-          owner = "klipper";
-          group = "klipper";
-        };
+      sops.secrets."moonraker/secrets" = lib.mkIf cfg.enable {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+        owner = "klipper";
+        group = "klipper";
       };
 
       # klipper-backup (config → klipper-biqu git) is NOT in nixpkgs; it is cloned
