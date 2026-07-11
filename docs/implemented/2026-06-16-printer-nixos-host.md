@@ -155,6 +155,17 @@ the same way if/when re-enabled.)
 
 This is the dominant effort of the migration, not the OS/SD work.
 
+**In-house extra — `[mesh_sum]` (added 2026-07-11).** The same overlay vendors
+`modules/services/mesh_sum.py`, a `BED_MESH_SUM PROFILE=<name>` command that adds a
+saved bed_mesh profile to the *live-calibrated* mesh and reinstalls the sum. It lets
+`START_PRINT` run `BED_MESH_CALIBRATE + BED_MESH_SUM PROFILE=compensate` — a fresh
+per-print bed reading **plus** a fixed hand-authored `compensate` tilt that corrects a
+coil↔nozzle mismatch the Eddy cannot see (a stable ~0.4mm left-high). **The config
+section must be `[mesh_sum]`, never `[bed_mesh_sum]`** — bed_mesh's ProfileManager
+prefix-scans every `bed_mesh`-named section and `name.split(' ')[1]` throws
+`IndexError`, crashing klippy on connect. Full calibration rationale + diagnostic saga
+live in the `klipper-biqu` repo (`references/first-layer-planarity-plan.md`).
+
 ## 6b. Moonraker is declarative (the one config exception)
 
 The NixOS moonraker module runs from a **Nix-generated** config — so
