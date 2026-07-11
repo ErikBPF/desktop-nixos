@@ -45,6 +45,7 @@
     "ykxhp-khmz2" = "Documents";
     "xbwsp-zwvsr" = "kube";
     "tofu-state" = "tofu-state-iac";
+    "dev-workspace" = "dev-workspace";
   };
 
   # Per-host topology. `devices` are the peers this host connects to;
@@ -61,11 +62,17 @@
       };
     };
     laptop = {
-      devices = ["discovery" "pathfinder" "orion"];
+      devices = ["discovery" "pathfinder" "orion" "gemini"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/Documents/";
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
+        # Mirror of the orion dev-sandbox (gemini) workspace — remote-primary
+        # (edit on gemini), the laptop keeps an offline/backup copy.
+        "dev-workspace" = {
+          path = "/home/${u}/dev/";
+          devices = ["gemini"];
+        };
       };
     };
     orion = {
@@ -114,6 +121,18 @@
           path = "/home/${u}/tofu-state-backup/";
           devices = ["discovery" "orion"];
           versioning = stateVersioning;
+        };
+      };
+    };
+    # gemini — the orion dev-sandbox container. Its own tailnet node; syncs only
+    # the dev workspace with the laptop. (Generated module consumed by the
+    # container config in modules/hosts/orion/gemini.nix.)
+    gemini = {
+      devices = ["laptop"];
+      folderPaths = {
+        "dev-workspace" = {
+          path = "/home/${u}/dev/";
+          devices = ["laptop"];
         };
       };
     };

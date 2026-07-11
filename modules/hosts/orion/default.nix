@@ -48,6 +48,7 @@ in {
       m.nixos.orion-lact
       m.nixos.btrfs-snapshots
       m.nixos.sccache-cache
+      m.nixos.orion-gemini
     ];
 
     # Host the fleet's shared sccache (dev-loop cargo) cache on the tailnet.

@@ -46,6 +46,11 @@ _: {
         Host voyager
           Port 2222
           User erik
+
+        # orion dev-sandbox container — its own tailnet node (MagicDNS).
+        Host gemini
+          Port 2222
+          User erik
       '';
       onChange = ''
         cp ~/.ssh/ro_config ~/.ssh/config
