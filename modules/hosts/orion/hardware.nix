@@ -91,15 +91,20 @@ _: {
           content = {
             type = "gpt";
             partitions = {
-              # attr kept as "scratch" (GPT partlabel, set at format time only —
-              # renaming it would not reformat, but the label is harmless as-is).
+              # attr kept as "scratch" (GPT partlabel only; harmless). btrfs so the
+              # projects/ML disk gets snapshots (snapper, see jovian.nix) + scrub
+              # bitrot detection (autoScrub, default.nix) + zstd compression.
               scratch = {
                 size = "100%";
                 content = {
-                  type = "filesystem";
-                  format = "ext4";
-                  mountpoint = "/projects";
-                  mountOptions = ["defaults" "noatime"];
+                  type = "btrfs";
+                  extraArgs = ["-L" "projects" "-f"];
+                  subvolumes = {
+                    "/projects" = {
+                      mountpoint = "/projects";
+                      mountOptions = ["subvol=projects" "compress=zstd" "noatime"];
+                    };
+                  };
                 };
               };
             };

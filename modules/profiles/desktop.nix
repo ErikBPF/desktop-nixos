@@ -55,8 +55,10 @@ in {
       m.home.kitty
       m.home.brave
       m.home.firefox
+      m.home.qutebrowser
       m.home.obsidian
       m.home.obsidian-sync
+      m.home.basalt
       m.home.vscode
       m.home.nvim
       m.home.claude-code
@@ -64,6 +66,8 @@ in {
       m.home.opencode
       m.home.hermes-agent
       m.home.herdr
+      m.home.tmux
+      m.home.grafatui
       m.home.packages-desktop
       m.home.syncthing-tray
     ];

@@ -126,7 +126,25 @@
     systemd.tmpfiles.rules = [
       "d /projects 0755 erik users -"
       "L+ /scratch - - - - /projects"
+      # snapper expects .snapshots to exist as a subvolume (NixOS won't create it).
+      "v /projects/.snapshots 0750 root root - -"
     ];
+
+    # Snapper timeline snapshots for the /projects ML/work disk (btrfs sdb) —
+    # guards against fat-fingered deletes of training data / adapters. Mirrors
+    # the fleet /home config in modules/services/btrfs-snapshots.nix; autoScrub
+    # (default.nix) covers this fs for bitrot. Local-only; the precious bits also
+    # live in git (ha-agent) / are re-fetchable (hf cache, venvs).
+    services.snapper.configs.projects = {
+      SUBVOLUME = "/projects";
+      TIMELINE_CREATE = true;
+      TIMELINE_CLEANUP = true;
+      TIMELINE_LIMIT_HOURLY = 12;
+      TIMELINE_LIMIT_DAILY = 7;
+      TIMELINE_LIMIT_WEEKLY = 2;
+      TIMELINE_LIMIT_MONTHLY = 0;
+      TIMELINE_LIMIT_YEARLY = 0;
+    };
 
     # --- Steam library on /opt/models (declarative) ---
     # Steam's data dir (client + game library) is bind-mounted from
