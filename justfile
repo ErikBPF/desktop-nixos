@@ -301,13 +301,34 @@ infect-vanguard noreboot="":
             sudo efibootmgr -b "$n" -B
         done
         sudo rm -rf /boot/efi/EFI/ubuntu
-        # Pinned to a pre-#264 commit (2026-01-21, voyager-era known-good):
-        # nixos-infect master (#264, 2026-03-22) is suspected in the broken
-        # conversion on the Ubuntu noble image (boot lands in a Ubuntu-userland
-        # hybrid — Ubuntu /sbin/init runs, not init=/nix/store/...). Re-evaluate
-        # /unpin once the conversion is proven clean via the serial console.
+        # nixos-infect only wires a serial console for PROVIDER=hostinger and
+        # generates no networking, so its base gen boots dark AND invisible on the
+        # Oracle serial console. Inject an extra module (imported via NIXOS_IMPORT)
+        # that adds console=ttyS0 + name-agnostic DHCP so the base gen is reachable.
+        # The full-install flow is: `just infect-vanguard` (NO noreboot) — infect
+        # reboots into its base gen, whose scripted stage-2 runs the NIXOS_LUSTRATE
+        # first-boot purge of the old Ubuntu userland (the flake gen, on
+        # systemd-initrd, never lustrates so Ubuntu units survive and break net);
+        # the base gen then
+        # comes up root@22 → `just switch-vanguard root 22` converges the flake gen.
+        # extra.nix (base64 to avoid heredoc/quoting in this recipe) =
+        #   { lib, ... }: {
+        #     boot.kernelParams = lib.mkForce [ "console=tty0" "console=ttyS0,115200n8" ];
+        #     networking.useDHCP = lib.mkForce true;
+        #     boot.initrd.systemd.enable = lib.mkForce false;
+        #   }
+        # boot.initrd.systemd.enable=false is THE fix: the nixos-infect Ubuntu purge
+        # (NIXOS_LUSTRATE) is handled ONLY by the SCRIPTED stage-1-init (nixpkgs
+        # stage-1-init.sh); the modern systemd-initrd default SKIPS it, so the old
+        # Ubuntu units (snap/networkd/multipath) survive and break networking. Force
+        # scripted stage-1 for the base gen first boot so lustrate runs, giving a
+        # clean NixOS. The flake gen keeps systemd-initrd (Ubuntu purged by then).
+        sudo mkdir -p /etc/nixos
+        echo eyBsaWIsIC4uLiB9OiB7CiAgYm9vdC5rZXJuZWxQYXJhbXMgPSBsaWIubWtGb3JjZSBbICJjb25zb2xlPXR0eTAiICJjb25zb2xlPXR0eVMwLDExNTIwMG44IiBdOwogIG5ldHdvcmtpbmcudXNlREhDUCA9IGxpYi5ta0ZvcmNlIHRydWU7CiAgYm9vdC5pbml0cmQuc3lzdGVtZC5lbmFibGUgPSBsaWIubWtGb3JjZSBmYWxzZTsKfQo= | base64 -d | sudo tee /etc/nixos/extra.nix >/dev/null
+        # Pinned to a pre-#264 commit (voyager-era). #264 only changes /boot backup
+        # handling, irrelevant to the conversion; kept because this SHA is proven.
         curl -fsSL https://raw.githubusercontent.com/elitak/nixos-infect/7563801d3ae6/nixos-infect -o /tmp/nixos-infect
-        sudo env NIX_CHANNEL=nixos-unstable NO_REBOOT="{{noreboot}}" bash /tmp/nixos-infect
+        sudo env NIX_CHANNEL=nixos-unstable NIXOS_IMPORT=./extra.nix NO_REBOOT="{{noreboot}}" bash /tmp/nixos-infect
     ' || true
     echo ":: nixos-infect done. noreboot={{noreboot}}"
 

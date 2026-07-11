@@ -116,7 +116,7 @@
           # Provisioned 2026-07-11 (shared voyager VCN, subnet 10.0.2.0/24).
           # ephemeral public IP (changes on stop/recreate — ddclient keeps the
           # relay2 DNS fresh once that role is enabled).
-          ip = "137.131.233.64";
+          ip = "163.176.206.86";
           role = "server";
         };
         laptop = {
