@@ -49,7 +49,7 @@
       "tailscaleIp": null
     },
     "vanguard": {
-      "ip": null,
+      "ip": "147.15.14.207",
       "mac": null,
       "role": "server",
       "tailscaleIp": null

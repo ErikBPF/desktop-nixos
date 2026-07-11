@@ -113,8 +113,10 @@
           # Second Always-Free Oracle VM (AMD VM.Standard.E2.1.Micro, 1 OCPU /
           # 1 GB, x86_64, São Paulo) — sibling of voyager, multi-role offsite
           # node (docs/proposals/2026-07-10-vanguard-second-oracle-node.md).
-          # Not yet provisioned; ephemeral public IP filled in after
-          # `terragrunt apply` (homelab-iac oracle/compute-vanguard).
+          # Provisioned 2026-07-11 (shared voyager VCN, subnet 10.0.2.0/24).
+          # ephemeral public IP (changes on stop/recreate — ddclient keeps the
+          # relay2 DNS fresh once that role is enabled).
+          ip = "147.15.14.207";
           role = "server";
         };
         laptop = {
