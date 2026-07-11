@@ -263,6 +263,19 @@ infect-vanguard noreboot="":
             sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
             sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
         fi
+        # Remove Ubuntus EFI boot entry + its ESP dir so firmware falls back to
+        # the removable-path GRUB nixos-infect installs (Oracle UEFI otherwise
+        # keeps booting Ubuntus NVRAM entry against the NixOS root → getty/sshd
+        # cannot start → dark host). Deleting the /boot/efi/EFI/ubuntu dir is the
+        # durable half: OCI drops NVRAM on stop/start, so an entry alone would be
+        # re-scanned back; with the dir gone only BOOT/BOOT<arch>.EFI (NixOS)
+        # remains. Root-caused via the OCI console-history API; voyager works
+        # because its older infect already did this.
+        for n in $(sudo efibootmgr | sed -n "s/^Boot\([0-9A-F]\{4\}\)\*\{0,1\} ubuntu.*/\1/Ip"); do
+            echo ":: removing Ubuntu EFI entry Boot$n"
+            sudo efibootmgr -b "$n" -B
+        done
+        sudo rm -rf /boot/efi/EFI/ubuntu
         curl -fsSL https://raw.githubusercontent.com/elitak/nixos-infect/master/nixos-infect -o /tmp/nixos-infect
         sudo env NIX_CHANNEL=nixos-unstable NO_REBOOT="{{noreboot}}" bash /tmp/nixos-infect
     ' || true

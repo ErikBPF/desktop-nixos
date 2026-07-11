@@ -63,18 +63,15 @@ in {
     # marks the system degraded. Disable it on this guest.
     services.smartd.enable = lib.mkForce false;
 
-    # EFI boot fix (root-caused via the OCI console-history API): after
-    # nixos-infect, Oracle's UEFI still boots Ubuntu's NVRAM entry over the
-    # removable-path GRUB that profile-oci-guest installs → the Ubuntu kernel
-    # boots the NixOS root → getty/sshd (Nix binaries) can't run → host is dark
-    # despite the network being up. Declarative fix: have NixOS manage its OWN
-    # NVRAM entry (canTouchEfiVariables) so the NixOS GRUB entry wins, instead
-    # of relying on the removable fallback Ubuntu's entry beats. Overrides
-    # profile-oci-guest (efiInstallAsRemovable=true / canTouchEfiVariables=false)
-    # for this host only; voyager predates the issue and keeps the profile's
-    # defaults.
-    boot.loader.grub.efiInstallAsRemovable = lib.mkForce false;
-    boot.loader.efi.canTouchEfiVariables = lib.mkForce true;
+    # EFI boot: keep profile-oci-guest's removable-fallback path
+    # (efiInstallAsRemovable=true / canTouchEfiVariables=false), the
+    # voyager-proven route. A declarative NVRAM entry does NOT survive Oracle's
+    # stop/start (OCI drops EFI vars — see the profile comment), so the fix for
+    # Ubuntu's leftover entry winning is imperative and lives in the infect step:
+    # `just infect-vanguard` deletes Ubuntu's `ubuntu` NVRAM entry + its
+    # `/boot/efi/EFI/ubuntu` dir during the noreboot window so firmware falls
+    # back to NixOS's removable BOOT<arch>.EFI. Nothing host-specific to override
+    # here.
 
     # Relay#2 identity for this host (RFC §4a/§R3/§R5): vanguard advertises
     # itself as relayHosts[1] (relay2.<zone>), not voyager's relay.<zone>. Only
