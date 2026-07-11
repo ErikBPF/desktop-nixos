@@ -230,11 +230,12 @@ switch-telstar user="erik" port="2222":
         --use-substitutes --sudo --show-trace
 
 # vanguard: the 2nd 1 GB x86 Oracle micro (sibling of voyager) — same class, same
-# path. First run after `just infect-vanguard` the base NixOS is root@22 →
-# `just switch-vanguard root 22`; the flake then moves SSH to erik@2222 → steady
-# state `just switch-vanguard`. Stages the sops age key. Roles (fleet-dns,
-# dead-mans-switch, netbird relay2, pg-replica) are opt-in — enable per the
-# vanguard proposal after provisioning.
+# path. First run after `just infect-vanguard noreboot=1` (box still on Ubuntu):
+# `just boot-vanguard` sets the flake gen as the next boot, then reboot into it —
+# do NOT reboot into infect's networkless base config first (it comes up dark).
+# Once up on erik@2222, steady state is `just switch-vanguard`. Stages the sops
+# age key. Roles (fleet-dns, dead-mans-switch, netbird relay2, pg-replica) are
+# opt-in — enable per the vanguard proposal after provisioning.
 switch-vanguard user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -250,10 +251,34 @@ switch-vanguard user="erik" port="2222":
         --max-jobs 0 \
         --use-substitutes --sudo --show-trace
 
+# First NixOS boot on the infect path: build the flake gen on orion and set it as
+# the NEXT-BOOT generation on the still-Ubuntu box (root@22; closure copied via
+# substitutes — the 1 GB box never compiles). Uses `boot`, not `switch`: during
+# the infect noreboot window the box still runs Ubuntu, so activation must wait
+# for the reboot. Deploying the flake gen (name-agnostic DHCP + serial console)
+# as the FIRST NixOS boot avoids infect's networkless base config booting dark.
+# Stages the sops age key so first-boot activation can decrypt. Prereqs on the
+# box: nix on root's PATH + root SSH working (Ubuntu forced-command stripped).
+# Reboot after it prints an installed bootloader:  ssh root@<ip> systemctl reboot
+boot-vanguard user="root" port="22":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="{{ip_vanguard}}"
+    ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'mkdir -p /var/lib/sops-staging'
+    scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/var/lib/sops-staging/age-keys.txt
+    ssh -p {{port}} {{user}}@"$IP" 'chmod 600 /var/lib/sops-staging/age-keys.txt'
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild boot --flake .#vanguard \
+        --target-host {{user}}@"$IP" \
+        --option builders "{{orion_builder}}" \
+        --option builders-use-substitutes true \
+        --max-jobs 0 \
+        --use-substitutes --show-trace
+
 # Provision vanguard exactly like voyager: nixos-infect the stock Ubuntu cloud
 # image in place (1 GB x86 micro can't kexec/disko). Entrypoint
 # ubuntu@{{ip_vanguard}}:22; SSH drops on reboot. noreboot=1 leaves it on Ubuntu
-# for inspection. Then `just switch-vanguard root 22` converges the flake config.
+# for inspection (mandatory: deletes Ubuntu's EFI entry below + lets `just
+# boot-vanguard` stage the flake gen before the first NixOS boot).
 infect-vanguard noreboot="":
     #!/usr/bin/env bash
     set -euo pipefail
