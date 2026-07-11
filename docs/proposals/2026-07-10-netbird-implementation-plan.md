@@ -1,6 +1,6 @@
 # NetBird overlay — implementation plan (build breakdown)
 
-**Status:** Built + merged to `main`; partial live provisioning; **deploy blocked on prerequisites** (§Deploy status) — 2026-07-11
+**Status:** Built + merged; control plane + relay#2 **LIVE** (§Deploy status); remaining: voyager relay#1, client enrolment, human passkey bootstrap — 2026-07-11
 
 > **Build results (2026-07-10).** WP0–WP4 done by four sonnet agents + verified
 > together: `just lint`/`fmt-check`/`structure-check` clean, and **zero
@@ -91,36 +91,29 @@ human, in RFC §10 order, after code review. Nothing here deploys.
 
 ## Deploy status & discovered prerequisites (2026-07-11)
 
-**Landed:** all WP code committed + **merged to `main` + pushed** (desktop-nixos +
-homelab-iac, `feat/netbird-overlay`). Secrets minted into sops so far:
-`netbird/auth_secret` (relay HMAC) and `dead-mans-switch/discord_webhook`.
+**Landed + LIVE.** All WP code merged to `main` + pushed. Secrets minted into sops:
+`netbird/{auth_secret,postgres_dsn,datastore_enc_key,pocketid_encryption_key}`,
+`dead-mans-switch/discord_webhook`, `pg-replica/replication_password`.
 
-**vanguard (Track-1 2nd VM, [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md)):**
-provisioned live (shared-VCN refactor applied; VM at 147.15.14.207) but the
-nixos-infect first boot came up **off-network** (auto-reboot skipped the DHCP/console
-pre-check). **Redo:** `terragrunt destroy` the instance + `just infect-vanguard
-noreboot=1`, verify DHCP/`console=ttyS0`, then reboot + `switch-vanguard`. Not
-blocking the admin plane (which lives on discovery).
+**vanguard (Track-1 2nd VM) — LIVE.** NixOS 26.11, R1–R3 roles deployed + verified. The
+earlier off-network boot was root-caused (nixos-infect NIXOS_LUSTRATE skipped by
+systemd-initrd) and fixed in `just infect-vanguard`; the vanguard proposal is the
+authoritative record — [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md).
 
-**Track B (NetBird control plane on discovery) — blockers found reading the code;
-clear these before any `switch-discovery` or the hub's activation FAILS:**
+**Track B (control plane on discovery) — LIVE.** management/signal/dashboard/relay#1 +
+PocketID all up behind SWAG (`id`/`nb`/`nb-relay.<zone>`), NetBird on PocketID OIDC
+(public + PKCE). The five blockers below were all cleared — the `idpOnly` landmine, the
+PocketID env/secret model (`ENCRYPTION_KEY` confirmed), the servarr SWAG proxy-confs,
+the `netbird` PG DB/role, and the passkey/OIDC-client bootstrap order — in the focused
+RFC [`2026-07-11-pocketid-idp-for-netbird.md`](2026-07-11-pocketid-idp-for-netbird.md)
+(the authoritative Track-B record; Implemented per the README index). Only the human
+dashboard-passkey login + first `netbird up` enrolment remain.
 
-1. **sops-activation landmine.** `netbird-server.nix` declares four sops secrets
-   but only `netbird/auth_secret` exists. sops-nix decrypts *all declared secrets at
-   activation*, so enabling as-is **fails activation on discovery** (missing
-   `netbird/postgres_dsn`, `netbird/oidc_client_secret`, `netbird/pocketid_jwt_key`).
-   → the module needs an **`idpOnly` mode** declaring/needing *only* PocketID's
-   secret, and/or the secrets minted first.
-2. **PocketID `ENCRYPTION_KEY` env var unconfirmed** — the module flags it; verify
-   against current PocketID docs before minting (don't guess on the hub).
-3. **`id.<zone>` has no SWAG proxy-conf** — it serves SWAG's default page; PocketID
-   needs a proxy-conf in the **servarr** repo + `pull-servarr` + `kick-stack` to be
-   reachable. Same for `nb.<zone>` (dashboard/management, HTTP2+gRPC) at full stack.
-4. **`netbird` PG DB/role** on discovery's infra Postgres (full stack only).
-5. **Bootstrap order** — PocketID up → human passkey + create OIDC client → capture
-   client-id/secret into sops → then management/signal/dashboard/relay.
+**WP3 relay#2 — LIVE on vanguard.** Public `relay2.<zone>:443` (WSS/QUIC) with a real
+Let's-Encrypt cert; `:443` opened on the shared Oracle security list; static-TF DNS at
+the ephemeral IP. voyager's public relay#1 (`relay.<zone>`) is **not stood up** — its
+Cloudflare record is still a placeholder and its `services.netbirdRelay` is off (needs
+voyager's reserved-IP wiring first).
 
-**Next step (own RFC):** "deploy PocketID as NetBird's IdP" is spun out to a focused
-proposal (to be authored) — covering the `idpOnly` refactor, the PocketID
-env/secret model, the servarr SWAG proxy-conf, and the passkey/OIDC-client
-bootstrap, verified end-to-end before touching the hub.
+**Remaining:** voyager relay#1 (its own reserved-IP + `services.netbirdRelay`), client
+enrolment (WP1 `netbird up` per host), and the human passkey/OIDC dashboard bootstrap.

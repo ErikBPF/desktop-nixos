@@ -1,19 +1,30 @@
 # vanguard — second Oracle free VM, multi-role offsite resilience node
 
-**Status:** Built in-tree; VM provisioned 2026-07-11 but **off-network after infect (redo needed)** — 2026-07-11
+**Status:** ✅ Implemented — R1–R3 live + verified on vanguard (2026-07-11); R4 (vault-witness) deferred by design — 2026-07-11
 
-> **Build note.** Host + all four role modules are in-tree and eval-clean,
-> **opt-in/disabled by default** (dry-build pulls no coredns/postgres/openbao/netbird
-> pkgs). R4 (vault-witness) is a gated stub that does not touch discovery's live vault.
+> **Deployed (2026-07-11).** vanguard is a clean fleet host: NixOS 26.11 (Zokor),
+> `ssh -p 2222 erik@<ip>`, tailscale `100.90.247.79`, ens3 DHCP, sops OK, 0 failed
+> units. The earlier dark-boot after infect was root-caused (nixos-infect's
+> **NIXOS_LUSTRATE** is only honoured by the scripted stage-1; modern NixOS defaults
+> `boot.initrd.systemd.enable=true`, which skips it) and fixed in `just infect-vanguard`
+> (injects `boot.initrd.systemd.enable=false` + `console=ttyS0` + `useDHCP`). Public IP
+> is **ephemeral** (changes on recreate). See `memory/netbird_overlay_vanguard.md`.
 >
-> **Provision note (2026-07-11).** The shared-VCN refactor was applied and the VM
-> provisioned (147.15.14.207, subnet 10.0.2.0/24). But `just infect-vanguard` ran
-> with auto-reboot, and the NixOS first boot came up **off-network** (no
-> DHCP/console pre-check) — SSH times out on 22 + 2222. **Redo:** `terragrunt
-> destroy` the instance + `just infect-vanguard noreboot=1`, verify DHCP /
-> `console=ttyS0` on the still-Ubuntu box, *then* reboot + `switch-vanguard`. No data
-> lost (fresh host). **R2 webhook secret (`dead-mans-switch/discord_webhook`) is
-> minted**; R1/R2 deploy once the VM is back; R3/R4 follow the phases below.
+> **Roles live (in enablement order):** **R1** `services.fleetDns` — CoreDNS secondary
+> resolver, **bound to `tailscale0`** (no clash with systemd-resolved's `:53` stub),
+> answers `*.homelab.<zone>` → discovery; wired into the tailnet as an offsite fallback
+> (homelab-iac `tailscale/dns` nameserver list after discovery + `tailscale/acl`
+> `*→vanguard:53`). **R2** `services.deadMansSwitch` — offsite prober; the role default
+> `checkUrl` (ingress apex) has no SWAG cert, so it points at PocketID
+> (`id.homelab.<zone>`, public 200). **R3a** `services.netbirdRelay` — public relay#2
+> `relay2.<zone>:443` (WSS/QUIC) with a real Let's-Encrypt cert; `:443` opened on the
+> shared Oracle SL (`oracle/compute` `relay_public_surface=true`); DNS is a **static TF
+> record** at the ephemeral IP (no on-host ddclient — no Cloudflare token in sops),
+> bumped on reprovision. **R3b** `services.pgReplica` — **PG18 streaming standby** of
+> discovery's shared cluster (532MB, 0 bytes behind), `:5432` published on discovery's
+> tailnet IP (servarr infra) + ACL-gated to vanguard; seeded once via `pg_basebackup`.
+> **R4** `services.vaultWitness` — still a gated stub, deferred (needs discovery vault
+> reconfig + a WAN-latency test).
 
 Stand up the **second** Oracle Always-Free VM — **`vanguard`** — as a multi-role
 offsite node. It began as the NetBird "Track-1 2nd VM"
@@ -98,9 +109,13 @@ fail2ban) is a 2nd offsite entry beside voyager — free alongside R3's public s
 
 ## Enablement phases (RAM-aware)
 
-1. **Light pair first:** R1 (CoreDNS) + R2 (prober) — tens of MB, immediate SPOF wins.
-2. **R3:** relay#2 + PG replica — watch RAM/egress; cgroup-cap the replica.
-3. **R4 (optional, last):** Raft witness — only after a latency test proves quorum
+1. ✅ **Light pair (shipped 2026-07-11):** R1 (CoreDNS) + R2 (prober) — tens of MB, immediate SPOF wins.
+2. ✅ **R3 (shipped 2026-07-11):** relay#2 + PG18 read-replica. The replica is the RAM cost
+   (`shared_buffers=64MB`); physical replication is whole-cluster, but discovery's is only 532MB,
+   well within vanguard's disk. **No replication slot** — deliberately, so a vanguard outage can't
+   fill discovery's WAL disk; if the standby lags past WAL retention it breaks and is re-seeded
+   (`pg_basebackup`, cheap at 532MB).
+3. **R4 (optional, last — not started):** Raft witness — only after a latency test proves quorum
    writes stay acceptable; reversible.
 
 ## Build artifacts (this proposal → code)
@@ -114,18 +129,29 @@ fail2ban) is a 2nd offsite entry beside voyager — free alongside R3's public s
   secondary), `services.deadMansSwitch` (offsite prober), reuse `netbird-relay`
   (`relay2`), `services.pgReplica` (NetBird DB), `services.vaultWitness` (Raft, gated,
   does not alter discovery until enabled).
-- `homelab-iac`: `oracle/compute-vanguard` unit (mirror `compute-telstar`, E2.1.Micro,
-  own VCN); `cloudflare/dns` `relay2` already staged; `tailscale/dns` add vanguard to
-  the nameserver list; `tailscale/acl` allow vanguard as break-glass + DNS.
+- `homelab-iac` (all applied 2026-07-11): `oracle/compute-vanguard` (E2.1.Micro, **shares
+  voyager's VCN** — free tier caps VCNs at 2/region — subnet 10.0.2.0/24); `oracle/compute`
+  `relay_public_surface=true` opens `:443` on the shared security list for relay#2 (that apply
+  also surfaced + fixed a latent shape mismatch that had voyager mis-declared as A1.Flex);
+  `cloudflare/dns` `relay2` → vanguard (static A record); `tailscale/dns` adds vanguard after
+  discovery in the global nameserver list; `tailscale/acl` grants `*→vanguard:53` (R1),
+  `vanguard→discovery:5432` (R3b), and break-glass SSH via the existing admin `*:2222` rule.
+  servarr publishes discovery's postgres `:5432` on its tailnet IP for R3b.
 
 ## Human-gated ops (not autonomous)
 
-Provision the VM (`terragrunt apply` from a wired-LAN host — capacity for the 2nd AMD
-micro is reliable, unlike A1) → set `fleet.hosts.vanguard.ip` → `just fleet-json` →
-`just deploy vanguard <ip> 2222` (nixos-infect/disko path per voyager) → enable roles
-in phases, verifying each. NetBird `NB_AUTH_SECRET` re-encrypted to vanguard's
-host-specific age key (Q4). The Raft witness (R4) additionally needs the discovery
-vault reconfig + a latency test before enable.
+**Done (2026-07-11):** provisioned via `terragrunt apply` (shared-VCN) → `just infect-vanguard`
+(the lustrate fix) → `just switch-vanguard`, then R1 → R2 → R3 enabled + verified per phase.
+`NB_AUTH_SECRET` is shared with discovery's management via sops and decrypts on vanguard through
+the primary age key — no separate host key was needed, so Q4's per-host-key plan was not required
+given the primary-key staging model. R3b's one-time manual steps (the module is deliberately not
+turnkey): the `replicator` role + `host replication` pg_hba lines on discovery's postgres (runtime
+state in the volume — re-add on a fresh init) and the `pg_basebackup` seed + standby marker on
+vanguard.
+
+**Remaining:** R4 (vault-witness) — needs the discovery vault reconfig (`cluster_addr` off
+loopback + `retry_join` + a TLS decision) and a WAN-latency test proving cross-region quorum
+writes stay acceptable, before enable.
 
 ---
 

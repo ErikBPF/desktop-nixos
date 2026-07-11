@@ -1,6 +1,6 @@
 # Self-hosted NetBird overlay — resilient control plane on discovery + voyager
 
-**Status:** Proposed (all decision gates ruled 2026-07-10; not yet implemented) — 2026-07-10
+**Status:** Partially implemented — control plane (discovery) + public relay#2 (vanguard) **LIVE** 2026-07-11; remaining: voyager relay#1, client enrolment (`netbird up`), human passkey bootstrap. All gates ruled 2026-07-10; build/as-built tracked in the implementation plan + the PocketID RFC — 2026-07-11
 
 > Scaffold for human judgment. Facts, ports, and NixOS/Terraform surfaces are
 > researched and cited. Three scoping decisions locked in §1; **all 11 detailed
