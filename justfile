@@ -561,6 +561,74 @@ build-archinaut-sd target="archinaut":
     @echo ":: image at result-{{target}}-sd/sd-image/ — flash with:"
     @echo "   zstd -dc result-{{target}}-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
 
+# Flash the built SD image AND inject the sops age key in one step, so a
+# freshly-flashed card boots straight onto WiFi — no manual mount-and-copy.
+#
+# Why this is needed: archinaut is WiFi-only and its PSK is a sops secret
+# (wifi_secrets → $psk_quewifi) decrypted using the age key at
+# sops.age.keyFile (modules/services/sops.nix). first-boot.nix's
+# distributeSopsKey activation script expects that key staged at
+# /var/lib/sops-staging/age-keys.txt — the nixos-anywhere `provision` recipe
+# seeds it via --extra-files, but the sd-image build has no such mechanism,
+# so a card flashed straight from `build-archinaut-sd` boots with no age key,
+# sops can't decrypt the PSK, and WiFi never comes up (unreachable Pi).
+# This recipe flashes, then mounts the rootfs partition and drops the key in
+# — post-flash injection, deliberately NOT baked into the .img artifact
+# (that's a build output; a baked-in secret would leak into it).
+#
+# device = e.g. /dev/sdX — required, no default (never guess a disk to dd to).
+flash-archinaut-sd device target="archinaut":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IMG=$(ls result-{{target}}-sd/sd-image/*.img.zst 2>/dev/null | head -1)
+    if [ -z "$IMG" ]; then
+        echo ":: No image found at result-{{target}}-sd/sd-image/ — run: just build-archinaut-sd"
+        exit 1
+    fi
+    case "{{device}}" in
+        /dev/*) ;;
+        *) echo ":: refusing — device must look like /dev/sdX, got: {{device}}"; exit 1 ;;
+    esac
+    if mount | grep -q "^{{device}}[0-9]* on / "; then
+        echo ":: refusing — {{device}} looks like the system disk"
+        exit 1
+    fi
+
+    echo ":: unmounting any mounted partitions of {{device}}"
+    for part in {{device}}*[0-9]; do
+        [ -e "$part" ] && sudo umount "$part" 2>/dev/null || true
+    done
+
+    echo ":: flashing $IMG → {{device}}"
+    zstd -dc "$IMG" | sudo dd of={{device}} bs=4M oflag=direct status=progress conv=fsync
+    sudo partprobe {{device}}
+    sleep 2
+
+    ROOT_PART="{{device}}2"
+    MNT=$(mktemp -d)
+    echo ":: mounting $ROOT_PART (NIXOS_SD rootfs) at $MNT"
+    sudo mount "$ROOT_PART" "$MNT"
+
+    echo ":: injecting sops age key at /var/lib/sops-staging/age-keys.txt"
+    sudo mkdir -p "$MNT/var/lib/sops-staging"
+    sudo cp ~/.config/sops/age/keys.txt "$MNT/var/lib/sops-staging/age-keys.txt"
+    sudo chown 0:0 "$MNT/var/lib/sops-staging/age-keys.txt"
+    sudo chmod 600 "$MNT/var/lib/sops-staging/age-keys.txt"
+    sudo test -s "$MNT/var/lib/sops-staging/age-keys.txt"
+
+    sync
+    sudo umount "$MNT"
+    rmdir "$MNT"
+
+    echo ":: done — card ready, insert into the Pi and power it on."
+    echo ":: reminder — two known gotchas after reflash:"
+    echo "   1. Reflash = new tailscale identity → new tailnet IP. Update the"
+    echo "      archinaut entry in homelab-iac's tailnet ACL hosts-map or"
+    echo "      log-shipping (vector→discovery:3100) won't match."
+    echo "   2. If klipper shows \"mcu 'mcu': Serial connection closed\", power on"
+    echo "      the printer mainboard, then:"
+    echo "      curl -X POST http://<pi>:7125/printer/firmware_restart"
+
 # Deploy archinaut: evaluate locally, build aarch64 on orion, push to the Pi.
 switch-archinaut:
     just deploy-rs archinaut
