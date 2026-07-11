@@ -98,8 +98,9 @@ _: {
   cata = "cat * | wl-copy";
 
   # --- Claude / coding ---
-  c = "claude --dangerously-skip-permissions"; # default claude (always skip-perms)
-  cc = "code . ; claude --dangerously-skip-permissions"; # open editor + claude
+  claude = "env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # bare claude ALWAYS dangerous (skip-perms + ⚡). Interactive zsh only; scripts/binary calls unaffected.
+  c = "env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # claude shorthand — also dangerous + ⚡
+  cc = "code . ; env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # editor + dangerous claude
   e = "code ."; # editor in cwd
 
   # --- Codex / OpenCode (yolo by default, mirroring `c`) ---

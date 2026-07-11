@@ -1,12 +1,19 @@
 # vanguard — second Oracle free VM, multi-role offsite resilience node
 
-**Status:** Built in-tree, eval-verified, host not provisioned — 2026-07-10
+**Status:** Built in-tree; VM provisioned 2026-07-11 but **off-network after infect (redo needed)** — 2026-07-11
 
-> **Build note (2026-07-10).** Host + all four role modules are in-tree and
-> eval-clean, **opt-in/disabled by default** (dry-build pulls no coredns/postgres/
-> openbao/netbird pkgs). R4 (vault-witness) is a gated stub that does not touch
-> discovery's live vault. Not provisioned, not deployed — enable in the RAM-aware
-> phases below after the VM exists.
+> **Build note.** Host + all four role modules are in-tree and eval-clean,
+> **opt-in/disabled by default** (dry-build pulls no coredns/postgres/openbao/netbird
+> pkgs). R4 (vault-witness) is a gated stub that does not touch discovery's live vault.
+>
+> **Provision note (2026-07-11).** The shared-VCN refactor was applied and the VM
+> provisioned (147.15.14.207, subnet 10.0.2.0/24). But `just infect-vanguard` ran
+> with auto-reboot, and the NixOS first boot came up **off-network** (no
+> DHCP/console pre-check) — SSH times out on 22 + 2222. **Redo:** `terragrunt
+> destroy` the instance + `just infect-vanguard noreboot=1`, verify DHCP /
+> `console=ttyS0` on the still-Ubuntu box, *then* reboot + `switch-vanguard`. No data
+> lost (fresh host). **R2 webhook secret (`dead-mans-switch/discord_webhook`) is
+> minted**; R1/R2 deploy once the VM is back; R3/R4 follow the phases below.
 
 Stand up the **second** Oracle Always-Free VM — **`vanguard`** — as a multi-role
 offsite node. It began as the NetBird "Track-1 2nd VM"
