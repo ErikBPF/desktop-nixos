@@ -67,6 +67,7 @@ in {
                    ${tmcAutotuneSrc}/motor_database.cfg \
                    $out/lib/klipper/extras/
                 cp ${gcodeShellCommandSrc} $out/lib/klipper/extras/gcode_shell_command.py
+                cp ${./mesh_sum.py} $out/lib/klipper/extras/mesh_sum.py
               '';
           });
         })
