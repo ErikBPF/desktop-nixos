@@ -50,6 +50,11 @@ in {
       m.nixos.restic-tofu-state
       m.nixos.swag-cert-monitor
       m.nixos.discovery-vault
+      # NetBird self-hosted control plane (WP2, docs/proposals/2026-07-10-
+      # netbird-selfhosted-overlay.md). Registers services.netbirdServer but
+      # stays off: enable defaults to false and is not flipped on here (Phase
+      # S/O are human-gated — see the implementation plan).
+      m.nixos.discovery-netbird-server
     ];
 
     # Discord webhook for incident alerts (cert monitor, restic failure, iac

@@ -2,6 +2,12 @@ keys:
   - &primary age127vmpu9ps2d2ulukcsp743xvmg5n9dsg9up4gtusc4ehgnjl6y7qg245jt
   - &orion age10tgzh4gyr2myps4y3zj63ppj8cmfmyyusvma9g6suzyn2tjz5gxqekmtls
   - &archinaut age1rnmn0c3sezwc2y90n66t740se98huva8w4hehyc2xlv32f8pnfssqkqsqj
+  # TODO(netbird Phase-S, RFC 2026-07-10-netbird-selfhosted-overlay.md §11-Q4/§14):
+  # placeholder only — replace with voyager's real host-specific age pubkey
+  # (`age-keygen` run on voyager) before adding *voyager to any key_groups below.
+  - &voyager age1PLACEHOLDER_REPLACE_ME_voyager_phase_s
+  # TODO(netbird Phase-S): same as above, once telstar provisions.
+  - &telstar age1PLACEHOLDER_REPLACE_ME_telstar_phase_s
 creation_rules:
   - path_regex: secrets/sops/secrets.yaml$
     key_groups:

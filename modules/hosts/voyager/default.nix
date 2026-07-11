@@ -22,6 +22,11 @@ in {
       m.nixos.voyager-compose
       m.nixos.node-exporter
       m.nixos.first-boot
+      # NetBird native relay (WP3, docs/proposals/2026-07-10-
+      # netbird-selfhosted-overlay.md §4a/§6b). Registers services.netbirdRelay
+      # but stays off: enable defaults to false and is not flipped on here
+      # (Phase S/O are human-gated — see the implementation plan).
+      m.nixos.netbird-relay
     ];
 
     # Rollback guard: offsite backups need SSH, Tailscale, and the receiver stack.

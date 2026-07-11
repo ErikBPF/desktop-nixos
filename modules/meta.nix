@@ -154,6 +154,54 @@
       };
     };
 
+    # NetBird self-hosted overlay fact (RFC docs/proposals/2026-07-10-netbird-selfhosted-overlay.md
+    # §4a/§4b/§8; build breakdown 2026-07-10-netbird-implementation-plan.md WP0).
+    # managementUrl is the *internal* ingress name (fleet.ingress.homelab, SWAG,
+    # tailnet/LAN-only per §5) — never public. relayHosts are the public
+    # Cloudflare-DNS-only relay records (§4/§8), on the root domain like the
+    # existing public fleet.services entries, deliberately NOT under the
+    # internal homelab zone.
+    fleet.netbird = lib.mkOption {
+      type = lib.types.submodule {
+        options = {
+          managementUrl = lib.mkOption {
+            type = lib.types.singleLineStr;
+            description = "NetBird management API/dashboard URL — internal ingress on discovery, tailnet/LAN-only (RFC §5).";
+          };
+          overlayCidr = lib.mkOption {
+            type = lib.types.singleLineStr;
+            description = "NetBird overlay CIDR — disjoint from Tailscale's 100.64.0.0/10 (RFC §4b).";
+          };
+          dnsDomain = lib.mkOption {
+            type = lib.types.singleLineStr;
+            description = "NetBird's own management DNS domain for split-DNS (RFC §4b) — distinct from Tailscale's *.ts.net.";
+          };
+          relayHosts = lib.mkOption {
+            type = lib.types.listOf lib.types.singleLineStr;
+            description = "Public relay hostnames (voyager + future 2nd OCI VM), Cloudflare DNS-only A records (RFC §4/§8).";
+          };
+        };
+      };
+      description = "NetBird self-hosted overlay facts — single SSOT read by the netbird client/server modules and homelab-iac.";
+      default = {
+        managementUrl = "https://nb.homelab.pastelariadev.com";
+        overlayCidr = "10.100.0.0/16";
+        dnsDomain = "netbird.internal";
+        relayHosts = ["relay.pastelariadev.com" "relay2.pastelariadev.com"];
+      };
+    };
+
+    # Overlay-network CIDR registry (RFC §4b) — one entry per mesh so a future
+    # overlay never re-collides an in-use range.
+    fleet.overlays = lib.mkOption {
+      type = lib.types.attrsOf lib.types.singleLineStr;
+      description = "Overlay-network CIDR registry, keyed by mesh name.";
+      default = {
+        tailscale = "100.64.0.0/10";
+        netbird = "10.100.0.0/16";
+      };
+    };
+
     fleet.services = lib.mkOption {
       type = lib.types.attrsOf (
         lib.types.submodule {
@@ -223,5 +271,5 @@
   # Publish the fleet table as a flake output so it can be pinned to disk:
   #   nix eval .#fleet --json | jq . > fleet.json   (`just fleet-json`)
   # Vendored by homelab-iac (jsondecode) on a deliberate bump — never read live.
-  config.flake.fleet = {inherit (config.fleet) hosts ingress services;};
+  config.flake.fleet = {inherit (config.fleet) hosts ingress services netbird overlays;};
 }

@@ -1,11 +1,12 @@
 # Self-hosted NetBird overlay — resilient control plane on discovery + voyager
 
-**Status:** Proposed (draft, decision gates open) — 2026-07-10
+**Status:** Proposed (all decision gates ruled 2026-07-10; not yet implemented) — 2026-07-10
 
 > Scaffold for human judgment. Facts, ports, and NixOS/Terraform surfaces are
-> researched and cited; the **architecture recommendation** is mine to react to,
-> not a ratified decision. Three scoping decisions are already locked (see §1);
-> the open gates are collected in §11.
+> researched and cited. Three scoping decisions locked in §1; **all 11 detailed
+> gates ruled (§11)** on 2026-07-10. Design survived three adversarial passes
+> (party + red/blue-team + infra/HA); every design-changing finding is folded in.
+> Still a **proposal** — implementation not started, nothing deployed.
 
 ## 1. Locked decisions
 
@@ -282,10 +283,10 @@ onto the tailnet.
   enroll in NetBird. Acceptable under coexist (Tailscale is permanent, L1), but it
   means NetBird cannot bootstrap a peer that has no tailnet path.
 
-> **Relay TLS.** Discovery relay: behind SWAG under the wildcard cert — no new
-> cert. Voyager relay: it has no reverse proxy/ACME today, so it terminates its own
-> TLS for `relay.<zone>` — NetBird relay's built-in Let's Encrypt env vars, or a
-> cloudflare-DNS-01 cert reusing the swag-token pattern. Decision gate §11-Q3.
+> **Relay TLS (Q3, ruled).** Discovery relay: behind SWAG under the wildcard cert —
+> no new cert. Voyager relay: terminates its own TLS for `relay.<zone>` via NetBird
+> relay's **built-in Let's Encrypt** (`NB_LETSENCRYPT_DOMAINS`/`_EMAIL`/`_DATA_DIR`)
+> — fewest moving parts on the offsite host.
 
 ## 6. Security model
 
@@ -322,10 +323,12 @@ presence). **MFA is 100% delegated to the IdP.** So on this stack:
   schedule. This is the only NetBird lever that re-asserts MFA over time. Fleet
   setup-key peers are exempt (and must be — see the invariant above), so this never
   affects data-plane resilience.
-- **One caveat to close (§11-Q6):** PocketID offers a **one-time login code**
-  recovery path for "signing in without your passkey." For a strict
-  passkey-only-no-fallback posture, audit whether that recovery path can be
-  restricted/disabled; otherwise it's a (deliberate, out-of-band) bypass.
+- **Login-code recovery kept (Q6, ruled).** PocketID's **one-time login code**
+  (sign in without your passkey) stays **enabled** — a deliberate out-of-band
+  recovery path, accepted precisely to avoid the single-admin self-brick the grill
+  flagged (lost passkey + tailnet-only + no fallback = locked out of your own
+  control plane). It's a known, bounded bypass; treat the login-code issuance as a
+  tier-0 admin action.
 
 Sources: [NetBird MFA](https://docs.netbird.io/manage/settings/multi-factor-authentication),
 [identity-providers](https://docs.netbird.io/selfhosted/identity-providers),
@@ -356,9 +359,10 @@ surface collapses to TCP 443 (WSS) + UDP 443 (QUIC)**, which share one port.
 **H2 — Oracle security-list = exactly two rules + break-glass.** Open **only**
 `443/tcp` and `443/udp` from `0.0.0.0/0` (relay must be world-reachable). The
 current SL opens **SSH 22 + 2222 from `0.0.0.0/0`** — on a permanent IP that's a
-scan-accreting target. Close **22** entirely; for **2222** (the DR break-glass
-path), either restrict `ssh_ingress_cidr` to an admin allowlist or keep it open
-but hardened (§11-Q8). Keep the ICMP type-3 PMTU rule.
+scan-accreting target. **Close 22 entirely; keep 2222 world-open but hardened**
+(Q8-b — DR-entry independence over scan-surface): **key-only, non-root,
+fail2ban/crowdsec**, on a box that (post-Q4) no longer holds the `primary` key.
+Keep the ICMP type-3 PMTU rule.
 
 **H3 — Host nftables: default-deny + connection-rate limiting.** The relay rejects
 tokenless clients cheaply at the app layer, but **only after the TLS/QUIC
@@ -386,10 +390,11 @@ the DR-anchor's restic receiver sharing the box.
 metrics: **`relay_transfer_sent_bytes_total`** (egress signal), `relay_peers`,
 `relay_peer_reconnections_total`. Scrape `voyager:9090` from discovery's Prometheus
 **over the tailnet** and alert on `rate(relay_transfer_sent_bytes_total)` and peer
-anomalies; keep the existing **$1 Oracle budget alarm**. STUN being off means no
-UDP-3478 reflection to watch. *(Optional hard stop: a threshold-triggered systemd
-kill of the relay if egress crosses a daily ceiling — alert-first, not auto-kill,
-unless you want it.)*
+anomalies; keep the existing **$1 Oracle budget alarm** (a *notification*, not a
+suspend — Q10 note). STUN being off means no UDP-3478 reflection to watch.
+**Alert-only, no auto-kill (Q10, ruled):** the recoverable posture — worst case is
+an email + a small charge, both recoverable — beats a self-DoS that disables the
+fallback relay during the incident driving the traffic.
 
 **H7 — Relay secret hygiene.** `NB_AUTH_SECRET` = `openssl rand -base64 32`,
 identical on the relay and in management's `Relays.secret` (mismatch fails
@@ -402,14 +407,28 @@ Sources: NetBird `main` source (`relay/cmd/root.go`, `relay/server/{server,hands
 [environment-variables](https://docs.netbird.io/selfhosted/environment-variables),
 [coturn-to-stun-migration](https://docs.netbird.io/selfhosted/migration/coturn-to-stun-migration),
 [Shadowserver open-STUN report](https://www.shadowserver.org/what-we-do/network-reporting/accessible-stun-service-report/).
-- **Control-plane reachability is gated, not flat-trusted** (red-team fix). The
-  §5 tailnet-only exposure is *not* "anyone on the tailnet may hit management." The
-  entire fleet + laptop are on the tailnet, so a single compromised peer would
-  otherwise have unauthenticated network reach to the management API + PocketID. A
-  **Tailscale ACL rule restricts `nb.<zone>` / `id.<zone>` (discovery :443) to admin
-  devices only** — added to the existing `homelab-iac` `tailscale/acl` policy, same
-  shape as the current admin-SSH rule. "On the tailnet" ≠ "authorized"; the control
-  plane gets its own allowlist.
+- **Control-plane trust — corrected during build (was over-stated).** An earlier
+  draft claimed a Tailscale ACL would gate "the control plane" to admins only. The
+  parallel build (WP2 SWAG-only topology + WP4's ACL analysis) proved that wrong and
+  it's corrected here: **the management API and signal are *inherently* fleet-wide** —
+  every peer polls management for its network map and hits signal to negotiate, so
+  they *must* be reachable by all peers and cannot be ACL-restricted without breaking
+  the mesh. Tailscale ACLs are also L3/L4 (`host:port`), and rule 3 already grants
+  everyone `swag:443`. So the honest posture:
+  - **Management API + signal** ride `swag:443` (all peers, by design). Their real
+    protection is **NetBird's own authz** — OIDC/JWT, group-scoped setup keys,
+    **peer approval**, and admin operations gated by an **admin JWT/PAT** — which is
+    exactly what that API is built to withstand on an exposed endpoint. The residual
+    "any tailnet peer can *reach* it" is acceptable: reaching ≠ authenticating.
+  - **Only the human surfaces are ACL-narrowed** — the **dashboard UI** (admin) via
+    a dedicated SWAG listener on **:8443**, ACL-restricted `discovery:8443 → admin
+    devices` (the `tailscale/acl` rule WP4 staged). **PocketID** stays reachable by
+    user-facing devices (they SSO through it), not servers. This is defence-in-depth
+    on the UI, **not** the primary control — the API's authz is.
+
+  Net: don't sell the ACL as securing the control plane; it narrows the admin UI.
+  The management API is protected the way NetBird intends — by auth, peer-approval,
+  and PAT scope.
 - **Peer approval ON** — a new peer cannot join the network map until an admin
   approves it. Combined with scoped setup keys this closes drive-by enrollment.
 - **Default-deny ACLs** — group-based policies, deny by default, managed as code
@@ -511,8 +530,8 @@ Follows the existing "services here, policy in homelab-iac" separation.
   so state loss can't silently open the mesh.
 - `oracle/modules/instance` — (a) add a **reserved public IP**
   (`oci_core_public_ip lifetime="RESERVED"`) attached to voyager's primary private
-  IP; (b) open **only `443/tcp` + `443/udp`** in the `oci_core_security_list`, and
-  **close public SSH 22** / decide 2222 break-glass (§6b-H2, §11-Q8). Both are
+  IP; (b) open **only `443/tcp` + `443/udp`** in the `oci_core_security_list`,
+  **close public SSH 22**, keep **2222 hardened** (Q8-b; §6b-H2). Both are
   Terraform changes, as designed.
 - `cloudflare/dns` — one **DNS-only** (grey-cloud) A record `relay.<zone>` →
   voyager's reserved IP. **No** tunnel hostname and **no** Access policy — the
@@ -574,61 +593,33 @@ Source: [Terraform Registry netbirdio/netbird](https://registry.terraform.io/pro
    start standby management + flip `nb.<zone>` DNS** and confirm the network map
    returns and a new peer can enrol — the RTO<TTL proof (§7).
 
-## 11. Open decision gates
+## 11. Decisions (ruled 2026-07-10)
 
-- **Q1 — Docker vs Podman for the discovery control plane.** Discovery is
-  rootful-Docker (rootless-podman was abandoned there over a btrfs exec-bit bug).
-  Recommend Docker oci-containers to match. Confirm.
-- **Q2 — nixpkgs module vs oci-containers.** Recommend oci-containers (native
-  relay + PocketID + combined server aren't in the Coturn-era
-  `services.netbird.server`). If the pinned nixpkgs has gained native-relay
-  support by build time, revisit.
-- **Q3 — voyager relay TLS.** NetBird relay built-in Let's Encrypt vs
-  cloudflare-DNS-01 cert (reuse swag-token). Recommend built-in LE (fewer moving
-  parts on the offsite host).
-- **Q4 — cloud-VM secret delivery (recommendation flipped by red-team).** The
-  public cloud VMs currently decrypt via the **`primary` fleet age key copied to
-  disk** — so a breach of a now-more-exposed public relay VM surrenders the key that
-  decrypts *all* fleet secrets, a far bigger prize than the relay HMAC. **Recommend
-  giving voyager + the 2nd VM host-specific age keys** (add them as recipients in
-  `.sops.yaml`, encrypt only the NetBird secrets they need to them) so a public-VM
-  compromise never yields `primary`. Reuse-the-copied-key is the lower-effort but
-  riskier path; the escalation in exposure argues against it.
-- **Q5 — Postgres: shared vs dedicated.** Reuse discovery's `infra` Postgres vs a
-  dedicated instance for management. Recommend reuse (one less service) unless
-  blast-radius isolation is wanted.
-- **Q6 — PocketID login-code fallback.** Passkey is the mandatory factor, but
-  PocketID also has a one-time login-code recovery path (§6a). For strict
-  passkey-only-no-fallback, audit whether it can be disabled; else accept it as a
-  deliberate out-of-band recovery. (The former CF-Access-on-dashboard gate is
-  **dropped** — the admin plane is tailnet-only, no public UI to gate.)
-- **Q7 — Tailnet-only management, accepted?** Confirm the bootstrap coupling
-  (§5: a new device joins Tailscale first, then NetBird) is acceptable vs wanting
-  NetBird able to enroll a peer with no tailnet path (which would require putting
-  management back on a public endpoint — CF Tunnel, no Access, relying on NetBird's
-  own auth).
-- **Q8 — Voyager break-glass SSH.** With the reserved IP, close public SSH 22 and
-  either (a) restrict 2222 to an admin CIDR allowlist (breaks if the admin IP is
-  dynamic; re-apply TF) or (b) keep 2222 world-open but key-only + fail2ban/crowdsec
-  (§6b-H2). DR-entry independence argues for (b); scan-surface argues for (a).
-- **Q9 — External STUN choice / sovereignty.** Default: external STUN
-  (`stun.netbird.io` or Google/Cloudflare) — lowest-sensitivity dependency, and it
-  *lowers* relay egress. Alternative: self-host STUN on voyager behind the nftables
-  rate-limits for full sovereignty, accepting the reflector surface. Recommend
-  external.
-- **Q10 — Egress hard-stop (HA lens reconsidered).** Alert-only vs threshold
-  auto-kill of the relay. The HA grill flips the default: the budget alarm's failure
-  mode is **account suspension** (kills voyager = relay *and* the DR anchor
-  together), which is worse than a dropped fallback relay — so **auto-kill well below
-  the billing threshold** may be the safer choice. Pairs with listing multiple STUN
-  servers so a kill doesn't strand P2P. Decide against your risk appetite.
-- **Q11 — Second-VM role (§4a).** Track 1 (2nd AMD micro = relay#3 + Postgres
-  read-replica, available now) is recommended and low-risk. Track 2 (A1/telstar =
-  full warm-standby management) needs two calls: accept Oracle's A1 capacity gamble,
-  **and** accept hosting control-plane state + PocketID + the setup-key-signing DB
-  on the deliberately **public-facing** telstar (a threat-model change vs its
-  current public-projects role). Recommend Track 1 now, Track 2 as a tracked
-  follow-up when A1 provisions.
+All gates are ruled; the RFC below reflects them. Kept as a record of *what* and
+*why*.
+
+| # | Decision | Ruling |
+|---|----------|--------|
+| Q1 | Container runtime, discovery control plane | **Docker oci-containers** (match discovery's rootful Docker; rootless-podman was abandoned there over a btrfs exec-bit bug). |
+| Q2 | nixpkgs module vs oci-containers | **oci-containers** — the native WS/QUIC relay + PocketID + combined server aren't in the Coturn-era `services.netbird.server`. Client peers still use the nixpkgs `services.netbird.clients.*` module. |
+| Q3 | Voyager/relay TLS | **NetBird relay built-in Let's Encrypt** (`NB_LETSENCRYPT_*`) — fewest moving parts on the offsite host. |
+| Q4 | Cloud-VM secret delivery | **Host-specific age keys** for voyager + the 2nd VM — the `primary` fleet key must not sit on an internet-facing box. Spawns a **follow-up study** (§14). |
+| Q5 | Postgres | **Reuse discovery's `infra` Postgres** (one less service). |
+| Q6 | PocketID login-code | **Keep** the one-time login-code recovery path — accepted as a deliberate out-of-band admin recovery (avoids the single-admin self-brick the grill flagged). |
+| Q7 | Tailnet-only management | **Keep for now** — accept the bootstrap coupling (join Tailscale first). Revisited only by the §13 transition plan. |
+| Q8 | Break-glass SSH on voyager | **(b) Keep 2222 world-open, hardened** — key-only, non-root, fail2ban/crowdsec (§6b-H2). DR-entry independence wins over scan-surface. Public SSH **22** still closed. |
+| Q9 | STUN | **External** (`stun.netbird.io` + Google/Cloudflare as fallbacks) — lowest-sensitivity dependency, lowers relay egress, zero self-hosted reflector. |
+| Q10 | Egress hard-stop | **Alert-only, recoverable** — no auto-kill. See the billing note below: the Oracle *budget* is a **notification, not a suspend**, and 10 TB/mo egress is free, so the cost risk is mild and non-catastrophic; keeping the relay up (a recoverable, manually-handled posture) beats a self-DoS auto-kill, even if it caps cost less strictly. |
+| Q11 | Second-VM role | **Track 1 now** (2nd AMD micro = relay#3 + Postgres read-replica); **Track 2 tracked follow-up** (A1/telstar warm-standby management) when A1 capacity frees, pending the telstar threat-model call. |
+
+> **Q10 — "billing where?"** The charge source is **egress beyond the Always-Free
+> 10 TB/mo** (a fallback relay won't approach it) or the unconfirmed reserved-IP
+> edge case (§4). The **$1 Oracle budget alarm is a *budget notification*, not a
+> kill-switch** — a budget by itself never terminates resources; Always-Free
+> suspension happens only on real accrued charges with no payment path. So "recoverable
+> option" = alert-only: worst case is an email + a small charge, both recoverable,
+> vs auto-kill which self-disables the fallback path during the very incident driving
+> traffic. Chosen accordingly.
 
 ## 12. Footprint & cost
 
@@ -684,6 +675,36 @@ its replacement is proven live.** Each is independently reversible.
 
 **Explicitly out of scope now:** any change to the `tailscale.nix` module,
 `tailscale/acl`, or the discovery subnet-router. This RFC only *adds* NetBird.
+
+## 14. Spawned follow-up — fleet & environment security-hardening study
+
+Q4 surfaced a pre-existing exposure bigger than NetBird itself: the **`primary`
+fleet age key is copied onto public cloud VMs** (voyager, and telstar-to-be), so any
+public-VM compromise yields the key that decrypts *all* fleet secrets. NetBird only
+sharpens it (voyager becomes a public relay). Fixing it host-locally (host-specific
+keys) is in-scope here; the broader pattern deserves its **own RFC**, proposed as
+future work:
+
+**Proposed study — "Fleet secret blast-radius & public-surface hardening"** (own
+`docs/proposals/` doc, human-authored). Scope to investigate:
+
+- **age-key topology / blast radius** — per-host keys vs the shared `primary`; which
+  hosts should be able to decrypt what; retire `primary`-on-public-VM everywhere
+  (not just for NetBird); reconcile with the existing `reference/key-rotation.md`.
+- **Public-surface inventory & threat model** — every internet-reachable port across
+  voyager/telstar/Cloudflare-tunnel/SWAG; a standing "what can the internet touch"
+  audit (extend `reference/service-exposure.md` beyond discovery).
+- **Tailnet trust flattening** — the R1 finding generalizes: "on the tailnet" is
+  treated as trusted fleet-wide; audit which services assume it and gate the
+  sensitive ones (NetBird control plane, OpenBao, Harbor, admin SSH) with explicit
+  ACLs.
+- **Secret-at-rest on cloud hosts** — sops delivery vs Vault-agent vs host-key;
+  crown-jewel isolation (the offsite DR anchor sharing a box with a public relay).
+- **Supply chain** — mirror-through-Harbor + cosign as a fleet default for
+  externally-sourced container images, not per-service ad hoc.
+
+This RFC implements the **NetBird-local** slice (host-specific keys, control-plane
+ACL, Harbor mirror); the study takes the **fleet-wide** version.
 
 ---
 
