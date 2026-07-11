@@ -53,6 +53,12 @@ in {
     # Host the fleet's shared sccache (dev-loop cargo) cache on the tailnet.
     services.sccacheCache.enable = true;
 
+    # GPU profile: "training" (stock mem 1258 + 230W) while running local LoRA —
+    # the +9.3% mem OC of the "inference" profile triggers the data-fabric-sync-
+    # flood under sustained training. Flip back to "inference" for 24/7 llama-chat
+    # throughput once training runs are done.
+    orionGpu.profile = "training";
+
     # Per-container metrics via the cAdvisor exporter in the host Alloy. Rootless
     # Podman socket (orchestration default, matches orion-compose). Feeds the
     # fleet container-down / crash-loop alerts on discovery.
