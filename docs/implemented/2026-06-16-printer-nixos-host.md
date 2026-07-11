@@ -163,8 +163,12 @@ per-print bed reading **plus** a fixed hand-authored `compensate` tilt that corr
 coil↔nozzle mismatch the Eddy cannot see (a stable ~0.4mm left-high). **The config
 section must be `[mesh_sum]`, never `[bed_mesh_sum]`** — bed_mesh's ProfileManager
 prefix-scans every `bed_mesh`-named section and `name.split(' ')[1]` throws
-`IndexError`, crashing klippy on connect. Full calibration rationale + diagnostic saga
-live in the `klipper-biqu` repo (`references/first-layer-planarity-plan.md`).
+`IndexError`, crashing klippy on connect. This also required **disabling KAMP
+adaptive meshing** (`KAMP_Settings.cfg` — `Line_Purge.cfg` stays): its per-print
+adaptive grid doesn't match the fixed 11×11 `compensate`, so `BED_MESH_CALIBRATE` now
+always runs a full-grid rapid_scan (via the wrapper in `eddy.cfg`) that `BED_MESH_SUM`
+can add to. Full calibration rationale + diagnostic saga live in the `klipper-biqu`
+repo (`references/first-layer-planarity-plan.md`).
 
 ## 6b. Moonraker is declarative (the one config exception)
 
