@@ -17,9 +17,6 @@
       enable = true;
       settings = {
         general = {
-          disable_loading_bar = false;
-          no_fade_in = false;
-          grace = 0;
           screencopy_mode = 1;
         };
         auth.fingerprint.enabled = true;
