@@ -63,8 +63,8 @@ class BedMeshSum:
                 )
             )
         summed = [
-            [base[y][x] + add[y][x] for x in range(len(base[y]))]
-            for y in range(len(base))
+            [b + a for b, a in zip(base_row, add_row)]
+            for base_row, add_row in zip(base, add)
         ]
         # ZMesh is not exported by name; take it off the live mesh instance.
         zmesh_cls = type(active)
