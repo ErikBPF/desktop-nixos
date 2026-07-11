@@ -1,6 +1,6 @@
 # Orion dev sandbox — isolated MicroVM for remote Claude Code / VS Code
 
-**Status:** Proposal (skeleton — decision gates open; judgment calls marked `DECISION`)
+**Status:** ✅ Implemented (2026-07-11) — `lander` MicroVM live on orion (tailnet-active `100.112.114.95`, sshd on 2222). BIOS SVM enabled (was the blocker); guest closure builds. Follow-ups: laptop `ssh lander` convenience entry + syncthing pairing.
 
 **Author:** Erik (LLM-assisted structure)
 **Date:** 2026-07-10

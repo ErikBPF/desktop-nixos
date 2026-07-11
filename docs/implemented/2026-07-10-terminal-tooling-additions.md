@@ -1,6 +1,6 @@
 # Terminal tooling additions — qutebrowser, basalt, tmux, grafatui
 
-**Status:** Implemented in-tree, eval-verified, **not yet switched** — 2026-07-10
+**Status:** ✅ Implemented (2026-07-11) — switched on laptop; qutebrowser, basalt, tmux, and grafatui binaries live in the user profile, tmux config linked. Was "not yet switched" on 2026-07-10; the pending `switch-laptop` landed 2026-07-11.
 
 > All seven gates ruled 2026-07-10 (§10); modules written and wired.
 > `just lint`, `just fmt-check`, `just dry laptop` and `just dry orion` all pass.
