@@ -1,6 +1,6 @@
 # RFC: Fleet-wide dependency automation on self-hosted Renovate
 
-**Status:** Proposal (2026-07-11)
+**Status:** ✅ Implemented (2026-07-11) — Phases 0–3 shipped; see **As-built** at the end. Two follow-ups tracked there (servarr docker automerge, homelab-iac IaC import).
 **Author:** Erik (eribpf)
 **Supersedes (partially):** the servarr Dependabot rollout of 2026-07-11 (`ErikBPF/servarr` commits `0442d25`…`4df703a`) — kept running until Renovate proves out, then retired.
 **Owner concern:** fleet dependency-update automation (a cross-repo, D9 publish-and-pin-adjacent concern; recorded here because `desktop-nixos` is the fleet design SSOT).
@@ -99,3 +99,27 @@ Excluded: `klipper-biqu` / no dep manifests; `ha-agent` local-only (never on Git
 - Phase 0: a flake repo shows Renovate PRs + a CI-gated self-merge, authed by the App, with zero non-fleet repos touched.
 - Each phase: onboarded repos get grouped PRs on schedule; automerge fires only after the repo's CI gate is green; Discord pings land in `#deploys`.
 - End state: one Renovate config, one runner, Dependabot removed from servarr, no non-fleet repo onboarded.
+
+## As-built (2026-07-11)
+
+Phases 0–3 shipped in one session. Details + gotchas in `memory/renovate_phase0.md`.
+
+**Runner + auth.** Dedicated private repo **`ErikBPF/renovate-config`** (open decision resolved: *new repo*, not `homelab-iac`) holds the scheduled Action (`renovatebot/github-action`, pinned full version — the action has no moving major tag), `config.js` (explicit `repositories` allowlist — `onboarding:false`; **never `autodiscover`**), and `default.json` shared preset. Auth = self-created GitHub App **`erikbpf-fleet-renovate`** (app id `4274557`, install `145943411`). App key stored in `desktop-nixos` sops (`renovate.{app_id,private_key}`) **and** as `RENOVATE_APP_ID`/`RENOVATE_PRIVATE_KEY` Actions secrets on the runner repo. **Required App permissions** (three surfaced only by running it): Contents, Pull requests, **Issues**, **Commit statuses**, **Workflows** (all RW), Checks + Metadata (R). A missing permission shows up as the misleading *"Repository has changed during renovation - aborting"*.
+
+**Onboarded (6 repos + the runner as preset source):** `opencode-flake`, `codex-flake`, `hermes-flake`, `home-assistant-config` (PR-only per repo policy — onboarded via PR #55), `servarr` (custom `docker-compose` `managerFilePatterns` for its `*.compose.yml`), `homelab-gitops` (its standalone `renovate.json` folded into the shared preset). Each carries `renovate.json` → `extends: ["github>ErikBPF/renovate-config"]`. **Scope correction:** `hermes-skills` dropped from the RFC scope list — no dependency manifests.
+
+**Preset guardrails:** `config:recommended` + `:dependencyDashboard`, `minimumReleaseAge: "3 days"` (cooldown resolved to a uniform 3d), `pinDigests: true`, nix manager enabled (covers `flake.lock`). `automerge` off by default; **`platformAutomerge: false`** so Renovate self-merges via the App API (no branch protection needed — the key advantage over Dependabot).
+
+**Tiered automerge (CI-gated):** nix `flake.lock` non-major on all flakes (preset); `github-actions` non-major on `hermes-flake` (in *that repo's* `renovate.json`, not the shared preset — per-repo policy stays per-repo). CI gates verified auto-running + green on Renovate PRs (`check`/`package-build`/`build` + `renovate/stability-days`). Live merges are cooldown-gated (fire once a matching PR ages past 3 days). `homelab-gitops` got a `kubeconform` **`validate.yml`** gate (Argo auto-syncs `main`, so merge == deploy).
+
+**Dependabot retired:** both `hermes-flake` and `servarr` (RFC's end-state).
+
+**Deliberately not tracked:** internal Harbor images (`harbor.homelab.pastelariadev.com/**`) — the host is NXDOMAIN publicly, unreachable from GitHub cloud runners; those images are owned + bumped by their source repo (D9 publish-and-pin). Preset rule disables that datasource to avoid the wasted lookup.
+
+### Follow-ups (not yet done)
+
+- **`servarr` docker automerge** — left PR-only. Needs its `validate.yml` confirmed running on Renovate PRs + a decision on the untrackable private-Harbor images before enabling.
+- **`homelab-iac` `github/repos` import** — a `renovate-config = { visibility = "private" }` entry is staged in that repo (drift-proof runner-repo settings), pending a `terragrunt` import run with its `.env`.
+- **`desktop-nixos` scope** (open decision) — left **out**; its `flake.lock` stays on existing `nix flake update` lanes for now.
+- **Discord notifications** — the `#deploys` webhook routing (Risks table) is not wired yet.
+- **llama.cpp digests** (`servarr`) — the `ghcr.io/ggml-org/llama.cpp` refs are bare `@sha256` with no tag, so Renovate can't determine a digest bump (logs a benign "could not determine new digest"). Add the rolling tag (`:server-vulkan@sha256:…` on orion, `:server-cuda@sha256:…` on kepler) to make them Renovate-trackable.
