@@ -4,11 +4,13 @@
 **Status:** ✅ IMPLEMENTED (2026-06-21) — kept as the original proposal record.
 As-built deltas: board is a Pi 3 **Model B+**, **kernel-direct boot** (no
 u-boot; see `2026-06-20-archinaut-kernel-direct-boot.md`), MCU `/dev/ttyS1`,
-config backup via the bespoke `klipper-config-backup` service + **SSH deploy
-key** (not the klipper-backup tool / PAT). As-built boot details:
+config backup via the bespoke `klipper-config-backup` service + an **SSH deploy
+key provisioned from sops** (`klipper_backup_deploy`, survives reflash — not the
+klipper-backup tool / PAT; the hand-placed key was lost on the 2026-07-10 reflash
+and moved into sops 2026-07-11, `b98026f`). As-built boot details:
 `2026-06-20-archinaut-kernel-direct-boot.md`.
 **Owner:** erik
-**Target host:** `archinaut` — Raspberry Pi 3 **Model B+**, wired `192.168.10.225` (DHCP-reserved)
+**Target host:** `archinaut` — Raspberry Pi 3 **Model B+**, WiFi `192.168.10.225` (DHCP-reserved on `wlan0`; wired retired — `lan78xx` blacklisted for webcam USB bandwidth)
 **Related:** sister repo [`klipper-biqu`](../../references/repos/klipper-biqu) (printer config + as-built reference); fleet host pattern follows `discovery`.
 
 > Naming: fleet hosts are real spacecraft matched to machine focus. **Archinaut
