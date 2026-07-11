@@ -12,10 +12,11 @@
 # automated here (proposal §R3/§7, NetBird RFC §10 phase 6 DR drill):
 #   1. Seed the data directory from a base backup of discovery's primary
 #      (`pg_basebackup`), then drop the PG16+ `standby.signal` marker in it.
-#   2. Populate postgres's ~/.pgpass from the sops secret below — the
-#      replication password is deliberately NOT embedded in primary_conninfo
-#      (that would put a secret in the Nix store); libpq reads it from
-#      .pgpass instead.
+#   2. Populate /var/lib/postgresql/.pgpass from the sops secret below (the
+#      passfile= referenced by primary_conninfo) — the replication password is
+#      deliberately NOT embedded in primary_conninfo (that would put a secret in
+#      the Nix store); libpq reads it from that passfile instead. It lives
+#      OUTSIDE the data dir so a re-basebackup doesn't wipe it.
 #
 # DISABLED BY DEFAULT (services.pgReplica.enable = false).
 {
@@ -28,6 +29,7 @@ in {
   flake.modules.nixos.pg-replica = {
     config,
     lib,
+    pkgs,
     ...
   }: let
     cfg = config.services.pgReplica;
@@ -64,12 +66,20 @@ in {
     config = lib.mkIf cfg.enable {
       services.postgresql = {
         enable = true;
+        # Physical streaming replication requires the SAME major version as the
+        # primary. discovery's shared cluster is postgres:18.x, so pin 18 here
+        # (nixpkgs default may differ). A standby minor slightly behind the
+        # primary is WAL-compatible within a major; keep it current on rebuilds.
+        package = pkgs.postgresql_18;
         settings = {
           hot_standby = "on";
           shared_buffers = cfg.sharedBuffers;
-          # No password here on purpose (see file header) — libpq falls back
-          # to postgres's ~/.pgpass, populated from the sops secret below.
-          primary_conninfo = "host=${cfg.primaryHost} port=${toString cfg.primaryPort} user=${cfg.replicationUser} application_name=vanguard sslmode=prefer";
+          # No password here on purpose (see file header) — libpq reads it from
+          # an explicit passfile. NOT ~/.pgpass: postgres's home is the data dir
+          # (/var/lib/postgresql/18), which pg_basebackup wipes on a re-seed, so
+          # point at a stable path OUTSIDE the data dir (populated from the sops
+          # secret as a one-time manual step, file header).
+          primary_conninfo = "host=${cfg.primaryHost} port=${toString cfg.primaryPort} user=${cfg.replicationUser} application_name=vanguard sslmode=prefer passfile=/var/lib/postgresql/.pgpass";
         };
       };
 

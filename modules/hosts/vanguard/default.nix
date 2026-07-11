@@ -112,5 +112,13 @@ in {
     # in homelab-iac (cloudflare/dns), bumped on reprovision — so no on-host
     # ddclient/Cloudflare-token is needed. Keep the module's ddclient path off.
     services.netbirdRelay.enableDdclient = false;
+
+    # R3b: Postgres streaming DR replica of discovery's shared cluster
+    # (services.pgReplica, pinned to postgresql_18 to match the primary).
+    # primaryHost defaults to discovery's tailnet IP; discovery publishes
+    # :5432 on its tailnet IP (servarr infra stack), ACL-gated to vanguard.
+    # Seeding is manual/one-time (pg_basebackup + standby.signal + .pgpass from
+    # sops pg-replica/replication_password) — see modules/services/pg-replica.nix.
+    services.pgReplica.enable = true;
   };
 }
