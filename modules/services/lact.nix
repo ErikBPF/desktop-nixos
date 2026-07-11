@@ -7,6 +7,14 @@ _: {
   flake.modules.nixos.lact = {pkgs, ...}: {
     environment.systemPackages = [pkgs.lact];
     systemd.packages = [pkgs.lact];
-    systemd.services.lactd.wantedBy = ["multi-user.target"];
+    # asDropin: augment the package-shipped unit without replacing it. A crashed
+    # lactd leaves /run/lactd.sock behind, and the next start aborts with "Socket
+    # already exists" → start-limit-hit. Remove any stale socket before start
+    # (runs only when the unit is not already active, so a live socket is safe).
+    systemd.services.lactd = {
+      overrideStrategy = "asDropin";
+      wantedBy = ["multi-user.target"];
+      serviceConfig.ExecStartPre = "-${pkgs.coreutils}/bin/rm -f /run/lactd.sock";
+    };
   };
 }
