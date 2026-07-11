@@ -167,7 +167,10 @@ prefix-scans every `bed_mesh`-named section and `name.split(' ')[1]` throws
 adaptive meshing** (`KAMP_Settings.cfg` — `Line_Purge.cfg` stays): its per-print
 adaptive grid doesn't match the fixed 11×11 `compensate`, so `BED_MESH_CALIBRATE` now
 always runs a full-grid rapid_scan (via the wrapper in `eddy.cfg`) that `BED_MESH_SUM`
-can add to. Full calibration rationale + diagnostic saga live in the `klipper-biqu`
+can add to. KAMP's `LINE_PURGE` was also dropped — its adaptive purge landed next to
+centered objects and got run over — so `START_PRINT` now lays a **fixed front-edge
+prime line** instead (KAMP is effectively unused now). Full calibration rationale +
+diagnostic saga (incl. the non-linear `compensate` profile) live in the `klipper-biqu`
 repo (`references/first-layer-planarity-plan.md`).
 
 ## 6b. Moonraker is declarative (the one config exception)
