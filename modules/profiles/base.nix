@@ -39,7 +39,7 @@ in {
 
   flake.modules.home.profile-base = {...}: {
     imports = [
-      m.home.fish
+      m.home.zsh
       m.home.bash
       m.home.starship
       m.home.atuin

@@ -2,7 +2,7 @@ _: {
   flake.modules.home.yazi = _: {
     programs.yazi = {
       enable = true;
-      enableFishIntegration = true;
+      enableZshIntegration = true;
       shellWrapperName = "yy";
       settings = {
         mgr = {

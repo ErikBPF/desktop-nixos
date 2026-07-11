@@ -11,7 +11,7 @@
     # Sops secrets carrying the per-consumer keys for opencode CLI. The
     # global opencode config (~/.config/opencode/opencode.json) reads these
     # via `{env:VAR}` substitution, sourced into the user shell from
-    # /run/secrets/opencode/* through fish/conf.d/zz-opencode-secrets.fish.
+    # /run/secrets/opencode/* by the zsh snippet in modules/dev/opencode.nix.
     #
     # litellm_key = scoped LiteLLM virtual key (alias `opencode`, $20/day,
     #   model allowlist: qwen-chat + embeddings-qwen3 + the cloud coders).

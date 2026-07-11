@@ -109,7 +109,7 @@
       };
     };
 
-    # --- access: sshd on 2222, passwordless wheel, fish -------------------
+    # --- access: sshd on 2222, passwordless wheel, zsh --------------------
     services.openssh = {
       enable = true;
       ports = [2222];
@@ -118,12 +118,12 @@
         PermitRootLogin = "prohibit-password";
       };
     };
-    programs.fish.enable = true;
+    programs.zsh.enable = true;
     security.sudo.wheelNeedsPassword = false;
     users.users.${username} = {
       isNormalUser = true;
       extraGroups = ["wheel"];
-      shell = pkgs.fish;
+      shell = pkgs.zsh;
       openssh.authorizedKeys.keys = [laptopKey nixBuilderKey];
     };
     users.users.root.openssh.authorizedKeys.keys = [laptopKey];
@@ -148,7 +148,7 @@
       backupFileExtension = "backup";
       users.${username} = {
         imports = [
-          m.home.fish
+          m.home.zsh
           m.home.git
           m.home.starship
           m.home.direnv

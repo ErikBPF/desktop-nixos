@@ -33,7 +33,7 @@
       };
 
       terminal = {
-        default_shell = "fish";
+        default_shell = "zsh";
         shell_mode = "auto";
         new_cwd = "follow";
       };

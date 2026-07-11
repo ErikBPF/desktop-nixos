@@ -18,7 +18,7 @@ in {
     users.users.${username} = {
       isNormalUser = true;
       hashedPasswordFile = config.sops.secrets."hashed_password".path;
-      shell = pkgs.fish;
+      shell = pkgs.zsh;
       openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com"
       ];
@@ -39,6 +39,6 @@ in {
         "libvirtd"
       ];
     };
-    programs.fish.enable = true;
+    programs.zsh.enable = true;
   };
 }

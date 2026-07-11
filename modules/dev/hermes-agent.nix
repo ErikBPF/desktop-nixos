@@ -21,28 +21,29 @@ in {
     # simple Q&A. Goes straight to Discovery's API gateway via curl.
     # Usage:  hq "what's the weather"
     # Use `hermes` itself when you need sessions / tools / memory.
-    programs.fish.functions.hq = {
-      description = "quick one-shot prompt to Discovery's hermes API";
-      body = ''
-        set -l prompt $argv
-        if test -z "$prompt"
-            echo "usage: hq <prompt>" >&2
-            return 1
-        end
-        if test -z "$OPENAI_API_KEY"; or test -z "$OPENAI_BASE_URL"
-            echo "missing OPENAI_API_KEY or OPENAI_BASE_URL" >&2
-            return 2
-        end
-        set -l payload (jq -n --arg p "$prompt" \
-            '{model:"hermes-agent",messages:[{role:"user",content:$p}],max_tokens:512}')
+    programs.zsh.initContent = ''
+      # quick one-shot prompt to Discovery's hermes API
+      hq() {
+        local prompt="$*"
+        if [[ -z "$prompt" ]]; then
+          echo "usage: hq <prompt>" >&2
+          return 1
+        fi
+        if [[ -z "$OPENAI_API_KEY" || -z "$OPENAI_BASE_URL" ]]; then
+          echo "missing OPENAI_API_KEY or OPENAI_BASE_URL" >&2
+          return 2
+        fi
+        local payload
+        payload=$(jq -n --arg p "$prompt" \
+          '{model:"hermes-agent",messages:[{role:"user",content:$p}],max_tokens:512}')
         curl -sS --max-time 60 \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$payload" \
-            "$OPENAI_BASE_URL/chat/completions" \
-            | jq -r '.choices[0].message.content // .error.message // .'
-      '';
-    };
+          -H "Authorization: Bearer $OPENAI_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d "$payload" \
+          "$OPENAI_BASE_URL/chat/completions" \
+          | jq -r '.choices[0].message.content // .error.message // .'
+      }
+    '';
 
     programs.hermes-agent = {
       enable = true;

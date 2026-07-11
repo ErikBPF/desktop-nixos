@@ -8,7 +8,7 @@ _: {
   flake.modules.home.tmux = {pkgs, ...}: {
     programs.tmux = {
       enable = true;
-      shell = "${pkgs.fish}/bin/fish";
+      shell = "${pkgs.zsh}/bin/zsh";
       keyMode = "vi";
       mouse = true;
       baseIndex = 1;

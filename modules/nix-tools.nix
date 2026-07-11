@@ -2,7 +2,10 @@ _: {
   flake.modules.home.nix-tools = {pkgs, ...}: {
     programs.nix-index = {
       enable = true;
-      enableFishIntegration = true;
+      # zsh's command_not_found_handler is owned by modules/shell/zsh.nix
+      # (it wraps this same script with a comma prompt); leaving this on would
+      # make two modules define the handler and race on init order.
+      enableZshIntegration = false;
     };
 
     systemd.user.services.nix-index-update = {

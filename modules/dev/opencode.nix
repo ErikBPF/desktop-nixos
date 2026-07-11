@@ -2,6 +2,24 @@
   flake.modules.home.opencode = _: {
     imports = [inputs.opencode-flake.homeManagerModules.withPackage];
 
+    # Provider keys for opencode's `{env:...}` substitution. Declarative port
+    # of the former hand-made ~/.config/fish/conf.d/zz-opencode-secrets.fish:
+    # read the sops runtime files, falling back to ~/.config/opencode/secrets.env
+    # during bootstrap. Guarded by `-r`, so it is a no-op on hosts that don't
+    # ship the secret. `$(<file)` avoids the `cat`→`bat` alias mangling the key.
+    programs.zsh.initContent = ''
+      if [[ -r /run/secrets/opencode/litellm_key ]]; then
+        export OPENCODE_LITELLM_KEY="$(</run/secrets/opencode/litellm_key)"
+      elif [[ -r "$HOME/.config/opencode/secrets.env" ]]; then
+        export OPENCODE_LITELLM_KEY="$(grep '^OPENCODE_LITELLM_KEY=' "$HOME/.config/opencode/secrets.env" | cut -d= -f2-)"
+      fi
+      if [[ -r /run/secrets/opencode/zen_key ]]; then
+        export OPENCODE_GO_KEY="$(</run/secrets/opencode/zen_key)"
+      elif [[ -r "$HOME/.config/opencode/secrets.env" ]]; then
+        export OPENCODE_GO_KEY="$(grep '^OPENCODE_GO_KEY=' "$HOME/.config/opencode/secrets.env" | cut -d= -f2-)"
+      fi
+    '';
+
     programs.opencode-profile = {
       enable = true;
       tui.enable = true;
@@ -17,7 +35,7 @@
     # Host-local policy (opencode-flake RFC D3): provider routing and this
     # fleet's extra guardrails stay out of the reusable profile. Ported
     # verbatim from the hand-managed opencode.json (2026-07-02). Keys come
-    # from sops via laptop-opencode-client (fish sources
+    # from sops via laptop-opencode-client (the zsh snippet above sources
     # /run/secrets/opencode/*).
     programs.opencode.settings = {
       instructions = ["AGENTS.md"];

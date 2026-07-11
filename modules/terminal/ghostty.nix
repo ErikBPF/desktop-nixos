@@ -2,7 +2,7 @@ _: {
   flake.modules.home.ghostty = _: {
     programs.ghostty = {
       enable = true;
-      enableFishIntegration = true;
+      enableZshIntegration = true;
       settings = {
         font-family = "JetBrainsMono Nerd Font";
         font-size = 10;
