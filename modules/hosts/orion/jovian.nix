@@ -117,20 +117,26 @@
     systemd.targets.hibernate.enable = false;
     systemd.targets.hybrid-sleep.enable = false;
 
-    # --- /scratch ownership ---
-    # disko formats /scratch as ext4 but doesn't set permissions.
-    # Declare ownership via tmpfiles so it survives nixos-rebuild.
+    # --- /projects ownership + back-compat symlink ---
+    # disko formats the SanDisk (sdb) as ext4 but doesn't set permissions.
+    # Declare ownership via tmpfiles so it survives nixos-rebuild. The disk
+    # was historically mounted at /scratch; a /scratch → /projects symlink
+    # keeps older references (ha-agent HF_HOME, ad-hoc scripts) working after
+    # the rename. Drop the symlink once those are repointed to /projects.
     systemd.tmpfiles.rules = [
-      "d /scratch 0755 erik users -"
+      "d /projects 0755 erik users -"
+      "L+ /scratch - - - - /projects"
     ];
 
-    # --- Steam library on /scratch (declarative) ---
-    # Steam's data dir (client + game library) is bind-mounted from /scratch,
-    # keeping the ~290G of games off the btrfs /home subvolume: frees the root
-    # SSD, keeps games out of /home snapshots, and survives nixos-rebuild.
-    # Steam still sees its normal path, so no libraryfolders.vdf juggling.
+    # --- Steam library on /opt/models (declarative) ---
+    # Steam's data dir (client + game library) is bind-mounted from
+    # /opt/models (Kingston SATA SSD), keeping the ~290G of games off the btrfs
+    # /home subvolume: frees the root SSD, keeps games out of /home snapshots,
+    # and survives nixos-rebuild. Steam still sees its normal path, so no
+    # libraryfolders.vdf juggling. Games + GGUF models share Kingston (both
+    # re-downloadable); /projects (SanDisk) holds project/ML work.
     fileSystems."/home/erik/.local/share/Steam" = {
-      device = "/scratch/Steam";
+      device = "/opt/models/Steam";
       fsType = "none";
       options = ["bind"];
     };

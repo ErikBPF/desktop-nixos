@@ -87,16 +87,18 @@ _: {
         };
         ssd2 = {
           type = "disk";
-          device = "/dev/sdb"; # confirmed: SanDisk SSD PLUS 480GB SATA → /scratch
+          device = "/dev/sdb"; # confirmed: SanDisk SSD PLUS 480GB SATA → /projects
           content = {
             type = "gpt";
             partitions = {
+              # attr kept as "scratch" (GPT partlabel, set at format time only —
+              # renaming it would not reformat, but the label is harmless as-is).
               scratch = {
                 size = "100%";
                 content = {
                   type = "filesystem";
                   format = "ext4";
-                  mountpoint = "/scratch";
+                  mountpoint = "/projects";
                   mountOptions = ["defaults" "noatime"];
                 };
               };
