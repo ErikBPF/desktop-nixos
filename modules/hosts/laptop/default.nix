@@ -105,6 +105,7 @@ in {
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots
       m.nixos.sccache-client
+      m.nixos.netbird-client
     ];
 
     home-manager.users.${config.username} = {
@@ -264,6 +265,12 @@ in {
     };
 
     modules.security.tor-monitor.enable = true;
+
+    # First managed NetBird overlay peer (RFC 2026-07-11-netbird-terraform-
+    # declarative-admin §8.5 / G5). Enrols via the TF-minted fleet-server-bootstrap
+    # setup-key (sops netbird/setup_key) into the fleet-servers group; overlay on
+    # 10.100.0.0/16, coexisting with Tailscale (100.64/10).
+    modules.networking.netbird-client.enable = true;
 
     system.autoUpgrade = {
       enable = true;
