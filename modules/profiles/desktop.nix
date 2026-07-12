@@ -36,9 +36,10 @@ in {
 
   flake.modules.home.profile-desktop = {...}: {
     imports = [
-      # interactive shell QoL (zsh-rich/starship/atuin/yazi/zoxide/btop),
-      # concentrated on the workstations — kept out of the lean profile-base.
-      m.home.profile-interactive
+      # atuin (cross-host shell history) — opt-in, kept off flash-backed headless
+      # hosts (archinaut SD / Oracle VMs) whose DB writes wear the storage. The
+      # rest of the interactive QoL is fleet-wide via profile-base now.
+      m.home.atuin
       m.home.hyprland
       m.home.hypridle
       m.home.hyprlock

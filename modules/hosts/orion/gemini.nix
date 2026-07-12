@@ -184,11 +184,11 @@ in {
               # (home-manager-base provides it on real hosts; wire it here).
               inputs.sops-nix.homeManagerModules.sops
               # Shared home baseline (bash, git, bat, direnv, nix-tools,
-              # packages-shared=eza/ripgrep/…) + the interactive shell QoL
-              # (zsh/starship/atuin/zoxide/yazi/btop — split out of profile-base
-              # by the profiles refactor, so BOTH are needed) + the dev agents.
+              # packages-shared=eza/ripgrep/…) now bundles the interactive shell
+              # QoL (zsh/starship/zoxide/yazi/btop) fleet-wide via profile-base;
+              # add atuin (opt-in cross-host history) for the dev box + the agents.
               m.home.profile-base
-              m.home.profile-interactive
+              m.home.atuin
               m.home.claude-code
               m.home.codex
               m.home.opencode
