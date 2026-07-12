@@ -43,6 +43,33 @@ fleet-check:
     fi
     echo ":: fleet-check OK — fleet.json matches the flake"
 
+# Fleet nixpkgs drift at a glance: each host's BOOTED nixpkgs short-rev vs the
+# flake's target (the root `nixpkgs` input in flake.lock — the rev a `switch`
+# would build). DRIFT = host is behind/ahead of the flake. Reaches hosts over the
+# tailnet (tailscaleIp, works roaming); laptop is read locally; homeassistant
+# (HAOS, not NixOS) is skipped. Makes P5 drift a command, not a memory file
+# (docs/proposals/2026-07-12-fleet-upgrade-hardening.md).
+fleet-status:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    target=$(jq -r '.nodes[.nodes.root.inputs.nixpkgs].locked.rev' flake.lock | cut -c1-7)
+    revof() { local v="${1%% *}"; echo "${v##*.}"; }
+    row() { printf '%-12s %-12s %-9s %s\n' "$1" "$2" "$target" "$3"; }
+    printf '%-12s %-12s %-9s %s\n' HOST BOOTED TARGET STATE
+    b=$(revof "$(nixos-version)")
+    row laptop "$b" "$([ "$b" = "$target" ] && echo OK || echo DRIFT)"
+    for h in $(jq -r '.hosts | keys[] | select(. != "laptop" and . != "homeassistant")' fleet.json); do
+        addr=$(jq -r --arg h "$h" '.hosts[$h].tailscaleIp // empty' fleet.json)
+        [ -z "$addr" ] && { row "$h" "no-tsip" "SKIP"; continue; }
+        out=$(timeout 10 ssh -p 2222 -o ConnectTimeout=6 -o BatchMode=yes -o StrictHostKeyChecking=accept-new "erik@$addr" nixos-version 2>/dev/null || true)
+        if [ -z "$out" ]; then
+            row "$h" "unreachable" "—"
+        else
+            b=$(revof "$out")
+            row "$h" "$b" "$([ "$b" = "$target" ] && echo OK || echo DRIFT)"
+        fi
+    done
+
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
