@@ -274,10 +274,26 @@ in {
           };
           script = ''
             install -d -m 0700 /run/netbird-management
-            # Extract the value (the sops secret is a `NB_AUTH_SECRET=<hmac>`
-            # dotenv line); do NOT source it — a stray line would be executed.
-            export NB_AUTH_SECRET="$(${pkgs.gnused}/bin/sed -n 's/^NB_AUTH_SECRET=//p' ${config.sops.secrets."netbird/auth_secret".path})"
-            export NB_DATASTORE_ENC_KEY="$(${pkgs.gnused}/bin/sed -n 's/^NB_DATASTORE_ENC_KEY=//p' ${config.sops.secrets."netbird/datastore_enc_key".path})"
+            # The sops secrets are `KEY=<value>` dotenv lines; extract the values
+            # (do NOT source — a stray line would execute). Wait for BOTH to be
+            # present and non-empty before rendering: on an autoUpgrade the
+            # secrets can be mid-re-decryption when their restartUnits fire this
+            # oneshot, and rendering an EMPTY DataStoreEncryptionKey makes
+            # management self-generate a new key and try to write it back to the
+            # :ro config mount -> crash-loop -> start-limit-hit (observed
+            # 2026-07-12, mgmt down ~5h). Refusing to render an empty config keeps
+            # management from ever seeing one — it waits for a good render instead.
+            for _ in $(seq 1 30); do
+              NB_AUTH_SECRET="$(${pkgs.gnused}/bin/sed -n 's/^NB_AUTH_SECRET=//p' ${config.sops.secrets."netbird/auth_secret".path})"
+              NB_DATASTORE_ENC_KEY="$(${pkgs.gnused}/bin/sed -n 's/^NB_DATASTORE_ENC_KEY=//p' ${config.sops.secrets."netbird/datastore_enc_key".path})"
+              [ -n "$NB_AUTH_SECRET" ] && [ -n "$NB_DATASTORE_ENC_KEY" ] && break
+              sleep 1
+            done
+            if [ -z "$NB_AUTH_SECRET" ] || [ -z "$NB_DATASTORE_ENC_KEY" ]; then
+              echo "netbird-management-config: sops secrets still empty after 30s; refusing to render an empty config" >&2
+              exit 1
+            fi
+            export NB_AUTH_SECRET NB_DATASTORE_ENC_KEY
             ${pkgs.envsubst}/bin/envsubst '$NB_AUTH_SECRET $NB_DATASTORE_ENC_KEY' \
               < ${managementConfig} \
               > /run/netbird-management/management.json
