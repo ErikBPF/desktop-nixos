@@ -100,8 +100,12 @@ _: {
       # --- CAD / EDA (TPS43 touchpad mount + PCB work) ---
       kicad # EDA suite
       openscad # parametric .scad mounts
-      freecad # gen_step.py STEP export (import FreeCAD, Part)
-      mongodb-compass
+      # freecad — TEMPORARILY REMOVED 2026-07-12: build broken on the current
+      # nixpkgs (gdal-minimal/pdal/vtk chain fails). Re-enable once upstream fixes.
+      # freecad # gen_step.py STEP export (import FreeCAD, Part)
+      # mongodb-compass — TEMPORARILY REMOVED 2026-07-12: build broken on the
+      # current nixpkgs (wrapGAppsHook regression). Re-enable once upstream fixes.
+      # mongodb-compass
       github-desktop
       opencode
       gemini-cli
