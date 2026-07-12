@@ -1,6 +1,11 @@
 # NetBird + PocketID declarative admin via Terraform (homelab-iac)
 
-**Status:** Proposed — 2026-07-11. Pivot spun out of
+**Status:** Implemented (2026-07-12) — declarative admin applied end-to-end
+(tokens minted → sops, PocketID client imported zero-diff, groups/policy/setup-key/
+split-DNS applied, `Default` allow-all deleted → default-deny live, CIDR set to
+`10.100/16`); **laptop enrolled as the first managed peer** (`10.100.141.14`,
+`fleet-servers`). §8 rollout done. **Follow-ups (fixes + explorations) are open —
+see §9.** Pivot spun out of
 [`2026-07-11-pocketid-idp-for-netbird.md`](2026-07-11-pocketid-idp-for-netbird.md)
 after the NetBird dashboard browser-SSO proved incompatible with PocketID
 (deferred as an upstream bug). The control plane is **live and functional via
@@ -114,6 +119,83 @@ peers), else a `null_resource`/API call. Re-up peers after. **Decision G4.**
 5. Managed peers: TF setup-key → `netbird-client` module on host(s) (§6 G5).
 6. CIDR → `10.100/16` (§5); re-up peers.
 7. Dashboard SSO stays deferred; revisit on a netbird upstream fix.
+
+## 9. Follow-ups — fixes + explorations
+
+Surfaced by an adversarial party pass (Skeptic / Maintainer / Architect) after the
+first managed peer landed, 2026-07-12. Items marked **(✓)** were verified live this
+session; the rest are open. Fixes are confirmed problems; explorations need a probe
+before a fix is designed.
+
+### Fixes (confirmed)
+
+- **F1 — Imperative state has no drift tripwire (✓).** `network_range =
+  10.100.0.0/16` and the *deleted* `Default` allow-all policy live ONLY in the
+  NetBird account state — the `netbirdio/netbird` 0.0.9 provider exposes no
+  account-settings/policy-default resource, so both were set by a hand `curl PUT`/
+  `DELETE`, not by TF. A DB restore from the vanguard PG replica or an account reset
+  silently reverts the range to `100.110/16` **and resurrects the allow-all** →
+  default-deny evaporates with zero plan diff. **Fix:** a `homelab-iac-drift`-style
+  check (or `null_resource` + `local-exec` guard in `netbird/`) asserting
+  `GET /api/accounts .settings.network_range == 10.100.0.0/16` AND `Default` policy
+  absent; alert on mismatch. Owner: homelab-iac.
+
+- **F2 — Peer approval OFF + a standing reusable setup-key (✓).** Verified
+  `settings.peer_approval_enabled = false`; `fleet-server-bootstrap` is reusable
+  (5 uses, expires 2026-07-18) and committed to `secrets.yaml`. A leaked key enrolls
+  a rogue peer straight into `fleet-servers` — which `admin-ssh` can SSH into — with
+  no approval gate. **Fix:** (a) enable peer approval via the mgmt API (the field
+  exists on self-hosted despite the provider marking it Cloud-only — same
+  imperative pattern as the CIDR); (b) decide the key lifecycle: one-off per
+  enrolment (re-mint on `terragrunt apply`) vs standing + approval-gated. Owner:
+  homelab-iac (API) + desktop-nixos (secret lifecycle). Note the 7-day expiry means
+  any host enabled after 2026-07-18 fails to enrol until the key is re-minted +
+  re-stored — no mechanism does this today.
+
+- **F3 — `netbird-management` is a SPOF with no down-alert (✓ none found).** It was
+  `failed` ~5h on 2026-07-12 before a human noticed; it is NOT in
+  `modules.upgradeHealthCheck.criticalUnits` (so the 05:00 autoUpgrade crashed it
+  without rollback) and no runtime container/unit-down alert covers it. The render
+  guard (`ee669d8`) + `Restart=on-failure` (`035b3d9`) self-heal the *known* sops
+  race, but a novel failure still fails silent-to-humans. **Fix:** add
+  `docker-netbird-management.service` (+ `-config`, signal, relay, pocketid) to
+  `upgradeHealthCheck.criticalUnits` (upgrade-time rollback) AND a runtime alert
+  (Alloy/Prometheus unit-failed or an `/api` probe, reusing the dead-man's-switch
+  pattern). Owner: desktop-nixos.
+
+- **F4 — homelab-iac `feat/netbird-overlay` is unmerged.** All the declarative
+  admin (pocketid client, groups, policies, split-DNS, setup-keys) is stranded on a
+  branch; a `terragrunt apply` from `main` gets none of it. **Fix:** merge to main
+  (squash). Owner: homelab-iac.
+
+### Explorations (probe first)
+
+- **E1 — Token rotation runway.** The netbird PAT + PocketID API key expire
+  2027-07-12; on expiry every `terragrunt apply` fails auth with no reminder. Probe:
+  a rotation runbook / calendar tripwire, or shorter-lived per-apply tokens.
+
+- **E2 — Dual-overlay DNS for `*.homelab` (✓ no live conflict).** Both Tailscale
+  MagicDNS and the new NetBird `homelab-split-dns` nameserver_group claim the zone;
+  verified both resolve to `192.168.10.210` (same answer; `Nameservers 1/1` live on
+  the laptop) — so no split-brain today, but two independent configs for one zone is
+  a drift vector. Probe: which resolver systemd-resolved prefers on a dual-homed
+  peer, and whether to skip the NetBird nameserver_group on hosts already on
+  Tailscale (only NetBird-only peers strictly need it).
+
+- **E3 — Off-LAN peer reachability unproven.** The mgmt floor is now discovery's LAN
+  IP `192.168.10.210`, reachable off-LAN only via the advertised subnet route +
+  `accept-routes`. Only an on-LAN peer (laptop) has enrolled. Probe: roam a genuinely
+  off-LAN peer and confirm `netbird up` + relay traversal work through the LAN-IP
+  floor.
+
+- **E4 — sops recipients for future relay/DR peers.** `secrets.yaml` recipients =
+  `&primary/&orion/&archinaut`; `&voyager/&telstar` are placeholders. Enabling
+  `netbird-client` on voyager (relay) would fail to decrypt `netbird/setup_key`.
+  Probe: mint real host age keys before enrolling those peers.
+
+- **E5 — routes stay deferred** (already scaffolded empty, `netbird/routes/`): needs
+  a LAN routing peer + an explicit expose-the-subnet decision before any route is
+  filled (see `netbird/APPLY.md` §5).
 
 ---
 
