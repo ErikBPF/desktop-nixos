@@ -67,7 +67,14 @@ _: {
         // node_drm_memory_vram_*) from /sys/class/drm. No-op on hosts without
         // DRM devices; GPU temps stay excluded via the amdgpu chip_exclude
         // above.
-        enable_collectors = ["drm"]
+        // `systemd` emits node_systemd_unit_state for the failed-unit alert
+        // (servarr grafana rule host-systemd-unit-failed) — fleet upgrade
+        // hardening RFC P2 (2026-07-12): netbird-management crash-looped ~8h and
+        // LACT was failed ~20m with zero alerts. Default unit filters (the alert
+        // excludes systemd-networkd-wait-online, not the collector). Reads unit
+        // state over the system D-Bus, no root needed. Small non-Alloy hosts
+        // (voyager/archinaut) get the same metric via node-exporter.nix.
+        enable_collectors = ["drm", "systemd"]
       }
 
       prometheus.scrape "host_metrics" {

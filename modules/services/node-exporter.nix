@@ -11,6 +11,12 @@ _: {
       enable = true;
       port = 9100;
       listenAddress = "0.0.0.0";
+      # `systemd` (disabled by default) emits node_systemd_unit_state so the
+      # failed-unit alert (servarr grafana rule host-systemd-unit-failed) can see
+      # these small hosts too — the Alloy hosts get it via prometheus.exporter.unix
+      # (alloy.nix). Fleet upgrade hardening RFC P2 (2026-07-12): netbird-management
+      # crash-looped ~8h and LACT was failed ~20m with zero alerts.
+      enabledCollectors = ["systemd"];
     };
 
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9100];
