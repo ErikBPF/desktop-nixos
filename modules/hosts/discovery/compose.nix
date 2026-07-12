@@ -31,6 +31,7 @@ _: {
         "ai-serving" # ai inference stack
         "dockhand" # dockhand container updater
         "firmware" # static OTA firmware host (cosmo-notes), LAN-only via SWAG
+        "kindle-dash" # e-ink dashboard renderer
       ];
     };
   };
