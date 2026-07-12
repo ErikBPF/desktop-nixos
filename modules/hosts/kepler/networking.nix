@@ -22,6 +22,7 @@ _: {
           4001 # lockd (pinned)
           4002 # rpc.mountd (pinned)
           445 # Samba SMB (NetBIOS disabled — port 445 only)
+          8765 # authenticated docs-search MCP (Daedalus via tailnet/LAN)
         ];
         allowedUDPPorts = [
           21027 # syncthing discovery

@@ -13,6 +13,7 @@ _: {
         # not auto-started yet — they will be re-introduced as their .yml
         # files are migrated off the legacy TrueNAS deployment.
         "ai-serving"
+        "docs-search"
       ];
     };
   };

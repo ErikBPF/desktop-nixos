@@ -454,12 +454,12 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1783810493,
-        "narHash": "sha256-we83aL2YHPwIASLxlKrfpd4q/gIkLATMiyyX5dYL7IY=",
-        "rev": "f5fbe068698e704fa53394013df00773d637bf00",
-        "revCount": 28,
+        "lastModified": 1783881907,
+        "narHash": "sha256-vZjszz4yacM4uxDmJ5Z9jfc7iTtKlzgu/WTkTRtopd4=",
+        "rev": "6db2f44b9b796894c754833c31c4a493dfd767c9",
+        "revCount": 29,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/ErikBPF/hermes-flake/0.2.28%2Brev-f5fbe068698e704fa53394013df00773d637bf00/019f5366-2bcb-72c0-8e16-94b72a7853d6/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/ErikBPF/hermes-flake/0.2.29%2Brev-6db2f44b9b796894c754833c31c4a493dfd767c9/019f57a8-34b0-7db0-9b28-a271bdd72ada/source.tar.gz"
       },
       "original": {
         "type": "tarball",

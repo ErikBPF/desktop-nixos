@@ -86,7 +86,8 @@ in {
 
       extraVolumes = [
         "${rtk}/bin/rtk:/usr/local/bin/rtk:ro"
-        "/home/${username}/hermes-skills:/opt/skills-ext:ro"
+        "/home/${username}/hermes-skills/meta:/opt/skills-meta:ro"
+        "/home/${username}/hermes-skills/research:/opt/skills-research:ro"
         # Native hermes plugin: pre_tool_call rewrites terminal commands to
         # `rtk <cmd>` (output compressed before entering context). Read-only
         # store mount into the plugin search dir (~/.hermes/plugins = /opt/data
@@ -115,7 +116,7 @@ in {
       };
 
       # Canonical persona (single-sourced; same file the live deploy mirrors).
-      soulFile = ./homelab-SOUL.md;
+      soulFile = ./romozina-SOUL.md;
 
       # Homelab settings overlaid on the flake's vendor-neutral config.yaml.nix
       # defaults — migrated verbatim from the live servarr config.yaml so the
@@ -165,7 +166,7 @@ in {
 
         # Git-versioned read-only skills (hermes-skills repo), mounted at
         # /opt/skills-ext above. Local /opt/data/skills wins on name collision.
-        skills.external_dirs = ["/opt/skills-ext"];
+        skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
 
         # Permanent auto-approve (declarative). The runtime "always" choice can't
         # persist (config.yaml is :ro), so set it here. Covers the non-command
