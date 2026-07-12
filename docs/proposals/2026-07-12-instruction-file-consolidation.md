@@ -1,7 +1,13 @@
 # Instruction File Consolidation Proposal
 
-**Status:** Draft — awaiting maintainer review. No code changes proposed
-beyond this document.
+**Status:** Phase 1 + 2 + 3 done (2026-07-12) — `CLAUDE.md` renamed to
+`AGENTS.md` (symlink `CLAUDE.md` → `AGENTS.md` retained for Claude Code
+compat); BMAD bulk (`_bmad/` + `.claude/`) removed (was gitignored +
+untracked — local-only delete); `party-elicitation` skill extracted as
+standalone before removal; `tdd` skill from obra/superpowers also
+extracted declaratively; codex project-instruction behavior verified
+(canonical `AGENTS.md` at repo root — codex inherits project context
+free, no codex-flake change needed). Phase 4 open.
 **Audience:** Maintainer of `desktop-nixos` and the sibling repo fleet.
 **Post-read action:** Pick which phases to implement. Each phase is
 independent; phases 1 and 2 are the high-value ones.
@@ -197,6 +203,8 @@ based on usage history.
 
 ### 3.4 Phase 3 — codex project instructions
 
+**Status:** DONE (2026-07-12). Free from Phase 1 — no codex-flake change needed.
+
 **Why:** Codex has no project-level instructions for `desktop-nixos`
 today. Global `~/.codex/AGENTS.md` (HM-managed) carries ethos + RTK +
 caveman style, but nothing about this repo's architecture, synergies,
@@ -204,26 +212,43 @@ module naming, `just` recipe canonicality, or defensive commit
 patterns. A codex session in this repo is blind to project context.
 
 **Convention:** Codex CLI reads `AGENTS.md` at project root (same
-convention as opencode). If Phase 1 renames `CLAUDE.md` → `AGENTS.md`,
-codex inherits the project instructions automatically — same file
+convention as opencode). Phase 1 renamed `CLAUDE.md` → `AGENTS.md`,
+so codex inherits the project instructions automatically — same file
 serves opencode + codex + (via symlink) Claude Code.
 
-**Verify before committing:** confirm with `codex doctor` or
-`codex --help` that project-root `AGENTS.md` is read. The
-`codex-flake` HM module manages `~/.codex/AGENTS.md` (global); it does
-NOT manage a project-level file. Codex's project-level convention
-should be verified empirically before assuming Phase 3 is "free" from
-Phase 1.
+**Verification (2026-07-12):** per
+[openai/codex docs `guides/agents-md`](https://developers.openai.com/codex/guides/agents-md):
 
-**If codex does NOT read project `AGENTS.md`:** add a
-`~/.codex/instructions.md` reference (or a `-c instructions=...` config
-key) pointing to the repo's `AGENTS.md`. This is a `codex-flake` module
-change, not a `desktop-nixos` change — sister-repo blast radius. Open
-an RFC in `codex-flake` if this path is needed.
+- **Project scope:** "Starting at the project root (typically the Git
+  root), Codex walks down to your current working directory. … In each
+  directory along the path, it checks for `AGENTS.override.md`, then
+  `AGENTS.md`, then any fallback names in
+  `project_doc_fallback_filenames`. Codex includes at most one file per
+  directory."
+- **Global scope:** "In your Codex home directory (defaults to
+  `~/.codex`, unless you set `CODEX_HOME`), Codex reads
+  `AGENTS.override.md` if it exists. Otherwise, Codex reads
+  `AGENTS.md`." (Already HM-managed via `codex-flake`.)
+- **Merge order:** "Codex concatenates files from the root down,
+  joining them with blank lines. Files closer to your current directory
+  override earlier guidance because they appear later in the combined
+  prompt." Global is reported first, repo-root `AGENTS.md` second.
+- **No `CLAUDE.md` fallback:** codex's default
+  `project_doc_fallback_filenames` does NOT include `CLAUDE.md`. The
+  `CLAUDE.md` symlink from Phase 1 serves Claude Code only; codex
+  reads the canonical `AGENTS.md` directly. Do NOT add `CLAUDE.md` to
+  `project_doc_fallback_filenames` — it would duplicate instructions
+  (codex would read both the symlink and its target).
+- **config.toml keys (reference):** `project_doc_fallback_filenames`
+  (list), `project_doc_max_bytes` (default 65536). No top-level
+  `instructions = "..."` key. No `.codex/AGENTS.md` project-local
+  convention.
 
-**Recommendation:** do Phase 1 first, then verify codex's behavior. If
-codex reads project `AGENTS.md`, Phase 3 is free. If not, open a
-codex-flake RFC.
+**Result:** codex now loads repo-root `AGENTS.md` (project architecture
++ synergies + module naming + `just` canonicality + defensive commit
+patterns) on every session in this repo, layered on top of the
+HM-managed global `~/.codex/AGENTS.md` (ethos + RTK + caveman style).
+Phase 3 is complete.
 
 ### 3.5 Phase 4 — document the layering
 
@@ -261,10 +286,10 @@ change.
 
 | Phase | Decision | Blast radius |
 |---|---|---|
-| 1 | Rename `CLAUDE.md` → `AGENTS.md`, add `CLAUDE.md` symlink | repo only |
-| 2 | Relocate BMAD to dormant subdir, OR delete entirely | repo only (verify bmalph re-install behavior) |
-| 3 | Verify codex reads project `AGENTS.md`; if not, open codex-flake RFC | repo + possibly sister |
-| 4 | Document the layering in renamed `AGENTS.md` | repo only |
+| 1 | Rename `CLAUDE.md` → `AGENTS.md`, add `CLAUDE.md` symlink | repo only | **DONE** |
+| 2 | Relocate BMAD to dormant subdir, OR delete entirely | repo only (verify bmalph re-install behavior) | **DONE** (delete — was gitignored + untracked; extracted `party-elicitation` first) |
+| 3 | Verify codex reads project `AGENTS.md`; if not, open codex-flake RFC | repo + possibly sister | **DONE** (free from Phase 1 — codex reads `AGENTS.md` at repo root per openai/codex docs) |
+| 4 | Document the layering in renamed `AGENTS.md` | repo only | open |
 
 ## 5. What this proposal does NOT do
 
@@ -299,6 +324,12 @@ Per-phase verify commands:
 - **Phase 3:** `codex doctor` in the repo; inspect which instruction
   files it reports loading. If `AGENTS.md` is listed, Phase 3 is done.
   If not, document the gap and open a codex-flake issue.
+  — **DONE (2026-07-12):** `codex doctor` does not report instruction
+  files (config.toml-only diagnostic). Verified instead via
+  [openai/codex `guides/agents-md`](https://developers.openai.com/codex/guides/agents-md):
+  codex reads `AGENTS.md` at project root (Git root → cwd walk-down) +
+  `~/.codex/AGENTS.md` (global). No `CLAUDE.md` fallback by default.
+  Phase 1 rename covers codex automatically.
 - **Phase 4:** new `AGENTS.md` section renders cleanly; no broken
   markdown.
 
@@ -307,8 +338,19 @@ Per-phase verify commands:
 1. Has BMAD been invoked in the last 30 days? (Determines Phase 2 vs
    Phase 2'.) Check `.claude/commands/bmad-*` git log or `_bmad-output/`
    presence.
+   — **RESOLVED (2026-07-12):** Phase 2' (delete) chosen. BMAD bulk
+   (`_bmad/` + `.claude/`) was gitignored + untracked (verified via
+   `git ls-files` → 0 matches); local-only delete, no git impact.
+   `party-elicitation` skill extracted as standalone before deletion.
+   `.gitignore` entries for `_bmad/` and `.claude/` retained as
+   forward-defense against accidental reinstall.
 2. Does codex CLI read project-root `AGENTS.md`? (Determines if Phase 3
    is free.) Verify with `codex doctor` before assuming.
+   — **RESOLVED (2026-07-12):** yes. Per openai/codex
+   `guides/agents-md`, codex reads `AGENTS.md` at project root (Git
+   root → cwd walk-down) + `~/.codex/AGENTS.md` (global). No
+   `CLAUDE.md` fallback by default. Phase 1 rename covers codex
+   automatically; no codex-flake change needed.
 3. Is `~/.claude/CLAUDE.md` (hand-managed) worth folding into
    `~/.config/opencode/AGENTS.md` (HM-managed)? This proposal says no
    (see §5), but the maintainer may want to revisit separately.

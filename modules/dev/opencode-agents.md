@@ -197,7 +197,13 @@ Six moorings, one per slice. Loops per slice, never skips gates.
 ## Canonical vs dormant workflows
 
 Spicyphus per-slice loop (above) is **canonical**.
-BMAD (`_bmad/`) and gsd-* subagents remain installed but never auto-trigger.
-Invoke them only by explicit `@`-mention — escape hatches, not the default
-path. When a workflow question arises, prefer spicyphus first; reach for
-BMAD or gsd only as a deliberate departure with a one-line justification.
+BMAD (`_bmad/`) is **removed** (2026-07-12): bulk deleted after
+extracting `party-elicitation` as a standalone skill (installed via HM
+at `~/.config/opencode/skills/party-elicitation/SKILL.md`; source at
+`modules/dev/opencode-skills/party-elicitation/SKILL.md`). No dormant
+frameworks remain in the tree. When a workflow question arises, prefer
+spicyphus first; reach for a specialist skill (party-elicitation,
+tdd, tdd-slice) via `skill` tool when the slice calls for it.
+gsd-* subagents in `~/.config/opencode/agents/` remain installed but
+never auto-trigger; invoke them only by explicit `@`-mention as escape
+hatches.

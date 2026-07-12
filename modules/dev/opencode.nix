@@ -219,14 +219,30 @@
         };
       };
 
-      # Spicyphus per-slice TDD skill — declarative install via HM
-      # `xdg.configFile` so opencode discovers it under
-      # `~/.config/opencode/skills/tdd-slice/SKILL.md` (opencode-native path).
-      # Source-of-truth is `modules/dev/opencode-skills/tdd-slice/SKILL.md`.
-      # Never hand-edit `~/.agents/skills/tdd-slice/` or
-      # `~/.config/opencode/skills/tdd-slice/` — both are HM-managed.
+      # Per-slice skills HM-managed at `~/.config/opencode/skills/<name>/SKILL.md`
+      # via `xdg.configFile`. Sources-of-truth under
+      # `modules/dev/opencode-skills/<name>/SKILL.md`.
+      #
+      # `tdd-slice`: spicyphus per-slice 6-step loop (seed→grill→contract→
+      #   red tests→green impl→seed-integrity review+lessons); multi-model
+      #   dispatch (GLM architect + mimo general) + 3-retry self-improve cap.
+      # `tdd`: red-green-refactor discipline mechanics (one cycle per
+      #   vertical slice, never refactor while RED). Adapted from
+      #   obra/superpowers' bundled tdd skill — imposed declaratively here
+      #   after extraction, replacing the prior hand-installed
+      #   `~/.agents/skills/tdd/`.
+      # `party-elicitation`: multi-persona facilitator — picks 2-3
+      #   personas (Architect/Skeptic/Builder/PM/QA/Maintainer) per turn,
+      #   in-character cross-talk, exits on E. Genericized from BMAD
+      #   party-mode (no _bmad paths, no agent-manifest.csv, no bmad-speak.sh
+      #   hook) — the only BMAD skill we extracted before Phase-2 bulk
+      #   removal.
       xdg.configFile."opencode/skills/tdd-slice/SKILL.md".source =
         ./opencode-skills/tdd-slice/SKILL.md;
+      xdg.configFile."opencode/skills/tdd/SKILL.md".source =
+        ./opencode-skills/tdd/SKILL.md;
+      xdg.configFile."opencode/skills/party-elicitation/SKILL.md".source =
+        ./opencode-skills/party-elicitation/SKILL.md;
 
       compaction = {
         auto = true;
