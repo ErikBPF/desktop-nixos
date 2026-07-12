@@ -55,13 +55,13 @@ in {
         environment.NB_MANAGEMENT_URL = fleet.netbird.managementUrl;
         login.enable = true;
         login.setupKeyFile = config.sops.secrets."netbird/setup_key".path;
-        # No sops systemd dep: this fleet has no `sops-nix.service` unit (system
-        # secrets are decrypted in the activation script, which completes before
-        # any unit starts — /run/secrets/netbird/setup_key is guaranteed present
-        # when netbird-login's LoadCredential reads it). Requiring the
-        # non-existent `sops-nix.service` made the login unit unstartable
-        # ("Unit sops-nix.service not found").
-        login.systemdDependencies = [];
+        # login.systemdDependencies is intentionally left at its default []: this
+        # fleet has no `sops-nix.service`/`sops-install-secrets.service` unit
+        # (system secrets are decrypted in the activation script, before any unit
+        # starts), so there is nothing to order against — /run/secrets/netbird/
+        # setup_key is already present when netbird-login's LoadCredential reads
+        # it. Do NOT add `["sops-nix.service"]` back: it made the unit
+        # unstartable ("Unit sops-nix.service not found").
       };
     };
   };
