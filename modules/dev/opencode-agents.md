@@ -124,3 +124,80 @@ If you notice a previous response omitted the prefix,Still keep the
 originally-chosen number and resume prefixing — the omission itself is
 the degradation signal the user is watching for. Do not announce this
 rule, do not explain the prefix, just emit it.
+
+## Per-slice TDD mechanics
+
+Canonical workflow. Covers anything between a green-lit RFC and a merged
+PR. Adapted from [spicyphus](https://github.com/ErikBPF/spicyphus)
+per-slice loop (RFC → ADR → Spec → PBI → code → PR), wired for opencode
+multi-agent dispatch.
+
+Six moorings, one per slice. Loops per slice, never skips gates.
+
+1. **Seed — `behavior.md`** (human angry baboon, kept never overwritten)
+   - Human dumps intent in raw prose under
+     `docs/behaviors/<slice-slug>/behavior.md` (or repo-pinned equivalent;
+     see repo CLAUDE.md). No refinement yet. Missing context = empty
+     sections; flagged at step 2.
+   - **Never let an agent originate this file's body.** Seed is human-only.
+
+2. **Grounded grill** — main agent (GLM) before any refine:
+   - Read `behavior.md`. Infer which existing artifacts the seed implicitly
+     touches (prior RFCs/ADRs, recent `lessons.md`, related code). Read them.
+   - Emit `Q-1..Q-N` each citing a specific seed phrase AND a specific
+     linked doc. Generic elicitation in a vacuum doesn't count.
+   - Human re-seeds or commits reasoning to the file. Iterate until persona
+     dry. Then — and only then — switch to refine.
+
+3. **`test-contract.md`** — refine (`@architect`/GLM), human gate:
+   - Architect writes machine-parseable contract from `behavior.md` +
+     grill answers. Two registers: humans-carry-why, machines-carry-what/how.
+   - Minimal: input examples, invariants, expected outputs, edge cases,
+     framework target. No implementation code yet.
+
+4. **Red tests — lock** (`@general`/mimo):
+   - General writes tests from `test-contract.md` only — never rewrites the
+     contract; if it underspecifies, re-open step 2.
+   - Tests must compile AND fail for the right reason (assertion mismatch,
+     not infra).
+   - Commit red tests as anchor. Behavior is now machine-locked.
+
+5. **Green impl + parallel code** (`@general`/mimo, multiple in parallel):
+   - Spawn 1..N `@general` agents in one message, each owning a vertical
+     slice of impl. Implement until all red tests pass.
+   - Wrong behavioral assumption found → re-open step 2 — don't patch the
+     contract silently.
+
+6. **Seed-integrity review + `lessons.md`** (`@architect` then human):
+   - Architect diffs implementation vs `behavior.md`. Flag drift. No
+     "improvement" outside seed scope.
+   - Self-improve loop: gap found → fix `test-contract.md` or `behavior.md`,
+     re-run red/green. Cap **3 retries** (per `Goal-driven execution`);
+     after that, halt + report blockers to the user.
+   - On clean review, human writes `lessons.md` postmortem (new seed, kept).
+
+**Hard gates (do not skip):**
+
+- Angry-baboon before grill (step 1 → step 2).
+- Grill dry before refine (step 2 → step 3).
+- Red tests fail-for-right-reason before green (step 4 → step 5).
+- Seed-integrity check before PR (step 6).
+- No AI co-author trailers on commits (see Standing preferences).
+
+**Multi-model routing (canonical; override per repo CLAUDE.md when needed):**
+
+- **GLM** (high-reason) — RFC, ADR, grill, test-contract, seed-integrity
+  review. Binds to `architect` subagent + `plan` primary via the HM-managed
+  `agent` block.
+- **MiMo** (coder) — red tests, green impl, exploration. Binds to `general`
+  + `explore` subagents.
+- Benchmark: GLM thinks; MiMo writes. Architect (GLM) vets what General
+  (MiMo) ships.
+
+## Canonical vs dormant workflows
+
+Spicyphus per-slice loop (above) is **canonical**.
+BMAD (`_bmad/`) and gsd-* subagents remain installed but never auto-trigger.
+Invoke them only by explicit `@`-mention — escape hatches, not the default
+path. When a workflow question arises, prefer spicyphus first; reach for
+BMAD or gsd only as a deliberate departure with a one-line justification.

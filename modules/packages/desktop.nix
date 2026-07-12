@@ -101,7 +101,9 @@ _: {
       kicad # EDA suite
       openscad # parametric .scad mounts
       freecad # gen_step.py STEP export (import FreeCAD, Part)
-      mongodb-compass
+      # mongodb-compass — TEMPORARILY REMOVED 2026-07-12: build broken on the
+      # current nixpkgs (wrapGAppsHook regression: "wrapGAppsHookHasRunForOutput:
+      # bad array subscript"). Re-enable once upstream nixpkgs fixes the build.
       github-desktop
       opencode
       gemini-cli

@@ -439,3 +439,60 @@ homelab-iac (UniFi network)  ← the substrate all the above run on:
 Rule of thumb: when a change touches more than one of these repos, land the
 **leaf** repo first (hermes-flake / servarr / home-assistant-config /
 klipper-biqu), then bump the input / sync, then deploy from `desktop-nixos`.
+
+## Per-slice TDD mechanics (nixos-flake variant)
+
+Spicyphus per-slice loop is canonical here, per global `AGENTS.md`. This
+section pins repo specifics; overrides global defaults only where this
+flake has firmer convention.
+
+**Per-slice artifacts live under** `docs/behaviors/<slice-slug>/`:
+
+- `behavior.md` — seed, human-only, kept
+- `test-contract.md` — refine (architect, GLM)
+- `lessons.md` — postmortem, human, kept
+
+If a slice spans sister repos, `behavior.md` lives in the **leaf** repo the
+change lands in first (per `Rule of thumb` above); this flake's
+`behavior.md` cross-references the leaf's, never duplicates.
+
+**Test framework by surface (red/green gate):**
+
+- Nix expressions (`modules/**`, `flake.nix`): red/green = `just dry <host>`
+  for every touched host + `nix flake check --no-link` for the closure. The
+  just recipe is authoritative (per `Recipe wins` rule); raw
+  `nixos-rebuild … --target-host` is **forbidden** (see `Remote actions`).
+- Full-system module changes: dry-build first (`just dry <host>`), inspect
+  diff, `just switch-<host>`, then post-switch verify per the existing
+  `Verify changes` section.
+- Shell scripts under `modules/**`: `shellcheck` then `bats` for behavior
+  lock. Repo has no `bats` today — when a first `behavior.md` calls for it,
+  add `bats` as a flake devshell input **before** writing tests (RFC step
+  first; no speculative infra).
+
+**Multi-agent dispatch for nixos-flake slices:**
+
+- Architect (GLM, `opencode-go/glm-5.2`): grill, draft `test-contract.md`,
+  run seed-integrity diff. Model bind lives in `modules/dev/opencode.nix`
+  via HM.
+- General (MiMo pro, `opencode-go/mimo-v2.5-pro`): write red tests + green
+  impl. Source-of-trUTH: agent edits `modules/**` + `flake.nix` only —
+  never edits `/nix/store` or remote host files (re-iterate the `Remote
+  actions → repo → deploy` rule).
+- Verify: `just dry <host>` MUST pass before green claim; `nix flake
+  check` final gate before PR.
+- Parallel dispatch: spawn 1..N `@general` agents in one message for
+  independent impl slices (each owns one module/sub-feature).
+
+**Self-improve cap:** 3 retries per global rule; after exhaustion, halt +
+report blockers to user. Do not silently edit `behavior.md` to fix infra
+failures — re-seed if behavior was wrong, fix infra if behavior was right
+but the build broke.
+
+**HM rebuild is the deploy step for ethos + agent routing changes:** edit
+`modules/dev/opencode-agents.md` (ethos) and `modules/dev/opencode.nix`
+(opencode.json + the per-agent `agent` block), then `just build laptop` so
+the `/nix/store` copy + `~/.config/opencode/AGENTS.md` symlink refresh.
+Never hand-edit `~/.config/opencode/AGENTS.md` or
+`~/.config/opencode/opencode.json` directly — both are `/nix/store`
+symlinks managed by Home-Manager via `opencode-flake`.

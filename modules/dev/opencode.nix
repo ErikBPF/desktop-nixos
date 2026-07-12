@@ -188,6 +188,46 @@
         };
       };
 
+      # Per-agent model routing (spicyphus per-slice loop): the architect
+      # pins high-reason GLM for RFC/grill/test-contract/seed-integrity
+      # review; the executor subagents pin MiMo coder for red tests + green
+      # impl + read-only exploration. `plan` mirrors `architect`; `build`
+      # inherits session-wide model (no override). Spec + active model list
+      # discoverable via `opencode models opencode-go`.
+      agent = {
+        plan = {
+          model = "opencode-go/glm-5.2";
+          temperature = 0.1;
+        };
+        architect = {
+          description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
+          mode = "subagent";
+          model = "opencode-go/glm-5.2";
+          temperature = 0.1;
+          permission = {
+            edit = "deny";
+            bash = "deny";
+          };
+        };
+        general = {
+          model = "opencode-go/mimo-v2.5-pro";
+          temperature = 0.2;
+        };
+        explore = {
+          model = "opencode-go/mimo-v2.5";
+          temperature = 0.1;
+        };
+      };
+
+      # Spicyphus per-slice TDD skill — declarative install via HM
+      # `xdg.configFile` so opencode discovers it under
+      # `~/.config/opencode/skills/tdd-slice/SKILL.md` (opencode-native path).
+      # Source-of-truth is `modules/dev/opencode-skills/tdd-slice/SKILL.md`.
+      # Never hand-edit `~/.agents/skills/tdd-slice/` or
+      # `~/.config/opencode/skills/tdd-slice/` — both are HM-managed.
+      xdg.configFile."opencode/skills/tdd-slice/SKILL.md".source =
+        ./opencode-skills/tdd-slice/SKILL.md;
+
       compaction = {
         auto = true;
         tail_turns = 8;
