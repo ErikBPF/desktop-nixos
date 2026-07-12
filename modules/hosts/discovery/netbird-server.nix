@@ -337,6 +337,25 @@ in {
               AUTH_SUPPORTED_SCOPES = "openid profile email";
               AUTH_AUDIENCE = oidcClientId;
               USE_AUTH0 = "false";
+              # The SPA computes redirect_uri = window.location.origin + this.
+              # The dashboard's default is `/#callback` (a URL FRAGMENT), which a
+              # spec-compliant IdP like PocketID rejects (OAuth2 forbids fragments
+              # in redirect_uri). Point it at a real, fragment-less 200 route that
+              # loads the SPA so @axa-fr/react-oidc can process the code there;
+              # `/install` is served AND is on the dashboard's own callback-context
+              # allowlist. Register https://nb.<zone>/install in the PocketID client.
+              # redirect_uri = window.location.origin + this. Must be:
+              #  - fragment-less (PocketID/OAuth2 reject a `#` in redirect_uri —
+              #    rules out the dashboard default `/#callback`), AND
+              #  - the HOME route `/` — @axa-fr/react-oidc only runs the code
+              #    exchange inside the app shell; standalone pages like /install
+              #    load the SPA but never exchange the code (verified 2026-07-11).
+              # `/` satisfies both. Register https://nb.<zone>/ in the PocketID
+              # client. Silent MUST differ from redirect (@axa-fr throws if equal),
+              # so silent stays /silent-auth (404 → silent renew degrades to
+              # interactive re-login; harmless for login itself).
+              AUTH_REDIRECT_URI = "/";
+              AUTH_SILENT_REDIRECT_URI = "/silent-auth";
             };
             networks = ["homelab-net"];
           };
