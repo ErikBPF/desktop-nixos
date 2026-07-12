@@ -30,14 +30,18 @@ in {
 
       services.resolved.enable = true;
 
-      # RFC §4b bootstrap fix: management (nb.<zone>) lives on discovery and
-      # is only resolvable via discovery's own AdGuard — so a cold boot or a
-      # discovery-down window can't resolve the name that points at the host
-      # that's supposed to serve it. Ship a static hosts entry pointing the
-      # management hostname straight at discovery's tailnet IP as a
-      # resolver-independent floor; DNS stays authoritative for everything
-      # else (and for the eventual DR-flip mobility, §4a).
-      networking.hosts.${fleet.hosts.discovery.tailscaleIp} = [managementHost];
+      # RFC §4b bootstrap fix: management (nb.<zone>) lives on discovery and is
+      # only resolvable via discovery's own AdGuard — so a cold boot or a
+      # discovery-down window can't resolve the name. Ship a static hosts entry
+      # as a resolver-independent floor. Point it at discovery's LAN IP, NOT its
+      # tailscale IP: the control plane is served by SWAG on :443, and the
+      # tailscale ACL only grants *.homelab :443 via the `swag` host (discovery's
+      # LAN IP 192.168.10.210, homelab-iac tailscale/acl rule 3) — discovery's
+      # tailscale IP :443 has NO ACL rule, so a tailscale-IP floor is blocked and
+      # `netbird up` times out. On-LAN peers reach the LAN IP directly; off-LAN
+      # peers via discovery's advertised subnet route (accept-routes). DNS stays
+      # authoritative for everything else (and for DR-flip mobility, §4a).
+      networking.hosts.${fleet.hosts.discovery.ip} = [managementHost];
 
       services.netbird.clients.netbird = {
         port = 51820;
@@ -51,7 +55,13 @@ in {
         environment.NB_MANAGEMENT_URL = fleet.netbird.managementUrl;
         login.enable = true;
         login.setupKeyFile = config.sops.secrets."netbird/setup_key".path;
-        login.systemdDependencies = ["sops-nix.service"];
+        # No sops systemd dep: this fleet has no `sops-nix.service` unit (system
+        # secrets are decrypted in the activation script, which completes before
+        # any unit starts — /run/secrets/netbird/setup_key is guaranteed present
+        # when netbird-login's LoadCredential reads it). Requiring the
+        # non-existent `sops-nix.service` made the login unit unstartable
+        # ("Unit sops-nix.service not found").
+        login.systemdDependencies = [];
       };
     };
   };
