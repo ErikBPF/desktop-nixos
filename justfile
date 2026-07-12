@@ -846,7 +846,14 @@ reboot-kepler:
     #!/usr/bin/env bash
     set -euo pipefail
     ssh -p 2222 erik@{{ip_kepler}} sudo systemctl reboot || true
-    echo ":: waiting for kepler..."
+    echo ":: waiting for kepler to stop..."
+    for _ in $(seq 1 30); do
+        if ! ssh -p 2222 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
+            break
+        fi
+        sleep 1
+    done
+    echo ":: waiting for kepler to return..."
     for _ in $(seq 1 60); do
         if ssh -p 2222 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
             echo ":: kepler reachable"
