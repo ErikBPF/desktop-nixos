@@ -239,7 +239,10 @@ in {
           path = "/run/secrets/netbird-auth-secret";
           # Content: `NB_AUTH_SECRET=<openssl rand -base64 32>` (§6b-H7 — must be
           # IDENTICAL on management and every relay; mismatch fails silently at
-          # the relay, so verify a real peer connection in Phase-O §10-2).
+          # the relay, so verify a real peer connection in Phase-O §10-2). Stays
+          # a `NB_AUTH_SECRET=` dotenv line because the netbird-relay container
+          # reads it via environmentFiles; netbird-management-config strips the
+          # prefix before rendering it into management.json's Relay.Secret.
           restartUnits = ["netbird-management-config.service" "docker-netbird-management.service" "docker-netbird-relay.service"];
         };
         sops.secrets."netbird/datastore_enc_key" = {
@@ -248,8 +251,9 @@ in {
           key = "netbird/datastore_enc_key";
           mode = "0400";
           path = "/run/secrets/netbird-datastore-enc-key";
-          # Content: `NB_DATASTORE_ENC_KEY=<openssl rand -base64 32>` — encrypts
-          # netbird's at-rest data store. MUST stay stable: rotating it makes the
+          # Content: the BARE key value `<openssl rand -base64 32>` (no NB_XXX=
+          # prefix — render-only, read raw by netbird-management-config). Encrypts
+          # netbird's at-rest data store; MUST stay stable: rotating it makes the
           # existing store unreadable. Provided so management does NOT generate a
           # key and try to write it back to the read-only management.json.
           # Rendered into management.json (not env) by netbird-management-config.
@@ -281,18 +285,24 @@ in {
           };
           script = ''
             install -d -m 0700 /run/netbird-management
-            # The sops secrets are `KEY=<value>` dotenv lines; extract the values
-            # (do NOT source — a stray line would execute). Wait for BOTH to be
-            # present and non-empty before rendering: on an autoUpgrade the
-            # secrets can be mid-re-decryption when their restartUnits fire this
-            # oneshot, and rendering an EMPTY DataStoreEncryptionKey makes
-            # management self-generate a new key and try to write it back to the
-            # :ro config mount -> crash-loop -> start-limit-hit (observed
-            # 2026-07-12, mgmt down ~5h). Refusing to render an empty config keeps
-            # management from ever seeing one — it waits for a good render instead.
+            # DataStoreEncryptionKey is render-only: its sops secret holds the
+            # BARE value, read straight in. The relay HMAC (Relay.Secret) is
+            # shared with the netbird-relay container, which consumes it as a
+            # dotenv env-file, so its sops secret keeps the `NB_AUTH_SECRET=`
+            # line; strip the prefix here with shell param-expansion (no sed —
+            # tolerant if the prefix is already absent). Do NOT source the files:
+            # a stray line would execute. Wait for BOTH to be present and
+            # non-empty before rendering: on an autoUpgrade the secrets can be
+            # mid-re-decryption when their restartUnits fire this oneshot, and
+            # rendering an EMPTY DataStoreEncryptionKey makes management
+            # self-generate a new key and try to write it back to the :ro config
+            # mount -> crash-loop -> start-limit-hit (observed 2026-07-12, mgmt
+            # down ~5h). Refusing to render an empty config keeps management from
+            # ever seeing one — it waits for a good render instead.
             for _ in $(seq 1 30); do
-              NB_AUTH_SECRET="$(${pkgs.gnused}/bin/sed -n 's/^NB_AUTH_SECRET=//p' ${config.sops.secrets."netbird/auth_secret".path})"
-              NB_DATASTORE_ENC_KEY="$(${pkgs.gnused}/bin/sed -n 's/^NB_DATASTORE_ENC_KEY=//p' ${config.sops.secrets."netbird/datastore_enc_key".path})"
+              NB_AUTH_SECRET_LINE="$(cat ${config.sops.secrets."netbird/auth_secret".path})"
+              NB_AUTH_SECRET="''${NB_AUTH_SECRET_LINE#NB_AUTH_SECRET=}"
+              NB_DATASTORE_ENC_KEY="$(cat ${config.sops.secrets."netbird/datastore_enc_key".path})"
               [ -n "$NB_AUTH_SECRET" ] && [ -n "$NB_DATASTORE_ENC_KEY" ] && break
               sleep 1
             done
