@@ -841,6 +841,38 @@ ai-kepler-health:
     @just verify-port kepler {{ip_kepler}} 9000
     @just verify-port kepler {{ip_kepler}} 10200
 
+# Activate the generation staged by `just switch-kepler`, then wait for SSH.
+reboot-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} sudo systemctl reboot || true
+    echo ":: waiting for kepler..."
+    for _ in $(seq 1 60); do
+        if ssh -p 2222 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
+            echo ":: kepler reachable"
+            exit 0
+        fi
+        sleep 2
+    done
+    echo ":: kepler did not return within 120s" >&2
+    exit 1
+
+# Crawl and index the exact Spark docs version through LiteLLM bge-m3.
+index-spark-docs version="4.0.1" max_pages="500":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" \
+        "cd /home/erik/servarr/machines/kepler && DOCKER_HOST=unix:///run/user/1000/podman/podman.sock docker-compose --project-name docs-search --env-file .env -f docs-search.yml --profile index run --rm docs-indexer spark --version {{version}} --max-pages {{max_pages}}"
+
+# Verify all Hermes role containers and Daedalus MCP registration without
+# exposing API keys or decrypted secret contents.
+hermes-agents-health:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'for name in hermes-agent hermes-daedalus hermes-argus; do state=$(docker inspect --format="{{"{{"}}.State.Status{{"}}"}}" "$name"); health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name"); printf ":: %s state=%s health=%s\n" "$name" "$state" "$health"; test "$state" = running; done; docker exec hermes-daedalus hermes mcp list'
+
 verify-port target ip port:
     @nc -z -w 2 {{ip}} {{port}} && echo ":: {{target}}:{{port}} ✅" || echo ":: {{target}}:{{port}} ❌"
 
