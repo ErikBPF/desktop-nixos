@@ -891,6 +891,14 @@ reboot-kepler:
     echo ":: kepler did not return within 120s" >&2
     exit 1
 
+# Rebuild the locally-owned docs-search image and recreate its service.
+rebuild-docs-search:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" \
+        "cd /home/erik/servarr/machines/kepler && DOCKER_HOST=unix:///run/user/1000/podman/podman.sock docker-compose --project-name docs-search --env-file .env -f docs-search.yml build docs-search && DOCKER_HOST=unix:///run/user/1000/podman/podman.sock docker-compose --project-name docs-search --env-file .env -f docs-search.yml up -d docs-search"
+
 # Crawl and index the exact Spark docs version through LiteLLM bge-m3.
 index-spark-docs version="4.0.1" max_pages="500":
     #!/usr/bin/env bash
