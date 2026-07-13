@@ -123,15 +123,6 @@ _: {
             max_memory_clock: ${toString memClock}
       profiles: {}
     '';
-    # LACT migrates its config schema on startup (e.g. v5→v6 across the
-    # 0.9.0→0.9.1 bump) and writes the migrated file back to disk. A read-only
-    # `environment.etc` symlink makes that write fail with "Could not write
-    # config: Read-only file system", so lactd exits, crash-loops, and takes
-    # amdgpu-od-apply down with it (bindsTo). Seed the config as a MUTABLE file
-    # the daemon can rewrite — version-agnostic, so future schema bumps don't
-    # break it. Our values stay authoritative: this file is re-installed from
-    # the store on every activation, and lactd re-migrates in place.
-    lactConfigFile = pkgs.writeText "lact-config.yaml" lactConfigYaml;
   in {
     options.orionGpu.profile = lib.mkOption {
       type = lib.types.enum ["training" "inference"];
@@ -212,12 +203,18 @@ _: {
         '';
       };
 
-      # Mutable seed (see lactConfigFile above): install a writable copy after
-      # the etc tree is laid down (removing the old read-only symlink), so lactd
-      # can persist its schema migration instead of crashing on a RO write.
-      system.activationScripts.lact-config = lib.stringAfter ["etc"] ''
-        install -Dm0644 ${lactConfigFile} /etc/lact/config.yaml
-      '';
+      # LACT migrates its config schema on startup (e.g. v5→v6 across the
+      # 0.9.0→0.9.1 bump) and writes the migrated file back. The default
+      # `mode = "symlink"` points at the read-only store, so that write fails
+      # ("Could not write config: Read-only file system"), lactd crash-loops,
+      # and takes amdgpu-od-apply down with it (bindsTo). `mode = "0644"` makes
+      # NixOS COPY a writable file into /etc that lactd can rewrite in place —
+      # version-agnostic (future schema bumps just re-migrate), and our declared
+      # values reassert on each rebuild. lactd runs as root, so 0644 is writable.
+      environment.etc."lact/config.yaml" = {
+        text = lactConfigYaml;
+        mode = "0644";
+      };
     };
   };
 }

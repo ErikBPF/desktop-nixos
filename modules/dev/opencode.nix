@@ -50,6 +50,28 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
+            glm-5 = {
+              name = "GLM-5.2 (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.0000014;
+                output = 0.0000044;
+              };
+              limit = {
+                context = 1000000;
+                output = 131072;
+              };
+            };
+            mimo = {
+              name = "MiMo V2.5 (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.00000014;
+                output = 0.00000028;
+              };
+              limit = {
+                context = 1000000;
+                output = 128000;
+              };
+            };
             qwen-chat = {
               name = "Qwen Chat (Orion)";
               cost = {
@@ -193,16 +215,16 @@
       # review; the executor subagents pin MiMo coder for red tests + green
       # impl + read-only exploration. `plan` mirrors `architect`; `build`
       # inherits session-wide model (no override). Spec + active model list
-      # discoverable via `opencode models opencode-go`.
+      # discoverable via `opencode models litellm`.
       agent = {
         plan = {
-          model = "opencode-go/glm-5.2";
+          model = "litellm/glm-5";
           temperature = 0.1;
         };
         architect = {
           description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
           mode = "subagent";
-          model = "opencode-go/glm-5.2";
+          model = "litellm/glm-5";
           temperature = 0.1;
           permission = {
             edit = "deny";
@@ -210,11 +232,11 @@
           };
         };
         general = {
-          model = "opencode-go/mimo-v2.5-pro";
+          model = "litellm/mimo";
           temperature = 0.2;
         };
         explore = {
-          model = "opencode-go/mimo-v2.5";
+          model = "litellm/mimo";
           temperature = 0.1;
         };
       };
@@ -237,13 +259,6 @@
       #   party-mode (no _bmad paths, no agent-manifest.csv, no bmad-speak.sh
       #   hook) — the only BMAD skill we extracted before Phase-2 bulk
       #   removal.
-      xdg.configFile."opencode/skills/tdd-slice/SKILL.md".source =
-        ./opencode-skills/tdd-slice/SKILL.md;
-      xdg.configFile."opencode/skills/tdd/SKILL.md".source =
-        ./opencode-skills/tdd/SKILL.md;
-      xdg.configFile."opencode/skills/party-elicitation/SKILL.md".source =
-        ./opencode-skills/party-elicitation/SKILL.md;
-
       compaction = {
         auto = true;
         tail_turns = 8;
@@ -253,5 +268,12 @@
         max_bytes = 12000;
       };
     };
+
+    xdg.configFile."opencode/skills/tdd-slice/SKILL.md".source =
+      ./opencode-skills/tdd-slice/SKILL.md;
+    xdg.configFile."opencode/skills/tdd/SKILL.md".source =
+      ./opencode-skills/tdd/SKILL.md;
+    xdg.configFile."opencode/skills/party-elicitation/SKILL.md".source =
+      ./opencode-skills/party-elicitation/SKILL.md;
   };
 }

@@ -253,6 +253,7 @@ in {
               # (deferred).
               service = "mjpegstreamer-adaptive";
               target_fps = 15;
+              rotation = 180;
               stream_url = "http://192.168.10.225:8080/stream";
               snapshot_url = "http://192.168.10.225:8080/snapshot";
             };
