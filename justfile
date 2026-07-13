@@ -868,6 +868,13 @@ ai-kepler-health:
     @just verify-port kepler {{ip_kepler}} 9000
     @just verify-port kepler {{ip_kepler}} 10200
 
+# Retrieval-model status plus bounded recent logs; no secret output.
+ai-kepler-retrieval-health:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'for name in slm-bge-m3 slm-bge-reranker; do docker inspect --format=":: {{"{{"}}.Name{{"}}"}} state={{"{{"}}.State.Status{{"}}"}} health={{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name"; docker logs --tail 15 "$name" 2>&1; done'
+
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
     #!/usr/bin/env bash
