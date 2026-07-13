@@ -63,7 +63,7 @@
           ];
         }
         {_args = ["BROWSER" "brave"];}
-        {_args = ["FILEMANAGER" "ghostty -e yazi"];}
+        {_args = ["FILEMANAGER" "ghostty +new-window -e yazi"];}
         # Force dark across toolkits for apps that ignore gsettings/settings.ini:
         #   GTK_THEME → GTK2/3/4 apps (swappy, etc). Points at the EXISTING dark
         #   variant (the earlier white-out was GTK_THEME=Tokyonight-Dark, deleted).
@@ -90,7 +90,7 @@
 
         settings = {
           terminal = {_var = "ghostty";};
-          fileManager = {_var = "ghostty -e yazi";};
+          fileManager = {_var = "ghostty +new-window -e yazi";};
           fileManagerGui = {_var = "nautilus --new-window";};
           browser = {_var = "brave";};
           teamsApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/teams --no-first-run --no-default-browser-check --app=https://teams.microsoft.com/v2/";};
@@ -332,7 +332,11 @@
                     hl.exec_cmd("tailscale-systray --accept-routes")
                     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
                     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
-                    hl.exec_cmd("ghostty -e btop",            { workspace = 11 })
+                    -- +new-window routes through the running (or D-Bus-activated)
+                    -- ghostty instance instead of forking a fresh cold GTK4/GPU
+                    -- process each time (~1.8s). Plain `ghostty -e cmd` does NOT
+                    -- honour gtk-single-instance; the action does. Same for yazi.
+                    hl.exec_cmd("ghostty +new-window -e btop",            { workspace = 11 })
                     hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
                     hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
                     hl.exec_cmd(teamsApp, { workspace = 10 })
