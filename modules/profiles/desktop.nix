@@ -20,6 +20,7 @@ in {
       m.nixos.sddm
       m.nixos.fonts
       m.nixos.xdg-portal
+      m.nixos.gnome-apps
       m.nixos.audio
       m.nixos.bluetooth
       m.nixos.packages-desktop
