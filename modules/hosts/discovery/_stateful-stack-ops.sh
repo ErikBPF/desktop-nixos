@@ -166,7 +166,7 @@ ledger_create() {
   # Named volumes are protected by archive_id. snapshot_source independently
   # covers bind-mounted state and therefore need not contain physical_source.
   btrfs subvolume show "$snapshot_source" >/dev/null 2>&1 || die "snapshot source is not a Btrfs subvolume"
-  commit=$(git -C "$repo" rev-parse HEAD)
+  commit=$(git -c "safe.directory=$repo" -C "$repo" rev-parse HEAD)
   [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "Git commit invalid"
   image_tag=$(jq -er '.[0].Config.Image | select(length > 0)' <<<"$inspect")
   image_inspect=$(docker image inspect "$(jq -er '.[0].Image' <<<"$inspect")") || die "container image missing"

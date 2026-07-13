@@ -27,7 +27,7 @@ for path in "$root" "$source_path" "$destination_path" "$plan" "$ledger" "$snaps
 done
 docker inspect "$container" >/dev/null 2>&1 && die "fixture container already exists: $container"
 
-commit=$(git -C "$repository" rev-parse HEAD)
+commit=$(git -c "safe.directory=$repository" -C "$repository" rev-parse HEAD)
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die 'repository commit invalid'
 image_id=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null) || die "pinned fixture image absent: $image"
 [ "$image_id" = 'sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d' ] ||
