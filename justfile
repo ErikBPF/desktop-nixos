@@ -881,6 +881,13 @@ ai-kepler-gpu-health:
     IP="$(just _host-ip kepler)"
     ssh -p 2222 erik@"$IP" 'timeout 15s nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader; timeout 15s nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader'
 
+# Reset the embedder CUDA context with the competing reranker stopped.
+ai-kepler-embed-reset:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'docker stop slm-bge-reranker >/dev/null 2>&1 || true; docker restart slm-bge-m3 >/dev/null; for _ in $(seq 1 60); do health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" slm-bge-m3); if [ "$health" = healthy ]; then echo ":: slm-bge-m3 healthy"; exit 0; fi; sleep 2; done; echo ":: slm-bge-m3 failed to become healthy" >&2; exit 1'
+
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
     #!/usr/bin/env bash
