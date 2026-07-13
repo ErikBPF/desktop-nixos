@@ -40,7 +40,7 @@ consumer). Minimal churn: most services are already placed correctly; this names
 
 | # | Mechanism | Where declared | Secret tier | Deploy | What runs there |
 |---|-----------|----------------|-------------|--------|-----------------|
-| M1 | **servarr compose stack** via NixOS `homelab.compose` | `servarr/machines/<host>/*.yml`; orchestrated by `modules/server/orchestration.nix` | sops `.env` (+ vault-agent `/run/vault-agent/<stack>.env` layered, Vault wins) | `pull-servarr` + `kick-stack` | ~33 stacks: discovery 16, kepler 12, orion 3, voyager 2 (media, *arr, plex, jellyfin, immich, langfuse, gitlab, wazuh, postgres/redis/minio, swag, adguard, cloudflared, litellm, vault, vaultwarden…) |
+| M1 | **servarr compose stack** via NixOS `homelab.compose` | `servarr/machines/<host>/*.yml`; orchestrated by `modules/server/orchestration.nix` | sops `.env` (+ vault-agent `/run/vault-agent/<stack>.env` layered, Vault wins) | `pull-servarr` + `kick-stack` | Home workloads such as media, *arr, Plex, Jellyfin, Immich, Langfuse, Wazuh, Postgres/Redis/MinIO, SWAG, AdGuard, Cloudflared, LiteLLM, Vault, and Vaultwarden. |
 | M2 | **NixOS `oci-containers`** | `modules/hosts/<host>/*.nix` | **sops-nix** → `/run/secrets` → docker `environmentFiles` | `switch-<host>` | discovery: `hermes-agent` (on), `netbird-*` (off); voyager: `netbird-relay` (off, rootless podman) |
 | M3 | **Bespoke systemd-oneshot compose** | `modules/hosts/discovery/harbor.nix` | vault-agent `harbor.env` | `switch` (oneshot runs vendor compose) | Harbor registry + pull-through cache |
 | M4 | **k3s microvms + Argo CD** | `modules/hosts/kepler/k3s-cluster.nix` (substrate) + `homelab-gitops` (workloads) | ESO → Vault@discovery | Argo sync | lab/prod-mimic k8s workloads (kepler only) |

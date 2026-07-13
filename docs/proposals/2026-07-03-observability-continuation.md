@@ -65,7 +65,7 @@ for that backlog so the implemented doc can stay a closed record.
    (clients) as provisioned JSON. Unlocks WAN edge + the ~20 non-fleet
    LAN devices.
 4. **postgres-exporter** on discovery + kepler infra stacks (covers
-   litellm/langfuse/n8n/gitlab/healthchecks DBs): one
+   litellm/langfuse/n8n/healthchecks DBs): one
    `prometheuscommunity/postgres-exporter` sidecar per `infra.yml`,
    creds from the existing `.env`.
 5. **LiteLLM spend history** — live `litellm_*` metrics start at enable
