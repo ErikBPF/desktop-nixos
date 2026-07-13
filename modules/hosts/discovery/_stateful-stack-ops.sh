@@ -25,6 +25,7 @@ Mutating, ledger-gated (affected container must be stopped):
   snapshot LEDGER
   archive LEDGER
   copy LEDGER DESTINATION
+  restore LEDGER DESTINATION
 
 No command deletes resources or executes rollback text.
 EOF
@@ -254,6 +255,23 @@ copy_volume() {
   compare_volume "$1" "$destination"
 }
 
+restore_volume() {
+  [ "$#" -eq 2 ] || usage
+  load_ledger "$1"
+  assert_stopped
+  assert_source
+  read_verify "$1"
+  local archive destination=$2
+  archive=$(field '.archive_id')
+  absolute "$destination" "destination"
+  assert_ledger_target '.copy_destination' "$destination"
+  [ -d "$destination" ] || die "destination missing: $destination"
+  [ -z "$(find "$destination" -mindepth 1 -maxdepth 1 -print -quit)" ] || die "destination not empty"
+  tar --acls --xattrs --xattrs-include='*' --numeric-owner --same-owner --same-permissions \
+    -C "$destination" -I zstd -xf "$archive"
+  compare_volume "$1" "$destination"
+}
+
 compare_volume() {
   [ "$#" -eq 2 ] || usage
   load_ledger "$1"
@@ -361,6 +379,7 @@ case "$command" in
   archive) [ "$#" -eq 1 ] || usage; archive_volume "$1" ;;
   read-verify) [ "$#" -eq 1 ] || usage; read_verify "$1" ;;
   copy) copy_volume "$@" ;;
+  restore) restore_volume "$@" ;;
   compare) compare_volume "$@" ;;
   smoke) smoke "$@" ;;
   rollback-evidence) [ "$#" -eq 1 ] || usage; rollback_evidence "$1" ;;
