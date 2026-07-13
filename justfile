@@ -879,7 +879,7 @@ ai-kepler-gpu-health:
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader; nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader'
+    ssh -p 2222 erik@"$IP" 'timeout 15s nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader; timeout 15s nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader'
 
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
