@@ -1,7 +1,6 @@
 # Stateful stack and release hardening
 
-**Status:** In progress — P0 audit captured and implicit-volume CI guard landed
-in servarr at `98ecafb`; backup ownership and migration tooling still block P1.
+**Status:** In progress — P0 complete; P1 SWAG adoption is next.
 
 ## 1. Summary
 
@@ -551,15 +550,33 @@ Those are implementation facts, not design choices.
 
 ## 14. Implementation evidence
 
-### P0 — in progress
+### P0 — complete (2026-07-13)
 
 - Live inventory captured 2026-07-13; see the reference above.
 - Servarr `98ecafb` records current migration debt and rejects new implicit or
   anonymous Compose state volumes. Fixture tests prove canonical/adopted state
   passes and unrecorded state fails closed.
-- P1 remains blocked: `restic-discovery`/`ofelia-discovery` still belong to
-  legacy project `homelab`, no managed `sync` unit exists, and SWAG has no
-  migration-local archive/restore proof.
+- Desktop commits `50454f9`, `6217215`, and `061a1cc` provide root-only,
+  ledger-gated inventory, snapshot, archive, checksum/read, restore, compare,
+  smoke, rollback-evidence, and orphan-report tooling plus a fixed systemd
+  fixture workflow. No helper deletes resources or executes rollback text.
+- The first live fixture attempt failed closed on Git's dubious-ownership
+  guard before creating its pre-mutation record or any fixture resource. The
+  fix uses command-scoped `safe.directory`; it does not alter global Git trust.
+- The successful fixture recorded servarr commit `312fa76`, Compose project
+  `p0-fixture`, the immutable SWAG digest `sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d`,
+  bind source `/home/.stateful-stack-fixtures/p0/source` (`26` bytes,
+  `0:0`), mount `/fixture`, and zero expected production downtime before
+  mutation.
+- Fixture snapshot `/home/.snapshots/stateful-stack-p0-fixture-20260713` is
+  read-only, UUID `342edcd9-15a8-0448-8822-3347328d0ff2`. Archive
+  `/var/lib/stateful-stack-migrations/p0-fixture/source.tar.zst` passed SHA-256
+  and stream/read validation. Restored bytes, ownership, mode, ACL, and xattr
+  matched; pinned image/mount smoke passed. Container, source, restore,
+  snapshot, archive, checksum, plan, and ledger remain retained.
+- Existing `restic-discovery`/`ofelia-discovery` ownership remains ambiguous
+  and was deliberately not adopted. Per-migration local snapshots and archives
+  protect P1 independently; no production owner was changed during P0.
 - P3 discovery found vanguard CoreDNS healthy over Tailscale, but LAN DHCP
   advertises only the UDM. Generic LAN clients therefore lack the required
   secondary fleet resolver.

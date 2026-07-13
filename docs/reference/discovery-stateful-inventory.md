@@ -19,7 +19,8 @@ belongs here. Never infer deletion safety from an unmounted volume alone.
   Compose project `homelab`, not a declared systemd-owned `sync` stack
 
 Backup ownership and named-volume coverage are therefore unresolved. P1 must
-not recreate SWAG until a migration-local archive and restore proof exist.
+record and verify its own migration-local snapshot and archive before
+recreating SWAG; the P0 fixture proved the reusable mechanism.
 
 ## Essential edge state
 
@@ -80,9 +81,10 @@ volumes with zero links are also protected.
 - Latest observed ad-hoc dump:
   `backups/postgres/2026-07-13_183343/litellm.sql.gz`, 183,009,088 B. This is
   not P1/P2 protection.
-- No migration-local archive, checksum, snapshot identifier, or validated
-  rollback exists yet. Expected downtime remains unmeasured until each ledger
-  is recorded.
+- P0 proved migration-local snapshot, archive, checksum/read, restore, compare,
+  smoke, and rollback-evidence helpers on retained disposable state. Production
+  workloads still require an individual ledger and verified backups before
+  mutation. Expected downtime remains unmeasured until each ledger is recorded.
 
 ## Baseline probes
 
