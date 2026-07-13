@@ -8,10 +8,10 @@ _: {
       dockerSocket = "unix:///run/user/1000/podman/podman.sock";
       stacks = [
         # Order matters: each unit waits for the previous via After=.
-        # Start with the GPU-backed AI services. Heavier infra stacks
-        # (postgres/redis, knowledge, photos, cicd, security) are intentionally
-        # not auto-started yet — they will be re-introduced as their .yml
-        # files are migrated off the legacy TrueNAS deployment.
+        # Qdrant in infra must precede docs-search. Other heavier stacks
+        # (knowledge, photos, cicd, security) remain manual until migrated off
+        # the legacy TrueNAS deployment.
+        "infra"
         "ai-serving"
         "docs-search"
       ];
