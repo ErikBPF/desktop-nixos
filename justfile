@@ -875,6 +875,12 @@ ai-kepler-retrieval-health:
     IP="$(just _host-ip kepler)"
     ssh -p 2222 erik@"$IP" 'for name in slm-bge-m3 slm-bge-reranker; do docker inspect --format=":: {{"{{"}}.Name{{"}}"}} state={{"{{"}}.State.Status{{"}}"}} health={{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name"; docker logs --tail 15 "$name" 2>&1; done'
 
+ai-kepler-gpu-health:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader; nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader'
+
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
     #!/usr/bin/env bash
