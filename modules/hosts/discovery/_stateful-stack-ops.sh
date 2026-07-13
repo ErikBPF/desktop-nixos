@@ -16,7 +16,7 @@ Read-only:
   orphan-report
   read-verify LEDGER
   compare LEDGER DESTINATION
-  smoke LEDGER [--expect-source source|destination] [--url URL] [--dns SERVER NAME] [--systemd UNIT]
+  smoke LEDGER [--expect-source source|destination] [--expect-image-ref REF] [--url URL] [--dns SERVER NAME] [--systemd UNIT]
   rollback-evidence LEDGER
   self-test
 
@@ -290,8 +290,9 @@ compare_volume() {
 }
 
 assert_live_identity() {
-  local expected_source=${1:-} container inspect image_inspect target matches current_digest health
+  local expected_source=${1:-} expected_image_ref=${2:-} container inspect image_inspect target matches current_digest health
   [ -n "$expected_source" ] || expected_source=$(field '.physical_source')
+  [ -n "$expected_image_ref" ] || expected_image_ref=$(field '.image_tag')
   container=$(field '.container')
   inspect=$(docker inspect "$container" 2>/dev/null) || die "container missing: $container"
   [ "$(jq -r '.[0].State.Running' <<<"$inspect")" = true ] || die "container not running: $container"
@@ -299,7 +300,7 @@ assert_live_identity() {
     die "Compose project differs from ledger"
   [ "$(jq -r '.[0].Config.Labels["com.docker.compose.project.working_dir"] // ""' <<<"$inspect")" = "$(field '.compose_owner')" ] ||
     die "Compose owner differs from ledger"
-  [ "$(jq -r '.[0].Config.Image' <<<"$inspect")" = "$(field '.image_tag')" ] || die "image tag differs from ledger"
+  [ "$(jq -r '.[0].Config.Image' <<<"$inspect")" = "$expected_image_ref" ] || die "image ref differs from expected"
   image_inspect=$(docker image inspect "$(jq -er '.[0].Image' <<<"$inspect")") || die "container image missing"
   current_digest=$(jq -er '[.[0].RepoDigests[]? | split("@")[-1]] | unique | if length == 1 then .[0] else empty end' <<<"$image_inspect") ||
     die "live image digest absent or ambiguous"
@@ -317,9 +318,10 @@ smoke() {
   [ "$#" -ge 1 ] || usage
   load_ledger "$1"
   shift
-  local container expected_source
+  local container expected_source expected_image_ref
   container=$(field '.container')
   expected_source=$(field '.physical_source')
+  expected_image_ref=$(field '.image_tag')
   if [ "${1:-}" = --expect-source ]; then
     [ "$#" -ge 2 ] || usage
     case "$2" in
@@ -329,7 +331,13 @@ smoke() {
     esac
     shift 2
   fi
-  assert_live_identity "$expected_source"
+  if [ "${1:-}" = --expect-image-ref ]; then
+    [ "$#" -ge 2 ] || usage
+    expected_image_ref=$2
+    [ -n "$expected_image_ref" ] || die "expected image ref must not be empty"
+    shift 2
+  fi
+  assert_live_identity "$expected_source" "$expected_image_ref"
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --url) [ "$#" -ge 2 ] || usage; curl --fail --silent --show-error --location --max-time 15 "$2" >/dev/null; shift 2 ;;
