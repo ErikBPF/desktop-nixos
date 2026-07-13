@@ -14,6 +14,14 @@ _: {
         freetype-load-flags = "no-force-autohint";
         theme = "TokyoNight Night";
         confirm-close-surface = false;
+        # Reuse one process for every window. The default (`desktop`) only
+        # dedupes D-Bus/.desktop launches, so a plain `ghostty` from a Hyprland
+        # exec keybind forks a fresh process each time and pays the full GTK4 +
+        # OpenGL + Nerd-Font cold start (~1.8s). With `true` only the first
+        # terminal is cold; later windows share the instance (~0.5s). The
+        # spotify/discord TUIs in hyprland.nix pass --gtk-single-instance=false
+        # explicitly, so they keep their own processes.
+        gtk-single-instance = true;
       };
     };
   };
