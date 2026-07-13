@@ -20,6 +20,7 @@ _: {
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
+        "sync" # restic and ofelia backup ownership
         "networking" # cloudflared, swag
         "monitoring" # grafana, loki, prometheus, scrutiny
         "plex" # plex (host network)
