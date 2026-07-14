@@ -23,7 +23,7 @@ CONTAINER_FIELDS = {
     "Id", "ID", "Name", "Names", "State", "Status", "Image", "ImageName",
     "ImageDigest", "Labels", "Mounts", "Networks",
 }
-MOUNT_FIELDS = {"Source", "Destination", "Name"}
+MOUNT_FIELDS = {"Source", "Destination", "Name", "Type", "RW"}
 COMPOSE_LABELS = {
     "com.docker.compose.project",
     "com.docker.compose.service",
@@ -46,10 +46,15 @@ def _exact_fields(value, allowed, path):
 
 def _normalize_mount(mount, path):
     _exact_fields(mount, MOUNT_FIELDS, path)
+    writable = mount.get("RW", True)
+    if not isinstance(writable, bool):
+        raise InventoryHalt(f"boolean required: {path}.RW")
     return {
         "destination": str(mount.get("Destination", "")),
         "name": str(mount.get("Name", "")),
+        "read_only": not writable,
         "source": str(mount.get("Source", "")),
+        "type": str(mount.get("Type", "volume" if mount.get("Name") else "bind")),
     }
 
 
@@ -131,9 +136,24 @@ def collect_fixture(source):
             if not all(value for key, value in item.items() if key not in {"labels", "digests", "names", "mountpoint"}):
                 raise InventoryHalt(f"{kind}[{index}] omitted required identity metadata")
             normalized[kind].append(item)
+    image_digests_by_id = {}
+    for image in normalized["images"]:
+        digests = {
+            digest.rsplit("@", 1)[1]
+            for digest in image["digests"]
+            if "@sha256:" in digest
+        }
+        if len(digests) == 1:
+            image_digests_by_id[image["id"]] = next(iter(digests))
+    resolved_containers = []
+    for container in containers:
+        resolved = dict(container)
+        if not resolved.get("ImageDigest"):
+            resolved["ImageDigest"] = image_digests_by_id.get(str(resolved.get("Image", "")), "")
+        resolved_containers.append(resolved)
     inventory = {
         "containers": sorted(
-            (_normalize_container(container, index) for index, container in enumerate(containers)),
+            (_normalize_container(container, index) for index, container in enumerate(resolved_containers)),
             key=lambda item: (item["name"], item["id"]),
         ),
         "datasets": sorted(normalized_datasets, key=lambda item: (item["name"], item["mountpoint"])),

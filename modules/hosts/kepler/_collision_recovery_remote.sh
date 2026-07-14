@@ -16,9 +16,11 @@ sanitize() {
           ImageDigest: (.ImageDigest // ""),
           Labels: (.Config.Labels // {}),
           Mounts: ((.Mounts // []) | map({
+            Type: (.Type // ""),
             Source: (.Source // ""),
             Destination: (.Destination // ""),
-            Name: (.Name // "")
+            Name: (.Name // ""),
+            RW: (if has("RW") then .RW else true end)
           })),
           Name: (.Name // ""),
           Networks: ((.NetworkSettings.Networks // {}) | keys),

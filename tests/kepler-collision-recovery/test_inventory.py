@@ -48,6 +48,23 @@ class InventoryCollectorTest(unittest.TestCase):
         })
         self.assertEqual(result["inventory"]["references"]["networks"], {"infra_default": ["postgres"]})
 
+    def test_preserves_mount_type_and_read_only_identity(self):
+        source = json.loads(FIXTURE.read_text())
+        source["containers"][0]["Mounts"][0].update({"Type": "bind", "RW": False})
+        mount = self.collector.collect_fixture(source)["inventory"]["containers"][0]["mounts"][0]
+        self.assertEqual(mount["type"], "bind")
+        self.assertTrue(mount["read_only"])
+
+    def test_joins_container_image_to_inspected_repo_digest(self):
+        source = json.loads(FIXTURE.read_text())
+        image_id = "sha256:" + "a" * 64
+        digest = "sha256:" + "d" * 64
+        source["containers"][0].update({"Image": image_id, "ImageName": "postgres:17", "ImageDigest": ""})
+        source["images"] = [{"id": image_id, "digests": ["docker.io/library/postgres@" + digest], "names": ["postgres:17"]}]
+        container = self.collector.collect_fixture(source)["inventory"]["containers"][0]
+        self.assertEqual(container["image_digest"], digest)
+        self.assertEqual(container["image_provenance"], "immutable-digest")
+
     def test_rejects_secret_bearing_or_unknown_fixture_fields(self):
         source = json.loads(FIXTURE.read_text())
         source["containers"][0]["Environment"] = ["PASSWORD=hunter2"]
@@ -124,7 +141,9 @@ class InventoryCollectorTest(unittest.TestCase):
             "Config": {"Image": "postgres:17", "Env": ["PASSWORD=sentinel"], "Labels": {
                 "com.docker.compose.project": "infra",
             }},
-            "State": {"Status": "exited"}, "Mounts": [],
+            "State": {"Status": "exited"}, "Mounts": [{
+                "Type": "bind", "Source": "/fast/apps/postgres", "Destination": "/data", "Name": "", "RW": False,
+            }],
             "NetworkSettings": {"Networks": {"infra_default": {}}},
         }]
         with tempfile.TemporaryDirectory() as directory:
@@ -148,6 +167,8 @@ class InventoryCollectorTest(unittest.TestCase):
         source = json.loads(completed.stdout)
         self.assertNotIn("Env", json.dumps(source))
         inventory = self.collector.collect_fixture(source)["inventory"]
+        self.assertEqual(inventory["containers"][0]["mounts"][0]["type"], "bind")
+        self.assertTrue(inventory["containers"][0]["mounts"][0]["read_only"])
         self.assertEqual(inventory["images"][0]["names"], ["postgres:17"])
         self.assertEqual(inventory["volumes"][0]["name"], "redis_data")
         self.assertEqual(inventory["networks"][0]["name"], "infra_default")

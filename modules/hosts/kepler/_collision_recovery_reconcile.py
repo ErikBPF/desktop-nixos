@@ -20,6 +20,13 @@ COMPOSE_SERVICE = "com.docker.compose.service"
 PROTECTED_NAMES = {"restate"}
 PROTECTED_VOLUMES = {"restate_data"}
 RETIRED_ALLOWLIST = {"gitlab", "airflow"}
+RETIRED_CONTAINERS = {
+    "gitlab": {"gitlab", "gitlab-runner"},
+    "airflow": {
+        "airflow-webserver", "airflow-scheduler", "airflow-triggerer",
+        "airflow-worker", "airflow-init",
+    },
+}
 LEGACY_PROJECT = "homelab"
 LEGACY_INFRA_WORKING_DIR = "/fast/homelab"
 LEGACY_INFRA_CONFIG_FILES = ["infra.yml"]
@@ -80,6 +87,16 @@ def _protected_names(desired):
         item if isinstance(item, str) else item.get("container_name", item.get("service", ""))
         for item in desired.get("protected_services", [])
     } | PROTECTED_NAMES
+
+
+def _retired_family(container):
+    labels = container.get("labels", {})
+    project = labels.get(COMPOSE_PROJECT, "")
+    service = labels.get(COMPOSE_SERVICE, "")
+    name = container.get("name", "")
+    if project in RETIRED_ALLOWLIST and name in RETIRED_CONTAINERS[project] and service == name:
+        return project
+    return None
 
 
 def _normalized_image_ref(image):
@@ -205,10 +222,16 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         desired_item = desired_by_name.get(name)
         protected = name in protected_names
         if desired_item is None:
+            retired_family = _retired_family(container)
+            if protected:
+                action, classification, reason = "none", "protected", "restate-protected"
+            elif retired_family:
+                action, classification, reason = "retire", "retired-wipe", "exact-retired-allowlist"
+            else:
+                action, classification, reason = "halt", "halt", "unknown-owner"
             classifications.append({
-                "action": "none", "classification": "protected" if protected else "noncollision",
-                "container": name, "field_diffs": [],
-                "reason": "restate-protected" if protected else "not-declared-by-desired-state",
+                "action": action, "classification": classification,
+                "container": name, "field_diffs": [], "reason": reason,
             })
             continue
         expected = {
@@ -269,10 +292,10 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             if source and not _covered(source, datasets, volumes):
                 coverage_gaps.append({"container": name, "source": source, "reason": "persistent-mount-outside-snapshot-boundary"})
 
-    selected_retired = sorted(
-        name for name in RETIRED_ALLOWLIST
-        if any(container.get("name", "").lower() == name for container in inventory.get("containers", []))
-    )
+    selected_retired = sorted({
+        family for container in inventory.get("containers", [])
+        if (family := _retired_family(container))
+    })
     halt_reasons = sorted({item["reason"] for item in classifications if item["action"] == "halt"} | {item["reason"] for item in provenance_gaps} | {item["reason"] for item in coverage_gaps})
     manifest = {
         "classifications": sorted(classifications, key=lambda item: item["container"]),

@@ -138,11 +138,12 @@ class ReconcileTests(unittest.TestCase):
                 self.assertTrue(item["field_diffs"])
             self.inventory = original
 
-    def test_noncollision_and_restate_are_never_actions(self):
+    def test_undeclared_container_halts_while_restate_remains_protected(self):
         self.inventory["containers"][0]["name"] = "unmanaged"
         self.inventory["containers"].append({**self.inventory["containers"][0], "id": "c" * 64, "name": "restate"})
         items = {item["container"]: item for item in self.reconcile()["manifest"]["classifications"]}
-        self.assertEqual(items["unmanaged"]["action"], "none")
+        self.assertEqual(items["unmanaged"]["action"], "halt")
+        self.assertEqual(items["unmanaged"]["reason"], "unknown-owner")
         self.assertEqual(items["restate"]["reason"], "restate-protected")
 
     def test_protected_restate_is_separate_from_active_services(self):
@@ -151,11 +152,35 @@ class ReconcileTests(unittest.TestCase):
             self.reconcile()
 
     def test_allowlist_selects_only_present_exact_families(self):
-        self.inventory["containers"].append({**self.inventory["containers"][0], "id": "c" * 64, "name": "gitlab"})
+        self.inventory["containers"].append({
+            **self.inventory["containers"][0], "id": "c" * 64, "name": "gitlab",
+            "labels": {"com.docker.compose.project": "gitlab", "com.docker.compose.service": "gitlab"},
+        })
         self.inventory["containers"].append({**self.inventory["containers"][0], "id": "d" * 64, "name": "gitlab-unknown"})
         manifest = self.reconcile()["manifest"]
         self.assertEqual(manifest["retired_allowlist"], ["airflow", "gitlab"])
         self.assertEqual(manifest["selected_retired"], ["gitlab"])
+        selected = next(item for item in manifest["classifications"] if item["container"] == "gitlab")
+        self.assertEqual((selected["classification"], selected["action"]), ("retired-wipe", "retire"))
+        unknown = next(item for item in manifest["classifications"] if item["container"] == "gitlab-unknown")
+        self.assertEqual((unknown["classification"], unknown["action"]), ("halt", "halt"))
+
+    def test_retired_name_requires_exact_project_and_service_ownership(self):
+        for labels in (
+            {"com.docker.compose.project": "foreign", "com.docker.compose.service": "gitlab"},
+            {"com.docker.compose.project": "gitlab", "com.docker.compose.service": "unknown"},
+        ):
+            with self.subTest(labels=labels):
+                self.inventory["containers"][0].update({"name": "gitlab", "labels": labels})
+                item = self.reconcile()["manifest"]["classifications"][0]
+                self.assertEqual((item["classification"], item["action"]), ("halt", "halt"))
+
+    def test_runtime_mount_type_and_read_only_are_exact_identity(self):
+        self.inventory["containers"][0]["mounts"][0].update({"type": "volume", "read_only": False})
+        self.assertIn("declared-runtime-mismatch", self.reconcile()["manifest"]["halt_reasons"])
+        self.inventory["containers"][0]["mounts"][0]["type"] = "bind"
+        self.inventory["containers"][0]["mounts"][0]["read_only"] = True
+        self.assertIn("declared-runtime-mismatch", self.reconcile()["manifest"]["halt_reasons"])
 
     def test_provenance_and_coverage_gaps_halt(self):
         self.desired["services"][0]["digest_status"] = "local-provenance-recorded"

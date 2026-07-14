@@ -12,7 +12,7 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "6d4ee421af546a956c729169732dce3b11d46ff7"
+SERVARR_COMMIT = "e87caa0b6f08e24b7518a174ba339df8e2906995"
 MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
 PROTECTED_STACKS = ("orchestration",)
 STACKS = MIGRATION_STACKS + PROTECTED_STACKS
