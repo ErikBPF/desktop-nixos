@@ -1035,6 +1035,64 @@ kepler-recovery-model-paths:
     trap - EXIT
     printf 'model_paths=%s\n' "$out"
 
+# Hash the six reviewed model artifacts remotely. Output contains only artifact
+# identifiers, hashes, counts, and schema metadata; paths and contents stay on Kepler.
+kepler-recovery-model-identities:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    just kepler-recovery-model-paths
+    helper="modules/hosts/kepler/_collision_recovery_model_identity_remote.py"
+    evidence_dir=".gsd/evidence/kepler-k1"
+    paths="$evidence_dir/model-paths.json"
+    out="$evidence_dir/model-identities.json"
+    test -f "$helper" -a -f "$paths"
+    request_b64="$(base64 -w0 < "$paths")"
+    tmp="$(mktemp "$evidence_dir/.model-identities.XXXXXX")"
+    trap 'rm -f "$tmp"' EXIT
+    {
+      printf 'import base64,io,sys\nsys.stdin=io.StringIO(base64.b64decode("%s").decode())\n' "$request_b64"
+      sed '1{/^#!/d;}' "$helper"
+    } | ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' > "$tmp"
+    python3 - "$tmp" <<'PY'
+    import hashlib
+    import json
+    import pathlib
+    import sys
+
+    result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+    evidence = result.get("evidence")
+    canonical = json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
+    if (
+        result.get("schema") != "kepler-k1-model-identities-envelope-v1"
+        or not isinstance(evidence, dict)
+        or result.get("evidence_sha256") != hashlib.sha256(canonical).hexdigest()
+        or len(evidence.get("artifacts", [])) != 6
+    ):
+        raise SystemExit("model identity envelope/hash validation failed")
+    PY
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'model_identities=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["evidence_sha256"])' "$out")"
+
+# Render only the separately-approved stop plan. This recipe never stops a service.
+kepler-recovery-quiesce-plan inventory_sha256:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    evidence_dir=".gsd/evidence/kepler-k1"
+    inventory="$evidence_dir/inventory.json"
+    desired="$evidence_dir/desired.json"
+    out="$evidence_dir/quiesce-manifest.json"
+    python3 modules/hosts/kepler/_collision_recovery_desired.py \
+      --servarr-root references/repos/servarr/machines/kepler > "$desired"
+    python3 modules/hosts/kepler/_collision_recovery_quiesce.py \
+      --inventory "$inventory" --desired "$desired" \
+      --expected-inventory-sha256 "{{inventory_sha256}}" > "$out"
+    chmod 600 "$desired" "$out"
+    printf 'quiesce_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
+
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
     #!/usr/bin/env bash

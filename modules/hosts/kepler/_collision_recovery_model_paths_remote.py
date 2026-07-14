@@ -29,7 +29,10 @@ SNAPSHOT = re.compile(r"[0-9a-f]{6,64}")
 
 
 class DiscoveryHalt(Exception):
-    pass
+    def __init__(self, message, artifact="model-inventory", reason="unsafe-path"):
+        super().__init__(message)
+        self.artifact = artifact
+        self.reason = reason
 
 
 def _inside(path, root):
@@ -89,9 +92,11 @@ def discover(root=LIVE_ROOT):
 
     whisper = [relative for relative in WHISPER_PATTERNS if (root / relative).exists()]
     if len(whisper) > 1:
-        raise DiscoveryHalt("whisper-model identity path is ambiguous")
+        raise DiscoveryHalt(
+            "whisper-model identity path is ambiguous", "whisper-model", "ambiguous",
+        )
     if not whisper:
-        raise DiscoveryHalt("required artifact path unavailable")
+        raise DiscoveryHalt("required artifact path unavailable", "whisper-model", "missing")
     selected["whisper-model"] = (whisper[0], "directory")
 
     parent = root / F5_PARENT
@@ -103,23 +108,34 @@ def discover(root=LIVE_ROOT):
                 if candidate.exists() or candidate.is_symlink():
                     f5.append(candidate)
     if len(f5) > 1:
-        raise DiscoveryHalt("f5-tts-checkpoint identity path is ambiguous")
+        raise DiscoveryHalt(
+            "f5-tts-checkpoint identity path is ambiguous",
+            "f5-tts-checkpoint", "ambiguous",
+        )
     if not f5:
-        raise DiscoveryHalt("required artifact path unavailable")
+        raise DiscoveryHalt(
+            "required artifact path unavailable", "f5-tts-checkpoint", "missing",
+        )
 
     artifacts = []
     for artifact, (relative, kind) in selected.items():
         path = root / relative
         if not path.exists() and not path.is_symlink():
-            raise DiscoveryHalt("required artifact path unavailable")
-        _validate(path, root, kind)
+            raise DiscoveryHalt("required artifact path unavailable", artifact, "missing")
+        try:
+            _validate(path, root, kind)
+        except DiscoveryHalt as error:
+            raise DiscoveryHalt(str(error), artifact, "unsafe-path") from None
         artifacts.append({
             "artifact": artifact,
             "identity_path": _virtual(path, root),
             "kind": kind,
             "status": "validated",
         })
-    _validate(f5[0], root, "file")
+    try:
+        _validate(f5[0], root, "file")
+    except DiscoveryHalt as error:
+        raise DiscoveryHalt(str(error), "f5-tts-checkpoint", "unsafe-path") from None
     artifacts.append({
         "artifact": "f5-tts-checkpoint",
         "identity_path": _virtual(f5[0], root),
@@ -140,16 +156,16 @@ def main(argv=None):
         result = discover(args.fixture_root or LIVE_ROOT)
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     except (DiscoveryHalt, OSError) as error:
-        message = str(error)
-        allowed = {
-            "required artifact path unavailable",
-            "artifact path validation failed",
-            "whisper-model identity path is ambiguous",
-            "f5-tts-checkpoint identity path is ambiguous",
+        if isinstance(error, DiscoveryHalt):
+            artifact, reason = error.artifact, error.reason
+        else:
+            artifact, reason = "model-inventory", "unsafe-path"
+        report = {
+            "diagnostics": [{"artifact": artifact, "reason": reason}],
+            "schema": "kepler-k1-model-path-diagnostics-v1",
+            "status": "halt",
         }
-        if message not in allowed:
-            message = "artifact path validation failed"
-        print(f"model-path discovery halted: {message}", file=sys.stderr)
+        print(json.dumps(report, sort_keys=True, separators=(",", ":")), file=sys.stderr)
         return 1
     return 0
 

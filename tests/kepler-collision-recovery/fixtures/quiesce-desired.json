@@ -1,0 +1,18 @@
+{
+  "schema": "kepler-collision-desired-v1",
+  "desired": {
+    "protected_services": [{"container_name": "restate"}],
+    "services": [
+      {
+        "container_name": "piper-openai",
+        "project": "ai-serving",
+        "service": "piper-openai"
+      },
+      {
+        "container_name": "docs-search",
+        "project": "docs-search",
+        "service": "docs-search"
+      }
+    ]
+  }
+}

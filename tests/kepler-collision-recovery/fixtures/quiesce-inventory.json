@@ -1,0 +1,34 @@
+{
+  "schema": "kepler-collision-inventory-v1",
+  "inventory": {
+    "containers": [
+      {
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "labels": {
+          "com.docker.compose.project": "ai-serving",
+          "com.docker.compose.service": "piper-openai"
+        },
+        "name": "piper-openai",
+        "state": "running"
+      },
+      {
+        "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "labels": {
+          "com.docker.compose.project": "docs-search",
+          "com.docker.compose.service": "docs-search"
+        },
+        "name": "docs-search",
+        "state": "running"
+      },
+      {
+        "id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "labels": {
+          "com.docker.compose.project": "restate",
+          "com.docker.compose.service": "restate"
+        },
+        "name": "restate",
+        "state": "running"
+      }
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "desired_sha256": "16e5202e9094094bed128cae7f3d91330442c3f0aa6e90531926adb705da6d1d",
+  "desired_sha256": "85023383d82bcb5e96ce5b9da7db946c1934bf5dec437175812122197831bc18",
   "service_count": 13,
   "services": [
     ["ai-serving", "edge-tts-openai", "edge-tts-openai", "local-provenance-recorded"],

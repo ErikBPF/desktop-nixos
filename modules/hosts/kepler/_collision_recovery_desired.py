@@ -12,7 +12,7 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "e87caa0b6f08e24b7518a174ba339df8e2906995"
+SERVARR_COMMIT = "321cd4ecd8b06493d00f1a6de335e5366460f52b"
 MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
 PROTECTED_STACKS = ("orchestration",)
 STACKS = MIGRATION_STACKS + PROTECTED_STACKS
@@ -38,6 +38,61 @@ class DesiredHalt(Exception):
 
 def canonical(value):
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _record_model_identities(provenance, envelope):
+    if envelope is None:
+        return provenance["model_artifacts"]
+    if envelope.get("schema") != "kepler-k1-model-identities-envelope-v1":
+        raise DesiredHalt("model identity envelope schema drifted")
+    evidence = envelope.get("evidence")
+    claimed = envelope.get("evidence_sha256", "")
+    if (
+        not isinstance(evidence, dict)
+        or not re.fullmatch(r"[0-9a-f]{64}", str(claimed))
+        or hashlib.sha256(json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()).hexdigest() != claimed
+        or evidence.get("schema") != "kepler-k1-model-identities-v1"
+        or evidence.get("algorithm") != "kepler-tree-sha256-v1"
+    ):
+        raise DesiredHalt("model identity envelope binding invalid")
+    records = evidence.get("artifacts")
+    if not isinstance(records, list):
+        raise DesiredHalt("model identity artifact declarations invalid")
+    by_name = {}
+    for record in records:
+        if not isinstance(record, dict) or set(record) != {
+            "algorithm", "artifact", "byte_count", "entry_count", "sha256", "status",
+        }:
+            raise DesiredHalt("model identity artifact declarations invalid")
+        name = record["artifact"]
+        if name in by_name or name not in provenance["model_artifacts"]:
+            raise DesiredHalt("model identity artifact set drifted")
+        if (
+            record["algorithm"] != "kepler-tree-sha256-v1"
+            or record["status"] != "recorded"
+            or not re.fullmatch(r"[0-9a-f]{64}", str(record["sha256"]))
+            or isinstance(record["byte_count"], bool)
+            or not isinstance(record["byte_count"], int)
+            or record["byte_count"] < 0
+            or isinstance(record["entry_count"], bool)
+            or not isinstance(record["entry_count"], int)
+            or record["entry_count"] < 1
+        ):
+            raise DesiredHalt("model identity artifact declarations invalid")
+        by_name[name] = record
+    if set(by_name) != set(provenance["model_artifacts"]):
+        raise DesiredHalt("model identity artifact set drifted")
+    return {
+        name: {
+            "algorithm": record["algorithm"],
+            "byte_count": record["byte_count"],
+            "entry_count": record["entry_count"],
+            "root": provenance["model_artifacts"][name]["mount"],
+            "sha256": record["sha256"],
+            "status": "identity-recorded",
+        }
+        for name, record in sorted(by_name.items())
+    }
 
 
 def _commit(root):
@@ -150,7 +205,7 @@ def _compose_config(root, stack, environment):
     return json.loads(result.stdout)
 
 
-def generate(root, expected_commit=SERVARR_COMMIT):
+def generate(root, expected_commit=SERVARR_COMMIT, model_identities=None):
     root = pathlib.Path(root).resolve()
     files = [root / f"{stack}.compose.yml" for stack in STACKS]
     files.append(root / "secretspec.toml")
@@ -217,7 +272,7 @@ def generate(root, expected_commit=SERVARR_COMMIT):
         "protected_services": protected_services,
         "declared_optional_services": declared_optional_services,
         "local_images": provenance["local_images"],
-        "model_artifacts": provenance["model_artifacts"],
+        "model_artifacts": _record_model_identities(provenance, model_identities),
         "legacy_images": provenance["legacy_images"],
         "legacy_mounts": provenance["legacy_mounts"],
     }
@@ -227,6 +282,7 @@ def generate(root, expected_commit=SERVARR_COMMIT):
     return {
         "desired": desired,
         "desired_sha256": hashlib.sha256(rendered).hexdigest(),
+        "schema": "kepler-collision-desired-v1",
     }
 
 
@@ -234,9 +290,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--servarr-root", required=True)
     parser.add_argument("--expected-commit", default=SERVARR_COMMIT)
+    parser.add_argument("--model-identities")
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(generate(args.servarr_root, args.expected_commit), sort_keys=True))
+        identities = None
+        if args.model_identities:
+            identities = json.loads(pathlib.Path(args.model_identities).read_text(encoding="utf-8"))
+        print(json.dumps(generate(args.servarr_root, args.expected_commit, identities), sort_keys=True))
     except (DesiredHalt, OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
         print(f"desired-state halted: {error}", file=sys.stderr)
         return 1

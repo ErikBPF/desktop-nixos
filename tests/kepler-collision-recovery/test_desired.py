@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import importlib.util
 import json
 import pathlib
@@ -84,6 +85,34 @@ class DesiredStateTest(unittest.TestCase):
             desired["legacy_mounts"]["redis"][0]["runtime"]["source"],
             "/home/erik/.local/share/containers/storage/volumes/homelab_redis_data/_data",
         )
+
+    def test_model_identity_evidence_is_hash_bound_and_overlaid(self):
+        names = sorted(self.result["desired"]["model_artifacts"])
+        evidence = {
+            "algorithm": "kepler-tree-sha256-v1",
+            "artifacts": [{
+                "algorithm": "kepler-tree-sha256-v1", "artifact": name,
+                "byte_count": 10, "entry_count": 2, "sha256": "a" * 64,
+                "status": "recorded",
+            } for name in names],
+            "schema": "kepler-k1-model-identities-v1",
+        }
+        envelope = {
+            "evidence": evidence,
+            "evidence_sha256": hashlib.sha256(
+                json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+            "schema": "kepler-k1-model-identities-envelope-v1",
+        }
+        desired = self.module.generate(SERVARR, model_identities=envelope)["desired"]
+        self.assertTrue(all(
+            set(record) == {"algorithm", "byte_count", "entry_count", "root", "sha256", "status"}
+            and record["status"] == "identity-recorded"
+            for record in desired["model_artifacts"].values()
+        ))
+        envelope["evidence_sha256"] = "0" * 64
+        with self.assertRaisesRegex(self.module.DesiredHalt, "binding invalid"):
+            self.module.generate(SERVARR, model_identities=envelope)
 
     def test_only_value_free_fields_are_emitted(self):
         rendered = json.dumps(self.result, sort_keys=True)

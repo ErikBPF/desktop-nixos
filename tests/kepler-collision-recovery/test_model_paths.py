@@ -122,7 +122,12 @@ class ModelPathDiscoveryTest(unittest.TestCase):
                 capture_output=True, text=True,
             )
         self.assertEqual(failed.returncode, 1)
-        self.assertEqual(failed.stderr, "model-path discovery halted: required artifact path unavailable\n")
+        diagnostic = json.loads(failed.stderr)
+        self.assertEqual(diagnostic, {
+            "diagnostics": [{"artifact": "f5-tts-reference-audio", "reason": "missing"}],
+            "schema": "kepler-k1-model-path-diagnostics-v1",
+            "status": "halt",
+        })
         self.assertNotIn(directory, failed.stderr)
 
 
