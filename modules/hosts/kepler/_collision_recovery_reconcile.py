@@ -94,9 +94,39 @@ def _normalized_image_ref(image):
     return image
 
 
+def _model_provenance_reason(desired, provenance):
+    artifact_names = provenance.get("model_artifacts", []) if isinstance(provenance, dict) else []
+    if not isinstance(artifact_names, list) or any(not isinstance(name, str) or not name for name in artifact_names):
+        return "local-image-or-model-provenance-required"
+    required_fields = {"algorithm", "byte_count", "entry_count", "root", "sha256", "status"}
+    artifacts = desired.get("model_artifacts", {})
+    for artifact_name in artifact_names:
+        artifact = artifacts.get(artifact_name, {}) if isinstance(artifacts, dict) else {}
+        if (
+            not isinstance(artifact, dict)
+            or set(artifact) != required_fields
+            or artifact.get("algorithm") != "kepler-tree-sha256-v1"
+            or artifact.get("status") != "identity-recorded"
+            or not HEX64.fullmatch(str(artifact.get("sha256", "")))
+            or not isinstance(artifact.get("root"), str)
+            or not artifact["root"].startswith("/")
+            or isinstance(artifact.get("entry_count"), bool)
+            or not isinstance(artifact.get("entry_count"), int)
+            or artifact["entry_count"] < 1
+            or isinstance(artifact.get("byte_count"), bool)
+            or not isinstance(artifact.get("byte_count"), int)
+            or artifact["byte_count"] < 0
+        ):
+            return "local-image-or-model-provenance-required"
+    return None
+
+
 def _provenance_reason(desired, desired_item, container, validate_runtime=True):
     status = desired_item.get("digest_status", "")
     provenance = desired_item.get("provenance_status", {})
+    model_reason = _model_provenance_reason(desired, provenance)
+    if model_reason:
+        return model_reason
     if status == "immutable-registry-digest":
         match = re.search(r"@sha256:([0-9a-f]{64})$", desired_item.get("image", ""))
         actual = container.get("image_digest", "").removeprefix("sha256:")
@@ -122,11 +152,6 @@ def _provenance_reason(desired, desired_item, container, validate_runtime=True):
             ))
         ):
             return "local-image-or-model-provenance-required"
-        artifact_names = provenance.get("model_artifacts", []) if isinstance(provenance, dict) else []
-        for artifact_name in artifact_names:
-            artifact = desired.get("model_artifacts", {}).get(artifact_name, {})
-            if artifact.get("status") != "identity-recorded" or not HEX64.fullmatch(str(artifact.get("sha256", ""))):
-                return "local-image-or-model-provenance-required"
         return None
     return "local-image-or-model-provenance-required" if status == "local-provenance-required" else "immutable-registry-digest-required"
 

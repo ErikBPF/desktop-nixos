@@ -208,6 +208,39 @@ class ReconcileTests(unittest.TestCase):
         self.desired["model_artifacts"] = {"postgres-model": {"status": "identity-required"}}
         self.assertIn("local-image-or-model-provenance-required", self.reconcile()["manifest"]["halt_reasons"])
 
+    def test_registry_image_with_unrecorded_model_identity_halts(self):
+        self.desired["services"][0]["provenance_status"] = {
+            "local_image": None, "model_artifacts": ["postgres-model"],
+        }
+        self.desired["model_artifacts"] = {"postgres-model": {
+            "algorithm": "kepler-tree-sha256-v1", "byte_count": 10, "entry_count": 1,
+            "root": "/fast/models/postgres", "sha256": "b" * 64, "status": "identity-required",
+        }}
+        self.assertIn("local-image-or-model-provenance-required", self.reconcile()["manifest"]["halt_reasons"])
+
+    def test_registry_image_with_exact_recorded_model_identity_passes(self):
+        self.desired["services"][0]["provenance_status"] = {
+            "local_image": None, "model_artifacts": ["postgres-model"],
+        }
+        self.desired["model_artifacts"] = {"postgres-model": {
+            "algorithm": "kepler-tree-sha256-v1", "byte_count": 10, "entry_count": 1,
+            "root": "/fast/models/postgres", "sha256": "b" * 64, "status": "identity-recorded",
+        }}
+        self.assertNotIn("local-image-or-model-provenance-required", self.reconcile()["manifest"]["halt_reasons"])
+
+    def test_model_identity_missing_extra_or_malformed_fields_halts(self):
+        self.desired["services"][0]["provenance_status"] = {
+            "local_image": None, "model_artifacts": ["postgres-model"],
+        }
+        valid = {
+            "algorithm": "kepler-tree-sha256-v1", "byte_count": 10, "entry_count": 1,
+            "root": "/fast/models/postgres", "sha256": "b" * 64, "status": "identity-recorded",
+        }
+        for artifact in ({}, {**valid, "extra": "forbidden"}, {**valid, "sha256": "bad"}):
+            with self.subTest(artifact=artifact):
+                self.desired["model_artifacts"] = {"postgres-model": artifact}
+                self.assertIn("local-image-or-model-provenance-required", self.reconcile()["manifest"]["halt_reasons"])
+
     def test_hash_binding_drift_and_determinism(self):
         first = self.reconcile()
         self.assertEqual(first, self.reconcile())
