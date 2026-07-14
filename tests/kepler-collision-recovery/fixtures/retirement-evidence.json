@@ -3,8 +3,9 @@
   "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "expected_retained_databases": ["app", "postgres"],
   "proofs": {
-    "retained_database_restore": {"sha256": "230aa8b6e69828548d87f53e5788ab8cf49464c15255ffa83020f9fd2a42b917", "envelope": {"schema": "kepler-collision-database-evidence-manifest-v1", "manifest_sha256": "106d26d1a438fedda1a2cb114985f7a6897d28d4effc5ef4c9b2a74797f97217", "manifest": {"status": "retained-databases-verified", "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "retained_databases": [{"name": "app", "artifact": {"sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "restore": {"artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}, {"name": "postgres", "artifact": {"sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}, "restore": {"artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}], "retired_databases": ["airflow"]}}},
-    "retired_preflight": {"sha256": "5034d7ef80f5f70e867c5f1b1092ce2e38169cf8eb16bdb243ad6d52cbe5cf54", "envelope": {"schema": "kepler-retired-preflight-evidence-v1", "status": "verified", "declared_secrets": ["AIRFLOW_ADMIN_PASSWORD", "AIRFLOW_FERNET_KEY", "AIRFLOW_SECRET_KEY", "GITLAB_RUNNER_TOKEN", "POSTGRES_DB_AIRFLOW"], "secret_artifacts": ["AIRFLOW_ADMIN_PASSWORD", "AIRFLOW_FERNET_KEY", "AIRFLOW_SECRET_KEY", "GITLAB_RUNNER_TOKEN", "POSTGRES_DB_AIRFLOW"], "external_credentials": ["GITLAB_RUNNER_TOKEN"], "external_revocations": ["GITLAB_RUNNER_TOKEN"]}}
+    "retained_database_restore": {"sha256": "709e0915f9f93ce675a2569ded85773a85eb1964deffc6f25bff77113f9769c7", "envelope": {"schema": "kepler-collision-database-evidence-manifest-v1", "manifest_sha256": "de580bb1b6ca751c884e162a4311c95863b5cef4c7e29213a9e976d8dc33cf17", "manifest": {"status": "retained-databases-verified", "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "retained_databases": [{"name": "app", "owner": "app_owner"}, {"name": "postgres", "owner": "postgres"}], "cluster_artifact": {"bytes": 12288, "created_at": "2026-07-14T18:00:00Z", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, "cluster_restore": {"artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "database_inventory_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "logical_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "retained_databases": ["app", "postgres"], "status": "passed"}, "retired_databases": ["airflow"]}}},
+    "retired_preflight": {"sha256": "cdb6d14336f1fa3766a706680dfc329adb0235c17403955668b0dff31517097d", "envelope": {"schema": "kepler-retired-preflight-evidence-v1", "status": "verified", "declared_secrets": [], "secret_artifacts": [], "external_credentials": [], "external_revocations": [], "declared_historical_artifacts": [], "historical_artifacts": [], "declared_mixed_backups": [], "mixed_backup_sanitizations": [], "restore_compares": []}},
+    "retirement_paths": {"sha256": "0538287a2451d6f1478d29af3ad28dd68d7ba03725dbb666bdad6d459ecfce5f", "envelope": {"schema": "kepler-retirement-path-evidence-envelope-v1", "status": "verified", "paths": [{"path": "/fast/ai-models/f5-tts", "existence": true, "type": "directory", "device": 1, "inode": 2, "byte_count": 1234}, {"path": "/bulk/git", "existence": true, "type": "directory", "device": 1, "inode": 3, "byte_count": 10}, {"path": "/fast/apps/gitlab/config", "existence": true, "type": "directory", "device": 1, "inode": 4, "byte_count": 10}, {"path": "/fast/apps/gitlab/logs", "existence": true, "type": "directory", "device": 1, "inode": 5, "byte_count": 10}, {"path": "/fast/apps/gitlab-runner", "existence": true, "type": "directory", "device": 1, "inode": 6, "byte_count": 10}, {"path": "/fast/apps/airflow/dags", "existence": true, "type": "directory", "device": 1, "inode": 7, "byte_count": 10}, {"path": "/fast/apps/airflow/plugins", "existence": true, "type": "directory", "device": 1, "inode": 8, "byte_count": 10}]}}
   },
   "retired": [
     {
@@ -26,16 +27,28 @@
       "secrets": ["AIRFLOW_ADMIN_PASSWORD", "AIRFLOW_FERNET_KEY", "AIRFLOW_SECRET_KEY", "POSTGRES_DB_AIRFLOW"],
       "images": ["sha256:2222222222222222222222222222222222222222222222222222222222222222"],
       "family_evidence": {"sha256": "0efb8a1a0d10bafaa9fd991d175a842ba9a365985e15d740011f1060bcecf33d", "envelope": {"schema": "kepler-retired-family-evidence-v1", "status": "verified", "family": "airflow", "resources_sha256": "eb0ad786a1bb850ed983de532e9f46ae6933deecf1c20516fd7e6d5b57899f58"}}
+    },
+    {
+      "family": "restate",
+      "containers": [{"name": "restate", "id": "3131313131313131313131313131313131313131313131313131313131313131", "state": "exited"}],
+      "paths": [],
+      "volumes": [{"logical_name": "restate_data", "runtime_name": "orchestration_restate_data"}],
+      "databases": [],
+      "secrets": [],
+      "images": ["sha256:3333333333333333333333333333333333333333333333333333333333333333"],
+      "family_evidence": {"sha256": "6f2fccf1206cf8d80c8a68c16e5da4ea2b1bbec6383f80fc3fc242b0fbb43222", "envelope": {"schema": "kepler-retired-family-evidence-v1", "status": "verified", "family": "restate", "resources_sha256": "139bdd527af3ceaaae95a1aa79629e1bd29121de300baccb25c0742540276264"}}
     }
   ],
   "dispositions": {
     "containers": [
+      {"name": "f5-tts-server", "id": "06e6797be6509c8b36596e6914b8ae878e6abaf7f525e2a35836f0dc3ca7ea00", "state": "running", "mount_retention": {"sha256": "d2954f9915d954e8a5b0e0b48da6aa1e66df9083f0402751c5262572229b211d", "envelope": {"schema": "kepler-mount-retention-evidence-v1", "status": "verified", "container_id": "06e6797be6509c8b36596e6914b8ae878e6abaf7f525e2a35836f0dc3ca7ea00", "sources": ["/fast/ai-models/f5-tts", "/fast/ai-models/refs"]}}},
       {"name": "ha-train-run", "id": "d4889db4a5883077f83f4236202f4294c8a2f6a492c36e7a1ffd45fd3c72bb87", "state": "exited", "mount_retention": {"sha256": "cd121669125c67e3c29790160148a395d740720bc72c0469f488646090c7f98c", "envelope": {"schema": "kepler-mount-retention-evidence-v1", "status": "verified", "container_id": "d4889db4a5883077f83f4236202f4294c8a2f6a492c36e7a1ffd45fd3c72bb87", "sources": ["/fast"]}}},
       {"name": "minicpm-train", "id": "0916806c278662045d04b7f5a470c040b9b14dd6d6c5d022045c48b8e3e5423b", "state": "exited", "mount_retention": {"sha256": "2417f119384e2e4ff41e1d14631b622bc16996852abcf46da382ae00f7e7424b", "envelope": {"schema": "kepler-mount-retention-evidence-v1", "status": "verified", "container_id": "0916806c278662045d04b7f5a470c040b9b14dd6d6c5d022045c48b8e3e5423b", "sources": ["/home/erik/ha-agent", "/home/erik/hf-cache"]}}},
       {"name": "uv_build", "id": "8e61022a6b55484a9661aabb8be7c5d782e8fc2cdaee4c0963c7bb1015d32619", "state": "exited", "mount_retention": {"sha256": "6d01bde1828cf7ac00e0f47d89d773f0418c55d9d5d63da99541500ff3f8c9d8", "envelope": {"schema": "kepler-mount-retention-evidence-v1", "status": "verified", "container_id": "8e61022a6b55484a9661aabb8be7c5d782e8fc2cdaee4c0963c7bb1015d32619", "sources": ["/home/erik/ha-train", "/home/erik/ha-uvenv"]}}}
     ],
     "artifacts": [
-      {"name": "f5-tts-checkpoint", "path": "/fast/ai-models/f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br/model_last.safetensors", "sha256": "6666666666666666666666666666666666666666666666666666666666666666", "path_identity": {"sha256": "d294b38acd372f1df7aa1afeb4595a00ec91896c83b3036cdc1975936118ffa9", "envelope": {"schema": "kepler-path-identity-evidence-v1", "status": "verified", "type": "file", "path": "/fast/ai-models/f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br/model_last.safetensors", "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666", "size": 1234}}}
-    ]
+      {"name": "f5-tts-model-data", "path": "/fast/ai-models/f5-tts", "path_evidence_sha256": "0538287a2451d6f1478d29af3ad28dd68d7ba03725dbb666bdad6d459ecfce5f"}
+    ],
+    "images": [{"name": "f5-tts-image", "identity": "sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b", "container": "f5-tts-server"}]
   }
 }

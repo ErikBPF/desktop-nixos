@@ -38,7 +38,7 @@ class PlannerTest(unittest.TestCase):
         self.assertEqual(classes["postgres"], "declared-migrate")
         self.assertEqual(classes["gitlab"], "retired-wipe")
         self.assertEqual(classes["airflow-webserver"], "retired-wipe")
-        self.assertEqual(classes["restate"], "protected")
+        self.assertEqual(classes["restate"], "retired-wipe")
         self.assertEqual(manifest["migration_order"], ["infra", "ai-serving", "docs-search"])
 
     def test_running_missing_labels_foreign_mount_mismatch_and_unknown_halt(self):
@@ -58,7 +58,7 @@ class PlannerTest(unittest.TestCase):
 
     def test_exact_retirement_and_protection_allowlists(self):
         policy = self.planner.POLICY
-        self.assertEqual(policy["retired_services"], ["gitlab", "airflow"])
+        self.assertEqual(policy["retired_services"], ["gitlab", "airflow", "restate"])
         self.assertEqual(policy["gitlab_containers"], ["gitlab", "gitlab-runner"])
         self.assertEqual(policy["airflow_containers"], [
             "airflow-webserver", "airflow-scheduler", "airflow-triggerer",
@@ -77,7 +77,8 @@ class PlannerTest(unittest.TestCase):
             "GITLAB_RUNNER_TOKEN", "POSTGRES_DB_AIRFLOW", "AIRFLOW_FERNET_KEY",
             "AIRFLOW_SECRET_KEY", "AIRFLOW_ADMIN_PASSWORD",
         ])
-        self.assertEqual(policy["protected"], ["restate", "restate_data"])
+        self.assertEqual(policy["restate_containers"], ["restate"])
+        self.assertEqual(policy["restate_volumes"], ["restate_data"])
         forbidden_parents = {"/fast", "/fast/apps", "/bulk"}
         declared = set(policy["gitlab_paths"] + policy["airflow_paths"])
         self.assertTrue(forbidden_parents.isdisjoint(declared))
@@ -99,7 +100,7 @@ class PlannerTest(unittest.TestCase):
                 with self.assertRaises(self.planner.PlanHalt):
                     self.plan(inventory)
 
-    def test_restate_collision_mismatches_halt(self):
+    def test_restate_retirement_mismatches_halt(self):
         for field, value in [
             ("state", "running"), ("labels_complete", False),
             ("project", "foreign"), ("mounts", ["wrong:/restate-data"]),
@@ -188,7 +189,7 @@ class PlannerTest(unittest.TestCase):
                 "evidence_sha256": "9" * 64,
                 "final_state": "retired-absent" if item["classification"] == "retired-wipe" else "replacement-validated",
             }
-            for item in first["resources"] if item["classification"] not in {"protected", "noncollision"}
+            for item in first["resources"] if item["classification"] != "noncollision"
         ]
         second = self.plan()
         self.assertEqual(second["actions"], [])
@@ -288,6 +289,7 @@ class PlannerTest(unittest.TestCase):
             {"resource": "postgres", "evidence_sha256": "9" * 64, "final_state": "replacement-validated"},
             {"resource": "gitlab", "evidence_sha256": "8" * 64, "final_state": "retired-absent"},
             {"resource": "airflow-webserver", "evidence_sha256": "7" * 64, "final_state": "retired-absent"},
+            {"resource": "restate", "evidence_sha256": "6" * 64, "final_state": "retired-absent"},
         ]
         self.assertEqual(self.plan(completed)["actions"], [])
 

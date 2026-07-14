@@ -32,7 +32,7 @@ class ReconcileTests(unittest.TestCase):
             "provenance_status": {},
             "required_labels": {"com.docker.compose.project": "infra", "com.docker.compose.service": "postgres"},
             "service": "postgres",
-        }], "protected_services": [{"container_name": "restate"}]}
+        }], "protected_services": []}
         self.inventory = {"containers": [{
             "id": "b" * 64, "image": "registry/postgres", "image_digest": "sha256:" + "a" * 64,
             "image_provenance": "immutable-digest", "labels": self.desired["services"][0]["required_labels"],
@@ -138,17 +138,17 @@ class ReconcileTests(unittest.TestCase):
                 self.assertTrue(item["field_diffs"])
             self.inventory = original
 
-    def test_undeclared_container_halts_while_restate_remains_protected(self):
+    def test_undeclared_container_halts_while_restate_retires(self):
         self.inventory["containers"][0]["name"] = "unmanaged"
-        self.inventory["containers"].append({**self.inventory["containers"][0], "id": "c" * 64, "name": "restate"})
+        self.inventory["containers"].append({**self.inventory["containers"][0], "id": "c" * 64, "name": "restate", "labels": {"com.docker.compose.project": "restate", "com.docker.compose.service": "restate"}})
         items = {item["container"]: item for item in self.reconcile()["manifest"]["classifications"]}
         self.assertEqual(items["unmanaged"]["action"], "halt")
         self.assertEqual(items["unmanaged"]["reason"], "unknown-owner")
-        self.assertEqual(items["restate"]["reason"], "restate-protected")
+        self.assertEqual((items["restate"]["classification"], items["restate"]["action"]), ("retired-wipe", "retire"))
 
-    def test_protected_restate_is_separate_from_active_services(self):
+    def test_restate_must_not_remain_declarative(self):
         self.desired["services"].append({**self.desired["services"][0], "container_name": "restate", "service": "restate"})
-        with self.assertRaisesRegex(self.module.ReconcileHalt, "protected service.*active"):
+        with self.assertRaisesRegex(self.module.ReconcileHalt, "retired service.*active"):
             self.reconcile()
 
     def test_allowlist_selects_only_present_exact_families(self):
@@ -158,7 +158,7 @@ class ReconcileTests(unittest.TestCase):
         })
         self.inventory["containers"].append({**self.inventory["containers"][0], "id": "d" * 64, "name": "gitlab-unknown"})
         manifest = self.reconcile()["manifest"]
-        self.assertEqual(manifest["retired_allowlist"], ["airflow", "gitlab"])
+        self.assertEqual(manifest["retired_allowlist"], ["airflow", "gitlab", "restate"])
         self.assertEqual(manifest["selected_retired"], ["gitlab"])
         selected = next(item for item in manifest["classifications"] if item["container"] == "gitlab")
         self.assertEqual((selected["classification"], selected["action"]), ("retired-wipe", "retire"))

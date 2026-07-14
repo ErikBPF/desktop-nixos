@@ -20,25 +20,24 @@ The test suite must cover:
 | Declared name with mount mismatch | `halt` | No mutation |
 | GitLab container, bind mounts, volumes, and image | `retired-wipe` | Exact allowlisted wipe |
 | Airflow containers, database, bind mounts, volumes, and image | `retired-wipe` | Exact allowlisted wipe |
-| Restate container or `restate_data` | protected | No wipe or migration unless independently colliding |
+| Restate container, `restate_data`, and unshared service image | `retired-wipe` | Exact allowlisted wipe |
 | Shared image layer referenced by another container | protected | Leave for normal garbage collection |
 | Unknown collision | `halt` | No mutation |
 
 ## Static assertions
 
-- The retired wipe allowlist contains only GitLab and Airflow resources.
+- The retired wipe allowlist contains only GitLab, Airflow, and Restate resources.
 - Legacy `homelab` adoption is limited to stopped `infra` containers with exact
   service, working-directory, config-file, mount, network, image, and source
   provenance; any missing or mismatched field halts.
-- The protected list contains Restate and `restate_data`.
-- GitLab and Airflow paths, logical volumes, database, secrets, and images must match the behavior allowlist exactly; parent directories are forbidden wipe targets.
+- GitLab, Airflow, and Restate paths, logical volumes, database, secrets, and images must match the behavior allowlist exactly; parent directories are forbidden wipe targets.
 - Declared migration order is exactly `infra`, `ai-serving`, `docs-search`.
 - No generated command contains broad `prune`, volume-prune, dataset-destroy, or recursive filesystem deletion outside an exact retired path.
 - Every mutating command has a corresponding dry-run rendering.
 - Re-running the planner after successful fixtures produces no pending action.
 - Registry images without digests and local images/models without immutable provenance halt.
 - Compose-required variables and SecretSpec declarations match exactly for each active stack profile.
-- GitLab/Airflow declarations are absent; Restate declarations remain protected.
+- GitLab/Airflow/Restate declarations are absent.
 - The dry-run manifest is value-free, deterministic, and hash-bound; inventory drift rejects execution.
 - Thirty-day retention metadata never emits an automatic snapshot deletion command.
 
@@ -67,7 +66,7 @@ Before execution, the read-only run must record sanitized evidence for:
 - Exact collisions and their classification.
 - Exact GitLab/Airflow containers, paths, volumes, database, images, and cached layers selected for wipe.
 - Exact current retired-secret declarations and externally valid credential revocations. Historical copies and mixed-backup sanitization are out of scope because GitLab and Airflow were disposable homelab tests.
-- Proof that Restate resources are excluded.
+- Exact Restate container, logical volume, and unshared image selected for wipe.
 - SecretSpec value-free resolution and Compose/declaration drift reports.
 - Immutable registry, local image, build, and model identities.
 - Relevant ZFS datasets and proposed snapshot name.

@@ -1001,6 +1001,45 @@ kepler-recovery-inventory:
     trap - EXIT
     printf 'inventory=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["inventory_sha256"])' "$out")"
 
+# Probe only reviewed retirement paths. The helper emits metadata, never
+# directory listings, contents, environment, or content-derived hashes.
+kepler-recovery-retirement-paths:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    helper="modules/hosts/kepler/_collision_recovery_retirement_paths_remote.py"
+    evidence_dir=".gsd/evidence/kepler-k1"
+    out="$evidence_dir/retirement-paths.json"
+    test -f "$helper"
+    mkdir -p "$evidence_dir"
+    chmod 700 "$evidence_dir"
+    tmp="$(mktemp "$evidence_dir/.retirement-paths.XXXXXX")"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_kepler}} \
+      'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' \
+      < "$helper" > "$tmp"
+    python3 - "$tmp" <<'PY'
+    import hashlib
+    import json
+    import pathlib
+    import sys
+
+    result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+    evidence = result.get("evidence")
+    canonical = (json.dumps(evidence, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    if (
+        result.get("schema") != "kepler-retirement-path-evidence-envelope-v1"
+        or result.get("status") != "verified"
+        or not isinstance(evidence, list)
+        or result.get("evidence_sha256") != hashlib.sha256(canonical).hexdigest()
+    ):
+        raise SystemExit("retirement path evidence envelope/hash validation failed")
+    PY
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'retirement_paths=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["evidence_sha256"])' "$out")"
+
 # Resolve only reviewed K1 model artifact paths. The committed helper performs
 # read-only traversal and emits no directory listings, contents, or environment.
 kepler-recovery-model-paths:
@@ -1034,7 +1073,7 @@ kepler-recovery-model-paths:
     trap - EXIT
     printf 'model_paths=%s\n' "$out"
 
-# Hash the six reviewed model artifacts remotely. Output contains only artifact
+# Hash the four reviewed model artifacts remotely. Output contains only artifact
 # identifiers, hashes, counts, and schema metadata; paths and contents stay on Kepler.
 kepler-recovery-model-identities:
     #!/usr/bin/env bash
@@ -1092,14 +1131,72 @@ kepler-recovery-quiesce-plan inventory_sha256:
     chmod 600 "$desired" "$out"
     printf 'quiesce_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
 
+# Produce restore-tested PostgreSQL evidence, bound to fresh inventory and ID.
+kepler-recovery-postgres-evidence-run inventory_sha256 container_id mode="run-stopped":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    case "{{mode}}" in run|run-stopped) ;; *) echo "invalid evidence mode" >&2; exit 2 ;; esac
+    python3 - "{{inventory_sha256}}" "{{container_id}}" <<'PY'
+    import json, pathlib, sys
+    inventory = json.loads(pathlib.Path(".gsd/evidence/kepler-k1/inventory.json").read_text())
+    expected_sha, expected_id = sys.argv[1:]
+    records = [item for item in inventory["inventory"]["containers"] if item.get("name") == "postgres"]
+    if inventory.get("inventory_sha256") != expected_sha or len(records) != 1 or records[0].get("id") != expected_id:
+        raise SystemExit("PostgreSQL inventory binding mismatch")
+    PY
+    out=".gsd/evidence/kepler-k1/database-evidence.json"
+    tmp="$(mktemp .gsd/evidence/kepler-k1/.database-evidence.XXXXXX)"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_kepler}} \
+      kepler-collision-postgres-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
+    python3 -m json.tool "$tmp" >/dev/null
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'database_evidence=%s\n' "$out"
+
+# Produce restore-tested Redis evidence, bound to the fresh inventory and ID.
+kepler-recovery-redis-evidence-run inventory_sha256 container_id mode="run-stopped":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    case "{{mode}}" in run|run-stopped) ;; *) echo "invalid evidence mode" >&2; exit 2 ;; esac
+    python3 - "{{inventory_sha256}}" "{{container_id}}" <<'PY'
+    import json, pathlib, sys
+    inventory = json.loads(pathlib.Path(".gsd/evidence/kepler-k1/inventory.json").read_text())
+    expected_sha, expected_id = sys.argv[1:]
+    records = [item for item in inventory["inventory"]["containers"] if item.get("name") == "redis"]
+    if inventory.get("inventory_sha256") != expected_sha or len(records) != 1 or records[0].get("id") != expected_id:
+        raise SystemExit("Redis inventory binding mismatch")
+    PY
+    out=".gsd/evidence/kepler-k1/redis-evidence.json"
+    tmp="$(mktemp .gsd/evidence/kepler-k1/.redis-evidence.XXXXXX)"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_kepler}} \
+      kepler-collision-redis-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
+    python3 -m json.tool "$tmp" >/dev/null
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'redis_evidence=%s\n' "$out"
+
 # Validate value-free retained PostgreSQL backup/restore evidence locally.
 kepler-recovery-postgres-evidence-plan inventory_sha256 evidence=".gsd/evidence/kepler-k1/database-evidence.json":
     #!/usr/bin/env bash
     set -euo pipefail
+    umask 077
+    out=".gsd/evidence/kepler-k1/database-manifest.json"
+    tmp="$(mktemp .gsd/evidence/kepler-k1/.database-manifest.XXXXXX)"
+    trap 'rm -f "$tmp"' EXIT
     python3 modules/hosts/kepler/_collision_recovery_database_evidence.py \
       --inventory .gsd/evidence/kepler-k1/inventory.json \
       --evidence "{{evidence}}" \
-      --expected-inventory-sha256 "{{inventory_sha256}}"
+      --expected-inventory-sha256 "{{inventory_sha256}}" > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'database_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
 
 # Render the exact Redis backup/restore plan; never executes its actions.
 kepler-recovery-redis-backup-plan inventory_sha256 approval="":
@@ -1112,12 +1209,59 @@ kepler-recovery-redis-backup-plan inventory_sha256 approval="":
     if [ -n "{{approval}}" ]; then args+=(--quiesce-approval "{{approval}}"); fi
     python3 modules/hosts/kepler/_collision_recovery_redis_backup.py "${args[@]}"
 
+# Assemble value-free retirement evidence from authenticated live envelopes.
+kepler-recovery-retirement-evidence:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    out=".gsd/evidence/kepler-k1/retirement-evidence.json"
+    tmp="$(mktemp .gsd/evidence/kepler-k1/.retirement-evidence.XXXXXX)"
+    trap 'rm -f "$tmp"' EXIT
+    args=(
+      --inventory .gsd/evidence/kepler-k1/inventory.json
+      --retirement-paths .gsd/evidence/kepler-k1/retirement-paths.json
+      --database-evidence .gsd/evidence/kepler-k1/database-manifest.json
+    )
+    if [ -f .gsd/evidence/kepler-k1/redis-evidence.json ]; then
+      args+=(--redis-evidence .gsd/evidence/kepler-k1/redis-evidence.json)
+    fi
+    python3 modules/hosts/kepler/_collision_recovery_retirement_evidence.py "${args[@]}" > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'retirement_evidence=%s\n' "$out"
+
 # Render the exact retirement/disposition manifest from reviewed evidence.
 kepler-recovery-retirement-plan evidence=".gsd/evidence/kepler-k1/retirement-evidence.json":
     #!/usr/bin/env bash
     set -euo pipefail
+    umask 077
+    out=".gsd/evidence/kepler-k1/retirement-manifest.json"
+    tmp="$(mktemp .gsd/evidence/kepler-k1/.retirement-manifest.XXXXXX)"
+    trap 'rm -f "$tmp"' EXIT
     python3 modules/hosts/kepler/_collision_recovery_retirement.py \
-      .gsd/evidence/kepler-k1/inventory.json "{{evidence}}"
+      .gsd/evidence/kepler-k1/inventory.json "{{evidence}}" > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'retirement_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
+
+# Execute one reviewed retirement manifest after a fresh inventory hash match.
+kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".gsd/evidence/kepler-k1/retirement-manifest.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just kepler-recovery-inventory
+    actual="$(python3 -c 'import json; print(json.load(open(".gsd/evidence/kepler-k1/inventory.json"))["inventory_sha256"])')"
+    test "$actual" = "{{inventory_sha256}}" || { echo "retirement inventory drift" >&2; exit 2; }
+    python3 - "{{manifest}}" "{{manifest_sha256}}" <<'PY'
+    import json, pathlib, sys
+    wrapper = json.loads(pathlib.Path(sys.argv[1]).read_text())
+    if wrapper.get("manifest_sha256") != sys.argv[2]:
+        raise SystemExit("retirement manifest SHA-256 mismatch")
+    PY
+    ssh -p 2222 erik@{{ip_kepler}} \
+      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --execute --manifest "$tmp" --manifest-sha256 "$1" --inventory-sha256 "$2"' \
+      sh "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"
 
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:

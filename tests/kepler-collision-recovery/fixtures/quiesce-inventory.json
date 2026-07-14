@@ -27,7 +27,7 @@
           "com.docker.compose.service": "restate"
         },
         "name": "restate",
-        "state": "running"
+        "state": "exited"
       }
     ]
   }

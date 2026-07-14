@@ -15,7 +15,7 @@ class DatabaseEvidenceHalt(Exception):
 HEX64 = re.compile(r"[0-9a-f]{64}")
 TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 SAFE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*")
-EVIDENCE_SCHEMA = "kepler-collision-database-evidence-v1"
+EVIDENCE_SCHEMA = "kepler-collision-database-evidence-v2"
 INVENTORY_SCHEMA = "kepler-collision-inventory-v1"
 
 
@@ -40,7 +40,7 @@ def _inventory_binding(envelope):
         raise DatabaseEvidenceHalt("invalid inventory envelope binding")
     if not HEX64.fullmatch(claimed) or digest(inventory) != claimed:
         raise DatabaseEvidenceHalt("inventory SHA-256 mismatch")
-    return claimed
+    return claimed, inventory
 
 
 def _validate_retained(items):
@@ -59,64 +59,35 @@ def _validate_retained(items):
         if name in seen:
             raise DatabaseEvidenceHalt("duplicate retained database evidence")
         seen.add(name)
-        artifact = item.get("artifact")
-        restore = item.get("restore")
-        if not isinstance(artifact, dict) or set(artifact) != {
-            "bytes", "created_at", "sha256"
-        }:
-            raise DatabaseEvidenceHalt("invalid retained database artifact metadata")
-        if (
-            not isinstance(artifact["bytes"], int)
-            or isinstance(artifact["bytes"], bool)
-            or artifact["bytes"] <= 0
-            or not isinstance(artifact["sha256"], str)
-            or not HEX64.fullmatch(artifact["sha256"])
-            or not isinstance(artifact["created_at"], str)
-            or not TIMESTAMP.fullmatch(artifact["created_at"])
-        ):
-            raise DatabaseEvidenceHalt("invalid retained database artifact metadata")
-        if not isinstance(restore, dict):
-            raise DatabaseEvidenceHalt("retained database restore verification failed")
-        required_restore = {
-            "artifact_sha256",
-            "data_comparison",
-            "restored_data_sha256",
-            "row_count_summary_sha256",
-            "schema_comparison",
-            "source_data_sha256",
-            "status",
-        }
-        if set(restore) != required_restore:
-            if "row_count_summary_sha256" not in restore:
-                raise DatabaseEvidenceHalt("invalid logical data evidence")
-            raise DatabaseEvidenceHalt("retained database restore verification failed")
-        if restore["artifact_sha256"] != artifact["sha256"]:
-            raise DatabaseEvidenceHalt("restore artifact binding mismatch")
-        logical_hash_fields = (
-            "source_data_sha256", "restored_data_sha256", "row_count_summary_sha256"
-        )
-        if any(
-            not isinstance(restore[field], str) or not HEX64.fullmatch(restore[field])
-            for field in logical_hash_fields
-        ):
-            raise DatabaseEvidenceHalt("invalid logical data evidence")
-        if (
-            restore["status"] != "passed"
-            or restore["schema_comparison"] != "identical"
-        ):
-            raise DatabaseEvidenceHalt("retained database restore verification failed")
-        if (
-            restore["data_comparison"] != "identical"
-            or restore["source_data_sha256"] != restore["restored_data_sha256"]
-        ):
-            raise DatabaseEvidenceHalt("logical data verification failed")
-        result.append({
-            "artifact": dict(artifact),
-            "name": name,
-            "owner": owner,
-            "restore": dict(restore),
-        })
+        if set(item) != {"name", "owner"}:
+            raise DatabaseEvidenceHalt("invalid retained database identity fields")
+        result.append({"name": name, "owner": owner})
     return sorted(result, key=lambda item: item["name"])
+
+
+def _validate_cluster(artifact, restore, retained):
+    if not isinstance(artifact, dict) or set(artifact) != {"bytes", "created_at", "sha256"}:
+        raise DatabaseEvidenceHalt("invalid retained cluster artifact metadata")
+    if (
+        not isinstance(artifact["bytes"], int)
+        or isinstance(artifact["bytes"], bool)
+        or artifact["bytes"] <= 0
+        or not isinstance(artifact["sha256"], str)
+        or not HEX64.fullmatch(artifact["sha256"])
+        or not isinstance(artifact["created_at"], str)
+        or not TIMESTAMP.fullmatch(artifact["created_at"])
+    ):
+        raise DatabaseEvidenceHalt("invalid retained cluster artifact metadata")
+    required = {"artifact_sha256", "database_inventory_sha256", "logical_sha256", "retained_databases", "status"}
+    if not isinstance(restore, dict) or set(restore) != required:
+        raise DatabaseEvidenceHalt("retained cluster restore verification failed")
+    if restore["artifact_sha256"] != artifact["sha256"]:
+        raise DatabaseEvidenceHalt("restore artifact binding mismatch")
+    if any(not isinstance(restore[key], str) or not HEX64.fullmatch(restore[key]) for key in ("database_inventory_sha256", "logical_sha256")):
+        raise DatabaseEvidenceHalt("invalid retained cluster logical evidence")
+    if restore["status"] != "passed" or restore["retained_databases"] != [item["name"] for item in retained]:
+        raise DatabaseEvidenceHalt("retained cluster restore verification failed")
+    return dict(artifact), dict(restore)
 
 
 def _validate_coverage(discovered, retained):
@@ -142,7 +113,7 @@ def _validate_coverage(discovered, retained):
 
 
 def plan(inventory_envelope, evidence, expected_inventory_sha256):
-    inventory_sha256 = _inventory_binding(inventory_envelope)
+    inventory_sha256, inventory = _inventory_binding(inventory_envelope)
     if not isinstance(expected_inventory_sha256, str) or not HEX64.fullmatch(
         expected_inventory_sha256
     ):
@@ -153,6 +124,9 @@ def plan(inventory_envelope, evidence, expected_inventory_sha256):
         raise DatabaseEvidenceHalt("invalid database evidence schema")
     if evidence.get("inventory_sha256") != inventory_sha256:
         raise DatabaseEvidenceHalt("evidence inventory drift")
+    postgres = [item for item in inventory.get("containers", []) if item.get("name") == "postgres"]
+    if len(postgres) != 1 or evidence.get("source_container_id") != postgres[0].get("id"):
+        raise DatabaseEvidenceHalt("PostgreSQL source container identity drift")
     captured_at = evidence.get("captured_at")
     if not isinstance(captured_at, str) or not TIMESTAMP.fullmatch(captured_at):
         raise DatabaseEvidenceHalt("invalid database evidence timestamp")
@@ -160,7 +134,11 @@ def plan(inventory_envelope, evidence, expected_inventory_sha256):
         raise DatabaseEvidenceHalt("retired database allowlist must be exactly Airflow")
 
     retained = _validate_retained(evidence.get("retained_databases"))
-    _validate_coverage(evidence.get("database_inventory"), retained)
+    database_inventory = evidence.get("database_inventory")
+    _validate_coverage(database_inventory, retained)
+    artifact, restore = _validate_cluster(evidence.get("cluster_artifact"), evidence.get("cluster_restore"), retained)
+    if restore["database_inventory_sha256"] != digest(database_inventory):
+        raise DatabaseEvidenceHalt("cluster restore database inventory binding mismatch")
     manifest = {
         "airflow_drop_gate": "eligible-after-separate-approved-retirement-manifest",
         "captured_at": captured_at,
@@ -173,6 +151,8 @@ def plan(inventory_envelope, evidence, expected_inventory_sha256):
         "inventory_sha256": inventory_sha256,
         "mode": "dry-run-evidence-gate",
         "retained_databases": retained,
+        "cluster_artifact": artifact,
+        "cluster_restore": restore,
         "retired_databases": ["airflow"],
         "status": "retained-databases-verified",
     }

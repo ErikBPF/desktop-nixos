@@ -35,8 +35,8 @@ class DatabaseEvidenceTests(unittest.TestCase):
         self.evidence = json.loads(FIXTURE.read_text())
         self.inventory = {
             "schema": "kepler-collision-inventory-v1",
-            "inventory": {"containers": []},
-            "inventory_sha256": digest({"containers": []}),
+            "inventory": {"containers": [{"id": "b" * 64, "name": "postgres"}]},
+            "inventory_sha256": digest({"containers": [{"id": "b" * 64, "name": "postgres"}]}),
         }
         self.evidence["inventory_sha256"] = self.inventory["inventory_sha256"]
 
@@ -57,21 +57,17 @@ class DatabaseEvidenceTests(unittest.TestCase):
         for forbidden in ("password", "secret", "connection", "environment", "contents"):
             self.assertNotIn(forbidden, rendered)
 
-    def test_records_only_database_owner_and_artifact_metadata(self):
-        retained = self.plan()["manifest"]["retained_databases"]
+    def test_records_exact_identities_and_one_restore_tested_cluster_artifact(self):
+        manifest = self.plan()["manifest"]
+        retained = manifest["retained_databases"]
         self.assertEqual([item["name"] for item in retained], ["app", "postgres"])
         self.assertEqual(retained[0]["owner"], "app_owner")
-        self.assertEqual(set(retained[0]["artifact"]), {"bytes", "created_at", "sha256"})
-        self.assertEqual(retained[0]["restore"]["schema_comparison"], "identical")
-        self.assertEqual(retained[0]["restore"]["data_comparison"], "identical")
+        self.assertEqual(set(manifest["cluster_artifact"]), {"bytes", "created_at", "sha256"})
         self.assertEqual(
-            retained[0]["restore"]["source_data_sha256"],
-            retained[0]["restore"]["restored_data_sha256"],
+            manifest["cluster_restore"]["artifact_sha256"],
+            manifest["cluster_artifact"]["sha256"],
         )
-        self.assertEqual(
-            retained[0]["restore"]["artifact_sha256"],
-            retained[0]["artifact"]["sha256"],
-        )
+        self.assertEqual(manifest["cluster_restore"]["retained_databases"], ["app", "postgres"])
 
     def test_airflow_is_exact_retired_database_and_never_retained(self):
         manifest = self.plan()["manifest"]
@@ -88,10 +84,10 @@ class DatabaseEvidenceTests(unittest.TestCase):
 
     def test_rejects_failed_missing_or_duplicate_retained_evidence(self):
         mutations = (
-            lambda e: e["retained_databases"][0]["restore"].update(status="failed"),
-            lambda e: e["retained_databases"][0]["restore"].update(schema_comparison="different"),
-            lambda e: e["retained_databases"][0]["artifact"].update(bytes=0),
-            lambda e: e["retained_databases"][0]["artifact"].pop("sha256"),
+            lambda e: e["cluster_restore"].update(status="failed"),
+            lambda e: e["cluster_restore"].update(retained_databases=["postgres"]),
+            lambda e: e["cluster_artifact"].update(bytes=0),
+            lambda e: e["cluster_artifact"].pop("sha256"),
             lambda e: e["retained_databases"].append(copy.deepcopy(e["retained_databases"][0])),
         )
         for mutation in mutations:
@@ -102,26 +98,22 @@ class DatabaseEvidenceTests(unittest.TestCase):
                     self.plan()
                 self.evidence = original
 
-    def test_rejects_schema_identical_but_logical_data_different(self):
-        restore = self.evidence["retained_databases"][0]["restore"]
-        restore["data_comparison"] = "different"
-        restore["restored_data_sha256"] = "f" * 64
+    def test_rejects_cluster_inventory_binding_drift(self):
+        self.evidence["cluster_restore"]["database_inventory_sha256"] = "f" * 64
         with self.assertRaisesRegex(
-            self.module.DatabaseEvidenceHalt, "logical data verification failed"
+            self.module.DatabaseEvidenceHalt, "database inventory binding mismatch"
         ):
             self.plan()
 
-    def test_rejects_restore_not_bound_to_dump_or_row_count_summary(self):
-        restore = self.evidence["retained_databases"][0]["restore"]
+    def test_rejects_restore_not_bound_to_cluster_artifact_or_logical_hash(self):
+        restore = self.evidence["cluster_restore"]
         restore["artifact_sha256"] = "f" * 64
         with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "artifact binding"):
             self.plan()
         self.evidence = json.loads(FIXTURE.read_text())
         self.evidence["inventory_sha256"] = self.inventory["inventory_sha256"]
-        self.evidence["retained_databases"][0]["restore"].pop(
-            "row_count_summary_sha256"
-        )
-        with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "logical data evidence"):
+        self.evidence["cluster_restore"]["logical_sha256"] = "short"
+        with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "logical evidence"):
             self.plan()
 
     def test_requires_backup_for_every_discovered_non_airflow_database(self):
@@ -144,6 +136,11 @@ class DatabaseEvidenceTests(unittest.TestCase):
         self.inventory["inventory_sha256"] = "f" * 64
         with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "inventory SHA-256 mismatch"):
             self.module.plan(self.inventory, self.evidence, "f" * 64)
+
+    def test_rejects_postgres_source_container_id_drift(self):
+        self.evidence["source_container_id"] = "f" * 64
+        with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "source container identity drift"):
+            self.plan()
 
     def test_commands_use_future_just_interfaces_and_are_non_executable(self):
         manifest = self.plan()["manifest"]

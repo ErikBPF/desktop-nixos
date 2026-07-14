@@ -66,11 +66,11 @@ class QuiesceManifestTests(unittest.TestCase):
         for forbidden in ("environment", "secret", "token", "password", "mounts", "image"):
             self.assertNotIn(forbidden, rendered.lower())
 
-    def test_protects_restate_and_ignores_stopped_declared_containers(self):
+    def test_ignores_stopped_restate_retirement_and_stopped_declared_containers(self):
         self.inventory["inventory"]["containers"][0]["state"] = "exited"
         self.inventory["inventory_sha256"] = self.module.digest(self.inventory["inventory"])
         manifest = self.plan()["manifest"]
-        self.assertEqual(manifest["protected_containers"], ["restate"])
+        self.assertNotIn("protected_containers", manifest)
         self.assertEqual(manifest["stacks"], [{"containers": ["docs-search"], "stack": "docs-search"}])
 
     def test_rejects_unknown_foreign_unlabeled_and_declared_service_mismatch(self):
@@ -96,6 +96,13 @@ class QuiesceManifestTests(unittest.TestCase):
             "com.docker.compose.project": "gitlab",
             "com.docker.compose.service": "gitlab",
         }
+        self.inventory["inventory_sha256"] = self.module.digest(self.inventory["inventory"])
+        with self.assertRaisesRegex(self.module.QuiesceHalt, "retired container is running"):
+            self.plan()
+
+    def test_rejects_running_restate_as_retired(self):
+        item = next(item for item in self.inventory["inventory"]["containers"] if item["name"] == "restate")
+        item["state"] = "running"
         self.inventory["inventory_sha256"] = self.module.digest(self.inventory["inventory"])
         with self.assertRaisesRegex(self.module.QuiesceHalt, "retired container is running"):
             self.plan()

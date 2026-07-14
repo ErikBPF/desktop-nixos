@@ -19,10 +19,7 @@ class RetirementDrift(Exception):
 
 SHA256 = re.compile(r"(?:sha256:)?[0-9a-f]{64}$")
 CONTAINER_ID = re.compile(r"[0-9a-f]{64}$")
-F5_PATH = re.compile(
-    r"/fast/ai-models/f5-tts/hf/models--firstpixel--F5-TTS-pt-br/"
-    r"snapshots/[^/]+/pt-br/model_last\.safetensors$"
-)
+F5_PATH = re.compile(r"/fast/ai-models/f5-tts$")
 RETIRED_ALLOWLIST = {
     "gitlab": {
         "containers": ["gitlab", "gitlab-runner"],
@@ -47,9 +44,22 @@ RETIRED_ALLOWLIST = {
             "POSTGRES_DB_AIRFLOW",
         ],
     },
+    "restate": {
+        "containers": ["restate"],
+        "paths": [],
+        "volumes": ["restate_data"],
+        "databases": [],
+        "secrets": [],
+    },
 }
-DISPOSITION_CONTAINERS = ["ha-train-run", "minicpm-train", "uv_build"]
-DISPOSITION_ARTIFACTS = ["f5-tts-checkpoint"]
+VOLUME_PROJECT = {"gitlab": "gitlab", "airflow": "airflow", "restate": "orchestration"}
+IMAGE_REPOSITORIES = {
+    "gitlab": {"docker.io/gitlab/gitlab-ce", "docker.io/gitlab/gitlab-runner"},
+    "airflow": {"docker.io/apache/airflow"},
+    "restate": {"docker.restate.dev/restatedev/restate"},
+}
+DISPOSITION_CONTAINERS = ["f5-tts-server", "ha-train-run", "minicpm-train", "uv_build"]
+DISPOSITION_ARTIFACTS = ["f5-tts-model-data"]
 TOP_KEYS = {
     "schema", "inventory_sha256", "expected_retained_databases", "proofs", "retired", "dispositions",
 }
@@ -104,18 +114,27 @@ def _database_reference(reference, inventory_sha256, expected_databases):
     if manifest.get("status") != "retained-databases-verified" or manifest.get("inventory_sha256") != inventory_sha256:
         raise RetirementHalt("database planner inventory/status mismatch")
     retained = manifest.get("retained_databases")
-    if not isinstance(retained, list) or [item.get("name") for item in retained] != expected_databases:
+    if (
+        not isinstance(retained, list)
+        or any(not isinstance(item, dict) or set(item) != {"name", "owner"} for item in retained)
+        or [item["name"] for item in retained] != expected_databases
+        or len({(item["name"], item["owner"]) for item in retained}) != len(retained)
+    ):
         raise RetirementHalt("exact retained database set mismatch")
-    artifact_hashes = []
-    for item in retained:
-        artifact_hash = item.get("artifact", {}).get("sha256")
-        if not isinstance(artifact_hash, str) or not SHA256.fullmatch(artifact_hash):
-            raise RetirementHalt("retained database artifact hash missing")
-        if item.get("restore", {}).get("artifact_sha256") != artifact_hash:
-            raise RetirementHalt("retained database restore artifact mismatch")
-        artifact_hashes.append(artifact_hash)
-    if len(artifact_hashes) != len(set(artifact_hashes)) or manifest.get("retired_databases") != ["airflow"]:
-        raise RetirementHalt("invalid retained database artifact coverage")
+    artifact = manifest.get("cluster_artifact")
+    restore = manifest.get("cluster_restore")
+    if (
+        not isinstance(artifact, dict)
+        or not SHA256.fullmatch(str(artifact.get("sha256", "")))
+        or not isinstance(restore, dict)
+        or restore.get("artifact_sha256") != artifact["sha256"]
+        or restore.get("status") != "passed"
+        or restore.get("retained_databases") != expected_databases
+        or not SHA256.fullmatch(str(restore.get("database_inventory_sha256", "")))
+        or not SHA256.fullmatch(str(restore.get("logical_sha256", "")))
+        or manifest.get("retired_databases") != ["airflow"]
+    ):
+        raise RetirementHalt("invalid retained cluster restore evidence")
     return manifest
 
 
@@ -145,7 +164,8 @@ def _check_live(record, live, mount_evidence=False):
         raise RetirementHalt(f"inventory ID mismatch: {name}")
     if not CONTAINER_ID.fullmatch(record["id"]):
         raise RetirementHalt(f"invalid container ID: {name}")
-    if record["state"] != "exited" or actual.get("state") != "exited":
+    allowed_states = {"running"} if name == "f5-tts-server" else {"exited"}
+    if record["state"] not in allowed_states or actual.get("state") not in allowed_states:
         raise RetirementHalt(f"container must be exited: {name}")
     if mount_evidence:
         proof = _reference(
@@ -179,7 +199,7 @@ def plan(inventory, evidence):
         raise RetirementHalt("inventory internal SHA-256 mismatch")
     if evidence["inventory_sha256"] != computed_inventory_sha256:
         raise RetirementHalt("evidence is not bound to inventory SHA-256")
-    _exact_keys(evidence["proofs"], {"retained_database_restore", "retired_preflight"}, "proofs")
+    _exact_keys(evidence["proofs"], {"retained_database_restore", "retired_preflight", "retirement_paths"}, "proofs")
     expected_databases = evidence["expected_retained_databases"]
     if not isinstance(expected_databases, list) or not expected_databases or expected_databases != sorted(set(expected_databases)):
         raise RetirementHalt("exact retained database set required")
@@ -188,12 +208,20 @@ def plan(inventory, evidence):
         evidence["proofs"]["retired_preflight"], "retired preflight",
         "kepler-retired-preflight-evidence-v1",
     )
-    declared_secrets = sorted({secret for policy in RETIRED_ALLOWLIST.values() for secret in policy["secrets"]})
-    if preflight.get("declared_secrets") != declared_secrets or preflight.get("secret_artifacts") != declared_secrets:
+    allowed_secrets = {secret for policy in RETIRED_ALLOWLIST.values() for secret in policy["secrets"]}
+    declared_secrets = preflight.get("declared_secrets")
+    if not isinstance(declared_secrets, list) or len(declared_secrets) != len(set(declared_secrets)) or not set(declared_secrets) <= allowed_secrets or preflight.get("secret_artifacts") != declared_secrets:
         raise RetirementHalt("exact retired secret artifact coverage required")
     credentials = preflight.get("external_credentials")
-    if not isinstance(credentials, list) or not credentials or preflight.get("external_revocations") != credentials:
+    if not isinstance(credentials, list) or len(credentials) != len(set(credentials)) or not set(credentials) <= set(declared_secrets) or preflight.get("external_revocations") != credentials:
         raise RetirementHalt("exact external revocation coverage required")
+    path_envelope = _reference(evidence["proofs"]["retirement_paths"], "retirement paths", "kepler-retirement-path-evidence-envelope-v1")
+    path_records = path_envelope.get("paths")
+    if not isinstance(path_records, list) or any(not isinstance(item, dict) or set(item) != {"path", "existence", "type", "device", "inode", "byte_count"} for item in path_records):
+        raise RetirementHalt("invalid retirement path evidence")
+    path_by_name = {item["path"]: item for item in path_records}
+    if len(path_by_name) != len(path_records):
+        raise RetirementHalt("duplicate retirement path evidence")
     live = _live_containers(inventory)
     inventory_volumes = inventory["inventory"].get("volumes", [])
     inventory_images = inventory["inventory"].get("images", [])
@@ -218,7 +246,7 @@ def plan(inventory, evidence):
         name = family["family"]
         policy = RETIRED_ALLOWLIST[name]
         names = [item.get("name") for item in family["containers"]]
-        if names != policy["containers"]:
+        if len(names) != len(set(names)) or not set(names) <= set(policy["containers"]):
             raise RetirementHalt(f"{name} containers outside exact allowlist")
         for record in family["containers"]:
             _check_live(record, live)
@@ -228,16 +256,16 @@ def plan(inventory, evidence):
                 "not-applicable-after-exact-delete",
             ))
         for field in ("paths", "databases", "secrets"):
-            if family[field] != policy[field]:
+            if len(family[field]) != len(set(family[field])) or not set(family[field]) <= set(policy[field]):
                 raise RetirementHalt(f"{name} {field} outside exact allowlist")
         logical_volumes = [item.get("logical_name") for item in family["volumes"]]
-        if logical_volumes != policy["volumes"]:
+        if len(logical_volumes) != len(set(logical_volumes)) or not set(logical_volumes) <= set(policy["volumes"]):
             raise RetirementHalt(f"{name} volumes outside exact allowlist")
         for volume in family["volumes"]:
             _exact_keys(volume, {"logical_name", "runtime_name"}, f"{name} runtime volume")
             actual_volume = live_volumes.get(volume["runtime_name"])
             expected_labels = {
-                "com.docker.compose.project": name,
+                "com.docker.compose.project": VOLUME_PROJECT[name],
                 "com.docker.compose.volume": volume["logical_name"],
             }
             if actual_volume is None or actual_volume.get("labels") != expected_labels:
@@ -251,6 +279,13 @@ def plan(inventory, evidence):
         family_proof = _reference(family["family_evidence"], f"{name} family", "kepler-retired-family-evidence-v1")
         if family_proof.get("family") != name or family_proof.get("resources_sha256") != digest(resources):
             raise RetirementHalt(f"{name} family evidence resource mismatch")
+        path_identities = family_proof.get("path_identities", [])
+        if sorted(item.get("path") for item in path_identities) != sorted(family["paths"]):
+            raise RetirementHalt(f"{name} path identity coverage mismatch")
+        for item in path_identities:
+            record = path_by_name.get(item.get("path"))
+            if item.get("envelope_sha256") != evidence["proofs"]["retirement_paths"]["sha256"] or not record or record.get("existence") is not True or record.get("type") != "directory":
+                raise RetirementHalt(f"{name} path identity evidence invalid")
         for image in family["images"]:
             _sha(image, f"{name} image identity")
             if image in selected_image_identities:
@@ -258,15 +293,20 @@ def plan(inventory, evidence):
             selected_image_identities.add(image)
             if image not in live_images:
                 raise RetirementHalt(f"image identity absent from inventory: {image}")
-            if sorted(image_references.get(image, [])) != sorted(policy["containers"]):
+            image_record = live_images[image]
+            repositories = {value.split("@", 1)[0] for value in image_record.get("digests", [])}
+            if not repositories or not repositories <= IMAGE_REPOSITORIES[name]:
+                raise RetirementHalt(f"retired image repository mismatch: {image}")
+            users = image_references.get(image, [])
+            if len(users) != len(set(users)) or not set(users) <= set(names):
                 raise RetirementHalt(f"shared image forbidden: {image}")
         for path in family["paths"]:
-            actions.append(_action("path", path, ["just", "kepler-recovery-retire-exact", "path", path], "restore-from-verified-sanitized-copy"))
+            actions.append(_action("path", path, ["just", "kepler-recovery-retire-exact", "path", path], "not-applicable-disposable-test"))
         for volume in family["volumes"]:
             runtime_name = volume["runtime_name"]
             actions.append(_action("volume", runtime_name, ["just", "kepler-recovery-retire-exact", "volume", runtime_name], "not-applicable-after-exact-delete"))
         for database in family["databases"]:
-            actions.append(_action("database", database, ["just", "kepler-recovery-retire-exact", "database", database], "restore-from-verified-sanitized-copy"))
+            actions.append(_action("database", database, ["just", "kepler-recovery-retire-exact", "database", database], "not-applicable-disposable-test"))
         for secret in family["secrets"]:
             actions.append(_action("secret", secret, ["just", "kepler-recovery-retire-exact", "secret", secret], "not-applicable-after-exact-delete"))
         for image in family["images"]:
@@ -274,7 +314,7 @@ def plan(inventory, evidence):
         retired_resources.append({key: family[key] for key in ("family", "containers", "paths", "volumes", "databases", "secrets", "images", "family_evidence")})
 
     dispositions = evidence.get("dispositions")
-    _exact_keys(dispositions, {"containers", "artifacts"}, "dispositions")
+    _exact_keys(dispositions, {"containers", "artifacts", "images"}, "dispositions")
     container_names = [item.get("name") for item in dispositions["containers"]]
     if sorted(container_names) != DISPOSITION_CONTAINERS:
         raise RetirementHalt("container disposition allowlist mismatch")
@@ -287,26 +327,28 @@ def plan(inventory, evidence):
     if len(artifacts) != 1 or artifacts[0].get("name") not in DISPOSITION_ARTIFACTS:
         raise RetirementHalt("artifact disposition allowlist mismatch")
     artifact = artifacts[0]
-    _exact_keys(artifact, {"name", "path", "sha256", "path_identity"}, "artifact disposition")
+    _exact_keys(artifact, {"name", "path", "path_evidence_sha256"}, "artifact disposition")
     if posixpath.normpath(artifact["path"]) != artifact["path"] or ".." in artifact["path"].split("/"):
         raise RetirementHalt("f5-tts-checkpoint path must be normalized")
     if not F5_PATH.fullmatch(artifact["path"]):
         raise RetirementHalt("f5-tts-checkpoint exact discovered path required")
-    _sha(artifact["sha256"], "f5-tts-checkpoint content")
-    path_proof = _reference(
-        artifact["path_identity"], "f5-tts-checkpoint path identity",
-        "kepler-path-identity-evidence-v1",
-    )
-    if (
-        path_proof.get("type") != "file"
-        or path_proof.get("path") != artifact["path"]
-        or path_proof.get("content_sha256") != artifact["sha256"]
-        or not isinstance(path_proof.get("size"), int)
-        or path_proof["size"] < 0
-    ):
+    path_proof = path_by_name.get(artifact["path"])
+    if artifact["path_evidence_sha256"] != evidence["proofs"]["retirement_paths"]["sha256"] or not path_proof or path_proof.get("existence") is not True or path_proof.get("type") != "directory" or not all(isinstance(path_proof.get(field), int) and path_proof[field] >= 0 for field in ("device", "inode", "byte_count")):
         raise RetirementHalt("f5-tts-checkpoint path identity mismatch")
     disposition_resources.append({"kind": "artifact", **artifact})
     actions.append(_action("artifact", artifact["path"], ["just", "kepler-recovery-retire-exact", "artifact", artifact["path"]], "not-applicable-after-exact-delete"))
+    images = dispositions["images"]
+    if len(images) != 1 or set(images[0]) != {"name", "identity", "container"}:
+        raise RetirementHalt("F5 image disposition required")
+    f5_image = images[0]
+    if f5_image["name"] != "f5-tts-image" or f5_image["container"] != "f5-tts-server":
+        raise RetirementHalt("F5 image disposition mismatch")
+    if f5_image["identity"] not in live_images:
+        raise RetirementHalt("F5 image identity absent from inventory")
+    if image_references.get(f5_image["identity"], []) != ["f5-tts-server"]:
+        raise RetirementHalt("F5 image is shared or unbound")
+    disposition_resources.append({"kind": "image", **f5_image})
+    actions.append(_action("image", f5_image["identity"], ["just", "kepler-recovery-retire-exact", "image", f5_image["identity"]], "not-applicable-after-exact-delete"))
 
     manifest = {
         "schema": "kepler-retirement-approval-manifest-v1",

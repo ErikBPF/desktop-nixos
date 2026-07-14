@@ -12,9 +12,9 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "6e215e91102fbe2045b2fc4ce6ff1a93a63a9d46"
+SERVARR_COMMIT = "4fbc093fe1badbe6a99b55a02b676794a433c97f"
 MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
-PROTECTED_STACKS = ("orchestration",)
+PROTECTED_STACKS = ()
 STACKS = MIGRATION_STACKS + PROTECTED_STACKS
 VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(?::-|:\?)[^}]*)?\}")
 DOTENV_NAME = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=", re.MULTILINE)

@@ -66,8 +66,8 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 ### K0 — complete
 
 - Kepler collision behavior and fixture-test contract are approved.
-- GitLab and Airflow declarations are retired; their exact live resources have
-  not yet been deleted. Restate remains protected.
+- GitLab, Airflow, and Restate declarations are retired; their exact live
+  resources have not yet been deleted. All three were disposable homelab tests.
 - SecretSpec `0.13.0` is available from the pinned nixpkgs. It is a declaration
   and preflight layer, not a replacement for SOPS or Vault Agent.
 - No Kepler runtime mutation, destructive wipe, backup purge, snapshot, or
@@ -87,7 +87,7 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   model-path expectations, and adds value-free dry-run planners for retained
   PostgreSQL evidence, Redis backup/restore, and exact retirement/disposition.
 - The retirement planner validates the live inventory's internal SHA-256,
-  rejects shared images and unknown resources, protects Restate, binds nested
+  rejects shared images and unknown resources, exact-allowlists Restate, binds nested
   evidence, and emits no execute mode or destructive command.
 - The recovery suite passes 122 tests. Documentation, lint, format, Kepler
   dry-build, and the full flake check pass. The full check used only Orion and
@@ -183,8 +183,7 @@ No fixture cleanup is authorized.
 1. Package the pinned SecretSpec version declaratively; do not install it with
    an unpinned curl script.
 2. Add one Kepler manifest with stack profiles for `infra`, `ai-serving`, and
-   `docs-search`. Declare Restate separately as protected; do not retain
-   GitLab/Airflow declarations.
+   `docs-search`. Do not retain GitLab, Airflow, or Restate declarations.
 3. Treat SecretSpec as the mandatory contract and value-free preflight layer.
    Keep SOPS for host/build/bootstrap secrets and Vault Agent for long-running
    runtime resolution.
@@ -204,8 +203,8 @@ published. No remote execution path exists yet, and no K1 mutation has run.
 
 1. Re-inspect every rootless-Podman container, Compose label, owner, state,
    image, mount, network, secret declaration, backup, snapshot, and collision.
-2. Classify only exact GitLab/Airflow resources as `retired-wipe`; protect
-   Restate; halt on running, unlabeled, foreign, unknown, or mount-mismatched
+2. Classify only exact GitLab/Airflow/Restate resources as `retired-wipe`; halt
+   on running, unlabeled, foreign, unknown, or mount-mismatched
    collisions. The reviewed stopped legacy `homelab` infra project may be
    adopted only with exact provenance as defined by the behavior contract.
 3. Pin registry images by digest. Record immutable local image and model
@@ -229,8 +228,8 @@ published. No remote execution path exists yet, and no K1 mutation has run.
    SecretSpec/SOPS/OpenBao/env declarations and values, and approved non-Git
    current secret artifacts.
 3. Revoke every externally valid retired credential before current artifact deletion.
-4. Never broadly prune, destroy a parent dataset, rewrite Git history, delete
-   an unlisted backup, or touch Restate.
+4. Never broadly prune, destroy a parent dataset, rewrite Git history, or delete
+   an unlisted backup or unlisted resource.
 5. Verify shared PostgreSQL and all retained services before continuing.
 
 ### K3 — retained-state protection

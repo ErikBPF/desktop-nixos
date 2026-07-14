@@ -46,13 +46,13 @@ class DesiredStateTest(unittest.TestCase):
         self.assertEqual(desired["secretspec_project"], "kepler")
         self.assertEqual(set(desired["source_sha256"]), {
             "infra.compose.yml", "ai-serving.compose.yml", "docs-search.compose.yml",
-            "orchestration.compose.yml", "secretspec.toml", ".env.example", "provenance.json",
+            "secretspec.toml", ".env.example", "provenance.json",
         })
         projects = {service["project"] for service in desired["services"]}
         self.assertEqual(projects, set(desired["stacks"]))
         self.assertNotIn("gemma-vl", {service["service"] for service in desired["services"]})
         self.assertNotIn("restate", {service["container_name"] for service in desired["services"]})
-        self.assertEqual([service["container_name"] for service in desired["protected_services"]], ["restate"])
+        self.assertEqual(desired["protected_services"], [])
         self.assertEqual([service["service"] for service in desired["declared_optional_services"]], ["docs-indexer"])
 
     def test_provenance_contract_is_bound_and_applied(self):

@@ -44,9 +44,14 @@
       "state": "stopped",
       "project": "restate",
       "labels_complete": true,
-      "mounts": ["restate_data:/restate-data"],
-      "desired_mounts": ["restate_data:/restate-data"],
-      "image": "docker.io/restatedev/restate:1@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "mounts": [],
+      "desired_mounts": [],
+      "image": "docker.io/restatedev/restate:1@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "retired_kind": "restate",
+      "image_service_specific": true,
+      "volumes": ["restate_data"],
+      "databases": [],
+      "secrets": []
     }
   ],
   "local_artifacts": [

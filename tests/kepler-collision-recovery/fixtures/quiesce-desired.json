@@ -1,7 +1,7 @@
 {
   "schema": "kepler-collision-desired-v1",
   "desired": {
-    "protected_services": [{"container_name": "restate"}],
+    "protected_services": [],
     "services": [
       {
         "container_name": "piper-openai",

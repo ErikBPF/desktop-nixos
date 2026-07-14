@@ -17,7 +17,7 @@ class InventoryDrift(Exception):
 
 
 POLICY = {
-    "retired_services": ["gitlab", "airflow"],
+    "retired_services": ["gitlab", "airflow", "restate"],
     "gitlab_containers": ["gitlab", "gitlab-runner"],
     "airflow_containers": [
         "airflow-webserver",
@@ -26,6 +26,7 @@ POLICY = {
         "airflow-worker",
         "airflow-init",
     ],
+    "restate_containers": ["restate"],
     "retired_image_repositories": {
         "gitlab": "docker.io/gitlab/gitlab-ce",
         "gitlab-runner": "docker.io/gitlab/gitlab-runner",
@@ -34,6 +35,7 @@ POLICY = {
         "airflow-triggerer": "docker.io/apache/airflow",
         "airflow-worker": "docker.io/apache/airflow",
         "airflow-init": "docker.io/apache/airflow",
+        "restate": "docker.io/restatedev/restate",
     },
     "gitlab_paths": [
         "/fast/apps/gitlab/config",
@@ -47,6 +49,9 @@ POLICY = {
     ],
     "airflow_volumes": ["airflow_logs", "airflow_config"],
     "airflow_databases": ["airflow"],
+    "restate_paths": [],
+    "restate_volumes": ["restate_data"],
+    "restate_databases": [],
     "retired_secrets": [
         "GITLAB_RUNNER_TOKEN",
         "POSTGRES_DB_AIRFLOW",
@@ -54,7 +59,12 @@ POLICY = {
         "AIRFLOW_SECRET_KEY",
         "AIRFLOW_ADMIN_PASSWORD",
     ],
-    "protected": ["restate", "restate_data"],
+    "gitlab_secrets": ["GITLAB_RUNNER_TOKEN"],
+    "airflow_secrets": [
+        "POSTGRES_DB_AIRFLOW", "AIRFLOW_FERNET_KEY", "AIRFLOW_SECRET_KEY",
+        "AIRFLOW_ADMIN_PASSWORD",
+    ],
+    "restate_secrets": [],
 }
 
 MIGRATION_ORDER = ["infra", "ai-serving", "docs-search"]
@@ -121,6 +131,8 @@ def _retired_kind(name):
         return "gitlab"
     if name in POLICY["airflow_containers"]:
         return "airflow"
+    if name in POLICY["restate_containers"]:
+        return "restate"
     return None
 
 
@@ -203,10 +215,7 @@ def _validate_retired(container, retired):
     expected_databases = set(POLICY.get(f"{retired}_databases", []))
     if set(container.get("databases", [])) != expected_databases:
         raise PlanHalt(f"retired database selection not exact: {name}")
-    expected_secrets = {
-        secret for secret in POLICY["retired_secrets"]
-        if (retired == "gitlab") == secret.startswith("GITLAB_")
-    }
+    expected_secrets = set(POLICY[f"{retired}_secrets"])
     if set(container.get("secrets", [])) != expected_secrets:
         raise PlanHalt(f"retired secret selection not exact: {name}")
     if not container.get("image_service_specific"):
@@ -222,15 +231,6 @@ def _classify(container):
         if container.get("state") != "running" or not container.get("labels_complete"):
             raise PlanHalt(f"unhealthy non-collision resource: {name}")
         return "noncollision"
-    if name == "restate" or "restate_data" in _mount_sources(container):
-        if (
-            container.get("state") == "running"
-            or not container.get("labels_complete")
-            or container.get("project") != "restate"
-            or container.get("mounts") != container.get("desired_mounts")
-        ):
-            raise PlanHalt(f"independent Restate collision mismatch: {name}")
-        return "protected"
     retired = _retired_kind(name)
     if retired:
         _validate_retired(container, retired)
@@ -284,7 +284,7 @@ def plan(inventory):
                 "image": container["image"],
             }
         resources.append(resource)
-        if classification not in {"protected", "noncollision"} and container["name"] not in completed:
+        if classification != "noncollision" and container["name"] not in completed:
             actions.append({
                 "mode": "dry-run",
                 "resource": container["name"],

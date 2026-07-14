@@ -1,6 +1,7 @@
 {
-  "schema": "kepler-collision-database-evidence-v1",
+  "schema": "kepler-collision-database-evidence-v2",
   "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_container_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "captured_at": "2026-07-14T18:00:00Z",
   "database_inventory": [
     {"name": "airflow", "owner": "airflow"},
@@ -8,42 +9,20 @@
     {"name": "postgres", "owner": "postgres"}
   ],
   "retained_databases": [
-    {
-      "name": "app",
-      "owner": "app_owner",
-      "artifact": {
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "bytes": 4096,
-        "created_at": "2026-07-14T18:00:00Z"
-      },
-      "restore": {
-        "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "data_comparison": "identical",
-        "restored_data_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-        "row_count_summary_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "status": "passed",
-        "schema_comparison": "identical",
-        "source_data_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-      }
-    },
-    {
-      "name": "postgres",
-      "owner": "postgres",
-      "artifact": {
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "bytes": 8192,
-        "created_at": "2026-07-14T18:01:00Z"
-      },
-      "restore": {
-        "artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "data_comparison": "identical",
-        "restored_data_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-        "row_count_summary_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
-        "status": "passed",
-        "schema_comparison": "identical",
-        "source_data_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-      }
-    }
+    {"name": "app", "owner": "app_owner"},
+    {"name": "postgres", "owner": "postgres"}
   ],
-  "retired_databases": ["airflow"]
+  "retired_databases": ["airflow"],
+  "cluster_artifact": {
+    "bytes": 12288,
+    "created_at": "2026-07-14T18:00:00Z",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "cluster_restore": {
+    "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "database_inventory_sha256": "6266ad94d59584d92a809f4bbdd005aa074c68101708f23e1d326f06b21a3a28",
+    "logical_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "retained_databases": ["app", "postgres"],
+    "status": "passed"
+  }
 }

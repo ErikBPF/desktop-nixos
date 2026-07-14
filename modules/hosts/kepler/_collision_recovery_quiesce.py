@@ -27,6 +27,7 @@ RETIRED = {
         "airflow-webserver",
         "airflow-worker",
     },
+    "restate": {"restate"},
 }
 
 
@@ -49,17 +50,6 @@ def _payload(envelope, kind):
     if digest(payload) != claimed:
         raise QuiesceHalt(f"{kind} envelope SHA-256 mismatch")
     return payload
-
-
-def _protected_names(desired):
-    names = set()
-    for item in desired.get("protected_services", []):
-        name = item if isinstance(item, str) else item.get("container_name", "")
-        if not isinstance(name, str) or not name:
-            raise QuiesceHalt("invalid protected service declaration")
-        names.add(name)
-    names.add("restate")
-    return names
 
 
 def _is_exact_retired(name, labels):
@@ -97,12 +87,12 @@ def plan(inventory_envelope, desired_envelope, expected_inventory_sha256):
             raise QuiesceHalt("unsupported desired Compose project")
         desired_by_name[name] = item
 
-    protected = _protected_names(desired)
-    if protected & set(desired_by_name):
-        raise QuiesceHalt("protected service must not be active")
+    if desired.get("protected_services"):
+        raise QuiesceHalt("retired service must not remain protected")
+    if set(desired_by_name) & set().union(*RETIRED.values()):
+        raise QuiesceHalt("retired service must not be active")
 
     running_by_stack = {stack: [] for stack in STOP_ORDER}
-    protected_present = []
     seen = set()
     containers = inventory.get("containers", [])
     if not isinstance(containers, list):
@@ -118,15 +108,6 @@ def plan(inventory_envelope, desired_envelope, expected_inventory_sha256):
         if not isinstance(labels, dict):
             raise QuiesceHalt("invalid Compose labels")
         seen.add(name)
-
-        if name in protected:
-            if (
-                labels.get(COMPOSE_PROJECT) != "restate"
-                or labels.get(COMPOSE_SERVICE) != "restate"
-            ):
-                raise QuiesceHalt("protected container ownership mismatch")
-            protected_present.append(name)
-            continue
 
         desired_item = desired_by_name.get(name)
         if desired_item is None:
@@ -175,7 +156,6 @@ def plan(inventory_envelope, desired_envelope, expected_inventory_sha256):
         "inventory_sha256": inventory_sha256,
         "mode": "dry-run-only",
         "postcondition": "collect-fresh-read-only-inventory-before-any-K1-continuation",
-        "protected_containers": sorted(protected_present),
         "rollback": rollback,
         "stacks": stacks,
         "status": "ready-for-separate-hash-bound-approval" if actions else "nothing-to-quiesce",

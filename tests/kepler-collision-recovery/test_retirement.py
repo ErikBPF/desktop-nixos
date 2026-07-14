@@ -30,7 +30,7 @@ class RetirementPlannerTest(unittest.TestCase):
         for item in self.evidence["dispositions"]["containers"]:
             item["mount_retention"]["sha256"] = self.module.digest(item["mount_retention"]["envelope"])
         artifact = self.evidence["dispositions"]["artifacts"][0]
-        artifact["path_identity"]["sha256"] = self.module.digest(artifact["path_identity"]["envelope"])
+        artifact["path_evidence_sha256"] = self.evidence["proofs"]["retirement_paths"]["sha256"]
         self.inventory = {
             "schema": "kepler-collision-inventory-envelope-v1",
             "inventory_sha256": "a" * 64,
@@ -42,13 +42,18 @@ class RetirementPlannerTest(unittest.TestCase):
                 for family in self.evidence["retired"] for item in family["containers"]
             ], "volumes": [
                 {"name": "airflow_airflow_config", "labels": {"com.docker.compose.project": "airflow", "com.docker.compose.volume": "airflow_config"}},
-                {"name": "airflow_airflow_logs", "labels": {"com.docker.compose.project": "airflow", "com.docker.compose.volume": "airflow_logs"}}
+                {"name": "airflow_airflow_logs", "labels": {"com.docker.compose.project": "airflow", "com.docker.compose.volume": "airflow_logs"}},
+                {"name": "orchestration_restate_data", "labels": {"com.docker.compose.project": "orchestration", "com.docker.compose.volume": "restate_data"}}
             ], "images": [
                 {"id": "1" * 64, "digests": ["docker.io/gitlab/gitlab-ce@sha256:" + "a" * 64]},
-                {"id": "2" * 64, "digests": ["docker.io/apache/airflow@sha256:" + "b" * 64]}
+                {"id": "2" * 64, "digests": ["docker.io/apache/airflow@sha256:" + "b" * 64]},
+                {"id": "3" * 64, "digests": ["docker.restate.dev/restatedev/restate@sha256:" + "c" * 64]}
+                ,{"id": "3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b", "digests": [], "names": ["docker.io/kepler/f5-tts-server:pt-br"]}
             ], "references": {"images": {
                 "sha256:" + "1" * 64: ["gitlab", "gitlab-runner"],
-                "sha256:" + "2" * 64: ["airflow-init", "airflow-scheduler", "airflow-triggerer", "airflow-webserver", "airflow-worker"]
+                "sha256:" + "2" * 64: ["airflow-init", "airflow-scheduler", "airflow-triggerer", "airflow-webserver", "airflow-worker"],
+                "sha256:" + "3" * 64: ["restate"]
+                ,"sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b": ["f5-tts-server"]
             }}},
         }
         self.inventory["schema"] = "kepler-collision-inventory-v1"
@@ -66,6 +71,10 @@ class RetirementPlannerTest(unittest.TestCase):
             )}
             reference = family["family_evidence"]
             reference["envelope"]["resources_sha256"] = self.module.digest(resources)
+            reference["envelope"]["path_identities"] = [
+                {"path": path, "envelope_sha256": self.evidence["proofs"]["retirement_paths"]["sha256"]}
+                for path in family["paths"]
+            ]
             reference["sha256"] = self.module.digest(reference["envelope"])
 
     def plan(self):
@@ -84,7 +93,54 @@ class RetirementPlannerTest(unittest.TestCase):
         manifest = self.plan()
         self.assertEqual(manifest["retired_allowlist"], self.module.RETIRED_ALLOWLIST)
         self.assertEqual([x["name"] for x in manifest["disposition_resources"]],
-                         ["f5-tts-checkpoint", "ha-train-run", "minicpm-train", "uv_build"])
+                         ["f5-tts-image", "f5-tts-model-data", "f5-tts-server", "ha-train-run", "minicpm-train", "uv_build"])
+
+    def test_restate_is_exact_disposable_retired_family(self):
+        manifest = self.plan()
+        policy = manifest["retired_allowlist"]["restate"]
+        self.assertEqual(policy, {
+            "containers": ["restate"], "paths": [], "volumes": ["restate_data"],
+            "databases": [], "secrets": [],
+        })
+        restate = next(item for item in manifest["retired_resources"] if item["family"] == "restate")
+        self.assertEqual(restate["volumes"][0]["runtime_name"], "orchestration_restate_data")
+        self.assertNotIn("restate_data", [item["resource"] for item in manifest["actions"] if item["kind"] == "path"])
+
+    def test_already_absent_families_are_idempotent(self):
+        for family in self.evidence["retired"]:
+            family.update(containers=[], paths=[], volumes=[], databases=[], secrets=[], images=[])
+        self.inventory["inventory"]["containers"] = [
+            item for item in self.inventory["inventory"]["containers"]
+            if item["name"] in self.module.DISPOSITION_CONTAINERS
+        ]
+        self.inventory["inventory"]["volumes"] = []
+        self.inventory["inventory"]["images"] = [self.inventory["inventory"]["images"][-1]]
+        self.inventory["inventory"]["references"]["images"] = {"sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b": ["f5-tts-server"]}
+        self.rebind(self.inventory)
+        for family in self.evidence["retired"]:
+            resources = {key: family[key] for key in ("family", "containers", "paths", "volumes", "databases", "secrets", "images")}
+            reference = family["family_evidence"]
+            reference["envelope"].update(resources_sha256=self.module.digest(resources), path_identities=[])
+            reference["sha256"] = self.module.digest(reference["envelope"])
+        manifest = self.plan()
+        self.assertTrue(all(not any(item[field] for field in ("containers", "paths", "volumes", "databases", "secrets", "images")) for item in manifest["retired_resources"]))
+
+    def test_gitlab_image_only_inventory_is_selectable(self):
+        for family in self.evidence["retired"]:
+            family.update(containers=[], paths=[], volumes=[], databases=[], secrets=[])
+            if family["family"] != "gitlab":
+                family["images"] = []
+            resources = {key: family[key] for key in ("family", "containers", "paths", "volumes", "databases", "secrets", "images")}
+            reference = family["family_evidence"]
+            reference["envelope"].update(resources_sha256=self.module.digest(resources), path_identities=[])
+            reference["sha256"] = self.module.digest(reference["envelope"])
+        self.inventory["inventory"]["containers"] = [item for item in self.inventory["inventory"]["containers"] if item["name"] in self.module.DISPOSITION_CONTAINERS]
+        self.inventory["inventory"]["volumes"] = []
+        self.inventory["inventory"]["images"] = [self.inventory["inventory"]["images"][0], self.inventory["inventory"]["images"][-1]]
+        self.inventory["inventory"]["references"]["images"] = {"sha256:" + "1" * 64: [], "sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b": ["f5-tts-server"]}
+        self.rebind(self.inventory)
+        manifest = self.plan()
+        self.assertIn("sha256:" + "1" * 64, [action["resource"] for action in manifest["actions"]])
 
     def test_never_infers_retired_or_disposition_by_substring(self):
         bad = copy.deepcopy(self.evidence)
@@ -104,22 +160,29 @@ class RetirementPlannerTest(unittest.TestCase):
         ]:
             with self.subTest(field=field):
                 bad = copy.deepcopy(self.evidence)
-                bad["dispositions"]["containers"][0][field] = value
+                next(item for item in bad["dispositions"]["containers"] if item["name"] == "ha-train-run")[field] = value
                 with self.assertRaisesRegex(self.module.RetirementHalt, message):
                     self.module.plan(self.inventory, bad)
 
     def test_f5_requires_exact_discovered_path_and_hash_evidence(self):
         for field, value in [
             ("name", "f5-tts-checkpoint-old"),
-            ("path", "/fast/ai-models/f5-tts"),
-            ("sha256", "short"),
-            ("path_identity", {"sha256": "short", "envelope": {}}),
+            ("path", "/fast/ai-models"),
+            ("path_evidence_sha256", "short"),
         ]:
             with self.subTest(field=field):
                 bad = copy.deepcopy(self.evidence)
                 bad["dispositions"]["artifacts"][0][field] = value
                 with self.assertRaises(self.module.RetirementHalt):
                     self.module.plan(self.inventory, bad)
+
+    def test_f5_live_container_image_and_model_path_are_exact_without_refs_delete(self):
+        manifest = self.plan()
+        actions = manifest["actions"]
+        self.assertIn("06e6797be6509c8b36596e6914b8ae878e6abaf7f525e2a35836f0dc3ca7ea00", [item["command"][-1] for item in actions])
+        self.assertIn("sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b", [item["resource"] for item in actions])
+        self.assertIn("/fast/ai-models/f5-tts", [item["resource"] for item in actions])
+        self.assertNotIn("/fast/ai-models/refs", [item["resource"] for item in actions])
 
     def test_deterministic_value_free_hash_bound_dry_run(self):
         first = self.plan()
@@ -136,7 +199,7 @@ class RetirementPlannerTest(unittest.TestCase):
         for action in manifest["actions"]:
             self.assertIsInstance(action["command"], list)
             self.assertEqual(action["abort"], "before-command")
-            self.assertIn(action["rollback"], {"not-applicable-after-exact-delete", "restore-from-verified-sanitized-copy"})
+            self.assertIn(action["rollback"], {"not-applicable-after-exact-delete", "not-applicable-disposable-test"})
         rendered = json.dumps([action["command"] for action in manifest["actions"]]).lower()
         for forbidden in ["prune", "zfs destroy", "rm -r", "/fast/apps\"", "/fast\""]:
             self.assertNotIn(forbidden, rendered)
@@ -144,7 +207,7 @@ class RetirementPlannerTest(unittest.TestCase):
     def test_inventory_or_manifest_drift_rejected(self):
         envelope = self.module.envelope(self.plan())
         changed = copy.deepcopy(self.inventory)
-        changed["inventory"]["containers"][0]["state"] = "running"
+        changed["inventory"]["containers"][0]["state"] = "exited"
         with self.assertRaises(self.module.RetirementDrift):
             self.module.verify(changed, self.evidence, envelope)
         envelope["manifest"]["actions"] = []
@@ -169,8 +232,9 @@ class RetirementPlannerTest(unittest.TestCase):
         mutations = [
             lambda m: m.update(inventory_sha256="f" * 64),
             lambda m: m["retained_databases"].pop(),
-            lambda m: m["retained_databases"][0]["artifact"].update(sha256="f" * 64),
-            lambda m: m["retained_databases"][0]["restore"].update(artifact_sha256="f" * 64),
+            lambda m: m["cluster_artifact"].update(sha256="f" * 64),
+            lambda m: m["cluster_restore"].update(artifact_sha256="f" * 64),
+            lambda m: m["cluster_restore"].update(retained_databases=["app"]),
         ]
         for mutate in mutations:
             with self.subTest(mutate=mutate):
@@ -183,16 +247,18 @@ class RetirementPlannerTest(unittest.TestCase):
                     self.module.plan(self.inventory, bad)
 
     def test_preflight_requires_exact_declared_coverage_sets(self):
-        for field in [
-            "secret_artifacts", "external_revocations",
-        ]:
-            with self.subTest(field=field):
-                bad = copy.deepcopy(self.evidence)
-                reference = bad["proofs"]["retired_preflight"]
-                reference["envelope"][field] = []
-                reference["sha256"] = self.module.digest(reference["envelope"])
-                with self.assertRaises(self.module.RetirementHalt):
-                    self.module.plan(self.inventory, bad)
+        bad = copy.deepcopy(self.evidence)
+        reference = bad["proofs"]["retired_preflight"]
+        reference["envelope"]["secret_artifacts"] = ["OUTSIDE_ALLOWLIST"]
+        reference["sha256"] = self.module.digest(reference["envelope"])
+        with self.assertRaises(self.module.RetirementHalt):
+            self.module.plan(self.inventory, bad)
+        bad = copy.deepcopy(self.evidence)
+        reference = bad["proofs"]["retired_preflight"]
+        reference["envelope"].update(declared_secrets=["GITLAB_RUNNER_TOKEN"], secret_artifacts=["GITLAB_RUNNER_TOKEN"], external_credentials=["GITLAB_RUNNER_TOKEN"], external_revocations=[])
+        reference["sha256"] = self.module.digest(reference["envelope"])
+        with self.assertRaisesRegex(self.module.RetirementHalt, "external revocation"):
+            self.module.plan(self.inventory, bad)
 
     def test_family_evidence_is_hash_and_exact_resource_bound(self):
         bad = copy.deepcopy(self.evidence)
@@ -215,14 +281,9 @@ class RetirementPlannerTest(unittest.TestCase):
                 self.rebind(inventory, evidence)
                 with self.assertRaisesRegex(self.module.RetirementHalt, "duplicate inventory"):
                     self.module.plan(inventory, evidence)
-        bad = copy.deepcopy(self.evidence)
-        bad["proofs"]["retired_preflight"]["envelope"]["external_revocations"] = []
-        bad["proofs"]["retired_preflight"]["sha256"] = self.module.digest(bad["proofs"]["retired_preflight"]["envelope"])
-        with self.assertRaisesRegex(self.module.RetirementHalt, "external revocation"):
-            self.module.plan(self.inventory, bad)
     def test_inventory_internal_hash_is_validated_before_use(self):
         bad = copy.deepcopy(self.inventory)
-        bad["inventory"]["containers"][0]["state"] = "running"
+        bad["inventory"]["containers"][0]["state"] = "exited"
         with self.assertRaisesRegex(self.module.RetirementHalt, "inventory internal SHA-256 mismatch"):
             self.module.plan(bad, self.evidence)
 
@@ -232,7 +293,7 @@ class RetirementPlannerTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.RetirementHalt, "evidence hash mismatch"):
             self.module.plan(self.inventory, bad)
         bad = copy.deepcopy(self.evidence)
-        bad["dispositions"]["artifacts"][0]["path_identity"]["sha256"] = "f" * 64
+        bad["proofs"]["retirement_paths"]["sha256"] = "f" * 64
         with self.assertRaisesRegex(self.module.RetirementHalt, "evidence hash mismatch"):
             self.module.plan(self.inventory, bad)
 
@@ -261,13 +322,19 @@ class RetirementPlannerTest(unittest.TestCase):
     def test_f5_normalization_and_identity_binding(self):
         bad = copy.deepcopy(self.evidence)
         artifact = bad["dispositions"]["artifacts"][0]
-        artifact["path"] = artifact["path"].replace("/snapshots/", "/snapshots/../snapshots/")
+        artifact["path"] = "/fast/ai-models/../ai-models/f5-tts"
         with self.assertRaisesRegex(self.module.RetirementHalt, "normalized"):
             self.module.plan(self.inventory, bad)
         bad = copy.deepcopy(self.evidence)
         artifact = bad["dispositions"]["artifacts"][0]
-        artifact["path_identity"]["envelope"]["content_sha256"] = "8" * 64
-        artifact["path_identity"]["sha256"] = self.module.digest(artifact["path_identity"]["envelope"])
+        path_reference = bad["proofs"]["retirement_paths"]
+        path_reference["envelope"]["paths"][0]["existence"] = False
+        path_reference["sha256"] = self.module.digest(path_reference["envelope"])
+        artifact["path_evidence_sha256"] = path_reference["sha256"]
+        for family in bad["retired"]:
+            for item in family["family_evidence"]["envelope"].get("path_identities", []):
+                item["envelope_sha256"] = path_reference["sha256"]
+            family["family_evidence"]["sha256"] = self.module.digest(family["family_evidence"]["envelope"])
         with self.assertRaisesRegex(self.module.RetirementHalt, "path identity mismatch"):
             self.module.plan(self.inventory, bad)
 

@@ -17,15 +17,14 @@ HEX64 = re.compile(r"[0-9a-f]{64}")
 GIT_COMMIT = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 COMPOSE_PROJECT = "com.docker.compose.project"
 COMPOSE_SERVICE = "com.docker.compose.service"
-PROTECTED_NAMES = {"restate"}
-PROTECTED_VOLUMES = {"restate_data"}
-RETIRED_ALLOWLIST = {"gitlab", "airflow"}
+RETIRED_ALLOWLIST = {"gitlab", "airflow", "restate"}
 RETIRED_CONTAINERS = {
     "gitlab": {"gitlab", "gitlab-runner"},
     "airflow": {
         "airflow-webserver", "airflow-scheduler", "airflow-triggerer",
         "airflow-worker", "airflow-init",
     },
+    "restate": {"restate"},
 }
 LEGACY_PROJECT = "homelab"
 LEGACY_INFRA_WORKING_DIR = "/fast/homelab"
@@ -80,13 +79,6 @@ def _covered(source, datasets, volumes):
         source_path == mount or mount in source_path.parents
         for mount in datasets if str(mount).startswith("/")
     )
-
-
-def _protected_names(desired):
-    return {
-        item if isinstance(item, str) else item.get("container_name", item.get("service", ""))
-        for item in desired.get("protected_services", [])
-    } | PROTECTED_NAMES
 
 
 def _retired_family(container):
@@ -207,10 +199,11 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
     desired_by_name = {item["container_name"]: item for item in desired.get("services", [])}
     if len(desired_by_name) != len(desired.get("services", [])):
         raise ReconcileHalt("duplicate desired container_name")
-    protected_names = _protected_names(desired)
-    overlap = protected_names & set(desired_by_name)
+    if desired.get("protected_services"):
+        raise ReconcileHalt("retired service must not remain protected")
+    overlap = set().union(*RETIRED_CONTAINERS.values()) & set(desired_by_name)
     if overlap:
-        raise ReconcileHalt("protected service must not be active: " + ",".join(sorted(overlap)))
+        raise ReconcileHalt("retired service must not be active: " + ",".join(sorted(overlap)))
     datasets = [pathlib.PurePosixPath(item["mountpoint"]) for item in inventory.get("datasets", [])]
     volumes = {item["name"]: item.get("mountpoint", "") for item in inventory.get("volumes", [])}
     classifications = []
@@ -220,12 +213,9 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
     for container in inventory.get("containers", []):
         name = container.get("name", "")
         desired_item = desired_by_name.get(name)
-        protected = name in protected_names
         if desired_item is None:
             retired_family = _retired_family(container)
-            if protected:
-                action, classification, reason = "none", "protected", "restate-protected"
-            elif retired_family:
+            if retired_family:
                 action, classification, reason = "retire", "retired-wipe", "exact-retired-allowlist"
             else:
                 action, classification, reason = "halt", "halt", "unknown-owner"
@@ -274,11 +264,9 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             status = ("halt", "foreign-compose-service")
         elif diffs:
             status = ("halt", "declared-runtime-mismatch")
-        elif protected:
-            status = ("none", "restate-protected")
         else:
             status = ("migrate", "stopped-declared-collision")
-        classification = {"action": status[0], "classification": "halt" if status[0] == "halt" else ("protected" if protected else "declared-migrate"), "container": name, "field_diffs": diffs, "reason": status[1]}
+        classification = {"action": status[0], "classification": "halt" if status[0] == "halt" else "declared-migrate", "container": name, "field_diffs": diffs, "reason": status[1]}
         if legacy and legacy_mount_mapping:
             classification["migration_mounts"] = legacy_mount_mapping
         classifications.append(classification)
@@ -303,7 +291,6 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         "halt_reasons": halt_reasons,
         "inventory_sha256": inventory_envelope["inventory_sha256"],
         "persistent_coverage_gaps": sorted(coverage_gaps, key=canonical),
-        "protected": {"containers": sorted(protected_names), "volumes": sorted(PROTECTED_VOLUMES)},
         "provenance_gaps": sorted(provenance_gaps, key=canonical),
         "retired_allowlist": sorted(RETIRED_ALLOWLIST),
         "selected_retired": selected_retired,

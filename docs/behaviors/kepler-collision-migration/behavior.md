@@ -4,30 +4,31 @@
 
 ## Outcome
 
-Recover Kepler's declared rootless-Podman stacks from container-name collisions without improvising on the host. Current services become declarative again. Retired GitLab and Airflow state is erased. Restate remains an optional standalone Servarr stack.
+Recover Kepler's declared rootless-Podman stacks from container-name collisions without improvising on the host. Current services become declarative again. Retired GitLab, Airflow, and Restate state is erased. All three were disposable homelab tests.
 
 ## Scope
 
-The migration covers collisions affecting Kepler's declared `infra`, `ai-serving`, and `docs-search` stacks. It also removes retired GitLab and Airflow containers, images, cached service-specific layers, named volumes, bind-mounted datasets, database, and secrets.
+The migration covers collisions affecting Kepler's declared `infra`, `ai-serving`, and `docs-search` stacks. It also removes retired GitLab, Airflow, and Restate containers, images, cached service-specific layers, named volumes, bind-mounted datasets, database, and secrets.
 
-No broad Podman prune is allowed. Generic image layers still referenced by another container remain. Restate and `restate_data` are explicitly out of the wipe set. Discovery mutations remain frozen until Kepler recovery and reboot validation complete.
+No broad Podman prune is allowed. Generic image layers still referenced by another container remain. Restate and `restate_data` are exact allowlisted wipe targets; parent datasets and unrelated resources remain protected. Discovery mutations remain frozen until Kepler recovery and reboot validation complete.
 
 ## Required behavior
 
 1. Produce a read-only inventory of every Kepler container, Compose label, state, mount, image, network, and owning stack.
 2. Classify every name collision before mutation:
-   - `retired-wipe`: GitLab or Airflow only.
+   - `retired-wipe`: GitLab, Airflow, or Restate only.
    - `declared-migrate`: a stopped container belonging to `infra`, `ai-serving`, or `docs-search`, with mounts matching the current Compose definition. The known legacy `homelab` project is accepted only for stopped `infra` containers when its service, working-directory, config-file, mount, network, image, and source provenance all match the reviewed legacy contract; every other foreign project halts.
    - `halt`: running, unlabeled, foreign-project, unknown-owner, or mount-mismatched container.
 3. Reject an inventory containing any `halt` entry. Never infer ownership from a container name alone.
    A running declared collision may be stopped only by a separate, value-free,
    hash-bound quiesce manifest naming the exact Compose stacks. Re-inventory
    after the approved stop; read-only inventory never stops a workload itself.
-4. Before retirement, quiesce shared PostgreSQL and create restore-tested logical backups of every retained database. Fully wipe `retired-wipe` entries before creating the retained-state snapshot. No recovery snapshot is required for GitLab or Airflow. The wipe includes their containers, service-specific images, named volumes, bind mounts, Airflow database, and secrets. Restate is never selected by this rule.
+4. Before retirement, quiesce shared PostgreSQL and create restore-tested logical backups of every retained database. Fully wipe `retired-wipe` entries before creating the retained-state snapshot. No recovery snapshot is required for GitLab, Airflow, or Restate. The wipe includes their exact containers, service-specific unshared images, named volumes, bind mounts, Airflow database, and secrets.
    - GitLab bind mounts: `/fast/apps/gitlab/config`, `/fast/apps/gitlab/logs`, `/fast/apps/gitlab-runner`, and `/bulk/git`.
    - Airflow bind mounts: `/fast/apps/airflow/dags` and `/fast/apps/airflow/plugins`.
    - Airflow logical volumes: `airflow_logs` and `airflow_config`, resolved from Compose labels rather than an assumed runtime prefix.
    - Airflow database: `airflow` only.
+   - Restate logical volume: `restate_data`, resolved from Compose labels rather than an assumed runtime prefix.
    - Secrets: `GITLAB_RUNNER_TOKEN`, `POSTGRES_DB_AIRFLOW`, `AIRFLOW_FERNET_KEY`, `AIRFLOW_SECRET_KEY`, and `AIRFLOW_ADMIN_PASSWORD`.
 5. Remove retired secrets from current SecretSpec, SOPS, OpenBao, generated env, and runtime; revoke externally valid credentials. GitLab and Airflow were disposable homelab tests, so K1 does not inventory historical copies, sanitize mixed backups, or rewrite encrypted Git history.
 6. Stop dependent workloads and make remaining state application-consistent: checkpoint Postgres, force a Redis persistence save, and confirm Qdrant and MinIO writes are idle.
@@ -56,4 +57,4 @@ The live execution is blocked until Kepler SecretSpec profiles, Compose/declarat
 
 ## Completion
 
-Recovery is complete only when all declared stacks pass their gates before and after reboot, no name collisions remain, current GitLab/Airflow resources are absent, Restate state remains, retained-state protections exist, Discovery routes work, and a second dry run reports no pending mutation. Cleanup remains a separate approval.
+Recovery is complete only when all declared stacks pass their gates before and after reboot, no name collisions remain, current GitLab/Airflow/Restate resources are absent, retained-state protections exist, Discovery routes work, and a second dry run reports no pending mutation. Cleanup remains a separate approval.
