@@ -20,7 +20,13 @@ jobs_root="$backup_base/jobs"
 umask 077
 
 write_status() {
-  printf '{"request_sha256":"%s","state":"%s"}\n' "$request_sha" "$1" >"$status_file.tmp"
+  state=$1
+  reason=${2:-}
+  if [[ -n $reason ]]; then
+    printf '{"reason":"%s","request_sha256":"%s","state":"%s"}\n' "$reason" "$request_sha" "$state" >"$status_file.tmp"
+  else
+    printf '{"request_sha256":"%s","state":"%s"}\n' "$request_sha" "$state" >"$status_file.tmp"
+  fi
   chmod 0600 "$status_file.tmp"
   mv "$status_file.tmp" "$status_file"
 }
@@ -115,13 +121,15 @@ PY
     install -d -m 0700 "$jobs_root"
     exec 9>"$jobs_root/.execution.lock"
     if ! flock -n 9; then
-      write_status failed
+      write_status failed execution-locked
       exit 2
     fi
     write_status running
     rm -f -- "$result_tmp"
+    error_tmp="$root/error.tmp"
+    rm -f -- "$error_tmp"
     evidence_command="kepler-collision-${resource}-evidence"
-    if "$evidence_command" "$mode" "$inventory_sha" "$container_id" >"$result_tmp" 2>/dev/null \
+    if "$evidence_command" "$mode" "$inventory_sha" "$container_id" >"$result_tmp" 2>"$error_tmp" \
       && python3 - "$result_tmp" "$inventory_sha" "$container_id" <<'PY'
 import json
 import sys
@@ -131,13 +139,22 @@ if result.get("inventory_sha256") != sys.argv[2] or result.get("source_container
     raise SystemExit(2)
 PY
     then
+      rm -f -- "$error_tmp"
       chmod 0600 "$result_tmp"
       mv "$result_tmp" "$result_file"
       write_status passed
     else
       exit_code=$?
+      reason=executor-failed
+      grep -Fq 'source container ID drift' "$error_tmp" && reason=source-drift
+      grep -Fq 'exact source container is not' "$error_tmp" && reason=source-state-drift
+      grep -Fq 'source image identity unavailable' "$error_tmp" && reason=image-identity-unavailable
+      grep -Fq 'exact Airflow inventory unavailable' "$error_tmp" && reason=database-inventory-mismatch
+      grep -Fq 'restored logical hash mismatch' "$error_tmp" && reason=restore-mismatch
+      grep -Fq 'restored count mismatch' "$error_tmp" && reason=restore-count-mismatch
       rm -f -- "$result_tmp" "$result_file"
-      write_status failed
+      rm -f -- "$error_tmp"
+      write_status failed "$reason"
       exit "$exit_code"
     fi
     ;;

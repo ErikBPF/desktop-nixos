@@ -76,6 +76,7 @@ SH
   run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" status "$REQUEST_SHA"
   [ "$status" -eq 0 ]
   [[ "$output" == *'"state":"failed"'* ]]
+  [[ "$output" == *'"reason":"executor-failed"'* ]]
   [[ "$output" != *must-not-escape* ]]
   [ ! -e "$KEPLER_RECOVERY_TEST_ROOT/jobs/$REQUEST_SHA/result.json" ]
 }
