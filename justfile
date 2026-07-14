@@ -1293,6 +1293,24 @@ kepler-recovery-retirement-plan evidence=".gsd/evidence/kepler-k1/retirement-evi
     printf 'retirement_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
 
 # Execute one reviewed retirement manifest after a fresh inventory hash match.
+kepler-recovery-retirement-remote-verify manifest_sha256 inventory_sha256 manifest=".gsd/evidence/kepler-k1/retirement-manifest.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "{{manifest_sha256}}" =~ ^[0-9a-f]{64}$ && "{{inventory_sha256}}" =~ ^[0-9a-f]{64}$ ]] || {
+      echo "invalid retirement binding" >&2
+      exit 2
+    }
+    python3 - "{{manifest}}" "{{manifest_sha256}}" <<'PY'
+    import json, pathlib, sys
+    wrapper = json.loads(pathlib.Path(sys.argv[1]).read_text())
+    if wrapper.get("manifest_sha256") != sys.argv[2]:
+        raise SystemExit("retirement manifest SHA-256 mismatch")
+    PY
+    ssh -p 2222 erik@{{ip_kepler}} \
+      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --manifest "$tmp" --manifest-sha256 "{{manifest_sha256}}" --inventory-sha256 "{{inventory_sha256}}"' \
+      < "{{manifest}}"
+
+# Execute one reviewed retirement manifest after a fresh inventory hash match.
 kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".gsd/evidence/kepler-k1/retirement-manifest.json":
     #!/usr/bin/env bash
     set -euo pipefail

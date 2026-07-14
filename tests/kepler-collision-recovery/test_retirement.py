@@ -86,6 +86,14 @@ class RetirementPlannerTest(unittest.TestCase):
         )
         self.assertIn('"{{manifest_sha256}}" =~ ^[0-9a-f]{64}$', recipe)
 
+    def test_remote_verify_omits_execute_flag(self):
+        recipe = JUSTFILE.read_text()
+        start = recipe.index("kepler-recovery-retirement-remote-verify ")
+        end = recipe.index("\n# Execute one reviewed retirement manifest", start)
+        remote_verify = recipe[start:end]
+        self.assertIn("kepler-collision-recovery-executor --manifest", remote_verify)
+        self.assertNotIn("--execute", remote_verify)
+
     def plan(self):
         return self.module.plan(self.inventory, self.evidence)
 
