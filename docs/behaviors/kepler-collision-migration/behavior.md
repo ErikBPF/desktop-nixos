@@ -17,9 +17,12 @@ No broad Podman prune is allowed. Generic image layers still referenced by anoth
 1. Produce a read-only inventory of every Kepler container, Compose label, state, mount, image, network, and owning stack.
 2. Classify every name collision before mutation:
    - `retired-wipe`: GitLab or Airflow only.
-   - `declared-migrate`: a stopped container belonging to `infra`, `ai-serving`, or `docs-search`, with mounts matching the current Compose definition.
+   - `declared-migrate`: a stopped container belonging to `infra`, `ai-serving`, or `docs-search`, with mounts matching the current Compose definition. The known legacy `homelab` project is accepted only for stopped `infra` containers when its service, working-directory, config-file, mount, network, image, and source provenance all match the reviewed legacy contract; every other foreign project halts.
    - `halt`: running, unlabeled, foreign-project, unknown-owner, or mount-mismatched container.
 3. Reject an inventory containing any `halt` entry. Never infer ownership from a container name alone.
+   A running declared collision may be stopped only by a separate, value-free,
+   hash-bound quiesce manifest naming the exact Compose stacks. Re-inventory
+   after the approved stop; read-only inventory never stops a workload itself.
 4. Before retirement, quiesce shared PostgreSQL and create restore-tested logical backups of every retained database. Fully wipe `retired-wipe` entries before creating the retained-state snapshot. No recovery snapshot is required for GitLab or Airflow. The wipe includes their containers, service-specific images, named volumes, bind mounts, Airflow database, and secrets. Restate is never selected by this rule.
    - GitLab bind mounts: `/fast/apps/gitlab/config`, `/fast/apps/gitlab/logs`, `/fast/apps/gitlab-runner`, and `/bulk/git`.
    - Airflow bind mounts: `/fast/apps/airflow/dags` and `/fast/apps/airflow/plugins`.

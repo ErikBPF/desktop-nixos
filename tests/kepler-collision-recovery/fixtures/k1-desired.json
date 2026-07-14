@@ -1,22 +1,20 @@
 {
-  "desired_sha256": "e570f622b6f44a104afa33b0092e568c272cf0b88fadea90e54229d51bffa190",
-  "service_count": 16,
+  "desired_sha256": "a5a5685d0deb5973676ba049c3be51567542e603d7e64dc1329bf162ea364ecc",
+  "service_count": 14,
   "services": [
-    ["ai-serving", "edge-tts-openai", "edge-tts-openai", "local-provenance-required"],
-    ["ai-serving", "f5-tts-server", "f5-tts-server", "local-provenance-required"],
-    ["ai-serving", "faster-whisper-openai", "faster-whisper-openai", "local-provenance-required"],
+    ["ai-serving", "edge-tts-openai", "edge-tts-openai", "local-provenance-recorded"],
+    ["ai-serving", "f5-tts-server", "f5-tts-server", "local-provenance-recorded"],
+    ["ai-serving", "faster-whisper-openai", "faster-whisper-openai", "local-provenance-recorded"],
     ["ai-serving", "gemma-vl", "gemma-vl", "immutable-registry-digest"],
-    ["ai-serving", "nvidia-gpu-exporter", "nvidia-gpu-exporter", "registry-digest-required"],
-    ["ai-serving", "piper-openai", "piper-openai", "local-provenance-required"],
-    ["ai-serving", "piper-wyoming", "piper-wyoming", "registry-digest-required"],
-    ["ai-serving", "slm-bge-m3", "slm-bge-m3", "registry-digest-required"],
-    ["ai-serving", "slm-bge-reranker", "slm-bge-reranker", "registry-digest-required"],
-    ["docs-search", "docs-indexer", "docs-search-docs-indexer-1", "local-provenance-required"],
-    ["docs-search", "docs-search", "docs-search", "local-provenance-required"],
-    ["infra", "minio", "minio", "registry-digest-required"],
-    ["infra", "postgres", "postgres", "registry-digest-required"],
-    ["infra", "qdrant", "qdrant", "registry-digest-required"],
-    ["infra", "redis", "redis", "registry-digest-required"],
-    ["orchestration", "restate", "restate", "registry-digest-required"]
+    ["ai-serving", "nvidia-gpu-exporter", "nvidia-gpu-exporter", "immutable-registry-digest"],
+    ["ai-serving", "piper-openai", "piper-openai", "local-provenance-recorded"],
+    ["ai-serving", "piper-wyoming", "piper-wyoming", "immutable-registry-digest"],
+    ["ai-serving", "slm-bge-m3", "slm-bge-m3", "immutable-registry-digest"],
+    ["ai-serving", "slm-bge-reranker", "slm-bge-reranker", "immutable-registry-digest"],
+    ["docs-search", "docs-search", "docs-search", "local-provenance-recorded"],
+    ["infra", "minio", "minio", "immutable-registry-digest"],
+    ["infra", "postgres", "postgres", "immutable-registry-digest"],
+    ["infra", "qdrant", "qdrant", "immutable-registry-digest"],
+    ["infra", "redis", "redis", "immutable-registry-digest"]
   ]
 }

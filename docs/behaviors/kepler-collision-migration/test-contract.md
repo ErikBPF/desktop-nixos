@@ -16,6 +16,7 @@ The test suite must cover:
 | Running declared container | `halt` | No mutation |
 | Stopped container with missing Compose labels | `halt` | No mutation |
 | Foreign Compose project | `halt` | No mutation |
+| Stopped legacy `homelab` infra container with exact provenance labels, mounts, networks, and image | `declared-migrate` | Quarantine only after approval |
 | Declared name with mount mismatch | `halt` | No mutation |
 | GitLab container, bind mounts, volumes, and image | `retired-wipe` | Exact allowlisted wipe |
 | Airflow containers, database, bind mounts, volumes, and image | `retired-wipe` | Exact allowlisted wipe |
@@ -26,6 +27,9 @@ The test suite must cover:
 ## Static assertions
 
 - The retired wipe allowlist contains only GitLab and Airflow resources.
+- Legacy `homelab` adoption is limited to stopped `infra` containers with exact
+  service, working-directory, config-file, mount, network, image, and source
+  provenance; any missing or mismatched field halts.
 - The protected list contains Restate and `restate_data`.
 - GitLab and Airflow paths, logical volumes, database, secrets, and images must match the behavior allowlist exactly; parent directories are forbidden wipe targets.
 - Declared migration order is exactly `infra`, `ai-serving`, `docs-search`.

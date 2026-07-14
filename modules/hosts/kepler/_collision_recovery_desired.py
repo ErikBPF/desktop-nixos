@@ -12,14 +12,24 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "1805e1d5c40e0281660088732823dad9a138bd64"
-STACKS = ("infra", "ai-serving", "docs-search", "orchestration")
+SERVARR_COMMIT = "3fdcec6e9db758527d41abba049ba46fca1ba96f"
+MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
+PROTECTED_STACKS = ("orchestration",)
+STACKS = MIGRATION_STACKS + PROTECTED_STACKS
 VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(?::-|:\?)[^}]*)?\}")
+DOTENV_NAME = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=", re.MULTILINE)
 DUMMY_PREFIX = "__K1_DUMMY_"
 REQUIRED_LABELS = (
     "com.docker.compose.project",
     "com.docker.compose.service",
 )
+REVIEWED_NONSECRET_PATHS = {
+    # Kepler's NixOS hardware module owns these mountpoints.  Do not consult
+    # the production dotenv while producing a value-free recovery plan.
+    "FAST_POOL": "/fast",
+    "BULK_POOL": "/bulk",
+    "MODELS_PATH": "/fast/models",
+}
 
 
 class DesiredHalt(Exception):
@@ -48,8 +58,8 @@ def _variables(files):
 def _dummy_environment(names):
     environment = {"PATH": os.environ.get("PATH", "")}
     for name in names:
-        value = f"{DUMMY_PREFIX}{name}__"
-        if name.endswith(("_POOL", "_PATH", "_DIR")):
+        value = REVIEWED_NONSECRET_PATHS.get(name, f"{DUMMY_PREFIX}{name}__")
+        if name.endswith(("_POOL", "_PATH", "_DIR")) and name not in REVIEWED_NONSECRET_PATHS:
             value = "/" + value
         environment[name] = value
     return environment
@@ -84,13 +94,46 @@ def _mount(mount, root):
     return item
 
 
-def _digest_status(image):
+def _digest_status(image, local_images):
     if re.search(r"@sha256:[0-9a-f]{64}$", image):
         return "immutable-registry-digest"
     repository = image.split(":", 1)[0]
     if repository.startswith("kepler/"):
+        if image in local_images:
+            return "local-provenance-recorded"
         return "local-provenance-required"
     return "registry-digest-required"
+
+
+def _model_artifacts(mounts, artifacts):
+    sources = {mount["source"] for mount in mounts}
+    return sorted(name for name, artifact in artifacts.items() if artifact["mount"] in sources)
+
+
+def _service_projection(root, stack, project, service_name, service, provenance):
+    image = service.get("image", "")
+    mounts = sorted(
+        (_mount(mount, root) for mount in service.get("volumes", [])),
+        key=lambda item: (item["source"], item["target"], item["type"]),
+    )
+    model_artifacts = _model_artifacts(mounts, provenance["model_artifacts"])
+    return {
+        "container_name": service.get("container_name", f"{stack}-{service_name}-1"),
+        "digest_status": _digest_status(image, provenance["local_images"]),
+        "image": image,
+        "provenance_status": {
+            "local_image": image if image in provenance["local_images"] else None,
+            "model_artifacts": model_artifacts,
+        },
+        "mounts": mounts,
+        "networks": sorted(service.get("networks", {})),
+        "project": project,
+        "required_labels": {
+            REQUIRED_LABELS[0]: project,
+            REQUIRED_LABELS[1]: service_name,
+        },
+        "service": service_name,
+    }
 
 
 def _compose_config(root, stack, environment):
@@ -111,6 +154,8 @@ def generate(root, expected_commit=SERVARR_COMMIT):
     root = pathlib.Path(root).resolve()
     files = [root / f"{stack}.compose.yml" for stack in STACKS]
     files.append(root / "secretspec.toml")
+    files.append(root / ".env.example")
+    files.append(root / "provenance.json")
     if any(not path.is_file() for path in files):
         raise DesiredHalt("required Kepler Compose or SecretSpec file missing")
     commit = _commit(root)
@@ -118,6 +163,9 @@ def generate(root, expected_commit=SERVARR_COMMIT):
         raise DesiredHalt(f"Servarr revision drift: expected {expected_commit}, got {commit}")
     with (root / "secretspec.toml").open("rb") as handle:
         secretspec = tomllib.load(handle)
+    provenance = json.loads((root / "provenance.json").read_text(encoding="utf-8"))
+    if provenance.get("schema") != "kepler-k1-provenance-v1":
+        raise DesiredHalt("Kepler provenance schema drifted")
     if secretspec.get("project", {}).get("name") != "kepler":
         raise DesiredHalt("SecretSpec project must be kepler")
     expected_profiles = {"default", *STACKS}
@@ -126,28 +174,32 @@ def generate(root, expected_commit=SERVARR_COMMIT):
 
     global VARIABLE_NAMES
     VARIABLE_NAMES = _variables(files)
+    public_names = set(DOTENV_NAME.findall((root / ".env.example").read_text(encoding="utf-8")))
+    missing_paths = set(REVIEWED_NONSECRET_PATHS) - public_names
+    if missing_paths:
+        raise DesiredHalt(
+            "public environment contract omitted reviewed path names: "
+            + ", ".join(sorted(missing_paths))
+        )
     environment = _dummy_environment(VARIABLE_NAMES)
     services = []
+    protected_services = []
+    declared_optional_services = []
     for stack in STACKS:
         config = _compose_config(root, stack, environment)
+        project = config.get("name")
+        if project != stack:
+            raise DesiredHalt(
+                f"Compose project identity drift for {stack}: rendered {project!r}"
+            )
         for service_name, service in sorted(config.get("services", {}).items()):
-            image = service.get("image", "")
-            services.append({
-                "container_name": service.get("container_name", f"{stack}-{service_name}-1"),
-                "digest_status": _digest_status(image),
-                "image": image,
-                "mounts": sorted(
-                    (_mount(mount, root) for mount in service.get("volumes", [])),
-                    key=lambda item: (item["source"], item["target"], item["type"]),
-                ),
-                "networks": sorted(service.get("networks", {})),
-                "project": stack,
-                "required_labels": {
-                    REQUIRED_LABELS[0]: stack,
-                    REQUIRED_LABELS[1]: service_name,
-                },
-                "service": service_name,
-            })
+            item = _service_projection(root, stack, project, service_name, service, provenance)
+            if stack in PROTECTED_STACKS:
+                protected_services.append(item)
+            elif service_name == "docs-indexer":
+                declared_optional_services.append(item)
+            else:
+                services.append(item)
     desired = {
         "schema": "kepler-collision-desired-v1",
         "servarr_commit": commit,
@@ -156,8 +208,12 @@ def generate(root, expected_commit=SERVARR_COMMIT):
             path.name: hashlib.sha256(path.read_bytes()).hexdigest()
             for path in sorted(files)
         },
-        "stacks": list(STACKS),
+        "stacks": list(MIGRATION_STACKS),
         "services": sorted(services, key=lambda item: (item["project"], item["service"])),
+        "protected_services": protected_services,
+        "declared_optional_services": declared_optional_services,
+        "local_images": provenance["local_images"],
+        "model_artifacts": provenance["model_artifacts"],
     }
     rendered = canonical(desired)
     if DUMMY_PREFIX.encode() in rendered:

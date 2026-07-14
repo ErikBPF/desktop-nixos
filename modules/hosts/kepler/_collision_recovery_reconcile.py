@@ -20,6 +20,9 @@ COMPOSE_SERVICE = "com.docker.compose.service"
 PROTECTED_NAMES = {"restate"}
 PROTECTED_VOLUMES = {"restate_data"}
 RETIRED_ALLOWLIST = {"gitlab", "airflow"}
+LEGACY_PROJECT = "homelab"
+LEGACY_INFRA_WORKING_DIR = "/fast/homelab"
+LEGACY_INFRA_CONFIG_FILES = ["infra.yml"]
 
 
 def canonical(value):
@@ -71,6 +74,36 @@ def _covered(source, datasets, volumes):
     )
 
 
+def _protected_names(desired):
+    return {
+        item if isinstance(item, str) else item.get("container_name", item.get("service", ""))
+        for item in desired.get("protected_services", [])
+    } | PROTECTED_NAMES
+
+
+def _provenance_reason(desired, desired_item, container):
+    status = desired_item.get("provenance_status", desired_item.get("digest_status", ""))
+    if status == "immutable-registry-digest":
+        match = re.search(r"@sha256:([0-9a-f]{64})$", desired_item.get("image", ""))
+        actual = container.get("image_digest", "").removeprefix("sha256:")
+        expected_name = desired_item.get("image", "").split("@", 1)[0]
+        if not match or actual != match.group(1) or container.get("image") != expected_name:
+            return "immutable-registry-digest-required"
+        return None
+    if status == "local-provenance-recorded":
+        image = desired_item.get("image", "")
+        record = desired.get("local_images", {}).get(image, {})
+        actual_digest = container.get("image_digest", "")
+        if container.get("image") != image or record.get("observed_image_digest") != actual_digest:
+            return "local-image-or-model-provenance-required"
+        for artifact_name in desired_item.get("model_artifacts", []):
+            artifact = desired.get("model_artifacts", {}).get(artifact_name, {})
+            if artifact.get("status") != "identity-recorded" or not HEX64.fullmatch(str(artifact.get("sha256", ""))):
+                return "local-image-or-model-provenance-required"
+        return None
+    return "local-image-or-model-provenance-required" if status == "local-provenance-required" else "immutable-registry-digest-required"
+
+
 def reconcile(inventory_envelope, desired_envelope, source_commits):
     inventory = _require_envelope(inventory_envelope, "inventory")
     desired = _require_envelope(desired_envelope, "desired")
@@ -82,6 +115,10 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
     desired_by_name = {item["container_name"]: item for item in desired.get("services", [])}
     if len(desired_by_name) != len(desired.get("services", [])):
         raise ReconcileHalt("duplicate desired container_name")
+    protected_names = _protected_names(desired)
+    overlap = protected_names & set(desired_by_name)
+    if overlap:
+        raise ReconcileHalt("protected service must not be active: " + ",".join(sorted(overlap)))
     datasets = [pathlib.PurePosixPath(item["mountpoint"]) for item in inventory.get("datasets", [])]
     volumes = {item["name"]: item.get("mountpoint", "") for item in inventory.get("volumes", [])}
     classifications = []
@@ -91,7 +128,7 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
     for container in inventory.get("containers", []):
         name = container.get("name", "")
         desired_item = desired_by_name.get(name)
-        protected = name in PROTECTED_NAMES
+        protected = name in protected_names
         if desired_item is None:
             classifications.append({
                 "action": "none", "classification": "protected" if protected else "noncollision",
@@ -111,10 +148,25 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         }
         diffs = _diff(expected, actual)
         state = container.get("state", "")
+        provenance_reason = _provenance_reason(desired, desired_item, container)
+        legacy = actual["labels"][COMPOSE_PROJECT] == LEGACY_PROJECT
+        legacy_working_dir = container.get("labels", {}).get("com.docker.compose.project.working_dir", "")
+        legacy_config_files = container.get("labels", {}).get("com.docker.compose.project.config_files", "")
         if state in {"running", "paused", "restarting"}:
             status = ("halt", "running-collision")
         elif not actual["labels"][COMPOSE_PROJECT] or not actual["labels"][COMPOSE_SERVICE]:
             status = ("halt", "missing-compose-labels")
+        elif legacy and (
+            desired_item["project"] != "infra"
+            or actual["labels"][COMPOSE_SERVICE] != desired_item["service"]
+            or legacy_working_dir != LEGACY_INFRA_WORKING_DIR
+            or [legacy_config_files] != LEGACY_INFRA_CONFIG_FILES
+            or any(item["field"] != "labels" for item in diffs)
+            or provenance_reason
+        ):
+            status = ("halt", "legacy-runtime-mismatch")
+        elif legacy:
+            status = ("migrate", "legacy-declared-migrate")
         elif actual["labels"][COMPOSE_PROJECT] != desired_item["project"]:
             status = ("halt", "foreign-compose-project")
         elif actual["labels"][COMPOSE_SERVICE] != desired_item["service"]:
@@ -127,11 +179,8 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             status = ("migrate", "stopped-declared-collision")
         classifications.append({"action": status[0], "classification": "halt" if status[0] == "halt" else ("protected" if protected else "declared-migrate"), "container": name, "field_diffs": diffs, "reason": status[1]})
 
-        digest_status = desired_item.get("digest_status", "")
-        if digest_status == "local-provenance-required":
-            provenance_gaps.append({"container": name, "reason": "local-image-or-model-provenance-required"})
-        elif digest_status != "immutable-registry-digest" or not container.get("image_digest"):
-            provenance_gaps.append({"container": name, "reason": "immutable-registry-digest-required"})
+        if provenance_reason:
+            provenance_gaps.append({"container": name, "reason": provenance_reason})
         for mount in desired_item.get("mounts", []):
             source = mount.get("source", "")
             if source and not _covered(source, datasets, volumes):
@@ -148,7 +197,7 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         "halt_reasons": halt_reasons,
         "inventory_sha256": inventory_envelope["inventory_sha256"],
         "persistent_coverage_gaps": sorted(coverage_gaps, key=canonical),
-        "protected": {"containers": sorted(PROTECTED_NAMES), "volumes": sorted(PROTECTED_VOLUMES)},
+        "protected": {"containers": sorted(protected_names), "volumes": sorted(PROTECTED_VOLUMES)},
         "provenance_gaps": sorted(provenance_gaps, key=canonical),
         "retired_allowlist": sorted(RETIRED_ALLOWLIST),
         "selected_retired": selected_retired,

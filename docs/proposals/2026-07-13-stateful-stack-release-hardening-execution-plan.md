@@ -174,7 +174,8 @@ No fixture cleanup is authorized.
    image, mount, network, secret declaration, backup, snapshot, and collision.
 2. Classify only exact GitLab/Airflow resources as `retired-wipe`; protect
    Restate; halt on running, unlabeled, foreign, unknown, or mount-mismatched
-   collisions.
+   collisions. The reviewed stopped legacy `homelab` infra project may be
+   adopted only with exact provenance as defined by the behavior contract.
 3. Pin registry images by digest. Record immutable local image and model
    identities. Halt any slice whose desired identity is not reproducible.
 4. Quiesce shared PostgreSQL and create restore-tested logical backups of all
@@ -188,6 +189,8 @@ No fixture cleanup is authorized.
 7. Render a value-free, immutable action manifest with exact resources,
    commands, rollback boundaries, and SHA-256. Execution requires user approval
    naming the manifest hash and resources; any live drift invalidates it.
+   Running collisions require a separate exact quiesce manifest and a fresh
+   inventory before the K1 manifest can become ready.
 
 ### K2 — exact GitLab/Airflow retirement
 
