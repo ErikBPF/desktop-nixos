@@ -81,27 +81,59 @@ def _protected_names(desired):
     } | PROTECTED_NAMES
 
 
-def _provenance_reason(desired, desired_item, container):
-    status = desired_item.get("provenance_status", desired_item.get("digest_status", ""))
+def _normalized_image_ref(image):
+    image = image.split("@", 1)[0]
+    if image.startswith("docker.io/library/"):
+        return image.removeprefix("docker.io/library/")
+    if image.startswith("docker.io/kepler/"):
+        return image.removeprefix("docker.io/")
+    return image
+
+
+def _provenance_reason(desired, desired_item, container, validate_runtime=True):
+    status = desired_item.get("digest_status", "")
+    provenance = desired_item.get("provenance_status", {})
     if status == "immutable-registry-digest":
         match = re.search(r"@sha256:([0-9a-f]{64})$", desired_item.get("image", ""))
         actual = container.get("image_digest", "").removeprefix("sha256:")
-        expected_name = desired_item.get("image", "").split("@", 1)[0]
-        if not match or actual != match.group(1) or container.get("image") != expected_name:
+        expected_name = _normalized_image_ref(desired_item.get("image", ""))
+        if not match or (validate_runtime and (
+            actual != match.group(1)
+            or _normalized_image_ref(container.get("image", "")) != expected_name
+        )):
             return "immutable-registry-digest-required"
         return None
     if status == "local-provenance-recorded":
-        image = desired_item.get("image", "")
-        record = desired.get("local_images", {}).get(image, {})
+        image_key = provenance.get("local_image", "") if isinstance(provenance, dict) else ""
+        record = desired.get("local_images", {}).get(image_key, {})
         actual_digest = container.get("image_digest", "")
-        if container.get("image") != image or record.get("observed_image_digest") != actual_digest:
+        expected_image = record.get("image", image_key)
+        if (
+            not image_key
+            or _normalized_image_ref(desired_item.get("image", "")) != _normalized_image_ref(expected_image)
+            or not HEX64.fullmatch(str(record.get("observed_image_digest", "")).removeprefix("sha256:"))
+            or (validate_runtime and (
+                _normalized_image_ref(container.get("image", "")) != _normalized_image_ref(expected_image)
+                or record.get("observed_image_digest") != actual_digest
+            ))
+        ):
             return "local-image-or-model-provenance-required"
-        for artifact_name in desired_item.get("model_artifacts", []):
+        artifact_names = provenance.get("model_artifacts", []) if isinstance(provenance, dict) else []
+        for artifact_name in artifact_names:
             artifact = desired.get("model_artifacts", {}).get(artifact_name, {})
             if artifact.get("status") != "identity-recorded" or not HEX64.fullmatch(str(artifact.get("sha256", ""))):
                 return "local-image-or-model-provenance-required"
         return None
     return "local-image-or-model-provenance-required" if status == "local-provenance-required" else "immutable-registry-digest-required"
+
+
+def _legacy_image_matches(desired, desired_item, container):
+    allowed = desired.get("legacy_images", {}).get(desired_item.get("container_name", ""), {})
+    return (
+        set(allowed) == {"image", "image_digest"}
+        and _normalized_image_ref(container.get("image", "")) == _normalized_image_ref(allowed["image"])
+        and container.get("image_digest", "") == allowed["image_digest"]
+    )
 
 
 def reconcile(inventory_envelope, desired_envelope, source_commits):
@@ -148,8 +180,8 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         }
         diffs = _diff(expected, actual)
         state = container.get("state", "")
-        provenance_reason = _provenance_reason(desired, desired_item, container)
         legacy = actual["labels"][COMPOSE_PROJECT] == LEGACY_PROJECT
+        provenance_reason = _provenance_reason(desired, desired_item, container, validate_runtime=not legacy)
         legacy_working_dir = container.get("labels", {}).get("com.docker.compose.project.working_dir", "")
         legacy_config_files = container.get("labels", {}).get("com.docker.compose.project.config_files", "")
         if state in {"running", "paused", "restarting"}:
@@ -162,6 +194,7 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             or legacy_working_dir != LEGACY_INFRA_WORKING_DIR
             or [legacy_config_files] != LEGACY_INFRA_CONFIG_FILES
             or any(item["field"] != "labels" for item in diffs)
+            or not _legacy_image_matches(desired, desired_item, container)
             or provenance_reason
         ):
             status = ("halt", "legacy-runtime-mismatch")

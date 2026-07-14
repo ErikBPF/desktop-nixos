@@ -73,6 +73,11 @@ class DesiredStateTest(unittest.TestCase):
             by_name["faster-whisper-openai"]["provenance_status"]["local_image"],
             "kepler/faster-whisper:cuda13",
         )
+        self.assertEqual(set(desired["legacy_images"]), {"minio", "postgres", "qdrant", "redis"})
+        self.assertTrue(all(
+            set(record) == {"image", "image_digest"}
+            for record in desired["legacy_images"].values()
+        ))
 
     def test_only_value_free_fields_are_emitted(self):
         rendered = json.dumps(self.result, sort_keys=True)

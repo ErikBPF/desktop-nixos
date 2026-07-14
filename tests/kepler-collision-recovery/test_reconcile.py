@@ -29,7 +29,7 @@ class ReconcileTests(unittest.TestCase):
             "image": "registry/postgres@sha256:" + "a" * 64,
             "mounts": [{"source": "/fast/apps/postgres", "target": "/data", "type": "bind"}],
             "networks": ["infra_default"], "project": "infra",
-            "provenance_status": "immutable-registry-digest",
+            "provenance_status": {},
             "required_labels": {"com.docker.compose.project": "infra", "com.docker.compose.service": "postgres"},
             "service": "postgres",
         }], "protected_services": [{"container_name": "restate"}]}
@@ -46,6 +46,16 @@ class ReconcileTests(unittest.TestCase):
     def reconcile(self):
         return self.module.reconcile(self.envelope("inventory", self.inventory), self.envelope("desired", self.desired), {"desktop-nixos": SHA, "servarr": "2" * 40})
 
+    def make_legacy(self):
+        container = self.inventory["containers"][0]
+        container["labels"]["com.docker.compose.project"] = "homelab"
+        container["labels"]["com.docker.compose.project.working_dir"] = "/fast/homelab"
+        container["labels"]["com.docker.compose.project.config_files"] = "infra.yml"
+        self.desired["legacy_images"] = {"postgres": {
+            "image": "docker.io/library/registry/postgres",
+            "image_digest": "sha256:" + "a" * 64,
+        }}
+
     def test_stopped_exact_collision_migrates(self):
         result = self.reconcile()
         self.assertEqual(result["manifest"]["status"], "ready")
@@ -56,10 +66,8 @@ class ReconcileTests(unittest.TestCase):
         self.assertIn("running-collision", self.reconcile()["manifest"]["halt_reasons"])
 
     def test_exact_stopped_legacy_infra_collision_migrates(self):
-        container = self.inventory["containers"][0]
-        container["labels"]["com.docker.compose.project"] = "homelab"
-        container["labels"]["com.docker.compose.project.working_dir"] = "/fast/homelab"
-        container["labels"]["com.docker.compose.project.config_files"] = "infra.yml"
+        self.make_legacy()
+        self.desired["services"][0]["image"] = "registry/replacement@sha256:" + "b" * 64
         item = self.reconcile()["manifest"]["classifications"][0]
         self.assertEqual(item["action"], "migrate")
         self.assertEqual(item["reason"], "legacy-declared-migrate")
@@ -73,19 +81,24 @@ class ReconcileTests(unittest.TestCase):
             lambda c, d: c["labels"].update({"com.docker.compose.project.config_files": "other.yml"}),
             lambda c, d: c["mounts"][0].update({"source": "/wrong"}),
             lambda c, d: c.update({"image_digest": "sha256:" + "b" * 64}),
+            lambda c, d: self.desired["legacy_images"]["postgres"].update({"image": "other/image"}),
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation):
                 original_inventory = copy.deepcopy(self.inventory)
                 original_desired = copy.deepcopy(self.desired)
+                self.make_legacy()
                 container = self.inventory["containers"][0]
-                container["labels"]["com.docker.compose.project"] = "homelab"
-                container["labels"]["com.docker.compose.project.working_dir"] = "/fast/homelab"
-                container["labels"]["com.docker.compose.project.config_files"] = "infra.yml"
                 mutation(container, self.desired["services"][0])
                 self.assertEqual(self.reconcile()["manifest"]["status"], "halt")
                 self.inventory = original_inventory
                 self.desired = original_desired
+
+    def test_docker_image_reference_normalization_is_narrow(self):
+        normalize = self.module._normalized_image_ref
+        self.assertEqual(normalize("docker.io/library/postgres"), "postgres")
+        self.assertEqual(normalize("docker.io/kepler/docs:latest"), "kepler/docs:latest")
+        self.assertEqual(normalize("ghcr.io/example/image"), "ghcr.io/example/image")
 
     def test_missing_foreign_and_mount_mismatch_halt_with_diffs(self):
         for mutation, reason in (
@@ -121,14 +134,16 @@ class ReconcileTests(unittest.TestCase):
         self.assertEqual(manifest["selected_retired"], ["gitlab"])
 
     def test_provenance_and_coverage_gaps_halt(self):
-        self.desired["services"][0]["provenance_status"] = "local-provenance-recorded"
+        self.desired["services"][0]["digest_status"] = "local-provenance-recorded"
+        self.desired["services"][0]["provenance_status"] = {"local_image": "kepler/postgres:test"}
         self.desired["services"][0]["mounts"][0]["source"] = "/outside/data"
         reasons = self.reconcile()["manifest"]["halt_reasons"]
         self.assertIn("local-image-or-model-provenance-required", reasons)
         self.assertIn("persistent-mount-outside-snapshot-boundary", reasons)
 
     def test_local_image_or_model_provenance_record_clears_gap(self):
-        self.desired["services"][0]["provenance_status"] = "local-provenance-recorded"
+        self.desired["services"][0]["digest_status"] = "local-provenance-recorded"
+        self.desired["services"][0]["provenance_status"] = {"local_image": "kepler/postgres:test"}
         self.desired["services"][0]["image"] = "kepler/postgres:test"
         self.inventory["containers"][0]["image"] = "kepler/postgres:test"
         self.desired["local_images"] = {"kepler/postgres:test": {
@@ -138,8 +153,8 @@ class ReconcileTests(unittest.TestCase):
 
     def test_unrecorded_model_identity_keeps_local_provenance_halted(self):
         self.desired["services"][0].update({
-            "image": "kepler/postgres:test", "model_artifacts": ["postgres-model"],
-            "provenance_status": "local-provenance-recorded",
+            "digest_status": "local-provenance-recorded", "image": "kepler/postgres:test",
+            "provenance_status": {"local_image": "kepler/postgres:test", "model_artifacts": ["postgres-model"]},
         })
         self.inventory["containers"][0]["image"] = "kepler/postgres:test"
         self.desired["local_images"] = {"kepler/postgres:test": {

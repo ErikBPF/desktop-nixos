@@ -12,7 +12,7 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "3fdcec6e9db758527d41abba049ba46fca1ba96f"
+SERVARR_COMMIT = "4514ce8cedb0fedc87ab60a040d00d47c87b5d96"
 MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
 PROTECTED_STACKS = ("orchestration",)
 STACKS = MIGRATION_STACKS + PROTECTED_STACKS
@@ -166,6 +166,8 @@ def generate(root, expected_commit=SERVARR_COMMIT):
     provenance = json.loads((root / "provenance.json").read_text(encoding="utf-8"))
     if provenance.get("schema") != "kepler-k1-provenance-v1":
         raise DesiredHalt("Kepler provenance schema drifted")
+    if set(provenance) != {"schema", "legacy_images", "local_images", "model_artifacts"}:
+        raise DesiredHalt("Kepler provenance declarations drifted")
     if secretspec.get("project", {}).get("name") != "kepler":
         raise DesiredHalt("SecretSpec project must be kepler")
     expected_profiles = {"default", *STACKS}
@@ -214,6 +216,7 @@ def generate(root, expected_commit=SERVARR_COMMIT):
         "declared_optional_services": declared_optional_services,
         "local_images": provenance["local_images"],
         "model_artifacts": provenance["model_artifacts"],
+        "legacy_images": provenance["legacy_images"],
     }
     rendered = canonical(desired)
     if DUMMY_PREFIX.encode() in rendered:
