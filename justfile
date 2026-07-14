@@ -1148,7 +1148,7 @@ kepler-recovery-postgres-evidence-run inventory_sha256 container_id mode="run-st
     out=".gsd/evidence/kepler-k1/database-evidence.json"
     tmp="$(mktemp .gsd/evidence/kepler-k1/.database-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} \
+    ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p 2222 erik@{{ip_kepler}} \
       kepler-collision-postgres-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
@@ -1173,7 +1173,7 @@ kepler-recovery-redis-evidence-run inventory_sha256 container_id mode="run-stopp
     out=".gsd/evidence/kepler-k1/redis-evidence.json"
     tmp="$(mktemp .gsd/evidence/kepler-k1/.redis-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} \
+    ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p 2222 erik@{{ip_kepler}} \
       kepler-collision-redis-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
