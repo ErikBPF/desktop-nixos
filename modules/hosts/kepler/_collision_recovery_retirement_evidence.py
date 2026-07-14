@@ -157,7 +157,7 @@ def assemble(inventory_envelope, path_envelope, database_envelope, redis_envelop
             "containers": family_containers,
             "paths": family_paths,
             "volumes": family_volumes,
-            "databases": ["airflow"] if family_name == "airflow" and family_containers else [],
+            "databases": ["airflow"] if family_name == "airflow" else [],
             "secrets": [],
             "images": family_images,
         }

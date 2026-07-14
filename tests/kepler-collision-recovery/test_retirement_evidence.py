@@ -78,6 +78,7 @@ class RetirementEvidenceAssemblerTest(unittest.TestCase):
             self.assertEqual(resources["paths"], [])
             self.assertEqual(resources["volumes"], [])
             self.assertEqual(resources["images"], [])
+        self.assertEqual(by_family["airflow"]["databases"], ["airflow"])
         preflight = evidence["proofs"]["retired_preflight"]["envelope"]
         self.assertEqual(preflight["declared_secrets"], [])
         self.assertEqual(preflight["external_credentials"], [])
