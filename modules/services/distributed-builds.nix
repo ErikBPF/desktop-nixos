@@ -57,8 +57,10 @@ in {
         programs.ssh.extraConfig = ''
           Host 192.168.10.220
             Port 2222
+            StrictHostKeyChecking accept-new
           Host 192.168.10.230
             Port 2222
+            StrictHostKeyChecking accept-new
         '';
       };
   };

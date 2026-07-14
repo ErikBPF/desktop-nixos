@@ -14,8 +14,8 @@ ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
 ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
-orion_builder := "ssh-ng://erik@" + ip_orion + " i686-linux,x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
-kepler_builder := "ssh-ng://erik@" + ip_kepler + " x86_64-linux /root/.ssh/nix-builder 2 1 big-parallel,benchmark"
+orion_builder := "ssh-ng://erik@" + ip_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
+kepler_builder := "ssh-ng://erik@" + ip_kepler + ":2222 x86_64-linux /root/.ssh/nix-builder 2 1 big-parallel,benchmark"
 
 # Never ask a deployment target to build itself. Other x86_64 targets can use
 # Orion as primary plus Kepler's deliberately constrained spillover capacity.

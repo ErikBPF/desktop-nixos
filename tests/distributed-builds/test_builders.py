@@ -44,3 +44,21 @@ def test_kepler_authorizes_the_dedicated_builder_key():
         "nixosConfigurations.kepler.config.users.users.erik.openssh.authorizedKeys.keys"
     )
     assert any(key.endswith("nix-builder@laptop") for key in keys)
+
+
+def test_recipe_builders_use_explicit_hardened_ssh_ports():
+    for target in ("kepler", "orion", "laptop"):
+        result = subprocess.run(
+            ["just", "_builders", target],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert "@192.168.10." in result.stdout
+        assert ":2222 " in result.stdout
+
+
+def test_builder_hosts_bootstrap_keys_once_then_reject_changes():
+    extra_config = nix_eval("nixosConfigurations.laptop.config.programs.ssh.extraConfig")
+    assert extra_config.count("StrictHostKeyChecking accept-new") == 2
