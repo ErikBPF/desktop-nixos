@@ -138,7 +138,7 @@ class InventoryCollectorTest(unittest.TestCase):
             datasets.write_text("fast\t/fast\n")
             images.write_text(json.dumps([{"Id": "sha256:" + "a" * 64, "RepoDigests": [], "RepoTags": ["postgres:17"]}]))
             volumes.write_text(json.dumps([{"Name": "redis_data", "Driver": "local", "Mountpoint": "/vol/redis", "Labels": {}}]))
-            networks.write_text(json.dumps([{"Id": "c" * 64, "Name": "infra_default", "Driver": "bridge", "Labels": {}}]))
+            networks.write_text(json.dumps([{"id": "c" * 64, "name": "infra_default", "driver": "bridge", "labels": {}}]))
             snapshots.write_text("fast@pre-k1\n")
             completed = subprocess.run(
                 ["bash", str(REMOTE), "--fixture", str(inspect), str(datasets), str(images), str(volumes), str(networks), str(snapshots)],

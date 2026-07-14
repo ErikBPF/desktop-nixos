@@ -30,7 +30,12 @@ sanitize() {
         )),
         images: (($images | add // []) | map({id: (.Id // ""), digests: (.RepoDigests // []), names: (.RepoTags // [])})),
         volumes: (($volumes | add // []) | map({name: (.Name // ""), driver: (.Driver // ""), mountpoint: (.Mountpoint // ""), labels: (.Labels // {})})),
-        networks: (($networks | add // []) | map({id: (.Id // ""), name: (.Name // ""), driver: (.Driver // ""), labels: (.Labels // {})})),
+        networks: (($networks | add // []) | map({
+          id: (.Id // .id // ""),
+          name: (.Name // .name // ""),
+          driver: (.Driver // .driver // ""),
+          labels: (.Labels // .labels // {})
+        })),
         snapshots: ($snapshots | split("\n") | map(select(length > 0)) | map({name: .}))
       }
   '
