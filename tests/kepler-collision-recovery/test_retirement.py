@@ -78,12 +78,13 @@ class RetirementPlannerTest(unittest.TestCase):
             ]
             reference["sha256"] = self.module.digest(reference["envelope"])
 
-    def test_remote_executor_receives_explicit_shell_argv_zero(self):
+    def test_remote_executor_receives_validated_literal_bindings(self):
         recipe = JUSTFILE.read_text()
         self.assertIn(
-            'sh _ "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"',
+            '--manifest-sha256 "{{manifest_sha256}}" --inventory-sha256 "{{inventory_sha256}}"',
             recipe,
         )
+        self.assertIn('"{{manifest_sha256}}" =~ ^[0-9a-f]{64}$', recipe)
 
     def plan(self):
         return self.module.plan(self.inventory, self.evidence)

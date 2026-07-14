@@ -1296,6 +1296,10 @@ kepler-recovery-retirement-plan evidence=".gsd/evidence/kepler-k1/retirement-evi
 kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".gsd/evidence/kepler-k1/retirement-manifest.json":
     #!/usr/bin/env bash
     set -euo pipefail
+    [[ "{{manifest_sha256}}" =~ ^[0-9a-f]{64}$ && "{{inventory_sha256}}" =~ ^[0-9a-f]{64}$ ]] || {
+      echo "invalid retirement binding" >&2
+      exit 2
+    }
     just kepler-recovery-inventory
     actual="$(python3 -c 'import json; print(json.load(open(".gsd/evidence/kepler-k1/inventory.json"))["inventory_sha256"])')"
     test "$actual" = "{{inventory_sha256}}" || { echo "retirement inventory drift" >&2; exit 2; }
@@ -1306,8 +1310,8 @@ kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".g
         raise SystemExit("retirement manifest SHA-256 mismatch")
     PY
     ssh -p 2222 erik@{{ip_kepler}} \
-      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --execute --manifest "$tmp" --manifest-sha256 "$1" --inventory-sha256 "$2"' \
-      sh _ "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"
+      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --execute --manifest "$tmp" --manifest-sha256 "{{manifest_sha256}}" --inventory-sha256 "{{inventory_sha256}}"' \
+      < "{{manifest}}"
 
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
