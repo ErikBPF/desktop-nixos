@@ -46,6 +46,7 @@ class InventoryCollectorTest(unittest.TestCase):
             "com.docker.compose.project": "infra",
             "com.docker.compose.service": "postgres",
         })
+        self.assertEqual(result["inventory"]["references"]["networks"], {"infra_default": ["postgres"]})
 
     def test_rejects_secret_bearing_or_unknown_fixture_fields(self):
         source = json.loads(FIXTURE.read_text())
@@ -129,22 +130,38 @@ class InventoryCollectorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             inspect = pathlib.Path(directory) / "inspect.json"
             datasets = pathlib.Path(directory) / "datasets.tsv"
+            images = pathlib.Path(directory) / "images.json"
+            volumes = pathlib.Path(directory) / "volumes.json"
+            networks = pathlib.Path(directory) / "networks.json"
+            snapshots = pathlib.Path(directory) / "snapshots.txt"
             inspect.write_text(json.dumps(raw))
             datasets.write_text("fast\t/fast\n")
+            images.write_text(json.dumps([{"Id": "sha256:" + "a" * 64, "RepoDigests": [], "RepoTags": ["postgres:17"]}]))
+            volumes.write_text(json.dumps([{"Name": "redis_data", "Driver": "local", "Mountpoint": "/vol/redis", "Labels": {}}]))
+            networks.write_text(json.dumps([{"Id": "c" * 64, "Name": "infra_default", "Driver": "bridge", "Labels": {}}]))
+            snapshots.write_text("fast@pre-k1\n")
             completed = subprocess.run(
-                ["bash", str(REMOTE), "--fixture", str(inspect), str(datasets)],
+                ["bash", str(REMOTE), "--fixture", str(inspect), str(datasets), str(images), str(volumes), str(networks), str(snapshots)],
                 check=True, capture_output=True, text=True,
             )
         self.assertNotIn("sentinel", completed.stdout)
         source = json.loads(completed.stdout)
         self.assertNotIn("Env", json.dumps(source))
-        self.collector.collect_fixture(source)
+        inventory = self.collector.collect_fixture(source)["inventory"]
+        self.assertEqual(inventory["images"][0]["names"], ["postgres:17"])
+        self.assertEqual(inventory["volumes"][0]["name"], "redis_data")
+        self.assertEqual(inventory["networks"][0]["name"], "infra_default")
+        self.assertEqual(inventory["snapshots"], [{"name": "fast@pre-k1"}])
 
     def test_remote_script_has_read_only_runtime_commands(self):
         script = REMOTE.read_text()
         self.assertIn("podman ps --all --quiet --no-trunc", script)
         self.assertIn('podman container inspect "${ids[@]}"', script)
         self.assertIn("zfs list -H -o name,mountpoint", script)
+        self.assertIn("podman image list --quiet --no-trunc", script)
+        self.assertIn("podman volume list --quiet", script)
+        self.assertIn("podman network list --quiet --no-trunc", script)
+        self.assertIn("zfs list -H -t snapshot -o name", script)
         for forbidden in ("podman rm", "podman stop", "podman start", "prune", "zfs destroy", "ssh "):
             self.assertNotIn(forbidden, script)
 

@@ -18,5 +18,9 @@
   ],
   "datasets": [
     {"mountpoint": "/fast", "name": "fast"}
-  ]
+  ],
+  "images": [{"digests": ["docker.io/library/postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "names": ["docker.io/library/postgres:17"]}],
+  "networks": [{"driver": "bridge", "id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "labels": {"com.docker.compose.project": "infra"}, "name": "infra_default"}],
+  "snapshots": [{"name": "fast@pre-k1"}],
+  "volumes": [{"driver": "local", "labels": {"com.docker.compose.project": "infra"}, "mountpoint": "/var/lib/containers/storage/volumes/redis/_data", "name": "redis_data"}]
 }

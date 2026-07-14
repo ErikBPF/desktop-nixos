@@ -18,7 +18,7 @@ LIVE_COMMANDS = (
     ("zfs", "list", "-H", "-o", "name,mountpoint"),
 )
 CONTAINER_ID = re.compile(r"[0-9a-f]{64}")
-SOURCE_FIELDS = {"containers", "datasets"}
+SOURCE_FIELDS = {"containers", "datasets", "images", "volumes", "networks", "snapshots"}
 CONTAINER_FIELDS = {
     "Id", "ID", "Name", "Names", "State", "Status", "Image", "ImageName",
     "ImageDigest", "Labels", "Mounts", "Networks",
@@ -102,12 +102,55 @@ def collect_fixture(source):
             "mountpoint": str(dataset.get("mountpoint", "")),
             "name": str(dataset.get("name", "")),
         })
+    normalized = {}
+    object_schemas = {
+        "images": {"id", "digests", "names"},
+        "volumes": {"name", "driver", "mountpoint", "labels"},
+        "networks": {"id", "name", "driver", "labels"},
+        "snapshots": {"name"},
+    }
+    for kind, fields in object_schemas.items():
+        records = source.get(kind, [])
+        if not isinstance(records, list):
+            raise InventoryHalt(f"{kind} must be an array")
+        normalized[kind] = []
+        for index, record in enumerate(records):
+            _exact_fields(record, fields, f"{kind}[{index}]")
+            if kind == "images":
+                if not isinstance(record.get("digests"), list) or not isinstance(record.get("names"), list):
+                    raise InventoryHalt("image digests and names must be arrays")
+                item = {"id": str(record.get("id", "")), "digests": sorted(map(str, record["digests"])), "names": sorted(map(str, record["names"]))}
+            elif kind == "snapshots":
+                item = {"name": str(record.get("name", ""))}
+            else:
+                labels = record.get("labels") or {}
+                if not isinstance(labels, dict):
+                    raise InventoryHalt(f"{kind} labels must be an object")
+                item = {key: str(record.get(key, "")) for key in fields - {"labels"}}
+                item["labels"] = dict(sorted((key, str(value)) for key, value in labels.items() if key in COMPOSE_LABELS))
+            if not all(value for key, value in item.items() if key not in {"labels", "digests", "names", "mountpoint"}):
+                raise InventoryHalt(f"{kind}[{index}] omitted required identity metadata")
+            normalized[kind].append(item)
     inventory = {
         "containers": sorted(
             (_normalize_container(container, index) for index, container in enumerate(containers)),
             key=lambda item: (item["name"], item["id"]),
         ),
         "datasets": sorted(normalized_datasets, key=lambda item: (item["name"], item["mountpoint"])),
+        **{kind: sorted(records, key=lambda item: json.dumps(item, sort_keys=True)) for kind, records in normalized.items()},
+    }
+    references = {"images": {}, "volumes": {}, "networks": {}}
+    for container in inventory["containers"]:
+        for image_identity in filter(None, (container["image"], container["image_digest"])):
+            references["images"].setdefault(image_identity, []).append(container["name"])
+        for mount in container["mounts"]:
+            if mount["name"]:
+                references["volumes"].setdefault(mount["name"], []).append(container["name"])
+        for network in container["networks"]:
+            references["networks"].setdefault(network, []).append(container["name"])
+    inventory["references"] = {
+        kind: {identity: sorted(set(users)) for identity, users in sorted(mapping.items())}
+        for kind, mapping in references.items()
     }
     return {
         "inventory": inventory,
