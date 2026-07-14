@@ -1,0 +1,22 @@
+{
+  "containers": [
+    {
+      "Id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "ImageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ImageName": "docker.io/library/postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "Labels": {
+        "com.docker.compose.project": "infra",
+        "com.docker.compose.service": "postgres"
+      },
+      "Mounts": [
+        {"Destination": "/var/lib/postgresql/data", "Name": "", "Source": "/fast/apps/postgres"}
+      ],
+      "Name": "postgres",
+      "Networks": ["infra_default"],
+      "State": "exited"
+    }
+  ],
+  "datasets": [
+    {"mountpoint": "/fast", "name": "fast"}
+  ]
+}

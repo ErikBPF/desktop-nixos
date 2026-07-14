@@ -918,6 +918,40 @@ reboot-kepler:
     echo ":: kepler did not return within 120s" >&2
     exit 1
 
+# Collect sanitized K1 collision evidence. Collector executes from committed
+# stdin, writes nothing remotely, and emits only allowlisted runtime metadata.
+kepler-recovery-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    collector="modules/hosts/kepler/_collision_recovery_inventory.py"
+    evidence_dir=".gsd/evidence/kepler-k1"
+    out="$evidence_dir/inventory.json"
+    test -f "$collector"
+    mkdir -p "$evidence_dir"
+    chmod 700 "$evidence_dir"
+    tmp="$(mktemp "$evidence_dir/.inventory.XXXXXX")"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_kepler}} 'python3 - --live' < "$collector" > "$tmp"
+    python3 - "$tmp" <<'PY'
+    import hashlib
+    import json
+    import pathlib
+    import sys
+
+    path = pathlib.Path(sys.argv[1])
+    result = json.loads(path.read_text())
+    inventory = result["inventory"]
+    canonical = (json.dumps(inventory, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    actual = hashlib.sha256(canonical).hexdigest()
+    if result.get("schema") != "kepler-collision-inventory-v1" or result.get("inventory_sha256") != actual:
+        raise SystemExit("inventory envelope/hash validation failed")
+    PY
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'inventory=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["inventory_sha256"])' "$out")"
+
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
     #!/usr/bin/env bash
