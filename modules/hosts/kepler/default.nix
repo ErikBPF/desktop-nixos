@@ -24,6 +24,7 @@ in {
       m.nixos.containers
       m.nixos.kepler-containers
       m.nixos.kepler-compose
+      m.nixos.kepler-recovery-tooling
       m.nixos.kepler-ai-serving
       m.nixos.kepler-k3s-cluster
       m.nixos.first-boot

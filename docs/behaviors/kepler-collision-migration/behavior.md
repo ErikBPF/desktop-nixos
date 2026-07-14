@@ -1,6 +1,6 @@
 # Kepler collision migration
 
-**Status:** Approved behavior; merged execution K0 active, implementation not started
+**Status:** Approved behavior; K0 complete, K1 read-only inventory blocked pending approval manifest
 
 ## Outcome
 

@@ -149,7 +149,7 @@ explicit-volume policy and fixtures; ledger/snapshot/archive/restore/compare/
 smoke/rollback/orphan helpers; retained disposable live proof; exact evidence.
 No fixture cleanup is authorized.
 
-### K0 — SecretSpec contract and fixture tests — active
+### K0 — SecretSpec contract and fixture tests — complete
 
 1. Package the pinned SecretSpec version declaratively; do not install it with
    an unpinned curl script.
@@ -456,8 +456,8 @@ legacy resources.
 | Phase | State | Evidence | Remaining gate |
 |---|---|---|---|
 | P0 | Complete | Servarr `98ecafb`; desktop `50454f9`, `6217215`, `061a1cc`, `5a24439`; retained fixture | P9 cleanup only |
-| K0 | In progress | Approved Kepler behavior/test contract; SecretSpec available | Implement declarations and red/green fixtures |
-| K1 | Pending | — | K0 complete; exact live inventory |
+| K0 | Complete | Servarr `1805e1d`; 21 planner fixtures; Kepler dry-build; full flake check | K1 read-only inventory and exact approval manifest |
+| K1 | Pending | — | Fresh exact live inventory; manifest review and approval |
 | K2 | Pending | — | Approved, drift-free K1 manifest |
 | K3 | Pending | — | K2 verified; retained-state backups |
 | K4 | Pending | — | K3 snapshot and coverage proof |

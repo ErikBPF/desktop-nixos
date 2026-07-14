@@ -1,0 +1,79 @@
+{
+  "containers": [
+    {
+      "name": "postgres",
+      "collision": true,
+      "state": "stopped",
+      "project": "infra",
+      "labels_complete": true,
+      "mounts": ["/fast/apps/postgres:/var/lib/postgresql/data"],
+      "desired_mounts": ["/fast/apps/postgres:/var/lib/postgresql/data"],
+      "image": "docker.io/library/postgres:17@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name": "gitlab",
+      "collision": true,
+      "state": "stopped",
+      "project": "gitlab",
+      "retired_kind": "gitlab",
+      "labels_complete": true,
+      "mounts": ["/fast/apps/gitlab/config:/etc/gitlab", "/fast/apps/gitlab/logs:/var/log/gitlab", "/fast/apps/gitlab-runner:/etc/gitlab-runner", "/bulk/git:/var/opt/gitlab"],
+      "image": "docker.io/gitlab/gitlab-ce:17@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "image_service_specific": true,
+      "volumes": [],
+      "databases": [],
+      "secrets": ["GITLAB_RUNNER_TOKEN"]
+    },
+    {
+      "name": "airflow-webserver",
+      "collision": true,
+      "state": "stopped",
+      "project": "airflow",
+      "retired_kind": "airflow",
+      "labels_complete": true,
+      "mounts": ["/fast/apps/airflow/dags:/opt/airflow/dags", "/fast/apps/airflow/plugins:/opt/airflow/plugins"],
+      "image": "docker.io/apache/airflow:2@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "image_service_specific": true,
+      "volumes": ["airflow_logs", "airflow_config"],
+      "databases": ["airflow"],
+      "secrets": ["POSTGRES_DB_AIRFLOW", "AIRFLOW_FERNET_KEY", "AIRFLOW_SECRET_KEY", "AIRFLOW_ADMIN_PASSWORD"]
+    },
+    {
+      "name": "restate",
+      "collision": true,
+      "state": "stopped",
+      "project": "restate",
+      "labels_complete": true,
+      "mounts": ["restate_data:/restate-data"],
+      "desired_mounts": ["restate_data:/restate-data"],
+      "image": "docker.io/restatedev/restate:1@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "local_artifacts": [
+    {"kind": "image", "name": "ai-serving-local", "image_id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "source_commit": "0123456789abcdef0123456789abcdef01234567", "build_inputs_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+    {"kind": "model", "name": "qwen-model", "model_sha256": "1111111111111111111111111111111111111111111111111111111111111111", "version": "fixture-v1"}
+  ],
+  "persistent_mounts": [
+    {"source": "/fast/apps/postgres", "snapshot_covered": true},
+    {"source": "restate_data", "backup_verified": true}
+  ],
+  "completed": [],
+  "gates": {
+    "inventory_collection": true,
+    "classification": true,
+    "retained_database_backup_restore": true,
+    "retired_secret_revocation": true,
+    "mixed_backup_sanitization": true,
+    "exact_artifact_selection": true,
+    "postgres_checkpoint": true,
+    "redis_save_backup_restore": true,
+    "qdrant_idle": true,
+    "minio_idle": true,
+    "persistent_mount_coverage": true,
+    "zfs_snapshot": true,
+    "replacement_start": true,
+    "replacement_validation": true,
+    "reboot_validation": true,
+    "cleanup_manifest_match": true
+  }
+}

@@ -1,6 +1,6 @@
 # Kepler collision migration test contract
 
-**Status:** Approved contract; merged execution K0 active, tests not implemented
+**Status:** Approved contract; K0 fixture tests implemented, K1 live dry-run pending
 
 ## Test boundary
 
