@@ -27,7 +27,6 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
                       │     • edge-tts-openai          8002   TTS primary (Thalita +25%)
                       │     • piper-openai             8003   TTS offline fallback
                       │     • piper-wyoming           10200   TTS (Wyoming, legacy direct)
-│     • f5-tts-server            8001   TTS voice cloning (not in LiteLLM yet)
 │     • tei-bge-m3              8085   embeddings (BAAI/bge-m3, 1024-dim)  ← sole GPU resident
 │     • tei-reranker            8087   reranker (BAAI/bge-reranker-v2-m3, Cohere API)
 │   models cached at /fast/ai-models                     │
@@ -44,6 +43,10 @@ new consumer at a Kepler port directly.
 
 ## History — services that came and went
 
+- **`f5-tts-server`** (port 8001) — retired 2026-07-14. The experimental
+  PT-BR voice-cloning service never became a LiteLLM route. Its Compose
+  service, local build, model/reference artifacts, firewall exposure, and
+  recovery provenance were removed together.
 - **`faster-whisper-wyoming`** (port 10300) — removed 2026-05. `wyoming-faster-whisper 3.1.0` forces a stale `dropbox-dash/faster-whisper-large-v3-turbo` model that doesn't load on driver 595+. HA now reaches STT through the LiteLLM `whisper-pt-br` route (which lands at `:9000`, the OpenAI-shim variant), so no Wyoming STT is needed.
 - **`infinity-embeddings`** (port 7997, `michaelf34/infinity:latest`, BAAI/bge-m3) — replaced 2026-05 by the llama.cpp `qwen3-embed` service on the same port. Same 1024-dim, same multilingual, higher MTEB, 32K context, Matryoshka. LiteLLM route name kept `embeddings-qwen3` either way; consumers don't move.
 - **`qwen3-embed`** (port 7997, llama.cpp server-cuda, Qwen3-Embedding-0.6B) — **retired 2026-06**. A 38-query eval (exp001) showed R@1 0.55 vs 0.84 for BAAI/bge-m3. The permanent embedder is now `tei-bge-m3` (TEI, port 8085, LiteLLM model `bge-m3`, 1024-dim, MIT). A reranker was added in the same cycle: `tei-reranker` (TEI, port 8087, BAAI/bge-reranker-v2-m3, LiteLLM model `bge-reranker-v2-m3`, Apache-2.0, Cohere-style `/v1/rerank`, R@1 0.87).
@@ -57,7 +60,6 @@ new consumer at a Kepler port directly.
 | `faster-whisper-openai` | `kepler/faster-whisper:cuda13` (locally built) | 9000 | `/health` | `whisper-pt-br` |
 | `edge-tts-openai` | `kepler/edge-tts-openai:latest` (locally built) | 8002 | `/health` | `tts-pt-br` |
 | `piper-openai` | `kepler/piper-openai:latest` (locally built) | 8003 | `/health` | `tts-pt-br-piper` |
-| `f5-tts-server` | `kepler/f5-tts-server:pt-br` (locally built) | 8001 | `/health` | none yet (Phase 4 voice-clone candidate) |
 | `tei-bge-m3` | `ghcr.io/huggingface/text-embeddings-inference:turing-1.7` | 8085 | `/health` | `bge-m3` (sole GPU resident) |
 | `tei-reranker` | `ghcr.io/huggingface/text-embeddings-inference:turing-1.7` | 8087 | `/health` | `bge-reranker-v2-m3` (Cohere `/v1/rerank`) |
 | `piper-wyoming` | `rhasspy/wyoming-piper:latest` | 10200 | `nc localhost 10200` | none (legacy direct, Wyoming protocol) |
@@ -71,7 +73,6 @@ new consumer at a Kepler port directly.
 | `modules/hosts/kepler/ai-serving.nix` | Firewall ports, `/fast/ai-models` tmpfiles |
 | `servarr/machines/kepler/ai-serving.yml` | Compose definition for the 4 services |
 | `servarr/machines/kepler/config/whisper/` | Dockerfile + FastAPI shim — required because upstream lscr.io/linuxserver/faster-whisper ships a CT2 runtime that rejects NVIDIA driver 595 |
-| `servarr/machines/kepler/config/f5-tts/` | Dockerfile + FastAPI shim for F5-TTS PT-BR voice cloning |
 | `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Routes: `whisper-pt-br`, `tts-pt-br` (edge-tts), `tts-pt-br-piper`, `bge-m3`, `bge-reranker-v2-m3`, `qwen-chat` |
 | `modules/hosts/discovery/hermes-agent.nix` | Wires the new routes into hermes auxiliary models |
 | `machines/kepler/scripts/ai-smoke.sh` | End-to-end smoke test |
@@ -83,7 +84,6 @@ new consumer at a Kepler port directly.
 | STT | `large-v3-turbo` via `faster-whisper` (CT2) | MIT | ~1.5 GB | 216× real-time at WER ~7.75% on PT-BR; LiteLLM route `whisper-pt-br`. Future swap → `freds0/distil-whisper-large-v3-ptbr` once CT2-converted (WER 8.22%, ~6× faster). |
 | TTS — primary | Microsoft Edge TTS `pt-BR-ThalitaMultilingualNeural` at `+25%` rate | n/a (cloud, free tier) | CPU | Natural-sounding PT-BR neural voice; route `tts-pt-br`. Requires internet egress. |
 | TTS — offline fallback | Piper `pt_BR-faber-medium` via OpenAI shim | MIT | CPU | Route `tts-pt-br-piper`. Local, no internet; lower quality. Wyoming variant at `:10200` exists for legacy HA direct hookups but is being phased out. |
-| TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) | CC BY-NC 4.0 | ~3.0 GB | Not yet routed through LiteLLM — Phase 4 voice-clone synergy. Switch `F5_MODEL_REPO=mrfakename/OpenF5-TTS-Base` for an Apache-2.0 base. |
 | Embeddings | `BAAI/bge-m3` via TEI (`tei-bge-m3`) | MIT | ~1.0 GB | Route `bge-m3`. 1024-dim, multilingual, Matryoshka. Permanent choice per exp001 (38-query eval): R@1 0.84 vs 0.55 for qwen3-embed. |
 | Reranker | `BAAI/bge-reranker-v2-m3` via TEI (`tei-reranker`) | Apache 2.0 | ~0.7 GB | Route `bge-reranker-v2-m3`, Cohere-style `/v1/rerank`. exp001 R@1 0.87. Port 8087 on Kepler. |
 
@@ -97,8 +97,10 @@ just switch-kepler        # nixos-rebuild switch on 192.168.10.230:2222
 
 This:
 - enables rootful Docker with the NVIDIA runtime,
-- opens firewall ports 8001, 8002, 8003, 8085, 8087, 9000, 10200 (7997 retired with qwen3-embed; 8082 retired with Gemma; 10300 retired with Wyoming whisper),
-- pre-creates `/fast/ai-models/{whisper,f5-tts,embeddings,refs,piper}`,
+- opens firewall ports 8002, 8003, 8085, 8087, 9000, 10200 (8001 retired
+  with F5-TTS; 7997 retired with qwen3-embed; 8082 retired with Gemma;
+  10300 retired with Wyoming whisper),
+- pre-creates `/fast/ai-models/{whisper,embeddings,piper}`,
 - enables the orchestration module so the compose stack is started on boot
   by the `podman-compose-ai-serving` user service (after `servarr-pull`
   refreshes the repo).
@@ -123,33 +125,7 @@ sops --input-type dotenv --output-type dotenv \
 git commit -am "kepler: add AI-serving env" && git push
 ```
 
-### 3. Build the F5-TTS image
-
-Custom image — not on a public registry. First boot the stack will fail
-the `f5-tts-server` build pull because there is no `kepler/f5-tts-server`
-remote tag. Build it once on Kepler:
-
-```sh
-ssh -p 2222 erik@192.168.10.230 'cd ~/servarr/machines/kepler && just ai-build'
-```
-
-This compiles a CUDA 12.1 PyTorch image with `f5-tts==1.0.7`, takes ~6 min
-on the 3070, and is cached for subsequent rebuilds.
-
-### 4. Drop in a PT-BR reference voice
-
-F5-TTS needs ~10 s of clean PT-BR audio to clone. The container looks for
-`/refs/default.wav` (override via `F5_DEFAULT_VOICE`):
-
-```sh
-scp -P 2222 my-voice.wav erik@192.168.10.230:/fast/ai-models/refs/default.wav
-ssh -p 2222 erik@192.168.10.230 \
-    'echo "transcrição exata do áudio de referência" > /fast/ai-models/refs/default.txt'
-```
-
-Without a reference, `/v1/audio/speech` returns HTTP 503.
-
-### 5. Start the stack
+### 3. Start the stack
 
 ```sh
 ssh -p 2222 erik@192.168.10.230 'cd ~/servarr/machines/kepler && just stack-up ai-serving'
@@ -157,7 +133,6 @@ ssh -p 2222 erik@192.168.10.230 'cd ~/servarr/machines/kepler && just stack-up a
 
 First start downloads:
 - `large-v3-turbo` whisper weights (~1.5 GB) → `/fast/ai-models/whisper`
-- `firstpixel/F5-TTS-pt-br` checkpoint + vocab (~3 GB) → `/fast/ai-models/f5-tts/hf`
 - `BAAI/bge-m3` (~1.1 GB) → `/fast/ai-models/embeddings`
 - `BAAI/bge-reranker-v2-m3` (~0.7 GB) → `/fast/ai-models/reranker`
 - Piper PT-BR voice (~60 MB) → `/fast/ai-models/piper`
@@ -168,10 +143,10 @@ Allow 10–15 minutes for cold start. Watch progress:
 ssh -p 2222 erik@192.168.10.230 'cd ~/servarr/machines/kepler && just ai-serving-logs'
 ```
 
-### 6. Validate
+### 4. Validate
 
 ```sh
-just ai-kepler-health     # quick health probes for all 5 services
+just ai-kepler-health     # quick health probes for the serving stack
 just ai-smoke             # full E2E (embedding + ASR + TTS + LiteLLM round-trip)
 ```
 
@@ -211,11 +186,6 @@ HA *announcements* (broadcast TTS that pre-dates the LiteLLM-only design),
 but is on track to retire as soon as the Phase 1 voice pipeline is stable.
 No new HA integration should target it.
 
-F5-TTS at `:8001` is intentionally **not** in `model_list` yet — it's the
-Phase 4 voice-clone candidate. Adding it = one `model_name: tts-pt-br-f5`
-entry in `litellm_config.yaml`; HA then picks it up via the same `openai_tts`
-component by switching the configured model.
-
 ## Troubleshooting
 
 ### `ctranslate2.get_cuda_device_count() == 0` (GPU not visible to containers)
@@ -251,32 +221,6 @@ uses the OpenAI `/v1/audio/transcriptions` route via LiteLLM. If you bring
 the Wyoming server back, supply `--model Systran/faster-whisper-large-v3-turbo`
 or a pre-converted local path instead of the wyoming default.
 
-### F5-TTS build fails with `torchvision::nms does not exist`
-
-`pip install f5-tts` will, if unconstrained, upgrade `torch` to 2.12 and
-leave `torchaudio`/`torchvision` on 2.4 — at which point the C extensions
-fail ABI checks. The Dockerfile uses a constraints file pinning the entire
-torch trio to 2.4 and `transformers<4.50`. If you need newer transformers
-in the future, upgrade torchvision in lockstep.
-
-### F5-TTS exits with `Entry Not Found for url: .../vocab.txt`
-
-`firstpixel/F5-TTS-pt-br` does not ship a vocab file — it reuses the upstream
-char vocab. The server downloads vocab from `SWivid/F5-TTS` at
-`F5TTS_Base/vocab.txt` (`F5_VOCAB_REPO` / `F5_VOCAB_FILE` env vars).
-If you swap to a different fine-tune, point these at its vocab.
-
-### `f5-tts-server` exits with `CUDA out of memory`
-
-Two heavyweight models in VRAM at once (F5-TTS + Whisper turbo + Infinity)
-leaves ~2 GB headroom. If a vision model is added on Kepler, F5-TTS will
-OOM. Either:
-
-- move the VLM to Orion (recommended — already configured in litellm),
-- run F5-TTS at half precision: edit `config/f5-tts/server.py` to load the
-  model with `torch.float16`, OR
-- swap to `mrfakename/OpenF5-TTS-Base` which is lighter.
-
 ### `faster-whisper-openai` returns 422 on `multipart/form-data`
 
 The webservice expects the field name `audio_file`, not `file`. The smoke
@@ -292,16 +236,6 @@ Infinity lazy-loads the model on first inference. Cold-start latency is
 Either `WHISPER_LANG=pt` is missing from `.env`, or the Wyoming client
 overrode the language. Pin both in `.env` and in HA's STT integration.
 
-### `docker compose build` fails on the F5-TTS image
-
-CUDA 12.1 base image requires the nvidia-container-toolkit to be installed
-*and* the host's NVIDIA driver to be ≥ 535. Check:
-
-```sh
-nvidia-smi
-docker info | grep -i runtime
-```
-
 ## VRAM budget verification
 
 Once everything is warm:
@@ -310,17 +244,11 @@ Once everything is warm:
 ssh -p 2222 erik@192.168.10.230 'nvtop -1'
 ```
 
-Expect ~3–4 GB used across the active GPU containers (faster-whisper ~1.5 GB, tei-bge-m3 ~1.0 GB, tei-reranker ~0.7 GB). If usage drifts
-above 7 GB, F5-TTS has likely cached intermediate tensors — restart it:
-
-```sh
-just ai-serving-restart f5-tts-server
-```
+Expect ~3–4 GB used across the active GPU containers (faster-whisper ~1.5 GB,
+tei-bge-m3 ~1.0 GB, tei-reranker ~0.7 GB).
 
 ## License & data
 
 - Whisper, Piper PT-BR voice, BAAI/bge-m3 (MIT), BAAI/bge-reranker-v2-m3 (Apache-2.0): permissive.
-- F5-TTS PT-BR fine-tune: **non-commercial** (CC BY-NC 4.0). Either swap to
-  an Apache-2.0 base or accept the constraint.
 - All audio stays on Kepler; LiteLLM does not log payloads beyond Langfuse
   trace metadata (configurable in `litellm_config.yaml`).

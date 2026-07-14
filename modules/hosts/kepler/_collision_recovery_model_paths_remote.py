@@ -5,7 +5,6 @@ import argparse
 import json
 import os
 import pathlib
-import re
 import stat
 import sys
 
@@ -16,7 +15,6 @@ ARTIFACTS = {
     "embeddings-bge-reranker-v2-m3": (
         "embeddings/hub/models--BAAI--bge-reranker-v2-m3", "directory",
     ),
-    "f5-tts-reference-audio": ("refs", "directory"),
     "piper-voices": ("piper", "directory"),
 }
 WHISPER_PATTERNS = (
@@ -24,8 +22,6 @@ WHISPER_PATTERNS = (
     "whisper/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo",
     "whisper/large-v3-turbo",
 )
-F5_PARENT = "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots"
-SNAPSHOT = re.compile(r"[0-9a-f]{6,64}")
 
 
 class DiscoveryHalt(Exception):
@@ -99,24 +95,6 @@ def discover(root=LIVE_ROOT):
         raise DiscoveryHalt("required artifact path unavailable", "whisper-model", "missing")
     selected["whisper-model"] = (whisper[0], "directory")
 
-    parent = root / F5_PARENT
-    f5 = []
-    if parent.is_dir():
-        for snapshot in parent.iterdir():
-            if SNAPSHOT.fullmatch(snapshot.name):
-                candidate = snapshot / "pt-br/model_last.safetensors"
-                if candidate.exists() or candidate.is_symlink():
-                    f5.append(candidate)
-    if len(f5) > 1:
-        raise DiscoveryHalt(
-            "f5-tts-checkpoint identity path is ambiguous",
-            "f5-tts-checkpoint", "ambiguous",
-        )
-    if not f5:
-        raise DiscoveryHalt(
-            "required artifact path unavailable", "f5-tts-checkpoint", "missing",
-        )
-
     artifacts = []
     for artifact, (relative, kind) in selected.items():
         path = root / relative
@@ -132,16 +110,6 @@ def discover(root=LIVE_ROOT):
             "kind": kind,
             "status": "validated",
         })
-    try:
-        _validate(f5[0], root, "file")
-    except DiscoveryHalt as error:
-        raise DiscoveryHalt(str(error), "f5-tts-checkpoint", "unsafe-path") from None
-    artifacts.append({
-        "artifact": "f5-tts-checkpoint",
-        "identity_path": _virtual(f5[0], root),
-        "kind": "file",
-        "status": "validated",
-    })
     return {
         "artifacts": sorted(artifacts, key=lambda item: item["artifact"]),
         "schema": "kepler-k1-model-paths-v1",

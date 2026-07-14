@@ -21,9 +21,8 @@ _: {
       podman-compose
     ];
 
-    # Disable user-namespace remapping for the rootless container that the
-    # ai-serving stack uses — F5-TTS needs uid 0 inside the container to
-    # write the HF cache under /models/hf without crashing on `EACCES`.
+    # Disable user-namespace remapping for rootless ai-serving containers that
+    # write model caches below the bind-mounted /fast paths.
     # (No change required currently — rootless podman default works because
     # the bind-mounted /fast paths are owned by erik:users, and HF cache
     # writes go inside the user namespace.)

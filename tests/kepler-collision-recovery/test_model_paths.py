@@ -28,14 +28,12 @@ class ModelPathDiscoveryTest(unittest.TestCase):
         directories = (
             "embeddings/hub/models--BAAI--bge-m3",
             "embeddings/hub/models--BAAI--bge-reranker-v2-m3",
-            "refs", "piper",
+            "piper",
             "whisper/models--Systran--faster-whisper-large-v3-turbo",
-            "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br",
         )
         for relative in directories:
             (root / relative).mkdir(parents=True)
         (root / "piper/voice.onnx").write_bytes(b"fixture")
-        (root / "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br/model_last.safetensors").write_bytes(b"fixture")
 
     def test_discovers_exact_value_free_artifact_paths(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -48,18 +46,17 @@ class ModelPathDiscoveryTest(unittest.TestCase):
         self.assertEqual(first["schema"], "kepler-k1-model-paths-v1")
         self.assertEqual(
             [item["artifact"] for item in first["artifacts"]],
-            sorted({*self.module.ARTIFACTS, "f5-tts-checkpoint", "whisper-model"}),
+            sorted({*self.module.ARTIFACTS, "whisper-model"}),
         )
         self.assertNotIn("gemma4-gguf", {item["artifact"] for item in first["artifacts"]})
         self.assertTrue(all(set(item) == {"artifact", "identity_path", "kind", "status"} for item in first["artifacts"]))
         by_name = {item["artifact"]: item for item in first["artifacts"]}
         self.assertEqual(by_name["whisper-model"]["identity_path"], "/fast/ai-models/whisper/models--Systran--faster-whisper-large-v3-turbo")
-        self.assertRegex(by_name["f5-tts-checkpoint"]["identity_path"], r"/snapshots/abc123/pt-br/model_last\.safetensors$")
         rendered = json.dumps(first, sort_keys=True)
         self.assertNotIn(directory, rendered)
         self.assertNotIn("fixture", rendered)
 
-    def test_whisper_and_f5_ambiguity_halt_without_leaking_names(self):
+    def test_whisper_ambiguity_halts_without_leaking_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
             self.populate(root)
@@ -67,11 +64,6 @@ class ModelPathDiscoveryTest(unittest.TestCase):
             with self.assertRaisesRegex(self.module.DiscoveryHalt, "whisper-model identity path is ambiguous"):
                 self.module.discover(root)
             (root / "whisper/large-v3-turbo").rmdir()
-            extra = root / "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/def456/pt-br"
-            extra.mkdir(parents=True)
-            (extra / "model_last.safetensors").write_bytes(b"other")
-            with self.assertRaisesRegex(self.module.DiscoveryHalt, "f5-tts-checkpoint identity path is ambiguous"):
-                self.module.discover(root)
 
     def test_rejects_escape_broken_symlink_and_special_file(self):
         cases = ("escape", "broken", "special")
@@ -116,7 +108,8 @@ class ModelPathDiscoveryTest(unittest.TestCase):
                 check=True, capture_output=True, text=True,
             )
             self.assertEqual(completed.stdout, json.dumps(json.loads(completed.stdout), sort_keys=True, separators=(",", ":")) + "\n")
-            (root / "refs").rmdir()
+            (root / "piper/voice.onnx").unlink()
+            (root / "piper").rmdir()
             failed = subprocess.run(
                 ["python3", str(SCRIPT), "--fixture-root", str(root)],
                 capture_output=True, text=True,
@@ -124,7 +117,7 @@ class ModelPathDiscoveryTest(unittest.TestCase):
         self.assertEqual(failed.returncode, 1)
         diagnostic = json.loads(failed.stderr)
         self.assertEqual(diagnostic, {
-            "diagnostics": [{"artifact": "f5-tts-reference-audio", "reason": "missing"}],
+            "diagnostics": [{"artifact": "piper-voices", "reason": "missing"}],
             "schema": "kepler-k1-model-path-diagnostics-v1",
             "status": "halt",
         })

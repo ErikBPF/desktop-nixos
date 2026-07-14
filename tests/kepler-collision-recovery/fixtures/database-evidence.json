@@ -1,0 +1,49 @@
+{
+  "schema": "kepler-collision-database-evidence-v1",
+  "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "captured_at": "2026-07-14T18:00:00Z",
+  "database_inventory": [
+    {"name": "airflow", "owner": "airflow"},
+    {"name": "app", "owner": "app_owner"},
+    {"name": "postgres", "owner": "postgres"}
+  ],
+  "retained_databases": [
+    {
+      "name": "app",
+      "owner": "app_owner",
+      "artifact": {
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bytes": 4096,
+        "created_at": "2026-07-14T18:00:00Z"
+      },
+      "restore": {
+        "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "data_comparison": "identical",
+        "restored_data_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "row_count_summary_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "status": "passed",
+        "schema_comparison": "identical",
+        "source_data_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "name": "postgres",
+      "owner": "postgres",
+      "artifact": {
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "bytes": 8192,
+        "created_at": "2026-07-14T18:01:00Z"
+      },
+      "restore": {
+        "artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "data_comparison": "identical",
+        "restored_data_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "row_count_summary_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "status": "passed",
+        "schema_comparison": "identical",
+        "source_data_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  ],
+  "retired_databases": ["airflow"]
+}

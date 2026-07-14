@@ -1,0 +1,55 @@
+{
+  "schema": "kepler-collision-inventory-v1",
+  "inventory": {
+    "containers": [
+      {
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "image": "docker.io/library/redis@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "labels": {
+          "com.docker.compose.project": "homelab",
+          "com.docker.compose.service": "redis"
+        },
+        "mounts": [
+          {
+            "destination": "/data",
+            "name": "homelab_redis_data",
+            "read_only": false,
+            "source": "/var/lib/containers/storage/volumes/homelab_redis_data/_data",
+            "type": "volume"
+          }
+        ],
+        "name": "redis",
+        "networks": ["homelab_default"],
+        "state": "exited"
+      }
+    ],
+    "datasets": [{"mountpoint": "/fast", "name": "fast"}],
+    "images": [],
+    "networks": [],
+    "references": {
+      "images": {},
+      "networks": {},
+      "volumes": {
+        "homelab_redis_data": ["redis"],
+        "infra_redis_data": []
+      }
+    },
+    "snapshots": [],
+    "volumes": [
+      {
+        "driver": "local",
+        "labels": {"com.docker.compose.project": "homelab"},
+        "mountpoint": "/var/lib/containers/storage/volumes/homelab_redis_data/_data",
+        "name": "homelab_redis_data"
+      },
+      {
+        "driver": "local",
+        "labels": {"com.docker.compose.project": "infra"},
+        "mountpoint": "/var/lib/containers/storage/volumes/infra_redis_data/_data",
+        "name": "infra_redis_data"
+      }
+    ]
+  },
+  "inventory_sha256": "8a3633e617aedaf6433f5b00a0f76b086eec677f9f0e13092480dfb19a1a9c9f"
+}

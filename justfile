@@ -910,7 +910,6 @@ kick-stack target stack:
 
 # Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
 ai-kepler-health:
-    @just verify-port kepler {{ip_kepler}} 8001
     @just verify-port kepler {{ip_kepler}} 8085
     @just verify-port kepler {{ip_kepler}} 8087
     @just verify-port kepler {{ip_kepler}} 9000
@@ -1027,7 +1026,7 @@ kepler-recovery-model-paths:
     if result.get("schema") != "kepler-k1-model-paths-v1":
         raise SystemExit("model-path evidence schema validation failed")
     artifacts = result.get("artifacts")
-    if not isinstance(artifacts, list) or len(artifacts) != 6:
+    if not isinstance(artifacts, list) or len(artifacts) != 4:
         raise SystemExit("model-path evidence artifact validation failed")
     PY
     chmod 600 "$tmp"
@@ -1067,7 +1066,7 @@ kepler-recovery-model-identities:
         result.get("schema") != "kepler-k1-model-identities-envelope-v1"
         or not isinstance(evidence, dict)
         or result.get("evidence_sha256") != hashlib.sha256(canonical).hexdigest()
-        or len(evidence.get("artifacts", [])) != 6
+        or len(evidence.get("artifacts", [])) != 4
     ):
         raise SystemExit("model identity envelope/hash validation failed")
     PY
@@ -1092,6 +1091,33 @@ kepler-recovery-quiesce-plan inventory_sha256:
       --expected-inventory-sha256 "{{inventory_sha256}}" > "$out"
     chmod 600 "$desired" "$out"
     printf 'quiesce_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
+
+# Validate value-free retained PostgreSQL backup/restore evidence locally.
+kepler-recovery-postgres-evidence-plan inventory_sha256 evidence=".gsd/evidence/kepler-k1/database-evidence.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 modules/hosts/kepler/_collision_recovery_database_evidence.py \
+      --inventory .gsd/evidence/kepler-k1/inventory.json \
+      --evidence "{{evidence}}" \
+      --expected-inventory-sha256 "{{inventory_sha256}}"
+
+# Render the exact Redis backup/restore plan; never executes its actions.
+kepler-recovery-redis-backup-plan inventory_sha256 approval="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=(
+      --inventory .gsd/evidence/kepler-k1/inventory.json
+      --expected-inventory-sha256 "{{inventory_sha256}}"
+    )
+    if [ -n "{{approval}}" ]; then args+=(--quiesce-approval "{{approval}}"); fi
+    python3 modules/hosts/kepler/_collision_recovery_redis_backup.py "${args[@]}"
+
+# Render the exact retirement/disposition manifest from reviewed evidence.
+kepler-recovery-retirement-plan evidence=".gsd/evidence/kepler-k1/retirement-evidence.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 modules/hosts/kepler/_collision_recovery_retirement.py \
+      .gsd/evidence/kepler-k1/inventory.json "{{evidence}}"
 
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:

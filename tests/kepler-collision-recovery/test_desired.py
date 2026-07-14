@@ -60,8 +60,8 @@ class DesiredStateTest(unittest.TestCase):
         self.assertIn("provenance.json", desired["source_sha256"])
         local = desired["local_images"]
         self.assertEqual(set(local), {
-            "kepler/edge-tts-openai:latest", "kepler/f5-tts-server:pt-br",
-            "kepler/faster-whisper:cuda13", "kepler/hermes-docs-search:latest",
+            "kepler/edge-tts-openai:latest", "kepler/faster-whisper:cuda13",
+            "kepler/hermes-docs-search:latest",
             "kepler/piper-openai:latest",
         })
         by_name = {service["service"]: service for service in desired["services"]}
