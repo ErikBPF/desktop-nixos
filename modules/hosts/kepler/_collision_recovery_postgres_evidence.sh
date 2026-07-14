@@ -20,13 +20,18 @@ root="$backup_base/postgres/$inventory_sha"
 artifact="$root/retained-databases.tar"
 work="$root/.work"
 disposable="kepler-k1-postgres-restore-${inventory_sha:0:12}"
+volume="${disposable}-data"
 created=false
+volume_created=false
 source_started=false
 umask 077
 
 cleanup() {
   if [[ $created == true ]]; then
     podman rm --force "$disposable" >/dev/null 2>&1 || true
+  fi
+  if [[ $volume_created == true ]]; then
+    podman volume rm "$volume" >/dev/null 2>&1 || true
   fi
   if [[ $source_started == true ]]; then
     podman stop "$expected_id" >/dev/null 2>&1 || true
@@ -65,6 +70,13 @@ image_id=$(podman inspect --format '{{.Image}}' "$container" 2>/dev/null)
 install -d -m 0700 "$root"
 rm -rf -- "$work"
 install -d -m 0700 "$work/source" "$work/restored"
+# PostgreSQL emits fresh psql safety tokens on every plain dump. They are
+# transport metadata, not schema or row content, so exclude only those exact
+# command lines from logical comparison while retaining the raw backup.
+normalized_dump_sha() {
+  sed -e '/^\\restrict [A-Za-z0-9_-]\+$/d' -e '/^\\unrestrict [A-Za-z0-9_-]\+$/d' "$1" \
+    | sha256sum | cut -d' ' -f1
+}
 # Names and owners are metadata. Credentials remain expanded only inside Postgres.
 podman exec "$container" sh -ceu 'exec psql -Atq -F "|" -U "$POSTGRES_USER" -d postgres -c "select datname, pg_get_userbyid(datdba) from pg_database where datallowconn order by datname"' >"$work/inventory.raw" 2>/dev/null
 python3 - "$work/inventory.raw" "$work/inventory.json" "$work/retained" <<'PY'
@@ -94,7 +106,10 @@ tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf "$artifact"
 artifact_sha=$(sha256sum "$artifact" | cut -d' ' -f1)
 artifact_bytes=$(stat -c %s "$artifact")
 
+podman volume create "$volume" >/dev/null 2>&1
+volume_created=true
 podman create --network none --name "$disposable" \
+  --mount "type=volume,src=$volume,dst=/var/lib/postgresql/data" \
   --env POSTGRES_HOST_AUTH_METHOD=trust "$image_id" >/dev/null 2>&1
 created=true
 podman start "$disposable" >/dev/null 2>&1
@@ -115,12 +130,12 @@ while IFS='|' read -r name owner; do
   fi
   podman exec --interactive "$disposable" psql -v ON_ERROR_STOP=1 -U postgres -d "$name" <"$work/source/$name.sql" >/dev/null 2>&1
   podman exec "$disposable" pg_dump --clean --if-exists --no-owner --no-privileges --format=plain -U postgres -d "$name" >"$work/restored/$name.sql" 2>/dev/null
-  [[ $(sha256sum "$work/source/$name.sql" | cut -d' ' -f1) == $(sha256sum "$work/restored/$name.sql" | cut -d' ' -f1) ]] || {
+  [[ $(normalized_dump_sha "$work/source/$name.sql") == $(normalized_dump_sha "$work/restored/$name.sql") ]] || {
     echo "postgres evidence halted: restored logical hash mismatch" >&2
     exit 2
   }
 done <"$work/retained"
-logical_sha=$(while IFS='|' read -r name _owner; do sha256sum "$work/source/$name.sql"; done <"$work/retained" | sha256sum | cut -d' ' -f1)
+logical_sha=$(while IFS='|' read -r name _owner; do printf '%s %s\n' "$name" "$(normalized_dump_sha "$work/source/$name.sql")"; done <"$work/retained" | sha256sum | cut -d' ' -f1)
 timestamp=$(date --utc +%Y-%m-%dT%H:%M:%SZ)
 python3 - "$inventory_sha" "$expected_id" "$artifact_sha" "$artifact_bytes" "$logical_sha" "$timestamp" "$work/inventory.json" "$work/retained" <<'PY'
 import json

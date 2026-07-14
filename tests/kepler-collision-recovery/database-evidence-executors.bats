@@ -14,6 +14,7 @@ setup() {
   export KEPLER_RECOVERY_TEST_ROOT="$BATS_TEST_TMPDIR/fast/backups/kepler-collision-k1"
   export MOCK_LOG="$BATS_TEST_TMPDIR/podman.log"
   export MOCK_STATE=running
+  export MOCK_DUMP_VARIANCE=false
   export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
   mkdir -p "$BATS_TEST_TMPDIR/bin"
   cat >"$BATS_TEST_TMPDIR/bin/sleep" <<'SH'
@@ -30,7 +31,16 @@ case " $* " in
   *" inspect --format {{.Id}} "*) printf '%s\n' "$MOCK_ID" ;;
   *" inspect --format {{.Image}} "*) printf '%s\n' "$MOCK_IMAGE_ID" ;;
   *" pg_get_userbyid"*) printf 'airflow|airflow\napp|app_owner\npostgres|postgres\n' ;;
-  *" exec "*" pg_dump "*) printf '%s\n' 'CREATE TABLE retained(id integer);' ;;
+  *" exec kepler-k1-postgres-restore-"*" pg_dump "*)
+    if [[ $MOCK_DUMP_VARIANCE == true ]]; then printf '\\restrict RESTORED\n'; fi
+    printf '%s\n' 'CREATE TABLE retained(id integer);'
+    if [[ $MOCK_DUMP_VARIANCE == true ]]; then printf '\\unrestrict RESTORED\n'; fi
+    ;;
+  *" exec postgres "*" pg_dump "*)
+    if [[ $MOCK_DUMP_VARIANCE == true ]]; then printf '\\restrict SOURCE\n'; fi
+    printf '%s\n' 'CREATE TABLE retained(id integer);'
+    if [[ $MOCK_DUMP_VARIANCE == true ]]; then printf '\\unrestrict SOURCE\n'; fi
+    ;;
   *" exec "*" psql "*) cat >/dev/null ;;
   *" exec redis "*"redis-cli SAVE"*) ;;
   *" exec redis "*"DBSIZE"*) printf '2\n' ;;
@@ -58,6 +68,8 @@ SH
   [[ "$output" != *must-not-escape* ]]
   [ -f "$KEPLER_RECOVERY_TEST_ROOT/postgres/$SHA/retained-databases.tar" ]
   grep -F -- "--network none --name kepler-k1-postgres-restore-aaaaaaaaaaaa" "$MOCK_LOG"
+  grep -F -- "volume create kepler-k1-postgres-restore-aaaaaaaaaaaa-data" "$MOCK_LOG"
+  grep -F -- "volume rm kepler-k1-postgres-restore-aaaaaaaaaaaa-data" "$MOCK_LOG"
   run ! grep -E 'prune|system reset|rm --all' "$MOCK_LOG"
 }
 
@@ -110,4 +122,11 @@ SH
   run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_postgres_evidence.sh" run "$SHA" "$SOURCE_ID"
   [ "$status" -eq 0 ]
   grep -F -- "$MOCK_IMAGE_ID" "$MOCK_LOG"
+}
+
+@test "volatile pg_dump restrict tokens do not invalidate logical restore proof" {
+  export MOCK_DUMP_VARIANCE=true
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_postgres_evidence.sh" run "$SHA" "$SOURCE_ID"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"logical_sha256"'* ]]
 }
