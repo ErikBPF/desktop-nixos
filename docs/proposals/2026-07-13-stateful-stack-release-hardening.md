@@ -1,6 +1,12 @@
 # Stateful stack and release hardening
 
-**Status:** In progress — P0 complete; P1 SWAG adoption is next.
+**Status:** In progress — P0 complete; Kepler K0–K5 precedes staged Discovery P1.
+
+**Execution order update (2026-07-13):** The operator execution plan now
+inserts Kepler collision recovery K0–K5 between shared P0 and Discovery P1.
+Discovery mutations remain frozen through K5. This proposal remains
+authoritative for architecture and acceptance criteria; the merged execution
+plan is authoritative for rollout order.
 
 ## 1. Summary
 

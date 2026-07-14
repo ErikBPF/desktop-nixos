@@ -1,28 +1,33 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 complete; P1 staged at the explicit SWAG
-container-replacement approval gate.
+**Status:** In progress — P0 complete; Kepler K0 is the active TDD gate;
+Discovery P1 is staged and frozen until K5 completes.
 
 ## 1. Purpose and authority
 
 This is the operator execution plan for
 [`2026-07-13-stateful-stack-release-hardening.md`](2026-07-13-stateful-stack-release-hardening.md).
 It is written for a fresh operator continuing the rollout without chat history.
-The proposal's locked decisions, phase order, ownership boundaries, safety
-constraints, verification contracts, and acceptance criteria remain
-authoritative. If this plan conflicts with the proposal, the proposal wins. If
-an operational document conflicts with a `just` recipe, the recipe wins and the
+The proposal's locked ownership boundaries, safety constraints, verification
+contracts, and acceptance criteria remain authoritative. This document merges
+the urgent Kepler collision recovery into the rollout order. The detailed
+Kepler behavior and test contract remain normative TDD artifacts. If an
+operational document conflicts with a `just` recipe, the recipe wins and the
 document must be corrected.
 
 | Repository | Ownership |
 |---|---|
-| `desktop-nixos` | Discovery host orchestration, fixed migration workflows, release agent, monitoring |
-| `servarr` | Discovery Compose stacks, physical volumes, immutable workload pins |
+| `desktop-nixos` | Kepler and Discovery host orchestration, fixed migration workflows, release agent, monitoring |
+| `servarr` | Kepler and Discovery Compose stacks, secret contracts, physical volumes, immutable workload pins |
 | `homelab-iac` | AdGuard and Cloudflare Terraform, wired-LAN plans and applies |
 | `kindle-dash` | Tests, protected-main releases, SemVer, signing, SBOM and provenance |
 
 Leaf repositories land first. Consumers and host orchestration follow only
 after the leaf commit is published and pinned.
+
+The merged order is `P0 → K0–K5 → P1–P9`. Kepler and Discovery live mutations
+are never concurrent. Discovery remains available as the LiteLLM gateway while
+Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 
 ## 2. Current state
 
@@ -54,8 +59,18 @@ after the leaf commit is published and pinned.
 - The bind measured `18,049,624` bytes, owner `1000:1000`.
 - Pre-change nginx, ingress, and certificate checks pass. `cloudflare.ini` is
   unexpectedly `0644`; P1 requires `0600` after recreation and fails otherwise.
-- Current gate: replacing containers `swag` and `swag-init` requires explicit
-  approval. P1 deletes no volume, snapshot, backup, or state.
+- Later gate: replacing containers `swag` and `swag-init` requires explicit
+  approval after K5. P1 deletes no volume, snapshot, backup, or state.
+
+### K0 — active, not implemented
+
+- Kepler collision behavior and fixture-test contract are approved.
+- GitLab and Airflow are retired; Restate remains protected.
+- SecretSpec `0.13.0` is available from the pinned nixpkgs. It is a declaration
+  and preflight layer, not a replacement for SOPS or Vault Agent.
+- No Kepler runtime mutation, destructive wipe, backup purge, snapshot, or
+  quarantine has run.
+- K1 is blocked until Kepler SecretSpec profiles and fixture tests pass.
 
 ### Known later gates
 
@@ -71,8 +86,8 @@ after the leaf commit is published and pinned.
 
 ## 3. Non-negotiable rules
 
-1. Execute P0–P9 in order. Later phases may be inspected, not mutated, before
-   their predecessor completes.
+1. Execute `P0 → K0–K5 → P1–P9` in order. Later phases may be inspected, not
+   mutated, before their predecessor completes.
 2. Re-read repository instructions/runbooks and re-inspect live state before
    every slice.
 3. Preserve unrelated dirty work. Stage only active-slice files.
@@ -82,13 +97,16 @@ after the leaf commit is published and pinned.
 5. Adopt existing state in place before canonical copying.
 6. Never delete a container, volume, snapshot, backup, or remote state without
    current-turn approval naming that resource.
-7. Keep legacy volumes through smoke tests and one discovery reboot. Databases
-   also require a successful backup cycle.
-8. Mutate discovery only through documented `just` recipes or fixed approved
-   systemd workflows. Never edit remote files.
+7. Keep legacy containers and volumes through smoke tests and one reboot of the
+   affected host. Databases also require a successful backup cycle before state
+   cleanup. GitLab and Airflow are the only scoped immediate-wipe exception.
+8. Mutate Kepler or Discovery only through documented `just` recipes or fixed
+   approved systemd workflows. Never edit remote files.
 9. Apply Terraform only from wired LAN, using an inspected saved plan and live
    post-apply probes. Stop on unexplained drift.
-10. Deploy immutable image digests; never `latest`.
+10. Registry images require immutable digests. Local builds require image ID,
+    source commit, and build inputs; model artifacts require independent
+    checksum/version evidence. Never deploy `latest`.
 11. Stop on checksum mismatch, missing backup, ownership ambiguity, unexplained
     drift, or rollback failure.
 12. Never weaken tests, health gates, branch protection, signature validation,
@@ -103,7 +121,9 @@ after the leaf commit is published and pinned.
 5. Commit/publish the leaf repository, then pin it in the consumer.
 6. Write the complete ledger before workload mutation.
 7. Stop only affected services; snapshot and checksum/archive state.
-8. Prove archive read/restore/compare before irreversible change.
+8. Prove archive read/restore/compare before irreversible change. Kepler uses
+   the explicitly scoped logical-backup restore tests plus ZFS/independent
+   mount coverage in K1/K3 instead of blanket archives of Qdrant and MinIO.
 9. Mutate through the approved recipe or systemd workflow.
 10. Run hard smoke gates and inspect logs/metrics.
 11. Verify rollback evidence before removing old protection.
@@ -115,6 +135,7 @@ Desktop final gates:
 just lint
 just fmt-check
 just dry discovery
+just dry kepler
 ```
 
 Run `just check` for shared/fleet behavior and `just docs-check` for docs.
@@ -128,7 +149,98 @@ explicit-volume policy and fixtures; ledger/snapshot/archive/restore/compare/
 smoke/rollback/orphan helpers; retained disposable live proof; exact evidence.
 No fixture cleanup is authorized.
 
-### P1 — SWAG in-place adoption — active
+### K0 — SecretSpec contract and fixture tests — active
+
+1. Package the pinned SecretSpec version declaratively; do not install it with
+   an unpinned curl script.
+2. Add one Kepler manifest with stack profiles for `infra`, `ai-serving`, and
+   `docs-search`. Declare Restate separately as protected; do not retain
+   GitLab/Airflow declarations.
+3. Treat SecretSpec as the mandatory contract and value-free preflight layer.
+   Keep SOPS for host/build/bootstrap secrets and Vault Agent for long-running
+   runtime resolution.
+4. Add drift tests proving Compose-required variables, Vault Agent templates,
+   SOPS key names, `.env.example`, and SecretSpec declarations agree without
+   reading or printing values.
+5. Add fixture tests for classification, allowlists, immutable identities,
+   mount coverage, manifest hashing, ordering, idempotence, and every failure
+   stop in the Kepler test contract.
+6. Produce a draft Discovery inventory only. Complete each Discovery stack
+   profile immediately before its phase; `networking` becomes a P1 gate.
+
+### K1 — Kepler inventory, backups, and approval manifest
+
+1. Re-inspect every rootless-Podman container, Compose label, owner, state,
+   image, mount, network, secret declaration, backup, snapshot, and collision.
+2. Classify only exact GitLab/Airflow resources as `retired-wipe`; protect
+   Restate; halt on running, unlabeled, foreign, unknown, or mount-mismatched
+   collisions.
+3. Pin registry images by digest. Record immutable local image and model
+   identities. Halt any slice whose desired identity is not reproducible.
+4. Quiesce shared PostgreSQL and create restore-tested logical backups of all
+   retained databases before planning the Airflow database drop.
+5. Inventory every current and non-Git historical GitLab/Airflow secret copy,
+   including deployment clones, generated env files, snapshots, Restic
+   archives, SOPS escrow bundles, and external credentials. Encrypted Git
+   history is retained.
+6. For mixed backups, create and restore/compare a sanitized replacement before
+   selecting the contaminated artifact for deletion.
+7. Render a value-free, immutable action manifest with exact resources,
+   commands, rollback boundaries, and SHA-256. Execution requires user approval
+   naming the manifest hash and resources; any live drift invalidates it.
+
+### K2 — exact GitLab/Airflow retirement
+
+1. Re-inventory and verify the approved K1 manifest hash before mutation.
+2. Drop only the Airflow database, remove only the approved GitLab/Airflow
+   containers, volumes, bind paths, service-specific images/caches, current
+   SecretSpec/SOPS/OpenBao/env declarations and values, and approved non-Git
+   historical artifacts.
+3. Revoke every externally valid retired credential before artifact deletion.
+4. Never broadly prune, destroy a parent dataset, rewrite Git history, delete
+   an unlisted backup, or touch Restate.
+5. Verify shared PostgreSQL and all retained services before continuing.
+
+### K3 — retained-state protection
+
+1. Stop dependents; checkpoint PostgreSQL; force Redis persistence; confirm
+   Qdrant and MinIO writes are idle.
+2. Restore-test logical PostgreSQL and Redis backups. Copy the Redis named-volume
+   backup into protected `/fast` state and checksum it.
+3. Create a timestamped recursive ZFS snapshot of retained state only. Every
+   persistent mount outside its boundary requires an independently verified
+   backup or the campaign halts.
+4. Thirty days marks cleanup eligibility, not automatic deletion. Snapshot and
+   backup deletion always requires later exact-resource approval.
+
+### K4 — resumable collision recovery
+
+Run one maintenance campaign as three resumable slices: `infra`, `ai-serving`,
+then `docs-search`. Each slice has its own ledger and stop boundary.
+
+For one stopped collision at a time, rename the legacy container to
+`legacy-<name>-<timestamp>`, start the declarative replacement under the
+original name, and require exact identity, labels, mounts, networks, health,
+clean logs, state checks, endpoint probes, dependent smoke tests, and 15 minutes
+without restart or regression. A failure stops the replacement and retains the
+quarantine and snapshot. Never restore ZFS or restart legacy state
+automatically. Do not delete quarantined non-retired containers in K4.
+
+### K5 — reboot, cross-host validation, and retention ledger
+
+1. Reboot Kepler only through its documented workflow.
+2. Repeat all stack identity, state, endpoint, dependency, and backup probes.
+3. Verify Discovery LiteLLM routes against recovered Kepler backends while
+   Discovery remains otherwise unchanged.
+4. If Orion is online, record its Discovery LiteLLM route and Orion-to-Kepler
+   Restic connectivity; Orion being offline is non-blocking and causes no Orion
+   mutation.
+5. Run a second read-only planner proving no collision or pending migration.
+6. Retain quarantined containers, snapshots, backups, and ledgers. Generate a
+   separate cleanup manifest for later named-resource approval.
+7. Unfreeze Discovery P1 only after all K5 gates are green.
+
+### P1 — SWAG in-place adoption — staged and frozen
 
 #### P1.1 Immutable pins — complete
 
@@ -312,6 +424,7 @@ Presence alone is not orphan proof.
 | IaC | format, validate, lock consistency, security, saved plan/checksum, import/zero diff, wired probes |
 | Kindle | format/lint, parser fixtures, PNG, image build, SemVer labels, signature/SBOM/provenance |
 | Migration | ledger, stopped-service backup, checksum/read/restore/compare, identity/health, rollback, reboot |
+| Kepler | SecretSpec drift report, approved manifest hash, exact retirement evidence, retained-state coverage, per-slice gates, reboot, second planner |
 | SWAG | nginx, cert SAN/expiry, DNS-01 dry run, HTTPS, LAN PNG, clean logs |
 | AdGuard | LAN A/AAAA, rewrite, external, blocked, API, filters/log/stats/rules/exporter, secondary outage |
 | Release | signed digest, owner/volume/health/PNG, forced rollback, degraded failure, resume, consistent reporting |
@@ -332,8 +445,10 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-Current gate: approve replacement of `swag` and `swag-init` for P1.2. This does
-not authorize deletion of bind state, volumes, P0 fixtures, P1 protection, or
+The current active gate is K0 test implementation. Kepler K2/K4 execution then
+requires a fresh, exact K1 manifest and matching approval. The staged Discovery
+gate to replace `swag` and `swag-init` becomes active only after K5 and does not
+authorize deletion of bind state, volumes, P0 fixtures, P1 protection, or
 legacy resources.
 
 ## 8. Completion ledger
@@ -341,7 +456,13 @@ legacy resources.
 | Phase | State | Evidence | Remaining gate |
 |---|---|---|---|
 | P0 | Complete | Servarr `98ecafb`; desktop `50454f9`, `6217215`, `061a1cc`, `5a24439`; retained fixture | P9 cleanup only |
-| P1 | In progress | Servarr `c2b0714`; desktop `3bbefaf`; live preflight | Approval for `swag`, `swag-init` replacement |
+| K0 | In progress | Approved Kepler behavior/test contract; SecretSpec available | Implement declarations and red/green fixtures |
+| K1 | Pending | — | K0 complete; exact live inventory |
+| K2 | Pending | — | Approved, drift-free K1 manifest |
+| K3 | Pending | — | K2 verified; retained-state backups |
+| K4 | Pending | — | K3 snapshot and coverage proof |
+| K5 | Pending | — | K4 green; reboot and cross-host validation |
+| P1 | Staged/frozen | Servarr `c2b0714`; desktop `3bbefaf`; live preflight | K5 complete, then approval for `swag`, `swag-init` replacement |
 | P2 | Pending | — | P1 complete |
 | P3 | Pending | Read-only audit | P2; LAN-reachable design |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
