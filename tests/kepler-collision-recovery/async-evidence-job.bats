@@ -117,3 +117,22 @@ SH
   [ "$status" -eq 2 ]
   [[ "$output" != *partial* ]]
 }
+
+@test "fixed executor stage is surfaced without raw stderr" {
+  cat >"$BATS_TEST_TMPDIR/bin/kepler-collision-postgres-evidence" <<'SH'
+#!/usr/bin/env bash
+printf 'postgres evidence halted: stage restore-load\nprivate detail must-not-escape\n' >&2
+exit 2
+SH
+  chmod +x "$BATS_TEST_TMPDIR/bin/kepler-collision-postgres-evidence"
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" \
+    submit postgres run-stopped "$SHA" "$SOURCE_ID"
+  REQUEST_SHA=$(printf '%s' "$output" | jq -r .request_sha256)
+
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" execute "$REQUEST_SHA"
+  [ "$status" -eq 2 ]
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" status "$REQUEST_SHA"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"reason":"stage-restore-load"'* ]]
+  [[ "$output" != *must-not-escape* ]]
+}
