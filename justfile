@@ -863,8 +863,9 @@ kick-stack target stack:
 
 # Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
 ai-kepler-health:
-    @just verify-port kepler {{ip_kepler}} 7997
     @just verify-port kepler {{ip_kepler}} 8001
+    @just verify-port kepler {{ip_kepler}} 8085
+    @just verify-port kepler {{ip_kepler}} 8087
     @just verify-port kepler {{ip_kepler}} 9000
     @just verify-port kepler {{ip_kepler}} 10200
 

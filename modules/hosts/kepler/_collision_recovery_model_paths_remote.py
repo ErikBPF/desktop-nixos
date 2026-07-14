@@ -25,7 +25,7 @@ WHISPER_PATTERNS = (
     "whisper/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo",
     "whisper/large-v3-turbo",
 )
-F5_PARENT = "f5-tts/models--firstpixel--F5-TTS-pt-br/snapshots"
+F5_PARENT = "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots"
 SNAPSHOT = re.compile(r"[0-9a-f]{6,64}")
 
 

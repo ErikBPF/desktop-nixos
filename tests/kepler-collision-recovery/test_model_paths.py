@@ -30,13 +30,13 @@ class ModelPathDiscoveryTest(unittest.TestCase):
             "embeddings/hub/models--BAAI--bge-reranker-v2-m3",
             "refs", "piper",
             "whisper/models--Systran--faster-whisper-large-v3-turbo",
-            "f5-tts/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br",
+            "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br",
         )
         for relative in directories:
             (root / relative).mkdir(parents=True)
         (root / "gemma4").mkdir()
         (root / "gemma4/gemma-4-E2B-it-Q8_0.gguf").write_bytes(b"fixture")
-        (root / "f5-tts/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br/model_last.safetensors").write_bytes(b"fixture")
+        (root / "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br/model_last.safetensors").write_bytes(b"fixture")
 
     def test_discovers_exact_value_free_artifact_paths(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -67,7 +67,7 @@ class ModelPathDiscoveryTest(unittest.TestCase):
             with self.assertRaisesRegex(self.module.DiscoveryHalt, "whisper-model identity path is ambiguous"):
                 self.module.discover(root)
             (root / "whisper/large-v3-turbo").rmdir()
-            extra = root / "f5-tts/models--firstpixel--F5-TTS-pt-br/snapshots/def456/pt-br"
+            extra = root / "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/def456/pt-br"
             extra.mkdir(parents=True)
             (extra / "model_last.safetensors").write_bytes(b"other")
             with self.assertRaisesRegex(self.module.DiscoveryHalt, "f5-tts-checkpoint identity path is ambiguous"):
