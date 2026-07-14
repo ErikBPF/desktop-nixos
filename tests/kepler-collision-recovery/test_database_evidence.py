@@ -120,6 +120,11 @@ class DatabaseEvidenceTests(unittest.TestCase):
         self.evidence["retained_databases"].pop()
         with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "database inventory coverage"):
             self.plan()
+
+    def test_requires_exact_template1_system_database(self):
+        self.evidence["database_inventory"][-1]["name"] = "template2"
+        with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "database inventory coverage"):
+            self.plan()
         self.evidence = json.loads(FIXTURE.read_text())
         self.evidence["inventory_sha256"] = self.inventory["inventory_sha256"]
         self.evidence["database_inventory"][1]["owner"] = "wrong_owner"

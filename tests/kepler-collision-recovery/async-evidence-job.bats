@@ -136,3 +136,22 @@ SH
   [[ "$output" == *'"reason":"stage-restore-load"'* ]]
   [[ "$output" != *must-not-escape* ]]
 }
+
+@test "fixed Redis stage is surfaced without raw stderr" {
+  cat >"$BATS_TEST_TMPDIR/bin/kepler-collision-redis-evidence" <<'SH'
+#!/usr/bin/env bash
+printf 'redis evidence halted: stage source-save\nprivate detail must-not-escape\n' >&2
+exit 2
+SH
+  chmod +x "$BATS_TEST_TMPDIR/bin/kepler-collision-redis-evidence"
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" \
+    submit redis run-stopped "$SHA" "$SOURCE_ID"
+  REQUEST_SHA=$(printf '%s' "$output" | jq -r .request_sha256)
+
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" execute "$REQUEST_SHA"
+  [ "$status" -eq 2 ]
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_evidence_job.sh" status "$REQUEST_SHA"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"reason":"stage-source-save"'* ]]
+  [[ "$output" != *must-not-escape* ]]
+}

@@ -106,9 +106,16 @@ def _validate_coverage(discovered, retained):
     if len(identities) != len(set(identities)):
         raise DatabaseEvidenceHalt("duplicate database inventory coverage")
     airflow = [item for item in identities if item[0] == "airflow"]
-    retained_identities = sorted(item for item in identities if item[0] != "airflow")
+    system = [item for item in identities if item[0] == "template1"]
+    retained_identities = sorted(
+        item for item in identities if item[0] not in {"airflow", "template1"}
+    )
     expected = sorted((item["name"], item["owner"]) for item in retained)
-    if len(airflow) != 1 or retained_identities != expected:
+    if (
+        len(airflow) != 1
+        or len(system) != 1
+        or retained_identities != expected
+    ):
         raise DatabaseEvidenceHalt("database inventory coverage mismatch")
 
 

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 set -euo pipefail
 
 [[ $# -eq 3 && $1 =~ ^run(-stopped)?$ && $2 =~ ^[0-9a-f]{64}$ && $3 =~ ^[0-9a-f]{64}$ ]] || {
@@ -24,6 +25,13 @@ container_created=false
 volume_created=false
 source_started=false
 umask 077
+stage=preflight
+on_error() {
+  exit_code=$?
+  printf 'redis evidence halted: stage %s\n' "$stage" >&2
+  exit "$exit_code"
+}
+trap on_error ERR
 
 cleanup() {
   if [[ $container_created == true ]]; then
@@ -51,8 +59,10 @@ elif [[ $1 == run-stopped ]]; then
     echo "redis evidence halted: exact source container is not exited" >&2
     exit 2
   }
+  stage=source-start
   podman start "$expected_id" >/dev/null 2>&1
   source_started=true
+  stage=source-readiness
   for _ in $(seq 1 60); do
     podman exec "$expected_id" redis-cli ping >/dev/null 2>&1 && break
     sleep 1
@@ -67,6 +77,7 @@ image_id=$(podman inspect --format '{{.Image}}' "$container" 2>/dev/null)
 [[ $image_id == sha256:* ]] || image_id="sha256:$image_id"
 
 install -d -m 0700 "$root"
+stage=source-save
 # Authentication material is expanded and consumed only inside the existing container.
 podman exec "$container" sh -ceu 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli SAVE >/dev/null' 2>/dev/null
 key_count=$(podman exec "$container" sh -ceu 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli --raw DBSIZE' 2>/dev/null)
@@ -74,9 +85,11 @@ key_count=$(podman exec "$container" sh -ceu 'REDISCLI_AUTH="$REDIS_PASSWORD" re
   echo "redis evidence halted: source count unavailable" >&2
   exit 2
 }
+stage=source-copy
 podman cp "$container:/data/dump.rdb" "$artifact" >/dev/null 2>&1
 artifact_sha=$(sha256sum "$artifact" | cut -d' ' -f1)
 artifact_bytes=$(stat -c %s "$artifact")
+stage=source-digest
 source_digest=$(podman exec "$container" sh -ceu '
   export REDISCLI_AUTH="$REDIS_PASSWORD"
   redis-cli --scan | LC_ALL=C sort | while IFS= read -r key; do
@@ -90,12 +103,15 @@ source_digest=$(podman exec "$container" sh -ceu '
   exit 2
 }
 
+stage=restore-create
 podman volume create "$volume" >/dev/null 2>&1
 volume_created=true
 podman create --network none --name "$disposable" --mount "type=volume,src=$volume,dst=/data" "$image_id" >/dev/null 2>&1
 container_created=true
+stage=restore-copy
 podman cp "$artifact" "$disposable:/data/dump.rdb" >/dev/null 2>&1
 podman start "$disposable" >/dev/null 2>&1
+stage=restore-readiness
 for _ in $(seq 1 60); do
   podman exec "$disposable" redis-cli ping >/dev/null 2>&1 && break
   sleep 1
@@ -106,6 +122,7 @@ restored_key_count=$(podman exec "$disposable" redis-cli --raw DBSIZE 2>/dev/nul
   echo "redis evidence halted: restored count mismatch" >&2
   exit 2
 }
+stage=restore-digest
 restored_digest=$(podman exec "$disposable" sh -ceu '
   redis-cli --scan | LC_ALL=C sort | while IFS= read -r key; do
     printf "%s\\0" "$key"
@@ -118,6 +135,7 @@ restored_digest=$(podman exec "$disposable" sh -ceu '
   exit 2
 }
 timestamp=$(date --utc +%Y-%m-%dT%H:%M:%SZ)
+stage=result
 python3 - "$inventory_sha" "$expected_id" "$artifact_sha" "$artifact_bytes" "$key_count" "$source_digest" "$timestamp" <<'PY'
 import json
 import sys

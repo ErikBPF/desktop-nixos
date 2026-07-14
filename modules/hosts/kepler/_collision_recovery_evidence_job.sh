@@ -152,8 +152,8 @@ PY
       grep -Fq 'exact Airflow inventory unavailable' "$error_tmp" && reason=database-inventory-mismatch
       grep -Fq 'restored logical hash mismatch' "$error_tmp" && reason=restore-mismatch
       grep -Fq 'restored count mismatch' "$error_tmp" && reason=restore-count-mismatch
-      for fixed_stage in preflight source-start source-readiness source-inventory source-dump restore-create restore-readiness restore-database restore-load restore-dump result; do
-        if grep -Fq "postgres evidence halted: stage $fixed_stage" "$error_tmp"; then
+      for fixed_stage in preflight source-start source-readiness source-inventory source-save source-copy source-digest source-dump restore-create restore-copy restore-readiness restore-database restore-load restore-digest restore-dump result; do
+        if grep -Eq "^(postgres|redis) evidence halted: stage $fixed_stage$" "$error_tmp"; then
           reason="stage-$fixed_stage"
         fi
       done
