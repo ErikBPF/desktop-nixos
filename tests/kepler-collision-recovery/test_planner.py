@@ -243,6 +243,47 @@ class PlannerTest(unittest.TestCase):
             self.assertNotIn(forbidden, rendered)
         self.assertEqual(self.plan()["retention"]["cleanup"], "separate-exact-resource-approval")
 
+    def test_disposable_redis_reset_is_exact_hash_bound_and_has_no_backup(self):
+        manifest = self.plan()
+        self.assertEqual(manifest["redis_reset"], {
+            "container": {"id": "2" * 64, "name": "redis", "state": "stopped"},
+            "mode": "dry-run",
+            "next": "declarative-infra-recreates-desired-redis",
+            "project": "homelab",
+            "service": "redis",
+            "volume": {
+                "driver": "local",
+                "mountpoint": "/home/erik/.local/share/containers/storage/volumes/homelab_redis_data/_data",
+                "name": "homelab_redis_data",
+                "references": ["redis"],
+            },
+        })
+        rendered = json.dumps(manifest["redis_reset"], sort_keys=True).lower()
+        for forbidden in ("backup", "restore", "prune", "volume rm --all"):
+            self.assertNotIn(forbidden, rendered)
+        self.assertEqual(manifest["inventory_sha256"], self.planner.inventory_hash(self.inventory))
+        phases = [operation["phase"] for operation in manifest["operations"]]
+        self.assertLess(phases.index("postgres_checkpoint"), phases.index("redis_disposable_reset"))
+        self.assertLess(phases.index("redis_disposable_reset"), phases.index("qdrant_idle"))
+
+    def test_disposable_redis_reset_requires_exact_stopped_legacy_resources(self):
+        mutations = (
+            lambda item: item.update(container_id="short"),
+            lambda item: item.update(container_name="redis-other"),
+            lambda item: item.update(container_state="running"),
+            lambda item: item.update(project="infra"),
+            lambda item: item.update(service="other"),
+            lambda item: item.update(volume_name="infra_redis_data"),
+            lambda item: item.update(volume_driver="other"),
+            lambda item: item.update(volume_references=[]),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                inventory = copy.deepcopy(self.inventory)
+                mutation(inventory["redis_reset"])
+                with self.assertRaises(self.planner.PlanHalt):
+                    self.plan(inventory)
+
     def test_action_sequence_is_exact_and_dry_run_only(self):
         manifest = self.plan()
         self.assertEqual(manifest["phase_order"], [
@@ -259,7 +300,7 @@ class PlannerTest(unittest.TestCase):
             ["classification"],
             ["retained_database_backup_restore"],
             ["retired_secret_revocation", "mixed_backup_sanitization", "exact_artifact_selection"],
-            ["postgres_checkpoint", "redis_save_backup_restore", "qdrant_idle", "minio_idle"],
+            ["postgres_checkpoint", "redis_disposable_reset", "qdrant_idle", "minio_idle"],
             ["persistent_mount_coverage", "zfs_snapshot"],
             ["replacement_start"],
             ["replacement_validation", "reboot_validation"],
