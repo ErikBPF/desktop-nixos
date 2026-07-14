@@ -1,8 +1,8 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 and Kepler K0 complete; K1 read-only inventory and
-exact approval-manifest generation is the active gate. Discovery P1 remains
-staged and frozen until K5 completes.
+**Status:** In progress — P0 and Kepler K0 complete; K1 evidence collection,
+backup/restore proof, and exact approval-manifest generation are the active
+gate. Discovery P1 remains staged and frozen until K5 completes.
 
 ## 1. Purpose and authority
 
@@ -66,7 +66,8 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 ### K0 — complete
 
 - Kepler collision behavior and fixture-test contract are approved.
-- GitLab and Airflow are retired; Restate remains protected.
+- GitLab and Airflow declarations are retired; their exact live and historical
+  resources have not yet been deleted. Restate remains protected.
 - SecretSpec `0.13.0` is available from the pinned nixpkgs. It is a declaration
   and preflight layer, not a replacement for SOPS or Vault Agent.
 - No Kepler runtime mutation, destructive wipe, backup purge, snapshot, or
@@ -76,6 +77,27 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   passed without changing production secret resolution or runtime startup.
 - K1 remains blocked pending a fresh read-only live inventory and exact
   approval manifest.
+
+### K1 — in progress, dry-run gates only
+
+- Servarr `6e215e9` removes F5-TTS from the desired Kepler stack, environment
+  contract, local-image provenance, model provenance, validation, and operator
+  recipes. This is source retirement only; the live host has not been mutated.
+- Desktop `4fdae50` pins that Servarr revision, removes the F5-TTS host port and
+  model-path expectations, and adds value-free dry-run planners for retained
+  PostgreSQL evidence, Redis backup/restore, and exact retirement/disposition.
+- The retirement planner validates the live inventory's internal SHA-256,
+  rejects shared images and unknown resources, protects Restate, binds nested
+  evidence, and emits no execute mode or destructive command.
+- The recovery suite passes 122 tests. Documentation, lint, format, Kepler
+  dry-build, and the full flake check pass. The full check used only Orion and
+  Kepler as builders; the laptop coordinator had zero local build jobs.
+- No GitLab/Airflow resource, F5 artifact, scratch container, database, volume,
+  snapshot, backup, secret, or external credential has been removed or revoked.
+- Live execution remains blocked until a fresh inventory, value-free evidence,
+  restore-tested PostgreSQL and Redis backups, historical-artifact coverage,
+  and an exact hash-bound approval manifest exist. A secret-safe executor also
+  requires the repository's Bats prerequisite before implementation.
 
 ### Known later gates
 
@@ -174,6 +196,9 @@ No fixture cleanup is authorized.
    profile immediately before its phase; `networking` becomes a P1 gate.
 
 ### K1 — Kepler inventory, backups, and approval manifest
+
+Current progress: the deterministic validators and dry-run planners are
+published. No remote execution path exists yet, and no K1 mutation has run.
 
 1. Re-inspect every rootless-Podman container, Compose label, owner, state,
    image, mount, network, secret declaration, backup, snapshot, and collision.
@@ -453,9 +478,10 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is K1 read-only inventory and exact approval-manifest
-generation. Kepler K2/K4 execution then requires that fresh, exact K1 manifest
-and matching approval. The staged Discovery
+The current active gate is K1 read-only inventory, backup/restore evidence, and
+exact approval-manifest generation. Implementing the secret-safe executor first
+requires Bats in the declarative test environment. Kepler K2/K4 execution then
+requires that fresh, exact K1 manifest and matching approval. The staged Discovery
 gate to replace `swag` and `swag-init` becomes active only after K5 and does not
 authorize deletion of bind state, volumes, P0 fixtures, P1 protection, or
 legacy resources.
@@ -465,8 +491,8 @@ legacy resources.
 | Phase | State | Evidence | Remaining gate |
 |---|---|---|---|
 | P0 | Complete | Servarr `98ecafb`; desktop `50454f9`, `6217215`, `061a1cc`, `5a24439`; retained fixture | P9 cleanup only |
-| K0 | Complete | Servarr `1805e1d`; 21 planner fixtures; Kepler dry-build; full flake check | K1 read-only inventory and exact approval manifest |
-| K1 | Pending | — | Fresh exact live inventory; manifest review and approval |
+| K0 | Complete | Servarr `1805e1d`; 21 planner fixtures; Kepler dry-build; full flake check | K1 evidence and exact approval manifest |
+| K1 | In progress | Servarr `6e215e9`; desktop `4fdae50`; 122 recovery tests; docs/lint/fmt/Kepler dry/full flake gates | Bats prerequisite; secret-safe executor; fresh inventory; restore proofs; exact manifest review and approval |
 | K2 | Pending | — | Approved, drift-free K1 manifest |
 | K3 | Pending | — | K2 verified; retained-state backups |
 | K4 | Pending | — | K3 snapshot and coverage proof |
