@@ -107,7 +107,11 @@ for line in raw.read_text().splitlines():
 if len(items) != len({item["name"] for item in items}) or [item["name"] for item in items].count("airflow") != 1:
     raise SystemExit("database evidence halted: exact Airflow inventory unavailable")
 inventory_path.write_text(json.dumps(items, sort_keys=True, separators=(",", ":")) + "\n")
-retained_path.write_text("".join(f'{item["name"]}|{item["owner"]}\n' for item in items if item["name"] != "airflow"))
+retained_path.write_text("".join(
+    f'{item["name"]}|{item["owner"]}\n'
+    for item in items
+    if item["name"] not in {"airflow", "template1"}
+))
 PY
 while IFS='|' read -r name owner; do
   [[ -n $name && -n $owner ]] || continue
