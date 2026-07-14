@@ -10,7 +10,12 @@ _: {
         ["#!${pkgs.python3}/bin/python3"]
         (builtins.readFile ./_collision_recovery_inventory.py);
     };
+    remoteSanitizer = pkgs.writeShellApplication {
+      name = "kepler-collision-recovery-remote";
+      runtimeInputs = [pkgs.jq pkgs.podman pkgs.zfs];
+      text = builtins.readFile ./_collision_recovery_remote.sh;
+    };
   in {
-    environment.systemPackages = [inventory];
+    environment.systemPackages = [inventory remoteSanitizer];
   };
 }

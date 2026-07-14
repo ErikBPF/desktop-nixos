@@ -192,12 +192,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--fixture")
+    source.add_argument("--remote-input", action="store_true")
     source.add_argument("--live", action="store_true")
     args = parser.parse_args(argv)
     try:
         if args.fixture:
             with open(args.fixture, encoding="utf-8") as handle:
                 result = collect_fixture(json.load(handle))
+        elif args.remote_input:
+            result = collect_fixture(json.load(sys.stdin))
         else:
             result = collect_live()
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))

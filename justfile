@@ -925,14 +925,16 @@ kepler-recovery-inventory:
     set -euo pipefail
     umask 077
     collector="modules/hosts/kepler/_collision_recovery_inventory.py"
+    remote_sanitizer="modules/hosts/kepler/_collision_recovery_remote.sh"
     evidence_dir=".gsd/evidence/kepler-k1"
     out="$evidence_dir/inventory.json"
-    test -f "$collector"
+    test -f "$collector" -a -f "$remote_sanitizer"
     mkdir -p "$evidence_dir"
     chmod 700 "$evidence_dir"
     tmp="$(mktemp "$evidence_dir/.inventory.XXXXXX")"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} 'python3 - --live' < "$collector" > "$tmp"
+    ssh -p 2222 erik@{{ip_kepler}} 'bash -s' < "$remote_sanitizer" \
+      | python3 "$collector" --remote-input > "$tmp"
     python3 - "$tmp" <<'PY'
     import hashlib
     import json

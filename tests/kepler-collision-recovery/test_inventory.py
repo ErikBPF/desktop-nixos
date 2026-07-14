@@ -2,12 +2,14 @@ import importlib.util
 import json
 import pathlib
 import subprocess
+import tempfile
 import unittest
 from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 COLLECTOR = ROOT / "modules/hosts/kepler/_collision_recovery_inventory.py"
+REMOTE = ROOT / "modules/hosts/kepler/_collision_recovery_remote.sh"
 FIXTURE = pathlib.Path(__file__).parent / "fixtures/k1-source.json"
 
 
@@ -114,6 +116,37 @@ class InventoryCollectorTest(unittest.TestCase):
         tokens = {token.lower() for command in self.collector.LIVE_COMMANDS for token in command}
         for forbidden in ("ssh", "rm", "prune", "destroy", "stop", "start", "restart", "exec"):
             self.assertNotIn(forbidden, tokens)
+
+    def test_remote_sanitizer_drops_environment_before_transport(self):
+        raw = [{
+            "Id": "b" * 64, "Image": "sha256:" + "a" * 64, "Name": "/postgres",
+            "Config": {"Image": "postgres:17", "Env": ["PASSWORD=sentinel"], "Labels": {
+                "com.docker.compose.project": "infra",
+            }},
+            "State": {"Status": "exited"}, "Mounts": [],
+            "NetworkSettings": {"Networks": {"infra_default": {}}},
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            inspect = pathlib.Path(directory) / "inspect.json"
+            datasets = pathlib.Path(directory) / "datasets.tsv"
+            inspect.write_text(json.dumps(raw))
+            datasets.write_text("fast\t/fast\n")
+            completed = subprocess.run(
+                ["bash", str(REMOTE), "--fixture", str(inspect), str(datasets)],
+                check=True, capture_output=True, text=True,
+            )
+        self.assertNotIn("sentinel", completed.stdout)
+        source = json.loads(completed.stdout)
+        self.assertNotIn("Env", json.dumps(source))
+        self.collector.collect_fixture(source)
+
+    def test_remote_script_has_read_only_runtime_commands(self):
+        script = REMOTE.read_text()
+        self.assertIn("podman ps --all --quiet --no-trunc", script)
+        self.assertIn('podman container inspect "${ids[@]}"', script)
+        self.assertIn("zfs list -H -o name,mountpoint", script)
+        for forbidden in ("podman rm", "podman stop", "podman start", "prune", "zfs destroy", "ssh "):
+            self.assertNotIn(forbidden, script)
 
 
 if __name__ == "__main__":
