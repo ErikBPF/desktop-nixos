@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 set -euo pipefail
 
 [[ $# -eq 3 && $1 =~ ^run(-stopped)?$ && $2 =~ ^[0-9a-f]{64}$ && $3 =~ ^[0-9a-f]{64}$ ]] || {
@@ -109,7 +110,7 @@ artifact_bytes=$(stat -c %s "$artifact")
 podman volume create "$volume" >/dev/null 2>&1
 volume_created=true
 podman create --network none --name "$disposable" \
-  --mount "type=volume,src=$volume,dst=/var/lib/postgresql/data" \
+  --mount "type=volume,src=$volume,dst=/var/lib/postgresql" \
   --env POSTGRES_HOST_AUTH_METHOD=trust "$image_id" >/dev/null 2>&1
 created=true
 podman start "$disposable" >/dev/null 2>&1

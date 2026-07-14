@@ -69,6 +69,7 @@ SH
   [ -f "$KEPLER_RECOVERY_TEST_ROOT/postgres/$SHA/retained-databases.tar" ]
   grep -F -- "--network none --name kepler-k1-postgres-restore-aaaaaaaaaaaa" "$MOCK_LOG"
   grep -F -- "volume create kepler-k1-postgres-restore-aaaaaaaaaaaa-data" "$MOCK_LOG"
+  grep -F -- "dst=/var/lib/postgresql " "$MOCK_LOG"
   grep -F -- "volume rm kepler-k1-postgres-restore-aaaaaaaaaaaa-data" "$MOCK_LOG"
   run ! grep -E 'prune|system reset|rm --all' "$MOCK_LOG"
 }
