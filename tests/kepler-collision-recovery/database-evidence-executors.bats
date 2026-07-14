@@ -8,6 +8,8 @@ setup() {
   export SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   export SOURCE_ID=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   export MOCK_ID=$SOURCE_ID
+  MOCK_IMAGE_ID=sha256:$(printf '%064d' 1)
+  export MOCK_IMAGE_ID
   export REPO_ROOT="$BATS_TEST_DIRNAME/../.."
   export KEPLER_RECOVERY_TEST_ROOT="$BATS_TEST_TMPDIR/fast/backups/kepler-collision-k1"
   export MOCK_LOG="$BATS_TEST_TMPDIR/podman.log"
@@ -26,7 +28,7 @@ printf '\n' >>"$MOCK_LOG"
 case " $* " in
   *" inspect --format {{.State.Status}} "*) printf '%s\n' "$MOCK_STATE" ;;
   *" inspect --format {{.Id}} "*) printf '%s\n' "$MOCK_ID" ;;
-  *" inspect --format {{.Image}} "*) printf 'sha256:%064d\n' 1 ;;
+  *" inspect --format {{.Image}} "*) printf '%s\n' "$MOCK_IMAGE_ID" ;;
   *" pg_get_userbyid"*) printf 'airflow|airflow\napp|app_owner\npostgres|postgres\n' ;;
   *" exec "*" pg_dump "*) printf '%s\n' 'CREATE TABLE retained(id integer);' ;;
   *" exec "*" psql "*) cat >/dev/null ;;
@@ -100,4 +102,12 @@ SH
   [ "$status" -eq 0 ]
   grep -F -- "start $SOURCE_ID" "$MOCK_LOG"
   grep -F -- "stop $SOURCE_ID" "$MOCK_LOG"
+}
+
+@test "Podman bare immutable image ID is accepted for disposable restore" {
+  MOCK_IMAGE_ID=$(printf '%064d' 1)
+  export MOCK_IMAGE_ID
+  run bash "$REPO_ROOT/modules/hosts/kepler/_collision_recovery_postgres_evidence.sh" run "$SHA" "$SOURCE_ID"
+  [ "$status" -eq 0 ]
+  grep -F -- "$MOCK_IMAGE_ID" "$MOCK_LOG"
 }

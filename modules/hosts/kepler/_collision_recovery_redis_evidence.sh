@@ -60,10 +60,11 @@ elif [[ $1 == run-stopped ]]; then
   podman exec "$expected_id" redis-cli ping >/dev/null 2>&1
 fi
 image_id=$(podman inspect --format '{{.Image}}' "$container" 2>/dev/null)
-[[ $image_id =~ ^sha256:[0-9a-f]{64}$ ]] || {
+[[ $image_id =~ ^(sha256:)?[0-9a-f]{64}$ ]] || {
   echo "redis evidence halted: source image identity unavailable" >&2
   exit 2
 }
+[[ $image_id == sha256:* ]] || image_id="sha256:$image_id"
 
 install -d -m 0700 "$root"
 # Authentication material is expanded and consumed only inside the existing container.
