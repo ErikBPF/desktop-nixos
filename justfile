@@ -968,7 +968,7 @@ kepler-recovery-model-paths:
     chmod 700 "$evidence_dir"
     tmp="$(mktemp "$evidence_dir/.model-paths.XXXXXX")"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} '/run/current-system/sw/bin/python3 -' < "$helper" > "$tmp"
+    ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' < "$helper" > "$tmp"
     python3 - "$tmp" <<'PY'
     import json
     import pathlib
