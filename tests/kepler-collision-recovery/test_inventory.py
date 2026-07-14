@@ -162,8 +162,30 @@ class InventoryCollectorTest(unittest.TestCase):
         self.assertIn("podman volume list --quiet", script)
         self.assertIn("podman network list --quiet --no-trunc", script)
         self.assertIn("zfs list -H -t snapshot -o name", script)
+        self.assertNotIn("--argjson", script)
+        self.assertNotIn("--arg datasets", script)
         for forbidden in ("podman rm", "podman stop", "podman start", "prune", "zfs destroy", "ssh "):
             self.assertNotIn(forbidden, script)
+
+    def test_remote_sanitizer_streams_large_metadata_without_argv_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [pathlib.Path(directory) / name for name in (
+                "containers.json", "datasets.tsv", "images.json", "volumes.json",
+                "networks.json", "snapshots.txt",
+            )]
+            paths[0].write_text("[]")
+            paths[1].write_text("fast\t/fast\n")
+            large_names = ["repo/image:" + str(index) + "x" * 120 for index in range(12000)]
+            paths[2].write_text(json.dumps([{"Id": "sha256:" + "a" * 64, "RepoDigests": [], "RepoTags": large_names}]))
+            paths[3].write_text("[]")
+            paths[4].write_text("[]")
+            paths[5].write_text("fast@pre-k1\n")
+            completed = subprocess.run(
+                ["bash", str(REMOTE), "--fixture", *(str(path) for path in paths)],
+                check=True, capture_output=True, text=True,
+            )
+        source = json.loads(completed.stdout)
+        self.assertEqual(len(source["images"][0]["names"]), 12000)
 
 
 if __name__ == "__main__":
