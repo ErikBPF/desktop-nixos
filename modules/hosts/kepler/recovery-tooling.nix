@@ -39,6 +39,18 @@
       ];
       text = builtins.readFile ./_collision_recovery_redis_evidence.sh;
     };
+    evidenceJob = pkgs.writeShellApplication {
+      name = "kepler-collision-evidence-job";
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.python3
+        pkgs.systemd
+        pkgs.util-linux
+        postgresEvidence
+        redisEvidence
+      ];
+      text = builtins.readFile ./_collision_recovery_evidence_job.sh;
+    };
   in {
     assertions = [
       {
@@ -53,6 +65,18 @@
       planner
       postgresEvidence
       redisEvidence
+      evidenceJob
     ];
+
+    systemd.user.services."kepler-collision-evidence@" = {
+      description = "Kepler collision recovery evidence job %i";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${evidenceJob}/bin/kepler-collision-evidence-job execute %i";
+        UMask = "0077";
+        TimeoutStartSec = "infinity";
+        KillMode = "control-group";
+      };
+    };
   };
 }

@@ -1148,11 +1148,27 @@ kepler-recovery-postgres-evidence-run inventory_sha256 container_id mode="run-st
     out=".gsd/evidence/kepler-k1/database-evidence.json"
     tmp="$(mktemp .gsd/evidence/kepler-k1/.database-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
-    ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p 2222 erik@{{ip_kepler}} \
-      'kepler-collision-postgres-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" &
-      pid=$!
-      while kill -0 "$pid" 2>/dev/null; do printf "postgres-evidence-running\n" >&2; sleep 10; done
-      wait "$pid"' > "$tmp"
+    submission="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job \
+      submit postgres "{{mode}}" "{{inventory_sha256}}" "{{container_id}}")"
+    request_sha="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["request_sha256"])' "$submission")"
+    [[ $request_sha =~ ^[0-9a-f]{64}$ ]] || { echo "invalid PostgreSQL evidence request" >&2; exit 2; }
+    for _ in $(seq 1 180); do
+      if ! status="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job status "$request_sha")"; then
+        sleep 5
+        continue
+      fi
+      state="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["state"])' "$status")"
+      case "$state" in
+        passed)
+          ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job result "$request_sha" > "$tmp" && break
+          ;;
+        failed) echo "PostgreSQL evidence job failed" >&2; exit 2 ;;
+        pending|running) ;;
+        *) echo "invalid PostgreSQL evidence job state" >&2; exit 2 ;;
+      esac
+      sleep 5
+    done
+    [[ -s $tmp ]] || { echo "PostgreSQL evidence job timed out; remote job was not stopped" >&2; exit 2; }
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
     mv "$tmp" "$out"
@@ -1176,11 +1192,27 @@ kepler-recovery-redis-evidence-run inventory_sha256 container_id mode="run-stopp
     out=".gsd/evidence/kepler-k1/redis-evidence.json"
     tmp="$(mktemp .gsd/evidence/kepler-k1/.redis-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
-    ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p 2222 erik@{{ip_kepler}} \
-      'kepler-collision-redis-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" &
-      pid=$!
-      while kill -0 "$pid" 2>/dev/null; do printf "redis-evidence-running\n" >&2; sleep 10; done
-      wait "$pid"' > "$tmp"
+    submission="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job \
+      submit redis "{{mode}}" "{{inventory_sha256}}" "{{container_id}}")"
+    request_sha="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["request_sha256"])' "$submission")"
+    [[ $request_sha =~ ^[0-9a-f]{64}$ ]] || { echo "invalid Redis evidence request" >&2; exit 2; }
+    for _ in $(seq 1 180); do
+      if ! status="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job status "$request_sha")"; then
+        sleep 5
+        continue
+      fi
+      state="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["state"])' "$status")"
+      case "$state" in
+        passed)
+          ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job result "$request_sha" > "$tmp" && break
+          ;;
+        failed) echo "Redis evidence job failed" >&2; exit 2 ;;
+        pending|running) ;;
+        *) echo "invalid Redis evidence job state" >&2; exit 2 ;;
+      esac
+      sleep 5
+    done
+    [[ -s $tmp ]] || { echo "Redis evidence job timed out; remote job was not stopped" >&2; exit 2; }
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
     mv "$tmp" "$out"
