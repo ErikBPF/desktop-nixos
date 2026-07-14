@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "modules/hosts/kepler/_collision_recovery_retirement.py"
 FIXTURE = pathlib.Path(__file__).parent / "fixtures/retirement-evidence.json"
 INVENTORY = ROOT / ".gsd/evidence/kepler-k1/inventory.json"
+JUSTFILE = ROOT / "justfile"
 
 
 def load_module():
@@ -76,6 +77,13 @@ class RetirementPlannerTest(unittest.TestCase):
                 for path in family["paths"]
             ]
             reference["sha256"] = self.module.digest(reference["envelope"])
+
+    def test_remote_executor_receives_explicit_shell_argv_zero(self):
+        recipe = JUSTFILE.read_text()
+        self.assertIn(
+            'sh _ "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"',
+            recipe,
+        )
 
     def plan(self):
         return self.module.plan(self.inventory, self.evidence)

@@ -1307,7 +1307,7 @@ kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".g
     PY
     ssh -p 2222 erik@{{ip_kepler}} \
       'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --execute --manifest "$tmp" --manifest-sha256 "$1" --inventory-sha256 "$2"' \
-      sh "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"
+      sh _ "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"
 
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
