@@ -1149,7 +1149,10 @@ kepler-recovery-postgres-evidence-run inventory_sha256 container_id mode="run-st
     tmp="$(mktemp .gsd/evidence/kepler-k1/.database-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
     ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p 2222 erik@{{ip_kepler}} \
-      kepler-collision-postgres-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
+      'kepler-collision-postgres-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" &
+      pid=$!
+      while kill -0 "$pid" 2>/dev/null; do printf "postgres-evidence-running\n" >&2; sleep 10; done
+      wait "$pid"' > "$tmp"
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
     mv "$tmp" "$out"
@@ -1174,7 +1177,10 @@ kepler-recovery-redis-evidence-run inventory_sha256 container_id mode="run-stopp
     tmp="$(mktemp .gsd/evidence/kepler-k1/.redis-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
     ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p 2222 erik@{{ip_kepler}} \
-      kepler-collision-redis-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
+      'kepler-collision-redis-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" &
+      pid=$!
+      while kill -0 "$pid" 2>/dev/null; do printf "redis-evidence-running\n" >&2; sleep 10; done
+      wait "$pid"' > "$tmp"
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
     mv "$tmp" "$out"
