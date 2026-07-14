@@ -52,7 +52,7 @@ class ReconcileTests(unittest.TestCase):
         container["labels"]["com.docker.compose.project.working_dir"] = "/fast/homelab"
         container["labels"]["com.docker.compose.project.config_files"] = "infra.yml"
         self.desired["legacy_images"] = {"postgres": {
-            "image": "docker.io/library/registry/postgres",
+            "image": "docker.io/registry/postgres",
             "image_digest": "sha256:" + "a" * 64,
         }}
 
@@ -96,9 +96,33 @@ class ReconcileTests(unittest.TestCase):
 
     def test_docker_image_reference_normalization_is_narrow(self):
         normalize = self.module._normalized_image_ref
-        self.assertEqual(normalize("docker.io/library/postgres"), "postgres")
-        self.assertEqual(normalize("docker.io/kepler/docs:latest"), "kepler/docs:latest")
+        self.assertEqual(normalize("postgres"), "docker.io/library/postgres")
+        self.assertEqual(normalize("kepler/docs:latest"), "docker.io/kepler/docs:latest")
+        self.assertEqual(normalize("rhasspy/wyoming-piper"), "docker.io/rhasspy/wyoming-piper")
+        self.assertEqual(normalize("utkuozdemir/nvidia_gpu_exporter"), "docker.io/utkuozdemir/nvidia_gpu_exporter")
         self.assertEqual(normalize("ghcr.io/example/image"), "ghcr.io/example/image")
+
+    def test_reviewed_legacy_postgres_mount_mapping_is_recorded(self):
+        self.make_legacy()
+        runtime_mount = copy.deepcopy(self.inventory["containers"][0]["mounts"][0])
+        self.desired["services"][0]["mounts"][0]["source"] = "/fast/postgres"
+        desired_mount = copy.deepcopy(self.desired["services"][0]["mounts"][0])
+        self.desired["legacy_mounts"] = {"postgres": [{
+            "runtime": runtime_mount, "desired": desired_mount,
+        }]}
+        item = self.reconcile()["manifest"]["classifications"][0]
+        self.assertEqual(item["reason"], "legacy-declared-migrate")
+        self.assertEqual(item["migration_mounts"], self.desired["legacy_mounts"]["postgres"])
+
+    def test_unreviewed_or_inexact_legacy_mount_mapping_halts(self):
+        self.make_legacy()
+        runtime_mount = copy.deepcopy(self.inventory["containers"][0]["mounts"][0])
+        self.desired["services"][0]["mounts"][0]["source"] = "/fast/postgres"
+        self.desired["legacy_mounts"] = {"postgres": [{
+            "runtime": runtime_mount,
+            "desired": {"source": "/wrong", "target": "/data", "type": "bind"},
+        }]}
+        self.assertEqual(self.reconcile()["manifest"]["status"], "halt")
 
     def test_missing_foreign_and_mount_mismatch_halt_with_diffs(self):
         for mutation, reason in (
@@ -140,6 +164,27 @@ class ReconcileTests(unittest.TestCase):
         reasons = self.reconcile()["manifest"]["halt_reasons"]
         self.assertIn("local-image-or-model-provenance-required", reasons)
         self.assertIn("persistent-mount-outside-snapshot-boundary", reasons)
+
+    def test_read_only_mount_is_identity_but_not_persistent_coverage(self):
+        self.desired["services"][0]["mounts"].append({
+            "read_only": True, "source": "/outside/config", "target": "/config", "type": "bind",
+        })
+        self.inventory["containers"][0]["mounts"].append({
+            "read_only": True, "source": "/outside/config", "destination": "/config", "name": "",
+        })
+        result = self.reconcile()["manifest"]
+        self.assertFalse(result["persistent_coverage_gaps"])
+        self.inventory["containers"][0]["mounts"][-1]["read_only"] = False
+        self.assertIn("declared-runtime-mismatch", self.reconcile()["manifest"]["halt_reasons"])
+
+    def test_unverified_redis_named_volume_remains_coverage_gap(self):
+        self.desired["services"][0]["mounts"] = [{
+            "source": "redis_data", "target": "/data", "type": "volume",
+        }]
+        self.inventory["containers"][0]["mounts"] = [{
+            "source": "redis_data", "destination": "/data", "name": "redis_data",
+        }]
+        self.assertIn("persistent-mount-outside-snapshot-boundary", self.reconcile()["manifest"]["halt_reasons"])
 
     def test_local_image_or_model_provenance_record_clears_gap(self):
         self.desired["services"][0]["digest_status"] = "local-provenance-recorded"

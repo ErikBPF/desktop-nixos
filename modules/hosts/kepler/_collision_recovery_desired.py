@@ -12,7 +12,7 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "4514ce8cedb0fedc87ab60a040d00d47c87b5d96"
+SERVARR_COMMIT = "b1188e9ca46fb9082e0e8f9556c881d4b193d97c"
 MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
 PROTECTED_STACKS = ("orchestration",)
 STACKS = MIGRATION_STACKS + PROTECTED_STACKS
@@ -166,7 +166,9 @@ def generate(root, expected_commit=SERVARR_COMMIT):
     provenance = json.loads((root / "provenance.json").read_text(encoding="utf-8"))
     if provenance.get("schema") != "kepler-k1-provenance-v1":
         raise DesiredHalt("Kepler provenance schema drifted")
-    if set(provenance) != {"schema", "legacy_images", "local_images", "model_artifacts"}:
+    if set(provenance) != {
+        "schema", "legacy_images", "legacy_mounts", "local_images", "model_artifacts",
+    }:
         raise DesiredHalt("Kepler provenance declarations drifted")
     if secretspec.get("project", {}).get("name") != "kepler":
         raise DesiredHalt("SecretSpec project must be kepler")
@@ -217,6 +219,7 @@ def generate(root, expected_commit=SERVARR_COMMIT):
         "local_images": provenance["local_images"],
         "model_artifacts": provenance["model_artifacts"],
         "legacy_images": provenance["legacy_images"],
+        "legacy_mounts": provenance["legacy_mounts"],
     }
     rendered = canonical(desired)
     if DUMMY_PREFIX.encode() in rendered:

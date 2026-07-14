@@ -48,6 +48,7 @@ def _require_envelope(envelope, kind):
 
 def _mount_identity(mount):
     return {
+        "read_only": bool(mount.get("read_only", False)),
         "source": mount.get("source", ""),
         "target": mount.get("target", mount.get("destination", "")),
         "type": mount.get("type", "volume" if mount.get("name") else "bind"),
@@ -83,10 +84,13 @@ def _protected_names(desired):
 
 def _normalized_image_ref(image):
     image = image.split("@", 1)[0]
-    if image.startswith("docker.io/library/"):
-        return image.removeprefix("docker.io/library/")
-    if image.startswith("docker.io/kepler/"):
-        return image.removeprefix("docker.io/")
+    if image.startswith("docker.io/"):
+        return image
+    first = image.split("/", 1)[0]
+    if "/" not in image:
+        return "docker.io/library/" + image
+    if "." not in first and ":" not in first and first != "localhost":
+        return "docker.io/" + image
     return image
 
 
@@ -134,6 +138,20 @@ def _legacy_image_matches(desired, desired_item, container):
         and _normalized_image_ref(container.get("image", "")) == _normalized_image_ref(allowed["image"])
         and container.get("image_digest", "") == allowed["image_digest"]
     )
+
+
+def _legacy_mount_mapping(desired, desired_item, actual_mounts, expected_mounts):
+    name = desired_item.get("container_name", "")
+    mapping = desired.get("legacy_mounts", {}).get(name)
+    if mapping is None:
+        return [] if actual_mounts == expected_mounts else None
+    if name not in {"postgres", "redis"} or not isinstance(mapping, list) or any(
+        not isinstance(item, dict) or set(item) != {"runtime", "desired"} for item in mapping
+    ):
+        return None
+    runtime = sorted((_mount_identity(item["runtime"]) for item in mapping), key=canonical)
+    replacement = sorted((_mount_identity(item["desired"]) for item in mapping), key=canonical)
+    return mapping if runtime == actual_mounts and replacement == expected_mounts else None
 
 
 def reconcile(inventory_envelope, desired_envelope, source_commits):
@@ -184,6 +202,7 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         provenance_reason = _provenance_reason(desired, desired_item, container, validate_runtime=not legacy)
         legacy_working_dir = container.get("labels", {}).get("com.docker.compose.project.working_dir", "")
         legacy_config_files = container.get("labels", {}).get("com.docker.compose.project.config_files", "")
+        legacy_mount_mapping = _legacy_mount_mapping(desired, desired_item, actual["mounts"], expected["mounts"])
         if state in {"running", "paused", "restarting"}:
             status = ("halt", "running-collision")
         elif not actual["labels"][COMPOSE_PROJECT] or not actual["labels"][COMPOSE_SERVICE]:
@@ -193,7 +212,8 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             or actual["labels"][COMPOSE_SERVICE] != desired_item["service"]
             or legacy_working_dir != LEGACY_INFRA_WORKING_DIR
             or [legacy_config_files] != LEGACY_INFRA_CONFIG_FILES
-            or any(item["field"] != "labels" for item in diffs)
+            or any(item["field"] not in {"labels", "mounts"} for item in diffs)
+            or legacy_mount_mapping is None
             or not _legacy_image_matches(desired, desired_item, container)
             or provenance_reason
         ):
@@ -210,11 +230,16 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             status = ("none", "restate-protected")
         else:
             status = ("migrate", "stopped-declared-collision")
-        classifications.append({"action": status[0], "classification": "halt" if status[0] == "halt" else ("protected" if protected else "declared-migrate"), "container": name, "field_diffs": diffs, "reason": status[1]})
+        classification = {"action": status[0], "classification": "halt" if status[0] == "halt" else ("protected" if protected else "declared-migrate"), "container": name, "field_diffs": diffs, "reason": status[1]}
+        if legacy and legacy_mount_mapping:
+            classification["migration_mounts"] = legacy_mount_mapping
+        classifications.append(classification)
 
         if provenance_reason:
             provenance_gaps.append({"container": name, "reason": provenance_reason})
         for mount in desired_item.get("mounts", []):
+            if mount.get("read_only", False):
+                continue
             source = mount.get("source", "")
             if source and not _covered(source, datasets, volumes):
                 coverage_gaps.append({"container": name, "source": source, "reason": "persistent-mount-outside-snapshot-boundary"})

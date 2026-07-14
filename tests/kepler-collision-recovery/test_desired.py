@@ -78,6 +78,11 @@ class DesiredStateTest(unittest.TestCase):
             set(record) == {"image", "image_digest"}
             for record in desired["legacy_images"].values()
         ))
+        self.assertEqual(set(desired["legacy_mounts"]), {"postgres", "redis"})
+        self.assertEqual(
+            desired["legacy_mounts"]["redis"][0]["runtime"]["source"],
+            "homelab_redis_data",
+        )
 
     def test_only_value_free_fields_are_emitted(self):
         rendered = json.dumps(self.result, sort_keys=True)
