@@ -1,4 +1,4 @@
-# Kepler ai-serving — STT, TTS, Embeddings, OCR-as-VLM
+# Kepler ai-serving — STT, TTS, and Embeddings
 
 GPU-backed audio + embedding services running on Kepler's RTX 3070 (8 GB
 VRAM), optimized for Brazilian Portuguese. All endpoints are reached through
@@ -15,7 +15,6 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
    OpenWebUI / n8n ───┤                        tts-pt-br-piper ────┼──► kepler:8003   (piper-openai, faber)
 │                        bge-m3 ─────────────┼──► kepler:8085   (TEI, BAAI/bge-m3, 1024-dim)
                        │                        bge-reranker-v2-m3 ─┼──► kepler:8087   (TEI, Cohere /v1/rerank)
-                       │                        vision-qwen2vl ─────┼──► kepler:8082   (Gemma 4 E4B) **DISABLED 2026-06-29**
                        │                        qwen-chat ──────────┼──► orion:8080    (Qwen3.6-35B-A3B)
                       │   piper-wyoming (legacy direct) ───────────┼──► kepler:10200  (Piper TTS, Wyoming TCP)
                       └────────────────────────────────────────────────────────┘
@@ -31,7 +30,6 @@ LiteLLM on Discovery; nothing in this stack faces the public internet.
 │     • f5-tts-server            8001   TTS voice cloning (not in LiteLLM yet)
 │     • tei-bge-m3              8085   embeddings (BAAI/bge-m3, 1024-dim)  ← sole GPU resident
 │     • tei-reranker            8087   reranker (BAAI/bge-reranker-v2-m3, Cohere API)
-│     • gemma-vl                8082   vision/chat (Gemma 4 E4B)  **disabled — `vision` profile**
 │   models cached at /fast/ai-models                     │
                       └────────────────────────────────────────────────────────┘
 ```
@@ -50,7 +48,7 @@ new consumer at a Kepler port directly.
 - **`infinity-embeddings`** (port 7997, `michaelf34/infinity:latest`, BAAI/bge-m3) — replaced 2026-05 by the llama.cpp `qwen3-embed` service on the same port. Same 1024-dim, same multilingual, higher MTEB, 32K context, Matryoshka. LiteLLM route name kept `embeddings-qwen3` either way; consumers don't move.
 - **`qwen3-embed`** (port 7997, llama.cpp server-cuda, Qwen3-Embedding-0.6B) — **retired 2026-06**. A 38-query eval (exp001) showed R@1 0.55 vs 0.84 for BAAI/bge-m3. The permanent embedder is now `tei-bge-m3` (TEI, port 8085, LiteLLM model `bge-m3`, 1024-dim, MIT). A reranker was added in the same cycle: `tei-reranker` (TEI, port 8087, BAAI/bge-reranker-v2-m3, LiteLLM model `bge-reranker-v2-m3`, Apache-2.0, Cohere-style `/v1/rerank`, R@1 0.87).
 - **Qwen2.5-VL-3B** (vision) — replaced 2026-05 by Qwen2.5-VL-7B-Instruct (Q4_K_M + f16 mmproj, mmproj kept on CPU via `--no-mmproj-offload`). Same `vision-qwen2vl` route; +5.5 MMMU, +75 OCRBench.
-- **`gemma-vl` / `vision-qwen2vl` route** — **disabled 2026-06-29**. Gemma 4 E4B (~3.4 GB VRAM) co-resident with `qwen3-embed` (~3.1 GB) overcommits the 8 GB GPU: embed `/health` stays 200 but `/v1/embeddings` hangs (llama.cpp `should_stop` task-cancel storm), silently breaking the LiteLLM `embeddings-qwen3` route (clients saw HTTP 000). embed is 24/7 (hermes memory, HA RAG); vision is optional → `gemma-vl` moved behind the `vision` compose profile so `compose up -d` (boot, `kick-stack`) no longer starts it. `vision-qwen2vl` + `gemma-chat` LiteLLM routes are now **dead** until manual revive: `docker compose -p ai-serving --env-file .env -f ai-serving.yml --profile vision up -d gemma-vl` (stop embed first — two GPU llama-servers do not coexist). Reviving chat needs a dedicated GPU or smaller embed stack. See `references/repos/servarr/machines/kepler/ai-serving.yml` gemma-vl block.
+- **`gemma-vl`, `vision-qwen2vl`, and `gemma-chat`** — disabled 2026-06-29, then retired 2026-07-14. Gemma 4 E4B (~3.4 GB VRAM) co-resident with `qwen3-embed` (~3.1 GB) overcommitted the 8 GB GPU: embed `/health` stayed 200 but `/v1/embeddings` hung (llama.cpp `should_stop` task-cancel storm), silently breaking the LiteLLM `embeddings-qwen3` route (clients saw HTTP 000). The service, routes, Hermes auxiliary consumer, and port 8082 exposure were subsequently removed.
 
 ## Current container set
 
@@ -62,7 +60,6 @@ new consumer at a Kepler port directly.
 | `f5-tts-server` | `kepler/f5-tts-server:pt-br` (locally built) | 8001 | `/health` | none yet (Phase 4 voice-clone candidate) |
 | `tei-bge-m3` | `ghcr.io/huggingface/text-embeddings-inference:turing-1.7` | 8085 | `/health` | `bge-m3` (sole GPU resident) |
 | `tei-reranker` | `ghcr.io/huggingface/text-embeddings-inference:turing-1.7` | 8087 | `/health` | `bge-reranker-v2-m3` (Cohere `/v1/rerank`) |
-| `gemma-vl` | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 8082 | `/health` | `vision-qwen2vl`, `gemma-chat` — **DISABLED** (`vision` profile; see History) |
 | `piper-wyoming` | `rhasspy/wyoming-piper:latest` | 10200 | `nc localhost 10200` | none (legacy direct, Wyoming protocol) |
 
 ## Components
@@ -75,7 +72,7 @@ new consumer at a Kepler port directly.
 | `servarr/machines/kepler/ai-serving.yml` | Compose definition for the 4 services |
 | `servarr/machines/kepler/config/whisper/` | Dockerfile + FastAPI shim — required because upstream lscr.io/linuxserver/faster-whisper ships a CT2 runtime that rejects NVIDIA driver 595 |
 | `servarr/machines/kepler/config/f5-tts/` | Dockerfile + FastAPI shim for F5-TTS PT-BR voice cloning |
-| `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Routes: `whisper-pt-br`, `tts-pt-br` (edge-tts), `tts-pt-br-piper`, `bge-m3`, `bge-reranker-v2-m3`, `vision-qwen2vl` (dead — backend disabled), `qwen-chat` |
+| `servarr/machines/discovery/config/litellm/litellm_config.yaml` | Routes: `whisper-pt-br`, `tts-pt-br` (edge-tts), `tts-pt-br-piper`, `bge-m3`, `bge-reranker-v2-m3`, `qwen-chat` |
 | `modules/hosts/discovery/hermes-agent.nix` | Wires the new routes into hermes auxiliary models |
 | `machines/kepler/scripts/ai-smoke.sh` | End-to-end smoke test |
 
@@ -89,7 +86,6 @@ new consumer at a Kepler port directly.
 | TTS — voice cloning | `firstpixel/F5-TTS-pt-br` (DiT + flow matching) | CC BY-NC 4.0 | ~3.0 GB | Not yet routed through LiteLLM — Phase 4 voice-clone synergy. Switch `F5_MODEL_REPO=mrfakename/OpenF5-TTS-Base` for an Apache-2.0 base. |
 | Embeddings | `BAAI/bge-m3` via TEI (`tei-bge-m3`) | MIT | ~1.0 GB | Route `bge-m3`. 1024-dim, multilingual, Matryoshka. Permanent choice per exp001 (38-query eval): R@1 0.84 vs 0.55 for qwen3-embed. |
 | Reranker | `BAAI/bge-reranker-v2-m3` via TEI (`tei-reranker`) | Apache 2.0 | ~0.7 GB | Route `bge-reranker-v2-m3`, Cohere-style `/v1/rerank`. exp001 R@1 0.87. Port 8087 on Kepler. |
-| OCR / Vision | `Gemma 4 E4B-it` via llama.cpp `server-cuda` | Apache 2.0 | ~3.4 GB | Route `vision-qwen2vl`. **DISABLED 2026-06-29** — backend behind `vision` profile, route dead. See History. Recap: Qwen2.5-VL-7B (2026-05) → Gemma 4 E4B (2026-06) → disabled (VRAM contention with the embed service wedged embeddings). Revive via `--profile vision` (stop embed first). |
 
 ## Deploy
 
@@ -101,7 +97,7 @@ just switch-kepler        # nixos-rebuild switch on 192.168.10.230:2222
 
 This:
 - enables rootful Docker with the NVIDIA runtime,
-- opens firewall ports 8001, 8002, 8003, 8082, 8085, 8087, 9000, 10200 (7997 retired with qwen3-embed; 10300 retired with Wyoming whisper),
+- opens firewall ports 8001, 8002, 8003, 8085, 8087, 9000, 10200 (7997 retired with qwen3-embed; 8082 retired with Gemma; 10300 retired with Wyoming whisper),
 - pre-creates `/fast/ai-models/{whisper,f5-tts,embeddings,refs,piper}`,
 - enables the orchestration module so the compose stack is started on boot
   by the `podman-compose-ai-serving` user service (after `servarr-pull`

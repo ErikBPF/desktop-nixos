@@ -980,7 +980,7 @@ kepler-recovery-model-paths:
     if result.get("schema") != "kepler-k1-model-paths-v1":
         raise SystemExit("model-path evidence schema validation failed")
     artifacts = result.get("artifacts")
-    if not isinstance(artifacts, list) or len(artifacts) != 7:
+    if not isinstance(artifacts, list) or len(artifacts) != 6:
         raise SystemExit("model-path evidence artifact validation failed")
     PY
     chmod 600 "$tmp"

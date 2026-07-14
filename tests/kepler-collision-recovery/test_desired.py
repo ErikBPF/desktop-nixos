@@ -49,6 +49,7 @@ class DesiredStateTest(unittest.TestCase):
         })
         projects = {service["project"] for service in desired["services"]}
         self.assertEqual(projects, set(desired["stacks"]))
+        self.assertNotIn("gemma-vl", {service["service"] for service in desired["services"]})
         self.assertNotIn("restate", {service["container_name"] for service in desired["services"]})
         self.assertEqual([service["container_name"] for service in desired["protected_services"]], ["restate"])
         self.assertEqual([service["service"] for service in desired["declared_optional_services"]], ["docs-indexer"])

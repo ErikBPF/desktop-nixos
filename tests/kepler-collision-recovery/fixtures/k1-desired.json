@@ -1,11 +1,10 @@
 {
-  "desired_sha256": "00bca5af981a2cf865a1a8f82aa8410f238a01897771f48863285952951e35ee",
-  "service_count": 14,
+  "desired_sha256": "5ba9ef7c9f554eb2e5bdc1cedc6f01f91a6a18f580994e691bcdf0dda17ff253",
+  "service_count": 13,
   "services": [
     ["ai-serving", "edge-tts-openai", "edge-tts-openai", "local-provenance-recorded"],
     ["ai-serving", "f5-tts-server", "f5-tts-server", "local-provenance-recorded"],
     ["ai-serving", "faster-whisper-openai", "faster-whisper-openai", "local-provenance-recorded"],
-    ["ai-serving", "gemma-vl", "gemma-vl", "immutable-registry-digest"],
     ["ai-serving", "nvidia-gpu-exporter", "nvidia-gpu-exporter", "immutable-registry-digest"],
     ["ai-serving", "piper-openai", "piper-openai", "local-provenance-recorded"],
     ["ai-serving", "piper-wyoming", "piper-wyoming", "immutable-registry-digest"],

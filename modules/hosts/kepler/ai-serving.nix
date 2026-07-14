@@ -12,7 +12,7 @@
     #   9000  faster-whisper       (OpenAI /v1/audio/transcriptions; HA STT here too)
     #  10200  wyoming-piper        (HA fallback TTS)
     # 10300 (wyoming-whisper) intentionally removed — see ai-serving.yml.
-    networking.firewall.allowedTCPPorts = [8001 8002 8003 8082 8085 8087 9000 10200];
+    networking.firewall.allowedTCPPorts = [8001 8002 8003 8085 8087 9000 10200];
 
     # Model cache lives on fast-pool (ZFS RAIDZ1, ~1.4 TB). Survives
     # docker compose down/up and image rebuilds. Pre-create with the

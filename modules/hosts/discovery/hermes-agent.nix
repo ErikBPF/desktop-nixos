@@ -93,15 +93,8 @@ in {
         };
 
         # Auxiliary models — all routed through LiteLLM. Audio (STT/TTS) and
-        # the new embeddings model land on Kepler's ai-serving stack; vision
-        # is routed to Qwen2.5-VL on Orion once wired (see litellm_config.yaml).
+        # the new embeddings model land on Kepler's ai-serving stack.
         auxiliary = {
-          vision = {
-            provider = "custom";
-            model = "vision-qwen2vl";
-            base_url = litellmUrl;
-            api_key = "\${OPENAI_API_KEY}";
-          };
           compression = {
             provider = "custom";
             model = "qwen-chat";

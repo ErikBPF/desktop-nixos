@@ -17,7 +17,6 @@ ARTIFACTS = {
         "embeddings/hub/models--BAAI--bge-reranker-v2-m3", "directory",
     ),
     "f5-tts-reference-audio": ("refs", "directory"),
-    "gemma4-gguf": ("gemma4/gemma-4-E2B-it-Q8_0.gguf", "file"),
     "piper-voices": ("piper", "directory"),
 }
 WHISPER_PATTERNS = (

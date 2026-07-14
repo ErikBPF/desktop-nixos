@@ -34,8 +34,7 @@ class ModelPathDiscoveryTest(unittest.TestCase):
         )
         for relative in directories:
             (root / relative).mkdir(parents=True)
-        (root / "gemma4").mkdir()
-        (root / "gemma4/gemma-4-E2B-it-Q8_0.gguf").write_bytes(b"fixture")
+        (root / "piper/voice.onnx").write_bytes(b"fixture")
         (root / "f5-tts/hf/models--firstpixel--F5-TTS-pt-br/snapshots/abc123/pt-br/model_last.safetensors").write_bytes(b"fixture")
 
     def test_discovers_exact_value_free_artifact_paths(self):
@@ -51,6 +50,7 @@ class ModelPathDiscoveryTest(unittest.TestCase):
             [item["artifact"] for item in first["artifacts"]],
             sorted({*self.module.ARTIFACTS, "f5-tts-checkpoint", "whisper-model"}),
         )
+        self.assertNotIn("gemma4-gguf", {item["artifact"] for item in first["artifacts"]})
         self.assertTrue(all(set(item) == {"artifact", "identity_path", "kind", "status"} for item in first["artifacts"]))
         by_name = {item["artifact"]: item for item in first["artifacts"]}
         self.assertEqual(by_name["whisper-model"]["identity_path"], "/fast/ai-models/whisper/models--Systran--faster-whisper-large-v3-turbo")
@@ -79,7 +79,7 @@ class ModelPathDiscoveryTest(unittest.TestCase):
             with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory)
                 self.populate(root)
-                target = root / "gemma4/gemma-4-E2B-it-Q8_0.gguf"
+                target = root / "piper/voice.onnx"
                 target.unlink()
                 if case == "escape":
                     target.symlink_to("/etc/passwd")
@@ -94,7 +94,7 @@ class ModelPathDiscoveryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
             self.populate(root)
-            target = root / "gemma4/gemma-4-E2B-it-Q8_0.gguf"
+            target = root / "piper/voice.onnx"
             real_lstat = pathlib.Path.lstat
 
             def lstat(path):
