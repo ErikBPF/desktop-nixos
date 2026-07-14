@@ -81,6 +81,13 @@ in {
     # CUDA container toolkit for AI inference workloads
     hardware.nvidia-container-toolkit.enable = true;
 
+    # Allow the laptop's dedicated root-owned builder key. Client-side
+    # scheduling caps this host at two ordinary x86_64 jobs and excludes
+    # Kepler itself from using Kepler as a remote builder.
+    users.users.${config.username}.openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop"
+    ];
+
     system.autoUpgrade = {
       enable = true;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#kepler";

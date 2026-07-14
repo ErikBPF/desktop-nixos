@@ -15,6 +15,18 @@ ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + " i686-linux,x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
+kepler_builder := "ssh-ng://erik@" + ip_kepler + " x86_64-linux /root/.ssh/nix-builder 2 1 big-parallel,benchmark"
+
+# Never ask a deployment target to build itself. Other x86_64 targets can use
+# Orion as primary plus Kepler's deliberately constrained spillover capacity.
+_builders target:
+    @if [ "{{target}}" = kepler ]; then \
+        printf '%s\n' '{{orion_builder}}'; \
+    elif [ "{{target}}" = orion ]; then \
+        printf '%s\n' '{{kepler_builder}}'; \
+    else \
+        printf '%s ; %s\n' '{{orion_builder}}' '{{kepler_builder}}'; \
+    fi
 
 default:
     @just --list
@@ -73,12 +85,16 @@ fleet-status:
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
+    BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
-        --option builders "{{orion_builder}}" \
-        --option builders-use-substitutes true
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 0
 
 boot target=profile:
-    sudo nixos-rebuild boot --flake .#{{target}} --show-trace
+    BUILDERS="$(just _builders {{target}})"; \
+    sudo nixos-rebuild boot --flake .#{{target}} --show-trace \
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 0
 
 update:
     nix flake update
@@ -86,8 +102,9 @@ update:
 # Bump all inputs, then dry-build every host; revert the lock if any fails.
 # Guards against bleeding-edge nixpkgs/git-tip inputs breaking a build.
 update-safe:
+    git diff --quiet -- flake.lock || { echo ":: flake.lock already modified; refusing destructive rollback"; exit 1; }
     nix flake update
-    just dry-all || { echo ":: dry-build failed — reverting flake.lock"; git checkout flake.lock; exit 1; }
+    just dry-all || { echo ":: dry-build failed — restoring pre-update flake.lock"; git restore --source=HEAD -- flake.lock; exit 1; }
 
 # Bump a single input in isolation (e.g. just update-input hyprland), so a
 # volatile git-tip input's breakage doesn't get tangled with a nixpkgs bump.
@@ -96,14 +113,31 @@ update-input input:
 
 upgrade target=profile:
     nix flake update
+    BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
-        --option builders "{{orion_builder}}" \
-        --option builders-use-substitutes true
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 0
 
 # ── Verification ──────────────────────────────────────────
 
 dry target=profile:
-    sudo nixos-rebuild dry-build --flake .#{{target}} --show-trace
+    BUILDERS="$(just _builders {{target}})"; \
+    sudo nixos-rebuild dry-build --flake .#{{target}} --show-trace \
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 0
+
+# Build fleet toplevels in one scheduler invocation so independent host graphs
+# run concurrently and shared derivations are built once. Does not create links.
+build-all:
+    nix build --no-link \
+        .#nixosConfigurations.pathfinder.config.system.build.toplevel \
+        .#nixosConfigurations.discovery.config.system.build.toplevel \
+        .#nixosConfigurations.laptop.config.system.build.toplevel \
+        .#nixosConfigurations.orion.config.system.build.toplevel \
+        .#nixosConfigurations.kepler.config.system.build.toplevel \
+        .#nixosConfigurations.voyager.config.system.build.toplevel \
+        --builders '{{orion_builder}} ; {{kepler_builder}}' \
+        --builders-use-substitutes --max-jobs 0 --show-trace
 
 dry-all:
     sudo nixos-rebuild dry-build --flake .#pathfinder --show-trace
@@ -399,8 +433,9 @@ deploy target ip port="2222" user="erik":
 # selected per host system in the module.
 #   just deploy-rs voyager
 deploy-rs target:
+    BUILDERS="$(just _builders {{target}})"; \
     nix run .#deploy-rs -- --skip-checks .#{{target}} \
-        -- --option builders "{{orion_builder}}" \
+        -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 0
 
@@ -411,8 +446,9 @@ deploy-rs target:
 # (kernel + driver then match). No magic rollback (it's boot-not-activate), so
 # reboot deliberately. Follow with: ssh -p 2222 erik@<ip> sudo systemctl reboot
 deploy-rs-boot target:
+    BUILDERS="$(just _builders {{target}})"; \
     nix run .#deploy-rs -- --skip-checks --boot .#{{target}} \
-        -- --option builders "{{orion_builder}}" \
+        -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 0
 

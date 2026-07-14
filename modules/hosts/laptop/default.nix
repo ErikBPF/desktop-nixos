@@ -252,8 +252,9 @@ in {
 
     services.btrfs.autoScrub.enable = true;
 
-    # Offload heavy builds to Orion (Ryzen 9 5950X, 32t, 62GB RAM)
+    # Orion is primary; Kepler contributes capped spillover capacity.
     nix.distributedBuildsOrion.enable = true;
+    nix.distributedBuildsKepler.enable = true;
 
     # Route dev-loop `cargo build` through the shared sccache cache on Orion.
     programs.sccacheClient.enable = true;
