@@ -86,9 +86,20 @@ fleet-status:
 
 build target=profile:
     BUILDERS="$(just _builders {{target}})"; \
+    nix build --no-link \
+        .#nixosConfigurations.{{target}}.config.system.build.toplevel \
+        --builders "$BUILDERS" \
+        --builders-use-substitutes --max-jobs 0 --show-trace
+
+switch target=profile:
+    BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 0
+
+builder-preflight target=profile:
+    BUILDERS="$(just _builders {{target}})"; \
+    sudo ./scripts/builder-preflight.sh "$BUILDERS"
 
 boot target=profile:
     BUILDERS="$(just _builders {{target}})"; \

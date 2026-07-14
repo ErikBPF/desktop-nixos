@@ -376,7 +376,7 @@ not absorbed.
   env is fully HM-managed off it (config, permissions, rtk plugin). Ships a **daily
   auto-merge lane** + FlakeHub publish; no Cachix (the orion cache covers the fleet).
 - Bump flow like `hermes-flake`: land upstream in the leaf → the daily lane republishes
-  to FlakeHub → `nix flake update opencode-flake` here → `just build laptop`. Gotchas
+  to FlakeHub → `nix flake update opencode-flake` here → `just switch laptop`. Gotchas
   (HM crash on `package=null` HM#9589, placeholder jsonschema nixpkgs#537917, rtk=plugin
   not markdown, permissions need `dag.entryAfter`): `memory/opencode_flake_rfc.md`.
 
@@ -393,7 +393,7 @@ not absorbed.
   (`flake.modules.home.codex`, imported by `profile-desktop`).
 - Ships **official prebuilt openai codex binaries** (4 platforms, hourly build, required
   package-build gate). Bump flow like `opencode-flake`/`hermes-flake`: land upstream in the
-  leaf → FlakeHub republishes → `nix flake update codex-flake` here → `just build laptop`.
+  leaf → FlakeHub republishes → `nix flake update codex-flake` here → `just switch laptop`.
 
 ### `ha-agent` — PT-BR Home Assistant tool-caller fine-tune
 
@@ -491,7 +491,7 @@ but the build broke.
 
 **HM rebuild is the deploy step for ethos + agent routing changes:** edit
 `modules/dev/opencode-agents.md` (ethos) and `modules/dev/opencode.nix`
-(opencode.json + the per-agent `agent` block), then `just build laptop` so
+(opencode.json + the per-agent `agent` block), then `just switch laptop` so
 the `/nix/store` copy + `~/.config/opencode/AGENTS.md` symlink refresh.
 Never hand-edit `~/.config/opencode/AGENTS.md` or
 `~/.config/opencode/opencode.json` directly — both are `/nix/store`

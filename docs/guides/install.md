@@ -182,7 +182,8 @@ just the common ones and will drift, so trust `just` when they disagree.
 
 ```
 # Local
-just build [target]          # Build and switch locally
+just build [target]          # Build without activating
+just switch [target]         # Build and switch locally
 just boot [target]           # Build and set for next boot
 just check                   # docs-check + lint + fmt-check + dry-build all hosts
 just docs-check              # Verify in-repo doc links resolve

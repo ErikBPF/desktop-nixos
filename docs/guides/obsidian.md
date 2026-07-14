@@ -31,7 +31,7 @@ What nix does NOT do:
 
 ```fish
 cd ~/Documents/erik/desktop-nixos
-just build
+just switch
 ```
 
 Already done if you're reading this after I implemented it. To verify:
@@ -265,7 +265,7 @@ To re-seed from nix (overwriting your edits):
 
 ```fish
 rm ~/Documents/erik/obsidian/vault/AGENTS.md
-just build
+just switch
 ```
 
 ---

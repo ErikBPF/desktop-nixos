@@ -105,9 +105,32 @@ in {
     };
 
     testScript = ''
-      start_all()
-      for m in [cp1, cp2, cp3, w1]:
-          m.wait_for_unit("k3s")
+      # Match the production cold-boot invariant: bootstrap cp1, then join each
+      # remaining etcd member serially before starting the worker. Concurrent
+      # control-plane joins make embedded-etcd formation timing-dependent.
+      cp1.start()
+      cp1.wait_for_unit("k3s")
+      cp1.wait_until_succeeds(
+          "test $(k3s kubectl get nodes --no-headers | grep -c ' Ready ') -eq 1",
+          timeout=300,
+      )
+
+      cp2.start()
+      cp2.wait_for_unit("k3s")
+      cp1.wait_until_succeeds(
+          "test $(k3s kubectl get nodes --no-headers | grep -c ' Ready ') -eq 2",
+          timeout=300,
+      )
+
+      cp3.start()
+      cp3.wait_for_unit("k3s")
+      cp1.wait_until_succeeds(
+          "test $(k3s kubectl get nodes --no-headers | grep -c ' Ready ') -eq 3",
+          timeout=300,
+      )
+
+      w1.start()
+      w1.wait_for_unit("k3s")
 
       # All 4 nodes Ready — the 3 servers form a 3-member embedded-etcd quorum
       # and the agent joins.

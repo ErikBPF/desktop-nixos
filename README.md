@@ -72,7 +72,8 @@ config/                          # non-nix assets: QML, keyboard layouts, themes
 ## Day-to-day
 
 ```bash
-just build             # nixos-rebuild switch on current host (offloads to orion)
+just build             # build current host without activating (offloads remotely)
+just switch            # build and activate current host
 just upgrade           # flake update + switch
 just switch-orion      # remote deploy to orion
 just switch-all        # parallel deploy to discovery + orion + pathfinder
