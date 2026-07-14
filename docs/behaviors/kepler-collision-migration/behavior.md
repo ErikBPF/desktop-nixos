@@ -29,7 +29,7 @@ No broad Podman prune is allowed. Generic image layers still referenced by anoth
    - Airflow logical volumes: `airflow_logs` and `airflow_config`, resolved from Compose labels rather than an assumed runtime prefix.
    - Airflow database: `airflow` only.
    - Secrets: `GITLAB_RUNNER_TOKEN`, `POSTGRES_DB_AIRFLOW`, `AIRFLOW_FERNET_KEY`, `AIRFLOW_SECRET_KEY`, and `AIRFLOW_ADMIN_PASSWORD`.
-5. Remove retired secrets from current SecretSpec, SOPS, OpenBao, generated env, runtime, deployment clones, and approved non-Git historical artifacts; revoke external credentials. Retain encrypted Git history. Replace mixed backups with verified sanitized copies before deleting exact contaminated artifacts.
+5. Remove retired secrets from current SecretSpec, SOPS, OpenBao, generated env, and runtime; revoke externally valid credentials. GitLab and Airflow were disposable homelab tests, so K1 does not inventory historical copies, sanitize mixed backups, or rewrite encrypted Git history.
 6. Stop dependent workloads and make remaining state application-consistent: checkpoint Postgres, force a Redis persistence save, and confirm Qdrant and MinIO writes are idle.
 7. Restore-test logical PostgreSQL and Redis backups. Copy the Redis named-volume backup into a relevant `/fast` dataset, then create a timestamped recursive ZFS snapshot containing retained state only. Any persistent mount outside the snapshot boundary without a verified backup is a `halt`. Thirty days makes the snapshot cleanup-eligible; it does not authorize automatic deletion.
 8. Require immutable identity before replacement: registry digest, or local image ID plus source commit/build inputs, and independent model artifact checksum/version where applicable.
@@ -46,7 +46,7 @@ No broad Podman prune is allowed. Generic image layers still referenced by anoth
 12. Stop at the first failed gate. Stop the replacement, retain the quarantined container and ZFS snapshot, collect diagnostics, and request explicit restore direction.
 13. Never roll back a ZFS dataset automatically. Never restart a legacy container against data mutated by a failed replacement without review.
 14. After every slice passes, reboot Kepler through the documented workflow and repeat all gates. Verify Discovery LiteLLM routes to Kepler. Orion checks are opportunistic and non-blocking.
-15. Retain non-retired quarantined containers through reboot. Delete them, snapshots, backups, or mixed historical artifacts only under a later manifest-bound, exact-resource approval.
+15. Retain non-retired quarantined containers through reboot. Delete them, snapshots, or backups only under a later manifest-bound, exact-resource approval.
 
 ## Execution contract
 
@@ -56,4 +56,4 @@ The live execution is blocked until Kepler SecretSpec profiles, Compose/declarat
 
 ## Completion
 
-Recovery is complete only when all declared stacks pass their gates before and after reboot, no name collisions remain, retired GitLab/Airflow current and approved non-Git historical state is absent, Restate state remains, retained-state protections exist, Discovery routes work, and a second dry run reports no pending mutation. Cleanup remains a separate approval.
+Recovery is complete only when all declared stacks pass their gates before and after reboot, no name collisions remain, current GitLab/Airflow resources are absent, Restate state remains, retained-state protections exist, Discovery routes work, and a second dry run reports no pending mutation. Cleanup remains a separate approval.

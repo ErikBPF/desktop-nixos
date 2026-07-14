@@ -184,8 +184,7 @@ class RetirementPlannerTest(unittest.TestCase):
 
     def test_preflight_requires_exact_declared_coverage_sets(self):
         for field in [
-            "secret_artifacts", "external_revocations", "historical_artifacts",
-            "mixed_backup_sanitizations", "restore_compares",
+            "secret_artifacts", "external_revocations",
         ]:
             with self.subTest(field=field):
                 bad = copy.deepcopy(self.evidence)
@@ -221,19 +220,6 @@ class RetirementPlannerTest(unittest.TestCase):
         bad["proofs"]["retired_preflight"]["sha256"] = self.module.digest(bad["proofs"]["retired_preflight"]["envelope"])
         with self.assertRaisesRegex(self.module.RetirementHalt, "external revocation"):
             self.module.plan(self.inventory, bad)
-        for field, message in [
-            ("historical_artifacts", "historical artifact"),
-            ("mixed_backup_sanitizations", "mixed-backup sanitation"),
-            ("restore_compares", "mixed-backup sanitation"),
-        ]:
-            with self.subTest(field=field):
-                bad = copy.deepcopy(self.evidence)
-                envelope = bad["proofs"]["retired_preflight"]["envelope"]
-                envelope[field] = []
-                bad["proofs"]["retired_preflight"]["sha256"] = self.module.digest(envelope)
-                with self.assertRaisesRegex(self.module.RetirementHalt, message):
-                    self.module.plan(self.inventory, bad)
-
     def test_inventory_internal_hash_is_validated_before_use(self):
         bad = copy.deepcopy(self.inventory)
         bad["inventory"]["containers"][0]["state"] = "running"

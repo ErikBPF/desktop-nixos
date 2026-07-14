@@ -194,12 +194,6 @@ def plan(inventory, evidence):
     credentials = preflight.get("external_credentials")
     if not isinstance(credentials, list) or not credentials or preflight.get("external_revocations") != credentials:
         raise RetirementHalt("exact external revocation coverage required")
-    historical = preflight.get("declared_historical_artifacts")
-    if not isinstance(historical, list) or not historical or preflight.get("historical_artifacts") != historical:
-        raise RetirementHalt("exact historical artifact coverage required")
-    mixed = preflight.get("declared_mixed_backups")
-    if not isinstance(mixed, list) or not mixed or preflight.get("mixed_backup_sanitizations") != mixed or preflight.get("restore_compares") != mixed:
-        raise RetirementHalt("mixed-backup sanitation and restore/compare evidence required")
     live = _live_containers(inventory)
     inventory_volumes = inventory["inventory"].get("volumes", [])
     inventory_images = inventory["inventory"].get("images", [])

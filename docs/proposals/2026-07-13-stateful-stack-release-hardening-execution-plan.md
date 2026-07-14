@@ -66,8 +66,8 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 ### K0 — complete
 
 - Kepler collision behavior and fixture-test contract are approved.
-- GitLab and Airflow declarations are retired; their exact live and historical
-  resources have not yet been deleted. Restate remains protected.
+- GitLab and Airflow declarations are retired; their exact live resources have
+  not yet been deleted. Restate remains protected.
 - SecretSpec `0.13.0` is available from the pinned nixpkgs. It is a declaration
   and preflight layer, not a replacement for SOPS or Vault Agent.
 - No Kepler runtime mutation, destructive wipe, backup purge, snapshot, or
@@ -95,8 +95,10 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 - No GitLab/Airflow resource, F5 artifact, scratch container, database, volume,
   snapshot, backup, secret, or external credential has been removed or revoked.
 - Live execution remains blocked until a fresh inventory, value-free evidence,
-  restore-tested PostgreSQL and Redis backups, historical-artifact coverage,
-  and an exact hash-bound approval manifest exist. A secret-safe executor also
+  restore-tested PostgreSQL and Redis backups, and an exact hash-bound approval
+  manifest exist. Historical GitLab/Airflow copies and mixed-backup sanitation
+  are explicitly out of scope because both stacks were disposable homelab
+  tests. A secret-safe executor also
   requires the repository's Bats prerequisite before implementation.
 
 ### Known later gates
@@ -210,13 +212,10 @@ published. No remote execution path exists yet, and no K1 mutation has run.
    identities. Halt any slice whose desired identity is not reproducible.
 4. Quiesce shared PostgreSQL and create restore-tested logical backups of all
    retained databases before planning the Airflow database drop.
-5. Inventory every current and non-Git historical GitLab/Airflow secret copy,
-   including deployment clones, generated env files, snapshots, Restic
-   archives, SOPS escrow bundles, and external credentials. Encrypted Git
-   history is retained.
-6. For mixed backups, create and restore/compare a sanitized replacement before
-   selecting the contaminated artifact for deletion.
-7. Render a value-free, immutable action manifest with exact resources,
+5. Inventory current GitLab/Airflow secret declarations and externally valid
+   credentials. Historical copies, mixed-backup sanitation, and Git-history
+   rewriting are out of scope because the stacks were disposable homelab tests.
+6. Render a value-free, immutable action manifest with exact resources,
    commands, rollback boundaries, and SHA-256. Execution requires user approval
    naming the manifest hash and resources; any live drift invalidates it.
    Running collisions require a separate exact quiesce manifest and a fresh
@@ -228,8 +227,8 @@ published. No remote execution path exists yet, and no K1 mutation has run.
 2. Drop only the Airflow database, remove only the approved GitLab/Airflow
    containers, volumes, bind paths, service-specific images/caches, current
    SecretSpec/SOPS/OpenBao/env declarations and values, and approved non-Git
-   historical artifacts.
-3. Revoke every externally valid retired credential before artifact deletion.
+   current secret artifacts.
+3. Revoke every externally valid retired credential before current artifact deletion.
 4. Never broadly prune, destroy a parent dataset, rewrite Git history, delete
    an unlisted backup, or touch Restate.
 5. Verify shared PostgreSQL and all retained services before continuing.

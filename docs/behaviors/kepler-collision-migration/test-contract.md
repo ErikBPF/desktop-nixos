@@ -49,7 +49,7 @@ Inject failures at each phase:
 1. Inventory collection failure: exit before classification.
 2. Unknown classification: exit before snapshot or deletion.
 3. Retained-database backup/restore failure: no Airflow database drop or retirement wipe.
-4. Retired-secret revocation, mixed-backup sanitization, or exact artifact selection failure: no historical artifact deletion.
+4. Retired-secret selection or external credential revocation failure: no retirement wipe.
 5. Postgres checkpoint, Redis save/backup/restore, Qdrant-idle, or MinIO-idle failure: no snapshot or migration.
 6. Unprotected persistent mount or ZFS snapshot failure: no declared-container mutation.
 7. Replacement start failure: legacy container remains quarantined; halt.
@@ -66,7 +66,7 @@ Before execution, the read-only run must record sanitized evidence for:
 - Container IDs, states, images, labels, mounts, networks, and stack ownership.
 - Exact collisions and their classification.
 - Exact GitLab/Airflow containers, paths, volumes, database, images, and cached layers selected for wipe.
-- Exact current and non-Git historical retired-secret artifacts, revocations, sanitized replacements, and restore/compare evidence.
+- Exact current retired-secret declarations and externally valid credential revocations. Historical copies and mixed-backup sanitization are out of scope because GitLab and Airflow were disposable homelab tests.
 - Proof that Restate resources are excluded.
 - SecretSpec value-free resolution and Compose/declaration drift reports.
 - Immutable registry, local image, build, and model identities.
