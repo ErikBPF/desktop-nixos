@@ -954,6 +954,39 @@ kepler-recovery-inventory:
     trap - EXIT
     printf 'inventory=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["inventory_sha256"])' "$out")"
 
+# Resolve only reviewed K1 model artifact paths. The committed helper performs
+# read-only traversal and emits no directory listings, contents, or environment.
+kepler-recovery-model-paths:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    helper="modules/hosts/kepler/_collision_recovery_model_paths_remote.py"
+    evidence_dir=".gsd/evidence/kepler-k1"
+    out="$evidence_dir/model-paths.json"
+    test -f "$helper"
+    mkdir -p "$evidence_dir"
+    chmod 700 "$evidence_dir"
+    tmp="$(mktemp "$evidence_dir/.model-paths.XXXXXX")"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_kepler}} 'python3 -' < "$helper" > "$tmp"
+    python3 - "$tmp" <<'PY'
+    import json
+    import pathlib
+    import sys
+
+    path = pathlib.Path(sys.argv[1])
+    result = json.loads(path.read_text())
+    if result.get("schema") != "kepler-k1-model-paths-v1":
+        raise SystemExit("model-path evidence schema validation failed")
+    artifacts = result.get("artifacts")
+    if not isinstance(artifacts, list) or len(artifacts) != 7:
+        raise SystemExit("model-path evidence artifact validation failed")
+    PY
+    chmod 600 "$tmp"
+    mv "$tmp" "$out"
+    trap - EXIT
+    printf 'model_paths=%s\n' "$out"
+
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
     #!/usr/bin/env bash
