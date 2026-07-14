@@ -54,6 +54,10 @@ in {
     # Host the fleet's shared sccache (dev-loop cargo) cache on the tailnet.
     services.sccacheCache.enable = true;
 
+    # NetworkManager owns the host uplink. networkd only owns auxiliary links,
+    # so its wait-online service cannot establish host readiness and times out.
+    systemd.network.wait-online.enable = false;
+
     # GPU profile: "training" (stock mem 1258 + 230W) while running local LoRA —
     # the +9.3% mem OC of the "inference" profile triggers the data-fabric-sync-
     # flood under sustained training. Flip back to "inference" for 24/7 llama-chat
