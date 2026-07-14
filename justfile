@@ -1327,9 +1327,29 @@ kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".g
     if wrapper.get("manifest_sha256") != sys.argv[2]:
         raise SystemExit("retirement manifest SHA-256 mismatch")
     PY
-    ssh -p 2222 erik@{{ip_kepler}} \
-      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --execute --manifest "$tmp" --manifest-sha256 "{{manifest_sha256}}" --inventory-sha256 "{{inventory_sha256}}"' \
-      < "{{manifest}}"
+    ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+    submission="$(ssh "${ssh_opts[@]}" erik@{{ip_kepler}} \
+      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-retirement-job submit "$tmp" "{{manifest_sha256}}" "{{inventory_sha256}}"' \
+      < "{{manifest}}")"
+    request_sha="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["request_sha256"])' <<<"$submission")"
+    [[ "$request_sha" =~ ^[0-9a-f]{64}$ ]] || { echo "invalid retirement request binding" >&2; exit 2; }
+    for _ in $(seq 1 120); do
+      if status="$(ssh "${ssh_opts[@]}" erik@{{ip_kepler}} kepler-collision-retirement-job status "$request_sha")"; then
+        state="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["state"])' <<<"$status")"
+        case "$state" in
+          passed)
+            ssh "${ssh_opts[@]}" erik@{{ip_kepler}} kepler-collision-retirement-job result "$request_sha"
+            exit 0
+            ;;
+          failed) echo "retirement job failed: $request_sha" >&2; exit 2 ;;
+          pending|running) ;;
+          *) echo "invalid retirement job state" >&2; exit 2 ;;
+        esac
+      fi
+      sleep 5
+    done
+    echo "retirement job still remote: $request_sha" >&2
+    exit 2
 
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:

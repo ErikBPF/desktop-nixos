@@ -94,6 +94,17 @@ class RetirementPlannerTest(unittest.TestCase):
         self.assertIn("kepler-collision-recovery-executor --manifest", remote_verify)
         self.assertNotIn("--execute", remote_verify)
 
+    def test_remote_execute_uses_persistent_declared_job(self):
+        recipe = JUSTFILE.read_text()
+        start = recipe.index("kepler-recovery-retirement-execute ")
+        end = recipe.index("\n# Rebuild the locally-owned docs-search image", start)
+        remote_execute = recipe[start:end]
+        self.assertIn("kepler-collision-retirement-job submit", remote_execute)
+        self.assertIn("kepler-collision-retirement-job status", remote_execute)
+        self.assertIn("kepler-collision-retirement-job result", remote_execute)
+        self.assertNotIn("kepler-collision-recovery-executor --execute", remote_execute)
+        self.assertIn("ServerAliveInterval=15", remote_execute)
+
     def plan(self):
         return self.module.plan(self.inventory, self.evidence)
 
