@@ -316,7 +316,8 @@ def plan(inventory, evidence):
     dispositions = evidence.get("dispositions")
     _exact_keys(dispositions, {"containers", "artifacts", "images"}, "dispositions")
     container_names = [item.get("name") for item in dispositions["containers"]]
-    if sorted(container_names) != DISPOSITION_CONTAINERS:
+    expected_dispositions = [name for name in DISPOSITION_CONTAINERS if name in live]
+    if sorted(container_names) != expected_dispositions:
         raise RetirementHalt("container disposition allowlist mismatch")
     disposition_resources = []
     for record in sorted(dispositions["containers"], key=lambda item: item["name"]):
@@ -345,7 +346,8 @@ def plan(inventory, evidence):
         raise RetirementHalt("F5 image disposition mismatch")
     if f5_image["identity"] not in live_images:
         raise RetirementHalt("F5 image identity absent from inventory")
-    if image_references.get(f5_image["identity"], []) != ["f5-tts-server"]:
+    expected_f5_references = ["f5-tts-server"] if "f5-tts-server" in live else []
+    if image_references.get(f5_image["identity"], []) != expected_f5_references:
         raise RetirementHalt("F5 image is shared or unbound")
     disposition_resources.append({"kind": "image", **f5_image})
     actions.append(_action("image", f5_image["identity"], ["just", "kepler-recovery-retire-exact", "image", f5_image["identity"]], "not-applicable-after-exact-delete"))

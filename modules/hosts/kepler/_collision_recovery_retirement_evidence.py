@@ -177,6 +177,8 @@ def assemble(inventory_envelope, path_envelope, database_envelope, redis_envelop
     for name in DISPOSITIONS:
         item = by_container.get(name)
         if item is None:
+            if name == "f5-tts-server":
+                continue
             raise RetirementEvidenceHalt(f"required disposition container absent: {name}")
         sources = [mount.get("source") for mount in item.get("mounts", [])]
         if any(not isinstance(source, str) for source in sources):
@@ -193,8 +195,15 @@ def assemble(inventory_envelope, path_envelope, database_envelope, redis_envelop
     f5_path = paths.get(F5_PATH)
     if not f5_path or f5_path.get("existence") is not True or f5_path.get("type") != "directory":
         raise RetirementEvidenceHalt("F5 path evidence unavailable")
-    f5_identities = [identity for identity, users in references.items() if users == ["f5-tts-server"]]
-    if len(f5_identities) != 1 or f5_identities[0] not in {_image_identity(item) for item in images}:
+    f5_identities = []
+    for item in images:
+        repositories = {value.split("@", 1)[0] for value in item.get("digests", [])}
+        repositories.update(value.rsplit(":", 1)[0] for value in item.get("names", []))
+        identity = _image_identity(item)
+        if identity and repositories == {"docker.io/kepler/f5-tts-server"}:
+            f5_identities.append(identity)
+    f5_identities = sorted(set(f5_identities))
+    if len(f5_identities) != 1:
         raise RetirementEvidenceHalt("F5 image identity unavailable")
     preflight = {
         "declared_secrets": [], "external_credentials": [], "external_revocations": [],

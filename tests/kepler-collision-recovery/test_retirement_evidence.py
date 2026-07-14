@@ -41,7 +41,7 @@ class RetirementEvidenceAssemblerTest(unittest.TestCase):
             "containers": containers,
             "images": [
                 {"id": gitlab_id, "digests": ["docker.io/gitlab/gitlab-ce@sha256:" + "a" * 64]},
-                {"id": f5_id, "digests": []},
+                {"id": f5_id, "digests": [], "names": ["docker.io/kepler/f5-tts-server:pt-br"]},
             ],
             "networks": [],
             "references": {"images": {"sha256:" + gitlab_id: [], "sha256:" + f5_id: ["f5-tts-server"]}},
@@ -90,6 +90,26 @@ class RetirementEvidenceAssemblerTest(unittest.TestCase):
         self.assertIn("artifact", kinds)
         self.assertIn("image", kinds)
 
+    def test_accepts_already_absent_f5_container_with_exact_image(self):
+        changed = copy.deepcopy(self.inventory)
+        changed["inventory"]["containers"] = [
+            item for item in changed["inventory"]["containers"] if item["name"] != "f5-tts-server"
+        ]
+        changed["inventory"]["references"]["images"] = {
+            identity: users
+            for identity, users in changed["inventory"]["references"]["images"].items()
+            if users != ["f5-tts-server"]
+        }
+        changed["inventory_sha256"] = self.assembler.digest(changed["inventory"])
+        database = copy.deepcopy(self.database)
+        database["manifest"]["inventory_sha256"] = changed["inventory_sha256"]
+        database["manifest_sha256"] = self.assembler.digest(database["manifest"])
+        evidence = self.assembler.assemble(changed, self.paths, database)
+        self.assertNotIn("f5-tts-server", [item["name"] for item in evidence["dispositions"]["containers"]])
+        self.assertEqual(len(evidence["dispositions"]["images"]), 1)
+        manifest = self.retirement.plan(changed, evidence)
+        self.assertEqual(manifest["status"], "ready-for-explicit-hash-bound-approval")
+
     def test_is_deterministic_and_idempotent_with_absent_retired_resources(self):
         first = self.assembler.assemble(self.inventory, self.paths, self.database)
         second = self.assembler.assemble(copy.deepcopy(self.inventory), copy.deepcopy(self.paths), copy.deepcopy(self.database))
@@ -102,7 +122,9 @@ class RetirementEvidenceAssemblerTest(unittest.TestCase):
         with self.assertRaisesRegex(self.assembler.RetirementEvidenceHalt, "inventory SHA-256"):
             self.assembler.assemble(changed, self.paths, self.database)
         changed = copy.deepcopy(self.inventory)
-        changed["inventory"]["containers"] = changed["inventory"]["containers"][1:]
+        changed["inventory"]["containers"] = [
+            item for item in changed["inventory"]["containers"] if item["name"] != "ha-train-run"
+        ]
         changed["inventory_sha256"] = self.assembler.digest(changed["inventory"])
         database = copy.deepcopy(self.database)
         database["manifest"]["inventory_sha256"] = changed["inventory_sha256"]
