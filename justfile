@@ -1162,7 +1162,11 @@ kepler-recovery-postgres-evidence-run inventory_sha256 container_id mode="run-st
         passed)
           ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job result "$request_sha" > "$tmp" && break
           ;;
-        failed) echo "PostgreSQL evidence job failed" >&2; exit 2 ;;
+        failed)
+          reason="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("reason", "unspecified"))' "$status")"
+          echo "PostgreSQL evidence job failed: $reason" >&2
+          exit 2
+          ;;
         pending|running) ;;
         *) echo "invalid PostgreSQL evidence job state" >&2; exit 2 ;;
       esac
@@ -1206,7 +1210,11 @@ kepler-recovery-redis-evidence-run inventory_sha256 container_id mode="run-stopp
         passed)
           ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job result "$request_sha" > "$tmp" && break
           ;;
-        failed) echo "Redis evidence job failed" >&2; exit 2 ;;
+        failed)
+          reason="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("reason", "unspecified"))' "$status")"
+          echo "Redis evidence job failed: $reason" >&2
+          exit 2
+          ;;
         pending|running) ;;
         *) echo "invalid Redis evidence job state" >&2; exit 2 ;;
       esac
