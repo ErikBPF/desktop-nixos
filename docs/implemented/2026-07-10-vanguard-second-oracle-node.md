@@ -28,7 +28,7 @@
 
 Stand up the **second** Oracle Always-Free VM — **`vanguard`** — as a multi-role
 offsite node. It began as the NetBird "Track-1 2nd VM"
-([`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)
+([`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)
 §4a) but a fleet-wide resiliency scan (below) found several *other* single points
 of failure a second always-on offsite box closes cheaply.
 
@@ -155,7 +155,7 @@ writes stay acceptable, before enable.
 
 ---
 
-*Cross-refs:* [`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)
+*Cross-refs:* [`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)
 §4a (Track-1 origin), [`implemented/2026-06-30-offsite-dr-crown-jewels.md`](../implemented/2026-06-30-offsite-dr-crown-jewels.md)
-(why same-region ≠ independent), [`2026-07-01-telstar-oracle-arm-host.md`](2026-07-01-telstar-oracle-arm-host.md)
+(why same-region ≠ independent), [`2026-07-01-telstar-oracle-arm-host.md`](../proposals/2026-07-01-telstar-oracle-arm-host.md)
 (sibling Oracle host pattern).

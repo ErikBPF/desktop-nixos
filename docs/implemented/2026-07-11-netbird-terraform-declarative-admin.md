@@ -201,8 +201,8 @@ before a fix is designed.
 
 *Cross-refs:* [`2026-07-11-pocketid-idp-for-netbird.md`](2026-07-11-pocketid-idp-for-netbird.md)
 (IdP bring-up + the deferred dashboard-SSO blocker),
-[`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)
+[`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)
 (parent RFC — §8 IaC split, WP4),
-[`2026-07-10-netbird-implementation-plan.md`](2026-07-10-netbird-implementation-plan.md).
+[`2026-07-10-netbird-implementation-plan.md`](../proposals/2026-07-10-netbird-implementation-plan.md).
 Module: [`../../modules/hosts/discovery/netbird-server.nix`](../../modules/hosts/discovery/netbird-server.nix),
 [`../../modules/networking/netbird-client.nix`](../../modules/networking/netbird-client.nix).

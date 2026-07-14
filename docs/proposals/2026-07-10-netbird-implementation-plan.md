@@ -1,6 +1,8 @@
 # NetBird overlay — implementation plan (build breakdown)
 
-**Status:** Built + merged; control plane + relay#2 **LIVE** (§Deploy status); remaining: voyager relay#1, client enrolment, human passkey bootstrap — 2026-07-11
+**Status:** Built + merged; control plane + relay#2 **LIVE** (§Deploy status) and
+laptop CLI enrollment proven. Remaining: voyager relay#1 and broader fleet
+enrollment. Dashboard passkey login is deferred upstream — 2026-07-14.
 
 > **Build results (2026-07-10).** WP0–WP4 done by four sonnet agents + verified
 > together: `just lint`/`fmt-check`/`structure-check` clean, and **zero
@@ -98,14 +100,14 @@ human, in RFC §10 order, after code review. Nothing here deploys.
 **vanguard (Track-1 2nd VM) — LIVE.** NixOS 26.11, R1–R3 roles deployed + verified. The
 earlier off-network boot was root-caused (nixos-infect NIXOS_LUSTRATE skipped by
 systemd-initrd) and fixed in `just infect-vanguard`; the vanguard proposal is the
-authoritative record — [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md).
+authoritative record — [`2026-07-10-vanguard-second-oracle-node.md`](../implemented/2026-07-10-vanguard-second-oracle-node.md).
 
 **Track B (control plane on discovery) — LIVE.** management/signal/dashboard/relay#1 +
 PocketID all up behind SWAG (`id`/`nb`/`nb-relay.<zone>`), NetBird on PocketID OIDC
 (public + PKCE). The five blockers below were all cleared — the `idpOnly` landmine, the
 PocketID env/secret model (`ENCRYPTION_KEY` confirmed), the servarr SWAG proxy-confs,
 the `netbird` PG DB/role, and the passkey/OIDC-client bootstrap order — in the focused
-RFC [`2026-07-11-pocketid-idp-for-netbird.md`](2026-07-11-pocketid-idp-for-netbird.md)
+RFC [`2026-07-11-pocketid-idp-for-netbird.md`](../implemented/2026-07-11-pocketid-idp-for-netbird.md)
 (the authoritative Track-B record; Implemented per the README index). Only the human
 dashboard-passkey login + first `netbird up` enrolment remain.
 

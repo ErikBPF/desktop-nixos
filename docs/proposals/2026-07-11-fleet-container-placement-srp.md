@@ -30,7 +30,7 @@ use. Placement is historical accident, and it shows:
 
 Goal: **a single placement decision rule**, a **fleet audit** against it, and the
 **high-value SRP separations** it exposes — led by extracting PocketID into a
-standalone fleet identity service (the [PocketID bring-up RFC](2026-07-11-pocketid-idp-for-netbird.md)
+standalone fleet identity service (the [PocketID bring-up RFC](../implemented/2026-07-11-pocketid-idp-for-netbird.md)
 consumer). Minimal churn: most services are already placed correctly; this names
 *why* and fixes the handful that aren't.
 
@@ -108,7 +108,7 @@ aren't a clean pass** — everything else stays put.
 | `discovery/infra.yml` (postgres+redis **+ Vault + Vaultwarden + minio-tfstate**) | M1, 4 concerns in one stack | M1, but SRP-split | **Split** → datastores / secrets(Vault) / vaultwarden / tfstate-store | P2 |
 | `k8s-apiserver` nginx shim | M1, inside `networking.yml` (SWAG+DNS) | M1, wrong stack | **Move** out of the edge stack (own/k8s concern) | P2 |
 | Cross-service secret bundles (`homepage`←arr+grafana; `discord.env`←scrutiny) | per-stack vault-agent render | I3 | **Re-scope** vault-agent renders per-service | P2 |
-| `servarr-pull` (git reset **+** `.env` decrypt **+** `homelab-net` create) | one oneshot, 3 jobs | SRP-split | **Split**; make `homelab-net` a first-class unit ordered before **M2** too (fixes the [bring-up RFC](2026-07-11-pocketid-idp-for-netbird.md) §3a race) | P2 |
+| `servarr-pull` (git reset **+** `.env` decrypt **+** `homelab-net` create) | one oneshot, 3 jobs | SRP-split | **Split**; make `homelab-net` a first-class unit ordered before **M2** too (fixes the [bring-up RFC](../implemented/2026-07-11-pocketid-idp-for-netbird.md) §3a race) | P2 |
 | in-container **Vault** (`infra.yml`) | M1 | M2-class (secrets substrate) but **high blast radius** | **Defer** — own RFC; do not move casually | non-goal here |
 | SWAG, cloudflared, AdGuard, postgres/redis/minio | M1 | M1 ✓ (test 3 not tripped) | Keep — app-config locality wins | — |
 | kepler compose (12), orion/voyager stacks | M1 | M1 ✓ | Keep | — |
@@ -209,7 +209,7 @@ human enables the touched piece.
 
 ---
 
-*Cross-refs:* [`2026-07-11-pocketid-idp-for-netbird.md`](2026-07-11-pocketid-idp-for-netbird.md)
+*Cross-refs:* [`2026-07-11-pocketid-idp-for-netbird.md`](../implemented/2026-07-11-pocketid-idp-for-netbird.md)
 (the P0 consumer — retargets onto the extracted module),
 [`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)
 (Q1/Q2 runtime ruling this rule generalizes),

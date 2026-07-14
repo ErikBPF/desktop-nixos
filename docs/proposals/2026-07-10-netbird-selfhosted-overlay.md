@@ -1,6 +1,10 @@
 # Self-hosted NetBird overlay — resilient control plane on discovery + voyager
 
-**Status:** Partially implemented — control plane (discovery) + public relay#2 (vanguard) **LIVE** 2026-07-11; remaining: voyager relay#1, client enrolment (`netbird up`), human passkey bootstrap. All gates ruled 2026-07-10; build/as-built tracked in the implementation plan + the PocketID RFC — 2026-07-11
+**Status:** Partially implemented — control plane (discovery) + public relay#2
+(vanguard) **LIVE** 2026-07-11; laptop CLI enrollment is proven. Remaining:
+voyager relay#1 and broader fleet enrollment. Dashboard passkey login is
+deferred on the upstream callback incompatibility. All gates ruled 2026-07-10;
+build/as-built is tracked in the implementation plan and implemented records.
 
 > Scaffold for human judgment. Facts, ports, and NixOS/Terraform surfaces are
 > researched and cited. Three scoping decisions locked in §1; **all 11 detailed
@@ -218,7 +222,7 @@ only, no secrets at rest); a **full standby management** does not, without that 
 > answer but gated on Oracle capacity and a threat-model decision. Neither requires
 > Enterprise; both stay within Always-Free. **The Track-1 2nd VM is `vanguard`** —
 > the second free AMD micro — specified as a multi-role offsite node in
-> [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md)
+> [`2026-07-10-vanguard-second-oracle-node.md`](../implemented/2026-07-10-vanguard-second-oracle-node.md)
 > (relay#2 + PG replica here, plus secondary DNS + dead-man's-switch + optional Vault
 > Raft witness). Track 2's full-standby management stays the A1/`telstar` path.
 

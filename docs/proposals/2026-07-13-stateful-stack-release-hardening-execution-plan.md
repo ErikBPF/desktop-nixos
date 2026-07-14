@@ -1,7 +1,8 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 complete; Kepler K0 is the active TDD gate;
-Discovery P1 is staged and frozen until K5 completes.
+**Status:** In progress — P0 and Kepler K0 complete; K1 read-only inventory and
+exact approval-manifest generation is the active gate. Discovery P1 remains
+staged and frozen until K5 completes.
 
 ## 1. Purpose and authority
 
@@ -62,7 +63,7 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 - Later gate: replacing containers `swag` and `swag-init` requires explicit
   approval after K5. P1 deletes no volume, snapshot, backup, or state.
 
-### K0 — active, not implemented
+### K0 — complete
 
 - Kepler collision behavior and fixture-test contract are approved.
 - GitLab and Airflow are retired; Restate remains protected.
@@ -70,7 +71,11 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   and preflight layer, not a replacement for SOPS or Vault Agent.
 - No Kepler runtime mutation, destructive wipe, backup purge, snapshot, or
   quarantine has run.
-- K1 is blocked until Kepler SecretSpec profiles and fixture tests pass.
+- Servarr `1805e1d` published the value-free Kepler SecretSpec contract.
+- Twenty-one planner fixtures, Kepler dry-build, and full flake verification
+  passed without changing production secret resolution or runtime startup.
+- K1 remains blocked pending a fresh read-only live inventory and exact
+  approval manifest.
 
 ### Known later gates
 
@@ -448,8 +453,9 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is K0 test implementation. Kepler K2/K4 execution then
-requires a fresh, exact K1 manifest and matching approval. The staged Discovery
+The current active gate is K1 read-only inventory and exact approval-manifest
+generation. Kepler K2/K4 execution then requires that fresh, exact K1 manifest
+and matching approval. The staged Discovery
 gate to replace `swag` and `swag-init` becomes active only after K5 and does not
 authorize deletion of bind state, volumes, P0 fixtures, P1 protection, or
 legacy resources.

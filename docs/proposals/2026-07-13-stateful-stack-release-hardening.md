@@ -1,6 +1,7 @@
 # Stateful stack and release hardening
 
-**Status:** In progress — P0 complete; Kepler K0–K5 precedes staged Discovery P1.
+**Status:** In progress — P0 and Kepler K0 complete; K1 read-only inventory is
+next. Kepler K1–K5 precedes staged Discovery P1.
 
 **Execution order update (2026-07-13):** The operator execution plan now
 inserts Kepler collision recovery K0–K5 between shared P0 and Discovery P1.
@@ -551,7 +552,7 @@ Those are implementation facts, not design choices.
 - [`../reference/harbor-discovery-registry.md`](../reference/harbor-discovery-registry.md)
 - [`../reference/service-exposure.md`](../reference/service-exposure.md)
 - [`2026-07-11-fleet-container-placement-srp.md`](2026-07-11-fleet-container-placement-srp.md)
-- [`2026-07-11-netbird-terraform-declarative-admin.md`](2026-07-11-netbird-terraform-declarative-admin.md)
+- [`2026-07-11-netbird-terraform-declarative-admin.md`](../implemented/2026-07-11-netbird-terraform-declarative-admin.md)
 - [AdGuard Terraform provider `adguard_config` resource](https://registry.terraform.io/providers/gmichels/adguard/1.7.0/docs/resources/config)
 
 ## 14. Implementation evidence

@@ -7,15 +7,20 @@ infra Postgres (dedicated `netbird` role) with PocketID OIDC (public + PKCE);
 `nb/` → 200, `nb/api` → 401 (auth-gated). §5's env-var wiring was corrected to
 `management.json` (`HttpConfig` + flow blocks) — the binary reads the file, not
 `NETBIRD_AUTH_*` env; the relay HMAC + datastore key are rendered from sops at
-activation (never baked). Remaining (human): dashboard passkey login + first
-`netbird up` client enrolment (validates the gRPC routes + relay HMAC end-to-end).
+activation (never baked). The remaining dashboard passkey path is deferred;
+operators use the proven CLI and declarative-administration paths.
+
+**Closure update (2026-07-12):** CLI enrollment completed and the laptop became
+the first managed peer. Dashboard browser SSO remains deferred because of the
+upstream hash-callback incompatibility; declarative administration is the
+supported path recorded in the NetBird + PocketID Terraform implementation.
 
 > Scaffold for human judgment. PocketID env vars, the OIDC-client model, and the
 > first-run/recovery flow are **researched and cited** (pocket-id.org,
 > docs.netbird.io) — not guessed, per the plan-doc landmine #2. The order of
 > operations is a **human-gated runbook**: no agent runs `switch-discovery` (§7).
 > This RFC is the focused slice the NetBird implementation plan spun out
-> ([`2026-07-10-netbird-implementation-plan.md`](2026-07-10-netbird-implementation-plan.md)
+> ([`2026-07-10-netbird-implementation-plan.md`](../proposals/2026-07-10-netbird-implementation-plan.md)
 > §"Deploy status & discovered prerequisites"): stand PocketID up **without
 > breaking the crown-jewel hub**, hand off the passkey + OIDC-client step, then
 > wire NetBird management/dashboard to it.
@@ -38,7 +43,7 @@ up on **discovery**, served **tailnet-only** behind the existing SWAG wildcard a
 
 **Not in scope (unchanged from the parent RFC):** management/signal/dashboard/relay
 resilience, voyager/vanguard relays, homelab-iac policy, the transition study.
-Those are the parent RFC ([`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)).
+Those are the parent RFC ([`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)).
 This doc only makes the IdP real and correctly wired — the precondition for
 everything else in Track B.
 
@@ -369,9 +374,9 @@ Ruled by a human before/at wire-up. Recommendation first where there is one.
 
 ---
 
-*Cross-refs:* [`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)
+*Cross-refs:* [`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)
 (parent RFC — §5 exposure, §6/§6a IdP+MFA, §9 secrets),
-[`2026-07-10-netbird-implementation-plan.md`](2026-07-10-netbird-implementation-plan.md)
+[`2026-07-10-netbird-implementation-plan.md`](../proposals/2026-07-10-netbird-implementation-plan.md)
 (discovered prerequisites this doc clears),
 [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md)
 (sibling Track-1 node), [`../reference/service-exposure.md`](../reference/service-exposure.md)
