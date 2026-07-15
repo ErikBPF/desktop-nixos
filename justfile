@@ -1384,6 +1384,35 @@ kepler-recovery-retirement-force-approved:
     ssh "${ssh_opts[@]}" "$host" podman stop "$postgres" >/dev/null
     echo 'DONE database airflow'
 
+# Exact full-container recreation approved for the Kepler recovery campaign.
+kepler-recovery-reset-declared-approved:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10)
+    host=erik@{{ip_kepler}}
+    containers=(
+      0146cb4f3b498654e247fca160fee2e1acfbe301d12b9a8285996a250f2686f9
+      ad3d3c02a8ea82090218d2e7e889a0b7c90410913ff65cc30f9f5d1db19bb434
+      1088499c85881d0cd34c4bfd33174ff60cdc7af5425c5d0b35c596ece084f060
+      306ee7200b6e0ccf8f7256bcd6e8d9fcf1032a6c91389ab727459506200ae728
+      70af9b17b63a2eecb57ac1411440db631d21880e73718b6b00cd4f198f44f832
+      84f32d8fe1b01e7f7be30cbe01034c80e95f689a1cff6e2437f22c8e24a9accc
+      e055b76f6587be195f6fe5f2e455ed9d3115cbac6826fd0084b2a5703403abf1
+      f9ee1a9901d5b3870d85218a64d112bbe9752542093e6dcd2241347f693acc2f
+      a90e47f940e0ec80b8ac37be028064cd1d1db4fcc2705674b035f2920c42e4c3
+      9314084a100d410926e5a6c9e1e6cf373fcfdcc88db5d7e4e85e3a76d2483462
+      f28fdf964e96b0117f021ec73c1e028a0fd3116a92a960b70e515f58d55bec1c
+      f9a131792be86483d3d950599192c4d717f0d8b366b469773534a67f8e5f6e8e
+    )
+    for id in "${containers[@]}"; do
+      ssh "${ssh_opts[@]}" "$host" podman rm --force "$id"
+      echo "DONE container $id"
+    done
+    ssh "${ssh_opts[@]}" "$host" podman volume rm homelab_redis_data
+    echo 'DONE volume homelab_redis_data'
+    ssh "${ssh_opts[@]}" "$host" podman volume rm infra_redis_data
+    echo 'DONE volume infra_redis_data'
+
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
     #!/usr/bin/env bash
