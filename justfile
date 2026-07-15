@@ -2716,6 +2716,54 @@ discovery-swag-recover-pre-adoption manifest-sha:
     ssh -p 2222 erik@{{ip_discovery}} \
       "sudo discovery-stateful-swag-adopt recover-pre-adoption --manifest-sha $hash"
 
+# P1 attempt-02 resumes only the post-recreate ownership correction. It binds
+# the retained first-attempt evidence and current runtime before any recreate.
+discovery-swag-resume-observe output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo discovery-stateful-swag-adopt observe-attempt-02' >"$tmp"
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py resume-plan "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-resume-preflight observation output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py resume-plan "{{observation}}" >"$tmp"
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-resume-result observation authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py resume-verify \
+      "{{observation}}" "{{authorization}}"
+
+discovery-swag-resume-execute authorization manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved resume manifest SHA-256' >&2; exit 1; }
+    test -f "{{authorization}}" || { echo 'BLOCKED: resume authorization file absent' >&2; exit 1; }
+    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+      echo 'BLOCKED: authorization file does not contain approved resume manifest SHA-256' >&2
+      exit 1
+    }
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo discovery-stateful-swag-adopt resume-attempt-02 --authorization - --manifest-sha $hash" \
+      <"{{authorization}}"
+
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
 # identity or volatile sdX path.

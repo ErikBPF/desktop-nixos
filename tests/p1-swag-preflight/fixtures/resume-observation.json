@@ -1,0 +1,46 @@
+{
+  "dns_file_metadata": {
+    "owner": "0:0",
+    "mode": "0600",
+    "path": "/home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini"
+  },
+  "current_runtime": {
+    "containers": [
+      {
+        "compose_project": "networking",
+        "compose_service": "swag",
+        "compose_working_dir": "/home/erik/servarr/machines/discovery",
+        "id": "7777777777777777777777777777777777777777777777777777777777777777",
+        "image_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "image_ref": "lscr.io/linuxserver/swag:5.6.0-ls467@sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d",
+        "mounts": [{"source": "/home/erik/servarr/machines/discovery/config/swag", "target": "/config", "type": "bind"}],
+        "name": "swag",
+        "state": "running"
+      },
+      {
+        "compose_project": "networking",
+        "compose_service": "swag-init",
+        "compose_working_dir": "/home/erik/servarr/machines/discovery",
+        "id": "8888888888888888888888888888888888888888888888888888888888888888",
+        "image_id": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "image_ref": "busybox:1.38@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d",
+        "mounts": [{"source": "/home/erik/servarr/machines/discovery/config/swag", "target": "/config", "type": "bind"}],
+        "name": "swag-init",
+        "state": "exited"
+      }
+    ]
+  },
+  "retained": {
+    "approved_inventory": {"path": "/var/lib/stateful-stack-migrations/p1-swag/approved-inventory.json", "sha256": "1111111111111111111111111111111111111111111111111111111111111111"},
+    "archive": {"path": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst", "sha256": "2222222222222222222222222222222222222222222222222222222222222222"},
+    "archive_checksum": {"path": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst.sha256", "sha256": "3333333333333333333333333333333333333333333333333333333333333333"},
+    "authorization": {"path": "/var/lib/stateful-stack-migrations/p1-swag/authorization.json", "sha256": "4444444444444444444444444444444444444444444444444444444444444444"},
+    "ledger": {"path": "/var/lib/stateful-stack-migrations/p1-swag/ledger.json", "sha256": "5555555555555555555555555555555555555555555555555555555555555555"},
+    "snapshot": {"path": "/home/.snapshots/stateful-stack-p1-swag", "uuid": "99999999-9999-4999-8999-999999999999"}
+  },
+  "servarr": {
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "compose_file": "/home/erik/servarr/machines/discovery/networking.yml",
+    "render_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

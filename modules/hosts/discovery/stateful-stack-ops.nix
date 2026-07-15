@@ -48,6 +48,7 @@ _: {
         statefulStackOps
         statefulSwagInventory
         statefulSwagPreflight
+        util-linux
       ];
       text = builtins.readFile ./_stateful-swag-adopt.sh;
     };

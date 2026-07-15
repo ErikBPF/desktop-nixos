@@ -145,6 +145,9 @@ in {
         # docker-compose standalone binary (avoids CLI plugin path issues
         # in minimal systemd user session environments).
         environment.systemPackages = [pkgs.docker-compose pkgs.git];
+        systemd.tmpfiles.rules = [
+          "f /run/lock/servarr-repository.lock 0660 root users - -"
+        ];
 
         home-manager.users.${username} = {
           # Do not auto-start user services during nixos-rebuild switch.
@@ -175,6 +178,9 @@ in {
                       export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i /home/${username}/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new -F /home/${username}/.ssh/config"
                       REPO="${cfg.repoPath}"
                       MACHINE_DIR="${cfg.composeDir}"
+                      LOCK="/run/lock/servarr-repository.lock"
+                      exec 9>"$LOCK"
+                      ${pkgs.util-linux}/bin/flock 9
                       # Target branch: a `.deploy-branch` pointer (written by
                       # `just pull-servarr <host> <branch>`) overrides the baked
                       # default. The pointer is untracked, so reset --hard below
