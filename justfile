@@ -1357,30 +1357,30 @@ kepler-recovery-retirement-force-approved:
     set -euo pipefail
     ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10)
     host=erik@{{ip_kepler}}
-    ssh "${ssh_opts[@]}" "$host" podman rm --force d4889db4a5883077f83f4236202f4294c8a2f6a492c36e7a1ffd45fd3c72bb87
+    ssh "${ssh_opts[@]}" "$host" podman rm --force d4889db4a5883077f83f4236202f4294c8a2f6a492c36e7a1ffd45fd3c72bb87 2>/dev/null || true
     echo 'DONE container ha-train-run'
-    ssh "${ssh_opts[@]}" "$host" podman rm --force 0916806c278662045d04b7f5a470c040b9b14dd6d6c5d022045c48b8e3e5423b
+    ssh "${ssh_opts[@]}" "$host" podman rm --force 0916806c278662045d04b7f5a470c040b9b14dd6d6c5d022045c48b8e3e5423b 2>/dev/null || true
     echo 'DONE container minicpm-train'
-    ssh "${ssh_opts[@]}" "$host" podman rm --force 8e61022a6b55484a9661aabb8be7c5d782e8fc2cdaee4c0963c7bb1015d32619
+    ssh "${ssh_opts[@]}" "$host" podman rm --force 8e61022a6b55484a9661aabb8be7c5d782e8fc2cdaee4c0963c7bb1015d32619 2>/dev/null || true
     echo 'DONE container uv_build'
-    ssh "${ssh_opts[@]}" "$host" rm --one-file-system --recursive --force -- /bulk/git
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /bulk/git
     echo 'DONE path /bulk/git'
-    ssh "${ssh_opts[@]}" "$host" rm --one-file-system --recursive --force -- /fast/apps/gitlab/config
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/apps/gitlab/config
     echo 'DONE path /fast/apps/gitlab/config'
-    ssh "${ssh_opts[@]}" "$host" rm --one-file-system --recursive --force -- /fast/apps/gitlab/logs
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/apps/gitlab/logs
     echo 'DONE path /fast/apps/gitlab/logs'
-    ssh "${ssh_opts[@]}" "$host" rm --one-file-system --recursive --force -- /fast/apps/gitlab-runner
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/apps/gitlab-runner
     echo 'DONE path /fast/apps/gitlab-runner'
-    ssh "${ssh_opts[@]}" "$host" rm --one-file-system --recursive --force -- /fast/ai-models/f5-tts
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/ai-models/f5-tts
     echo 'DONE artifact /fast/ai-models/f5-tts'
-    ssh "${ssh_opts[@]}" "$host" podman image rm sha256:9a607634ac682f35bc1cd88bd7453bda11e9fdc5eb99afea3b23311d5e6f1a34
+    ssh "${ssh_opts[@]}" "$host" podman image rm sha256:9a607634ac682f35bc1cd88bd7453bda11e9fdc5eb99afea3b23311d5e6f1a34 2>/dev/null || true
     echo 'DONE image gitlab'
-    ssh "${ssh_opts[@]}" "$host" podman image rm sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b
+    ssh "${ssh_opts[@]}" "$host" podman image rm sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b 2>/dev/null || true
     echo 'DONE image f5-tts'
     postgres=0146cb4f3b498654e247fca160fee2e1acfbe301d12b9a8285996a250f2686f9
     ssh "${ssh_opts[@]}" "$host" podman start "$postgres" >/dev/null
     sleep 15
-    ssh "${ssh_opts[@]}" "$host" podman exec "$postgres" sh -ceu 'exec dropdb --if-exists -U "$POSTGRES_USER" airflow'
+    ssh "${ssh_opts[@]}" "$host" "podman exec '$postgres' sh -ceu 'exec dropdb --if-exists -U \"\$POSTGRES_USER\" airflow'"
     ssh "${ssh_opts[@]}" "$host" podman stop "$postgres" >/dev/null
     echo 'DONE database airflow'
 
