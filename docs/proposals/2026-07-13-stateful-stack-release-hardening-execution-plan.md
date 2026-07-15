@@ -2,8 +2,8 @@
 
 **Status:** In progress — P0 and Kepler recovery complete; operator-approved
 retirement of Kepler AI-serving executed and verified after reboot. Discovery
-consumers must stop routing to the retired endpoints before Discovery P1 can
-unfreeze.
+consumer cleanup and the P1 read-only preflight are complete. P1 mutation is
+blocked only on explicit approval of the current hash-bound SWAG manifest.
 
 ## 1. Purpose and authority
 
@@ -64,6 +64,12 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   unexpectedly `0644`; P1 requires `0600` after recreation and fails otherwise.
 - Later gate: replacing containers `swag` and `swag-init` requires explicit
   approval after K5. P1 deletes no volume, snapshot, backup, or state.
+- The fresh read-only inventory passed after the AppArmor reload fix and binds
+  inventory SHA-256
+  `2cb876b1073abf4f1f43de687b78cae3ee0862bae8662b7d7bec02325ce361c0`
+  to manifest SHA-256
+  `cdc1e0d261b53438f017a39be0060795126d1a80ada983bf0d6f9dddc5aa16fc`.
+  No P1 execute, stop, snapshot, archive, or Compose mutation has run.
 - A fixture-tested, offline preflight now exact-binds the two container IDs,
   Compose labels and working directory, immutable image references and image
   IDs, `/config` binds, Servarr commit and rendered-Compose hash, evidence
@@ -365,7 +371,7 @@ permitted, and a changed inventory invalidates the manifest.
    separate cleanup manifest for later named-resource approval.
 7. Unfreeze Discovery P1 only after all K5 gates are green.
 
-### P1 — SWAG in-place adoption — staged and frozen
+### P1 — SWAG in-place adoption — approval pending
 
 #### P1.1 Immutable pins — complete
 
@@ -377,7 +383,8 @@ permitted, and a changed inventory invalidates the manifest.
 
 #### P1.2 In-place adoption — approval gate
 
-After approval naming `swag` and `swag-init`:
+After approval naming `swag`, `swag-init`, and manifest SHA-256
+`cdc1e0d261b53438f017a39be0060795126d1a80ada983bf0d6f9dddc5aa16fc`:
 
 1. Start the fixed SWAG adoption service.
 2. Confirm ledger precedes stop; verify `/home` snapshot and bind archive.
