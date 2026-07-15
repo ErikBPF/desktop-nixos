@@ -89,6 +89,16 @@ class RetireAiServingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "identity drifted"):
                 self.module.inspect_images()
 
+    def test_podman_raw_image_ids_normalize_to_exact_identity(self):
+        raw_items = copy.deepcopy(self.items)
+        for entry in raw_items:
+            entry["Image"] = entry["Image"].removeprefix("sha256:")
+        manifest = self.module.plan(raw_items, self.images, True)
+        self.assertEqual(manifest["stage"], "remove-containers")
+        for image in self.images:
+            raw = image.removeprefix("sha256:")
+            self.assertEqual(self.module.canonical_image_id(raw), image)
+
     def test_survivor_bind_at_below_or_above_model_path_halts(self):
         survivors = self.items[-2:]
         for source in ("/fast/ai-models", "/fast/ai-models/embeddings", "/fast"):

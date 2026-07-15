@@ -28,6 +28,14 @@ def run(*command):
     return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
+def canonical_image_id(value):
+    if HEX64.fullmatch(value):
+        return "sha256:" + value
+    if IMAGE_ID.fullmatch(value):
+        return value
+    raise ValueError("invalid image identity")
+
+
 def inspect_all():
     ids = run("podman", "ps", "-aq").splitlines()
     return json.loads(run("podman", "container", "inspect", *ids)) if ids else []
@@ -39,7 +47,8 @@ def inspect_images():
         result = subprocess.run(["podman", "image", "inspect", image], capture_output=True, text=True)
         if result.returncode == 0:
             inspected = json.loads(result.stdout)
-            if not isinstance(inspected, list) or len(inspected) != 1 or inspected[0].get("Id") != image:
+            if (not isinstance(inspected, list) or len(inspected) != 1
+                    or canonical_image_id(inspected[0].get("Id", "")) != image):
                 raise ValueError("image inspect identity drifted")
             present.add(image)
         elif result.returncode != 125:
@@ -54,7 +63,7 @@ def identity(item):
         mounts.append({"destination": str(mount.get("Destination", "")),
                        "source": str(mount.get("Source", "")),
                        "type": str(mount.get("Type", ""))})
-    return {"id": item.get("Id", ""), "image": item.get("Image", ""),
+    return {"id": item.get("Id", ""), "image": canonical_image_id(item.get("Image", "")),
             "mounts": sorted(mounts, key=lambda value: (value["type"], value["source"], value["destination"])),
             "name": item.get("Name", "").lstrip("/"),
             "project": labels.get("com.docker.compose.project", "")}
