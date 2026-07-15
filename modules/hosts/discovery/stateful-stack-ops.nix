@@ -46,15 +46,22 @@ _: {
         jq
         openssl
         statefulStackOps
+        statefulSwagInventory
+        statefulSwagPreflight
       ];
       text = builtins.readFile ./_stateful-swag-adopt.sh;
     };
+    statefulSwagInventory = pkgs.writeScriptBin "discovery-stateful-swag-inventory" ''
+      exec ${pkgs.python3}/bin/python3 ${./_stateful-swag-inventory.py} "$@"
+    '';
     statefulSwagPreflight = pkgs.writeScriptBin "discovery-stateful-swag-preflight" ''
       exec ${pkgs.python3}/bin/python3 ${./_stateful-swag-preflight.py} "$@"
     '';
   in {
     environment.systemPackages = [
       statefulStackOps
+      statefulSwagAdopt
+      statefulSwagInventory
       statefulSwagPreflight
     ];
     systemd.services.discovery-stateful-stack-fixture = {
@@ -62,14 +69,6 @@ _: {
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${statefulStackFixture}/bin/discovery-stateful-stack-fixture";
-      };
-    };
-    systemd.services.discovery-stateful-swag-adopt = {
-      description = "Adopt SWAG in place with migration-local backup and smoke gates";
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${statefulSwagAdopt}/bin/discovery-stateful-swag-adopt";
-        TimeoutStartSec = "15min";
       };
     };
     systemd.tmpfiles.rules = [

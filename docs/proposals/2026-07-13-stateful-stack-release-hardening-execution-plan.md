@@ -70,9 +70,30 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   paths, certificate metadata, and the canonical inventory SHA-256. It rejects
   unknown resources, evidence collisions, value-bearing fields, and changed
   inventory. `just discovery-swag-preflight` creates the read-only envelope and
-  `just discovery-swag-result` revalidates its exact binding. Execute and
-  rollback recipes remain deliberately fail-closed; no Discovery contact or
-  live mutation occurred.
+  `just discovery-swag-result` revalidates its exact binding. The fixed
+  `discovery-swag-inventory` entrypoint captures only read-only, value-free
+  runtime identity, and `just discovery-swag-inventory` validates it before
+  saving it. The execute entrypoint accepts an explicit approved manifest hash
+  and value-free authorization envelope, then captures and verifies a fresh
+  inventory before creating evidence or running any stop, snapshot, archive,
+  or Compose command. The manifest hash also binds a versioned, exact ordered
+  action contract and rollback implementation identity. Every created evidence
+  path is in one no-clobber set. Immediately before stopping SWAG, both
+  containers are re-inspected against the approved identities and the captured
+  full SWAG ID is used. Drift fails closed. The rollback entrypoint validates
+  the retained authorization, inventory, manifest hash, exact ledger schema and
+  paths, archive checksum target/content, and retained snapshot, then runs a
+  fixed Compose recreation; it never evaluates ledger command text.
+  Workflow semantic changes must alter the ordered contract or bump its version,
+  invalidating prior authorization hashes. Snapshot or archive failure after
+  the exact stop retains partial evidence, leaves SWAG stopped, and reports the
+  fixed hash-bound pre-adoption recovery entrypoint for explicit operator
+  review. That narrow path verifies the retained authorization and exact ledger,
+  re-inspects both approved container identities with SWAG stopped, and starts
+  only the captured legacy SWAG ID. It runs no Compose command and does not
+  weaken the stricter archive/snapshot requirements of post-recreation rollback.
+  Neither live entrypoint has been invoked, so no Discovery contact or mutation
+  occurred during implementation.
 
 ### K0 — complete
 
@@ -564,7 +585,7 @@ legacy resources.
 | K3 | Pending | Redis cache declared disposable; exact reset contract fixture | K2 verified; retained-state backups and exact Redis reset selection |
 | K4 | Pending | — | K3 snapshot/coverage proof and approved exact Redis reset selection |
 | K5 | Pending | — | K4 green; reboot and cross-host validation |
-| P1 | Preflight implemented; mutation frozen | Servarr `ffbfa7e`; desktop offline exact-binding fixture suite and fail-closed recipes | Fresh value-free live inventory; exact manifest review; approval for `swag`, `swag-init`; reviewed execute/rollback workflow |
+| P1 | Fixed workflow implemented; mutation frozen | Servarr `ffbfa7e`; desktop offline exact-binding fixtures, read-only collector, authorization/drift gate, fixed rollback | Fresh value-free live inventory; exact manifest review; approval for `swag`, `swag-init` |
 | P2 | Pending | — | P1 complete |
 | P3 | Pending | Read-only audit | P2; LAN-reachable design |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |

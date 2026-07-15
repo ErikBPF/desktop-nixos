@@ -27,10 +27,38 @@ IMAGES = {
 STATES = {"swag": "running", "swag-init": "exited"}
 EVIDENCE = {
     "archive": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst",
+    "archive_sha256": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst.sha256",
+    "approved_inventory": "/var/lib/stateful-stack-migrations/p1-swag/approved-inventory.json",
+    "authorization": "/var/lib/stateful-stack-migrations/p1-swag/authorization.json",
     "baseline": "/var/lib/stateful-stack-migrations/p1-swag/baseline.json",
+    "kindle_png": "/var/lib/stateful-stack-migrations/p1-swag/kindle.png",
     "ledger": "/var/lib/stateful-stack-migrations/p1-swag/ledger.json",
     "result": "/var/lib/stateful-stack-migrations/p1-swag/result.json",
+    "restore_target": "/var/lib/stateful-stack-migrations/p1-swag/restore-only-after-approval",
+    "rollback_evidence": "/var/lib/stateful-stack-migrations/p1-swag/rollback-evidence.txt",
     "snapshot": "/home/.snapshots/stateful-stack-p1-swag",
+}
+# Any execute/rollback semantic change must change an ordered action or bump
+# this version. The authorization hash deliberately binds this whole object.
+WORKFLOW_CONTRACT = {
+    "execute_order": [
+        "capture-and-verify-fresh-inventory",
+        "validate-no-clobber-evidence-set",
+        "persist-authorization-and-inventory",
+        "create-ledger-and-baseline",
+        "reinspect-both-container-identities",
+        "stop-captured-swag-id",
+        "snapshot-and-archive-stopped-state",
+        "recreate-swag-init-then-swag",
+        "validate-health-state-certificate-and-routes",
+        "persist-result-and-rollback-evidence",
+    ],
+    "rollback": {
+        "implementation": "fixed-compose-swag-recreate-v1",
+        "pre_adoption_recovery": "start-exact-stopped-approved-swag-id-v1",
+        "required_retained_evidence": ["approved_inventory", "authorization", "archive", "archive_sha256", "ledger", "snapshot"],
+    },
+    "version": 1,
 }
 FORBIDDEN_KEYS = {"credential", "env", "environment", "password", "secret", "secret_value", "token", "token_value"}
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -131,6 +159,7 @@ def plan(inventory):
         "resources": resources,
         "servarr": servarr,
         "version": 1,
+        "workflow_contract": WORKFLOW_CONTRACT,
     }
 
 

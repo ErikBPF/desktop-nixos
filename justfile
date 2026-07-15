@@ -2465,7 +2465,22 @@ discovery-migration-inventory:
     REMOTE
 
 # P1 SWAG adoption authorization is prepared offline from a previously captured,
-# value-free inventory. These recipes never contact Discovery or mutate runtime.
+# value-free inventory. Inventory is the only recipe that contacts Discovery;
+# it runs the fixed read-only collector and validates the result locally.
+discovery-swag-inventory output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo discovery-stateful-swag-inventory capture' >"$tmp"
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py plan "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
 discovery-swag-preflight inventory output:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -2484,13 +2499,35 @@ discovery-swag-result inventory authorization:
     python3 modules/hosts/discovery/_stateful-swag-preflight.py verify \
       "{{inventory}}" "{{authorization}}"
 
-discovery-swag-execute:
-    @echo "BLOCKED: P1 execution is not implemented; preflight approval grants no mutation authority" >&2
-    @exit 1
+discovery-swag-execute authorization manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved manifest SHA-256' >&2; exit 1; }
+    test -f "{{authorization}}" || { echo 'BLOCKED: authorization file absent' >&2; exit 1; }
+    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+      echo 'BLOCKED: authorization file does not contain approved manifest SHA-256' >&2
+      exit 1
+    }
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo discovery-stateful-swag-adopt execute --authorization - --manifest-sha $hash" \
+      <"{{authorization}}"
 
-discovery-swag-rollback:
-    @echo "BLOCKED: P1 rollback is not implemented; use retained evidence and a separately reviewed workflow" >&2
-    @exit 1
+discovery-swag-rollback manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved manifest SHA-256' >&2; exit 1; }
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo discovery-stateful-swag-adopt rollback --manifest-sha $hash"
+
+discovery-swag-recover-pre-adoption manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved manifest SHA-256' >&2; exit 1; }
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo discovery-stateful-swag-adopt recover-pre-adoption --manifest-sha $hash"
 
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault

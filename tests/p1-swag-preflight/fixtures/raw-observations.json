@@ -1,0 +1,42 @@
+{
+  "certificate": {
+    "fingerprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "not_after": "2026-10-12T00:00:00Z",
+    "sans": ["*.homelab.pastelariadev.com"]
+  },
+  "container_inspects": [
+    {
+      "Config": {
+        "Image": "lscr.io/linuxserver/swag:5.6.0-ls467@sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d",
+        "Labels": {
+          "com.docker.compose.project": "networking",
+          "com.docker.compose.project.working_dir": "/home/erik/servarr/machines/discovery",
+          "com.docker.compose.service": "swag"
+        }
+      },
+      "Id": "1111111111111111111111111111111111111111111111111111111111111111",
+      "Image": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "Mounts": [{"Destination": "/config", "Source": "/home/erik/servarr/machines/discovery/config/swag", "Type": "bind"}],
+      "Name": "/swag",
+      "State": {"Running": true, "Status": "running"}
+    },
+    {
+      "Config": {
+        "Image": "busybox:1.38@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d",
+        "Labels": {
+          "com.docker.compose.project": "networking",
+          "com.docker.compose.project.working_dir": "/home/erik/servarr/machines/discovery",
+          "com.docker.compose.service": "swag-init"
+        }
+      },
+      "Id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "Image": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "Mounts": [{"Destination": "/config", "Source": "/home/erik/servarr/machines/discovery/config/swag", "Type": "bind"}],
+      "Name": "/swag-init",
+      "State": {"Running": false, "Status": "exited"}
+    }
+  ],
+  "evidence_collisions": [],
+  "servarr_commit": "5555555555555555555555555555555555555555",
+  "servarr_render_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+}

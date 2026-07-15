@@ -90,7 +90,13 @@ class SwagPreflightTest(unittest.TestCase):
             self.assert_halts(mutation)
 
     def test_evidence_paths_are_exact_and_collision_free(self):
-        self.assert_halts(lambda i: i["evidence_collisions"].append(i["evidence"]["ledger"]))
+        self.assertEqual(set(self.plan()["evidence"]), {
+            "archive", "archive_sha256", "approved_inventory", "authorization", "baseline",
+            "kindle_png", "ledger", "result", "restore_target", "rollback_evidence", "snapshot",
+        })
+        for name in self.inventory["evidence"]:
+            with self.subTest(collision=name):
+                self.assert_halts(lambda i, n=name: i["evidence_collisions"].append(i["evidence"][n]))
         self.assert_halts(lambda i: i["evidence"].update(ledger="/tmp/ledger.json"))
         self.assert_halts(lambda i: i["evidence"].update(result=i["evidence"]["ledger"]))
 
@@ -122,9 +128,21 @@ class SwagPreflightTest(unittest.TestCase):
         with self.assertRaises(self.planner.InventoryDrift):
             self.planner.verify(self.inventory, tampered)
 
+    def test_versioned_exact_action_and_rollback_contract_is_hash_bound(self):
+        contract = self.plan()["workflow_contract"]
+        self.assertEqual(contract, self.planner.WORKFLOW_CONTRACT)
+        self.assertEqual(contract["version"], 1)
+        self.assertEqual(contract["execute_order"][0], "capture-and-verify-fresh-inventory")
+        self.assertEqual(contract["execute_order"][4:7], ["reinspect-both-container-identities", "stop-captured-swag-id", "snapshot-and-archive-stopped-state"])
+        self.assertEqual(contract["rollback"]["implementation"], "fixed-compose-swag-recreate-v1")
+        authorization = self.planner.envelope(self.plan())
+        authorization["manifest"]["workflow_contract"]["version"] = 2
+        with self.assertRaises(self.planner.InventoryDrift):
+            self.planner.verify(self.inventory, authorization)
+
     def test_no_destructive_tokens_or_commands(self):
         rendered = json.dumps(self.plan(), sort_keys=True).lower()
-        for token in ("docker rm", "volume rm", "prune", "zfs destroy", "btrfs subvolume delete", "rm -r", "execute"):
+        for token in ("docker rm", "volume rm", "prune", "zfs destroy", "btrfs subvolume delete", "rm -r"):
             self.assertNotIn(token, rendered)
         self.assertNotIn("commands", self.plan())
 

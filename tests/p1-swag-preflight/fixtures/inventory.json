@@ -30,9 +30,15 @@
   ],
   "evidence": {
     "archive": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst",
+    "archive_sha256": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst.sha256",
+    "approved_inventory": "/var/lib/stateful-stack-migrations/p1-swag/approved-inventory.json",
+    "authorization": "/var/lib/stateful-stack-migrations/p1-swag/authorization.json",
     "baseline": "/var/lib/stateful-stack-migrations/p1-swag/baseline.json",
+    "kindle_png": "/var/lib/stateful-stack-migrations/p1-swag/kindle.png",
     "ledger": "/var/lib/stateful-stack-migrations/p1-swag/ledger.json",
     "result": "/var/lib/stateful-stack-migrations/p1-swag/result.json",
+    "restore_target": "/var/lib/stateful-stack-migrations/p1-swag/restore-only-after-approval",
+    "rollback_evidence": "/var/lib/stateful-stack-migrations/p1-swag/rollback-evidence.txt",
     "snapshot": "/home/.snapshots/stateful-stack-p1-swag"
   },
   "evidence_collisions": [],
