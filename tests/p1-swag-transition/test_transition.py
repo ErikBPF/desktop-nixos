@@ -57,6 +57,8 @@ class TransitionTest(unittest.TestCase):
             self.assertIn(required, source)
         for forbidden in ("docker system prune", "docker volume rm", "git pull", "shutil.rmtree", "read_text()"):
             self.assertNotIn(forbidden, source)
+        self.assertNotIn("FETCH_HEAD", source)
+        self.assertIn('"rev-parse","origin/main"', source)
 
     def test_python_wrappers_are_directly_executable(self):
         package = NIX_PACKAGE.read_text()

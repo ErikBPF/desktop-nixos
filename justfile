@@ -2692,7 +2692,7 @@ discovery-swag-execute authorization manifest-sha:
     hash='{{manifest-sha}}'
     [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved manifest SHA-256' >&2; exit 1; }
     test -f "{{authorization}}" || { echo 'BLOCKED: authorization file absent' >&2; exit 1; }
-    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+    test "$(python3 -c 'import json,pathlib,sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text())["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
       echo 'BLOCKED: authorization file does not contain approved manifest SHA-256' >&2
       exit 1
     }
