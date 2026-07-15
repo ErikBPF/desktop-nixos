@@ -1,4 +1,4 @@
-import importlib.util, json, pathlib, tempfile, unittest
+import hashlib, importlib.util, json, pathlib, subprocess, sys, tempfile, unittest
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 COLLECTOR=ROOT/"modules/hosts/discovery/_stateful-adguard-inventory.py"
@@ -27,6 +27,13 @@ class InventoryTest(unittest.TestCase):
         self.assertEqual(set(inventory["baseline"]["exporter"]["families"]),set(self.m.EXPECTED_EXPORTER_FAMILIES))
         rendered=str(inventory).lower()
         for token in ("password","token","environment","query_name","client_ip","rule_text","metric_value"):self.assertNotIn(token,rendered)
+    def test_implementation_sha256_is_exact_deployed_python_file_hash(self):
+        expected=hashlib.sha256(COLLECTOR.read_bytes()).hexdigest()
+        self.assertEqual(self.m.implementation_sha256(),expected)
+        result=subprocess.run([sys.executable,COLLECTOR,"implementation-sha256"],text=True,capture_output=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(json.loads(result.stdout),{"implementation_sha256":expected,"version":1})
+        self.assertEqual(result.stdout,json.dumps({"implementation_sha256":expected,"version":1},sort_keys=True,separators=(",",":"))+"\n")
     def test_source_has_no_lifecycle_or_backup_commands(self):
         source=COLLECTOR.read_text().lower()
         for token in ("docker stop","docker rm","compose up","volume rm","prune","snapshot","archive","chown","chmod"):self.assertNotIn(token,source)

@@ -268,24 +268,22 @@ class WorkerExporterContract(unittest.TestCase):
             result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_exporter_requires_exact_bound_id_network_and_single_ipv4(self):
-        valid = '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.20.0.7","GlobalIPv6Address":""}}}}]'
-        invalid = {
-            "wrong-id": '[{"Id":"' + "b" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.20.0.7"}}}}]',
-            "missing-network": '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{}}}]',
-            "extra-network": '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.20.0.7"},"other":{"IPAddress":"172.21.0.7"}}}}]',
-            "multiple-ip": '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.20.0.7 172.20.0.8"}}}}]',
-            "invalid-ip": '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"not-an-ip"}}}}]',
-            "wrong-family": '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"2001:db8::7"}}}}]',
-            "changed-valid-runtime-ip": '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.20.0.8"}}}}]',
-        }
+    def test_exporter_requires_exact_canonical_helper_output(self):
+        valid = "adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=true\nrequired_family_count=3\n"
         self.assertEqual(self.run_exporter(valid, ready_after=1).returncode, 0)
-        for label, inspect_json in invalid.items():
+        invalid = {
+            "missing": "adguard_avg_processing_time_seconds=true\nadguard_queries=true\nrequired_family_count=2\n",
+            "false": "adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=false\nrequired_family_count=2\n",
+            "extra": valid + "unexpected=true\n",
+            "reordered": "adguard_queries=true\nadguard_avg_processing_time_seconds=true\nadguard_queries_blocked=true\nrequired_family_count=3\n",
+            "wrong-count": valid.replace("count=3", "count=4"),
+        }
+        for label, output in invalid.items():
             with self.subTest(label=label):
-                result = self.run_exporter(inspect_json, ready_after=1)
-                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-                if label == "changed-valid-runtime-ip":
-                    self.assertIn("ATTEMPTS=0", result.stdout)
+                self.assertNotEqual(self.run_exporter(output, ready_after=1).returncode, 0)
+        for mode in ("nonzero", "timeout"):
+            with self.subTest(mode=mode):
+                self.assertNotEqual(self.run_exporter(valid, ready_after=1, mode=mode).returncode, 0)
 
     def test_exporter_delayed_and_never_ready_paths_are_bounded(self):
         self.assertIn("warmup_deadline", self.exporter)
@@ -293,7 +291,7 @@ class WorkerExporterContract(unittest.TestCase):
         self.assertIn("return 1", self.exporter)
         self.assertIn("deadline_sleep", self.exporter)
         self.assertNotIn("docker restart", self.exporter)
-        delayed = '[{"Id":"' + "a" * 64 + '","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.20.0.7"}}}}]'
+        delayed = "adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=true\nrequired_family_count=3\n"
         result = self.run_exporter(delayed, ready_after=3)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("ATTEMPTS=3", result.stdout)
@@ -301,25 +299,52 @@ class WorkerExporterContract(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertLessEqual(int(result.stdout.split("ATTEMPTS=")[-1].split()[0]), 29)
 
-    def run_exporter(self, inspect_json, ready_after):
+    def test_exporter_capture_failures_and_stale_output_fail_closed(self):
+        for mode in ("mktemp", "chmod", "read", "remove", "stale"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                script = self.exporter + textwrap.dedent(
+                    f"""
+                    set +e
+                    run_dir={root}; capture={root}/capture; attempts={root}/attempts; printf 0 >"$attempts"; export MODE={mode} CAPTURE="$capture"
+                    ssh_command=(fixture_ssh)
+                    timeout_duration() {{ printf 1s; }}
+                    deadline_sleep() {{ return 0; }}
+                    mktemp() {{ [ "$MODE" = mktemp ] && return 1; : >"$CAPTURE"; printf %s "$CAPTURE"; }}
+                    chmod() {{ [ "$MODE" = chmod ] && return 1; command chmod "$@"; }}
+                    rm() {{ [ "$MODE" = remove ] && return 1; command rm "$@"; }}
+                    timeout() {{
+                      shift; n=$(<"$attempts"); n=$((n+1)); printf %s "$n" >"$attempts"
+                      if [ "$MODE" = read ];then command rm -f "$CAPTURE"; printf '%s' canonical-on-unlinked-fd; return 0;fi
+                      if [ "$MODE" = stale ]&&[ "$n" -eq 1 ];then fixture_ssh; return 1;fi
+                      [ "$MODE" = stale ] && return 0
+                      "$@"
+                    }}
+                    fixture_ssh() {{ printf 'adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=true\nrequired_family_count=3\n'; }}
+                    exporter_metrics_ready $(($(date +%s%3N)+100)); rc=$?
+                    printf 'RC=%s ATTEMPTS=%s\n' "$rc" "$(<"$attempts")"
+                    [ "$rc" -ne 0 ] && [ "$(<"$attempts")" -le 29 ]
+                    """
+                )
+                result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("RC=1", result.stdout)
+
+    def run_exporter(self, output, ready_after, mode="normal"):
         with tempfile.TemporaryDirectory() as directory:
             counter = pathlib.Path(directory) / "counter"
             script = self.exporter + textwrap.dedent(
                 f"""
-                exporter_id={'a' * 64}; approved_exporter_ip=172.20.0.7; ssh_command=(fixture_ssh); printf 0 >{counter}
+                run_dir={directory}; ssh_command=(fixture_ssh); printf 0 >{counter}; export EXPORT_MODE={mode}
                 timeout_duration() {{ printf 2s; }}
                 deadline_sleep() {{ return 0; }}
-                timeout() {{ shift; "$@"; }}
+                timeout() {{ shift; if [ "$EXPORT_MODE" = timeout ];then n=$(<{counter}); echo $((n+1)) >{counter}; return 124;fi; "$@"; }}
                 fixture_ssh() {{
-                  case $* in
-                    *'docker inspect'*) printf '%s\\n' '{inspect_json}' ;;
-                    *curl*)
-                      n=$(<{counter}); n=$((n+1)); printf %s "$n" >{counter}
-                      if [ "$n" -ge {ready_after} ];then
-                        printf '%s\\n' '# TYPE adguard_queries counter' '# TYPE adguard_queries_blocked counter' '# TYPE adguard_avg_processing_time_seconds gauge'
-                      fi ;;
-                    *) return 88 ;;
-                  esac
+                  [ "$*" = 'sudo -n discovery-stateful-adguard-inventory exporter-families' ] || return 88
+                  n=$(<{counter}); n=$((n+1)); printf %s "$n" >{counter}
+                  [ "$EXPORT_MODE" = nonzero ] && return 1
+                  [ "$n" -ge {ready_after} ] || return 1
+                  printf %b {output!r}
                 }}
                 if exporter_metrics_ready $(($(date +%s%3N)+30000));then rc=0;else rc=$?;fi
                 printf 'ATTEMPTS=%s RC=%s\\n' "$(<{counter})" "$rc"

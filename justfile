@@ -1585,7 +1585,8 @@ p3-adguard-outage-plan: p3-adguard-outage-observe
     rdisc6=$(jq -r .rdisc6 "$evidence_dir/tooling.json")
     scripts/p3-adguard-outage-drill.sh plan "$evidence_dir/observation.json" \
       "$evidence_dir/known_hosts" "$rdisc6" scripts/p3-adguard-outage-client.sh \
-      scripts/p3-adguard-outage-observe.sh scripts/p3-udhcpc-capture.sh >"$tmp"
+      scripts/p3-adguard-outage-observe.sh scripts/p3-udhcpc-capture.sh \
+      modules/hosts/discovery/_stateful-adguard-inventory.py >"$tmp"
     jq -e '.manifest_sha256 | test("^[0-9a-f]{64}$")' "$tmp" >/dev/null
     mv "$tmp" "$evidence_dir/manifest.json"
     trap - EXIT INT TERM
@@ -1608,6 +1609,7 @@ p3-adguard-outage-execute authorization:
     scripts/p3-adguard-outage-drill.sh execute "$observation" \
       "$evidence_dir/known_hosts" "$rdisc6" scripts/p3-adguard-outage-client.sh \
       scripts/p3-adguard-outage-observe.sh scripts/p3-udhcpc-capture.sh \
+      modules/hosts/discovery/_stateful-adguard-inventory.py \
       "$run_dir" "{{authorization}}"
     rc=$?
     set -e

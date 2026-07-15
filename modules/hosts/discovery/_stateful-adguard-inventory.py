@@ -10,6 +10,7 @@ EXPECTED_EXPORTER_FAMILIES=("adguard_avg_processing_time_seconds","adguard_queri
 RENDER_CONTRACT={"version":1,"cwd":str(WORKDIR),"argv":["docker-compose","--project-name","networking","--project-directory",str(WORKDIR),"--env-file",str(ENV_FILE),"--env-file",str(VAULT_ENV),"-f",str(COMPOSE),"config","--no-interpolate","--no-env-resolution"]}
 
 def run(command,*,binary=False):return subprocess.check_output(command,stderr=subprocess.DEVNULL,text=not binary)
+def implementation_sha256():return hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
 def file_metadata(path,*,with_size=False):
     value=os.lstat(path);result={"device":value.st_dev,"inode":value.st_ino,"uid":value.st_uid,"gid":value.st_gid,"mode":f"{stat.S_IMODE(value.st_mode):04o}","regular":stat.S_ISREG(value.st_mode),"directory":stat.S_ISDIR(value.st_mode),"symlink":stat.S_ISLNK(value.st_mode)}
     if with_size:result["size_bytes"]=int(run(["du","-sb",str(path)]).split()[0])
@@ -93,11 +94,12 @@ def capture():
     semantics=json.loads(subprocess.run(semantics_argv,cwd=RENDER_CONTRACT["cwd"],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL).stdout)
     return normalize({"baseline":baseline(containers),"collision":{"driver":collision_inspect["Driver"],"exists":True,"labels":collision_inspect.get("Labels") or {},"mountpoint":collision_inspect["Mountpoint"],"name":collision_inspect["Name"],"references":references},"config_metadata":file_metadata(CONFIG),"containers":containers,"images":images,"servarr":{"commit":run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"]).strip(),"render_semantics":render_semantics(semantics),"render_sha256":hashlib.sha256(render).hexdigest()},"volume":volume,"volume_references":volume_references,"volume_metadata":file_metadata(volume["Mountpoint"],with_size=True)})
 def main(argv=None):
-    parser=argparse.ArgumentParser();parser.add_argument("command",choices=("capture","exporter-families","normalize"));parser.add_argument("input",nargs="?");args=parser.parse_args(argv)
+    parser=argparse.ArgumentParser();parser.add_argument("command",choices=("capture","exporter-families","implementation-sha256","normalize"));parser.add_argument("input",nargs="?");args=parser.parse_args(argv)
     if args.command=="normalize" and args.input is None:parser.error("normalize requires input")
     if args.command!="normalize" and args.input is not None:parser.error(f"{args.command} takes no input")
     try:
         if args.command=="capture":result=capture()
+        elif args.command=="implementation-sha256":result={"implementation_sha256":implementation_sha256(),"version":1}
         elif args.command=="normalize":result=normalize(json.loads(pathlib.Path(args.input).read_text()))
         else:
             containers=json.loads(run(["docker","inspect","adguard-exporter"]));sys.stdout.write(format_exporter_family_diagnostic(exporter_family_diagnostic(exporter_metrics_text(containers))));return 0

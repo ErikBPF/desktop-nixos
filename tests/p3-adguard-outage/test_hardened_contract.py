@@ -13,6 +13,7 @@ DRILL = ROOT / "scripts/p3-adguard-outage-drill.sh"
 OBSERVE = ROOT / "scripts/p3-adguard-outage-observe.sh"
 CLIENT = ROOT / "scripts/p3-adguard-outage-client.sh"
 CALLBACK = ROOT / "scripts/p3-udhcpc-capture.sh"
+HELPER = ROOT / "modules/hosts/discovery/_stateful-adguard-inventory.py"
 NAMES = ("adguard", "adguard-exporter", "k8s-apiserver", "swag", "swag-init")
 
 
@@ -77,6 +78,7 @@ printf 'from fe80::1\nPrefix : 2001:db8:10::/64\nRecursive DNS server : 2001:db8
         self.obs_json = self.root / "observation.json"; self.obs_json.write_text(json.dumps(observation(raw_containers())))
         self.fake_observer = self.root / "observer"; executable(self.fake_observer, '''[ -n "${OBSERVER_CALLED:-}" ] && touch "$OBSERVER_CALLED"
 if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .name=="swag" then .image_ref="drift" else . end)|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
+elif [ "$POST_DRIFT" = exporter-id ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .name=="adguard-exporter" then .id=("9"*64) else . end)|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
 elif [ "${STALE_NONCE:-0}" = 1 ];then cat "$OBS_JSON"
 elif [ "${FRESH_DRIFT:-}" = rdnss ];then jq '.ipv6.rdnss="2001:db8:10::54"|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
 elif [ "${FRESH_DRIFT:-}" = order ];then jq '.resolvers.nameservers|=reverse|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
@@ -86,7 +88,7 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         self.fake_callback = self.root / "callback"; executable(self.fake_callback, "exit 0\n")
 
     def drill(self, *tail, env=None):
-        args = [DRILL, *tail, self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback]
+        args = [DRILL, *tail, self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, HELPER]
         return subprocess.run(args, text=True, capture_output=True, env=(os.environ | {"OBS_JSON": str(self.obs_json), "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")} | (env or {})))
 
     def test_udhcpc_deconfig_flushes_ipv4_only_and_requires_interface(self):
@@ -105,7 +107,7 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
     def test_manifest_v4_binds_inventory_and_all_implementations(self):
         result = self.drill("plan"); self.assertEqual(result.returncode, 0, result.stderr)
         value = json.loads(result.stdout); manifest = value["manifest"]
-        self.assertEqual(manifest["version"], 4); self.assertEqual(set(manifest["bindings"]), {"client_sha256", "observer_sha256", "drill_sha256", "callback_sha256", "known_hosts_sha256", "rdisc6_sha256"})
+        self.assertEqual(manifest["version"], 4); self.assertEqual(set(manifest["bindings"]), {"client_sha256", "observer_sha256", "drill_sha256", "callback_sha256", "helper_sha256", "known_hosts_sha256", "rdisc6_sha256"})
         self.assertRegex(manifest["network_contract_sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(manifest["probe_evidence"], observation(raw_containers())["probe_evidence"])
         canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")); self.assertEqual(value["manifest_sha256"], hashlib.sha256(canonical.encode()).hexdigest())
@@ -117,10 +119,36 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         self.known.chmod(0o600); self.assertNotEqual(self.drill("plan").returncode, 0); self.known.chmod(0o400)
         target = self.root / "known-target"; self.known.rename(target); self.known.symlink_to(target); self.assertNotEqual(self.drill("plan").returncode, 0)
 
+    def test_helper_source_drift_changes_manifest_and_remote_mismatch_blocks_before_stop(self):
+        original = json.loads(self.drill("plan").stdout)["manifest_sha256"]
+        helper_copy = self.root / "helper.py"
+        helper_copy.write_bytes(HELPER.read_bytes() + b"\n# fixture drift\n")
+        plan_args = [DRILL, "plan", self.obs_json, self.known, self.rdisc, self.fake_client,
+            self.fake_observer, self.fake_callback, helper_copy]
+        changed = subprocess.run(plan_args, env=os.environ | {"OBS_JSON": str(self.obs_json), "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")}, text=True, capture_output=True)
+        self.assertEqual(changed.returncode, 0, changed.stderr)
+        self.assertNotEqual(original, json.loads(changed.stdout)["manifest_sha256"])
+
+        plan = json.loads(self.drill("plan").stdout)
+        bindir = self.root / "identity-bin"; bindir.mkdir(); log = self.root / "identity.log"
+        executable(bindir / "timeout", 'shift; exec "$@"\n')
+        executable(bindir / "ssh", '''for cmd do :;done; echo "$cmd" >>"$LOG"
+case "$cmd" in *implementation-sha256*) printf '{"implementation_sha256":"%064d","version":1}\n' 0;; *"docker stop"*) exit 99;; esac
+''')
+        run_dir = self.root / "helper-mismatch"
+        args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client,
+            self.fake_observer, self.fake_callback, HELPER, run_dir, plan["manifest_sha256"]]
+        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "LOG": str(log),
+            "OBS_JSON": str(self.obs_json), "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")}
+        result = subprocess.run(args, env=env, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("docker stop", log.read_text())
+        self.assertEqual(json.loads((run_dir / "failure.json").read_text())["status"], "helper-identity-drift")
+
     def test_rdisc6_drift_blocks_before_stop_and_retains_failure(self):
         plan = json.loads(self.drill("plan").stdout); self.rdisc.write_text("#!/bin/sh\nexit 1\n"); self.rdisc.chmod(0o700)
         run_dir = self.root / "rdisc-drift"; observer_called = self.root / "observer-called"
-        args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+        args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, HELPER, run_dir, plan["manifest_sha256"]]
         result = subprocess.run(args, env=os.environ | {"OBS_JSON": str(self.obs_json), "OBSERVER_CALLED": str(observer_called)}, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0); self.assertTrue((run_dir / "failure.json").exists()); self.assertFalse((run_dir / "journal.jsonl").read_text()); self.assertFalse(observer_called.exists())
 
@@ -129,7 +157,7 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         for mode in ("rdnss", "order", "stale"):
             run_dir = self.root / f"fresh-{mode}"
             args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client,
-                self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+                self.fake_observer, self.fake_callback, HELPER, run_dir, plan["manifest_sha256"]]
             extra = {"STALE_NONCE": "1"} if mode == "stale" else {"FRESH_DRIFT": mode}
             result = subprocess.run(args, env=os.environ | {"OBS_JSON": str(self.obs_json),
                 "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")} | extra,
@@ -246,6 +274,8 @@ esac
 ''')
         executable(bindir / "ssh", '''for cmd do :;done; echo "$cmd" >>"$LOG"
 case "$cmd" in
+ *"implementation-sha256"*) printf '{"implementation_sha256":"%s","version":1}\n' "$HELPER_SHA";;
+ *"exporter-families"*) n=0; [ -f "$METRICS_COUNTER" ] && n=$(cat "$METRICS_COUNTER"); n=$((n+1)); echo "$n" >"$METRICS_COUNTER"; [ "$n" -le "$METRIC_DELAYS" ] && exit 1; printf 'adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=true\nrequired_family_count=3\n';;
  *"docker stop"*) exit 0;;
  *"docker inspect -f '{{.State.Status}}'"*) printf 'exited\nexited\n';;
  *"docker start aaaa"*) n=0; [ -f "$COUNTER" ] && n=$(cat "$COUNTER"); n=$((n+1)); echo "$n" >"$COUNTER"; [ "$n" -le "$START_FAILS" ] && exit 1; exit 0;;
@@ -255,11 +285,11 @@ case "$cmd" in
  *"9618/metrics"*) n=0; [ -f "$METRICS_COUNTER" ] && n=$(cat "$METRICS_COUNTER"); n=$((n+1)); echo "$n" >"$METRICS_COUNTER"; [ "$n" -le "$METRIC_DELAYS" ] && exit 1; printf '# TYPE adguard_queries counter\n# TYPE adguard_queries_blocked counter\n# TYPE adguard_avg_processing_time_seconds gauge\n';;
  *curl*) exit 0;; esac
 ''')
-        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json), "LOG": str(log), "COUNTER": str(counter), "RESTORED": str(self.root / "restored"), "POST_DRIFT": "0", "PROBE_FAIL": "1", "OUTAGE_FAIL": "0", "OUTAGE_TIMEOUT": "0", "HEALTH_COUNTER": str(self.root / "health-counter"), "METRICS_COUNTER": str(self.root / "metrics-counter"), "HEALTH_DELAYS": "0", "METRIC_DELAYS": "0"}
+        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json), "LOG": str(log), "COUNTER": str(counter), "RESTORED": str(self.root / "restored"), "POST_DRIFT": "0", "PROBE_FAIL": "1", "OUTAGE_FAIL": "0", "OUTAGE_TIMEOUT": "0", "HEALTH_COUNTER": str(self.root / "health-counter"), "METRICS_COUNTER": str(self.root / "metrics-counter"), "HEALTH_DELAYS": "0", "METRIC_DELAYS": "0", "HELPER_SHA": hashlib.sha256(HELPER.read_bytes()).hexdigest()}
         for failures, expected_attempts, exhausted in ((0, 1, False), (1, 2, False), (2, 3, False), (3, 3, True)):
             counter.unlink(missing_ok=True); pathlib.Path(env["RESTORED"]).unlink(missing_ok=True); log.write_text(""); run_dir = self.root / f"run-{failures}"
             plan = json.loads(self.drill("plan", env=env).stdout)
-            args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+            args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, HELPER, run_dir, plan["manifest_sha256"]]
             result = subprocess.run(args, env=env | {"START_FAILS": str(failures)}, text=True, capture_output=True)
             self.assertNotEqual(result.returncode, 0); self.assertEqual(result.stdout, "")
             journal = (run_dir / "journal.jsonl").read_text(); self.assertEqual(journal.count('"event":"recovery-attempt"'), expected_attempts)
@@ -269,11 +299,11 @@ case "$cmd" in
     def test_success_journals_all_phases_and_postrestore_drift_fails_closed(self):
         # Reuse the lifecycle builder, then independently execute with a successful probe.
         self.test_recovery_succeeds_on_attempts_one_two_three_or_records_exhaustion()
-        bindir = self.root / "lifecycle-bin"; env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json), "LOG": str(self.root / "lifecycle.log"), "COUNTER": str(self.root / "counter"), "RESTORED": str(self.root / "restored"), "START_FAILS": "0", "PROBE_FAIL": "0", "POST_DRIFT": "0", "HEALTH_COUNTER": str(self.root / "health-counter"), "METRICS_COUNTER": str(self.root / "metrics-counter"), "HEALTH_DELAYS": "2", "METRIC_DELAYS": "2"}
-        for drift, expected in (("0", 0), ("1", 1)):
+        bindir = self.root / "lifecycle-bin"; env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json), "LOG": str(self.root / "lifecycle.log"), "COUNTER": str(self.root / "counter"), "RESTORED": str(self.root / "restored"), "START_FAILS": "0", "PROBE_FAIL": "0", "POST_DRIFT": "0", "HEALTH_COUNTER": str(self.root / "health-counter"), "METRICS_COUNTER": str(self.root / "metrics-counter"), "HEALTH_DELAYS": "2", "METRIC_DELAYS": "2", "HELPER_SHA": hashlib.sha256(HELPER.read_bytes()).hexdigest()}
+        for drift, expected in (("0", 0), ("1", 1), ("exporter-id", 1)):
             for key in ("RESTORED", "COUNTER", "HEALTH_COUNTER", "METRICS_COUNTER"): pathlib.Path(env[key]).unlink(missing_ok=True)
             run_dir = self.root / f"success-{drift}"; plan = json.loads(self.drill("plan", env=env).stdout)
-            args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+            args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, HELPER, run_dir, plan["manifest_sha256"]]
             result = subprocess.run(args, env=env | {"POST_DRIFT": drift}, text=True, capture_output=True)
             self.assertEqual(result.returncode, expected, result.stderr); journal = (run_dir / "journal.jsonl").read_text()
             for phase in ("stop-exporter", "stop-adguard", "stopped-gate", "failover-probe", "gateway-diagnostic", "recovery-attempt"):
@@ -298,13 +328,14 @@ case "$cmd" in
             "HEALTH_COUNTER": str(self.root / "health-counter"),
             "METRICS_COUNTER": str(self.root / "metrics-counter"),
             "HEALTH_DELAYS": "0", "METRIC_DELAYS": "0",
+            "HELPER_SHA": hashlib.sha256(HELPER.read_bytes()).hexdigest(),
         }
         for key in ("COUNTER", "HEALTH_COUNTER", "METRICS_COUNTER"):
             pathlib.Path(env[key]).unlink(missing_ok=True)
         run_dir = self.root / "outage-partial-failure"
         plan = json.loads(self.drill("plan", env=env).stdout)
         args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client,
-            self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+            self.fake_observer, self.fake_callback, HELPER, run_dir, plan["manifest_sha256"]]
         result = subprocess.run(args, env=env, text=True, capture_output=True)
 
         self.assertNotEqual(result.returncode, 0)

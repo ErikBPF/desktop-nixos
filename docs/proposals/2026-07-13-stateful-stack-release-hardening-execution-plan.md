@@ -557,6 +557,19 @@ separate partial/full evidence, but remains mandatory before the stop and after
 exact-ID restoration. This amendment resets the attempt cap only after its
 behavior, test contract, implementation, fixtures, and v4 manifest are
 committed and freshly verified; no v3 approval may be reused.
+The first approved v4 manifest `43899fa6…` proved the amended outage core:
+all 24 required system/Kepler rows completed in 1,560/10,000 ms, while the
+gateway RDNSS diagnostic retained an allowed partial 9-row result. The original
+outage result was successful, but recovery stopped before post-restore checks
+because the unprivileged readiness probe could not reach the rootful exporter
+network. The exact IDs were restarted; immediately afterward the deployed
+privileged value-free diagnostic reported all three required metric families
+and a complete fresh observation passed, proving restoration without
+retroactively passing the recovery artifact. The correction replaces the
+unprivileged container-IP probe with the declarative privileged helper, binds
+that helper's implementation SHA-256, and keeps exact-ID identity verification
+as the subsequent recovery gate. This was v4 attempt 1; at most two renewed
+attempts remain after the helper is deployed and freshly bound.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -727,7 +740,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | Amended v4 implementation pending; services restored | Desktop through `9d7b08c`; three immutable v3 attempts retained; operator accepts brief during-outage gateway/local-provider loss; required v4 gate is system+Kepler UDP/TCP 24 rows, gateway RDNSS diagnostic-only during outage and mandatory before/after | Land and verify v4 fixtures/harness; renew observation/manifest; obtain fresh exact approval |
+| P3 | v4 core proven; recovery helper correction pending; services restored | Desktop `bcc3cbb`; v4 manifest `43899fa6…`: core 24/24 in 1,560 ms, gateway diagnostic 9-row partial accepted, recovery artifact failed at unprivileged exporter readiness; immediate privileged 3/3 diagnostic and full observation passed | Bind/deploy privileged helper implementation; renew observation/manifest; exact approval; two v4 attempts remain |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |

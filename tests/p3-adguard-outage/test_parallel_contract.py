@@ -1,6 +1,8 @@
 import pathlib
 import re
 import subprocess
+import tempfile
+import textwrap
 import unittest
 
 
@@ -121,13 +123,45 @@ if timeout "$duration" sh -c 'sleep 1';then exit 90;else [ "$?" -eq 124 ];fi
         warmup = self.source[
             self.source.index("exporter_metrics_ready()") : self.source.index("freeze_outage_evidence()")
         ]
-        self.assertEqual(warmup.count("metrics=$("), 1)
+        self.assertEqual(
+            warmup.count('"sudo -n discovery-stateful-adguard-inventory exporter-families"'),
+            1,
+        )
+        self.assertIn('output=$(<"$capture_file")', warmup)
+        self.assertIn('[ "$output" = "$expected" ]', warmup)
         for family in (
             "adguard_queries",
             "adguard_queries_blocked",
             "adguard_avg_processing_time_seconds",
         ):
             self.assertIn(family, warmup)
+
+    def test_split_family_responses_cannot_combine_into_readiness(self):
+        warmup = self.source[
+            self.source.index("exporter_metrics_ready()") : self.source.index("freeze_outage_evidence()")
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            counter = pathlib.Path(directory) / "attempts"
+            script = warmup + textwrap.dedent(
+                f"""
+                run_dir={directory}; ssh_command=(fixture_ssh); printf 0 >{counter}
+                timeout_duration() {{ printf 2s; }}
+                deadline_sleep() {{ return 0; }}
+                timeout() {{ shift; "$@"; }}
+                fixture_ssh() {{
+                  n=$(<{counter}); n=$((n+1)); printf %s "$n" >{counter}
+                  if [ $((n % 2)) -eq 1 ];then
+                    printf 'adguard_avg_processing_time_seconds=true\nadguard_queries=true\nrequired_family_count=2\n'
+                  else
+                    printf 'adguard_queries_blocked=true\nrequired_family_count=1\n'
+                  fi
+                }}
+                if exporter_metrics_ready $(($(date +%s%3N)+30000));then exit 90;fi
+                [ "$(<{counter})" -eq 29 ]
+                """
+            )
+            result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_later_readiness_cannot_erase_original_failure(self):
         recover = self.source[self.source.index("recover() {") : self.source.index("postrestore_operational(){")]
