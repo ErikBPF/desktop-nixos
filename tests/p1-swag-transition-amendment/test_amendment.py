@@ -1,7 +1,10 @@
 import copy
 import importlib.util
+import json
 import pathlib
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 SCRIPT=ROOT/"modules/hosts/discovery/_stateful-swag-transition-amendment.py"
@@ -40,5 +43,49 @@ class AmendmentTest(unittest.TestCase):
             self.assertIn(required,source)
         for required in ("supersedes_manifest_sha256","resume_origin","corrected_render_sha256","corrected_render_contract","base.git_run"):
             self.assertIn(required,source)
+
+    def test_completed_metadata_allows_reboot_inode_change_only(self):
+        recorded={"device":56,"inode":100,"uid":1000,"gid":1000,"mode":"0600","path":"/home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini","regular":True,"symlink":False}
+        rebooted=dict(recorded,device=57,inode=200)
+        before=(dict(rebooted),dict(recorded))
+        self.assertTrue(self.m.completed_metadata_valid(rebooted,recorded))
+        self.assertEqual((rebooted,recorded),before)
+        for key,value in (("uid",0),("gid",100),("mode","0644"),("regular",False),("symlink",True),("path","/tmp/cloudflare.ini")):
+            changed=dict(rebooted);changed[key]=value
+            with self.subTest(key=key):self.assertFalse(self.m.completed_metadata_valid(changed,recorded))
+        malformed=[]
+        for side in ("current","recorded"):
+            for key,value in (("device",-1),("inode",-1),("device",True),("inode",False)):
+                current,stored=dict(rebooted),dict(recorded)
+                (current if side=="current" else stored)[key]=value
+                malformed.append((side,key,current,stored))
+            current,stored=dict(rebooted),dict(recorded)
+            del (current if side=="current" else stored)["inode"]
+            malformed.append((side,"missing",current,stored))
+        stored_bad=dict(recorded,gid=100)
+        malformed.append(("recorded","stable",dict(rebooted),stored_bad))
+        current_bad=dict(rebooted,regular=1)
+        malformed.append(("current","bool-type",current_bad,dict(recorded)))
+        for side,key,current,stored in malformed:
+            with self.subTest(side=side,key=key):self.assertFalse(self.m.completed_metadata_valid(current,stored))
+
+    def test_validate_completed_accepts_reboot_inode_without_any_mutation(self):
+        observation=fixture(); approved="9"*64
+        final=copy.deepcopy(observation["runtime"])
+        for index,item in enumerate(final["containers"],start=1):item["id"]=str(index)*64
+        recorded={"device":56,"inode":100,"uid":1000,"gid":1000,"mode":"0600","path":"/home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini","regular":True,"symlink":False}
+        current=dict(recorded,device=57,inode=200)
+        with tempfile.TemporaryDirectory() as directory:
+            evidence=pathlib.Path(directory)
+            png=b"\x89PNG\r\n\x1a\nfixture"
+            (evidence/"kindle.png").write_bytes(png)
+            result={"corrected_render_contract":self.m.RENDER_CONTRACT,"corrected_render_sha256":self.m.RENDER,"kindle_png_sha256":self.m.hashlib.sha256(png).hexdigest(),"manifest_sha256":approved,"resume_origin":"post-reset-pre-phase","runtime_sha256":self.m.hashlib.sha256(self.m.canonical(final)).hexdigest(),"status":"passed","supersedes_manifest_sha256":self.m.OLD_MANIFEST,"version":1}
+            (evidence/"final-runtime.json").write_text(json.dumps(final))
+            (evidence/"metadata-state.json").write_text(json.dumps(recorded))
+            (evidence/"result.json").write_text(json.dumps(result))
+            forbidden=mock.Mock(side_effect=AssertionError("completed path mutated state"))
+            with mock.patch.object(self.m,"NEW",evidence), mock.patch.object(self.m,"verify_repo"), mock.patch.object(self.m,"runtime",return_value=final), mock.patch.object(self.m.base,"metadata",return_value=current), mock.patch.object(self.m.base,"validate_gates"), mock.patch.object(self.m,"persist_exact",forbidden), mock.patch.object(self.m,"mark",forbidden), mock.patch.object(self.m.base,"repair_metadata",forbidden), mock.patch.object(self.m.base,"write_json",forbidden), mock.patch.object(self.m.base,"write_bytes",forbidden), mock.patch.object(self.m.base,"run",forbidden):
+                self.assertEqual(self.m.validate_completed(observation,approved),result)
+            forbidden.assert_not_called()
 
 if __name__=="__main__": unittest.main()

@@ -2762,8 +2762,27 @@ discovery-swag-recover-pre-adoption manifest-sha:
 discovery-swag-resume-diagnostic:
     #!/usr/bin/env bash
     set -euo pipefail
-    ssh -p 2222 erik@{{ip_discovery}} \
-      "sudo stat -c '{\"mode\":\"%a\",\"owner\":\"%u:%g\"}' /home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini"
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" \
+      "sudo stat -c '{\"device\":%d,\"inode\":%i,\"mode\":\"%a\",\"owner\":\"%u:%g\",\"type\":\"%F\"}' /home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini"
+
+# Report only value-free current and completed P1 credential identity metadata.
+discovery-swag-amendment-metadata-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      journal=/var/lib/stateful-stack-migrations/p1-swag/transition-b676063-amendment/metadata-state.json
+      printf "stored="
+      sudo jq -c "{device,inode,mode,uid,gid,regular,symlink}" "$journal"
+      printf "current="
+      credential=/home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini
+      regular=false
+      symlink=false
+      if sudo test -f "$credential" && ! sudo test -L "$credential"; then regular=true; fi
+      if sudo test -L "$credential"; then symlink=true; fi
+      sudo stat -c "{\"device\":%d,\"inode\":%i,\"mode\":\"%a\",\"uid\":%u,\"gid\":%g,\"regular\":$regular,\"symlink\":$symlink}" "$credential"
+    '
 
 discovery-swag-resume-observe output:
     #!/usr/bin/env bash

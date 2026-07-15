@@ -139,6 +139,12 @@ def execute(obs,auth,approved):
         result={"corrected_render_contract":RENDER_CONTRACT,"corrected_render_sha256":RENDER,"kindle_png_sha256":base.hash_file(NEW/"kindle.png"),"manifest_sha256":approved,"resume_origin":"post-reset-pre-phase","runtime_sha256":hashlib.sha256(canonical(final)).hexdigest(),"status":"passed","supersedes_manifest_sha256":OLD_MANIFEST,"version":1}
         persist_exact(NEW/"result.json",result);mark("validated");base.fsync_dir(EVIDENCE);return result
     finally:os.close(fd)
+def completed_metadata_valid(current,recorded):
+    required={"device","gid","inode","mode","path","regular","symlink","uid"}
+    if not isinstance(current,dict) or not isinstance(recorded,dict) or set(current)!=required or set(recorded)!=required:return False
+    if any(type(value[key]) is not int or value[key]<0 for value in (current,recorded) for key in ("device","inode")):return False
+    desired={"gid":1000,"mode":"0600","path":str(CREDENTIAL),"regular":True,"symlink":False,"uid":1000}
+    return all(all(type(value[key]) is type(expected) and value[key]==expected for key,expected in desired.items()) for value in (current,recorded))
 def validate_completed(obs,approved):
     verify_repo(obs); final=base.read_json(NEW/"final-runtime.json")
     base.validate_runtime(final)
@@ -146,7 +152,7 @@ def validate_completed(obs,approved):
     pre={x["name"]:x["id"] for x in obs["runtime"]["containers"]};post={x["name"]:x["id"] for x in final["containers"]}
     if any(pre[name]==post[name] for name in ("swag-init","swag")):raise Drift("completed container identities differ")
     meta=base.read_json(NEW/"metadata-state.json")
-    if base.metadata()!=meta or (meta["uid"],meta["gid"],meta["mode"])!=(1000,1000,"0600"):raise Drift("completed credential metadata differs")
+    if not completed_metadata_valid(base.metadata(),meta):raise Drift("completed credential metadata differs")
     result=base.read_json(NEW/"result.json")
     with open(NEW/"kindle.png","rb") as stream:
         if stream.read(8)!=b"\x89PNG\r\n\x1a\n":raise Drift("completed PNG differs")
