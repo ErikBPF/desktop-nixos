@@ -1,6 +1,6 @@
 # Kepler collision migration test contract
 
-**Status:** Approved contract; K0 fixture tests implemented, K1 live dry-run pending
+**Status:** Implemented; current desired-state amended after AI-serving retirement
 
 ## Test boundary
 
@@ -75,6 +75,21 @@ Before execution, the read-only run must record sanitized evidence for:
 - Deterministic action-manifest SHA-256 and proof that execution rejects changed inventory.
 
 Any difference between live inventory and fixture assumptions blocks execution and requires a contract update plus a new test run.
+
+The 2026-07-14 retirement adds a focused contract: exactly seven full
+container IDs, seven distinct unshared image IDs, and `/fast/ai-models`; both
+`infra` and `docs-search` must remain present. Two consecutive inventories
+must render the same SHA-256-bound manifest before execution. No network,
+volume, broad prune, dataset, snapshot, or parent path is selected.
+This supersedes the active three-stack-order, AI immutable-provenance, and AI
+route success assertions. Their fixtures remain historical K0/K1 evidence.
+The current desired-state assertions require exactly `infra`, then
+`docs-search`. Retirement is resumable only at exact stage boundaries: all
+seven approved containers, zero approved containers with any subset of the
+seven images, zero approved containers/images before exact-path removal, or
+everything absent. Image removal and path removal are separate double-inventory
+stages. Any survivor bind at, below, or above `/fast/ai-models` halts.
+Partial/mismatched containers halt.
 
 ## Live success gate
 

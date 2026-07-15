@@ -1,8 +1,8 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 and Kepler K0 complete; the approved Kepler exact
-retirement and declared-stack reset/recreation have run. K5 Discovery route
-evidence remains before Discovery P1 can unfreeze.
+**Status:** In progress — P0 and Kepler recovery complete; operator-approved
+retirement of Kepler AI-serving is prepared. Discovery consumers must stop
+routing to the retired endpoints before Discovery P1 can unfreeze.
 
 ## 1. Purpose and authority
 
@@ -109,7 +109,7 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   K4 collision-by-collision quarantine. Those unexecuted protections must not
   be claimed as evidence or retroactively marked complete.
 
-### K5 — in progress
+### K5 — superseded by AI-serving retirement
 
 - Kepler rebooted once through the documented workflow and returned after an
   extended boot interval.
@@ -134,6 +134,13 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   HTTP 500 on three bounded attempts (approximately 31–38 seconds each).
   K5 therefore remains blocked on that route; Discovery P1 stays frozen. No
   service restart or runtime configuration change was attempted.
+- On 2026-07-14 the operator declared the entire Kepler AI-serving stack and
+  model cache disposable and reproducible. Servarr `8edab1a` removes all seven
+  services. Desktop desired state now contains only `infra` and `docs-search`,
+  closes the retired ports, and removes the model-cache tmpfiles and NVIDIA
+  container runtime. A separate exact-ID retirement entry point is prepared;
+  this does not authorize network, volume, snapshot, dataset, or broad-prune
+  cleanup. Discovery/HA routes are now consumer cleanup, not a K5 health gate.
 
 ### Known later gates
 

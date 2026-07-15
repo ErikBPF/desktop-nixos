@@ -1,14 +1,7 @@
 {
-  "desired_sha256": "81cb862c773c180faa581eb3956539d9f95d41be645908e7d92a83f5d45df465",
-  "service_count": 12,
+  "desired_sha256": "636941dfff6131f09aa7c01249d6166844ef676903303908508d504e2268c1b9",
+  "service_count": 5,
   "services": [
-    ["ai-serving", "edge-tts-openai", "edge-tts-openai", "local-provenance-recorded"],
-    ["ai-serving", "faster-whisper-openai", "faster-whisper-openai", "local-provenance-recorded"],
-    ["ai-serving", "nvidia-gpu-exporter", "nvidia-gpu-exporter", "immutable-registry-digest"],
-    ["ai-serving", "piper-openai", "piper-openai", "local-provenance-recorded"],
-    ["ai-serving", "piper-wyoming", "piper-wyoming", "immutable-registry-digest"],
-    ["ai-serving", "slm-bge-m3", "slm-bge-m3", "immutable-registry-digest"],
-    ["ai-serving", "slm-bge-reranker", "slm-bge-reranker", "immutable-registry-digest"],
     ["docs-search", "docs-search", "docs-search", "local-provenance-recorded"],
     ["infra", "minio", "minio", "immutable-registry-digest"],
     ["infra", "postgres", "postgres", "immutable-registry-digest"],

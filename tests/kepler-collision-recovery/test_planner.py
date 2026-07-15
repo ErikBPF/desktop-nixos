@@ -39,7 +39,7 @@ class PlannerTest(unittest.TestCase):
         self.assertEqual(classes["gitlab"], "retired-wipe")
         self.assertEqual(classes["airflow-webserver"], "retired-wipe")
         self.assertEqual(classes["restate"], "retired-wipe")
-        self.assertEqual(manifest["migration_order"], ["infra", "ai-serving", "docs-search"])
+        self.assertEqual(manifest["migration_order"], ["infra", "docs-search"])
 
     def test_running_missing_labels_foreign_mount_mismatch_and_unknown_halt(self):
         mutations = [
@@ -289,7 +289,7 @@ class PlannerTest(unittest.TestCase):
         self.assertEqual(manifest["phase_order"], [
             "inventory", "classify", "retained-database-backup-restore",
             "retired-secret-and-artifact-preflight", "retirement",
-            "retained-state-protection", "infra", "ai-serving", "docs-search",
+            "retained-state-protection", "infra", "docs-search",
             "reboot-validation", "retention",
         ])
         self.assertTrue(all(action["mode"] == "dry-run" for action in manifest["actions"]))

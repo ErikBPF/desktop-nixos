@@ -41,11 +41,11 @@ class DesiredStateTest(unittest.TestCase):
 
     def test_profiles_and_secret_contract_are_bound(self):
         desired = self.result["desired"]
-        self.assertEqual(desired["stacks"], ["infra", "ai-serving", "docs-search"])
+        self.assertEqual(desired["stacks"], ["infra", "docs-search"])
         self.assertEqual(desired["servarr_commit"], self.module.SERVARR_COMMIT)
         self.assertEqual(desired["secretspec_project"], "kepler")
         self.assertEqual(set(desired["source_sha256"]), {
-            "infra.compose.yml", "ai-serving.compose.yml", "docs-search.compose.yml",
+            "infra.compose.yml", "docs-search.compose.yml",
             "secretspec.toml", ".env.example", "provenance.json",
         })
         projects = {service["project"] for service in desired["services"]}
@@ -59,22 +59,10 @@ class DesiredStateTest(unittest.TestCase):
         desired = self.result["desired"]
         self.assertIn("provenance.json", desired["source_sha256"])
         local = desired["local_images"]
-        self.assertEqual(set(local), {
-            "kepler/edge-tts-openai:latest", "kepler/faster-whisper:cuda13",
-            "kepler/hermes-docs-search:latest",
-            "kepler/piper-openai:latest",
-        })
+        self.assertEqual(set(local), {"kepler/hermes-docs-search:latest"})
         by_name = {service["service"]: service for service in desired["services"]}
-        self.assertEqual(by_name["faster-whisper-openai"]["digest_status"], "local-provenance-recorded")
         self.assertEqual(by_name["docs-search"]["digest_status"], "local-provenance-recorded")
-        self.assertEqual(
-            by_name["slm-bge-m3"]["provenance_status"]["model_artifacts"],
-            ["embeddings-bge-m3", "embeddings-bge-reranker-v2-m3"],
-        )
-        self.assertEqual(
-            by_name["faster-whisper-openai"]["provenance_status"]["local_image"],
-            "kepler/faster-whisper:cuda13",
-        )
+        self.assertEqual(desired["model_artifacts"], {})
         self.assertEqual(set(desired["legacy_images"]), {"minio", "postgres", "qdrant", "redis"})
         self.assertTrue(all(
             set(record) == {"image", "image_digest"}

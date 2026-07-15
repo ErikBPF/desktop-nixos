@@ -908,39 +908,10 @@ kick-stack target stack:
     ssh -p 2222 erik@$IP "systemctl --user restart podman-compose-{{stack}}.service"
     ssh -p 2222 erik@$IP "systemctl --user status podman-compose-{{stack}}.service --no-pager -n10"
 
-# Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
-ai-kepler-health:
-    @just verify-port kepler {{ip_kepler}} 8085
-    @just verify-port kepler {{ip_kepler}} 8087
-    @just verify-port kepler {{ip_kepler}} 9000
-    @just verify-port kepler {{ip_kepler}} 10200
-
-# Retrieval-model status plus bounded recent logs; no secret output.
-ai-kepler-retrieval-health:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'for name in slm-bge-m3 slm-bge-reranker; do docker inspect --format=":: {{"{{"}}.Name{{"}}"}} state={{"{{"}}.State.Status{{"}}"}} health={{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name"; docker logs --tail 15 "$name" 2>&1; done'
-
-ai-kepler-gpu-health:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'timeout 15s nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader; timeout 15s nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader'
-
-# Reset the embedder CUDA context with the competing reranker stopped.
-ai-kepler-embed-reset:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'docker stop slm-bge-reranker >/dev/null 2>&1 || true; docker restart slm-bge-m3 >/dev/null; for _ in $(seq 1 60); do health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" slm-bge-m3); if [ "$health" = healthy ]; then echo ":: slm-bge-m3 healthy"; exit 0; fi; sleep 2; done; echo ":: slm-bge-m3 failed to become healthy" >&2; exit 1'
-
-# Clear queued rerank work, then wait through the CPU model warmup.
-ai-kepler-reranker-reset:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'docker restart slm-bge-reranker >/dev/null; for _ in $(seq 1 180); do health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" slm-bge-reranker); if [ "$health" = healthy ]; then echo ":: slm-bge-reranker healthy"; exit 0; fi; sleep 2; done; echo ":: slm-bge-reranker failed to become healthy" >&2; exit 1'
+# Permanently remove the seven disposable AI containers, their seven exact
+# images, and /fast/ai-models. The helper re-inventories and fails closed.
+kepler-retire-ai-serving-user-approved:
+    ssh -p 2222 erik@{{ip_kepler}} 'python3 - --execute-user-approved' < modules/hosts/kepler/_retire_ai_serving.py
 
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
@@ -1039,80 +1010,6 @@ kepler-recovery-retirement-paths:
     mv "$tmp" "$out"
     trap - EXIT
     printf 'retirement_paths=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["evidence_sha256"])' "$out")"
-
-# Resolve only reviewed K1 model artifact paths. The committed helper performs
-# read-only traversal and emits no directory listings, contents, or environment.
-kepler-recovery-model-paths:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    umask 077
-    helper="modules/hosts/kepler/_collision_recovery_model_paths_remote.py"
-    evidence_dir=".gsd/evidence/kepler-k1"
-    out="$evidence_dir/model-paths.json"
-    test -f "$helper"
-    mkdir -p "$evidence_dir"
-    chmod 700 "$evidence_dir"
-    tmp="$(mktemp "$evidence_dir/.model-paths.XXXXXX")"
-    trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' < "$helper" > "$tmp"
-    python3 - "$tmp" <<'PY'
-    import json
-    import pathlib
-    import sys
-
-    path = pathlib.Path(sys.argv[1])
-    result = json.loads(path.read_text())
-    if result.get("schema") != "kepler-k1-model-paths-v1":
-        raise SystemExit("model-path evidence schema validation failed")
-    artifacts = result.get("artifacts")
-    if not isinstance(artifacts, list) or len(artifacts) != 4:
-        raise SystemExit("model-path evidence artifact validation failed")
-    PY
-    chmod 600 "$tmp"
-    mv "$tmp" "$out"
-    trap - EXIT
-    printf 'model_paths=%s\n' "$out"
-
-# Hash the four reviewed model artifacts remotely. Output contains only artifact
-# identifiers, hashes, counts, and schema metadata; paths and contents stay on Kepler.
-kepler-recovery-model-identities:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    umask 077
-    just kepler-recovery-model-paths
-    helper="modules/hosts/kepler/_collision_recovery_model_identity_remote.py"
-    evidence_dir=".gsd/evidence/kepler-k1"
-    paths="$evidence_dir/model-paths.json"
-    out="$evidence_dir/model-identities.json"
-    test -f "$helper" -a -f "$paths"
-    request_b64="$(base64 -w0 < "$paths")"
-    tmp="$(mktemp "$evidence_dir/.model-identities.XXXXXX")"
-    trap 'rm -f "$tmp"' EXIT
-    {
-      printf 'import base64,io,sys\nsys.stdin=io.StringIO(base64.b64decode("%s").decode())\n' "$request_b64"
-      sed '1{/^#!/d;}' "$helper"
-    } | ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' > "$tmp"
-    python3 - "$tmp" <<'PY'
-    import hashlib
-    import json
-    import pathlib
-    import sys
-
-    result = json.loads(pathlib.Path(sys.argv[1]).read_text())
-    evidence = result.get("evidence")
-    canonical = json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
-    if (
-        result.get("schema") != "kepler-k1-model-identities-envelope-v1"
-        or not isinstance(evidence, dict)
-        or result.get("evidence_sha256") != hashlib.sha256(canonical).hexdigest()
-        or len(evidence.get("artifacts", [])) != 4
-    ):
-        raise SystemExit("model identity envelope/hash validation failed")
-    PY
-    chmod 600 "$tmp"
-    mv "$tmp" "$out"
-    trap - EXIT
-    printf 'model_identities=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["evidence_sha256"])' "$out")"
 
 # Render only the separately-approved stop plan. This recipe never stops a service.
 kepler-recovery-quiesce-plan inventory_sha256:

@@ -3,15 +3,6 @@
   "inventory": {
     "containers": [
       {
-        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "labels": {
-          "com.docker.compose.project": "ai-serving",
-          "com.docker.compose.service": "piper-openai"
-        },
-        "name": "piper-openai",
-        "state": "running"
-      },
-      {
         "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "labels": {
           "com.docker.compose.project": "docs-search",

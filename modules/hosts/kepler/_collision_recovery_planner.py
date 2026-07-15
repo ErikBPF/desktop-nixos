@@ -67,7 +67,7 @@ POLICY = {
     "restate_secrets": [],
 }
 
-MIGRATION_ORDER = ["infra", "ai-serving", "docs-search"]
+MIGRATION_ORDER = ["infra", "docs-search"]
 PHASE_ORDER = [
     "inventory",
     "classify",

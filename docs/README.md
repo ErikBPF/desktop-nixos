@@ -20,7 +20,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 |-----|--------|--------|
 | [`reference/discovery-stateful-inventory.md`](reference/discovery-stateful-inventory.md) | Time-bounded P0 owner/image/mount/volume/backup inventory for discovery state migrations. | Audit evidence (2026-07-13) |
 | [`reference/dendritic-contract.md`](reference/dendritic-contract.md) | The rules a `modules/` file must follow (registration, naming, `_` helpers). Enforced by `just structure-check`. | Reference |
-| [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | AI inference topology on kepler: LiteLLM routing, TTS/whisper services, ports. Cross-check before touching voice wiring in `home-assistant-config`. | Reference |
+| [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. | Reference |
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. | Reference |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. | As-built |
 | [`reference/harbor-discovery-registry.md`](reference/harbor-discovery-registry.md) | Harbor registry on discovery — the imperative baseline. | As-built (proxy-cache + push, 2026-06-29) |
@@ -38,7 +38,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | Doc | Status |
 |-----|--------|
 | [`behaviors/kepler-collision-migration/behavior.md`](behaviors/kepler-collision-migration/behavior.md) · [`test contract`](behaviors/kepler-collision-migration/test-contract.md) | Approved normative K0–K5 recovery contract — K0 complete; K1 read-only inventory and exact approval manifest are next. No K1–K5 mutation is authorized by K0. |
-| [`proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md`](proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md) | In progress — Kepler recovery and zero-action audit passed; K5 is blocked only by the Discovery `tts-pt-br` route returning HTTP 500. Discovery P1 stays frozen. |
+| [`proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md`](proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md) | In progress — Kepler recovery passed; the disposable AI-serving stack is retired by operator decision. Discovery consumer cleanup precedes P1. |
 | [`proposals/2026-07-13-stateful-stack-release-hardening.md`](proposals/2026-07-13-stateful-stack-release-hardening.md) | In progress — P0 and Kepler K0 complete; merged Kepler K1–K5 precedes staged Discovery P1. |
 | [`proposals/2026-07-12-opencode-litellm-routing.md`](proposals/2026-07-12-opencode-litellm-routing.md) | Proposed — GLM orchestration/review and MiMo execution through stable LiteLLM aliases. |
 | [`proposals/2026-07-12-fleet-esp-enlargement.md`](proposals/2026-07-12-fleet-esp-enlargement.md) | Approved risk-triggered migration — future installs use 2G; existing 512M hosts migrate only on capacity failure or planned reinstall. Pathfinder is the first approved slice. |

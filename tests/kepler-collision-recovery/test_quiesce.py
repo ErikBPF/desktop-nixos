@@ -49,11 +49,9 @@ class QuiesceManifestTests(unittest.TestCase):
         manifest = self.plan()["manifest"]
         self.assertEqual(manifest["stacks"], [
             {"containers": ["docs-search"], "stack": "docs-search"},
-            {"containers": ["piper-openai"], "stack": "ai-serving"},
         ])
         self.assertEqual([item["command"] for item in manifest["actions"]], [
             f"just kepler-recovery-quiesce-stack docs-search {self.inventory['inventory_sha256']}",
-            f"just kepler-recovery-quiesce-stack ai-serving {self.inventory['inventory_sha256']}",
         ])
 
     def test_manifest_is_deterministic_value_free_and_sha_bound(self):
@@ -71,7 +69,7 @@ class QuiesceManifestTests(unittest.TestCase):
         self.inventory["inventory_sha256"] = self.module.digest(self.inventory["inventory"])
         manifest = self.plan()["manifest"]
         self.assertNotIn("protected_containers", manifest)
-        self.assertEqual(manifest["stacks"], [{"containers": ["docs-search"], "stack": "docs-search"}])
+        self.assertEqual(manifest["stacks"], [])
 
     def test_rejects_unknown_foreign_unlabeled_and_declared_service_mismatch(self):
         mutations = (
@@ -119,10 +117,7 @@ class QuiesceManifestTests(unittest.TestCase):
         self.assertEqual(manifest["mode"], "dry-run-only")
         self.assertEqual(manifest["execution_supported"], False)
         self.assertEqual(manifest["abort_boundary"], "before-first-stop-on-any-drift-or-failed-precondition")
-        self.assertEqual(manifest["rollback"], [
-            "just kick-stack kepler ai-serving",
-            "just kick-stack kepler docs-search",
-        ])
+        self.assertEqual(manifest["rollback"], ["just kick-stack kepler docs-search"])
         self.assertEqual(manifest["downtime"], "until-fresh-inventory-and-approved-K1-continuation")
 
     def test_no_execute_api_or_unsafe_command(self):

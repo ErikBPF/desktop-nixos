@@ -1,6 +1,6 @@
 # Kepler collision migration
 
-**Status:** Approved behavior; K0 complete, K1 read-only inventory blocked pending approval manifest
+**Status:** Implemented with recorded deviation; AI-serving retired 2026-07-14
 
 ## Outcome
 
@@ -58,3 +58,18 @@ The live execution is blocked until Kepler SecretSpec profiles, Compose/declarat
 ## Completion
 
 Recovery is complete only when all declared stacks pass their gates before and after reboot, no name collisions remain, current GitLab/Airflow/Restate resources are absent, retained-state protections exist, Discovery routes work, and a second dry run reports no pending mutation. Cleanup remains a separate approval.
+
+## 2026-07-14 retirement amendment
+
+After recovery, the operator declared all seven `ai-serving` workloads and
+their model cache disposable. Servarr removed the stack at `8edab1a`; current
+desired-state and quiesce order are therefore `infra`, then `docs-search`.
+Historical K0 fixture coverage remains evidence of the original migration
+contract. Retirement is a separate exact-ID, fail-closed operation and never
+authorizes prune, network removal, volume removal, or parent-path deletion.
+For current desired state this amendment supersedes clause 8's AI image/model
+identity gate, clause 9's three-stack order, clause 14's AI route validation,
+and the AI-serving portions of Completion. Those clauses remain historical
+evidence for the completed recovery; they no longer require recreating a
+retired stack. Clauses protecting `infra`, `docs-search`, retained state, and
+exact-resource execution remain active.
