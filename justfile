@@ -1512,6 +1512,118 @@ p3-generic-dhcp-client interface="enp0s13f0u1u3":
     sudo install -o root -g root -m 0755 scripts/p3-udhcpc-capture.sh "$callback"
     sudo scripts/p3-generic-dhcp-client.sh "{{interface}}" "$busybox/bin/udhcpc" "$callback"
 
+# Prepare the persistent, isolated DHCP client used by the separately approved
+# P3 AdGuard outage drill. This mutates only a temporary local netns/macvlan.
+p3-adguard-outage-prepare interface="enp0s13f0u1u3" namespace="p3-dhcp-outage":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    evidence_dir=.gsd/evidence/p3-dns
+    mkdir -p "$evidence_dir"
+    chmod 700 "$evidence_dir"
+    builders=$(just _builders endeavour)
+    busybox=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#busybox \
+      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+    callback=$(sudo mktemp /run/p3-outage-udhcpc.XXXXXX)
+    tmp=
+    cleanup() { sudo rm -f "$callback"; test -z "$tmp" || rm -f "$tmp"; }
+    trap cleanup EXIT INT TERM
+    sudo install -o root -g root -m 0755 scripts/p3-udhcpc-capture.sh "$callback"
+    tmp=$(mktemp "$evidence_dir/.client.XXXXXX")
+    sudo scripts/p3-adguard-outage-client.sh prepare "{{namespace}}" "{{interface}}" \
+      "$busybox/bin/udhcpc" "$callback" >"$tmp"
+    jq -e '.status == "prepared" and .version == 1' "$tmp" >/dev/null
+    mv "$tmp" "$evidence_dir/client.json"
+    tmp=
+    echo ":: P3 outage client prepared — $evidence_dir/client.json"
+
+# Capture the exact generic-client and Discovery container identities by LAN IP.
+p3-adguard-outage-observe bound_ms="10000":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    evidence_dir=.gsd/evidence/p3-dns
+    client="$evidence_dir/client.json"
+    test -f "$client"
+    namespace=$(jq -r .namespace "$client")
+    interface=$(jq -r .interface "$client")
+    discovery=$(just _host-ip discovery)
+    known_hosts="$evidence_dir/known_hosts"
+    known_tmp=$(mktemp "$evidence_dir/.known-hosts.XXXXXX")
+    tmp=$(mktemp "$evidence_dir/.observation.XXXXXX")
+    cleanup() { rm -f "$known_tmp" "$tmp"; }
+    trap cleanup EXIT INT TERM
+    ssh-keygen -F "[$discovery]:2222" -f "$HOME/.ssh/known_hosts" \
+      | sed '/^#/d' >"$known_tmp"
+    test -s "$known_tmp"
+    chmod 0400 "$known_tmp"
+    mv "$known_tmp" "$known_hosts"
+    builders=$(just _builders endeavour)
+    ndisc6=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#ndisc6 \
+      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+    jq -cnS --arg rdisc6 "$ndisc6/bin/rdisc6" '{rdisc6:$rdisc6,version:1}' \
+      >"$evidence_dir/tooling.json"
+    scripts/p3-adguard-outage-observe.sh "$namespace" "$interface" "$discovery" \
+      "{{bound_ms}}" "$known_hosts" "$ndisc6/bin/rdisc6" \
+      scripts/p3-adguard-outage-client.sh scripts/p3-udhcpc-capture.sh >"$tmp"
+    jq -e '.version == 3' "$tmp" >/dev/null
+    mv "$tmp" "$evidence_dir/observation.json"
+    trap - EXIT INT TERM
+    echo ":: P3 outage observation captured — $evidence_dir/observation.json"
+
+# Produce the deterministic value-free approval manifest. Read-only.
+p3-adguard-outage-plan: p3-adguard-outage-observe
+    #!/usr/bin/env bash
+    set -euo pipefail
+    evidence_dir=.gsd/evidence/p3-dns
+    tmp=$(mktemp "$evidence_dir/.manifest.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT INT TERM
+    rdisc6=$(jq -r .rdisc6 "$evidence_dir/tooling.json")
+    scripts/p3-adguard-outage-drill.sh plan "$evidence_dir/observation.json" \
+      "$evidence_dir/known_hosts" "$rdisc6" scripts/p3-adguard-outage-client.sh \
+      scripts/p3-adguard-outage-observe.sh scripts/p3-udhcpc-capture.sh >"$tmp"
+    jq -e '.manifest_sha256 | test("^[0-9a-f]{64}$")' "$tmp" >/dev/null
+    mv "$tmp" "$evidence_dir/manifest.json"
+    trap - EXIT INT TERM
+    jq . "$evidence_dir/manifest.json"
+
+# Execute only the exact approved manifest; restoration is an unconditional trap.
+p3-adguard-outage-execute authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    evidence_dir=.gsd/evidence/p3-dns
+    observation="$evidence_dir/observation.json"
+    manifest="$evidence_dir/manifest.json"
+    test -f "$observation" && test -f "$manifest"
+    expected=$(jq -r .manifest_sha256 "$manifest")
+    test "{{authorization}}" = "$expected" || { echo ":: BLOCKED: authorization differs" >&2; exit 1; }
+    rdisc6=$(jq -r .rdisc6 "$evidence_dir/tooling.json")
+    run_dir="$evidence_dir/runs/$(date -u +%Y%m%dT%H%M%SZ)-${expected:0:12}"
+    mkdir -p "$evidence_dir/runs"
+    set +e
+    scripts/p3-adguard-outage-drill.sh execute "$observation" \
+      "$evidence_dir/known_hosts" "$rdisc6" scripts/p3-adguard-outage-client.sh \
+      scripts/p3-adguard-outage-observe.sh scripts/p3-udhcpc-capture.sh \
+      "$run_dir" "{{authorization}}"
+    rc=$?
+    set -e
+    if [ "$rc" -eq 0 ]; then
+      jq -e '.status == "passed"' "$run_dir/result.json" >/dev/null
+      jq . "$run_dir/result.json"
+    else
+      test -f "$run_dir/failure.json" && jq . "$run_dir/failure.json" || true
+      echo ":: BLOCKED: retained outage journal at $run_dir" >&2
+      exit "$rc"
+    fi
+
+# Remove only the local ephemeral outage client after a successful drill.
+p3-adguard-outage-cleanup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    client=.gsd/evidence/p3-dns/client.json
+    test -f "$client"
+    namespace=$(jq -r .namespace "$client")
+    sudo scripts/p3-adguard-outage-client.sh cleanup "$namespace"
+    echo ":: P3 outage client removed; retained value-free evidence"
+
 # Validate the declared disko /dev/sda layout end-to-end: partition, install, and
 # boot in a throwaway VM (does NOT touch Oracle). This is the same install path
 # `deploy-voyager` runs. Complements voyager-vm-* which exercise runtime/compose

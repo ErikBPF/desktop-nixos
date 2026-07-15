@@ -480,7 +480,14 @@ Its final live run obtained lease `.175` from the UDM, received the exact DHCP
 option 6 order `.210`, `.230`, passed UDP/TCP fleet, wildcard, AAAA NODATA, and
 external NXDOMAIN probes against both resolvers, removed its namespace, and
 left the parent interface unchanged. P3 remains open only for the separately
-approved AdGuard outage/restore drill.
+approved AdGuard outage/restore drill. The fixture-tested drill is exposed only
+through `just p3-adguard-outage-{prepare,observe,plan,execute,cleanup}`. Its
+value-free manifest binds the full five-container networking-project inventory,
+the pinned Discovery host key, and the client/observer/executor/callback content,
+while authorizing mutation of only `adguard-exporter` and `adguard`. Execution
+rejects inventory or implementation drift, requires a bounded no-RA/RDNSS proof,
+caps normal-resolver failover at 10 seconds, restores the same container IDs in
+at most three bounded attempts, and retains failed-run journals for diagnosis.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;

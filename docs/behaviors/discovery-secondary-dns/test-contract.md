@@ -90,16 +90,23 @@ Offline state-machine fixtures cover:
 
 1. Lease lacks secondary: no outage action.
 2. Client has Tailscale/NetBird: not valid generic-client evidence.
-3. IPv6 RDNSS overrides the DHCP pair: halt.
+3. IPv6 RDNSS overrides the DHCP pair, an IPv6 default route exists, or the
+   bounded router-advertisement probe cannot prove the no-RA result: halt.
 4. Secondary direct UDP works but TCP fails: halt.
 5. Fleet works but external fails, or external works but fleet fails: halt.
 6. Explicit secondary works but system resolver never fails over within the
-   bound: halt.
+   observation-bound ceiling: halt. The approved live harness accepts only a
+   positive ceiling of at most 10,000 ms and records the actual elapsed time.
 7. Recovery path requires DNS: halt before stopping AdGuard.
 8. AdGuard/exporter exact stop, successful failover, exact restore, and both
    resolvers healthy: pass.
 9. Attempt to stop SWAG or another networking service: halt.
 10. Repeated successful evidence produces the same value-free result shape.
+11. Any implementation, pinned-host-key, approved container identity, image,
+    mount, network, restart-policy, or unrelated project-container drift before
+    the stop: halt.
+12. Recovery makes at most three bounded attempts, retains a value-free journal
+    on every outcome, and always targets the same approved container IDs.
 
 Live evidence records only resolver addresses, query names selected for the
 contract, record types, response codes/counts, latency bounds, service states,
