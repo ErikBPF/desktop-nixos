@@ -512,6 +512,7 @@ in {
       };
 
       systemd.tmpfiles.rules = ["d ${bootstrapDir} 0700 root root -"];
+      systemd.targets.microvms.wants = ["k3s-bootstrap-materialize.service"];
       microvm.autostart = allNames;
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
 
@@ -519,7 +520,6 @@ in {
         {
           k3s-bootstrap-materialize = {
             description = "Materialize k3s bootstrap credentials for cp-1";
-            wantedBy = ["multi-user.target"];
             requiredBy = ["microvm@cp-1.service"];
             before = ["microvm@cp-1.service"];
             after = ["sops-nix.service"];
