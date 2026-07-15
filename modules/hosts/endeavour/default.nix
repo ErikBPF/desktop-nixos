@@ -37,6 +37,98 @@ in {
         m.home.laptop-ssh
       ];
       inherit (config) colorScheme;
+
+      wayland.windowManager.hyprland.settings.monitor = [
+        {
+          output = "";
+          mode = "preferred";
+          position = "auto";
+          scale = 1;
+        }
+        {
+          output = "eDP-1";
+          mode = "preferred";
+          position = "1592x1680";
+          scale = 1.25;
+        }
+        {
+          output = "desc:Samsung Electric Company QBQ90 0x01000E00";
+          mode = "2560x1440";
+          position = "1080x240";
+          scale = 1;
+          bitdepth = 10;
+        }
+        {
+          output = "desc:Samsung Electric Company C27F390 HX5MB00876";
+          mode = "1920x1080";
+          position = "0x0";
+          scale = 1;
+          transform = 1;
+        }
+        {
+          output = "desc:Samsung Electric Company C27F390 HX5MB00881";
+          mode = "1920x1080";
+          position = "3640x0";
+          scale = 1;
+          transform = 3;
+        }
+      ];
+
+      wayland.windowManager.hyprland.settings.workspace_rule = let
+        qbq = "desc:Samsung Electric Company QBQ90 0x01000E00";
+        c1 = "desc:Samsung Electric Company C27F390 HX5MB00876";
+        c2 = "desc:Samsung Electric Company C27F390 HX5MB00881";
+      in [
+        {
+          workspace = "1";
+          monitor = qbq;
+          default = true;
+        }
+        {
+          workspace = "2";
+          monitor = qbq;
+        }
+        {
+          workspace = "3";
+          monitor = qbq;
+        }
+        {
+          workspace = "4";
+          monitor = qbq;
+        }
+        {
+          workspace = "5";
+          monitor = qbq;
+        }
+        {
+          workspace = "6";
+          monitor = qbq;
+        }
+        {
+          workspace = "7";
+          monitor = qbq;
+        }
+        {
+          workspace = "8";
+          monitor = qbq;
+        }
+        {
+          workspace = "9";
+          monitor = qbq;
+        }
+        {
+          workspace = "10";
+          monitor = c1;
+        }
+        {
+          workspace = "11";
+          monitor = c2;
+        }
+        {
+          workspace = "12";
+          monitor = "eDP-1";
+        }
+      ];
     };
 
     system.stateVersion = "25.11";

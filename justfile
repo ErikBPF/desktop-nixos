@@ -82,6 +82,47 @@ fleet-status:
         fi
     done
 
+# Read-only migration inventory from the roaming laptop. Reports metadata and
+# public fingerprints only; never prints private key or credential contents.
+audit-laptop-state target="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tail_ip=$(jq -r '.hosts.laptop.tailscaleIp' fleet.json)
+    ip="{{target}}"
+    [ -n "$ip" ] || ip="$tail_ip"
+    tailscale ping -c 3 "$tail_ip"
+    for port in 2222 22; do
+      timeout 3 bash -c "</dev/tcp/$ip/$port" 2>/dev/null \
+        && echo ":: tcp/$port reachable" \
+        || echo ":: tcp/$port unreachable"
+    done
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new erik@"$ip" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    echo ':: ssh files'
+    find ~/.ssh -maxdepth 1 -type f -printf '%f\t%m\t%s bytes\n' | sort
+    echo ':: public key fingerprints'
+    for key in ~/.ssh/*.pub; do
+      [ -f "$key" ] && ssh-keygen -lf "$key"
+    done
+    echo ':: sops age key'
+    find ~/.config/sops/age -maxdepth 1 -type f -printf '%f\t%m\t%s bytes\n' 2>/dev/null | sort || true
+    echo ':: NetworkManager profile count'
+    sudo find /etc/NetworkManager/system-connections -maxdepth 1 -type f -printf '.' 2>/dev/null | wc -c
+    echo ':: SSH listener'
+    sudo ss -ltnp | grep ':2222' || true
+    echo ':: Tailscale self and Endeavour peer'
+    tailscale status --json | jq -c '{self:.Self.TailscaleIPs,endeavour:[.Peer[] | select(.HostName == "endeavour") | {ips:.TailscaleIPs,online:.Online,active:.Active}]}'
+    tailscale ping -c 3 endeavour || true
+    echo ':: firewall rules mentioning SSH or Tailscale'
+    if command -v nft >/dev/null; then
+      sudo nft list ruleset | grep -Ei -C2 '2222|tailscale' || true
+    else
+      sudo iptables-save | grep -Ei -C2 '2222|tailscale' || true
+    fi
+    echo ':: monitors'
+    hyprctl monitors -j 2>/dev/null | jq -c '[.[] | {name,description,width,height,refreshRate,x,y,scale,transform}]' || true
+    REMOTE
+
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:

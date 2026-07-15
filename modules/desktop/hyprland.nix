@@ -89,9 +89,9 @@
         configType = "lua";
 
         settings = {
-          terminal = {_var = "ghostty";};
+          terminal = {_var = "ghostty +new-window";};
           fileManager = {_var = "ghostty +new-window -e yazi";};
-          fileManagerGui = {_var = "nautilus --new-window";};
+          fileManagerGui = {_var = "nautilus";};
           browser = {_var = "brave";};
           teamsApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/teams --no-first-run --no-default-browser-check --app=https://teams.microsoft.com/v2/";};
           whatsappApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/whatsapp --no-first-run --no-default-browser-check --app=https://web.whatsapp.com/";};
@@ -340,7 +340,7 @@
                     hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
                     hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
                     hl.exec_cmd(teamsApp, { workspace = 10 })
-                    hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.discord_tui --title=discord-tui -e discordo", { workspace = 10 })
+                    hl.exec_cmd("sleep 3; discord", { workspace = 10 })
                     hl.exec_cmd("sleep 3; " .. whatsappApp, { workspace = 10 })
                     hl.exec_cmd("sleep 3; " .. browser .. " --restore-last-session", { workspace = 1 })
                   end
@@ -536,18 +536,6 @@
               opacity = "1 1";
             }
             {
-              match.class = "^.*\\.discord_tui$";
-              float = true;
-            }
-            {
-              match.class = "^.*\\.discord_tui$";
-              move = "12 1304";
-            }
-            {
-              match.class = "^.*\\.discord_tui$";
-              size = "1056 603";
-            }
-            {
               match.class = "^discord$";
               float = true;
             }
@@ -588,10 +576,6 @@
               workspace = "12";
             }
             {
-              match.class = "^.*\\.discord_tui$";
-              workspace = "10";
-            }
-            {
               match.class = "^discord$";
               workspace = "10";
             }
@@ -610,10 +594,6 @@
             {
               match.class = "^.*\\.spotify_tui$";
               workspace = "12 silent";
-            }
-            {
-              match.class = "^.*\\.discord_tui$";
-              workspace = "10 silent";
             }
             {
               match.class = "^discord$";

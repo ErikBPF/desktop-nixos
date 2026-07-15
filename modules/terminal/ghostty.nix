@@ -19,8 +19,8 @@ _: {
         # exec keybind forks a fresh process each time and pays the full GTK4 +
         # OpenGL + Nerd-Font cold start (~1.8s). With `true` only the first
         # terminal is cold; later windows share the instance (~0.5s). The
-        # spotify/discord TUIs in hyprland.nix pass --gtk-single-instance=false
-        # explicitly, so they keep their own processes.
+        # spotify TUI in hyprland.nix passes --gtk-single-instance=false
+        # explicitly, so it keeps its own process.
         gtk-single-instance = true;
       };
     };

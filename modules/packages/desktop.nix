@@ -111,7 +111,6 @@ _: {
       gemini-cli
       claude-code
       discord
-      discordo
       obsidian
       spotify
       spotify-player
