@@ -1,8 +1,8 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 and Kepler K0 complete; K1 evidence collection,
-backup/restore proof, and exact approval-manifest generation are the active
-gate. Discovery P1 remains staged and frozen until K5 completes.
+**Status:** In progress — P0 and Kepler K0 complete; the approved Kepler exact
+retirement and declared-stack reset/recreation have run. K5 cross-host and
+second-planner evidence remain before Discovery P1 can unfreeze.
 
 ## 1. Purpose and authority
 
@@ -78,29 +78,52 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 - K1 remains blocked pending a fresh read-only live inventory and exact
   approval manifest.
 
-### K1 — in progress, dry-run gates only
+### K1–K4 — operational recovery complete with recorded deviation
 
 - Servarr `6e215e9` removes F5-TTS from the desired Kepler stack, environment
   contract, local-image provenance, model provenance, validation, and operator
-  recipes. This is source retirement only; the live host has not been mutated.
+  recipes.
 - Desktop `4fdae50` pins that Servarr revision, removes the F5-TTS host port and
   model-path expectations, and adds value-free dry-run planners for retained
   PostgreSQL evidence, disposable Redis reset planning, and exact retirement/disposition.
 - The retirement planner validates the live inventory's internal SHA-256,
   rejects shared images and unknown resources, exact-allowlists Restate, binds nested
   evidence, and emits no execute mode or destructive command.
-- The disposable Redis decision is now represented in the fixture planner as
-  an exact stopped-container and named-volume reset selection. This contract
-  update does not execute the reset; repository gates must be rerun after
-  integration before replacing the previous published verification evidence.
-- No GitLab/Airflow resource, F5 artifact, scratch container, database, volume,
-  snapshot, backup, secret, or external credential has been removed or revoked.
-- Live execution remains blocked until a fresh inventory, value-free evidence,
-  restore-tested PostgreSQL backups, an exact disposable Redis reset selection, and an exact hash-bound approval
-  manifest exist. Historical GitLab/Airflow copies and mixed-backup sanitation
-  are explicitly out of scope because both stacks were disposable homelab
-  tests. No Redis reset execution path or approval is introduced by this
-  contract update.
+- Exact retirement manifests were rendered from fresh value-free inventories
+  and explicitly approved by hash. After evidence-gated execution repeatedly
+  stopped on stale runtime facts, the operator explicitly authorized the
+  bounded force path and full declared-stack reset because the retired payloads
+  were disposable homelab tests and downtime was acceptable.
+- The force path removed only the exact Airflow database, approved scratch
+  containers, GitLab/F5 bind paths, and exact GitLab/F5 images. It did not run a
+  broad prune, delete a parent dataset, delete snapshots/backups, or expose
+  secret values.
+- The declared-stack reset removed exactly the 12 inventory-bound containers
+  plus disposable Redis volumes `homelab_redis_data` and `infra_redis_data`.
+  Persistent PostgreSQL, Qdrant, MinIO, and model bind paths were retained.
+- `infra`, `ai-serving`, and `docs-search` were recreated declaratively. A fresh
+  inventory found all 12 expected containers running under their desired
+  Compose projects and reproduced inventory SHA-256
+  `74c70f4ab0c025bac510734f31d0b351df4a28f431bf68ae57dbae0ee42f184a`.
+- This was an approved operational deviation from K3 snapshot/restore proof and
+  K4 collision-by-collision quarantine. Those unexecuted protections must not
+  be claimed as evidence or retroactively marked complete.
+
+### K5 — in progress
+
+- Kepler rebooted once through the documented workflow and returned after an
+  extended boot interval.
+- Post-reboot host verification passed: zero failed units, Tailscale and
+  Syncthing active, Home Manager successful, SOPS age key present, and staging
+  cleanup complete.
+- All 12 expected containers are running in `infra`, `ai-serving`, and
+  `docs-search`. Ports `8085`, `8087`, `9000`, `10200`, and `8765` respond; the
+  NVIDIA RTX 3070 and embedding workload are visible on the GPU.
+- `slm-bge-m3` reached healthy. The reranker remained in normal cold-start when
+  the operator waived further waiting; this is recorded as incomplete health
+  evidence, not a failure.
+- Discovery LiteLLM route checks and the final read-only zero-mutation planner
+  remain open. Discovery P1 stays frozen.
 
 ### Known later gates
 
