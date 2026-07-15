@@ -10,6 +10,7 @@
 #
 # Gated behind `kepler.k3s.enable`. ⚠ Uses systemd-networkd — deploy supervised.
 {
+  self,
   inputs,
   config,
   ...
@@ -20,6 +21,7 @@ in {
   flake.modules.nixos.kepler-k3s-cluster = {
     config,
     lib,
+    pkgs,
     ...
   }: let
     cfg = config.kepler.k3s;
@@ -40,6 +42,8 @@ in {
     workerServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString traefikIngressPort};") (lib.range 1 cfg.workerCount);
 
     tokenDir = "/var/lib/k3s-cluster";
+    bootstrapDir = "/run/k3s-bootstrap";
+    sopsFile = self + "/secrets/sops/secrets.yaml";
 
     # etcd snapshots land here (kepler's bulk-pool ZFS, /bulk) via a per-CP
     # virtiofs share — survives guest root.img loss. RFC §13.
@@ -259,6 +263,13 @@ in {
             source = "${etcdSnapshotBase}/${name}";
             mountPoint = "/etcd-snapshots";
             proto = "virtiofs";
+          }
+          ++ lib.optional s.clusterInit {
+            tag = "k3s-bootstrap";
+            source = bootstrapDir;
+            mountPoint = bootstrapDir;
+            proto = "virtiofs";
+            readOnly = true;
           };
         volumes = [
           {
@@ -315,6 +326,78 @@ in {
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
       users.users.root.openssh.authorizedKeys.keys = sshKeys;
+
+      # Bootstrap-only credentials cross the host/guest boundary through a
+      # dedicated read-only share. The guest gets neither the fleet age key nor
+      # the rest of /run/secrets. A timer repairs deletion and picks up rotation
+      # without bouncing the control plane.
+      systemd.services.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
+        description = "Reconcile Argo and ESO bootstrap credentials";
+        wantedBy = ["multi-user.target"];
+        after = ["k3s.service"];
+        wants = ["k3s.service"];
+        serviceConfig = {
+          Type = "oneshot";
+          UMask = "0077";
+          NoNewPrivileges = true;
+          PrivateTmp = true;
+          ProtectHome = true;
+          ProtectSystem = "strict";
+          RestrictAddressFamilies = ["AF_INET" "AF_INET6" "AF_UNIX"];
+          CapabilityBoundingSet = "";
+        };
+        path = [pkgs.k3s pkgs.coreutils];
+        script = ''
+          set -euo pipefail
+          repo_key=${bootstrapDir}/argocd_repo_ssh_key
+          approle_id=${bootstrapDir}/vault_approle_secret_id
+          test -s "$repo_key"
+          test -s "$approle_id"
+
+          ready=0
+          for _ in $(seq 60); do
+            if k3s kubectl get --raw /readyz >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "apiserver not ready; bootstrap credentials not reconciled" >&2
+            exit 1
+          fi
+
+          for namespace in argocd external-secrets; do
+            k3s kubectl create namespace "$namespace" --dry-run=client -o yaml \
+              | k3s kubectl apply -f - >/dev/null
+          done
+
+          k3s kubectl -n argocd create secret generic homelab-gitops-repo \
+            --from-literal=type=git \
+            --from-literal=url=git@github.com:ErikBPF/homelab-gitops.git \
+            --from-literal=name=homelab-gitops \
+            --from-file=sshPrivateKey="$repo_key" \
+            --dry-run=client -o yaml \
+            | k3s kubectl apply -f - >/dev/null
+          k3s kubectl -n argocd label secret homelab-gitops-repo \
+            argocd.argoproj.io/secret-type=repository --overwrite >/dev/null
+
+          k3s kubectl -n external-secrets create secret generic vault-approle \
+            --from-file=secret_id="$approle_id" \
+            --dry-run=client -o yaml \
+            | k3s kubectl apply -f - >/dev/null
+
+          echo "bootstrap credentials reconciled: argocd/homelab-gitops-repo external-secrets/vault-approle"
+        '';
+      };
+      systemd.timers.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnBootSec = "30s";
+          OnUnitActiveSec = "15m";
+          Unit = "k3s-bootstrap-secrets.service";
+        };
+      };
 
       system.stateVersion = "25.11";
     };
@@ -419,6 +502,17 @@ in {
         '';
       };
 
+      sops.secrets."k3s_bootstrap/argocd_repo_ssh_key" = {
+        inherit sopsFile;
+        path = "${bootstrapDir}/argocd_repo_ssh_key";
+        mode = "0400";
+      };
+      sops.secrets."k3s_bootstrap/vault_approle_secret_id" = {
+        inherit sopsFile;
+        path = "${bootstrapDir}/vault_approle_secret_id";
+        mode = "0400";
+      };
+
       microvm.autostart = allNames;
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
 
@@ -457,6 +551,11 @@ in {
           # the unit and leaving it "activating" until a manual restart. Give it
           # headroom so boots self-heal (Restart=always handles the rest).
           "microvm@".serviceConfig.TimeoutStartSec = 300;
+          "microvm@cp-1" = {
+            overrideStrategy = "asDropin";
+            after = ["sops-nix.service"];
+            wants = ["sops-nix.service"];
+          };
         }
         # Stagger cold boot to cut the simultaneous-boot vsock-notify contention:
         # cp-1 first (clusterInit), then cp-2 → cp-3 serially (clean sequential etcd

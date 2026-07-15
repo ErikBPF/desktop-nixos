@@ -1944,6 +1944,93 @@ verify-k3s-observability:
     printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
     test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
 
+# Read-only proof that cp-1's timer last reconciled both bootstrap Secrets.
+verify-k3s-bootstrap:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 '\''
+        set -euo pipefail
+        systemctl is-active k3s-bootstrap-secrets.timer
+        test "$(systemctl show k3s-bootstrap-secrets.service -p Result --value)" = success
+        k3s kubectl -n argocd get secret homelab-gitops-repo -o name
+        k3s kubectl -n external-secrets get secret vault-approle -o name
+        k3s kubectl wait --for=condition=Ready clustersecretstore/vault-discovery --timeout=2m
+      '\''
+    '
+
+# Acceptance test: delete only the two bootstrap Secrets, run the reconciler,
+# and prove both return. Values are never read or printed.
+test-k3s-bootstrap-recovery:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 '\''
+        set -euo pipefail
+        k3s kubectl -n argocd delete secret homelab-gitops-repo
+        k3s kubectl -n external-secrets delete secret vault-approle
+        systemctl start k3s-bootstrap-secrets.service
+        k3s kubectl -n argocd get secret homelab-gitops-repo -o name
+        k3s kubectl -n external-secrets get secret vault-approle -o name
+        k3s kubectl wait --for=condition=Ready clustersecretstore/vault-discovery --timeout=2m
+      '\''
+    '
+
+# List OpenBao AppRole names + non-secret role IDs from Discovery without
+# exposing the root token or any secret IDs.
+vault-approle-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    printf '%s\n' "$token" | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token
+      cfg=$(mktemp)
+      trap "rm -f $cfg" EXIT
+      printf "X-Vault-Token: %s\\n" "$token" > "$cfg"
+      unset token
+      chmod 600 "$cfg"
+      curl --header @"$cfg" --silent --show-error --fail "http://127.0.0.1:8200/v1/auth/approle/role?list=true" \
+        | jq -r ".data.keys[]" \
+        | while IFS= read -r role; do
+        id=$(curl --header @"$cfg" --silent --show-error --fail "http://127.0.0.1:8200/v1/auth/approle/role/$role/role-id" | jq -r .data.role_id)
+        printf "%s\\t%s\\n" "$role" "$id"
+      done
+    '
+
+# Rotate ESO's dedicated AppRole secret ID and capture both k3s bootstrap
+# credentials directly into sops. Secret values never enter argv or stdout.
+capture-k3s-bootstrap-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    secret_id=$(
+      printf '%s\n' "$token" | ssh -p 2222 erik@{{ip_discovery}} '
+        set -euo pipefail
+        IFS= read -r token
+        cfg=$(mktemp)
+        trap "rm -f $cfg" EXIT
+        printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+        unset token
+        chmod 600 "$cfg"
+        curl --header @"$cfg" --silent --show-error --fail --request POST \
+          "http://127.0.0.1:8200/v1/auth/approle/role/eso/secret-id" \
+          | jq -er .data.secret_id
+      '
+    )
+    unset token
+    printf '%s' "$secret_id" | jq -Rs . \
+      | sops set --value-stdin secrets/sops/secrets.yaml '["k3s_bootstrap"]["vault_approle_secret_id"]'
+    unset secret_id
+    kubectl --context pastelariadev -n argocd get secret homelab-gitops-repo \
+      -o jsonpath='{.data.sshPrivateKey}' \
+      | base64 --decode \
+      | jq -Rs . \
+      | sops set --value-stdin secrets/sops/secrets.yaml '["k3s_bootstrap"]["argocd_repo_ssh_key"]'
+    echo ":: k3s bootstrap credentials encrypted in sops"
+
 # Collect sanitized K1 collision evidence. Collector executes from committed
 # stdin, writes nothing remotely, and emits only allowlisted runtime metadata.
 kepler-recovery-inventory:
