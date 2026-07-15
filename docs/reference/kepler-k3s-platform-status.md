@@ -67,14 +67,16 @@ Last updated: 2026-07-15.
 
 ### GitOps workloads (`homelab-gitops` — servarr-style, not Nix)
 
-Argo CD app-of-apps, sync-waves, thin Helm wrapper charts. Live state on
-2026-07-15: **12 applications Synced; 10 Healthy and 2 Degraded**. The degraded
-pair is explicit recovery work, not hidden under the historical healthy claim.
+Argo CD app-of-apps, sync-waves, thin Helm wrapper charts. Live recovery proof
+on 2026-07-15: all 12 applications were reachable; ESO was Healthy, its
+`ClusterSecretStore` was Ready, and the demo pod was Running/Ready after its
+Vault-backed secret synchronized. Argo health can briefly show Progressing or
+OutOfSync while post-reboot controllers refresh.
 
 | App | Role |
 |-----|------|
 | `argocd` | GitOps controller (app-of-apps root) |
-| `external-secrets` | ESO → Vault@discovery via AppRole; currently Degraded because the `vault-approle` bootstrap Secret is absent |
+| `external-secrets` | ESO → Vault@discovery via dedicated AppRole; bootstrap Secret is reconciled from sops |
 | `csi-driver-nfs` | `nfs-fast` + `nfs-slow` storage classes |
 | `traefik` | **Default** IngressClass (post-cutover), NodePort 30444/30081 |
 | `keda` | Cron `ScaledObject` scale-to-zero |
@@ -82,7 +84,7 @@ pair is explicit recovery work, not hidden under the historical healthy claim.
 | `trace-demo` | telemetrygen trace producer |
 | `kube-state-metrics` | Cluster-object metrics |
 | `alloy-metrics` | KSM + cAdvisor + Traefik scrape → discovery Prometheus |
-| `demo` | Flagship workload; currently Degraded downstream of the missing ESO credential |
+| `demo` | Flagship workload; Vault ExternalSecret Ready and pod Running/Ready |
 | `root` | App-of-apps parent |
 
 **Historically validated end-to-end before the latest cluster rebuild:**
@@ -123,18 +125,15 @@ pair is explicit recovery work, not hidden under the historical healthy claim.
   The provisioned Grafana dashboard is `etcd-control-plane`.
 - **Argo recovery** — refreshed the admin kubeconfig, reinstalled Argo, replaced
   its orphaned read-only GitHub deploy key, and reconciled the app-of-apps at
-  revision `44a4938`. The repository key currently exists only as a Kubernetes
-  Secret; durable bootstrap delivery remains open.
-
-### Recovery follow-up — do before feature work
-
-- **Make bootstrap credentials reproducible.** A cluster rebuild erased both
-  the Argo repository credential and ESO's `vault-approle` Secret. Argo was
-  recovered manually; ESO remains Degraded and `demo` cannot start. Define the
-  ownership and restore path for both credentials under the existing rule:
-  sops owns bootstrap secrets, Vault owns runtime secrets. Verification is a
-  fresh cluster namespace with Argo `Synced/Healthy`, `ClusterSecretStore`
-  `Ready=True`, and the demo pod Ready without copying a personal SSH key.
+  revision `44a4938`.
+- **Reproducible bootstrap credentials** — sops owns the read-only Argo deploy
+  key and ESO AppRole secret ID. Kepler materializes only those two values into
+  a root-only runtime directory; cp-1 receives that directory read-only and a
+  timer reconciles the two named Kubernetes Secrets. `just
+  test-k3s-bootstrap-recovery` deleted both Secrets and proved automatic
+  recreation, `ClusterSecretStore Ready=True`, and a Running/Ready demo pod.
+  The boot-race guard waits up to five minutes for sops activation; its next
+  cold-boot execution remains the final operational spot-check.
 
 ### Deferred — needs a deliberate node bounce (schedule, ideally with orion up)
 

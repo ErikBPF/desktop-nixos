@@ -530,6 +530,15 @@ in {
               UMask = "0077";
             };
             script = ''
+              for _ in $(seq 60); do
+                if [ -s ${config.sops.secrets.k3s-bootstrap-argocd-repo-ssh-key.path} ] \
+                  && [ -s ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path} ]; then
+                  break
+                fi
+                sleep 5
+              done
+              test -s ${config.sops.secrets.k3s-bootstrap-argocd-repo-ssh-key.path}
+              test -s ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path}
               install -m 0400 ${config.sops.secrets.k3s-bootstrap-argocd-repo-ssh-key.path} \
                 ${bootstrapDir}/argocd_repo_ssh_key
               install -m 0400 ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path} \

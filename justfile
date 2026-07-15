@@ -1962,7 +1962,11 @@ verify-k3s-bootstrap:
 
 # Read-only startup detail for k3s microVMs and their virtiofs helpers.
 diagnose-k3s-guests:
-    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl list-jobs --no-pager; sudo systemctl status sops-nix.service microvms.target k3s-bootstrap-materialize.service microvm@cp-{1,2,3}.service --no-pager -l; sudo journalctl -b -u k3s-bootstrap-materialize.service -u microvm@cp-1.service -u install-microvm-cp-1.service --no-pager -n 120; sudo find /run/k3s-bootstrap -maxdepth 1 -type f -printf 'host %f %s bytes\n'; ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 'find /run/k3s-bootstrap -maxdepth 1 -type f -printf \"guest %f %s bytes\\n\"; systemctl status k3s-bootstrap-secrets.service k3s-bootstrap-secrets.timer --no-pager -l; journalctl -b -u k3s-bootstrap-secrets.service --no-pager -n 80'"
+    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl list-jobs --no-pager; sudo systemctl status microvms.target k3s-bootstrap-materialize.service microvm@cp-{1,2,3}.service --no-pager -l; sudo journalctl -b -u k3s-bootstrap-materialize.service -u microvm@cp-1.service -u install-microvm-cp-1.service --no-pager -n 120; sudo find -L /run/secrets -maxdepth 2 -printf 'secret-path %P %y\n'; sudo find /run/k3s-bootstrap -maxdepth 1 -type f -printf 'host %f %s bytes\n'; ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 'find /run/k3s-bootstrap -maxdepth 1 -type f -printf \"guest %f %s bytes\\n\"; systemctl status k3s-bootstrap-secrets.service k3s-bootstrap-secrets.timer --no-pager -l; journalctl -b -u k3s-bootstrap-secrets.service --no-pager -n 80'"
+
+# Retry the exact bootstrap dependency chain after a diagnosed boot failure.
+recover-k3s-bootstrap-guest:
+    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl reset-failed k3s-bootstrap-materialize.service microvm@cp-1.service; sudo systemctl start k3s-bootstrap-materialize.service microvm@cp-1.service"
 
 # Acceptance test: delete only the two bootstrap Secrets, run the reconciler,
 # and prove both return. Values are never read or printed.
