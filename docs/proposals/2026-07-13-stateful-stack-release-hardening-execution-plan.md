@@ -507,7 +507,19 @@ responses over direct queries. The drill harness now treats that exact observed
 gateway as an approval-bound third resolver, places it first in the namespace
 resolver order, and requires nonce-derived UDP/TCP equivalence before, during,
 and after the outage. No WAN/USG import is required; independence remains to be
-proved only by the separately approved outage.
+proved only by the separately approved outage. Approved manifest `4b394b17…`
+then stopped only the exact `adguard-exporter` and `adguard` container IDs. The
+normal-resolver matrix passed, but the complete secondary matrix exceeded the
+strict 10,000 ms deadline at 10,459 ms, so the retained run failed closed. The
+recovery path restarted the same IDs and proved AdGuard healthy, but its
+five-second exporter readiness window expired and the artifact conservatively
+recorded recovery failure. Immediately afterward, the value-free exporter
+diagnostic found all three required metric families and a complete fresh
+observation passed RA, routes, every UDP/TCP resolver matrix, and exact
+container identity. This proves the services were restored; it does not
+retroactively pass the failed drill. P3 remains blocked while the harness gains
+deterministic parallel outage probes and a separately bounded exporter warm-up,
+after which observation, manifest, and exact approval must all be renewed.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -678,7 +690,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | DHCPv4/generic proof complete; RDNSS equivalence proven read-only; outage pending | Desktop `3c88a30`, `5903ca0`, `a50415e`, `19aac0d`, `b64d290`, `ce88dfa`, `d78ce3c`, `75f82a1`, `aa914cb`; homelab-iac `85f2737`, failed experiment `4819834`, rollback `ef3956e`; zero-diff/baseline restored; gateway RDNSS matches fleet/filter contract | Renew hash-bound RDNSS-first observation; approve exact AdGuard outage/restore proof |
+| P3 | Blocked — approved outage missed strict deadline; services restored | Desktop through `aedb9e5`; approved manifest `4b394b17…`/inventory `ab3cc2e8…`; normal matrix passed; full proof failed at 10,459/10,000 ms; retained journal; exporter 3/3 and full post-restore observation passed | Parallel deterministic probe harness; bounded exporter warm-up; renew observation/manifest; obtain fresh exact approval |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |

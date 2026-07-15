@@ -40,10 +40,11 @@ class FinalReviewContract(unittest.TestCase):
 
         proof_end = outage.index("record secondary-matrix passed")
         proof = outage[:proof_end]
-        self.assertRegex(proof, r"check_dns_matrix\s+system\s+\"\$transport\"")
-        self.assertRegex(proof, r"check_dns_matrix\s+\"\$rdnss\"\s+\"\$transport\"")
-        self.assertRegex(proof, r"check_dns_matrix\s+192\.168\.10\.230\s+\"\$transport\"")
-        self.assertIn("for transport in udp tcp", proof)
+        workers = source[source.index("run_outage_workers()") : source.index("append_postrestore_matrix()")]
+        self.assertIn('resolvers=(system system "$rdnss" "$rdnss" 192.168.10.230 192.168.10.230)', workers)
+        self.assertIn("transports=(udp tcp udp tcp udp tcp)", workers)
+        self.assertIn("for worker_ordinal in 01 02 03 04 05 06", workers)
+        self.assertIn("run_outage_workers", proof)
 
     def test_postrestore_checks_run_after_restore_even_when_outage_proof_failed(self):
         source = DRILL.read_text()

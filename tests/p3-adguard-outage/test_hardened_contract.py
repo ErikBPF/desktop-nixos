@@ -266,7 +266,11 @@ case "$cmd" in
             self.assertEqual(result.returncode, expected, result.stderr); journal = (run_dir / "journal.jsonl").read_text()
             for phase in ("stop-exporter", "stop-adguard", "stopped-gate", "failover-probe", "secondary-matrix", "recovery-attempt"):
                 self.assertIn(f'"event":"{phase}"', journal)
-            self.assertTrue((run_dir / ("result.json" if expected == 0 else "failure.json")).exists())
+            artifact_path = run_dir / ("result.json" if expected == 0 else "failure.json"); self.assertTrue(artifact_path.exists())
+            if expected == 0:
+                artifact = json.loads(artifact_path.read_text())
+                self.assertRegex(artifact["outage_results_sha256"], r"^[0-9a-f]{64}$")
+                self.assertEqual(artifact["outage_results_sha256"], artifact["partial_outage_results_sha256"])
 
     def test_outage_deadline_failure_preserves_original_rc_after_successful_recovery_checks(self):
         self.test_recovery_succeeds_on_attempts_one_two_three_or_records_exhaustion()
@@ -299,8 +303,10 @@ case "$cmd" in
         if artifact.get("original_failure_rc", 0) <= 0: failures.append("original_failure_rc")
         if artifact.get("recovery_failed") is not False: failures.append("recovery_failed")
         if artifact.get("actual_elapsed_ms") is None: failures.append("actual_elapsed_ms")
-        if not re.fullmatch(r"[0-9a-f]{64}", artifact.get("outage_results_sha256") or ""):
-            failures.append("outage-results-hash")
+        if artifact.get("outage_results_sha256") is not None:
+            failures.append("full-outage-hash-on-partial-evidence")
+        if not re.fullmatch(r"[0-9a-f]{64}", artifact.get("partial_outage_results_sha256") or ""):
+            failures.append("partial-outage-results-hash")
         if not re.fullmatch(r"[0-9a-f]{64}", artifact.get("postrestore_results_sha256") or ""):
             failures.append("postrestore-results-hash")
         if not any(record.get("event") == "postrestore-checks" and
