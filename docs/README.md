@@ -37,6 +37,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Status |
 |-----|--------|
+| [`behaviors/discovery-adguard-adoption/behavior.md`](behaviors/discovery-adguard-adoption/behavior.md) · [`test contract`](behaviors/discovery-adguard-adoption/test-contract.md) | Draft P2 contract — fixtures and value-free read-only preflight only; mutation remains blocked by protection evidence and secondary DNS or an exact waiver. |
 | [`behaviors/kepler-collision-migration/behavior.md`](behaviors/kepler-collision-migration/behavior.md) · [`test contract`](behaviors/kepler-collision-migration/test-contract.md) | Approved normative K0–K5 recovery contract — recovery completed with the execution plan's recorded operator-approved retirement deviation. |
 | [`proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md`](proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md) | In progress — Kepler recovery and Discovery P1 SWAG adoption are complete; P2 AdGuard in-place adoption is next. |
 | [`proposals/2026-07-13-stateful-stack-release-hardening.md`](proposals/2026-07-13-stateful-stack-release-hardening.md) | In progress — P0, Kepler K0–K5 with recorded deviation, and Discovery P1 are complete; P2 is next. |

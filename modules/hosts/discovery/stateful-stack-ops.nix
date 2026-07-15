@@ -58,6 +58,15 @@ _: {
     statefulSwagPreflight = pkgs.writeShellScriptBin "discovery-stateful-swag-preflight" ''
       exec ${pkgs.python3}/bin/python3 ${./_stateful-swag-preflight.py} "$@"
     '';
+    statefulAdguardInventory = pkgs.writeShellScriptBin "discovery-stateful-adguard-inventory" ''
+      exec ${pkgs.python3}/bin/python3 ${./_stateful-adguard-inventory.py} "$@"
+    '';
+    statefulAdguardPreflight = pkgs.writeShellScriptBin "discovery-stateful-adguard-preflight" ''
+      export P2_ADGUARD_TARGET_COMMIT=9969e35dca0cfb49a68bda3ba10156667cd4b53f
+      export P2_ADGUARD_IMAGE_ADGUARD=adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927
+      export P2_ADGUARD_IMAGE_EXPORTER=ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1@sha256:42a9581bae4a91e6d4985415d1fe89ab9b1f50fbe2945a1c122d212d6354b747
+      exec ${pkgs.python3}/bin/python3 ${./_stateful-adguard-preflight.py} "$@"
+    '';
     statefulSwagTransition = pkgs.writeShellApplication {
       name = "discovery-stateful-swag-transition";
       runtimeInputs = with pkgs; [
@@ -100,6 +109,8 @@ _: {
   in {
     environment.systemPackages = [
       statefulStackOps
+      statefulAdguardInventory
+      statefulAdguardPreflight
       statefulSwagAdopt
       statefulSwagInventory
       statefulSwagPreflight

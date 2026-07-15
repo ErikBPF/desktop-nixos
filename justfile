@@ -3038,6 +3038,51 @@ discovery-swag-transition-amendment-execute observation authorization manifest-s
       ssh -p 2222 erik@{{ip_discovery}} \
         "bundle=\$(mktemp -d); trap 'rm -rf \"\$bundle\"' EXIT; tar -C \"\$bundle\" -xf -; sudo discovery-stateful-swag-transition-amendment execute \"\$bundle/observation.json\" \"\$bundle/authorization.json\" --manifest-sha $hash"
 
+# P2 read-only inventory. It records only allowlisted identities, metadata,
+# booleans, counts, and probe statuses; it never emits credentials or payloads.
+discovery-adguard-inventory output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'sudo discovery-stateful-adguard-inventory capture' >"$tmp"
+    P2_ADGUARD_TARGET_COMMIT=9969e35dca0cfb49a68bda3ba10156667cd4b53f \
+      P2_ADGUARD_IMAGE_ADGUARD=adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927 \
+      P2_ADGUARD_IMAGE_EXPORTER=ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1@sha256:42a9581bae4a91e6d4985415d1fe89ab9b1f50fbe2945a1c122d212d6354b747 \
+      python3 modules/hosts/discovery/_stateful-adguard-preflight.py plan "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    ln "$tmp" "{{output}}"
+    rm "$tmp"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-adguard-preflight inventory output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    P2_ADGUARD_TARGET_COMMIT=9969e35dca0cfb49a68bda3ba10156667cd4b53f \
+      P2_ADGUARD_IMAGE_ADGUARD=adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927 \
+      P2_ADGUARD_IMAGE_EXPORTER=ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1@sha256:42a9581bae4a91e6d4985415d1fe89ab9b1f50fbe2945a1c122d212d6354b747 \
+      python3 modules/hosts/discovery/_stateful-adguard-preflight.py plan "{{inventory}}" >"$tmp"
+    chmod 0400 "$tmp"
+    ln "$tmp" "{{output}}"
+    rm "$tmp"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-adguard-result inventory authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    P2_ADGUARD_TARGET_COMMIT=9969e35dca0cfb49a68bda3ba10156667cd4b53f \
+      P2_ADGUARD_IMAGE_ADGUARD=adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927 \
+      P2_ADGUARD_IMAGE_EXPORTER=ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1@sha256:42a9581bae4a91e6d4985415d1fe89ab9b1f50fbe2945a1c122d212d6354b747 \
+      python3 modules/hosts/discovery/_stateful-adguard-preflight.py verify \
+        "{{inventory}}" "{{authorization}}"
+
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
 # identity or volatile sdX path.
