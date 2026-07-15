@@ -2,8 +2,8 @@
 
 **Status:** In progress — P0 and Kepler recovery complete; operator-approved
 retirement of Kepler AI-serving executed and verified after reboot. Discovery
-consumer cleanup and the P1 read-only preflight are complete. P1 mutation is
-blocked only on explicit approval of the current hash-bound SWAG manifest.
+P1 in-place SWAG adoption passed under the approved amendment manifest and is
+idempotent. P1 remains open only for reboot-persistence verification.
 
 ## 1. Purpose and authority
 
@@ -49,27 +49,37 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   comparisons passed. All fixture resources remain retained.
 - P0 completion evidence is in desktop `5a24439`.
 
-### P1 — staged, not yet mutated
+### P1 — in-place adoption complete; reboot gate pending
 
-- Servarr `ffbfa7e` retains the SWAG and `swag-init` immutable pins and
-  publishes the complete Discovery networking SecretSpec contract. Discovery
-  runtime consumption remains git-pull based; this flake has no Servarr input.
-- Desktop `3bbefaf` installs fixed workflow
-  `discovery-stateful-swag-adopt.service`. It is disabled and has not run.
-- SWAG is healthy under project `networking`, owner
-  `/home/erik/servarr/machines/discovery`, with its only state bind mounted at
-  `/config`.
-- The bind measured `18,049,624` bytes, owner `1000:1000`.
-- Pre-change nginx, ingress, and certificate checks pass. `cloudflare.ini` is
-  unexpectedly `0644`; P1 requires `0600` after recreation and fails otherwise.
-- Later gate: replacing containers `swag` and `swag-init` requires explicit
-  approval after K5. P1 deletes no volume, snapshot, backup, or state.
-- The fresh read-only inventory passed after the AppArmor reload fix and binds
-  inventory SHA-256
-  `2cb876b1073abf4f1f43de687b78cae3ee0862bae8662b7d7bec02325ce361c0`
-  to manifest SHA-256
-  `cdc1e0d261b53438f017a39be0060795126d1a80ada983bf0d6f9dddc5aa16fc`.
-  No P1 execute, stop, snapshot, archive, or Compose mutation has run.
+- Servarr `b676063` retains immutable SWAG and `swag-init` pins, publishes the
+  complete Discovery networking SecretSpec contract, removes the tracked
+  runtime credential, and recreates it atomically with mode `0600` and owner
+  `1000:1000`. Runtime consumption remains git-pull based; this flake has no
+  Servarr input.
+- The original transition manifest
+  `426fa097cd4b6ce0e12609e25f64732dac0f1dacfb4dda8f1a3563f3cca854e4`
+  stopped before any container lifecycle phase when its rendered-Compose
+  contract was found incorrect, after the repository reset removed the tracked
+  credential path. Its no-clobber journal remains preserved as superseded
+  evidence.
+- The operator approved amendment manifest
+  `94781f280a9a321d55b8ed7ad598b2df4202725ce80893440eadfe4b977a62fd`,
+  bound to observation
+  `2851163419f0f18ee928e6d11ff54d5e4723d410e5bf164506eeb3548ae1663e`,
+  for exactly `swag-init` and `swag` while preserving the superseded journal.
+- The resumable amendment recreated only those two containers. It verified the
+  corrected value-free Compose render, exact project/owner/images/bind,
+  credential metadata without reading its value, SWAG health, the immutable
+  standard Certbot hook set, nginx, certificate/DNS-01, ingress, and Kindle PNG.
+  No volume, snapshot, backup, or bind state was deleted.
+- The final result is `status: passed`, with runtime SHA-256
+  `e695dbefc12260c86a0ae77dbeb6f22d38ea3ee717a17a815c04e0e25d5309a6`.
+  Re-executing the same approved amendment returned the identical result and
+  performed no container recreation, proving resumability after completion.
+- Desktop `ca6f41d` is the final executor/gate revision. Post-switch host
+  verification found no failed units; Tailscale, Syncthing, Home Manager, and
+  SOPS checks passed. A Discovery reboot and repeated SWAG gates remain before
+  P1 closes.
 - A fixture-tested, offline preflight now exact-binds the two container IDs,
   Compose labels and working directory, immutable image references and image
   IDs, `/config` binds, Servarr commit and rendered-Compose hash, evidence
@@ -102,8 +112,8 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   `*.homelab.pastelariadev.com`, `*.k8s.pastelariadev.com`,
   `ha.pastelariadev.com`, and `k8s.pastelariadev.com`; fixture coverage uses
   the sorted shape emitted by the read-only collector.
-  Neither live entrypoint has been invoked, so no Discovery contact or mutation
-  occurred during implementation.
+  The historical adoption workflow remains retained as evidence; the completed
+  amendment is the authoritative P1 adoption result.
 
 ### K0 — complete
 
@@ -371,7 +381,7 @@ permitted, and a changed inventory invalidates the manifest.
    separate cleanup manifest for later named-resource approval.
 7. Unfreeze Discovery P1 only after all K5 gates are green.
 
-### P1 — SWAG in-place adoption — approval pending
+### P1 — SWAG in-place adoption — reboot gate pending
 
 #### P1.1 Immutable pins — complete
 
@@ -381,30 +391,40 @@ permitted, and a changed inventory invalidates the manifest.
   `busybox:1.38@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d`
 - Compose render, digest assertions, and state-volume tests passed.
 
-#### P1.2 In-place adoption — approval gate
+#### P1.2 In-place adoption — complete
 
-After approval naming `swag`, `swag-init`, and manifest SHA-256
-`cdc1e0d261b53438f017a39be0060795126d1a80ada983bf0d6f9dddc5aa16fc`:
+Executed for exactly `swag`, `swag-init` under amendment manifest SHA-256
+`94781f280a9a321d55b8ed7ad598b2df4202725ce80893440eadfe4b977a62fd`:
 
-1. Start the fixed SWAG adoption service.
-2. Confirm ledger precedes stop; verify `/home` snapshot and bind archive.
+1. Validate the approved observation, authorization, superseded journal,
+   Servarr target revision, and corrected value-free Compose render.
+2. Re-inspect the exact original runtime and credential rewrite source.
 3. Recreate only init/SWAG through fixed Compose arguments.
-4. Require exact digest/project/owner/bind, healthy state, no restart loop.
-5. Require credential mode `0600`, expected owner, non-empty secret without
-   logging it.
-6. Run nginx config, exact four-SAN/expiry, Certbot DNS-01 dry-run gates.
+4. Require exact digest/project/owner/bind, healthy state, and no restart loop.
+5. Require the credential path, mode `0600`, and expected owner without reading
+   or logging its value.
+6. Bind the exact standard Certbot hook metadata and hashes, then run nginx,
+   exact four-SAN/expiry, and Certbot DNS-01 dry-run gates.
 7. Probe Grafana `200`, AdGuard `302`, and LAN Kindle `/dash.png` PNG.
-8. Persist downtime, snapshot UUID, archive checksum, certificate fingerprint,
-   and rollback evidence. Retain everything.
+8. Persist the hash-bound final runtime and validation result while retaining
+   every earlier journal.
 
-On hard failure, stop; do not delete evidence. Execute the ledger rollback and
-repeat gates.
+The original manifest stopped after repository reset on a rendered-Compose
+contract mismatch, before container lifecycle. The amendment separately
+stopped on health and hook-contract gates, preserved partial evidence, then
+resumed after reviewed executor corrections. The completed amendment journal
+and superseded original journal are both retained.
 
 #### P1.3 Reboot persistence
 
-Reboot only through documented host workflow. Verify unit ownership, health,
-digest/mount, ingress, certificate, DNS-01, and Kindle route. Record generation
-and probes; then close P1.
+Run `just reboot-discovery` to prove a down/up transition and generic host
+health. Then re-run the already-approved amendment execute recipe with the
+retained observation, authorization, and manifest hash:
+`just discovery-swag-transition-amendment-execute <observation>
+<authorization> <manifest-sha>`. Its completed-state path performs no
+recreation and repeats the exact SWAG identity, mount, credential-metadata,
+health, certificate, DNS-01, ingress, and Kindle gates. Record both results;
+then close P1.
 
 ### P2 — AdGuard in-place adoption
 
@@ -577,13 +597,12 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is K1 read-only inventory, retained-state backup/restore
-evidence, disposable Redis reset selection, and exact approval-manifest
-generation. Kepler K2/K4 execution then
-requires that fresh, exact K1 manifest and matching approval. The staged Discovery
-gate to replace `swag` and `swag-init` becomes active only after K5 and does not
-authorize deletion of bind state, volumes, P0 fixtures, P1 protection, or
-legacy resources.
+The current active gate is P1.3: reboot Discovery through the documented recipe,
+then repeat SWAG identity, health, mount, credential-metadata, certificate,
+DNS-01, ingress, and Kindle probes. The completed amendment did not authorize
+deletion of bind state, volumes, snapshots, backups, P0 fixtures, P1 evidence,
+or legacy resources. P2 remains blocked until this reboot-persistence gate is
+green.
 
 ## 8. Completion ledger
 
@@ -591,12 +610,9 @@ legacy resources.
 |---|---|---|---|
 | P0 | Complete | Servarr `98ecafb`; desktop `50454f9`, `6217215`, `061a1cc`, `5a24439`; retained fixture | P9 cleanup only |
 | K0 | Complete | Servarr `1805e1d`; 21 planner fixtures; Kepler dry-build; full flake check | K1 evidence and exact approval manifest |
-| K1 | In progress | Prior published evidence plus local disposable-Redis contract verification: 144 recovery tests | Fresh inventory; retained-state restore proof; exact Redis reset selection; manifest review and approval |
-| K2 | Pending | — | Approved, drift-free K1 manifest |
-| K3 | Pending | Redis cache declared disposable; exact reset contract fixture | K2 verified; retained-state backups and exact Redis reset selection |
-| K4 | Pending | — | K3 snapshot/coverage proof and approved exact Redis reset selection |
-| K5 | Pending | — | K4 green; reboot and cross-host validation |
-| P1 | Fixed workflow implemented; mutation frozen | Servarr `ffbfa7e`; desktop offline exact-binding fixtures, read-only collector, authorization/drift gate, fixed rollback | Fresh value-free live inventory; exact manifest review; approval for `swag`, `swag-init` |
+| K1–K4 | Complete with approved deviation | Exact manifests and force/reset evidence; retained PostgreSQL/Qdrant/MinIO state; disposable Redis reset; final inventory `74c70f4…` | P9 retained-evidence cleanup only |
+| K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
+| P1 | Adoption complete; reboot pending | Servarr `b676063`; amendment `94781f28…` passed and idempotent; desktop `ca6f41d`; post-switch host verification | Reboot Discovery and repeat persistence/smoke gates |
 | P2 | Pending | — | P1 complete |
 | P3 | Pending | Read-only audit | P2; LAN-reachable design |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |

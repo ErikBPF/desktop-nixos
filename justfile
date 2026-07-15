@@ -1957,6 +1957,47 @@ reboot-kepler:
     echo ":: kepler did not return within 120s" >&2
     exit 1
 
+# Reboot Discovery and prove the host transitioned down then up. The separate
+# `just discovery-swag-transition-amendment-execute ...` repeats the exact P1
+# SWAG gates after this returns.
+reboot-discovery:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    set +e
+    ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 erik@"$IP" sudo systemctl reboot
+    reboot_status=$?
+    set -e
+    if (( reboot_status != 0 && reboot_status != 255 )); then
+        echo ":: discovery reboot dispatch failed with status $reboot_status" >&2
+        exit 1
+    fi
+    echo ":: waiting for discovery to stop..."
+    saw_down=0
+    for _ in $(seq 1 30); do
+        if ! ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=2 erik@"$IP" true 2>/dev/null; then
+            saw_down=1
+            break
+        fi
+        sleep 1
+    done
+    if (( saw_down == 0 )); then
+        echo ":: discovery never became unreachable after reboot dispatch" >&2
+        exit 1
+    fi
+    echo ":: waiting for discovery to return..."
+    deadline=$((SECONDS + 240))
+    while (( SECONDS < deadline )); do
+        if ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=2 erik@"$IP" true 2>/dev/null; then
+            echo ":: discovery reachable"
+            just verify discovery "$IP" 2222 erik
+            exit 0
+        fi
+        sleep 2
+    done
+    echo ":: discovery did not return within 240s" >&2
+    exit 1
+
 # Read-only proof for the k3s guest reconciler and embedded-etcd metrics.
 verify-k3s-observability:
     #!/usr/bin/env bash
