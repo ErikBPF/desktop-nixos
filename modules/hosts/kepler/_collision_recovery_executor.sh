@@ -150,6 +150,19 @@ for index in "${!kinds[@]}"; do
       elif [[ $running != true ]]; then
         die 'invalid database container state'
       fi
+      ready=false
+      for _ in $(seq 1 60); do
+        if podman exec "$guard" sh -ceu \
+          'exec pg_isready -U "$POSTGRES_USER" -d postgres' >/dev/null 2>&1; then
+          ready=true
+          break
+        fi
+        sleep 1
+      done
+      if ! $ready; then
+        $started && podman stop "$guard" >/dev/null 2>&1 || true
+        die 'PostgreSQL readiness failed'
+      fi
       if ! podman exec "$guard" sh -ceu \
         'exec dropdb --if-exists -U "$POSTGRES_USER" airflow' 2>/dev/null; then
         $started && podman stop "$guard" >/dev/null 2>&1 || true

@@ -87,6 +87,8 @@ PY
   # shellcheck disable=SC2016
   run grep -Fx "podman <start> <$(printf '3%.0s' {1..64})>" "$MOCK_LOG"
   [ "$status" -eq 0 ]
+  run grep -Fx 'podman <exec> <3333333333333333333333333333333333333333333333333333333333333333> <sh> <-ceu> <exec pg_isready -U "$POSTGRES_USER" -d postgres>' "$MOCK_LOG"
+  [ "$status" -eq 0 ]
   run grep -Fx 'podman <exec> <3333333333333333333333333333333333333333333333333333333333333333> <sh> <-ceu> <exec dropdb --if-exists -U "$POSTGRES_USER" airflow>' "$MOCK_LOG"
   [ "$status" -eq 0 ]
   run grep -Fx "podman <stop> <$(printf '3%.0s' {1..64})>" "$MOCK_LOG"
