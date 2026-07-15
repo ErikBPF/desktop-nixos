@@ -108,6 +108,13 @@ class RetireAiServingTests(unittest.TestCase):
         for forbidden in ("prune", "zfs destroy", "volume rm", "/fast\""):
             self.assertNotIn(forbidden, source)
 
+    def test_remote_recipe_uses_declarative_python_interpreter(self):
+        recipe = (ROOT / "justfile").read_text()
+        line = next(line for line in recipe.splitlines()
+                    if "_retire_ai_serving.py" in line)
+        self.assertIn("kepler-collision-recovery-inventory", line)
+        self.assertNotIn("'python3 -", line)
+
 
 if __name__ == "__main__":
     unittest.main()

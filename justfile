@@ -911,7 +911,7 @@ kick-stack target stack:
 # Permanently remove the seven disposable AI containers, their seven exact
 # images, and /fast/ai-models. The helper re-inventories and fails closed.
 kepler-retire-ai-serving-user-approved:
-    ssh -p 2222 erik@{{ip_kepler}} 'python3 - --execute-user-approved' < modules/hosts/kepler/_retire_ai_serving.py
+    ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" - --execute-user-approved' < modules/hosts/kepler/_retire_ai_serving.py
 
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
