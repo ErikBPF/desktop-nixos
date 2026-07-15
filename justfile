@@ -2829,7 +2829,9 @@ discovery-swag-transition-target-render:
       echo 'BLOCKED: local Servarr target commit differs' >&2
       exit 1
     }
-    docker compose -f "$repo/machines/discovery/networking.yml" \
+    docker compose --project-name networking \
+      --project-directory /home/erik/servarr/machines/discovery \
+      -f "$repo/machines/discovery/networking.yml" \
       config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk '{print $1}'
 
 # Value-free Git binding diagnostic; does not fetch, reset, or change the clone.
@@ -2846,6 +2848,17 @@ discovery-swag-transition-ref-status:
       printf "fetch_refspec="; git -C /home/erik/servarr config --get-all remote.origin.fetch | paste -sd, -
       printf "deploy_branch="; if test -f /home/erik/servarr/.deploy-branch; then sed -n 1p /home/erik/servarr/.deploy-branch; else echo absent; fi
       git -C /home/erik/servarr fetch --dry-run --verbose origin refs/heads/main:refs/remotes/origin/main 2>&1
+    '
+
+discovery-swag-transition-render-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} '
+      cd /home/erik/servarr/machines/discovery
+      printf "with_env_files="
+      sudo docker-compose --project-name networking --env-file .env --env-file /run/vault-agent/networking.env -f networking.yml config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk "{print \$1}"
+      printf "without_env_files="
+      sudo docker-compose --project-name networking -f networking.yml config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk "{print \$1}"
     '
 
 discovery-swag-transition-observe output:
@@ -2898,6 +2911,61 @@ discovery-swag-transition-execute observation authorization manifest-sha:
     tar -C "$bundle" -cf - observation.json authorization.json | \
       ssh -p 2222 erik@{{ip_discovery}} \
         "bundle=\$(mktemp -d); trap 'rm -rf \"\$bundle\"' EXIT; tar -C \"\$bundle\" -xf -; sudo discovery-stateful-swag-transition execute \"\$bundle/observation.json\" \"\$bundle/authorization.json\" --manifest-sha $hash"
+
+# Amendment for the exact post-reset/pre-phase halt. The original transition
+# journal remains immutable and is hash-bound as superseded evidence.
+discovery-swag-transition-amendment-observe output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo discovery-stateful-swag-transition-amendment observe' >"$tmp"
+    SWAG_TRANSITION_BASE=modules/hosts/discovery/_stateful-swag-transition.py \
+      python3 modules/hosts/discovery/_stateful-swag-transition-amendment.py plan "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-transition-amendment-preflight observation output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    SWAG_TRANSITION_BASE=modules/hosts/discovery/_stateful-swag-transition.py \
+      python3 modules/hosts/discovery/_stateful-swag-transition-amendment.py plan "{{observation}}" >"$tmp"
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-transition-amendment-result observation authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SWAG_TRANSITION_BASE=modules/hosts/discovery/_stateful-swag-transition.py \
+      python3 modules/hosts/discovery/_stateful-swag-transition-amendment.py verify \
+        "{{observation}}" "{{authorization}}"
+
+discovery-swag-transition-amendment-execute observation authorization manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved amendment manifest SHA-256' >&2; exit 1; }
+    test -f "{{observation}}" -a -f "{{authorization}}" || { echo 'BLOCKED: amendment artifacts absent' >&2; exit 1; }
+    test "$(python3 -c 'import json,pathlib,sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text())["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+      echo 'BLOCKED: authorization file does not contain approved amendment manifest SHA-256' >&2
+      exit 1
+    }
+    bundle="$(mktemp -d)"
+    trap 'rm -rf "$bundle"' EXIT
+    install -m 0400 "{{observation}}" "$bundle/observation.json"
+    install -m 0400 "{{authorization}}" "$bundle/authorization.json"
+    tar -C "$bundle" -cf - observation.json authorization.json | \
+      ssh -p 2222 erik@{{ip_discovery}} \
+        "bundle=\$(mktemp -d); trap 'rm -rf \"\$bundle\"' EXIT; tar -C \"\$bundle\" -xf -; sudo discovery-stateful-swag-transition-amendment execute \"\$bundle/observation.json\" \"\$bundle/authorization.json\" --manifest-sha $hash"
 
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault

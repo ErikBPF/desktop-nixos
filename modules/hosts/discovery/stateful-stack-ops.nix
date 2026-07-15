@@ -77,6 +77,26 @@ _: {
         exec python3 ${./_stateful-swag-transition.py} "$@"
       '';
     };
+    statefulSwagTransitionAmendment = pkgs.writeShellApplication {
+      name = "discovery-stateful-swag-transition-amendment";
+      runtimeInputs = with pkgs; [
+        btrfs-progs
+        coreutils
+        curl
+        docker
+        docker-compose
+        git
+        openssl
+        python3
+        sudo
+        statefulSwagInventory
+        statefulSwagPreflight
+      ];
+      text = ''
+        export SWAG_TRANSITION_BASE=${./_stateful-swag-transition.py}
+        exec python3 ${./_stateful-swag-transition-amendment.py} "$@"
+      '';
+    };
   in {
     environment.systemPackages = [
       statefulStackOps
@@ -84,6 +104,7 @@ _: {
       statefulSwagInventory
       statefulSwagPreflight
       statefulSwagTransition
+      statefulSwagTransitionAmendment
     ];
     systemd.services.discovery-stateful-stack-fixture = {
       description = "Prove discovery state migration helpers on a disposable fixture";
