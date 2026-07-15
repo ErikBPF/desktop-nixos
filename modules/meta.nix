@@ -76,7 +76,7 @@
           ip = "192.168.10.220";
           mac = "b4:2e:99:92:4f:8b";
           role = "server";
-          tailscaleIp = "100.102.11.127";
+          tailscaleIp = "100.72.85.73";
         };
         kepler = {
           ip = "192.168.10.230";

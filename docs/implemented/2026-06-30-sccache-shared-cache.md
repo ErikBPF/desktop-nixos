@@ -32,7 +32,7 @@ the Nix path.
    `discovery/vault.nix`. The trust boundary is the tailnet.
 4. **No app auth.** Matches repo posture (vault binds the tailnet, ACL-gated). Add
    `SCCACHE_WEBDAV_TOKEN` later if wanted.
-5. **Endpoint = orion tailnet IP from the fleet SSOT** (`http://100.102.11.127:4321/`),
+5. **Endpoint = orion tailnet IP from the fleet SSOT** (`http://100.72.85.73:4321/`),
    pulled from `fleet.hosts.orion.tailscaleIp` in `modules/meta.nix` — no DNS
    dependency, single source.
 6. **Servers may share the cache too.** The tailnet ACL grant is broad
