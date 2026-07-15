@@ -1,8 +1,9 @@
 # Stateful stack release hardening — execution plan
 
 **Status:** In progress — P0, Kepler recovery, and Discovery P1 SWAG adoption
-are complete. The operator-approved amendment is idempotent and passed again
-after a verified Discovery reboot. P2 AdGuard in-place adoption is next.
+are complete. P2 AdGuard read-only inventory and preflight are binding-valid;
+mutation remains blocked on backup/restore evidence and secondary DNS or an
+explicit bounded waiver.
 
 ## 1. Purpose and authority
 
@@ -441,6 +442,15 @@ ownership remain exact; transition-time identity evidence remains immutable.
 
 ### P2 — AdGuard in-place adoption
 
+Read-only preflight completed on 2026-07-15. Servarr `9969e35` pins both
+images by digest and declares the existing `networking_adguard_work` volume as
+external. Desktop `6dc5c0c` binds the exporter baseline to the three metric
+families registered by exporter `v1.2.1`, retaining only value-free `# TYPE`
+metadata. Inventory `c4c1139e…` produced stable inventory binding
+`6c37a3d0…`; preflight manifest `b1517c27…` verified as binding-valid. It is
+explicitly `preflight-only`, `approval_ready: false`, and authorizes no
+mutation. The protected `discovery_adguard_work` collision remains untouched.
+
 1. Refresh API/config/filter/query-log/exporter baseline.
 2. Record `networking_adguard_work`, immutable digest, size, `65534:65534`
    owner, mode, and mount.
@@ -624,7 +634,7 @@ fixtures, P1 evidence, or legacy resources.
 | K1–K4 | Complete with approved deviation | Exact manifests and force/reset evidence; retained PostgreSQL/Qdrant/MinIO state; disposable Redis reset; final inventory `74c70f4…` | P9 retained-evidence cleanup only |
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
-| P2 | Pending | — | P1 complete |
+| P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
 | P3 | Pending | Read-only audit | P2; LAN-reachable design |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
