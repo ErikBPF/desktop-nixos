@@ -2770,6 +2770,54 @@ discovery-swag-resume-execute authorization manifest-sha:
       "sudo discovery-stateful-swag-adopt resume-attempt-02 --authorization - --manifest-sha $hash" \
       <"{{authorization}}"
 
+# P1 attempt-03 only finalizes evidence and gates the already-recreated exact
+# runtime. It performs no container lifecycle command.
+discovery-swag-finalize-observe output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo discovery-stateful-swag-adopt observe-attempt-03' >"$tmp"
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py finalize-plan "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-finalize-preflight observation output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py finalize-plan "{{observation}}" >"$tmp"
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-finalize-result observation authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py finalize-verify \
+      "{{observation}}" "{{authorization}}"
+
+discovery-swag-finalize-execute authorization manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved finalize manifest SHA-256' >&2; exit 1; }
+    test -f "{{authorization}}" || { echo 'BLOCKED: finalize authorization file absent' >&2; exit 1; }
+    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+      echo 'BLOCKED: authorization file does not contain approved finalize manifest SHA-256' >&2
+      exit 1
+    }
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo discovery-stateful-swag-adopt finalize-attempt-03 --authorization - --manifest-sha $hash" \
+      <"{{authorization}}"
+
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
 # identity or volatile sdX path.

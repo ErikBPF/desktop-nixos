@@ -28,6 +28,13 @@ readonly attempt_02_phases=$attempt_02/phases
 readonly init_complete=$attempt_02_phases/init-complete
 readonly swag_complete=$attempt_02_phases/swag-complete
 readonly validation_complete=$attempt_02_phases/validation-complete
+readonly attempt_03=$evidence/attempt-03
+readonly attempt_03_authorization=$attempt_03/authorization.json
+readonly attempt_03_observation=$attempt_03/observation.json
+readonly attempt_03_result=$attempt_03/result.json
+readonly attempt_03_kindle_png=$attempt_03/kindle.png
+readonly attempt_02_manifest_sha=d8317282ce3f4716491c0c6a33c354c6dea12d4a02880cc8e3d6650bf3383fad
+readonly attempt_02_observation_sha=c1696360b1feb06ddc02059605912a3d2ea2ec6f2fc3f8d7b9d2330eba9db303
 readonly predecessor_manifest_sha=ee7861b9789f08a6fb0319ba931760054625d3e1cabe03bf43443560db3daee7
 readonly predecessor_inventory_sha=35c294e9fe74e8b824df7aa8161693bfd555f09b97d1ef36b58a280d08d521e7
 readonly image='lscr.io/linuxserver/swag:5.6.0-ls467@sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d'
@@ -47,6 +54,8 @@ usage() {
   echo '       discovery-stateful-swag-adopt recover-pre-adoption --manifest-sha SHA256' >&2
   echo '       discovery-stateful-swag-adopt resume-attempt-02 --authorization FILE --manifest-sha SHA256' >&2
   echo '       discovery-stateful-swag-adopt observe-attempt-02' >&2
+  echo '       discovery-stateful-swag-adopt observe-attempt-03' >&2
+  echo '       discovery-stateful-swag-adopt finalize-attempt-03 --authorization FILE --manifest-sha SHA256' >&2
   exit 2
 }
 
@@ -333,6 +342,184 @@ resume_attempt_02_main() {
   trap - EXIT
 }
 
+capture_finalize_observation() {
+  local resume_observation=$1 output=$2 runtime=$3 phases_json entries_json artifact_json runtime_sha
+  capture_resume_observation "$runtime" "$resume_observation"
+  [ -f "$attempt_02_authorization" ] && [ -f "$attempt_02_observation" ] && [ -f "$attempt_02_post_runtime" ] || die 'attempt-02 present artifact set incomplete'
+  [ ! -e "$attempt_02_result" ] && [ ! -e "$attempt_02_kindle_png" ] && [ ! -e "$validation_complete" ] || die 'attempt-02 expected-absent artifact or phase is present'
+  discovery-stateful-swag-preflight resume-verify "$attempt_02_observation" "$attempt_02_authorization" >/dev/null || die 'attempt-02 authorization/observation binding invalid'
+  cmp --silent "$runtime" "$attempt_02_post_runtime" || die 'attempt-02 post-runtime differs from exact current runtime'
+  assert_phase_journal_shape
+  phases_json=$(find "$attempt_02_phases" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort | jq -Rsc 'split("\n")[:-1]')
+  [ "$phases_json" = '["init-complete","swag-complete"]' ] || die 'attempt-02 exact partial phase marker set differs'
+  entries_json=$(find "$attempt_02" -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort | jq -Rsc 'split("\n")[:-1]')
+  [ "$entries_json" = '["authorization.json","observation.json","phases","post-runtime.json"]' ] || die 'attempt-02 top-level entry set differs'
+  artifact_json=$(jq -n \
+    --arg authorization_path "$attempt_02_authorization" --arg authorization_sha "$(sha256sum "$attempt_02_authorization" | awk '{print $1}')" \
+    --arg observation_path "$attempt_02_observation" --arg observation_sha "$(sha256sum "$attempt_02_observation" | awk '{print $1}')" \
+    --arg runtime_path "$attempt_02_post_runtime" --arg runtime_sha "$(sha256sum "$attempt_02_post_runtime" | awk '{print $1}')" \
+    '{authorization:{path:$authorization_path,sha256:$authorization_sha},observation:{path:$observation_path,sha256:$observation_sha},post_runtime:{path:$runtime_path,sha256:$runtime_sha}}')
+  runtime_sha=$(jq -S -c . "$runtime" | tr -d '\n' | sha256sum | awk '{print $1}')
+  jq -n --slurpfile resume "$resume_observation" --argjson artifacts "$artifact_json" --argjson phases "$phases_json" --argjson entries "$entries_json" \
+    --arg attempt_01_inventory "$predecessor_inventory_sha" --arg attempt_01_manifest "$predecessor_manifest_sha" \
+    --arg attempt_02_manifest "$attempt_02_manifest_sha" --arg attempt_02_observation "$attempt_02_observation_sha" --arg runtime_sha "$runtime_sha" \
+    --arg absent_kindle "$attempt_02_kindle_png" --arg absent_result "$attempt_02_result" '
+    {attempt_01:{inventory_sha256:$attempt_01_inventory,manifest_sha256:$attempt_01_manifest,retained:$resume[0].retained},
+     attempt_02:{present_artifacts:$artifacts,absent_artifacts:[$absent_kindle,$absent_result],manifest_sha256:$attempt_02_manifest,observation_sha256:$attempt_02_observation,phase_markers:$phases,top_level_entries:$entries},
+     current_runtime:$resume[0].current_runtime,current_runtime_sha256:$runtime_sha,dns_file_metadata:$resume[0].dns_file_metadata,servarr:$resume[0].servarr}' >"$output"
+}
+
+assert_attempt_03_predecessors() {
+  local authorization_file=$1 snapshot_uuid
+  assert_retained_binding "$predecessor_manifest_sha"
+  [ "$(jq -r '.manifest.inventory_sha256' "$saved_authorization")" = "$predecessor_inventory_sha" ] || die 'attempt-01 inventory binding differs'
+  snapshot_uuid=$(btrfs subvolume show "$snapshot" | awk '/UUID:/ && !/Parent|Received/ {print $2; exit}')
+  jq -e \
+    --arg approved_inventory "$(sha256sum "$saved_inventory" | awk '{print $1}')" \
+    --arg authorization "$(sha256sum "$saved_authorization" | awk '{print $1}')" \
+    --arg ledger "$(sha256sum "$ledger" | awk '{print $1}')" \
+    --arg archive "$(sha256sum "$archive" | awk '{print $1}')" \
+    --arg archive_checksum "$(sha256sum "$archive_sha256" | awk '{print $1}')" --arg snapshot_uuid "$snapshot_uuid" '
+    .manifest.attempt_01.retained.approved_inventory.sha256 == $approved_inventory and
+    .manifest.attempt_01.retained.authorization.sha256 == $authorization and
+    .manifest.attempt_01.retained.ledger.sha256 == $ledger and .manifest.attempt_01.retained.archive.sha256 == $archive and
+    .manifest.attempt_01.retained.archive_checksum.sha256 == $archive_checksum and .manifest.attempt_01.retained.snapshot.uuid == $snapshot_uuid
+  ' "$authorization_file" >/dev/null || die 'attempt-01 retained identities differ'
+  discovery-stateful-swag-preflight resume-verify "$attempt_02_observation" "$attempt_02_authorization" >/dev/null || die 'attempt-02 stored binding invalid'
+  [ "$(jq -r '.manifest.observation_sha256' "$attempt_02_authorization")" = "$attempt_02_observation_sha" ] || die 'attempt-02 observation binding differs'
+  [ "$(jq -r '.manifest_sha256' "$attempt_02_authorization")" = "$attempt_02_manifest_sha" ] || die 'attempt-02 manifest hash differs'
+}
+
+assert_finalize_binding() {
+  local observation=$1 authorization=$2 expected_sha=$3 verification actual_sha
+  actual_sha=$(jq -er '.manifest_sha256 | select(test("^[0-9a-f]{64}$"))' "$authorization") || die 'finalize manifest SHA-256 absent'
+  [ "$actual_sha" = "$expected_sha" ] || die 'approved finalize manifest SHA-256 differs'
+  verification=$(discovery-stateful-swag-preflight finalize-verify "$observation" "$authorization") || die 'finalize observation differs from authorization'
+  [ "$(jq -r '.status' <<<"$verification")" = finalize-binding-valid ] || die 'finalize authorization binding invalid'
+}
+
+assert_no_certbot_hooks() {
+  local letsencrypt_dir="$repository/machines/discovery/config/swag/etc/letsencrypt" renewal_dir config hook_dir found=false
+  renewal_dir=$letsencrypt_dir/renewal
+  shopt -s nullglob
+  for config in "$renewal_dir"/*.conf; do
+    found=true
+    awk -F= '
+      /^[[:space:]]*[#;]/ {next}
+      {
+        key=$1; gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+        if (key ~ /^(pre_hook|post_hook|renew_hook|deploy_hook)$/) {
+          value=substr($0, index($0, "=") + 1)
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+          if (length(value) > 0) exit 1
+        }
+      }
+    ' "$config" >/dev/null || die 'active Certbot renewal hook forbidden during finalization'
+  done
+  shopt -u nullglob
+  $found || die 'Certbot renewal configuration absent'
+  for hook_dir in "$letsencrypt_dir/renewal-hooks/pre" "$letsencrypt_dir/renewal-hooks/post" "$letsencrypt_dir/renewal-hooks/deploy"; do
+    if [ ! -e "$hook_dir" ] && [ ! -L "$hook_dir" ]; then
+      continue
+    fi
+    [ -d "$hook_dir" ] && [ ! -L "$hook_dir" ] || die 'Certbot renewal-hook path is not a plain directory'
+    find "$hook_dir" -mindepth 1 -maxdepth 1 -exec false {} + >/dev/null 2>&1 || die 'Certbot renewal-hook directory is not empty'
+  done
+}
+
+assert_final_gates_v3() {
+  local png=$1 before after sans adguard_code
+  before=$(docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.StartedAt}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' swag) || die 'SWAG inspection failed'
+  [ "${before##*|}" = healthy ] || die 'SWAG failed health gate'
+  [ "$(stat -c '%a:%u:%g' "$dns_ini")" = 600:1000:1000 ] || die 'DNS credential metadata is not exact 0600/1000:1000'
+  discovery-stateful-stack-ops smoke "$ledger" --expect-image-ref "$image"
+  docker exec swag nginx -t
+  openssl x509 -in "$cert" -noout -checkend 604800 >/dev/null || die 'certificate expires within seven days'
+  sans=$(openssl x509 -in "$cert" -noout -ext subjectAltName | tr ',' '\n' | sed -n 's/.*DNS:[[:space:]]*//p' | LC_ALL=C sort -u)
+  [ "$sans" = $'*.homelab.pastelariadev.com\n*.k8s.pastelariadev.com\nha.pastelariadev.com\nk8s.pastelariadev.com' ] || die 'exact certificate SAN set differs'
+  # Validation-only side effects are bounded to certbot logs/caches and HTTP
+  # probes. Container lifecycle/configuration remains untouched.
+  assert_no_certbot_hooks
+  docker exec swag certbot renew --dry-run --no-random-sleep-on-renew
+  curl --resolve grafana.homelab.pastelariadev.com:443:192.168.10.210 --fail --silent --show-error --max-time 15 https://grafana.homelab.pastelariadev.com/api/health >/dev/null
+  adguard_code=$(curl --resolve adguard.homelab.pastelariadev.com:443:192.168.10.210 --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' https://adguard.homelab.pastelariadev.com/)
+  [ "$adguard_code" = 302 ] || die "AdGuard ingress returned $adguard_code"
+  curl --resolve kindle.homelab.pastelariadev.com:80:192.168.10.210 --fail --silent --show-error --max-time 30 http://kindle.homelab.pastelariadev.com/dash.png --output "$png"
+  [ "$(od -An -tx1 -N8 "$png" | tr -d ' \n')" = 89504e470d0a1a0a ] || die 'Kindle route did not return PNG'
+  after=$(docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.StartedAt}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' swag) || die 'final SWAG inspection failed'
+  [ "$after" = "$before" ] || die 'SWAG identity, RestartCount, StartedAt, or health changed during validation'
+}
+
+observe_attempt_03_main() {
+  local runtime resume_observation observation lock
+  [ "$(id -u)" -eq 0 ] || die 'must run as root'
+  lock=/run/lock/servarr-repository.lock
+  [ -f "$lock" ] && [ ! -L "$lock" ] || die 'declarative Servarr repository lock invalid'
+  [ "$(stat -c '%U:%G:%a' "$lock")" = root:users:660 ] || die 'declarative Servarr repository lock ownership differs'
+  exec 9>"$lock"
+  flock 9
+  runtime=$(mktemp); resume_observation=$(mktemp); observation=$(mktemp)
+  trap 'rm -f "$runtime" "$resume_observation" "$observation"' EXIT
+  capture_finalize_observation "$resume_observation" "$observation" "$runtime"
+  cat "$observation"
+}
+
+finalize_attempt_03_main() {
+  local authorization_file=$1 expected_sha=$2 runtime resume_observation observation prepare result_tmp lock validation_png
+  [ "$(id -u)" -eq 0 ] || die 'must run as root'
+  [[ "$expected_sha" =~ ^[0-9a-f]{64}$ ]] || die 'approved finalize manifest SHA-256 invalid'
+  [ -f "$authorization_file" ] || die 'finalize authorization absent'
+  lock=/run/lock/servarr-repository.lock
+  [ -f "$lock" ] && [ ! -L "$lock" ] || die 'declarative Servarr repository lock invalid'
+  [ "$(stat -c '%U:%G:%a' "$lock")" = root:users:660 ] || die 'declarative Servarr repository lock ownership differs'
+  exec 9>"$lock"
+  flock 9
+  runtime=$(mktemp); resume_observation=$(mktemp); observation=$(mktemp)
+  trap 'rm -f "$runtime" "$resume_observation" "$observation" "${result_tmp:-}" "${validation_png:-}"; [ -z "${prepare:-}" ] || { rm -f "$prepare/authorization.json" "$prepare/observation.json" "$prepare/kindle.png" "$prepare/result.json"; rmdir "$prepare" 2>/dev/null || true; }' EXIT
+  capture_finalize_observation "$resume_observation" "$observation" "$runtime"
+  assert_finalize_binding "$observation" "$authorization_file" "$expected_sha"
+  assert_attempt_03_predecessors "$authorization_file"
+  assert_fresh_compose_binding "$authorization_file"
+  assert_current_desired_runtime "$runtime"
+  if [ -e "$attempt_03" ]; then
+    [ -d "$attempt_03" ] && [ -f "$attempt_03_authorization" ] && [ -f "$attempt_03_observation" ] && [ -f "$attempt_03_result" ] && [ -f "$attempt_03_kindle_png" ] || die 'attempt-03 evidence shape invalid'
+    cmp --silent "$authorization_file" "$attempt_03_authorization" || die 'attempt-03 authorization collision'
+    cmp --silent "$observation" "$attempt_03_observation" || die 'attempt-03 observation collision'
+    validation_png=$(mktemp)
+    assert_final_gates_v3 "$validation_png"
+    discovery-stateful-swag-inventory capture-runtime >"$runtime" || die 'post-validation runtime capture failed'
+    assert_current_desired_runtime "$runtime"
+    cmp --silent <(jq -S '.containers' "$runtime") <(jq -S '.manifest.current_runtime.containers' "$authorization_file") || die 'exact runtime changed during finalization'
+    [ "$(od -An -tx1 -N8 "$attempt_03_kindle_png" | tr -d ' \n')" = 89504e470d0a1a0a ] || die 'stored attempt-03 PNG invalid'
+    jq -e --arg sha "$expected_sha" --arg observation_sha "$(sha256sum "$attempt_03_observation" | awk '{print $1}')" \
+      --arg runtime_sha "$(jq -r '.manifest.current_runtime_sha256' "$attempt_03_authorization")" \
+      --arg png_sha "$(sha256sum "$attempt_03_kindle_png" | awk '{print $1}')" '
+      .version == 3 and .status == "passed" and .manifest_sha256 == $sha and
+      .observation_sha256 == $observation_sha and .runtime_sha256 == $runtime_sha and .png_sha256 == $png_sha and
+      .container_lifecycle_mutation == false
+    ' "$attempt_03_result" >/dev/null || die 'attempt-03 result or evidence hashes invalid'
+    cat "$attempt_03_result"
+    return
+  fi
+  prepare=$(mktemp -d "$evidence/.attempt-03.prepare.XXXXXX")
+  install -m 0400 "$authorization_file" "$prepare/authorization.json"
+  install -m 0400 "$observation" "$prepare/observation.json"
+  assert_final_gates_v3 "$prepare/kindle.png"
+  discovery-stateful-swag-inventory capture-runtime >"$runtime" || die 'post-validation runtime capture failed'
+  assert_current_desired_runtime "$runtime"
+  cmp --silent <(jq -S '.containers' "$runtime") <(jq -S '.manifest.current_runtime.containers' "$authorization_file") || die 'exact runtime changed during finalization'
+  result_tmp=$(mktemp)
+  jq -n --arg completed_at "$(date --utc --iso-8601=seconds)" --arg manifest_sha256 "$expected_sha" \
+    --arg observation_sha256 "$(sha256sum "$observation" | awk '{print $1}')" \
+    --arg runtime_sha256 "$(jq -r '.manifest.current_runtime_sha256' "$authorization_file")" \
+    --arg png_sha256 "$(sha256sum "$prepare/kindle.png" | awk '{print $1}')" \
+    '{version:3,status:"passed",$completed_at,$manifest_sha256,$observation_sha256,$runtime_sha256,$png_sha256,container_lifecycle_mutation:false,validation_only_side_effects:["certbot-dry-run-logs-and-caches","http-probes"],predecessors_retained:true}' >"$result_tmp"
+  install -m 0400 "$result_tmp" "$prepare/result.json"
+  mv "$prepare" "$attempt_03"
+  prepare=
+  cat "$attempt_03_result"
+}
+
 assert_workflow_contract() {
   # Keep this literal synchronized with WORKFLOW_CONTRACT in the planner.
   # Any workflow semantic change requires an action change or version bump.
@@ -615,6 +802,17 @@ case "$command" in
   observe-attempt-02)
     [ "$#" -eq 0 ] || usage
     observe_attempt_02_main
+    ;;
+  observe-attempt-03)
+    [ "$#" -eq 0 ] || usage
+    observe_attempt_03_main
+    ;;
+  finalize-attempt-03)
+    [ "${1:-}" = --authorization ] || usage
+    authorization_file=${2:-}
+    [ "${3:-}" = --manifest-sha ] || usage
+    [ "$#" -eq 4 ] || usage
+    finalize_attempt_03_main "$authorization_file" "${4:-}"
     ;;
   *) usage ;;
 esac

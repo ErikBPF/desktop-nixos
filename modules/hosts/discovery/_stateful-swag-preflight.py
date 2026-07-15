@@ -107,6 +107,33 @@ RESUME_WORKFLOW_CONTRACT = {
     },
     "version": 2,
 }
+ATTEMPT_02_BINDING = {
+    "manifest_sha256": "d8317282ce3f4716491c0c6a33c354c6dea12d4a02880cc8e3d6650bf3383fad",
+    "observation_sha256": "c1696360b1feb06ddc02059605912a3d2ea2ec6f2fc3f8d7b9d2330eba9db303",
+}
+ATTEMPT_03_EVIDENCE = {
+    "authorization": "/var/lib/stateful-stack-migrations/p1-swag/attempt-03/authorization.json",
+    "kindle_png": "/var/lib/stateful-stack-migrations/p1-swag/attempt-03/kindle.png",
+    "observation": "/var/lib/stateful-stack-migrations/p1-swag/attempt-03/observation.json",
+    "result": "/var/lib/stateful-stack-migrations/p1-swag/attempt-03/result.json",
+}
+ATTEMPT_02_PRESENT = {key: ATTEMPT_02_EVIDENCE[key] for key in ("authorization", "observation", "post_runtime")}
+ATTEMPT_02_ABSENT = [ATTEMPT_02_EVIDENCE[key] for key in ("kindle_png", "result")]
+FINALIZE_WORKFLOW_CONTRACT = {
+    "execute_order": [
+        "lock-servarr-repository",
+        "revalidate-attempt-01-retained-evidence",
+        "revalidate-attempt-02-artifacts-and-phase-markers",
+        "revalidate-current-runtime-and-compose-binding",
+        "validate-dns-certificate-health-and-routes-without-container-lifecycle-mutation",
+        "atomically-persist-attempt-03-evidence-and-result",
+    ],
+    # certbot --dry-run and route probes may write validation logs/caches. This
+    # contract forbids container lifecycle/configuration mutation, not those
+    # bounded validation-only side effects.
+    "mutation_policy": "evidence-only-no-container-lifecycle-mutation",
+    "version": 3,
+}
 FORBIDDEN_KEYS = {"credential", "env", "environment", "password", "secret", "secret_value", "token", "token_value"}
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -290,6 +317,70 @@ def verify_resume(observation, authorization):
     return {"manifest_sha256": expected["manifest_sha256"], "status": "resume-binding-valid"}
 
 
+def plan_finalize(observation):
+    _reject_value_fields(observation)
+    _require_keys(observation, {"attempt_01", "attempt_02", "current_runtime", "current_runtime_sha256", "dns_file_metadata", "servarr"}, "finalize observation")
+    attempt_01 = observation["attempt_01"]
+    _require_keys(attempt_01, {"inventory_sha256", "manifest_sha256", "retained"}, "attempt-01")
+    if {key: attempt_01[key] for key in ("inventory_sha256", "manifest_sha256")} != PREDECESSOR:
+        raise PreflightHalt("attempt-01 predecessor differs")
+    retained_wrapper = {"current_runtime": observation["current_runtime"], "dns_file_metadata": {"mode": "0644", "owner": "1000:100", "path": DNS_CREDENTIAL_PATH}, "retained": attempt_01["retained"], "servarr": observation["servarr"]}
+    # Reuse the exact retained-path, identity, runtime, and Servarr validators.
+    plan_resume(retained_wrapper)
+
+    attempt_02 = observation["attempt_02"]
+    _require_keys(attempt_02, {"absent_artifacts", "manifest_sha256", "observation_sha256", "phase_markers", "present_artifacts", "top_level_entries"}, "attempt-02")
+    if any(attempt_02[key] != value for key, value in ATTEMPT_02_BINDING.items()):
+        raise PreflightHalt("attempt-02 authorization binding differs")
+    if attempt_02["phase_markers"] != ["init-complete", "swag-complete"]:
+        raise PreflightHalt("attempt-02 phase marker set differs")
+    if attempt_02["top_level_entries"] != ["authorization.json", "observation.json", "phases", "post-runtime.json"]:
+        raise PreflightHalt("attempt-02 top-level entry set differs")
+    _require_keys(attempt_02["present_artifacts"], ATTEMPT_02_PRESENT, "attempt-02 present artifacts")
+    for name, item in attempt_02["present_artifacts"].items():
+        _require_keys(item, {"path", "sha256"}, f"attempt-02 {name}")
+        if item["path"] != ATTEMPT_02_PRESENT[name] or not HEX64.fullmatch(item["sha256"]):
+            raise PreflightHalt(f"attempt-02 {name} identity differs")
+    if attempt_02["absent_artifacts"] != ATTEMPT_02_ABSENT:
+        raise PreflightHalt("attempt-02 absent artifact set differs")
+    if observation["current_runtime_sha256"] != hashlib.sha256(canonical(observation["current_runtime"])).hexdigest():
+        raise PreflightHalt("current runtime SHA-256 differs")
+    all_paths = [item["path"] for item in attempt_01["retained"].values()] + [item["path"] for item in attempt_02["present_artifacts"].values()] + attempt_02["absent_artifacts"] + list(ATTEMPT_03_EVIDENCE.values())
+    if len(all_paths) != len(set(all_paths)):
+        raise PreflightHalt("attempt evidence paths collide")
+    dns = observation["dns_file_metadata"]
+    if dns != {"mode": "0600", "owner": "1000:1000", "path": DNS_CREDENTIAL_PATH}:
+        raise PreflightHalt("final DNS credential metadata differs")
+    return {
+        "attempt_01": attempt_01,
+        "attempt_02": attempt_02,
+        "attempt_evidence": ATTEMPT_03_EVIDENCE,
+        "current_runtime": {"containers": sorted(observation["current_runtime"]["containers"], key=lambda item: (item["name"] != "swag", item["name"]))},
+        "current_runtime_sha256": observation["current_runtime_sha256"],
+        "dns_file_metadata": dns,
+        "mode": "finalize-attempt-03",
+        "observation_sha256": hashlib.sha256(canonical(observation)).hexdigest(),
+        "phase": "p1-swag-in-place-adoption",
+        "servarr": observation["servarr"],
+        "version": 3,
+        "workflow_contract": FINALIZE_WORKFLOW_CONTRACT,
+    }
+
+
+def finalize_envelope(manifest):
+    return envelope(manifest)
+
+
+def verify_finalize(observation, authorization):
+    try:
+        expected = finalize_envelope(plan_finalize(observation))
+    except PreflightHalt as error:
+        raise InventoryDrift(str(error)) from error
+    if authorization != expected:
+        raise InventoryDrift("finalize observation or manifest binding differs")
+    return {"manifest_sha256": expected["manifest_sha256"], "status": "finalize-binding-valid"}
+
+
 def _read(path):
     return json.loads(pathlib.Path(path).read_text())
 
@@ -307,6 +398,11 @@ def main(argv=None):
     resume_check = subparsers.add_parser("resume-verify")
     resume_check.add_argument("observation")
     resume_check.add_argument("authorization")
+    finalize_create = subparsers.add_parser("finalize-plan")
+    finalize_create.add_argument("observation")
+    finalize_check = subparsers.add_parser("finalize-verify")
+    finalize_check.add_argument("observation")
+    finalize_check.add_argument("authorization")
     args = parser.parse_args(argv)
     try:
         if args.command == "plan":
@@ -315,8 +411,12 @@ def main(argv=None):
             result = verify(_read(args.inventory), _read(args.authorization))
         elif args.command == "resume-plan":
             result = resume_envelope(plan_resume(_read(args.observation)))
-        else:
+        elif args.command == "resume-verify":
             result = verify_resume(_read(args.observation), _read(args.authorization))
+        elif args.command == "finalize-plan":
+            result = finalize_envelope(plan_finalize(_read(args.observation)))
+        else:
+            result = verify_finalize(_read(args.observation), _read(args.authorization))
     except (OSError, json.JSONDecodeError, PreflightHalt) as error:
         print(f"stateful-swag-preflight: BLOCKED: {error}", file=sys.stderr)
         return 1
