@@ -1960,6 +1960,10 @@ verify-k3s-bootstrap:
       '\''
     '
 
+# Read-only startup detail for k3s microVMs and their virtiofs helpers.
+diagnose-k3s-guests:
+    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl status microvm@cp-{1,2,3}.service --no-pager -l; sudo journalctl -b -u microvm@cp-1.service -u install-microvm-cp-1.service --no-pager -n 120; sudo find /run/k3s-bootstrap -maxdepth 1 -type f -printf 'host %f %s bytes\n'; ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 'find /run/k3s-bootstrap -maxdepth 1 -type f -printf \"guest %f %s bytes\\n\"; systemctl status k3s-bootstrap-secrets.service k3s-bootstrap-secrets.timer --no-pager -l; journalctl -b -u k3s-bootstrap-secrets.service --no-pager -n 80'"
+
 # Acceptance test: delete only the two bootstrap Secrets, run the reconciler,
 # and prove both return. Values are never read or printed.
 test-k3s-bootstrap-recovery:

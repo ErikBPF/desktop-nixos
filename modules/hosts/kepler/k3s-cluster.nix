@@ -504,20 +504,38 @@ in {
 
       sops.secrets."k3s_bootstrap/argocd_repo_ssh_key" = {
         inherit sopsFile;
-        path = "${bootstrapDir}/argocd_repo_ssh_key";
         mode = "0400";
       };
       sops.secrets."k3s_bootstrap/vault_approle_secret_id" = {
         inherit sopsFile;
-        path = "${bootstrapDir}/vault_approle_secret_id";
         mode = "0400";
       };
 
+      systemd.tmpfiles.rules = ["d ${bootstrapDir} 0700 root root -"];
       microvm.autostart = allNames;
       microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
 
       systemd.services =
         {
+          k3s-bootstrap-materialize = {
+            description = "Materialize k3s bootstrap credentials for cp-1";
+            requiredBy = ["microvm@cp-1.service"];
+            before = ["microvm@cp-1.service"];
+            after = ["sops-nix.service"];
+            requires = ["sops-nix.service"];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              UMask = "0077";
+            };
+            script = ''
+              install -m 0400 ${config.sops.secrets."k3s_bootstrap/argocd_repo_ssh_key".path} \
+                ${bootstrapDir}/argocd_repo_ssh_key
+              install -m 0400 ${config.sops.secrets."k3s_bootstrap/vault_approle_secret_id".path} \
+                ${bootstrapDir}/vault_approle_secret_id
+            '';
+          };
+
           # Provision host-side state before any node starts: the shared join
           # token + the per-CP etcd-snapshot share sources. `before = microvm@*`
           # guarantees the dirs exist before virtiofsd opens them. (tmpfiles can't
@@ -553,8 +571,8 @@ in {
           "microvm@".serviceConfig.TimeoutStartSec = 300;
           "microvm@cp-1" = {
             overrideStrategy = "asDropin";
-            after = ["sops-nix.service"];
-            wants = ["sops-nix.service"];
+            after = ["k3s-bootstrap-materialize.service"];
+            requires = ["k3s-bootstrap-materialize.service"];
           };
         }
         # Stagger cold boot to cut the simultaneous-boot vsock-notify contention:
