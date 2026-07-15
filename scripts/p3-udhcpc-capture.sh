@@ -6,7 +6,7 @@ event=${1:-}
 case $event in
   deconfig)
     [ -n "${interface:-}" ] || exit 1
-    ip address flush dev "$interface"
+    ip -4 address flush dev "$interface"
     exit 0
     ;;
   bound|renew) ;;

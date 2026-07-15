@@ -89,6 +89,19 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         args = [DRILL, *tail, self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback]
         return subprocess.run(args, text=True, capture_output=True, env=(os.environ | {"OBS_JSON": str(self.obs_json), "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")} | (env or {})))
 
+    def test_udhcpc_deconfig_flushes_ipv4_only_and_requires_interface(self):
+        ip_log = self.root / "ip.log"
+        fake_ip = self.root / "ip"
+        executable(fake_ip, 'printf "%s\\n" "$*" >> "$IP_LOG"\n')
+        env = os.environ | {"PATH": f"{self.root}:{os.environ['PATH']}", "IP_LOG": str(ip_log), "interface": "p3d1234"}
+        result = subprocess.run([CALLBACK, "deconfig"], text=True, capture_output=True, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(ip_log.read_text().splitlines(), ["-4 address flush dev p3d1234"])
+        self.assertNotIn("address flush dev p3d1234", ip_log.read_text().splitlines())
+        missing = subprocess.run([CALLBACK, "deconfig"], text=True, capture_output=True, env=env | {"interface": ""})
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertEqual(ip_log.read_text().splitlines(), ["-4 address flush dev p3d1234"])
+
     def test_manifest_v3_binds_inventory_and_all_implementations(self):
         result = self.drill("plan"); self.assertEqual(result.returncode, 0, result.stderr)
         value = json.loads(result.stdout); manifest = value["manifest"]

@@ -16,7 +16,7 @@ class CallbackTest(unittest.TestCase):
   self.assertEqual(self.invoke(event="renew")[0].returncode,0)
   self.assertNotEqual(self.invoke(router="192.168.10.1 192.168.10.2")[0].returncode,0)
   self.assertNotEqual(self.invoke(subnet="255.0.255.0")[0].returncode,0)
- def test_deconfig_flushes_only_interface_and_emits_no_record(self):
+ def test_deconfig_removes_ipv4_only_preserving_ipv6_and_emits_no_record(self):
   result,log,capture,_,_=self.invoke(event="deconfig");self.assertEqual(result.returncode,0)
-  self.assertEqual(log,"address flush dev probe0\n");self.assertIsNone(capture)
+  self.assertEqual(log,"-4 address flush dev probe0\n");self.assertIsNone(capture)
 if __name__=="__main__":unittest.main()
