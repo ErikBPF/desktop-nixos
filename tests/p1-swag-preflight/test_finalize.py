@@ -78,6 +78,14 @@ class SwagFinalizeTest(unittest.TestCase):
         self.assertIn("png_sha256", source)
         self.assertIn("runtime_sha256", source)
 
+    def test_attempt_03_exit_traps_tolerate_function_local_scope_end(self):
+        source = ADOPT.read_text()
+        observe = source[source.index("observe_attempt_03_main()") : source.index("finalize_attempt_03_main()")]
+        finalize = source[source.index("finalize_attempt_03_main()") : source.index("assert_workflow_contract()")]
+        for variable in ("runtime", "resume_observation", "observation"):
+            self.assertIn(f'"${{{variable}:-}}"', observe)
+            self.assertIn(f'"${{{variable}:-}}"', finalize)
+
     def test_hook_gate_precedes_required_certbot_dns01_dry_run(self):
         source = ADOPT.read_text()
         gates = source[source.index("assert_final_gates_v3()") : source.index("observe_attempt_03_main()")]

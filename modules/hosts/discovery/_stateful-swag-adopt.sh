@@ -459,7 +459,7 @@ observe_attempt_03_main() {
   exec 9>"$lock"
   flock 9
   runtime=$(mktemp); resume_observation=$(mktemp); observation=$(mktemp)
-  trap 'rm -f "$runtime" "$resume_observation" "$observation"' EXIT
+  trap 'rm -f "${runtime:-}" "${resume_observation:-}" "${observation:-}"' EXIT
   capture_finalize_observation "$resume_observation" "$observation" "$runtime"
   cat "$observation"
 }
@@ -475,7 +475,7 @@ finalize_attempt_03_main() {
   exec 9>"$lock"
   flock 9
   runtime=$(mktemp); resume_observation=$(mktemp); observation=$(mktemp)
-  trap 'rm -f "$runtime" "$resume_observation" "$observation" "${result_tmp:-}" "${validation_png:-}"; [ -z "${prepare:-}" ] || { rm -f "$prepare/authorization.json" "$prepare/observation.json" "$prepare/kindle.png" "$prepare/result.json"; rmdir "$prepare" 2>/dev/null || true; }' EXIT
+  trap 'rm -f "${runtime:-}" "${resume_observation:-}" "${observation:-}" "${result_tmp:-}" "${validation_png:-}"; [ -z "${prepare:-}" ] || { rm -f "$prepare/authorization.json" "$prepare/observation.json" "$prepare/kindle.png" "$prepare/result.json"; rmdir "$prepare" 2>/dev/null || true; }' EXIT
   capture_finalize_observation "$resume_observation" "$observation" "$runtime"
   assert_finalize_binding "$observation" "$authorization_file" "$expected_sha"
   assert_attempt_03_predecessors "$authorization_file"
