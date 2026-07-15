@@ -69,6 +69,7 @@ _: {
         git
         openssl
         python3
+        sudo
         statefulSwagInventory
         statefulSwagPreflight
       ];

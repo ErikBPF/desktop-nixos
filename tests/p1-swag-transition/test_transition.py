@@ -122,5 +122,10 @@ class TransitionTest(unittest.TestCase):
             )
             self.assertTrue(marker.exists())
 
+    def test_git_commands_run_as_servarr_owner(self):
+        source = SCRIPT.read_text()
+        self.assertIn('["sudo", "-u", "erik", "-H", "git"', source)
+        self.assertNotIn('run(["git"', source)
+
 
 if __name__ == "__main__": unittest.main()

@@ -124,6 +124,13 @@ def run(args, *, capture=False):
     return completed.stdout if capture else None
 
 
+def git_run(args, *, capture=False):
+    return run(
+        ["sudo", "-u", "erik", "-H", "git", "-C", str(REPOSITORY), *args],
+        capture=capture,
+    )
+
+
 def render_sha():
     command=["docker-compose","--project-name","networking","--env-file",str(WORKDIR/".env"),"--env-file","/run/vault-agent/networking.env","-f",str(COMPOSE),"config","--no-interpolate","--no-env-resolution"]
     completed=subprocess.run(command,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
@@ -285,25 +292,25 @@ def execute(observation,authorization,expected_sha):
         fcntl.flock(lock_fd,fcntl.LOCK_EX)
         revalidate_predecessor_evidence(observation)
         if not TRANSITION.exists():
-            if run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip()!=CURRENT or render_sha()!=observation["servarr"]["render_sha256"] or metadata()!=observation["credential"] or current_runtime()!=observation["runtime"]: raise Drift("fresh authorized pre-state differs")
-            if run(["git","-C",str(REPOSITORY),"status","--porcelain","--untracked-files=no"],capture=True).strip(): raise Drift("tracked Servarr worktree is dirty")
+            if git_run(["rev-parse","HEAD"],capture=True).strip()!=CURRENT or render_sha()!=observation["servarr"]["render_sha256"] or metadata()!=observation["credential"] or current_runtime()!=observation["runtime"]: raise Drift("fresh authorized pre-state differs")
+            if git_run(["status","--porcelain","--untracked-files=no"],capture=True).strip(): raise Drift("tracked Servarr worktree is dirty")
             publish_journal(observation,authorization)
         else:
             if not TRANSITION.is_dir() or not same_json(TRANSITION/"authorization.json",authorization) or not same_json(TRANSITION/"observation.json",observation): raise Drift("transition journal collision")
         phases=exact_phase_prefix()
         if "validated" in phases:
             return validate_completed(expected_sha,authorization)
-        if "repo-target" in phases and (run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip()!=TARGET or render_sha()!=observation["servarr"]["target_render_sha256"]): raise Drift("recorded target repository differs")
+        if "repo-target" in phases and (git_run(["rev-parse","HEAD"],capture=True).strip()!=TARGET or render_sha()!=observation["servarr"]["target_render_sha256"]): raise Drift("recorded target repository differs")
 
         if "repo-target" not in phases:
-            head=run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip()
+            head=git_run(["rev-parse","HEAD"],capture=True).strip()
             if head==CURRENT:
                 if render_sha()!=observation["servarr"]["render_sha256"] or metadata()!=observation["credential"] or current_runtime()!=observation["runtime"]: raise Drift("pre-reset state differs")
-                run(["git","-C",str(REPOSITORY),"fetch","--quiet","origin","refs/heads/main:refs/remotes/origin/main"])
-                if run(["git","-C",str(REPOSITORY),"rev-parse","origin/main"],capture=True).strip()!=TARGET: raise Drift("origin/main differs from exact target")
-                run(["git","-C",str(REPOSITORY),"reset","--hard",TARGET])
+                git_run(["fetch","--quiet","origin","refs/heads/main:refs/remotes/origin/main"])
+                if git_run(["rev-parse","origin/main"],capture=True).strip()!=TARGET: raise Drift("origin/main differs from exact target")
+                git_run(["reset","--hard",TARGET])
             elif head!=TARGET: raise Drift("repository is neither authorized pre-state nor exact target")
-            if run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip()!=TARGET or render_sha()!=observation["servarr"]["target_render_sha256"]: raise Drift("target repository state differs")
+            if git_run(["rev-parse","HEAD"],capture=True).strip()!=TARGET or render_sha()!=observation["servarr"]["target_render_sha256"]: raise Drift("target repository state differs")
             try: os.lstat(CREDENTIAL)
             except FileNotFoundError: pass
             else: raise Drift("credential path not absent at repo-target phase")
@@ -370,7 +377,7 @@ def execute(observation,authorization,expected_sha):
 
 
 def validate_completed(expected_sha,authorization):
-    if run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip()!=TARGET or render_sha()!=authorization["manifest"]["servarr"]["target_render_sha256"]: raise Drift("completed target repository differs")
+    if git_run(["rev-parse","HEAD"],capture=True).strip()!=TARGET or render_sha()!=authorization["manifest"]["servarr"]["target_render_sha256"]: raise Drift("completed target repository differs")
     runtime=read_json(TRANSITION/"final-runtime.json")
     validate_runtime(runtime)
     if current_runtime()!=runtime: raise Drift("completed exact runtime differs")
@@ -443,7 +450,7 @@ def observe(target_render_sha256):
     artifacts={name:{"path":str(ATTEMPT_02/file),"sha256":hash_file(ATTEMPT_02/file)} for name,file in artifact_files.items()}
     run(["discovery-stateful-swag-preflight","resume-verify",str(ATTEMPT_02/"observation.json"),str(ATTEMPT_02/"authorization.json")])
     runtime=json.loads(run(["discovery-stateful-swag-inventory","capture-runtime"],capture=True))
-    return {"attempt_01":PREDECESSOR|{"retained":retained},"attempt_02":ATTEMPT_02_BINDING|{"artifacts":artifacts,"phase_markers":phases,"top_level_entries":entries},"credential":metadata(),"runtime":runtime,"servarr":{"commit":run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip(),"compose_file":str(COMPOSE),"render_sha256":render_sha(),"target_commit":TARGET,"target_render_sha256":target_render_sha256}}
+    return {"attempt_01":PREDECESSOR|{"retained":retained},"attempt_02":ATTEMPT_02_BINDING|{"artifacts":artifacts,"phase_markers":phases,"top_level_entries":entries},"credential":metadata(),"runtime":runtime,"servarr":{"commit":git_run(["rev-parse","HEAD"],capture=True).strip(),"compose_file":str(COMPOSE),"render_sha256":render_sha(),"target_commit":TARGET,"target_render_sha256":target_render_sha256}}
 
 
 def read_json(path):
