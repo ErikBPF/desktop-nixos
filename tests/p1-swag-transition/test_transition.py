@@ -6,6 +6,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "modules/hosts/discovery/_stateful-swag-transition.py"
+NIX_PACKAGE = ROOT / "modules/hosts/discovery/stateful-stack-ops.nix"
 
 
 def load():
@@ -56,6 +57,11 @@ class TransitionTest(unittest.TestCase):
             self.assertIn(required, source)
         for forbidden in ("docker system prune", "docker volume rm", "git pull", "shutil.rmtree", "read_text()"):
             self.assertNotIn(forbidden, source)
+
+    def test_python_wrappers_are_directly_executable(self):
+        package = NIX_PACKAGE.read_text()
+        self.assertEqual(package.count('writeShellScriptBin "discovery-stateful-swag-'), 2)
+        self.assertNotIn('writeScriptBin "discovery-stateful-swag-', package)
 
     def test_resumable_phase_contract_and_idempotent_gate_are_explicit(self):
         manifest=self.m.plan(fixture())

@@ -52,10 +52,10 @@ _: {
       ];
       text = builtins.readFile ./_stateful-swag-adopt.sh;
     };
-    statefulSwagInventory = pkgs.writeScriptBin "discovery-stateful-swag-inventory" ''
+    statefulSwagInventory = pkgs.writeShellScriptBin "discovery-stateful-swag-inventory" ''
       exec ${pkgs.python3}/bin/python3 ${./_stateful-swag-inventory.py} "$@"
     '';
-    statefulSwagPreflight = pkgs.writeScriptBin "discovery-stateful-swag-preflight" ''
+    statefulSwagPreflight = pkgs.writeShellScriptBin "discovery-stateful-swag-preflight" ''
       exec ${pkgs.python3}/bin/python3 ${./_stateful-swag-preflight.py} "$@"
     '';
     statefulSwagTransition = pkgs.writeShellApplication {
