@@ -2,8 +2,9 @@
 
 **Status:** Retired 2026-07-14. The topology below is historical. Kepler no
 longer declares or starts this stack; its ports and model-cache tmpfiles were
-removed. Reintroducing any model service requires a new declarative Servarr
-stack and consumer-route review.
+removed. The seven runtime containers/images and `/fast/ai-models` were also
+removed and verified absent after reboot. Reintroducing any model service
+requires a new declarative Servarr stack and consumer-route review.
 
 GPU-backed audio + embedding services running on Kepler's RTX 3070 (8 GB
 VRAM), optimized for Brazilian Portuguese. All endpoints are reached through

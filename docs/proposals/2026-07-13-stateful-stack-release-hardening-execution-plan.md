@@ -1,8 +1,9 @@
 # Stateful stack release hardening — execution plan
 
 **Status:** In progress — P0 and Kepler recovery complete; operator-approved
-retirement of Kepler AI-serving is prepared. Discovery consumers must stop
-routing to the retired endpoints before Discovery P1 can unfreeze.
+retirement of Kepler AI-serving executed and verified after reboot. Discovery
+consumers must stop routing to the retired endpoints before Discovery P1 can
+unfreeze.
 
 ## 1. Purpose and authority
 
@@ -138,9 +139,18 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   model cache disposable and reproducible. Servarr `8edab1a` removes all seven
   services. Desktop desired state now contains only `infra` and `docs-search`,
   closes the retired ports, and removes the model-cache tmpfiles and NVIDIA
-  container runtime. A separate exact-ID retirement entry point is prepared;
-  this does not authorize network, volume, snapshot, dataset, or broad-prune
-  cleanup. Discovery/HA routes are now consumer cleanup, not a K5 health gate.
+  container runtime. The exact-ID retirement removed the seven containers,
+  seven local images, and `/fast/ai-models`, then returned idempotent status
+  `already-retired` with manifest SHA-256
+  `de8ce750ba6a1316ffca0b354615badfab994ec7a19fdd0de67ac2cd35660c3f`.
+  After reboot, only the four `infra` containers and `docs-search` remain;
+  ports `8002`, `8003`, `8085`, `8087`, `9000`, `9835`, and `10200` are closed.
+  The final read-only audit converged with five `none` actions, inventory
+  SHA-256 `71e89e49eb36a2eef72dba78fa84a7b17edb005fb965b064a2afd1917cb8c1b8`,
+  and manifest SHA-256
+  `508eda98acacfadf8ba0368321f1c433352f6a74e60b64669e3810951077ca5c`.
+  No network, volume, snapshot, dataset, or broad-prune cleanup ran.
+  Discovery/HA routes are now consumer cleanup, not a K5 health gate.
 
 ### Known later gates
 

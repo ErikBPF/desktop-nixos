@@ -73,3 +73,8 @@ and the AI-serving portions of Completion. Those clauses remain historical
 evidence for the completed recovery; they no longer require recreating a
 retired stack. Clauses protecting `infra`, `docs-search`, retained state, and
 exact-resource execution remain active.
+
+Execution completed with exact manifest SHA-256
+`de8ce750ba6a1316ffca0b354615badfab994ec7a19fdd0de67ac2cd35660c3f`.
+The post-reboot audit contains only `infra` and `docs-search`, with five
+zero-action classifications and no retired selection or halt reason.
