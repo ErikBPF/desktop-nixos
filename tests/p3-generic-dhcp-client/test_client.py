@@ -15,7 +15,7 @@ interface=${{interface_name:-probe}} ip=192.168.10.99 subnet=255.255.255.0 route
    ip=r/"ip";ip.write_text('''#!/bin/sh
 echo "$*" >> "$IP_LOG"
 case "$*" in
- "-4 route get 192.168.10.1") echo "192.168.10.1 via 192.168.10.1 dev $MOCK_ROUTE_DEV src 192.168.10.50";;
+ "-j -4 route get 192.168.10.1") printf '[{"dst":"192.168.10.1","dev":"%s"}]\n' "$MOCK_ROUTE_DEV";;
  "-j address show dev eno1") if [ "$MOCK_DRIFT" = 1 ]&&grep -q 'netns delete' "$IP_LOG";then echo '[{"addr":"changed"}]';else echo '[{"addr":"192.168.10.50"}]';fi;;
  "-j route show table all dev eno1") echo '[{"dst":"default"}]';;
  "netns list") :;;

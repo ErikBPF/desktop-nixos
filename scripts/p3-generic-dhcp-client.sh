@@ -4,6 +4,7 @@ set -euo pipefail
 
 [ "$#" -eq 3 ] || { echo "usage: $0 WIRED_INTERFACE UDHCPC_BINARY UDHCPC_CALLBACK" >&2; exit 2; }
 [ "$(id -u)" -eq 0 ] || { echo "root is required" >&2; exit 2; }
+command -v jq >/dev/null || { echo "jq is required" >&2; exit 2; }
 wired_interface=$1;udhcpc_binary=$2;udhcpc_callback=$3
 sys_class_net=${P3_SYS_CLASS_NET:-/sys/class/net}
 namespace="p3-dhcp-${RANDOM}-$$";probe_interface="p3d${RANDOM}"
@@ -16,8 +17,8 @@ callback_mode=$(stat -c %a "$udhcpc_callback")
 (( (8#$callback_mode & 8#022) == 0 )) || { echo "callback must not be group/world writable" >&2; exit 2; }
 [ -r "$sys_class_net/$wired_interface/carrier" ] && [ "$(cat "$sys_class_net/$wired_interface/carrier")" = 1 ] || { echo "wired carrier absent" >&2; exit 1; }
 [ ! -e "$sys_class_net/$wired_interface/wireless" ] || { echo "wireless parent rejected" >&2; exit 1; }
-route=$(ip -4 route get 192.168.10.1)
-[[ $route =~ ^192\.168\.10\.1[[:space:]].*[[:space:]]dev[[:space:]]$wired_interface([[:space:]]|$) ]] || { echo "gateway route does not use exact parent" >&2; exit 1; }
+route_dev=$(ip -j -4 route get 192.168.10.1 | jq -er 'if length == 1 then .[0].dev else empty end')
+[ "$route_dev" = "$wired_interface" ] || { echo "gateway route does not use exact parent" >&2; exit 1; }
 before_addr=$(ip -j address show dev "$wired_interface");before_routes=$(ip -j route show table all dev "$wired_interface");before_carrier=$(cat "$sys_class_net/$wired_interface/carrier")
 
 cleanup() {
