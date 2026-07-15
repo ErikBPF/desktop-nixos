@@ -67,26 +67,25 @@ Last updated: 2026-07-15.
 
 ### GitOps workloads (`homelab-gitops` — servarr-style, not Nix)
 
-Argo CD app-of-apps, sync-waves, thin Helm wrapper charts. **14 applications
-Synced + Healthy:**
+Argo CD app-of-apps, sync-waves, thin Helm wrapper charts. Live state on
+2026-07-15: **12 applications Synced; 10 Healthy and 2 Degraded**. The degraded
+pair is explicit recovery work, not hidden under the historical healthy claim.
 
 | App | Role |
 |-----|------|
 | `argocd` | GitOps controller (app-of-apps root) |
-| `vault` | In-cluster Vault (standalone, file storage on local-path, HTTP) + auto-unseal poller Deployment |
-| `external-secrets` | ESO → Vault via AppRole (`ClusterSecretStore vault-incluster`) |
+| `external-secrets` | ESO → Vault@discovery via AppRole; currently Degraded because the `vault-approle` bootstrap Secret is absent |
 | `csi-driver-nfs` | `nfs-fast` + `nfs-slow` storage classes |
 | `traefik` | **Default** IngressClass (post-cutover), NodePort 30444/30081 |
-| `harbor` | Registry (admin pw via ESO/existingSecret, Trivy off for lab weight) |
 | `keda` | Cron `ScaledObject` scale-to-zero |
 | `jaeger` + `otel-collector` | Tracing backend + collector |
 | `trace-demo` | telemetrygen trace producer |
 | `kube-state-metrics` | Cluster-object metrics |
 | `alloy-metrics` | KSM + cAdvisor + Traefik scrape → discovery Prometheus |
-| `demo` | Flagship: podinfo + Vault env + NFS PVC + KEDA + restricted PSA + NetworkPolicy |
+| `demo` | Flagship workload; currently Degraded downstream of the missing ESO credential |
 | `root` | App-of-apps parent |
 
-**Validated end-to-end:**
+**Historically validated end-to-end before the latest cluster rebuild:**
 
 - Vault auto-unseal (kill `vault-0` → re-unsealed ~30 s, ESO reconnects).
 - Demo: Vault-sourced env, NFS PVC Bound, ingress 200, KEDA HPA active,
@@ -107,8 +106,8 @@ Synced + Healthy:**
 
 - **k8s Grafana dashboards** on discovery — `k3s Cluster Health` (KSM+cAdvisor)
   + `Traefik Ingress` (after enabling traefik metrics, no bounce) + `Node
-  Exporter Full` (1860). All provisioned + verified. etcd dashboard deferred
-  (no metrics until the `--etcd-expose-metrics` bounce).
+  Exporter Full` (1860). All provisioned + verified. The etcd dashboard was
+  deferred at that point and shipped in the 2026-07-15 tranche below.
 - **Grafana hardening env** — cookie_secure / cookie_samesite=strict /
   disable_gravatar / allow_sign_up=false live. `secret_key` gated on
   `GRAFANA_SECRET_KEY` landing in `.env.sops`. (`hide_version` is not a real
@@ -122,6 +121,20 @@ Synced + Healthy:**
   active on cp-1/2/3; every embedded-etcd endpoint reports a leader; Alloy
   remote-writes three healthy `up{job="etcd"}` series to discovery Prometheus.
   The provisioned Grafana dashboard is `etcd-control-plane`.
+- **Argo recovery** — refreshed the admin kubeconfig, reinstalled Argo, replaced
+  its orphaned read-only GitHub deploy key, and reconciled the app-of-apps at
+  revision `44a4938`. The repository key currently exists only as a Kubernetes
+  Secret; durable bootstrap delivery remains open.
+
+### Recovery follow-up — do before feature work
+
+- **Make bootstrap credentials reproducible.** A cluster rebuild erased both
+  the Argo repository credential and ESO's `vault-approle` Secret. Argo was
+  recovered manually; ESO remains Degraded and `demo` cannot start. Define the
+  ownership and restore path for both credentials under the existing rule:
+  sops owns bootstrap secrets, Vault owns runtime secrets. Verification is a
+  fresh cluster namespace with Argo `Synced/Healthy`, `ClusterSecretStore`
+  `Ready=True`, and the demo pod Ready without copying a personal SSH key.
 
 ### Deferred — needs a deliberate node bounce (schedule, ideally with orion up)
 
@@ -162,8 +175,9 @@ Synced + Healthy:**
 - **Multi-apiserver chart 404**: the helm-install job hits an arbitrary
   apiserver — the static chart must exist on all servers (`autoDeployCharts` on
   every server role).
-- **Argo repo SSH secret**: create with
-  `kubectl create secret generic --from-file=sshPrivateKey=<keyfile>` — heredoc/
-  sed indentation corrupts the key.
+- **Argo repo SSH secret**: use a dedicated read-only deploy key, never a
+  personal SSH key. Create the Kubernetes Secret from the private-key file;
+  heredoc/sed indentation corrupts it. This manual path recovers service but is
+  not durable across a cluster rebuild.
 - **Pods can't resolve tailnet MagicDNS** → telemetry agents use discovery's raw
   tailnet IP, not the hostname.

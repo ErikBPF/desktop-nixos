@@ -79,6 +79,7 @@ evidência → aprovação → execução.
 
 | ID | Decisão / trabalho | Dono | Próximo gate |
 |----|--------------------|------|--------------|
+| O0 / S0 | **Bootstrap reproduzível do Argo + ESO** | [`kepler-k3s-platform-status`](../reference/kepler-k3s-platform-status.md) | P0: credencial read-only dedicada do repo + `vault-approle` sob sops; provar rebuild sem segredo manual/pessoal. |
 | A7 | **Harbor pull-through: Job declarativo ou reconciler atual** | [`harbor-pullthrough-mirror`](../implemented/2026-06-22-harbor-pullthrough-mirror.md) | Auditar se `ExecStartPost` já satisfaz reinstall; só criar Job se existir gap real. |
 | A9 | **Rolling CP restart e helpers k3s valem o custo?** | [`kepler-k3s-microvm-cluster`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) | Decidir a partir de histórico de deploy/downtime, não preferência abstrata. |
 | B5 | ~~**Ativar/verificar `k3s-manifest-reconcile`**~~ | módulo compartilhado k3s + Harbor RFC | **Resolvido 2026-07-15:** serviço ativo em cp-1/2/3 após o bounce. |
@@ -112,12 +113,13 @@ evidência → aprovação → execução.
 
 ## Ordem sugerida
 
-1. **R1/R2** — não executar; fechar evidence manifests e trazer aprovação.
-2. **HAI8 + A4** — graduations documentais já decididas.
-3. **H1** — sudo agora desbloqueado por deploy-rs, mas exige command audit.
-4. **B7/O2** — alertas KSM agora são a próxima decisão de observabilidade.
-5. **N3/N4** — decidir placement antes de qualquer separação de containers.
-6. Restante por trigger explícito; ausência de trigger não é trabalho pendente.
+1. **O0/S0** — corrigir bootstrap Argo/ESO; hoje `external-secrets` e `demo` estão Degraded.
+2. **R1/R2** — não executar; fechar evidence manifests e trazer aprovação.
+3. **HAI8 + A4** — graduations documentais já decididas.
+4. **H1** — sudo agora desbloqueado por deploy-rs, mas exige command audit.
+5. **B7/O2** — alertas KSM depois de restaurar ESO/demo.
+6. **N3/N4** — decidir placement antes de qualquer separação de containers.
+7. Restante por trigger explícito; ausência de trigger não é trabalho pendente.
 
 ## Já fechado — não retrabalhar
 
