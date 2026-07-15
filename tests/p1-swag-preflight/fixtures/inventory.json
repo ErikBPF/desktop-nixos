@@ -2,7 +2,7 @@
   "certificate": {
     "fingerprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "not_after": "2026-10-12T00:00:00Z",
-    "sans": ["*.homelab.pastelariadev.com"]
+    "sans": ["*.homelab.pastelariadev.com", "*.k8s.pastelariadev.com", "ha.pastelariadev.com", "k8s.pastelariadev.com"]
   },
   "containers": [
     {

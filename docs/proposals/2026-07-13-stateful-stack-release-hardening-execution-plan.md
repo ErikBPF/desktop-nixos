@@ -92,6 +92,10 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   re-inspects both approved container identities with SWAG stopped, and starts
   only the captured legacy SWAG ID. It runs no Compose command and does not
   weaken the stricter archive/snapshot requirements of post-recreation rollback.
+  Certificate drift is fail-closed against the four SANs declared by Servarr:
+  `*.homelab.pastelariadev.com`, `*.k8s.pastelariadev.com`,
+  `ha.pastelariadev.com`, and `k8s.pastelariadev.com`; fixture coverage uses
+  the sorted shape emitted by the read-only collector.
   Neither live entrypoint has been invoked, so no Discovery contact or mutation
   occurred during implementation.
 
@@ -381,7 +385,7 @@ After approval naming `swag` and `swag-init`:
 4. Require exact digest/project/owner/bind, healthy state, no restart loop.
 5. Require credential mode `0600`, expected owner, non-empty secret without
    logging it.
-6. Run nginx config, wildcard SAN/expiry, Certbot DNS-01 dry-run gates.
+6. Run nginx config, exact four-SAN/expiry, Certbot DNS-01 dry-run gates.
 7. Probe Grafana `200`, AdGuard `302`, and LAN Kindle `/dash.png` PNG.
 8. Persist downtime, snapshot UUID, archive checksum, certificate fingerprint,
    and rollback evidence. Retain everything.

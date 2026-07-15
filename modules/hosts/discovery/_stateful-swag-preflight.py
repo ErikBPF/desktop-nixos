@@ -25,6 +25,12 @@ IMAGES = {
     "swag-init": "busybox:1.38@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d",
 }
 STATES = {"swag": "running", "swag-init": "exited"}
+CERTIFICATE_SANS = [
+    "*.homelab.pastelariadev.com",
+    "*.k8s.pastelariadev.com",
+    "ha.pastelariadev.com",
+    "k8s.pastelariadev.com",
+]
 EVIDENCE = {
     "archive": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst",
     "archive_sha256": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst.sha256",
@@ -128,7 +134,7 @@ def plan(inventory):
     certificate = inventory["certificate"]
     if not HEX64.fullmatch(certificate["fingerprint_sha256"]):
         raise PreflightHalt("certificate fingerprint differs")
-    if certificate["sans"] != ["*.homelab.pastelariadev.com"] or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", certificate["not_after"]):
+    if certificate["sans"] != CERTIFICATE_SANS or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", certificate["not_after"]):
         raise PreflightHalt("certificate metadata differs")
 
     if inventory["evidence"] != EVIDENCE or inventory["evidence_collisions"] != []:

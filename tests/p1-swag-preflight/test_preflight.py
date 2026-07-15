@@ -79,11 +79,18 @@ class SwagPreflightTest(unittest.TestCase):
                     self.assert_halts(lambda i, n=name, m=mounts: self.container_from(i, n).update(mounts=m))
 
     def test_servarr_commit_render_and_cert_metadata_are_bound(self):
+        self.assertEqual(self.plan()["certificate"]["sans"], [
+            "*.homelab.pastelariadev.com",
+            "*.k8s.pastelariadev.com",
+            "ha.pastelariadev.com",
+            "k8s.pastelariadev.com",
+        ])
         mutations = [
             lambda i: i["servarr"].update(commit="short"),
             lambda i: i["servarr"].update(render_sha256="short"),
             lambda i: i["certificate"].update(fingerprint_sha256="short"),
             lambda i: i["certificate"].update(sans=[]),
+            lambda i: i["certificate"].update(sans=i["certificate"]["sans"] + ["extra.pastelariadev.com"]),
             lambda i: i["certificate"].update(not_after="unknown"),
         ]
         for mutation in mutations:
