@@ -562,9 +562,6 @@ backup-kepler-esp-orion:
 diagnose-kepler-compose:
     ssh -p 2222 erik@{{ip_kepler}} "export XDG_RUNTIME_DIR=/run/user/\$(id -u); systemctl --user status podman-compose-infra.service --no-pager -l; journalctl --user -u podman-compose-infra.service -b --no-pager -n 120; echo ':: containers'; podman ps -a --format json | jq -r '.[] | [.Names[0], .State, .Status] | @tsv'"
 
-recover-kepler-ai-containers:
-    ssh -p 2222 erik@{{ip_kepler}} "export XDG_RUNTIME_DIR=/run/user/\$(id -u); podman start f5-tts-server faster-whisper-openai piper-openai edge-tts-openai docs-search nvidia-gpu-exporter piper-wyoming slm-bge-reranker slm-bge-m3; test \"\$(podman ps --filter status=running --format json | jq 'length')\" -ge 9"
-
 verify-kepler-esp-backup-orion:
     #!/usr/bin/env bash
     set -euo pipefail
