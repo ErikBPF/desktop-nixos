@@ -319,6 +319,27 @@ seed-ampagent-builders:
 switch-discovery:
     just deploy-rs discovery
 
+# Read-only activation-failure evidence for Discovery's AppArmor unit. Fixed
+# unit and allowlisted generation links keep this safe for unattended triage.
+discovery-apparmor-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      echo ":: generation identity"
+      for link in /run/current-system /run/booted-system /nix/var/nix/profiles/system; do
+        if [ -e "$link" ]; then
+          printf '%s=%s\n' "$link" "$(readlink -f "$link")"
+        else
+          printf '%s=absent\n' "$link"
+        fi
+      done
+      echo ":: apparmor status"
+      sudo systemctl status apparmor.service --no-pager -l || true
+      echo ":: apparmor current-boot journal"
+      sudo journalctl -b -u apparmor.service --no-pager -n 160 -o short-iso || true
+    REMOTE
+
 switch-orion:
     just deploy-rs orion
 
