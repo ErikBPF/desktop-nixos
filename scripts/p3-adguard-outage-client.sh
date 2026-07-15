@@ -9,6 +9,27 @@ netns_etc=/etc/netns/$namespace
 state_dir=/run/p3-adguard-outage/$namespace
 parent_addresses(){ ip -j address show dev "$1"|jq -cS 'map({ifname,address,mtu,flags:(.flags|sort),addr_info:([.addr_info[]|{family,local,prefixlen,scope,label}]|sort_by(.family,.local,.prefixlen,.scope,.label))})'; }
 parent_routes(){ ip -j route show table all dev "$1"|jq -cS 'map(del(.expires,.cache,.used,.lastuse)|if .nexthops then .nexthops|=sort_by(.dev,.gateway,.weight) else . end)|sort_by(.table//"main",.dst//"default",.gateway//"",.prefsrc//"",.protocol//"")'; }
+wait_for_kernel_link_local(){
+  local namespace=$1 interface=$2 attempt json metrics total eligible tentative dadfailed
+  local attempts=${P3_LINK_LOCAL_ATTEMPTS:-20} delay=${P3_LINK_LOCAL_DELAY:-0.1} fraction delay_ms
+  [[ $attempts =~ ^[1-9][0-9]*$ ]] && [ "$attempts" -le 30 ] || return 1
+  [[ $delay =~ ^0([.]([0-9]{1,3}))?$ ]] || return 1
+  fraction=${BASH_REMATCH[2]:-0};printf -v fraction '%-3s' "$fraction";delay_ms=${fraction// /0}
+  [ "$((10#$delay_ms))" -le 250 ] || return 1
+  for ((attempt=1;attempt<=attempts;attempt++));do
+    json=$(ip -j -n "$namespace" -6 address show dev "$interface" scope link) || return 1
+    metrics=$(jq -r '[.[].addr_info[]|select(.family=="inet6" and .scope=="link")] as $all|[
+      ($all|length),([$all[]|select((.protocol? // "kernel_ll")=="kernel_ll")]|length),
+      ([$all[]|select((.tentative? == true) or (((.flags? // [])|index("tentative")) != null))]|length),
+      ([$all[]|select((.dadfailed? == true) or (((.flags? // [])|index("dadfailed")) != null))]|length)]|@tsv' <<<"$json") || return 1
+    IFS=$'\t' read -r total eligible tentative dadfailed <<<"$metrics"
+    [ "$dadfailed" -eq 0 ] || return 1
+    if [ "$total" -eq 1 ] && [ "$eligible" -eq 1 ] && [ "$tentative" -eq 0 ];then return 0;fi
+    [ "$total" -eq 0 ] || { [ "$total" -eq 1 ] && [ "$eligible" -eq 1 ] && [ "$tentative" -eq 1 ]; } || return 1
+    [ "$attempt" -eq "$attempts" ] || sleep "$delay"
+  done
+  return 1
+}
 if [ "$mode" = cleanup ];then
   [ -d "$state_dir" ] || exit 1;parent=$(<"$state_dir/parent")
   ip netns delete "$namespace" 2>/dev/null||true;rm -rf "$netns_etc"
@@ -31,9 +52,7 @@ install -d -m 0700 "$state_dir";printf '%s\n' "$parent" >"$state_dir/parent";par
 ip netns add "$namespace";created=true
 mac=$(printf '02:%02x:%02x:%02x:%02x:%02x' $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))
 ip link add link "$parent" name "$probe" address "$mac" type macvlan mode bridge;ip link set "$probe" netns "$namespace";ip -n "$namespace" link set lo up;ip -n "$namespace" link set "$probe" up
-iid=$(printf '%s' "$namespace:$probe:$RANDOM:$RANDOM:$(date +%s%N)"|sha256sum|cut -c1-16);link_local="fe80::${iid:0:4}:${iid:4:4}:${iid:8:4}:${iid:12:4}"
-ip -n "$namespace" -6 address add "$link_local/64" dev "$probe" nodad
-[ "$(ip -j -n "$namespace" -6 address show dev "$probe" scope link|jq -r --arg address "$link_local" '[.[].addr_info[]|select(.family=="inet6" and .scope=="link" and .local==$address)]|length')" -eq 1 ]
+wait_for_kernel_link_local "$namespace" "$probe"
 ra_tmp=$(mktemp);timeout 12 ip netns exec "$namespace" "$rdisc6" -1 "$probe" >"$ra_tmp"
 mapfile -t rdnss < <(sed -n 's/^[[:space:]]*Recursive DNS server[[:space:]]*:[[:space:]]*//p' "$ra_tmp")
 [ "${#rdnss[@]}" -eq 1 ] && [[ ${rdnss[0]} == *:* ]]

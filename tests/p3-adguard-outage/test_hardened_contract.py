@@ -182,7 +182,45 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         source = DRILL.read_text(); self.assertIn("for attempt in 1 2 3", source); self.assertIn("mkdir -m 0700", source); self.assertIn("mv -n", source)
         self.assertNotIn('"sudo docker', source); self.assertIn("trap recover EXIT INT TERM", source); self.assertIn("rm -f", source)
         client = CLIENT.read_text(); self.assertNotIn("trap 'rm -f \"$capture\"' RETURN", client); self.assertIn('[ -n "$capture" ]&&rm -f "$capture"', client); self.assertIn('[ -n "$tmp" ]&&rm -f "$tmp"', client)
-        self.assertIn('-6 address add "$link_local/64" dev "$probe" nodad', client); self.assertIn('-6 address show dev "$probe" scope link', client)
+        self.assertNotIn('-6 address add', client); self.assertNotIn(' nodad', client)
+        self.assertIn('wait_for_kernel_link_local "$namespace" "$probe"', client)
+        self.assertLess(client.index('wait_for_kernel_link_local "$namespace" "$probe"'), client.index('"$rdisc6" -1 "$probe"'))
+
+    def test_kernel_link_local_wait_accepts_delay_and_rejects_timeout_or_multiple(self):
+        source = CLIENT.read_text().splitlines()
+        start = next(index for index, line in enumerate(source) if line.startswith("wait_for_kernel_link_local()"))
+        end = next(index for index in range(start + 1, len(source)) if source[index] == "}")
+        function = "\n".join(source[start:end + 1])
+        fake_ip = self.root / "ip"; counter = self.root / "link-local-count"
+        executable(fake_ip, r'''count=0; [ -e "$LL_COUNTER" ] && count=$(cat "$LL_COUNTER"); count=$((count+1)); printf '%s\n' "$count" >"$LL_COUNTER"
+case "$LL_MODE" in
+ delayed) [ "$count" -lt 2 ] && echo '[]' || echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link","protocol":"kernel_ll"}]}]' ;;
+ absent-protocol) echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link"}]}]' ;;
+ tentative) [ "$count" -lt 2 ] && echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link","protocol":"kernel_ll","tentative":true}]}]' || echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link","protocol":"kernel_ll"}]}]' ;;
+ timeout) echo '[]' ;;
+ multiple) echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link","protocol":"kernel_ll"},{"family":"inet6","local":"fe80::2","scope":"link","protocol":"kernel_ll"}]}]' ;;
+ dadfailed) echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link","protocol":"kernel_ll","dadfailed":true}]}]' ;;
+ mixed) echo '[{"addr_info":[{"family":"inet6","local":"fe80::1","scope":"link","protocol":"kernel_ll"},{"family":"inet6","local":"fe80::2","scope":"link","protocol":"static"}]}]' ;;
+esac
+''')
+        command = f"{function}\nwait_for_kernel_link_local proof p3d1234"
+        base = os.environ | {"PATH": f"{self.root}:{os.environ['PATH']}", "LL_COUNTER": str(counter),
+            "P3_LINK_LOCAL_ATTEMPTS": "3", "P3_LINK_LOCAL_DELAY": "0"}
+        delayed = subprocess.run(["bash", "-c", command], env=base | {"LL_MODE": "delayed"}, text=True, capture_output=True)
+        self.assertEqual(delayed.returncode, 0, delayed.stderr); self.assertEqual(counter.read_text(), "2\n")
+        counter.unlink(); absent = subprocess.run(["bash", "-c", command], env=base | {"LL_MODE": "absent-protocol"}, text=True, capture_output=True)
+        self.assertEqual(absent.returncode, 0, absent.stderr)
+        counter.unlink(); tentative = subprocess.run(["bash", "-c", command], env=base | {"LL_MODE": "tentative"}, text=True, capture_output=True)
+        self.assertEqual(tentative.returncode, 0, tentative.stderr); self.assertEqual(counter.read_text(), "2\n")
+        for mode in ("timeout", "multiple", "dadfailed", "mixed"):
+            counter.unlink(missing_ok=True)
+            result = subprocess.run(["bash", "-c", command], env=base | {"LL_MODE": mode}, text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0, mode)
+        for attempts, delay in (("0", "0"), ("31", "0"), ("bogus", "0"), ("3", "0.251"), ("3", "9"), ("3", "bogus")):
+            counter.unlink(missing_ok=True)
+            result = subprocess.run(["bash", "-c", command], env=base | {"LL_MODE": "delayed",
+                "P3_LINK_LOCAL_ATTEMPTS": attempts, "P3_LINK_LOCAL_DELAY": delay}, text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0, (attempts, delay))
 
     def test_recovery_succeeds_on_attempts_one_two_three_or_records_exhaustion(self):
         bindir = self.root / "lifecycle-bin"; bindir.mkdir(); log = self.root / "lifecycle.log"; counter = self.root / "counter"
