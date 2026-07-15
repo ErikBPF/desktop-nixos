@@ -2718,6 +2718,12 @@ discovery-swag-recover-pre-adoption manifest-sha:
 
 # P1 attempt-02 resumes only the post-recreate ownership correction. It binds
 # the retained first-attempt evidence and current runtime before any recreate.
+discovery-swag-resume-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo stat -c '{\"mode\":\"%a\",\"owner\":\"%u:%g\"}' /home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini"
+
 discovery-swag-resume-observe output:
     #!/usr/bin/env bash
     set -euo pipefail
