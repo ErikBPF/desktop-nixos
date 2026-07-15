@@ -6,7 +6,7 @@ REPOSITORY=pathlib.Path("/home/erik/servarr");WORKDIR=REPOSITORY/"machines/disco
 ENV_FILE=WORKDIR/".env";VAULT_ENV=pathlib.Path("/run/vault-agent/networking.env");CONFIG=WORKDIR/"config/adguard"
 VOLUME="networking_adguard_work";COLLISION="discovery_adguard_work"
 ADGUARD_API_BASE="http://192.168.10.210:8090"
-EXPECTED_EXPORTER_FAMILIES=("adguard_avg_processing_time","adguard_dns_queries","adguard_num_blocked_filtering")
+EXPECTED_EXPORTER_FAMILIES=("adguard_avg_processing_time_seconds","adguard_queries","adguard_queries_blocked")
 RENDER_CONTRACT={"version":1,"cwd":str(WORKDIR),"argv":["docker-compose","--project-name","networking","--project-directory",str(WORKDIR),"--env-file",str(ENV_FILE),"--env-file",str(VAULT_ENV),"-f",str(COMPOSE),"config","--no-interpolate","--no-env-resolution"]}
 
 def run(command,*,binary=False):return subprocess.check_output(command,stderr=subprocess.DEVNULL,text=not binary)
@@ -62,12 +62,27 @@ def exporter_metrics_endpoint(containers):
     except ValueError as error:raise ValueError("AdGuard exporter network metadata invalid") from error
     if parsed.version!=4:raise ValueError("AdGuard exporter network metadata invalid")
     return f"http://{parsed}:9618/metrics"
+def exporter_metrics_text(containers):
+    metadata=[]
+    with urllib.request.urlopen(exporter_metrics_endpoint(containers),timeout=10) as response:
+        for raw_line in response:
+            line=raw_line.decode("utf-8").rstrip("\r\n")
+            if line.startswith("# TYPE "):metadata.append(line)
+    return "\n".join(metadata)
+def metric_family_names(exposition):
+    names=sorted(set(match.group(1) for line in exposition.splitlines() if (match:=re.fullmatch(r"# TYPE ([a-zA-Z_:][a-zA-Z0-9_:]*) [a-z]+",line))))
+    if not names:raise ValueError("AdGuard exporter metric family metadata absent")
+    return names
+def exporter_family_diagnostic(exposition):
+    observed=set(metric_family_names(exposition));families={name:name in observed for name in EXPECTED_EXPORTER_FAMILIES}
+    return {"families":families,"required_family_count":sum(families.values())}
+def format_exporter_family_diagnostic(diagnostic):
+    if not isinstance(diagnostic,dict) or set(diagnostic)!={"families","required_family_count"} or not isinstance(diagnostic["families"],dict) or set(diagnostic["families"])!=set(EXPECTED_EXPORTER_FAMILIES) or any(type(value) is not bool for value in diagnostic["families"].values()) or type(diagnostic["required_family_count"]) is not int or diagnostic["required_family_count"]!=sum(diagnostic["families"].values()):raise ValueError("AdGuard exporter family diagnostic invalid")
+    return "".join(f"{name}={'true' if diagnostic['families'][name] else 'false'}\n" for name in EXPECTED_EXPORTER_FAMILIES)+f"required_family_count={diagnostic['required_family_count']}\n"
 def baseline(containers):
     auth=vault_auth();status=api_json("/control/status",auth);filters=api_json("/control/filtering/status",auth);query_config=api_json("/control/querylog/config",auth);queries=api_json("/control/querylog?older_than=&limit=1",auth);stats=api_json("/control/stats",auth);rewrites=api_json("/control/rewrite/list",auth)
-    metrics=urllib.request.urlopen(exporter_metrics_endpoint(containers),timeout=10).read().decode("utf-8")
-    samples=[line for line in metrics.splitlines() if line and not line.startswith("#")]
-    families={name:any(line==name or line.startswith(name+"{") or line.startswith(name+" ") for line in samples) for name in EXPECTED_EXPORTER_FAMILIES}
-    return {"api":{"protection_enabled":bool(status.get("protection_enabled")),"filtering_enabled":bool(filters.get("enabled")),"enabled_filter_count":sum(bool(item.get("enabled")) for item in filters.get("filters",[])),"filter_count":len(filters.get("filters",[])),"user_rule_count":len(filters.get("user_rules",[])),"query_log_enabled":bool(query_config.get("enabled")),"query_sample_count":len(queries.get("data",[])),"rewrite_count":len(rewrites),"stats":{"dns_queries":int(stats.get("num_dns_queries",0)),"blocked_filtering":int(stats.get("num_blocked_filtering",0))}},"dns":{"blocked":dns_probe("doubleclick.net"),"external":dns_probe("example.com"),"lan_a":dns_probe("discovery.homelab.pastelariadev.com"),"lan_aaaa":dns_probe("discovery.homelab.pastelariadev.com","AAAA"),"rewrite":dns_probe("grafana.homelab.pastelariadev.com")},"exporter":{"families":families,"reachable":True,"sample_count":len(samples)}}
+    exporter=exporter_family_diagnostic(exporter_metrics_text(containers));exporter["reachable"]=True
+    return {"api":{"protection_enabled":bool(status.get("protection_enabled")),"filtering_enabled":bool(filters.get("enabled")),"enabled_filter_count":sum(bool(item.get("enabled")) for item in filters.get("filters",[])),"filter_count":len(filters.get("filters",[])),"user_rule_count":len(filters.get("user_rules",[])),"query_log_enabled":bool(query_config.get("enabled")),"query_sample_count":len(queries.get("data",[])),"rewrite_count":len(rewrites),"stats":{"dns_queries":int(stats.get("num_dns_queries",0)),"blocked_filtering":int(stats.get("num_blocked_filtering",0))}},"dns":{"blocked":dns_probe("doubleclick.net"),"external":dns_probe("example.com"),"lan_a":dns_probe("discovery.homelab.pastelariadev.com"),"lan_aaaa":dns_probe("discovery.homelab.pastelariadev.com","AAAA"),"rewrite":dns_probe("grafana.homelab.pastelariadev.com")},"exporter":exporter}
 def capture():
     containers=json.loads(run(["docker","inspect","adguard","adguard-exporter"]));images={item["Image"]:json.loads(run(["docker","image","inspect",item["Image"]]))[0].get("RepoDigests",[]) for item in containers}
     volume=json.loads(run(["docker","volume","inspect",VOLUME]))[0];collision_inspect=json.loads(run(["docker","volume","inspect",COLLISION]))[0]
@@ -78,8 +93,14 @@ def capture():
     semantics=json.loads(subprocess.run(semantics_argv,cwd=RENDER_CONTRACT["cwd"],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL).stdout)
     return normalize({"baseline":baseline(containers),"collision":{"driver":collision_inspect["Driver"],"exists":True,"labels":collision_inspect.get("Labels") or {},"mountpoint":collision_inspect["Mountpoint"],"name":collision_inspect["Name"],"references":references},"config_metadata":file_metadata(CONFIG),"containers":containers,"images":images,"servarr":{"commit":run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"]).strip(),"render_semantics":render_semantics(semantics),"render_sha256":hashlib.sha256(render).hexdigest()},"volume":volume,"volume_references":volume_references,"volume_metadata":file_metadata(volume["Mountpoint"],with_size=True)})
 def main(argv=None):
-    parser=argparse.ArgumentParser();parser.add_argument("command",choices=("capture","normalize"));parser.add_argument("input",nargs="?");args=parser.parse_args(argv)
-    try:result=capture() if args.command=="capture" else normalize(json.loads(pathlib.Path(args.input).read_text()))
+    parser=argparse.ArgumentParser();parser.add_argument("command",choices=("capture","exporter-families","normalize"));parser.add_argument("input",nargs="?");args=parser.parse_args(argv)
+    if args.command=="normalize" and args.input is None:parser.error("normalize requires input")
+    if args.command!="normalize" and args.input is not None:parser.error(f"{args.command} takes no input")
+    try:
+        if args.command=="capture":result=capture()
+        elif args.command=="normalize":result=normalize(json.loads(pathlib.Path(args.input).read_text()))
+        else:
+            containers=json.loads(run(["docker","inspect","adguard-exporter"]));sys.stdout.write(format_exporter_family_diagnostic(exporter_family_diagnostic(exporter_metrics_text(containers))));return 0
     except (OSError,ValueError,KeyError,json.JSONDecodeError,subprocess.SubprocessError) as error:print(f"stateful-adguard-inventory: BLOCKED: {error}",file=sys.stderr);return 1
     print(json.dumps(result,sort_keys=True,separators=(",",":")));return 0
 if __name__=="__main__":raise SystemExit(main())

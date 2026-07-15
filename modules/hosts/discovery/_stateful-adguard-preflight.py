@@ -7,7 +7,7 @@ WORKDIR="/home/erik/servarr/machines/discovery";COMPOSE=WORKDIR+"/networking.yml
 RENDER_CONTRACT={"version":1,"cwd":WORKDIR,"argv":["docker-compose","--project-name","networking","--project-directory",WORKDIR,"--env-file",WORKDIR+"/.env","--env-file","/run/vault-agent/networking.env","-f",COMPOSE,"config","--no-interpolate","--no-env-resolution"]}
 TARGET_COMMIT=os.environ.get("P2_ADGUARD_TARGET_COMMIT","")
 TARGET_IMAGE_REFS={"adguard":os.environ.get("P2_ADGUARD_IMAGE_ADGUARD",""),"adguard-exporter":os.environ.get("P2_ADGUARD_IMAGE_EXPORTER","")}
-EXPECTED_EXPORTER_FAMILIES={"adguard_avg_processing_time","adguard_dns_queries","adguard_num_blocked_filtering"}
+EXPECTED_EXPORTER_FAMILIES={"adguard_avg_processing_time_seconds","adguard_queries","adguard_queries_blocked"}
 class Drift(ValueError):pass
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=True).encode()
 def envelope(value):return {"manifest":value,"manifest_sha256":hashlib.sha256(canonical(value)).hexdigest()}
@@ -49,9 +49,9 @@ def plan(inventory):
         exact(probe,{"answer_count","status"},"DNS probe")
         if not nonnegative(probe["answer_count"]) or not re.fullmatch(r"[A-Z]+",probe["status"]):raise Drift("DNS probe invalid")
     if any(baseline["dns"][name]["status"]!="NOERROR" or baseline["dns"][name]["answer_count"]<1 for name in ("blocked","external","lan_a","rewrite")) or baseline["dns"]["lan_aaaa"]["status"]!="NOERROR":raise Drift("DNS baseline differs")
-    exact(baseline["exporter"],{"families","reachable","sample_count"},"exporter");exact(baseline["exporter"]["families"],EXPECTED_EXPORTER_FAMILIES,"exporter families")
-    if baseline["exporter"]["reachable"] is not True or any(value is not True for value in baseline["exporter"]["families"].values()) or not nonnegative(baseline["exporter"]["sample_count"]):raise Drift("exporter baseline invalid")
-    stable_baseline={"api":{"filtering_enabled":api["filtering_enabled"],"protection_enabled":api["protection_enabled"],"query_log_enabled":api["query_log_enabled"]},"dns":{name:{"answered":probe["answer_count"]>0,"status":probe["status"]} for name,probe in baseline["dns"].items()},"exporter":{"families":baseline["exporter"]["families"],"reachable":baseline["exporter"]["reachable"]}}
+    exact(baseline["exporter"],{"families","reachable","required_family_count"},"exporter");exact(baseline["exporter"]["families"],EXPECTED_EXPORTER_FAMILIES,"exporter families")
+    if baseline["exporter"]["reachable"] is not True or any(value is not True for value in baseline["exporter"]["families"].values()) or baseline["exporter"]["required_family_count"]!=len(EXPECTED_EXPORTER_FAMILIES):raise Drift("exporter baseline invalid")
+    stable_baseline={"api":{"filtering_enabled":api["filtering_enabled"],"protection_enabled":api["protection_enabled"],"query_log_enabled":api["query_log_enabled"]},"dns":{name:{"answered":probe["answer_count"]>0,"status":probe["status"]} for name,probe in baseline["dns"].items()},"exporter":{"families":baseline["exporter"]["families"],"reachable":baseline["exporter"]["reachable"],"required_family_count":baseline["exporter"]["required_family_count"]}}
     resources={"config_bind":config,"containers":containers,"volume":volume}
     stable_identity={"baseline":stable_baseline,"protected_collision":collision,"resources":resources,"servarr":servarr}
     return {"actions":ACTIONS,"approval_ready":False,"baseline":stable_baseline,"blockers":["backup_restore_evidence","secondary_dns_or_waiver"],"mode":"preflight-only","phase":"p2-adguard-in-place-adoption","protected_collision":collision,"resources":resources,"servarr":servarr,"stable_inventory_sha256":hashlib.sha256(canonical(stable_identity)).hexdigest(),"version":2}

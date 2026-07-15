@@ -26,7 +26,7 @@ class PreflightTest(unittest.TestCase):
         for changed in cases:
             with self.assertRaises(self.p.Drift):self.p.verify(changed,authorization)
     def test_volatile_counts_do_not_change_authorization(self):
-        first=self.p.envelope(self.p.plan(self.inventory));changed=copy.deepcopy(self.inventory);changed["baseline"]["api"]["stats"]["dns_queries"]+=99;changed["baseline"]["exporter"]["sample_count"]+=5
+        first=self.p.envelope(self.p.plan(self.inventory));changed=copy.deepcopy(self.inventory);changed["baseline"]["api"]["stats"]["dns_queries"]+=99
         self.assertEqual(first,self.p.envelope(self.p.plan(changed)))
     def test_extra_or_privacy_field_halts(self):
         for path in (("baseline","api"),("containers",0)):

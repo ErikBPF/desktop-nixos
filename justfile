@@ -3083,13 +3083,13 @@ discovery-adguard-result inventory authorization:
       python3 modules/hosts/discovery/_stateful-adguard-preflight.py verify \
         "{{inventory}}" "{{authorization}}"
 
-# Value-free exporter diagnostic: allowlisted family presence and sample count.
+# Value-free exporter diagnostic: allowlisted family presence only.
 discovery-adguard-exporter-diagnostic:
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip discovery)"
     ssh -p 2222 erik@"$IP" \
-      'sudo discovery-stateful-adguard-inventory capture | jq -c .baseline.exporter'
+      'sudo discovery-stateful-adguard-inventory exporter-families'
 
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
