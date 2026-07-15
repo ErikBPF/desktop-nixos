@@ -54,7 +54,7 @@ capture_resume_observation() {
   local runtime=$1 output=$2 snapshot_uuid dns_mode render_sha
   discovery-stateful-swag-inventory capture-runtime >"$runtime" || die 'post-recreate runtime capture failed'
   snapshot_uuid=$(btrfs subvolume show "$snapshot" | awk '/UUID:/ && !/Parent|Received/ {print $2; exit}')
-  [[ "$snapshot_uuid" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]] ||
+  [[ "$snapshot_uuid" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] ||
     die 'retained snapshot UUID invalid'
   printf -v dns_mode '%04d' "$(stat -c '%a' "$dns_ini")"
   render_sha=$(docker-compose --project-name networking --env-file "$env_file" --env-file "$vault_env" -f "$compose_file" config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk '{print $1}') ||

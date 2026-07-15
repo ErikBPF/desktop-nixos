@@ -253,7 +253,7 @@ def plan_resume(observation):
         if retained[name]["path"] != expected_path:
             raise PreflightHalt(f"retained {name} path differs")
         identity = retained[name]["uuid"] if name == "snapshot" else retained[name]["sha256"]
-        pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") if name == "snapshot" else HEX64
+        pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$") if name == "snapshot" else HEX64
         if not pattern.fullmatch(identity):
             raise PreflightHalt(f"retained {name} identity invalid")
     paths = [item["path"] for item in retained.values()]

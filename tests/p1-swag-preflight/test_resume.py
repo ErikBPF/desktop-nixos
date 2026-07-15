@@ -28,6 +28,10 @@ class SwagResumeTest(unittest.TestCase):
     def test_versioned_manifest_binds_predecessor_retained_and_runtime(self):
         manifest = self.planner.plan_resume(self.observation)
         self.assertEqual(manifest["version"], 2)
+        self.assertEqual(
+            manifest["retained"]["snapshot"]["uuid"],
+            "99999999-9999-0999-0999-999999999999",
+        )
         self.assertEqual(manifest["predecessor"], {
             "inventory_sha256": "35c294e9fe74e8b824df7aa8161693bfd555f09b97d1ef36b58a280d08d521e7",
             "manifest_sha256": "ee7861b9789f08a6fb0319ba931760054625d3e1cabe03bf43443560db3daee7",

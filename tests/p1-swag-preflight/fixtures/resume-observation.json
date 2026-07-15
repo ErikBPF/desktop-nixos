@@ -36,7 +36,7 @@
     "archive_checksum": {"path": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst.sha256", "sha256": "3333333333333333333333333333333333333333333333333333333333333333"},
     "authorization": {"path": "/var/lib/stateful-stack-migrations/p1-swag/authorization.json", "sha256": "4444444444444444444444444444444444444444444444444444444444444444"},
     "ledger": {"path": "/var/lib/stateful-stack-migrations/p1-swag/ledger.json", "sha256": "5555555555555555555555555555555555555555555555555555555555555555"},
-    "snapshot": {"path": "/home/.snapshots/stateful-stack-p1-swag", "uuid": "99999999-9999-4999-8999-999999999999"}
+    "snapshot": {"path": "/home/.snapshots/stateful-stack-p1-swag", "uuid": "99999999-9999-0999-0999-999999999999"}
   },
   "servarr": {
     "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
