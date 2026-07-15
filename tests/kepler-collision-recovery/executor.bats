@@ -14,6 +14,14 @@ printf '\n' >>"$MOCK_LOG"
 EOF
     chmod +x "$TEST_ROOT/bin/$command"
   done
+  cat >"$TEST_ROOT/bin/podman" <<'EOF'
+#!/usr/bin/env bash
+printf 'podman' >>"$MOCK_LOG"
+printf ' <%s>' "$@" >>"$MOCK_LOG"
+printf '\n' >>"$MOCK_LOG"
+if [[ $1 == inspect ]]; then printf 'false\n'; fi
+EOF
+  chmod +x "$TEST_ROOT/bin/podman"
   export PATH="$TEST_ROOT/bin:$PATH"
   export POSTGRES_USER="actual-user"
   export EXECUTOR="$BATS_TEST_DIRNAME/../../modules/hosts/kepler/_collision_recovery_executor.sh"
@@ -30,7 +38,7 @@ manifest = {
     {"kind":"path", "resource":"/fast/apps/gitlab/config", "command":["just","kepler-recovery-retire-exact","path","/fast/apps/gitlab/config"]},
     {"kind":"artifact", "resource":"/fast/ai-models/f5-tts", "command":["just","kepler-recovery-retire-exact","artifact","/fast/ai-models/f5-tts"]},
     {"kind":"image", "resource":"sha256:"+"2"*64, "command":["just","kepler-recovery-retire-exact","image","sha256:"+"2"*64]},
-    {"kind":"database", "resource":"airflow", "command":["just","kepler-recovery-retire-exact","database","airflow"]},
+    {"kind":"database", "resource":"airflow", "command":["just","kepler-recovery-retire-exact","database","airflow"], "guard":{"container_id":"3"*64,"container_name":"postgres"}},
   ],
   "execution": "unsupported-by-this-planner",
 }
@@ -77,7 +85,11 @@ PY
   run grep -Fx "podman <image> <rm> <sha256:$(printf '2%.0s' {1..64})>" "$MOCK_LOG"
   [ "$status" -eq 0 ]
   # shellcheck disable=SC2016
-  run grep -Fx 'podman <exec> <postgres> <sh> <-ceu> <exec dropdb --if-exists -U "$POSTGRES_USER" airflow>' "$MOCK_LOG"
+  run grep -Fx "podman <start> <$(printf '3%.0s' {1..64})>" "$MOCK_LOG"
+  [ "$status" -eq 0 ]
+  run grep -Fx 'podman <exec> <3333333333333333333333333333333333333333333333333333333333333333> <sh> <-ceu> <exec dropdb --if-exists -U "$POSTGRES_USER" airflow>' "$MOCK_LOG"
+  [ "$status" -eq 0 ]
+  run grep -Fx "podman <stop> <$(printf '3%.0s' {1..64})>" "$MOCK_LOG"
   [ "$status" -eq 0 ]
   [[ "$(<"$MOCK_LOG")" != *"actual-user"* ]]
 }

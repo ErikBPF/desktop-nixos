@@ -156,6 +156,7 @@ def plan(inventory_envelope, evidence, expected_inventory_sha256):
         ],
         "execution_supported": False,
         "inventory_sha256": inventory_sha256,
+        "source_container_id": evidence["source_container_id"],
         "mode": "dry-run-evidence-gate",
         "retained_databases": retained,
         "cluster_artifact": artifact,

@@ -62,6 +62,7 @@ class RetirementPlannerTest(unittest.TestCase):
         self.evidence["inventory_sha256"] = self.inventory["inventory_sha256"]
         database_reference = self.evidence["proofs"]["retained_database_restore"]
         database_reference["envelope"]["manifest"]["inventory_sha256"] = self.inventory["inventory_sha256"]
+        database_reference["envelope"]["manifest"]["source_container_id"] = "9" * 64
         database_reference["envelope"]["manifest_sha256"] = self.module.digest(database_reference["envelope"]["manifest"])
         database_reference["sha256"] = self.module.digest(database_reference["envelope"])
         preflight_reference = self.evidence["proofs"]["retired_preflight"]

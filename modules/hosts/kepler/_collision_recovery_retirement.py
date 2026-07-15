@@ -133,6 +133,7 @@ def _database_reference(reference, inventory_sha256, expected_databases):
         or not SHA256.fullmatch(str(restore.get("database_inventory_sha256", "")))
         or not SHA256.fullmatch(str(restore.get("logical_sha256", "")))
         or manifest.get("retired_databases") != ["airflow"]
+        or not CONTAINER_ID.fullmatch(str(manifest.get("source_container_id", "")))
     ):
         raise RetirementHalt("invalid retained cluster restore evidence")
     return manifest
@@ -203,7 +204,7 @@ def plan(inventory, evidence):
     expected_databases = evidence["expected_retained_databases"]
     if not isinstance(expected_databases, list) or not expected_databases or expected_databases != sorted(set(expected_databases)):
         raise RetirementHalt("exact retained database set required")
-    _database_reference(evidence["proofs"]["retained_database_restore"], computed_inventory_sha256, expected_databases)
+    database_manifest = _database_reference(evidence["proofs"]["retained_database_restore"], computed_inventory_sha256, expected_databases)
     preflight = _reference(
         evidence["proofs"]["retired_preflight"], "retired preflight",
         "kepler-retired-preflight-evidence-v1",
@@ -306,7 +307,12 @@ def plan(inventory, evidence):
             runtime_name = volume["runtime_name"]
             actions.append(_action("volume", runtime_name, ["just", "kepler-recovery-retire-exact", "volume", runtime_name], "not-applicable-after-exact-delete"))
         for database in family["databases"]:
-            actions.append(_action("database", database, ["just", "kepler-recovery-retire-exact", "database", database], "not-applicable-disposable-test"))
+            action = _action("database", database, ["just", "kepler-recovery-retire-exact", "database", database], "not-applicable-disposable-test")
+            action["guard"] = {
+                "container_id": database_manifest["source_container_id"],
+                "container_name": "postgres",
+            }
+            actions.append(action)
         for secret in family["secrets"]:
             actions.append(_action("secret", secret, ["just", "kepler-recovery-retire-exact", "secret", secret], "not-applicable-after-exact-delete"))
         for image in family["images"]:

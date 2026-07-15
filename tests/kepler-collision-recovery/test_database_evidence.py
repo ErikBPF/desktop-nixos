@@ -52,6 +52,7 @@ class DatabaseEvidenceTests(unittest.TestCase):
         self.assertEqual(
             first["manifest"]["inventory_sha256"], self.inventory["inventory_sha256"]
         )
+        self.assertEqual(first["manifest"]["source_container_id"], "b" * 64)
         self.assertEqual(first["manifest"]["status"], "retained-databases-verified")
         rendered = json.dumps(first, sort_keys=True).lower()
         for forbidden in ("password", "secret", "connection", "environment", "contents"):

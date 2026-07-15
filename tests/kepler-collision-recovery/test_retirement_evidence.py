@@ -64,6 +64,7 @@ class RetirementEvidenceAssemblerTest(unittest.TestCase):
         }
         self.database = copy.deepcopy(fixture["proofs"]["retained_database_restore"]["envelope"])
         self.database["manifest"]["inventory_sha256"] = self.inventory["inventory_sha256"]
+        self.database["manifest"]["source_container_id"] = "9" * 64
         self.database["manifest_sha256"] = self.assembler.digest(self.database["manifest"])
 
     def test_assembles_current_image_only_and_absent_families(self):

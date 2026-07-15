@@ -102,21 +102,34 @@ for action in actions:
     )
     if not allowed:
         halt(f"resource outside exact executor allowlist: {kind}")
-    print(f"{kind}\t{target}")
+    guard = action.get("guard")
+    guard_id = "-"
+    if kind == "database":
+        if not isinstance(guard, dict) or set(guard) != {"container_id", "container_name"}:
+            halt("exact database container guard required")
+        if guard.get("container_name") != "postgres" or not hex64.fullmatch(str(guard.get("container_id", ""))):
+            halt("invalid database container guard")
+        guard_id = guard["container_id"]
+    elif guard is not None:
+        halt("unexpected action guard")
+    print(f"{kind}\t{target}\t{guard_id}")
 PY
 
 declare -a kinds=()
 declare -a resources=()
-while IFS=$'\t' read -r kind resource; do
-  [[ -n "$kind" && -n "$resource" ]] || die 'invalid preflight output'
+declare -a guards=()
+while IFS=$'\t' read -r kind resource guard; do
+  [[ -n "$kind" && -n "$resource" && -n "$guard" ]] || die 'invalid preflight output'
   kinds+=("$kind")
   resources+=("$resource")
+  guards+=("$guard")
 done <"$actions_file"
 ((${#kinds[@]} > 0)) || die 'empty preflight output'
 
 for index in "${!kinds[@]}"; do
   kind=${kinds[$index]}
   resource=${resources[$index]}
+  guard=${guards[$index]}
   if ! $execute; then
     printf 'DRY-RUN %s %s\n' "$kind" "$resource"
     continue
@@ -128,8 +141,21 @@ for index in "${!kinds[@]}"; do
     artifact) rm --one-file-system --recursive --force -- "$resource" ;;
     image) podman image rm "$resource" ;;
     database)
-      podman exec postgres sh -ceu \
-        'exec dropdb --if-exists -U "$POSTGRES_USER" airflow' 2>/dev/null
+      running=$(podman inspect --format '{{.State.Running}}' "$guard" 2>/dev/null) \
+        || die 'exact database container unavailable'
+      started=false
+      if [[ $running == false ]]; then
+        podman start "$guard" >/dev/null
+        started=true
+      elif [[ $running != true ]]; then
+        die 'invalid database container state'
+      fi
+      if ! podman exec "$guard" sh -ceu \
+        'exec dropdb --if-exists -U "$POSTGRES_USER" airflow' 2>/dev/null; then
+        $started && podman stop "$guard" >/dev/null 2>&1 || true
+        die 'Airflow database drop failed'
+      fi
+      $started && podman stop "$guard" >/dev/null
       ;;
     *) die 'internal unsupported action' ;;
   esac
