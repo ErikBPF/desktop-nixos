@@ -1,4 +1,4 @@
-import importlib.util, pathlib, unittest
+import importlib.util, json, pathlib, tempfile, unittest
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 COLLECTOR=ROOT/"modules/hosts/discovery/_stateful-adguard-inventory.py"
@@ -29,5 +29,16 @@ class InventoryTest(unittest.TestCase):
     def test_source_has_no_lifecycle_or_backup_commands(self):
         source=COLLECTOR.read_text().lower()
         for token in ("docker stop","docker rm","compose up","volume rm","prune","snapshot","archive","chown","chmod"):self.assertNotIn(token,source)
+    def test_sops_decrypted_env_auth_key_and_quotes_are_transient(self):
+        dummy="fixture-only-not-a-real-password"
+        for rendered in (dummy,f"'{dummy}'",f'"{dummy}"'):
+            with self.subTest(rendered=rendered),tempfile.TemporaryDirectory() as directory:
+                path=pathlib.Path(directory)/".env";path.write_text(f"OTHER=value\nADGUARD_PASSWORD={rendered}\n")
+                auth=self.m.auth_from_env(path)
+                self.assertEqual(auth,{"username":"erik","password":dummy})
+                self.assertNotIn(dummy,json.dumps(self.m.normalize(raw())))
+        with tempfile.TemporaryDirectory() as directory:
+            path=pathlib.Path(directory)/".env";path.write_text("ADGUARD_PASSWORD=one\nADGUARD_PASSWORD=two\n")
+            with self.assertRaisesRegex(ValueError,"exactly once"):self.m.auth_from_env(path)
 
 if __name__=="__main__":unittest.main()

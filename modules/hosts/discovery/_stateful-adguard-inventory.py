@@ -29,13 +29,18 @@ def render_semantics(value):
     volume=value.get("volumes",{}).get("adguard_work",{})
     return {"images":{name:services.get(name,{}).get("image") for name in ("adguard","adguard-exporter")},"mounts":selected,"volumes":{"adguard_work":{"external":volume.get("external") is True,"name":volume.get("name")}}}
 def vault_auth():
-    value=None
-    with open(VAULT_ENV,encoding="utf-8") as stream:
+    return auth_from_env(ENV_FILE)
+def auth_from_env(path):
+    found=[]
+    with open(path,encoding="utf-8") as stream:
         for line in stream:
             key,separator,candidate=line.rstrip("\n").partition("=")
-            if separator and key=="ADGUARD_PASSWORD":value=candidate
-    if value is None:raise ValueError("AdGuard API authentication field absent")
+            if separator and key=="ADGUARD_PASSWORD":found.append(candidate)
+    if len(found)!=1:raise ValueError("AdGuard API authentication field must occur exactly once")
+    value=found[0]
     if len(value)>=2 and value[0]==value[-1] and value[0] in "\"'":value=value[1:-1]
+    elif value and (value[:1] in "\"'" or value[-1:] in "\"'"):raise ValueError("AdGuard API authentication field quoting invalid")
+    if not value:raise ValueError("AdGuard API authentication field empty")
     return {"username":"erik","password":value}
 def api_json(path,auth):
     import base64
