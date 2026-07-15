@@ -1,0 +1,44 @@
+{
+  "certificate": {
+    "fingerprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "not_after": "2026-10-12T00:00:00Z",
+    "sans": ["*.homelab.pastelariadev.com"]
+  },
+  "containers": [
+    {
+      "compose_project": "networking",
+      "compose_service": "swag",
+      "compose_working_dir": "/home/erik/servarr/machines/discovery",
+      "id": "1111111111111111111111111111111111111111111111111111111111111111",
+      "image_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "image_ref": "lscr.io/linuxserver/swag:5.6.0-ls467@sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d",
+      "mounts": [{"source": "/home/erik/servarr/machines/discovery/config/swag", "target": "/config", "type": "bind"}],
+      "name": "swag",
+      "state": "running"
+    },
+    {
+      "compose_project": "networking",
+      "compose_service": "swag-init",
+      "compose_working_dir": "/home/erik/servarr/machines/discovery",
+      "id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "image_id": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "image_ref": "busybox:1.38@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d",
+      "mounts": [{"source": "/home/erik/servarr/machines/discovery/config/swag", "target": "/config", "type": "bind"}],
+      "name": "swag-init",
+      "state": "exited"
+    }
+  ],
+  "evidence": {
+    "archive": "/var/lib/stateful-stack-migrations/p1-swag/swag-config.tar.zst",
+    "baseline": "/var/lib/stateful-stack-migrations/p1-swag/baseline.json",
+    "ledger": "/var/lib/stateful-stack-migrations/p1-swag/ledger.json",
+    "result": "/var/lib/stateful-stack-migrations/p1-swag/result.json",
+    "snapshot": "/home/.snapshots/stateful-stack-p1-swag"
+  },
+  "evidence_collisions": [],
+  "servarr": {
+    "commit": "5555555555555555555555555555555555555555",
+    "compose_file": "/home/erik/servarr/machines/discovery/networking.yml",
+    "render_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+  }
+}

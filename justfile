@@ -2464,6 +2464,34 @@ discovery-migration-inventory:
       systemctl --failed --no-legend || true
     REMOTE
 
+# P1 SWAG adoption authorization is prepared offline from a previously captured,
+# value-free inventory. These recipes never contact Discovery or mutate runtime.
+discovery-swag-preflight inventory output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py plan "{{inventory}}" >"$tmp"
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-result inventory authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 modules/hosts/discovery/_stateful-swag-preflight.py verify \
+      "{{inventory}}" "{{authorization}}"
+
+discovery-swag-execute:
+    @echo "BLOCKED: P1 execution is not implemented; preflight approval grants no mutation authority" >&2
+    @exit 1
+
+discovery-swag-rollback:
+    @echo "BLOCKED: P1 rollback is not implemented; use retained evidence and a separately reviewed workflow" >&2
+    @exit 1
+
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
 # identity or volatile sdX path.

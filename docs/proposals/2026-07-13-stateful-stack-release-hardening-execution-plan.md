@@ -51,8 +51,9 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 
 ### P1 — staged, not yet mutated
 
-- Servarr `c2b0714` pins SWAG and `swag-init` to observed immutable digests;
-  discovery has pulled it.
+- Servarr `ffbfa7e` retains the SWAG and `swag-init` immutable pins and
+  publishes the complete Discovery networking SecretSpec contract. Discovery
+  runtime consumption remains git-pull based; this flake has no Servarr input.
 - Desktop `3bbefaf` installs fixed workflow
   `discovery-stateful-swag-adopt.service`. It is disabled and has not run.
 - SWAG is healthy under project `networking`, owner
@@ -63,6 +64,15 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   unexpectedly `0644`; P1 requires `0600` after recreation and fails otherwise.
 - Later gate: replacing containers `swag` and `swag-init` requires explicit
   approval after K5. P1 deletes no volume, snapshot, backup, or state.
+- A fixture-tested, offline preflight now exact-binds the two container IDs,
+  Compose labels and working directory, immutable image references and image
+  IDs, `/config` binds, Servarr commit and rendered-Compose hash, evidence
+  paths, certificate metadata, and the canonical inventory SHA-256. It rejects
+  unknown resources, evidence collisions, value-bearing fields, and changed
+  inventory. `just discovery-swag-preflight` creates the read-only envelope and
+  `just discovery-swag-result` revalidates its exact binding. Execute and
+  rollback recipes remain deliberately fail-closed; no Discovery contact or
+  live mutation occurred.
 
 ### K0 — complete
 
@@ -554,7 +564,7 @@ legacy resources.
 | K3 | Pending | Redis cache declared disposable; exact reset contract fixture | K2 verified; retained-state backups and exact Redis reset selection |
 | K4 | Pending | — | K3 snapshot/coverage proof and approved exact Redis reset selection |
 | K5 | Pending | — | K4 green; reboot and cross-host validation |
-| P1 | Staged/frozen | Servarr `c2b0714`; desktop `3bbefaf`; live preflight | K5 complete, then approval for `swag`, `swag-init` replacement |
+| P1 | Preflight implemented; mutation frozen | Servarr `ffbfa7e`; desktop offline exact-binding fixture suite and fail-closed recipes | Fresh value-free live inventory; exact manifest review; approval for `swag`, `swag-init`; reviewed execute/rollback workflow |
 | P2 | Pending | — | P1 complete |
 | P3 | Pending | Read-only audit | P2; LAN-reachable design |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |

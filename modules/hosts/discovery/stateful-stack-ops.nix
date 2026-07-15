@@ -49,8 +49,14 @@ _: {
       ];
       text = builtins.readFile ./_stateful-swag-adopt.sh;
     };
+    statefulSwagPreflight = pkgs.writeScriptBin "discovery-stateful-swag-preflight" ''
+      exec ${pkgs.python3}/bin/python3 ${./_stateful-swag-preflight.py} "$@"
+    '';
   in {
-    environment.systemPackages = [statefulStackOps];
+    environment.systemPackages = [
+      statefulStackOps
+      statefulSwagPreflight
+    ];
     systemd.services.discovery-stateful-stack-fixture = {
       description = "Prove discovery state migration helpers on a disposable fixture";
       serviceConfig = {
