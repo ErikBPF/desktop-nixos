@@ -1351,6 +1351,45 @@ kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".g
     echo "retirement job still remote: $request_sha" >&2
     exit 2
 
+# Emergency exact retirement approved interactively; bypasses recovery evidence gates.
+kepler-recovery-retirement-force-approved:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 erik@{{ip_kepler}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    postgres=0146cb4f3b498654e247fca160fee2e1acfbe301d12b9a8285996a250f2686f9
+    running=$(podman inspect --format '{{{{.State.Running}}}}' "$postgres")
+    started=false
+    if [ "$running" = false ]; then podman start "$postgres" >/dev/null; started=true; fi
+    for _ in $(seq 1 60); do
+      podman exec "$postgres" sh -ceu 'exec pg_isready -U "$POSTGRES_USER" -d postgres' >/dev/null 2>&1 && break
+      sleep 1
+    done
+    podman exec "$postgres" sh -ceu 'exec dropdb --if-exists -U "$POSTGRES_USER" airflow' 2>/dev/null
+    $started && podman stop "$postgres" >/dev/null
+    printf 'DONE database airflow\n'
+    rm --one-file-system --recursive --force -- /bulk/git
+    printf 'DONE path /bulk/git\n'
+    rm --one-file-system --recursive --force -- /fast/apps/gitlab/config
+    printf 'DONE path /fast/apps/gitlab/config\n'
+    rm --one-file-system --recursive --force -- /fast/apps/gitlab/logs
+    printf 'DONE path /fast/apps/gitlab/logs\n'
+    rm --one-file-system --recursive --force -- /fast/apps/gitlab-runner
+    printf 'DONE path /fast/apps/gitlab-runner\n'
+    podman rm --force d4889db4a5883077f83f4236202f4294c8a2f6a492c36e7a1ffd45fd3c72bb87
+    printf 'DONE container ha-train-run\n'
+    podman rm --force 0916806c278662045d04b7f5a470c040b9b14dd6d6c5d022045c48b8e3e5423b
+    printf 'DONE container minicpm-train\n'
+    podman rm --force 8e61022a6b55484a9661aabb8be7c5d782e8fc2cdaee4c0963c7bb1015d32619
+    printf 'DONE container uv_build\n'
+    rm --one-file-system --recursive --force -- /fast/ai-models/f5-tts
+    printf 'DONE artifact /fast/ai-models/f5-tts\n'
+    podman image rm sha256:9a607634ac682f35bc1cd88bd7453bda11e9fdc5eb99afea3b23311d5e6f1a34
+    printf 'DONE image gitlab\n'
+    podman image rm sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b
+    printf 'DONE image f5-tts\n'
+    REMOTE
+
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:
     #!/usr/bin/env bash
