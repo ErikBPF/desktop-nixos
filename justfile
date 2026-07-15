@@ -2818,6 +2818,71 @@ discovery-swag-finalize-execute authorization manifest-sha:
       "sudo discovery-stateful-swag-adopt finalize-attempt-03 --authorization - --manifest-sha $hash" \
       <"{{authorization}}"
 
+# P1 bounded Servarr transition: retire the tracked SWAG credential, recreate
+# exactly swag-init + swag, and preserve the prior attempt evidence. The target
+# render is computed without interpolation or environment resolution.
+discovery-swag-transition-target-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    repo="$(readlink -f references/repos/servarr)"
+    test "$(git -C "$repo" rev-parse HEAD)" = b676063eafa53c00947c458d631493f98349f63c || {
+      echo 'BLOCKED: local Servarr target commit differs' >&2
+      exit 1
+    }
+    docker compose -f "$repo/machines/discovery/networking.yml" \
+      config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk '{print $1}'
+
+discovery-swag-transition-observe output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    target_render="$(just discovery-swag-transition-target-render)"
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo discovery-stateful-swag-transition observe --target-render-sha $target_render" >"$tmp"
+    python3 modules/hosts/discovery/_stateful-swag-transition.py plan "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-transition-preflight observation output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    python3 modules/hosts/discovery/_stateful-swag-transition.py plan "{{observation}}" >"$tmp"
+    chmod 0400 "$tmp"
+    mv "$tmp" "{{output}}"
+    trap - EXIT
+    sha256sum "{{output}}"
+
+discovery-swag-transition-result observation authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 modules/hosts/discovery/_stateful-swag-transition.py verify \
+      "{{observation}}" "{{authorization}}"
+
+discovery-swag-transition-execute observation authorization manifest-sha:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash='{{manifest-sha}}'
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved transition manifest SHA-256' >&2; exit 1; }
+    test -f "{{observation}}" -a -f "{{authorization}}" || { echo 'BLOCKED: transition artifacts absent' >&2; exit 1; }
+    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+      echo 'BLOCKED: authorization file does not contain approved transition manifest SHA-256' >&2
+      exit 1
+    }
+    bundle="$(mktemp -d)"
+    trap 'rm -rf "$bundle"' EXIT
+    install -m 0400 "{{observation}}" "$bundle/observation.json"
+    install -m 0400 "{{authorization}}" "$bundle/authorization.json"
+    tar -C "$bundle" -cf - observation.json authorization.json | \
+      ssh -p 2222 erik@{{ip_discovery}} \
+        "bundle=\$(mktemp -d); trap 'rm -rf \"\$bundle\"' EXIT; tar -C \"\$bundle\" -xf -; sudo discovery-stateful-swag-transition execute \"\$bundle/observation.json\" \"\$bundle/authorization.json\" --manifest-sha $hash"
+
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
 # identity or volatile sdX path.
