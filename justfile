@@ -1496,6 +1496,22 @@ p3-dns-verify:
     '
     echo ":: P3 direct secondary OK — Kepler UDP/TCP fleet/external DNS healthy"
 
+# P3 generic non-overlay client proof. Creates a temporary macvlan/netns on the
+# explicitly wired parent, acquires a real DHCP lease, verifies option 6 and
+# both resolvers, then proves the parent network is byte-for-byte unchanged.
+p3-generic-dhcp-client interface="enp0s13f0u1u3":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v dig >/dev/null
+    builders=$(just _builders endeavour)
+    busybox=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#busybox \
+      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+    callback=$(sudo mktemp /run/p3-udhcpc-capture.XXXXXX)
+    cleanup() { sudo rm -f "$callback"; }
+    trap cleanup EXIT INT TERM
+    sudo install -o root -g root -m 0755 scripts/p3-udhcpc-capture.sh "$callback"
+    sudo scripts/p3-generic-dhcp-client.sh "{{interface}}" "$busybox/bin/udhcpc" "$callback"
+
 # Validate the declared disko /dev/sda layout end-to-end: partition, install, and
 # boot in a throwaway VM (does NOT touch Oracle). This is the same install path
 # `deploy-voyager` runs. Complements voyager-vm-* which exercise runtime/compose

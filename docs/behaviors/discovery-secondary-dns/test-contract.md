@@ -106,6 +106,11 @@ contract, record types, response codes/counts, latency bounds, service states,
 and timestamps. It must not record client query history, credentials,
 environment, full packet captures, or unrelated DNS traffic.
 
+The fleet ingress zone is intentionally wildcard-synthesized: an arbitrary A
+name under the zone must return its fronting host IP, while AAAA is
+NOERROR/NODATA. NXDOMAIN is tested with a reserved nonexistent external name;
+an unknown fleet-zone A name is not an NXDOMAIN case.
+
 ## Rollback tests
 
 - Saved rollback restores the previous DHCP resolver list before host-role
