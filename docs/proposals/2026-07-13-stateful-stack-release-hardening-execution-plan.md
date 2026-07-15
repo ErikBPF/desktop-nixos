@@ -2,8 +2,8 @@
 
 **Status:** In progress — P0, Kepler recovery, and Discovery P1 SWAG adoption
 are complete. P2 AdGuard read-only inventory and preflight are binding-valid;
-mutation remains blocked on backup/restore evidence and secondary DNS or an
-explicit bounded waiver.
+mutation remains blocked on backup/restore evidence and completion of the P3
+generic-client/outage proof.
 
 ## 1. Purpose and authority
 
@@ -468,6 +468,16 @@ mutation. The protected `discovery_adguard_work` collision remains untouched.
 
 ### P3 — secondary fleet DNS
 
+Desktop `3c88a30` enabled Kepler's LAN-only resolver; `5903ca0` added the
+value-free live gates and vanguard tailnet identity. Fifteen remote flake checks
+passed on Orion. Kepler passed direct UDP/TCP fleet and external queries before
+and after reboot. Homelab-IaC `85f2737` passed CI and declared the exact Main
+DHCP order `.210`, `.230`. The operator-approved wired saved plan
+`8371490a…` updated only `unifi_network.this["Main"].dhcp_dns`; the post-apply
+plan is clean and state inspection matches the exact pair. P3 remains open for
+a renewed generic non-overlay client lease and the separately approved AdGuard
+outage/restore drill.
+
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
    public DNS is forbidden as normal fallback.
@@ -637,7 +647,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | Implementation ready for verification | Kepler LAN-secondary behavior/test contract; vanguard tailnet role preserved | Desktop gates/deploy/reboot; narrow wired DHCP apply; generic-client outage proof |
+| P3 | DHCP applied; outage proof pending | Desktop `3c88a30`, `5903ca0`; homelab-iac `85f2737`; CI `29439836040`; saved plan `8371490a…`; clean post-apply plan | Renewed generic-client lease; approved AdGuard outage/restore proof |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
