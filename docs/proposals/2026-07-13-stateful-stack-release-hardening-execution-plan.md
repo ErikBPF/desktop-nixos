@@ -27,7 +27,9 @@ document must be corrected.
 Leaf repositories land first. Consumers and host orchestration follow only
 after the leaf commit is published and pinned.
 
-The merged order is `P0 → K0–K5 → P1–P9`. Kepler and Discovery live mutations
+The merged order is `P0 → K0–K5 → P1 → P2 read-only → P3 → P2 mutation → P4–P9`.
+P3 is advanced only as the secondary-DNS safety interlock required by P2; its
+behavior and test contract define the boundary. Kepler and Discovery live mutations
 are never concurrent. Discovery remains available as the LiteLLM gateway while
 Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 
@@ -635,7 +637,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | Pending | Read-only audit | P2; LAN-reachable design |
+| P3 | Implementation ready for verification | Kepler LAN-secondary behavior/test contract; vanguard tailnet role preserved | Desktop gates/deploy/reboot; narrow wired DHCP apply; generic-client outage proof |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |

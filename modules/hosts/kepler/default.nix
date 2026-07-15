@@ -32,6 +32,7 @@ in {
       m.nixos.alloy-containers
       m.nixos.power-desktop
       m.nixos.restic-offsite-target
+      m.nixos.fleet-dns
     ];
 
     # Per-container metrics via the cAdvisor exporter in the host Alloy. Rootless
@@ -46,6 +47,14 @@ in {
       enable = true;
       dir = "/bulk/backups/restic-offsite";
       authorizedKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGl9rC3PIKoyAQVUJ2jNRfGwJrxmEea6c2oNhXK4AfkS restic-offsite-discovery-to-kepler";
+    };
+
+    services.fleetDns = {
+      enable = true;
+      interface = "enp5s0";
+      queryLog = false;
+      upstream = ["192.168.10.210" "1.1.1.1" "9.9.9.9"];
+      sequentialUpstream = true;
     };
 
     # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).

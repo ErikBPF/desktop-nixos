@@ -26,9 +26,12 @@ in {
     # so it works even when that host's own resolver is down.
     zoneBlock = zone: hostIp: ''
       ${zone} {
-        bind tailscale0
+        bind ${cfg.interface}
         template IN A {
           answer "{{ .Name }} 300 IN A ${hostIp}"
+        }
+        template IN AAAA {
+          rcode NOERROR
         }
       }
     '';
@@ -36,14 +39,43 @@ in {
     options.services.fleetDns = {
       enable = lib.mkEnableOption "the CoreDNS secondary fleet resolver — disabled by default, see docs/proposals/2026-07-10-vanguard-second-oracle-node.md §R1";
 
+      interface = lib.mkOption {
+        type = lib.types.enum ["tailscale0" "enp5s0"];
+        default = "tailscale0";
+        description = "Interface on which CoreDNS listens and the firewall permits DNS.";
+      };
+
       upstream = lib.mkOption {
         type = lib.types.listOf lib.types.singleLineStr;
         default = ["1.1.1.1" "9.9.9.9"];
-        description = "Public upstream resolvers for everything outside the fleet.ingress zones.";
+        description = "Ordered upstream resolvers for everything outside the fleet.ingress zones.";
+      };
+
+      sequentialUpstream = lib.mkEnableOption "ordered CoreDNS upstream failover";
+
+      queryLog = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Whether CoreDNS logs every query.";
       };
     };
 
     config = lib.mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = cfg.upstream != [];
+          message = "services.fleetDns.upstream must not be empty";
+        }
+        {
+          assertion =
+            !cfg.sequentialUpstream
+            || (builtins.length cfg.upstream
+              >= 2
+              && builtins.head cfg.upstream == fleet.hosts.discovery.ip);
+          message = "sequential fleet DNS requires discovery first and at least one fallback";
+        }
+      ];
+
       services.coredns = {
         enable = true;
         config =
@@ -54,29 +86,36 @@ in {
           )
           + ''
             . {
-              bind tailscale0
-              forward . ${lib.concatStringsSep " " cfg.upstream}
-              log
+              bind ${cfg.interface}
+              ${lib.optionalString (!cfg.sequentialUpstream) "forward . ${lib.concatStringsSep " " cfg.upstream}"}
+              ${lib.optionalString cfg.sequentialUpstream ''
+              forward . ${lib.concatStringsSep " " cfg.upstream} {
+                policy sequential
+              }
+            ''}
+              ${lib.optionalString cfg.queryLog "log"}
               errors
             }
           '';
       };
 
-      # Bind only tailscale0 (see the `bind` lines above): a tailnet-only
-      # fallback resolver must not collide with systemd-resolved's 127.0.0.53
-      # stub on :53, and must never listen publicly. tailscale0 gets its address
-      # a beat after tailscaled activates, so order after it and let the
-      # module's default Restart=on-failure retry (slower RestartSec) until the
-      # interface address exists.
+      # Wait for the owner of the reviewed bind interface. The default tailnet
+      # role keeps its original tailscaled ordering; the LAN role waits for
+      # network-online. Restart retries the bind if address assignment lags.
       systemd.services.coredns = {
-        after = ["tailscaled.service"];
+        after =
+          if cfg.interface == "tailscale0"
+          then ["tailscaled.service"]
+          else ["network-online.target"];
+        wants = lib.optional (cfg.interface != "tailscale0") "network-online.target";
         serviceConfig.RestartSec = "3s";
       };
 
-      # Fallback resolver for fleet peers over the tailnet, not a public DNS
-      # server — never opened on the public interface.
-      networking.firewall.interfaces.tailscale0.allowedTCPPorts = [53];
-      networking.firewall.interfaces.tailscale0.allowedUDPPorts = [53];
+      # Permit DNS only on the selected reviewed interface, never globally.
+      networking.firewall.interfaces.${cfg.interface} = {
+        allowedTCPPorts = [53];
+        allowedUDPPorts = [53];
+      };
     };
   };
 }

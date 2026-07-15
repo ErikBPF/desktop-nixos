@@ -1,13 +1,14 @@
 # Stateful stack and release hardening
 
-**Status:** In progress — P0 and Kepler K0 complete; K1 read-only inventory is
-next. Kepler K1–K5 precedes staged Discovery P1.
+**Status:** In progress — P0, Kepler K0–K5, and Discovery P1 are complete. P2
+read-only preflight is binding-valid; P3 secondary DNS is the active safety
+interlock before any P2 mutation.
 
-**Execution order update (2026-07-13):** The operator execution plan now
-inserts Kepler collision recovery K0–K5 between shared P0 and Discovery P1.
-Discovery mutations remain frozen through K5. This proposal remains
-authoritative for architecture and acceptance criteria; the merged execution
-plan is authoritative for rollout order.
+**Execution order update (2026-07-15):** Completed Kepler recovery remains
+between shared P0 and Discovery P1. The active order is now P2 read-only
+preflight, P3 implementation/outage proof, then separately approved P2
+mutation. This proposal remains authoritative for architecture and acceptance
+criteria; the merged execution plan is authoritative for rollout order.
 
 ## 1. Summary
 
@@ -144,10 +145,11 @@ SWAG and AdGuard migrate separately:
 2. SWAG smoke tests for HTTP/HTTPS ingress, proxy routes, wildcard certificate,
    and Cloudflare DNS-01 renewal path.
 3. Canonical SWAG state migration where any implicit named state remains.
-4. AdGuard in-place adoption and unchanged-behavior smoke tests.
-5. Secondary DNS validation.
-6. Full AdGuard Terraform migration.
-7. Canonical AdGuard work-volume migration.
+4. AdGuard in-place read-only preflight.
+5. Secondary DNS implementation and outage validation.
+6. AdGuard in-place mutation and unchanged-behavior smoke tests.
+7. Full AdGuard Terraform migration.
+8. Canonical AdGuard work-volume migration.
 
 SWAG goes first because Terraform reaches AdGuard through the SWAG hostname.
 
@@ -356,7 +358,8 @@ protected main merge
 ### P3 — Secondary DNS gate
 
 - Verify LAN DHCP advertises a working secondary fleet resolver.
-- If absent, add vanguard CoreDNS before AdGuard maintenance.
+- If absent, add a LAN-reachable Kepler CoreDNS secondary before AdGuard
+  maintenance; preserve vanguard as the tailnet-only offsite resolver.
 - Test homelab and external resolution with AdGuard stopped.
 - Do not use public DNS as the normal fallback because it cannot resolve fleet
   names.
