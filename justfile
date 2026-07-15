@@ -2861,6 +2861,17 @@ discovery-swag-transition-render-status:
       sudo docker-compose --project-name networking -f networking.yml config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk "{print \$1}"
     '
 
+# Value-free Certbot hook metadata: paths and file types only, never contents.
+discovery-swag-transition-hook-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} '
+      root=/home/erik/servarr/machines/discovery/config/swag/etc/letsencrypt/renewal-hooks
+      sudo stat -c "d . %a %u:%g" "$root"
+      sudo find "$root" -mindepth 1 -maxdepth 2 -printf "%y %P %m %U:%G\n" | LC_ALL=C sort
+      sudo find "$root" -mindepth 2 -maxdepth 2 -type f -print0 | LC_ALL=C sort -z | sudo xargs -0 sha256sum
+    '
+
 discovery-swag-transition-observe output:
     #!/usr/bin/env bash
     set -euo pipefail

@@ -430,9 +430,34 @@ def assert_no_certbot_hooks():
                 if line.lstrip().startswith(("#",";")): continue
                 match=hook_re.match(line)
                 if match and match.group(2): raise Drift("active Certbot renewal hook forbidden")
-    for directory in (letsencrypt/"renewal-hooks/pre",letsencrypt/"renewal-hooks/post",letsencrypt/"renewal-hooks/deploy"):
-        if directory.is_symlink(): raise Drift("Certbot renewal-hook path differs")
-        if directory.exists() and (not directory.is_dir() or any(directory.iterdir())): raise Drift("Certbot renewal-hook directory differs")
+    expected = {
+        "deploy/10-default": "e32654c40e37d514dbd636224dd04d4b02eb6468eda594f6cc0c35588d177b7b",
+        "post/10-nginx": "7626e29f35ae12985828b88432440842f9ca3bc6f25935e678b6e8bd5bad7ba2",
+        "pre/10-nginx": "5eebf0beea394cd6dc3497b8c66cdd3dcf82349294fc92075d5b937cab17c128",
+    }
+    hooks = letsencrypt / "renewal-hooks"
+    root_value = os.lstat(hooks)
+    if not stat.S_ISDIR(root_value.st_mode) or stat.S_IMODE(root_value.st_mode) != 0o755 or (root_value.st_uid, root_value.st_gid) != (1000, 1000):
+        raise Drift("Certbot renewal-hook root metadata differs")
+    if sorted(path.name for path in hooks.iterdir()) != ["deploy", "post", "pre"]:
+        raise Drift("Certbot renewal-hook root allowlist differs")
+    for name in ("pre", "post", "deploy"):
+        directory = hooks / name
+        value = os.lstat(directory)
+        if not stat.S_ISDIR(value.st_mode) or stat.S_IMODE(value.st_mode) != 0o755 or (value.st_uid, value.st_gid) != (1000, 1000):
+            raise Drift("Certbot renewal-hook directory metadata differs")
+    actual = sorted(
+        str(path.relative_to(hooks))
+        for directory in (hooks / "pre", hooks / "post", hooks / "deploy")
+        for path in directory.iterdir()
+    )
+    if actual != sorted(expected): raise Drift("Certbot renewal-hook allowlist differs")
+    for relative, digest in expected.items():
+        path = hooks / relative
+        value = os.lstat(path)
+        if not stat.S_ISREG(value.st_mode) or stat.S_IMODE(value.st_mode) != 0o755 or (value.st_uid, value.st_gid) != (1000, 1000):
+            raise Drift("Certbot renewal-hook metadata differs")
+        if hash_file(path) != digest: raise Drift("Certbot renewal-hook SHA-256 differs")
 
 
 def observe(target_render_sha256):

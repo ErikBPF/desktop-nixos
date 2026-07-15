@@ -127,5 +127,17 @@ class TransitionTest(unittest.TestCase):
         self.assertIn('["sudo", "-u", "erik", "-H", "git"', source)
         self.assertNotIn('run(["git"', source)
 
+    def test_certbot_hooks_are_an_exact_hash_bound_allowlist(self):
+        source = SCRIPT.read_text()
+        for hook in ("deploy/10-default", "post/10-nginx", "pre/10-nginx"):
+            self.assertIn(hook, source)
+        self.assertIn('sorted(path.name for path in hooks.iterdir()) != ["deploy", "post", "pre"]', source)
+        self.assertIn("(root_value.st_uid, root_value.st_gid) != (1000, 1000)", source)
+        self.assertIn("(value.st_uid, value.st_gid) != (1000, 1000)", source)
+        self.assertIn("Certbot renewal-hook root allowlist differs", source)
+        self.assertIn("Certbot renewal-hook allowlist differs", source)
+        self.assertIn("Certbot renewal-hook SHA-256 differs", source)
+        self.assertNotIn("any(directory.iterdir())", source)
+
 
 if __name__ == "__main__": unittest.main()
