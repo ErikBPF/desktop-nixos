@@ -114,7 +114,14 @@ def verify(observation, authorization):
 
 
 def run(args, *, capture=False):
-    return subprocess.run(args, check=True, stdout=subprocess.PIPE if capture else subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True).stdout if capture else None
+    completed = subprocess.run(
+        args,
+        check=True,
+        stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    return completed.stdout if capture else None
 
 
 def render_sha():

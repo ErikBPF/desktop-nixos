@@ -1,6 +1,7 @@
 import copy
 import importlib.util
 import pathlib
+import sys
 import tempfile
 import unittest
 
@@ -112,6 +113,14 @@ class TransitionTest(unittest.TestCase):
         validated=source.index('if "validated" in phases')
         init_compare=source.index('runtime_validation_phase(phases)=="init"')
         self.assertLess(validated,init_compare)
+
+    def test_run_executes_commands_when_output_is_not_captured(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            marker = pathlib.Path(temporary) / "executed"
+            self.m.run(
+                [sys.executable, "-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).touch()", str(marker)]
+            )
+            self.assertTrue(marker.exists())
 
 
 if __name__ == "__main__": unittest.main()

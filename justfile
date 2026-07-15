@@ -2840,6 +2840,12 @@ discovery-swag-transition-ref-status:
       printf "head="; git -C /home/erik/servarr rev-parse HEAD
       printf "origin_main="; git -C /home/erik/servarr rev-parse refs/remotes/origin/main
       printf "remote_main="; git -C /home/erik/servarr ls-remote origin refs/heads/main | awk "{print \$1}"
+      printf "git_dir="; git -C /home/erik/servarr rev-parse --git-dir
+      printf "common_dir="; git -C /home/erik/servarr rev-parse --git-common-dir
+      printf "branch="; git -C /home/erik/servarr symbolic-ref --short HEAD
+      printf "fetch_refspec="; git -C /home/erik/servarr config --get-all remote.origin.fetch | paste -sd, -
+      printf "deploy_branch="; if test -f /home/erik/servarr/.deploy-branch; then sed -n 1p /home/erik/servarr/.deploy-branch; else echo absent; fi
+      git -C /home/erik/servarr fetch --dry-run --verbose origin refs/heads/main:refs/remotes/origin/main 2>&1
     '
 
 discovery-swag-transition-observe output:
