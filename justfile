@@ -14,8 +14,8 @@ ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
 ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
-orion_builder := "ssh-ng://erik@" + ip_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /root/.ssh/nix-builder 16 2 big-parallel,benchmark,kvm,nixos-test"
-kepler_builder := "ssh-ng://erik@" + ip_kepler + ":2222 x86_64-linux /root/.ssh/nix-builder 2 1 big-parallel,benchmark"
+orion_builder := "ssh-ng://erik@" + ip_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,kvm,nixos-test"
+kepler_builder := "ssh-ng://erik@" + ip_kepler + ":2222 x86_64-linux /home/erik/.ssh/id_ed25519 2 1 big-parallel,benchmark"
 
 # Never ask a deployment target to build itself. Other x86_64 targets can use
 # Orion as primary plus Kepler's deliberately constrained spillover capacity.
@@ -238,6 +238,78 @@ check:
 eval:
     nix flake check
 
+# Run the complete flake check from a clean clone on a fleet host. The ref must
+# already be published on origin/main; dirty local work is never copied. The
+# coordinator builds locally and may offload to the other server, so the laptop
+# performs neither evaluation nor builds after dispatch.
+check-remote coordinator="orion" ref="HEAD":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{coordinator}}" in
+      orion)
+        ip="{{ip_orion}}"
+        builders='{{kepler_builder}}'
+        peer_store="ssh-ng://erik@{{ip_kepler}}:2222?ssh-key=/home/erik/.ssh/id_ed25519"
+        ;;
+      kepler)
+        ip="{{ip_kepler}}"
+        builders='{{orion_builder}}'
+        peer_store="ssh-ng://erik@{{ip_orion}}:2222?ssh-key=/home/erik/.ssh/id_ed25519"
+        ;;
+      *)
+        echo ":: coordinator must be orion or kepler" >&2
+        exit 2
+        ;;
+    esac
+    git fetch --quiet origin main
+    commit="$(git rev-parse --verify "{{ref}}^{commit}")"
+    git merge-base --is-ancestor "$commit" refs/remotes/origin/main || {
+      echo ":: BLOCKED: $commit is not published on origin/main" >&2
+      exit 2
+    }
+    remote_url="https://github.com/ErikBPF/desktop-nixos.git"
+    builders_b64="$(printf '%s' "$builders" | base64 -w0)"
+    peer_store_b64="$(printf '%s' "$peer_store" | base64 -w0)"
+    printf ':: remote flake check coordinator=%s commit=%s\n' "{{coordinator}}" "$commit"
+    remote_script='set -euo pipefail
+    work=$(mktemp -d)
+    trap '\''rm -rf "$work"'\'' EXIT
+    git clone --quiet --no-checkout "$1" "$work/repo"
+    git -C "$work/repo" checkout --quiet --detach "$2"
+    test -z "$(git -C "$work/repo" status --porcelain)"
+    cd "$work/repo"
+    builders=$(printf %s "$3" | base64 -d)
+    peer_store=$(printf %s "$4" | base64 -d)
+    ampagent=/nix/store/c2f6ayn5cclzxv7ravb6iy70ijj0vdkn-ampagent-15.0.54.deb
+    nix path-info "$ampagent" >/dev/null 2>&1 \
+      || nix path-info --store "$peer_store" "$ampagent" >/dev/null 2>&1 \
+      || { echo ":: BLOCKED: KACE fixed-output missing; run: just seed-ampagent-builders" >&2; exit 2; }
+    exec nix flake check --show-trace \
+      --option builders "$builders" \
+      --option builders-use-substitutes true'
+    printf '%s\n' "$remote_script" | ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
+      erik@"$ip" bash -s -- "$remote_url" "$commit" "$builders_b64" "$peer_store_b64"
+
+# Replicate the already-imported proprietary KACE fixed-output to both remote
+# stores. This copies one store path; it does not build on the laptop or expose
+# the token-bearing source filename/content.
+seed-ampagent-builders:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    path=/nix/store/c2f6ayn5cclzxv7ravb6iy70ijj0vdkn-ampagent-15.0.54.deb
+    nix path-info "$path" >/dev/null 2>&1 || {
+      echo ":: BLOCKED: KACE fixed-output absent locally; import it with: just add-ampagent" >&2
+      exit 2
+    }
+    for store in \
+      "ssh-ng://erik@{{ip_orion}}:2222?ssh-key=/home/erik/.ssh/id_ed25519" \
+      "ssh-ng://erik@{{ip_kepler}}:2222?ssh-key=/home/erik/.ssh/id_ed25519"
+    do
+      nix copy --to "$store" "$path"
+      nix path-info --store "$store" "$path" >/dev/null
+    done
+    echo ":: KACE fixed-output available on Orion and Kepler"
+
 # ── Remote Deploy ─────────────────────────────────────────
 # laptop is Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
 
@@ -252,6 +324,737 @@ switch-orion:
 
 switch-pathfinder:
     just deploy-rs pathfinder
+
+# Read-only evidence gate for Pathfinder's approved 512M -> 2G ESP migration.
+# Conservative projection keeps the largest installed kernel + initrd as the
+# known-good pair, adds the candidate pair, then requires 25% ESP reserve.
+pathfinder-esp-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="{{ip_pathfinder}}"
+    evidence="/tmp/pathfinder-esp-preflight.txt"
+    nix build --no-link \
+      .#nixosConfigurations.pathfinder.config.system.build.kernel \
+      .#nixosConfigurations.pathfinder.config.system.build.initialRamdisk
+    kernel=$(nix eval --raw .#nixosConfigurations.pathfinder.config.system.build.kernel)
+    initrd=$(nix eval --raw .#nixosConfigurations.pathfinder.config.system.build.initialRamdisk)
+    target_kernel=$(stat -Lc %s "$kernel"/bzImage)
+    target_initrd=$(stat -Lc %s "$initrd"/initrd)
+    remote=$(ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@"$IP" '
+      set -euo pipefail
+      total=$(findmnt -bnro SIZE /boot)
+      used=$(findmnt -bnro USED /boot)
+      gen_dir=/boot/EFI/nixos
+      known_kernel=$(find "$gen_dir" -maxdepth 1 -type f -name "*linux*" ! -name "*initrd*" -printf "%s\n" 2>/dev/null | sort -n | tail -1); known_kernel=${known_kernel:-0}
+      known_initrd=$(find "$gen_dir" -maxdepth 1 -type f -name "*initrd*" -printf "%s\n" 2>/dev/null | sort -n | tail -1); known_initrd=${known_initrd:-0}
+      generation_bytes=$(du -sb "$gen_dir" 2>/dev/null | cut -f1); generation_bytes=${generation_bytes:-0}
+      fixed=$((used-generation_bytes)); [ "$fixed" -lt 0 ] && fixed=0
+      printf "total=%s\nused=%s\nfixed=%s\nknown_kernel=%s\nknown_initrd=%s\n" "$total" "$used" "$fixed" "$known_kernel" "$known_initrd"
+      boot_src=$(findmnt -nro SOURCE /boot)
+      crypt_src=$(sudo cryptsetup status cryptroot | sed -n "s/^[[:space:]]*device:[[:space:]]*//p")
+      case "$boot_src" in /dev/sda*) ;; *) echo ":: BLOCKED: /boot is $boot_src, expected /dev/sda" >&2; exit 1;; esac
+      case "$crypt_src" in /dev/sda*) ;; *) echo ":: BLOCKED: cryptroot is $crypt_src, expected /dev/sda" >&2; exit 1;; esac
+      if lsblk -nrpo FSTYPE | grep -qi "ntfs"; then echo ":: BLOCKED: live NTFS filesystem found" >&2; exit 1; fi
+      echo ":: disk inventory"
+      lsblk -b -o NAME,PATH,SIZE,TYPE,FSTYPE,FSVER,LABEL,UUID,MOUNTPOINTS,MODEL,SERIAL
+      echo ":: mount sources"
+      findmnt -R / /boot /home 2>/dev/null || true
+      echo ":: failed units"
+      systemctl --failed --no-legend || true
+    ')
+    eval "$(printf '%s\n' "$remote" | sed -n '1,5p')"
+    required=$((fixed + known_kernel + known_initrd + target_kernel + target_initrd))
+    usable=$((total * 75 / 100))
+    projected_reserve=$(((total-required) * 100 / total))
+    {
+      date --iso-8601=seconds
+      printf 'target_kernel=%s\ntarget_initrd=%s\nrequired=%s\nusable_at_25pct_reserve=%s\nprojected_reserve_pct=%s\n' "$target_kernel" "$target_initrd" "$required" "$usable" "$projected_reserve"
+      printf '%s\n' "$remote"
+    } | tee "$evidence"
+    if [ "$required" -gt "$usable" ]; then
+      echo ":: MIGRATION REQUIRED: candidate + known-good + 25% reserve does not fit"
+    fi
+    if [ "$projected_reserve" -lt 50 ]; then echo ":: WARN: projected ESP reserve below 50%"; fi
+    touch /tmp/pathfinder-esp-preflight.ok
+    echo ":: PASS: $evidence"
+
+# Read-only source-of-truth check before designing Orion's boot-disk-only ESP
+# migration. Stable IDs and mount ancestry matter more than /dev/sdX ordering.
+orion-disk-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} '
+      set -euo pipefail
+      echo ":: block devices"
+      lsblk -e7 -b -o NAME,PATH,MAJ:MIN,SIZE,TYPE,FSTYPE,FSVER,LABEL,PARTLABEL,UUID,MOUNTPOINTS,MODEL,SERIAL,WWN
+      echo ":: mount sources"
+      findmnt -R / /boot /home /nix /var/log /opt/models /projects 2>/dev/null || true
+      echo ":: stable device IDs"
+      for dev in /dev/nvme0n1 /dev/sda /dev/sdb; do
+        [ -b "$dev" ] || continue
+        printf "%s -> " "$dev"
+        udevadm info --query=property --name="$dev" | sed -n "s/^ID_PATH=//p; s/^ID_SERIAL=//p" | paste -sd " | " -
+      done
+      echo ":: by-id links"
+      find /dev/disk/by-id -maxdepth 1 -type l -printf "%f -> %l\n" | sort
+      echo ":: filesystems"
+      sudo blkid
+      echo ":: failed units"
+      systemctl --failed --no-legend || true
+    '
+
+# Read-only identity/state gate before Kepler's OS-M.2-only migration.
+kepler-esp-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      echo ":: block devices"
+      lsblk -e7 -b -o NAME,PATH,MAJ:MIN,SIZE,TYPE,FSTYPE,FSVER,LABEL,PARTLABEL,UUID,MOUNTPOINTS,MODEL,SERIAL,WWN
+      echo ":: mount sources"
+      for mount in / /boot /home /nix /var/log /fast /bulk; do findmnt -nro TARGET,SOURCE,FSTYPE,UUID "$mount" 2>/dev/null || true; done
+      echo ":: stable device IDs"
+      find /dev/disk/by-id -maxdepth 1 -type l -printf "%f -> %l\n" | sort
+      echo ":: zpools"
+      sudo zpool status -P
+      sudo zpool list -v
+      echo ":: active migration/recovery work"
+      systemctl list-units --state=activating,running --no-legend | grep -Ei "collision|recovery|postgres|redis|podman|docker|k3s" || true
+      pgrep -a -f "collision|recovery|restic|zfs (send|receive)|nixos-anywhere|disko" || true
+      echo ":: failed units"
+      systemctl --failed --no-legend || true
+    '
+
+kepler-esp-graph-proof:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    script=$(nix build --no-link --print-out-paths \
+      .#nixosConfigurations.kepler.config.system.build.diskoScript \
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 | tail -1)
+    expected="ata-TOSHIBA_KSG60ZMV256G_M.2_2280_256GB_58SF70G0F5WP"
+    grep -Fq "$expected" "$script"
+    forbidden=(KINGSTON ST4000DM004 fast-pool bulk-pool /dev/sda /dev/sdb /dev/sdc /dev/sde /dev/sdf /dev/sdg /dev/sdh /dev/sdi /dev/sdj /dev/sdk /dev/sdl)
+    for token in "${forbidden[@]}"; do
+      if grep -Fq "$token" "$script"; then
+        echo ":: BLOCKED: destructive graph contains $token" >&2
+        exit 1
+      fi
+    done
+    devices=$(sed -n 's/^for dev in \(.*\);/\1/p' "$script")
+    test "$devices" = "/dev/disk/by-id/$expected"
+    echo ":: PASS: destructive graph contains only $devices"
+
+kepler-esp-live-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    marker=/tmp/kepler-esp-backup.ok
+    test -f "$marker"
+    grep -Fxq 'snapshot=6a5aa2da' "$marker"
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      os=$(readlink -f /dev/disk/by-id/ata-TOSHIBA_KSG60ZMV256G_M.2_2280_256GB_58SF70G0F5WP)
+      test "$os" = /dev/sdd
+      test "$(findmnt -nro SOURCE /boot)" = /dev/sdd1
+      test "$(findmnt -nro SOURCE /)" = "/dev/sdd2[/root]"
+      test "$(sudo zpool list -H -o health fast-pool)" = ONLINE
+      test "$(sudo zpool list -H -o health bulk-pool)" = ONLINE
+      test "$(sudo zpool status -x)" = "all pools are healthy"
+      printf "target=%s serial=%s\n" "$os" "$(lsblk -dnro SERIAL "$os")"
+      sudo zpool status -x
+    '
+    echo ":: PASS: live Kepler identities and ZFS health match reviewed migration graph"
+
+deploy-kepler-esp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just kepler-esp-live-preflight
+    just kepler-esp-graph-proof
+    nix build --no-link .#nixosConfigurations.kepler.config.system.build.toplevel \
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 --show-trace
+    extra=$(mktemp -d)
+    trap 'rm -rf "$extra"' EXIT
+    ssh -p 2222 erik@{{ip_kepler}} \
+      'sudo tar -C / -cpf - etc/ssh/ssh_host_ed25519_key etc/ssh/ssh_host_ed25519_key.pub etc/ssh/ssh_host_rsa_key etc/ssh/ssh_host_rsa_key.pub var/lib/tailscale/tailscaled.state home/erik/.config/sops/age/keys.txt' \
+      | tar -xpf - -C "$extra"
+    chmod 600 "$extra"/etc/ssh/ssh_host_*_key "$extra"/var/lib/tailscale/tailscaled.state "$extra"/home/erik/.config/sops/age/keys.txt
+    export NIX_CONFIG="builders = {{orion_builder}}
+    max-jobs = 0
+    builders-use-substitutes = true"
+    echo ":: DESTRUCTIVE: wiping only Toshiba OS M.2 serial 58SF70G0F5WP"
+    nix run github:nix-community/nixos-anywhere -- \
+      --force-kexec \
+      --target-host erik@{{ip_kepler}} \
+      --ssh-port 2222 \
+      --flake .#kepler \
+      --extra-files "$extra" \
+      --debug --show-trace
+
+kepler-esp-backup-inventory:
+    ssh -p 2222 erik@{{ip_kepler}} "echo ':: OS filesystem'; df -hT / /home; sudo du -xsh /home/erik /etc/ssh /var/lib/tailscale; echo ':: identity files'; sudo find /etc/ssh /var/lib/tailscale -xdev -maxdepth 2 -type f -printf '%p %s bytes\n' | sort; echo ':: user container units'; export XDG_RUNTIME_DIR=/run/user/\$(id -u); systemctl --user list-units --state=activating,running --no-legend | grep -Ei 'podman|container|compose' || true; podman ps --format json | jq -r '.[] | [.Names[0], .Status] | @tsv' || true; echo ':: representative home files'; sudo find /home/erik -xdev -type f -size +0c -printf '%p %s bytes\n' 2>/dev/null | sort -k2nr | sed -n '1,20p'"
+
+# Full encrypted safety snapshot of Kepler's OS-disk state. ZFS datasets are
+# excluded by tar --one-file-system and remain on their preserved disks.
+backup-kepler-esp-orion:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEPLER="{{ip_kepler}}"
+    ORION="{{ip_orion}}"
+    samples=(
+      "etc/ssh/ssh_host_ed25519_key"
+      "var/lib/tailscale/tailscaled.state"
+      "home/erik/.config/sops/age/keys.txt"
+      "home/erik/ha-train/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
+    )
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$KEPLER" "sudo test -f '/$sample'"
+    done
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$ORION:/projects/backups/kepler-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    hashes=$(mktemp)
+    restore=$(mktemp -d)
+    quiesced=0
+    cleanup() {
+      rm -f "$hashes"
+      rm -rf "$restore"
+      if [ "$quiesced" -eq 1 ]; then
+        ssh -p 2222 erik@"$KEPLER" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user start podman-compose-infra.service' || true
+      fi
+    }
+    trap cleanup EXIT
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$KEPLER" "sudo sha256sum '/$sample'" >>"$hashes"
+    done
+    ssh -p 2222 erik@"$KEPLER" '
+      set -euo pipefail
+      export XDG_RUNTIME_DIR=/run/user/$(id -u)
+      systemctl --user stop podman-compose-infra.service || true
+      podman stop --all --time 30
+      test -z "$(podman ps -q)"
+    '
+    quiesced=1
+    if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+    ssh -p 2222 erik@"$KEPLER" \
+      "sudo tar --one-file-system -C / -cpf - home/erik etc/ssh var/lib/tailscale" \
+      | restic backup --stdin --stdin-filename kepler-os-state.tar --tag esp-migration
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    test -n "$snapshot" -a "$snapshot" != null
+    ssh -p 2222 erik@"$KEPLER" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user start podman-compose-infra.service'
+    quiesced=0
+    members=()
+    for sample in "${samples[@]}"; do members+=("$sample"); done
+    restic dump "$snapshot" kepler-os-state.tar | tar -xpf - -C "$restore" "${members[@]}"
+    while read -r expected path; do
+      relative=${path#/}
+      actual=$(sha256sum "$restore/$relative" | awk '{print $1}')
+      test "$actual" = "$expected" || { echo ":: BLOCKED: restore mismatch: $relative" >&2; exit 1; }
+      printf 'verified=%s sha256=%s\n' "$relative" "$actual"
+    done <"$hashes"
+    printf 'snapshot=%s\nverified_at=%s\n' "$snapshot" "$(date --iso-8601=seconds)" \
+      | tee /tmp/kepler-esp-backup.ok
+    echo ":: PASS: encrypted Kepler OS-state snapshot and four-class restore verified"
+
+diagnose-kepler-compose:
+    ssh -p 2222 erik@{{ip_kepler}} "export XDG_RUNTIME_DIR=/run/user/\$(id -u); systemctl --user status podman-compose-infra.service --no-pager -l; journalctl --user -u podman-compose-infra.service -b --no-pager -n 120; echo ':: containers'; podman ps -a --format json | jq -r '.[] | [.Names[0], .State, .Status] | @tsv'"
+
+recover-kepler-ai-containers:
+    ssh -p 2222 erik@{{ip_kepler}} "export XDG_RUNTIME_DIR=/run/user/\$(id -u); podman start f5-tts-server faster-whisper-openai piper-openai edge-tts-openai docs-search nvidia-gpu-exporter piper-wyoming slm-bge-reranker slm-bge-m3; test \"\$(podman ps --filter status=running --format json | jq 'length')\" -ge 9"
+
+verify-kepler-esp-backup-orion:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEPLER="{{ip_kepler}}"
+    ORION="{{ip_orion}}"
+    snapshot=6a5aa2da
+    samples=(
+      "etc/ssh/ssh_host_ed25519_key"
+      "var/lib/tailscale/tailscaled.state"
+      "home/erik/.config/sops/age/keys.txt"
+      "home/erik/ha-train/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
+    )
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$ORION:/projects/backups/kepler-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    hashes=$(mktemp)
+    restore=$(mktemp -d)
+    trap 'rm -f "$hashes"; rm -rf "$restore"' EXIT
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$KEPLER" "sudo sha256sum '/$sample'" >>"$hashes"
+    done
+    restic snapshots "$snapshot" >/dev/null
+    members=()
+    for sample in "${samples[@]}"; do members+=("$sample"); done
+    restic dump "$snapshot" kepler-os-state.tar | tar -xpf - -C "$restore" "${members[@]}"
+    while read -r expected path; do
+      relative=${path#/}
+      actual=$(sha256sum "$restore/$relative" | awk '{print $1}')
+      test "$actual" = "$expected" || { echo ":: BLOCKED: restore mismatch: $relative" >&2; exit 1; }
+      printf 'verified=%s sha256=%s\n' "$relative" "$actual"
+    done <"$hashes"
+    printf 'snapshot=%s\nverified_at=%s\n' "$snapshot" "$(date --iso-8601=seconds)" \
+      | tee /tmp/kepler-esp-backup.ok
+    echo ":: PASS: encrypted Kepler OS-state snapshot and four-class restore verified"
+
+# Restore only Kepler's OS-disk home tree after nixos-anywhere. Host SSH,
+# Tailscale, and sops identities are staged separately by deploy-kepler-esp.
+restore-kepler-esp-home-orion:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEPLER="{{ip_kepler}}"
+    ORION="{{ip_orion}}"
+    snapshot=6a5aa2da
+    sample="home/erik/ha-train/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
+    ssh -p 2222 erik@"$KEPLER" '
+      set -euo pipefail
+      test "$(findmnt -nro SOURCE /home)" = "/dev/sde2[/home]"
+      used=$(sudo du -xsb /home/erik | awk "{print \$1}")
+      test "$used" -lt 1073741824
+      sudo systemctl stop syncthing.service 2>/dev/null || true
+      systemctl --user stop podman-compose-infra.service podman-compose-ai-serving.service podman-compose-docs-search.service 2>/dev/null || true
+    '
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$ORION:/projects/backups/kepler-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    expected=$(restic dump "$snapshot" kepler-os-state.tar | tar -xOf - "$sample" | sha256sum | awk '{print $1}')
+    restic dump "$snapshot" kepler-os-state.tar \
+      | ssh -p 2222 erik@"$KEPLER" 'sudo tar -xpf - -C / home/erik'
+    actual=$(ssh -p 2222 erik@"$KEPLER" "sudo sha256sum '/$sample'" | awk '{print $1}')
+    test "$actual" = "$expected"
+    ssh -p 2222 erik@"$KEPLER" '
+      set -euo pipefail
+      sudo systemctl start syncthing.service 2>/dev/null || true
+      systemctl --user start podman-compose-ai-serving.service podman-compose-docs-search.service 2>/dev/null || true
+      sudo du -xsh /home/erik
+    '
+    printf 'snapshot=%s\nsample=%s\nsha256=%s\nrestored_at=%s\n' \
+      "$snapshot" "$sample" "$actual" "$(date --iso-8601=seconds)" \
+      | tee /tmp/kepler-esp-restore.ok
+    echo ":: PASS: Kepler home restored and representative large file verified"
+
+# Reassert declarative Home Manager links after restoring the mutable home tree.
+repair-kepler-after-home-restore:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      sudo systemctl restart home-manager-erik.service
+      systemctl --user daemon-reload
+      systemctl --user start podman-compose-ai-serving.service podman-compose-docs-search.service
+      systemctl --user reset-failed
+      sudo systemctl restart syncthing.service
+      systemctl --user status podman-compose-ai-serving.service podman-compose-docs-search.service --no-pager -l
+    '
+
+diagnose-kepler-home-manager:
+    ssh -p 2222 erik@{{ip_kepler}} 'sudo systemctl status home-manager-erik.service --no-pager -l; sudo journalctl -u home-manager-erik.service -b --no-pager -n 160'
+
+verify-kepler-after-esp-migration:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      test "$(findmnt -nro SOURCE /boot)" = /dev/sde1
+      test "$(findmnt -nro SOURCE /)" = "/dev/sde2[/root]"
+      test "$(findmnt -nro SOURCE /home)" = "/dev/sde2[/home]"
+      test "$(sudo zpool status -x)" = "all pools are healthy"
+      test "$(sudo zpool list -H -o health fast-pool)" = ONLINE
+      test "$(sudo zpool list -H -o health bulk-pool)" = ONLINE
+      test "$(sudo du -xsb /home/erik | awk "{print \$1}")" -gt 100000000000
+      sudo systemctl is-active sshd tailscaled syncthing nfs-server
+      systemctl --user is-active podman-compose-ai-serving.service podman-compose-docs-search.service
+      ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+      tailscale status --self
+      podman ps --format json | jq -r ".[] | [.Names[0], .Status] | @tsv"
+      echo ":: failed system units"
+      systemctl --failed --no-legend || true
+      echo ":: failed user units"
+      systemctl --user --failed --no-legend || true
+    '
+
+orion-esp-graph-proof:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    script=$(nix build --no-link --print-out-paths \
+      .#nixosConfigurations.orion-esp-installer.config.system.build.diskoScript | tail -1)
+    expected="nvme-Force_MP510_19458242000129183963"
+    grep -Fq "$expected" "$script"
+    forbidden=(
+      /dev/sda /dev/sdb
+      SanDisk_SSD_PLUS_480GB_193181805834
+      KINGSTON_SV300S37A480G_50026B724709FD21
+      5001b448b8d96bc1 50026b724709fd21
+    )
+    for token in "${forbidden[@]}"; do
+      if grep -Fq "$token" "$script"; then
+        echo ":: BLOCKED: destructive graph contains $token" >&2
+        exit 1
+      fi
+    done
+    devices=$(sed -n 's/^for dev in \(.*\);/\1/p' "$script")
+    test "$devices" = "/dev/disk/by-id/$expected"
+    echo ":: PASS: destructive graph contains only $devices"
+
+# Fail-closed live-host identity gate immediately before Orion's NVMe-only wipe.
+orion-esp-live-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} '
+      set -euo pipefail
+      nvme=$(readlink -f /dev/disk/by-id/nvme-Force_MP510_19458242000129183963)
+      test "$nvme" = /dev/nvme0n1
+      test "$(findmnt -nro SOURCE /boot)" = /dev/nvme0n1p1
+      test "$(findmnt -nro SOURCE /)" = "/dev/nvme0n1p2[/root]"
+      test "$(findmnt -nro UUID /projects)" = d4511ef9-7f62-4f0f-86d2-ee015344c289
+      test "$(findmnt -nro UUID /opt/models)" = 88a7f0d3-2fa2-4354-a4cd-8cab451dce85
+      printf "target=%s serial=%s\n" "$nvme" "$(lsblk -dnro SERIAL "$nvme")"
+      for mount in /boot / /projects /opt/models; do
+        findmnt -nro TARGET,SOURCE,FSTYPE,UUID "$mount"
+      done
+    '
+    echo ":: PASS: live Orion identities match the reviewed migration graph"
+
+# Approved Orion migration: wipe only the Force MP510 NVMe via force-kexec.
+# The SATA filesystems are mounted by UUID but absent from the disko graph.
+deploy-orion-esp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    marker=/tmp/orion-esp-backup.ok
+    test -f "$marker" || { echo ":: BLOCKED: missing $marker" >&2; exit 1; }
+    age=$(( $(date +%s) - $(stat -c %Y "$marker") ))
+    test "$age" -le 86400 || { echo ":: BLOCKED: stale $marker" >&2; exit 1; }
+    grep -Eq '^snapshot=[0-9a-f]+$' "$marker"
+    just orion-esp-live-preflight
+    just orion-esp-graph-proof
+    nix build --no-link \
+      .#nixosConfigurations.orion-esp-installer.config.system.build.toplevel \
+      --builders "{{kepler_builder}}" \
+      --builders-use-substitutes --max-jobs 0 --show-trace
+    extra=$(mktemp -d)
+    trap 'rm -rf "$extra"' EXIT
+    mkdir -p "$extra/var/lib/sops-staging"
+    cp ~/.config/sops/age/keys.txt "$extra/var/lib/sops-staging/age-keys.txt"
+    chmod 600 "$extra/var/lib/sops-staging/age-keys.txt"
+    export NIX_CONFIG="builders = {{kepler_builder}}
+    max-jobs = 0
+    builders-use-substitutes = true"
+    echo ":: DESTRUCTIVE: wiping only Force MP510 NVMe serial 19458242000129183963"
+    nix run github:nix-community/nixos-anywhere -- \
+      --force-kexec \
+      --target-host erik@{{ip_orion}} \
+      --ssh-port 2222 \
+      --flake .#orion-esp-installer \
+      --extra-files "$extra" \
+      --debug --show-trace
+    echo ":: preserved mounts"
+    nix eval --json .#nixosConfigurations.orion-esp-installer.config.fileSystems \
+      --apply 'fs: { models = fs."/opt/models"; projects = fs."/projects"; }' \
+      | jq '{models: {device: .models.device, fsType: .models.fsType}, projects: {device: .projects.device, fsType: .projects.fsType, options: .projects.options}}'
+
+orion-home-backup-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} '
+      set -euo pipefail
+      echo ":: root/home usage"
+      df -hT / /home
+      sudo du -xsh /home/erik
+      echo ":: bootstrap credential"
+      find /home/erik/.config/sops/age -xdev -type f -printf "%P %s bytes\n" 2>/dev/null || true
+      echo ":: dotfile candidates"
+      find /home/erik -xdev -maxdepth 2 -type f -name ".*" -size +0c -printf "%P %s bytes\n" 2>/dev/null | sed -n "1,10p" || true
+      echo ":: document candidates"
+      find /home/erik/Documents -xdev -type f -size +0c -printf "%P %s bytes\n" 2>/dev/null | sed -n "1,10p" || true
+      echo ":: large-file candidates"
+      find /home/erik -xdev -type f -size +100M -printf "%P %s bytes\n" 2>/dev/null | sort -k2nr | sed -n "1,10p" || true
+      echo ":: excluded nested mounts"
+      findmnt -R /home/erik 2>/dev/null || true
+    '
+
+# Full encrypted NVMe-home safety snapshot plus one-pass selective restore of
+# four evidence classes. SATA mounts are excluded by tar --one-file-system.
+backup-orion-home-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ORION="{{ip_orion}}"
+    KEPLER="{{ip_kepler}}"
+    samples=(
+      ".config/sops/age/keys.txt"
+      ".pulse-cookie"
+      "Documents/erik/desktop-nixos/flake.nix"
+      "Documents/erik/ha-agent/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
+    )
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$ORION" "test -f '/home/erik/$sample'" || {
+        echo ":: BLOCKED: missing /home/erik/$sample" >&2
+        exit 1
+      }
+    done
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() { nix shell nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"; }
+    if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+    hashes=$(mktemp)
+    restore=$(mktemp -d)
+    trap 'rm -f "$hashes"; rm -rf "$restore"' EXIT
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$ORION" "sha256sum '/home/erik/$sample'" >>"$hashes"
+    done
+    ssh -p 2222 erik@"$ORION" "sudo tar --one-file-system -C /home/erik -cpf - ." \
+      | restic backup --stdin --stdin-filename orion-home.tar --tag esp-migration
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    test -n "$snapshot" -a "$snapshot" != null
+    members=()
+    for sample in "${samples[@]}"; do members+=("./$sample"); done
+    restic dump "$snapshot" orion-home.tar | tar -xpf - -C "$restore" "${members[@]}"
+    while read -r expected path; do
+      relative=${path#/home/erik/}
+      actual=$(sha256sum "$restore/$relative" | awk '{print $1}')
+      test "$actual" = "$expected" || { echo ":: BLOCKED: restore mismatch: $relative" >&2; exit 1; }
+      printf 'verified=%s sha256=%s\n' "$relative" "$actual"
+    done <"$hashes"
+    printf 'snapshot=%s\nverified_at=%s\n' "$snapshot" "$(date --iso-8601=seconds)" \
+      | tee /tmp/orion-esp-backup.ok
+    echo ":: PASS: encrypted Orion snapshot and four-class restore verified"
+
+# Verify the latest Orion ESP snapshot without uploading the full home again.
+# Useful when the transfer completed but the post-backup restore was interrupted.
+verify-orion-home-backup-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ORION="{{ip_orion}}"
+    KEPLER="{{ip_kepler}}"
+    samples=(
+      ".config/sops/age/keys.txt"
+      ".pulse-cookie"
+      "Documents/erik/desktop-nixos/flake.nix"
+      "Documents/erik/ha-agent/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
+    )
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() { nix shell nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"; }
+    hashes=$(mktemp)
+    restore=$(mktemp -d)
+    trap 'rm -f "$hashes"; rm -rf "$restore"' EXIT
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$ORION" "sha256sum '/home/erik/$sample'" >>"$hashes"
+    done
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    test -n "$snapshot" -a "$snapshot" != null
+    members=()
+    for sample in "${samples[@]}"; do members+=("./$sample"); done
+    restic dump "$snapshot" orion-home.tar | tar -xpf - -C "$restore" "${members[@]}"
+    while read -r expected path; do
+      relative=${path#/home/erik/}
+      actual=$(sha256sum "$restore/$relative" | awk '{print $1}')
+      test "$actual" = "$expected" || { echo ":: BLOCKED: restore mismatch: $relative" >&2; exit 1; }
+      printf 'verified=%s sha256=%s\n' "$relative" "$actual"
+    done <"$hashes"
+    printf 'snapshot=%s\nverified_at=%s\n' "$snapshot" "$(date --iso-8601=seconds)" \
+      | tee /tmp/orion-esp-backup.ok
+    echo ":: PASS: encrypted Orion snapshot and four-class restore verified"
+
+# Restore the verified pre-migration Orion home snapshot from Kepler. Streams
+# directly into Orion; no plaintext archive is written to the controller.
+restore-orion-home-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ORION="{{ip_orion}}"
+    KEPLER="{{ip_kepler}}"
+    marker=/tmp/orion-esp-backup.ok
+    test -f "$marker" || { echo ":: BLOCKED: missing $marker" >&2; exit 1; }
+    snapshot=$(sed -n 's/^snapshot=//p' "$marker")
+    test "$snapshot" = be7f268a || { echo ":: BLOCKED: unexpected snapshot $snapshot" >&2; exit 1; }
+    ssh -p 2222 erik@"$ORION" '
+      bytes=$(sudo du -x -s --block-size=1 /home/erik | cut -f1)
+      echo ":: pre-restore home bytes=$bytes"
+      test "$bytes" -lt 104857600 || { echo ":: BLOCKED: home exceeds generated-state threshold" >&2; exit 1; }
+    '
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() {
+      nix shell --builders "{{kepler_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    restic dump "$snapshot" orion-home.tar \
+      | ssh -p 2222 erik@"$ORION" 'sudo tar -xpf - -C /home/erik'
+    ssh -p 2222 erik@"$ORION" '
+      set -euo pipefail
+      sudo chown erik:users /home/erik
+      sudo systemctl reset-failed home-manager-erik sops-first-boot tailscaled-autoconnect
+      sudo systemctl start home-manager-erik
+      sudo systemctl start tailscaled-autoconnect
+      sudo systemctl reset-failed sops-first-boot
+    '
+    echo ":: PASS: restored Orion home snapshot $snapshot"
+
+# Stream Pathfinder's full home as one tar object into an encrypted restic repo
+# on Kepler, then restore and hash one representative file. No plaintext archive
+# lands on either workstation. Passphrase is read silently and never logged.
+pathfinder-home-samples:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@"{{ip_pathfinder}}" \
+      'find /home/erik/Documents /home/erik/Downloads -xdev -type f -size +0c -printf "%p\n" 2>/dev/null | sed "s|^/home/erik/||" | head -20'
+
+backup-pathfinder-home-kepler sample:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PATHFINDER="{{ip_pathfinder}}"
+    KEPLER="{{ip_kepler}}"
+    sample="{{sample}}"
+    case "$sample" in /*|*../*) echo ":: BLOCKED: sample must be relative to /home/erik" >&2; exit 1;; esac
+    if ! ssh -p 2222 erik@"$PATHFINDER" "test -f '/home/erik/$sample'"; then
+      echo ":: BLOCKED: /home/erik/$sample is not a regular file" >&2
+      echo ":: choose one with: just pathfinder-home-samples" >&2
+      exit 1
+    fi
+    read -rsp "Restic repository passphrase: " RESTIC_PASSWORD; echo
+    export RESTIC_PASSWORD
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/pathfinder-esp"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() { nix shell nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"; }
+    if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+    source_hash=$(ssh -p 2222 erik@"$PATHFINDER" "sha256sum '/home/erik/$sample'" | awk '{print $1}')
+    test -n "$source_hash"
+    ssh -p 2222 erik@"$PATHFINDER" "sudo tar --one-file-system -C /home/erik -cpf - ." \
+      | restic backup --stdin --stdin-filename pathfinder-home.tar --tag esp-migration
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    test -n "$snapshot" -a "$snapshot" != null
+    restored_hash=$(restic dump "$snapshot" pathfinder-home.tar \
+      | tar -xOf - "./$sample" | sha256sum | awk '{print $1}')
+    test "$source_hash" = "$restored_hash"
+    printf 'snapshot=%s\nsample=%s\nsha256=%s\nverified_at=%s\n' "$snapshot" "$sample" "$source_hash" "$(date --iso-8601=seconds)" \
+      | tee /tmp/pathfinder-esp-backup.ok
+    echo ":: PASS: encrypted Kepler snapshot and representative restore verified"
+
+# Approved destructive Pathfinder reinstall. Requires fresh evidence markers;
+# passphrase is supplied through a mode-0600 temp file to nixos-anywhere.
+pathfinder-installer-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    info=$(ssh -p 22 -o BatchMode=yes -o ConnectTimeout=8 nixos@"{{ip_pathfinder}}" \
+      'printf "host=%s\nroot=%s\n" "$(hostname)" "$(findmnt -nro SOURCE /)"')
+    printf '%s\n' "$info"
+    root=$(printf '%s\n' "$info" | sed -n 's/^root=//p')
+    case "$root" in /dev/mapper/cryptroot*|/dev/sda*)
+      echo ":: BLOCKED: port 22 appears to be installed Pathfinder, not installer media" >&2
+      exit 1
+      ;;
+    esac
+    echo ":: PASS: Pathfinder installer environment reachable"
+
+deploy-pathfinder-esp mode="installer":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for marker in /tmp/pathfinder-esp-preflight.ok /tmp/pathfinder-esp-backup.ok; do
+      test -f "$marker" || { echo ":: BLOCKED: missing $marker" >&2; exit 1; }
+      age=$(( $(date +%s) - $(stat -c %Y "$marker") ))
+      test "$age" -le 86400 || { echo ":: BLOCKED: stale $marker" >&2; exit 1; }
+    done
+    case "{{mode}}" in
+      installer)
+        just pathfinder-installer-preflight
+        target_args=(nixos@{{ip_pathfinder}})
+        ;;
+      live)
+        just pathfinder-esp-preflight
+        # Keep --force-kexec away from argv tail: nixos-anywhere's parser does
+        # two shifts for this valueless flag and exits 1 when it is last.
+        target_args=(--force-kexec --target-host erik@{{ip_pathfinder}} --ssh-port 2222)
+        ;;
+      *) echo ":: mode must be installer or live" >&2; exit 1;;
+    esac
+    just dry pathfinder
+    supplied_key="${PATHFINDER_LUKS_PASSWORD_FILE:-}"
+    if [ -n "$supplied_key" ]; then
+      test -f "$supplied_key" || { echo ":: missing PATHFINDER_LUKS_PASSWORD_FILE" >&2; exit 1; }
+      mode=$(stat -c %a "$supplied_key")
+      test "$mode" = 600 || { echo ":: passphrase file mode must be 600, got $mode" >&2; exit 1; }
+      key=$(mktemp)
+      chmod 600 "$key"
+      cp "$supplied_key" "$key"
+      echo ":: protected LUKS passphrase file accepted"
+    else
+      read -rsp "New Pathfinder LUKS passphrase: " LUKS_PASS; echo
+      read -rsp "Confirm Pathfinder LUKS passphrase: " LUKS_CONFIRM; echo
+      test "$LUKS_PASS" = "$LUKS_CONFIRM" || { echo ":: passphrases differ" >&2; exit 1; }
+      key=$(mktemp)
+      chmod 600 "$key"
+      printf %s "$LUKS_PASS" > "$key"
+      unset LUKS_PASS LUKS_CONFIRM
+    fi
+    extra=$(mktemp -d)
+    trap 'rm -f "$key"; rm -rf "$extra"' EXIT
+    mkdir -p "$extra/var/lib/sops-staging"
+    cp ~/.config/sops/age/keys.txt "$extra/var/lib/sops-staging/age-keys.txt"
+    chmod 600 "$extra/var/lib/sops-staging/age-keys.txt"
+    echo ":: sops bootstrap key staged"
+    echo ":: starting nixos-anywhere ({{mode}} mode)"
+    nix run github:nix-community/nixos-anywhere -- \
+      --flake .#pathfinder \
+      --extra-files "$extra" \
+      --disk-encryption-keys /tmp/luks-password.txt "$key" \
+      --debug \
+      --show-trace \
+      "${target_args[@]}"
+    if [ -n "$supplied_key" ]; then rm -f "$supplied_key"; fi
+
+# Approved destructive Endeavour install from NixOS installer media. Guards the
+# exact replacement disk and reads its LUKS passphrase from a protected file.
+deploy-endeavour:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target=nixos@192.168.10.99
+    disk=/dev/nvme0n1
+    key=/tmp/endeavour-luks-password
+    info=$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$target" \
+      'printf "root=%s\n" "$(findmnt -nro SOURCE /)"; lsblk -dn -o PATH,MODEL,SERIAL,SIZE /dev/nvme0n1')
+    printf '%s\n' "$info"
+    root=$(printf '%s\n' "$info" | sed -n 's/^root=//p')
+    case "$root" in tmpfs|/dev/loop*|/dev/sr*|/dev/ram*) ;; \
+      *) echo ":: BLOCKED: target is not booted from installer media" >&2; exit 1;; \
+    esac
+    disk_info=$(printf '%s\n' "$info" | tail -n 1)
+    printf '%s\n' "$disk_info" | grep -Fq "$disk"
+    printf '%s\n' "$disk_info" | grep -Fq "ADATA SX8200PNP"
+    printf '%s\n' "$disk_info" | grep -Fq "2Q012L1K6JPH"
+    test -f "$key" || { echo ":: BLOCKED: missing $key" >&2; exit 1; }
+    test "$(stat -c %a "$key")" = 600 || { echo ":: passphrase file mode must be 600" >&2; exit 1; }
+    test "$(stat -c %U "$key")" = erik || { echo ":: passphrase file owner must be erik" >&2; exit 1; }
+    extra=$(mktemp -d)
+    trap 'rm -rf "$extra"' EXIT
+    mkdir -p "$extra/var/lib/sops-staging"
+    install -m 600 ~/.config/sops/age/keys.txt "$extra/var/lib/sops-staging/age-keys.txt"
+    just dry endeavour
+    nix run github:nix-community/nixos-anywhere -- \
+      --flake .#endeavour \
+      --extra-files "$extra" \
+      --disk-encryption-keys /tmp/luks-password.txt "$key" \
+      --debug \
+      --show-trace \
+      "$target"
+    rm -f "$key"
 
 # kepler is a GPU host: an nvidia driver bump in the closure mismatches the
 # running kernel module on a LIVE switch (breaks the AI stack — verified). Stage
@@ -422,9 +1225,13 @@ switch-all:
     exit "$fail"
 
 deploy target ip port="2222" user="erik":
+    BUILDERS="$(just _builders {{target}})"; \
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
-        --use-substitutes --sudo --show-trace
+        --use-substitutes --sudo --show-trace \
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true \
+        --max-jobs 0
 
 # deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
 # auto-revert if the host lost reachability). Builds on orion and substitutes to
@@ -477,6 +1284,104 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS age key:' && test -f ~/.config/sops/age/keys.txt && echo 'present' || echo 'MISSING'"
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
+
+# Trust a regenerated SSH host key after an explicitly authorized clean install.
+trust-host-key target ip fingerprint port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scanned="$(mktemp)"
+    trap 'rm -f "$scanned"' EXIT
+    ssh-keyscan -p "{{port}}" "{{ip}}" >"$scanned" 2>/dev/null
+    fingerprints="$(ssh-keygen -lf "$scanned" -E sha256 | awk '{ print $2 }')"
+    grep -Fxq "{{fingerprint}}" <<<"$fingerprints" || {
+      echo "error: {{target}} host key mismatch: expected {{fingerprint}}, got:" >&2
+      printf '%s\n' "$fingerprints" >&2
+      exit 1
+    }
+    ssh-keygen -R '[{{ip}}]:{{port}}' >/dev/null 2>&1 || true
+    cat "$scanned" >>~/.ssh/known_hosts
+    echo ":: Trusted {{target}} host key {{fingerprint}}"
+
+trust-root-builder-host-key target ip fingerprint port="2222":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scanned=$(mktemp)
+    trap 'rm -f "$scanned"' EXIT
+    ssh-keyscan -p "{{port}}" "{{ip}}" >"$scanned" 2>/dev/null
+    fingerprints=$(ssh-keygen -lf "$scanned" -E sha256 | awk '{ print $2 }')
+    grep -Fxq "{{fingerprint}}" <<<"$fingerprints" || {
+      echo "error: {{target}} builder host key mismatch" >&2
+      printf '%s\n' "$fingerprints" >&2
+      exit 1
+    }
+    sudo mkdir -p -m 700 /root/.ssh
+    sudo ssh-keygen -R '[{{ip}}]:{{port}}' -f /root/.ssh/known_hosts >/dev/null 2>&1 || true
+    sudo tee -a /root/.ssh/known_hosts <"$scanned" >/dev/null
+    echo ":: Trusted root builder key for {{target}}: {{fingerprint}}"
+
+diagnose-pathfinder-bootstrap:
+    ssh -p 2222 erik@{{ip_pathfinder}} "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: account'; sudo passwd -S erik; echo ':: home path'; namei -l /home/erik/Documents/erik; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 80; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
+
+diagnose-orion-bootstrap:
+    ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: account'; sudo passwd -S erik; echo ':: home top-level'; find /home/erik -mindepth 1 -maxdepth 1 -printf '%f %y %u:%g\n' | sort; echo ':: ssh ownership'; namei -l /home/erik/.ssh/config; ls -la /home/erik/.ssh; echo ':: sops first-boot log'; sudo journalctl -u sops-first-boot -b --no-pager -n 100; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 100; echo ':: tailscale log'; sudo journalctl -u tailscaled-autoconnect -b --no-pager -n 100; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
+
+recover-orion-bootstrap:
+    ssh -p 2222 erik@{{ip_orion}} "chmod u+w ~/.ssh/config; sudo systemctl reset-failed home-manager-erik tailscaled-autoconnect sops-first-boot; sudo systemctl start home-manager-erik; sudo systemctl start tailscaled-autoconnect; sudo systemctl reset-failed sops-first-boot"
+
+recover-orion-nfs:
+    ssh -p 2222 erik@{{ip_orion}} "sudo systemctl reset-failed mnt-nfs-fast.mount mnt-nfs-bulk.mount; sudo systemctl restart mnt-nfs-fast.automount mnt-nfs-bulk.automount; timeout 15 ls -d /mnt/nfs/fast /mnt/nfs/bulk >/dev/null"
+
+diagnose-orion-nfs:
+    ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status mnt-nfs-fast.mount mnt-nfs-bulk.mount mnt-nfs-fast.automount mnt-nfs-bulk.automount --no-pager -l; sudo journalctl -b -u mnt-nfs-fast.mount -u mnt-nfs-bulk.mount --no-pager -n 100; echo ':: tailscale peers'; tailscale status; echo ':: tailscale dns'; tailscale dns status; echo ':: resolve kepler'; getent ahosts kepler || true; resolvectl query kepler || true; echo ':: nfs filesystems'; grep nfs /proc/filesystems || true; echo ':: modules'; lsmod | grep -E '(^nfs|sunrpc|lockd)' || true"
+
+diagnose-tailscale ip:
+    ssh -p 2222 erik@{{ip}} "echo ':: peers'; tailscale status; echo ':: dns'; tailscale dns status"
+
+verify-orion-esp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} '
+      set -euo pipefail
+      echo ":: generation"; readlink -f /run/current-system
+      echo ":: esp"; df -h /boot; findmnt -nro TARGET,SOURCE,FSTYPE,UUID /boot
+      echo ":: preserved mounts"
+      for mount in /projects /opt/models; do findmnt -nro TARGET,SOURCE,FSTYPE,UUID "$mount"; done
+      test "$(findmnt -nro UUID /projects)" = d4511ef9-7f62-4f0f-86d2-ee015344c289
+      test "$(findmnt -nro UUID /opt/models)" = 88a7f0d3-2fa2-4354-a4cd-8cab451dce85
+      echo ":: restored home"; sudo du -xsh /home/erik
+      test -f /home/erik/Documents/erik/desktop-nixos/flake.nix
+      test -f /home/erik/Documents/erik/ha-agent/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors
+      echo ":: core services"
+      systemctl is-active home-manager-erik syncthing apparmor nix-serve
+      curl --fail --silent --show-error http://127.0.0.1:5000/nix-cache-info
+      tailscale status --peers=false
+      echo ":: failed units"
+      failed=$(systemctl --failed --no-legend | awk 'NF')
+      printf '%s' "$failed"
+      test -z "$failed"
+    '
+
+diagnose-pathfinder-login:
+    ssh -p 2222 erik@{{ip_pathfinder}} "echo ':: account'; sudo passwd -S erik; echo ':: sddm'; sudo systemctl status display-manager --no-pager -l; echo ':: authentication log'; sudo journalctl -b --no-pager -n 150 -u display-manager -t sddm-helper -t unix_chkpwd -t systemd-logind"
+
+# Workstations remain user-owned tailnet nodes; the fleet OAuth secret is
+# intentionally scoped to tag:server and cannot enroll Pathfinder after a wipe.
+pathfinder-tailscale-login:
+    ssh -t -p 2222 erik@{{ip_pathfinder}} "sudo tailscale up --hostname=pathfinder --accept-dns=true --accept-routes && sudo systemctl reset-failed tailscaled-autoconnect.service && sudo systemctl start tailscaled-autoconnect.service"
+
+# Rotate the declarative fleet login password without exposing plaintext in
+# argv, shell history, git, or remote state. The sops file keeps only the hash.
+set-user-password:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    read -rsp "New login password: " password; echo
+    read -rsp "Confirm login password: " confirmation; echo
+    test "$password" = "$confirmation" || { echo "error: passwords differ" >&2; exit 1; }
+    hash=$(printf '%s' "$password" | nix shell nixpkgs#whois -c mkpasswd -m yescrypt -s)
+    unset password confirmation
+    printf '%s' "$hash" | jq -R | sops set --value-stdin secrets/sops/secrets.yaml '["hashed_password"]'
+    unset hash
+    echo ":: encrypted login password hash updated"
 
 # Audit a host's actual exposure: listening sockets, the live nftables ruleset,
 # and Docker/Podman published ports. Docker may rewrite firewall rules
@@ -873,9 +1778,58 @@ pull-servarr target branch="main":
     # daemon-reload picks up a freshly-deployed unit; restart (not start) is
     # required because servarr-pull is RemainAfterExit — `start` no-ops once it
     # has run, so the reset --hard would never re-fire.
-    ssh -p 2222 erik@"$IP" "systemctl --user daemon-reload && systemctl --user restart servarr-pull.service"
-    ssh -p 2222 erik@"$IP" "systemctl --user status servarr-pull.service --no-pager -n15"
+    ssh -p 2222 erik@"$IP" 'uid=$(id -u); sudo systemctl start user-runtime-dir@$uid.service user@$uid.service; export XDG_RUNTIME_DIR=/run/user/$uid; systemctl --user daemon-reload && systemctl --user restart servarr-pull.service'
+    ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status servarr-pull.service --no-pager -n15'
     echo ":: {{target}} now on origin/{{branch}}. Recreate changed stacks: just kick-stack {{target}} <stack>"
+
+# Diagnose the per-user manager required by servarr-pull and compose units.
+diagnose-servarr-user target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" 'sudo systemctl status systemd-logind.service user-runtime-dir@$(id -u).service user@$(id -u).service --no-pager -n20 || true; sudo journalctl -u systemd-logind.service -u user-runtime-dir@$(id -u).service -u user@$(id -u).service --no-pager -n30'
+
+# Recover a user manager after logind loses its PID1 transport across reboot.
+repair-servarr-user target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" 'uid=$(id -u); sudo systemctl restart systemd-logind.service; sudo systemctl restart user-runtime-dir@$uid.service; sudo systemctl start user@$uid.service; export XDG_RUNTIME_DIR=/run/user/$uid; state=$(systemctl --user is-system-running 2>/dev/null || true); printf "user-manager=%s\n" "$state"; case "$state" in starting|running|degraded) ;; *) exit 1;; esac'
+
+# Run the sister repo's database backup on a deployed servarr host and prove
+# the LiteLLM dump is non-empty and gzip-valid before a control-plane cutoff.
+backup-servarr-db target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      cd /home/erik/servarr/machines/{{target}}
+      backup="backups/postgres/$(date +%Y-%m-%d_%H%M%S)"
+      mkdir -p "$backup"
+      user=$(sed -n "s/^POSTGRES_USER=//p" .env | tail -1)
+      test -n "$user"
+      docker exec postgres pg_dump -U "$user" litellm | gzip > "$backup/litellm.sql.gz"
+      latest=$(find backups/postgres -mindepth 1 -maxdepth 1 -type d -printf "%T@ %p\n" | sort -nr | head -1 | cut -d" " -f2-)
+      test -n "$latest"
+      test -s "$latest/litellm.sql.gz"
+      gzip -t "$latest/litellm.sql.gz"
+      printf ":: verified LiteLLM DB backup: %s/litellm.sql.gz\n" "$latest"
+    '
+
+# Read-only post-deploy proof for the Nix-owned Hermes service. Prints only a
+# credential fingerprint, never the credential itself.
+verify-hermes-cutoff target="discovery":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      printf "generation="; readlink /nix/var/nix/profiles/system | sed "s|.*/system-||"
+      printf "unit="; systemctl is-active docker-hermes-agent.service
+      printf "container="; docker inspect -f "{{"{{"}}.State.Status{{"}}"}}" hermes-agent
+      printf "key_hash="; docker exec hermes-agent sh -c '\''printf %s "$OPENAI_API_KEY" | sha256sum'\'' | cut -c1-12
+    '
 
 # Push the git-versioned hermes-skills repo to a host's /home/erik/hermes-skills/
 # so the hermes container can mount it read-only via skills.external_dirs.
@@ -905,8 +1859,15 @@ kick-stack target stack:
     IP="$(just _host-ip {{target}})"
     # restart (not start): the unit is RemainAfterExit, so `start` no-ops once
     # active and would not re-run `compose up -d --remove-orphans`.
-    ssh -p 2222 erik@$IP "systemctl --user restart podman-compose-{{stack}}.service"
-    ssh -p 2222 erik@$IP "systemctl --user status podman-compose-{{stack}}.service --no-pager -n10"
+    ssh -p 2222 erik@$IP 'uid=$(id -u); sudo systemctl start user-runtime-dir@$uid.service user@$uid.service; export XDG_RUNTIME_DIR=/run/user/$uid; systemctl --user restart podman-compose-{{stack}}.service'
+    ssh -p 2222 erik@$IP 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n10'
+
+# Read-only failure detail for a compose unit.
+diagnose-stack target stack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
 # Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
 ai-kepler-health:
@@ -1407,6 +2368,218 @@ deploy-discovery:
             ./modules/hosts/discovery/_hw-generated.nix \
         nixos@192.168.10.210
 
+# Read-only evidence bundle for Discovery's boot-RAID migration. Never emits
+# secret values; hashes identity files and reports only OpenBao seal metadata.
+discovery-migration-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      echo ":: disks and stable IDs"
+      lsblk -e7 -b -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,PARTLABEL,UUID,MOUNTPOINTS,MODEL,SERIAL,WWN
+      find /dev/disk/by-id -maxdepth 1 -type l -printf "%f -> %l\n" | sort
+      echo ":: mount graph"
+      for mount in / /boot /home /nix /var/log /home/erik/vault; do
+        findmnt -nro TARGET,SOURCE,FSTYPE,UUID "$mount" 2>/dev/null || true
+      done
+      echo ":: filesystem identity"
+      sudo blkid
+      echo ":: state size"
+      sudo du -xsh /var/lib/docker /home/erik /home/erik/vault 2>/dev/null || true
+      openbao_state="$(sudo readlink -f /var/lib/openbao)"
+      printf "openbao-state=%s\n" "$openbao_state"
+      sudo du -xsh "$openbao_state" 2>/dev/null || true
+      echo ":: docker physical ownership"
+      sudo docker info --format json | jq -r '"root=\(.DockerRootDir) driver=\(.Driver)"'
+      sudo docker system df -v
+      sudo docker volume ls -q | while read -r volume; do
+        sudo docker volume inspect "$volume" | jq -r '.[0] | "\(.Name) \(.Mountpoint)"'
+      done | sort
+      echo ":: declared/runtime containers"
+      sudo docker ps -a --format json | jq -r '[.Names, .State, .Status, .Image] | @tsv' | sort
+      echo ":: critical host units"
+      for unit in sshd tailscaled docker libvirtd openbao openbao-unseal vault-agent nfs-client.target; do
+        printf "%s=" "$unit"
+        systemctl is-active "$unit" 2>/dev/null || true
+      done
+      echo ":: OpenBao metadata"
+      BAO_ADDR=http://127.0.0.1:8200 bao status 2>&1 | sed -n "/Initialized/p;/Sealed/p;/Storage Type/p;/Cluster Name/p;/HA Enabled/p"
+      echo ":: backup evidence"
+      systemctl list-timers --all --no-pager | grep -Ei "restic|vault|backup|tofu" || true
+      sudo find /var/lib/vault-snapshots /home/erik/vault/restic -xdev -type f -printf "%TY-%Tm-%TdT%TH:%TM:%TS %s %p\n" 2>/dev/null | sort | tail -40
+      echo ":: identity fingerprints"
+      ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+      sudo sha256sum /var/lib/tailscale/tailscaled.state
+      echo ":: DNS and edge probes"
+      dig +time=3 +tries=1 @192.168.10.210 discovery.homelab.pastelariadev.com A
+      curl -kfsS -o /dev/null -w "swag=%{http_code}\n" https://grafana.homelab.pastelariadev.com/
+      echo ":: HAOS"
+      sudo virsh list --all
+      sudo virsh domblklist haos 2>/dev/null || true
+      echo ":: failed units"
+      systemctl --failed --no-legend || true
+    REMOTE
+
+# Build Discovery's generated disko script without executing it, then prove the
+# destructive set contains exactly the two reviewed Kingston SSDs and no vault
+# identity or volatile sdX path.
+discovery-esp-graph-proof:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    script=$(nix build --no-link --print-out-paths \
+      .#nixosConfigurations.discovery.config.system.build.diskoScript \
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 | tail -1)
+    primary="ata-KINGSTON_SA400S37480G_AA000000000000000105"
+    mirror="ata-KINGSTON_SA400S37480G_AA000000000000000098"
+    for expected in "$primary" "$mirror" "$mirror-part1"; do
+      grep -Fq "$expected" "$script"
+    done
+    forbidden=(
+      /dev/sda /dev/sdb /dev/sdc
+      ST4000DM004 ZTT25R4M d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+    )
+    for token in "${forbidden[@]}"; do
+      if grep -Fq "$token" "$script"; then
+        echo ":: BLOCKED: destructive graph contains $token" >&2
+        exit 1
+      fi
+    done
+    devices=$(sed -n 's/^for dev in \(.*\);/\1/p' "$script")
+    expected_devices="/dev/disk/by-id/$mirror /dev/disk/by-id/$primary"
+    test "$devices" = "$expected_devices" || {
+      echo ":: BLOCKED: unexpected destructive devices: $devices" >&2
+      exit 1
+    }
+    sha256sum "$script"
+    echo ":: PASS: destructive graph contains only $devices"
+
+# Read-only physical-identity gate. This must agree with the generated graph
+# immediately before any future destructive approval.
+discovery-esp-live-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      primary=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105)
+      mirror=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098)
+      vault=$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M)
+      test "$primary" = /dev/sda
+      test "$mirror" = /dev/sdc
+      test "$vault" = /dev/sdb
+      test "$(findmnt -nro SOURCE /boot)" = /dev/sda1
+      test "$(findmnt -nro SOURCE /)" = "/dev/sda2[/root]"
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test "$(sudo docker info --format '{{"{{"}}.DockerRootDir{{"}}"}}')" = /var/lib/docker
+      test "$(findmnt -nro SOURCE -T /var/lib/docker)" = "/dev/sda2[/root]"
+      sudo btrfs filesystem usage -b / | grep -Eq '^Data,RAID1:'
+      sudo btrfs filesystem usage -b / | grep -Eq '^Metadata,RAID1:'
+      printf "primary=%s mirror=%s vault=%s\n" "$primary" "$mirror" "$vault"
+      for mount in /boot / /home/erik/vault /var/lib/docker; do
+        findmnt -nro TARGET,SOURCE,FSTYPE,UUID -T "$mount"
+      done
+      sudo btrfs filesystem show /
+    REMOTE
+    echo ":: PASS: live Discovery identities match reviewed graph; Docker is on destructive RAID"
+
+# Seed Discovery's recovery copy while Docker remains online. This is only the
+# bulk first pass; a later maintenance-window recipe must stop writers and run
+# the final sync. Exit 24 means live files vanished during traversal and is
+# expected here, but every other rsync failure blocks.
+discovery-docker-mirror-seed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-esp-live-preflight
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      vault=/home/erik/vault
+      destination=$vault/migration/discovery-docker-root
+      test "$(findmnt -nro UUID "$vault")" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test "$(sudo docker info --format '{{"{{"}}.DockerRootDir{{"}}"}}')" = /var/lib/docker
+      available=$(findmnt -bnro AVAIL "$vault")
+      source_bytes=$(sudo du -xsb /var/lib/docker | awk '{print $1}')
+      required=$((source_bytes * 6 / 5))
+      test "$available" -ge "$required" || {
+        printf ':: BLOCKED: vault free=%s required=%s\n' "$available" "$required" >&2
+        exit 1
+      }
+      sudo install -d -m 0700 -o root -g root "$vault/migration" "$destination"
+      set +e
+      sudo rsync -aHAXx --numeric-ids --delete-delay --stats \
+        /var/lib/docker/ "$destination/"
+      status=$?
+      set -e
+      case "$status" in 0|24) ;; *) exit "$status" ;; esac
+      sudo find "$destination" -xdev -mindepth 1 -printf . | wc -c | awk '{print "mirror_entries=" $1}'
+      sudo du -xsb "$destination" | awk '{print "mirror_bytes=" $1}'
+      printf 'source_bytes=%s\nrsync_status=%s\nseeded_at=%s\n' \
+        "$source_bytes" "$status" "$(date --iso-8601=seconds)"
+    REMOTE
+    echo ":: PASS: online Docker mirror seed complete; final stopped sync still required"
+
+# Maintenance-window finalization. This recipe never stops Docker itself: the
+# caller must quiesce dependent writers in the reviewed order first. It refuses
+# to copy while Docker is active and proves a second dry-run has zero changes.
+discovery-docker-mirror-finalize:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      source=/var/lib/docker
+      destination=/home/erik/vault/migration/discovery-docker-root
+      marker=/home/erik/vault/migration/discovery-docker-root.final
+      test "$(systemctl is-active docker 2>/dev/null || true)" = inactive || {
+        echo ":: BLOCKED: Docker must already be inactive" >&2
+        exit 1
+      }
+      test "$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105)" = /dev/sda
+      test "$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098)" = /dev/sdc
+      test "$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M)" = /dev/sdb
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test -d "$destination"
+      sudo rsync -aHAXx --numeric-ids --delete "$source/" "$destination/"
+      drift=$(sudo rsync -aHAXxni --numeric-ids --delete "$source/" "$destination/")
+      test -z "$drift" || { printf '%s\n' "$drift" >&2; exit 1; }
+      source_bytes=$(sudo du -xsb "$source" | awk '{print $1}')
+      mirror_bytes=$(sudo du -xsb "$destination" | awk '{print $1}')
+      source_manifest=$(sudo find "$source" -xdev -printf '%P\t%y\t%s\t%m\t%U\t%G\n' | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+      mirror_manifest=$(sudo find "$destination" -xdev -printf '%P\t%y\t%s\t%m\t%U\t%G\n' | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+      test "$source_manifest" = "$mirror_manifest"
+      printf 'finalized_at=%s\nsource_bytes=%s\nmirror_bytes=%s\nmanifest_sha256=%s\n' \
+        "$(date --iso-8601=seconds)" "$source_bytes" "$mirror_bytes" "$source_manifest" \
+        | sudo tee "$marker" >/dev/null
+      sudo chmod 0600 "$marker"
+      sudo cat "$marker"
+    REMOTE
+    echo ":: PASS: stopped Docker mirror is exact and restore-ready"
+
+# Read-only post-install acceptance gate. Run only after dependency-ordered
+# restoration has completed; it does not start or repair any service.
+verify-discovery-esp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      esp_bytes=$(findmnt -bnro SIZE /boot)
+      test "$esp_bytes" -ge 2000000000
+      test "$(findmnt -nro FSTYPE /boot)" = vfat
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test "$(sudo docker info --format '{{"{{"}}.DockerRootDir{{"}}"}}')" = /var/lib/docker
+      sudo btrfs filesystem usage -b / | grep -Eq '^Data,RAID1:'
+      sudo btrfs filesystem usage -b / | grep -Eq '^Metadata,RAID1:'
+      sudo systemctl is-active sshd tailscaled docker libvirtd openbao openbao-unseal vault-agent
+      BAO_ADDR=http://127.0.0.1:8200 bao status | grep -Eq '^Sealed[[:space:]]+false$'
+      dig +short +time=3 +tries=1 @127.0.0.1 discovery.homelab.pastelariadev.com A | grep -Eq '^[0-9]+(\.[0-9]+){3}$'
+      curl -kfsS -o /dev/null https://grafana.homelab.pastelariadev.com/
+      sudo virsh domstate haos | grep -Fx running
+      failed=$(systemctl --failed --no-legend | awk 'NF')
+      printf '%s' "$failed"
+      test -z "$failed"
+      printf 'generation='; readlink -f /run/current-system
+      printf 'esp_bytes=%s\n' "$esp_bytes"
+      sudo docker ps --format '{{"{{"}}.Names{{"}}"}}\t{{"{{"}}.Status{{"}}"}}' | sort
+    REMOTE
+    echo ":: PASS: Discovery post-install critical acceptance gate"
+
 deploy-kepler:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -1510,7 +2683,7 @@ add-ampagent:
         echo "  Drop the original .deb (with token in filename) here and retry"
         exit 1
     fi
-    echo ":: Found: $deb"
+    echo ":: Found token-bearing KACE package"
 
     # Extract enrollment token from filename (part after '+' before '.deb')
     token=$(basename "$deb" | sed -n 's/.*\.com\.br+\(.*\)\.deb/\1/p')
@@ -1520,17 +2693,19 @@ add-ampagent:
     fi
     echo ":: Extracted enrollment token"
 
-    # Add clean-named .deb to nix store
-    cp "$deb" ampagent-15.0.54.deb
-    nix-store --add-fixed sha256 ampagent-15.0.54.deb
-    rm ampagent-15.0.54.deb
+    # Add a clean-named temporary copy to the Nix store. Never print the
+    # original token-bearing filename and always remove the temporary copy.
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    cp "$deb" "$tmp/ampagent-15.0.54.deb"
+    nix-store --add-fixed sha256 "$tmp/ampagent-15.0.54.deb" >/dev/null
     echo ":: Added .deb to nix store"
 
     # Upsert kace_token in sops secrets
     nix run nixpkgs#sops -- set secrets/sops/secrets.yaml '["kace_token"]' "\"$token\""
     echo ":: Updated kace_token in sops"
 
-    echo ":: Done. You can delete the original: rm \"$deb\""
+    echo ":: Done. Original token-bearing package remains gitignored at repo root"
 
 rsync-sops ip port="22" user="erik":
     rsync -azv \

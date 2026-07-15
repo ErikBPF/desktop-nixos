@@ -18,16 +18,14 @@
 
   # A folder entry in the topology is either a path string (the common case:
   # shared with the host's `shareWith` peers, fleet stignore, dir assumed to
-  # already exist under $HOME) or an attrset overriding any of those fields.
+  # are created under $HOME) or an attrset overriding any of those fields.
   # Normalize both to one record up front so nothing downstream branches on the
-  # spec's shape. Attrset folders default to syncAll + ensureDir — they're
-  # purpose-built dirs (e.g. the tofu-state mirror) that must replicate
-  # *.tfstate (which the fleet stignore excludes) and be created by tmpfiles.
+  # spec's shape. Attrset folders default to syncAll because they're purpose-built
+  # dirs (e.g. the tofu-state mirror) that must replicate *.tfstate.
   folderDefaults = {
     devices = null; # null → fall back to the host's shareWith
     versioning = null; # null → no version history
     syncAll = false; # true → stignore-sync-all instead of the fleet stignore
-    ensureDir = false; # true → tmpfiles creates the dir
   };
   normalizeFolder = spec:
     if builtins.isString spec
@@ -36,7 +34,6 @@
       folderDefaults
       // {
         syncAll = true;
-        ensureDir = true;
       }
       // spec;
 
@@ -150,8 +147,7 @@
     folders = lib.mapAttrs (_: normalizeFolder) folderPaths;
   in {
     systemd.tmpfiles.rules =
-      (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -")
-        (lib.filterAttrs (_: f: f.ensureDir) folders))
+      (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -") folders)
       ++ (lib.mapAttrsToList
         (_: f: "L+ ${f.path}.stignore - - - - ${
           if f.syncAll

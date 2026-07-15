@@ -52,7 +52,7 @@ _: {
   hist = "fzf-history-widget";
 
   # --- Ides ---
-  code = "code 2>/dev/null"; # Launch code cleanly
+  code = "code"; # Preserve stderr so launch failures remain visible
 
   nrs = "sudo nixos-rebuild switch";
   urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";

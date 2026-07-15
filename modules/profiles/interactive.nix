@@ -2,7 +2,7 @@
   m = config.flake.modules;
 in {
   # Interactive shell quality-of-life for EVERY host: the rich zsh config
-  # (plugins, fzf-tab, abbreviations, ported functions), the starship prompt,
+  # (fzf-tab, aliases, ported functions), the starship prompt,
   # and the file/dir/monitor TUIs. Imported by profile-base's home (below), so
   # it lands fleet-wide — servers included.
   #

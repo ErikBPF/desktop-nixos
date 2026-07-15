@@ -7,7 +7,7 @@ in {
     ...
   }: {
     # Opt-in per host. Requires:
-    #   1. /root/.ssh/nix-builder private key present on this host
+    #   1. Home Manager has materialized the SOPS-managed user SSH key
     #   2. Corresponding public key in each builder's authorizedKeys
     #      (see hosts/{orion,kepler}/default.nix)
     options.nix.distributedBuildsOrion.enable =
@@ -25,7 +25,7 @@ in {
           lib.optional config.nix.distributedBuildsOrion.enable {
             hostName = "192.168.10.220";
             sshUser = username;
-            sshKey = "/root/.ssh/nix-builder";
+            sshKey = "/home/${username}/.ssh/id_ed25519";
             # aarch64 via orion's binfmt/qemu emulation (Pi hosts: archinaut).
             # Emulation is slower per-build than native, but registering it here
             # lets aarch64 jobs run at maxJobs parallelism instead of the serial
@@ -42,7 +42,7 @@ in {
           ) {
             hostName = "192.168.10.230";
             sshUser = username;
-            sshKey = "/root/.ssh/nix-builder";
+            sshKey = "/home/${username}/.ssh/id_ed25519";
             systems = ["x86_64-linux"];
             protocol = "ssh-ng";
             # Keep capacity for ZFS, AI serving, and k3s microVMs. Kepler is a

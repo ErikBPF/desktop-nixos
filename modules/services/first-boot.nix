@@ -1,5 +1,9 @@
 {config, ...}: {
-  flake.modules.nixos.first-boot = {lib, ...}: let
+  flake.modules.nixos.first-boot = {
+    lib,
+    pkgs,
+    ...
+  }: let
     inherit (config) username;
     homeDir = "/home/${username}";
   in {
@@ -60,7 +64,12 @@
         Type = "oneshot";
         RemainAfterExit = true;
         ExecStart = "/run/current-system/activate";
-        ExecStartPost = "/run/current-system/sw/bin/systemctl restart tailscaled-autoconnect.service";
+        ExecStartPost = let
+          restartSecretConsumers = pkgs.writeShellScript "restart-first-boot-secret-consumers" ''
+            systemctl restart tailscaled-autoconnect.service || true
+            systemctl restart netbird-login.service || true
+          '';
+        in "${restartSecretConsumers}";
       };
     };
   };

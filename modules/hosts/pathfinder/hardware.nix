@@ -59,7 +59,6 @@ _: {
                   "--perf-no_read_workqueue"
                   "--perf-no_write_workqueue"
                 ];
-                settings.crypttabExtraOpts = ["fido2-device=auto" "token-timeout=10"];
                 content = {
                   type = "btrfs";
                   extraArgs = ["-L" "nixos" "-f"];

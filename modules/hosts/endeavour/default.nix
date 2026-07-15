@@ -5,39 +5,7 @@
 }: let
   m = config.flake.modules;
 in {
-  monitors = [
-    {
-      name = "DP-1";
-      resolution = "1920x1080";
-      refreshRate = 60;
-      position = "0x0";
-    }
-  ];
-  workspaces = [
-    {
-      id = 1;
-      monitor = "DP-1";
-      default = true;
-    }
-    {
-      id = 2;
-      monitor = "DP-1";
-    }
-    {
-      id = 3;
-      monitor = "DP-1";
-    }
-    {
-      id = 4;
-      monitor = "DP-1";
-    }
-    {
-      id = 5;
-      monitor = "DP-1";
-    }
-  ];
-
-  configurations.nixos.pathfinder.module = {
+  configurations.nixos.endeavour.module = {
     pkgs,
     modulesPath,
     ...
@@ -48,21 +16,25 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-desktop
-      m.nixos.systemd-boot-counting
-      m.nixos.pathfinder-hardware
-      m.nixos.pathfinder-networking
-      m.nixos.pathfinder-syncthing
+      m.nixos.endeavour-hardware
+      m.nixos.endeavour-networking
+      m.nixos.laptop-syncthing
+      m.nixos.laptop-appimage
+      m.nixos.laptop-ampagent
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots
+      m.nixos.endeavour-home-backup
+      m.nixos.sccache-client
+      m.nixos.netbird-client
     ];
 
     home-manager.users.${config.username} = {
       imports = [
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
-        m.home.pathfinder-ssh
+        m.home.laptop-ssh
       ];
       inherit (config) colorScheme;
     };
@@ -71,40 +43,38 @@ in {
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.intel.updateMicrocode = true;
     boot.kernelPackages = pkgs.linuxPackages_zen;
-
-    # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
-    # module imported above (it force-disables GRUB and adds panic/watchdog
-    # wiring).
     boot = {
       kernelParams = ["nohibernate"];
+      supportedFilesystems = ["ntfs"];
       loader = {
         efi.canTouchEfiVariables = true;
-        systemd-boot.configurationLimit = 3;
+        grub = {
+          device = "nodev";
+          efiSupport = true;
+          enable = true;
+          configurationLimit = 3;
+        };
         timeout = 1;
       };
     };
-
     services.btrfs.autoScrub.enable = true;
-
+    programs.sccacheClient.enable = true;
     zramSwap = {
       enable = true;
       algorithm = "zstd";
       memoryPercent = 25;
     };
-
     modules.security.tor-monitor.enable = true;
-
+    modules.networking.netbird-client.enable = true;
     system.autoUpgrade = {
       enable = true;
-      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#pathfinder";
+      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#endeavour";
       operation = "switch";
       flags = ["--show-trace"];
       allowReboot = false;
       dates = "05:00";
-      # Stagger off the 05:00 herd (orion cache settles by 04:30).
       randomizedDelaySec = "900";
     };
-
     services.openssh.enable = true;
   };
 }

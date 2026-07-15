@@ -4,14 +4,13 @@
 
     # Provider keys for opencode's `{env:...}` substitution. Declarative port
     # of the former hand-made ~/.config/fish/conf.d/zz-opencode-secrets.fish:
-    # read the sops runtime files, falling back to ~/.config/opencode/secrets.env
-    # during bootstrap. Guarded by `-r`, so it is a no-op on hosts that don't
-    # ship the secret. `$(<file)` avoids the `cat`→`bat` alias mangling the key.
+    # read the sops runtime files. LiteLLM deliberately has no plaintext
+    # fallback: the old bootstrap file carried the proxy master key and could
+    # silently turn an unavailable scoped credential into admin access.
+    # `$(<file)` avoids the `cat`→`bat` alias mangling the key.
     programs.zsh.initContent = ''
       if [[ -r /run/secrets/opencode/litellm_key ]]; then
         export OPENCODE_LITELLM_KEY="$(</run/secrets/opencode/litellm_key)"
-      elif [[ -r "$HOME/.config/opencode/secrets.env" ]]; then
-        export OPENCODE_LITELLM_KEY="$(grep '^OPENCODE_LITELLM_KEY=' "$HOME/.config/opencode/secrets.env" | cut -d= -f2-)"
       fi
       if [[ -r /run/secrets/opencode/zen_key ]]; then
         export OPENCODE_GO_KEY="$(</run/secrets/opencode/zen_key)"
@@ -40,6 +39,7 @@
     programs.opencode.settings = {
       instructions = ["AGENTS.md"];
       plugin = ["./plugins/rtk.ts"];
+      model = "litellm/glm-5";
 
       provider = {
         litellm = {

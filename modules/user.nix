@@ -10,6 +10,8 @@ in {
     config,
     ...
   }: {
+    users.mutableUsers = false;
+
     sops.secrets."hashed_password" = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
       neededForUsers = true;

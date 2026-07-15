@@ -88,7 +88,7 @@
           ip = "192.168.10.125";
           mac = "54:bf:64:28:cb:2e";
           role = "workstation";
-          tailscaleIp = "100.104.92.5";
+          tailscaleIp = "100.102.248.13";
         };
         archinaut = {
           # WiFi-only (wlan0); wired NIC retired (see archinaut memory).
@@ -123,6 +123,10 @@
           # Roaming — Tailscale-only, no fixed LAN reservation.
           role = "laptop";
           tailscaleIp = "100.74.137.124";
+        };
+        endeavour = {
+          # Roaming replacement for laptop; no fixed LAN reservation.
+          role = "laptop";
         };
         # Non-NixOS device tracked for addressing only: Home Assistant OS,
         # a KVM guest on discovery (MAC from modules/hosts/discovery/haos.nix).

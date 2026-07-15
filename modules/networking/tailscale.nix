@@ -43,6 +43,7 @@ in {
       ];
       extraUpFlags =
         [
+          "--reset"
           "--hostname=${config.networking.hostName}"
         ]
         ++ lib.optional (role == "server") "--advertise-tags=tag:server";

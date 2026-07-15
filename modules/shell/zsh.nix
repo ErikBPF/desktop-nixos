@@ -11,51 +11,48 @@
       config,
       ...
     }: let
-      aliases = import ./_aliases.nix {};
-
-      # Faithful stand-ins for the fish git-abbr / kubectl-abbr plugins:
-      # inline-expanding abbreviations (type `gco` + space → `git checkout`).
-      # Rendered into zsh-abbr's declarative user-abbreviations file below.
-      abbreviations = {
-        # git
-        g = "git";
-        ga = "git add";
-        gaa = "git add --all";
-        gb = "git branch";
-        gc = "git commit -v";
-        gcm = "git commit -m";
-        gco = "git checkout";
-        gcb = "git checkout -b";
-        gd = "git diff";
-        gds = "git diff --staged";
-        gf = "git fetch";
-        glg = "git log --oneline --graph --decorate";
-        gl = "git pull";
-        gp = "git push";
-        grb = "git rebase";
-        gs = "git status";
-        gsw = "git switch";
-        # kubectl
-        kg = "kubectl get";
-        kd = "kubectl describe";
-        kaf = "kubectl apply -f";
-        kdel = "kubectl delete";
-        kl = "kubectl logs";
-        klf = "kubectl logs -f";
-        kex = "kubectl exec -it";
-        kgp = "kubectl get pods";
-        kgs = "kubectl get svc";
-        kgn = "kubectl get nodes";
-      };
-      abbrFile =
-        lib.concatStringsSep "\n"
-        (lib.mapAttrsToList (k: v: "abbr ${k}='${v}'") abbreviations);
+      # Faithful stand-ins for the fish git-abbr / kubectl-abbr plugins.
+      # Keep these as plain aliases: zsh-abbr serializes every shell startup
+      # through a global /tmp queue whose stale-job timeout is 30 seconds.
+      aliases =
+        import ./_aliases.nix {}
+        // {
+          # git
+          g = "git";
+          ga = "git add";
+          gaa = "git add --all";
+          gb = "git branch";
+          gc = "git commit -v";
+          gco = "git checkout";
+          gcb = "git checkout -b";
+          gd = "git diff";
+          gds = "git diff --staged";
+          gf = "git fetch";
+          glg = "git log --oneline --graph --decorate";
+          gl = "git pull";
+          gp = "git push";
+          grb = "git rebase";
+          gs = "git status";
+          gsw = "git switch";
+          # kubectl
+          kg = "kubectl get";
+          kd = "kubectl describe";
+          kaf = "kubectl apply -f";
+          kdel = "kubectl delete";
+          kl = "kubectl logs";
+          klf = "kubectl logs -f";
+          kex = "kubectl exec -it";
+          kgp = "kubectl get pods";
+          kgs = "kubectl get svc";
+          kgn = "kubectl get nodes";
+        };
     in {
-      # fzf shell integration (zsh equivalent of the former fzf-fish plugin);
-      # provides fzf-tab's fzf backend and the ^T / ^R / ^G widgets.
+      # fzf shell integration (zsh equivalent of the former fzf-fish plugin).
+      # Source it explicitly below so non-TTY interactive shells do not make
+      # fzf restore zsh's read-only `zle` option and emit startup errors.
       programs.fzf = {
         enable = true;
-        enableZshIntegration = true;
+        enableZshIntegration = false;
         # Yield Ctrl-R to atuin (the fleet history manager, as under fish);
         # fzf keeps Ctrl-T (files) and Alt-C (dirs).
         historyWidget.command = "";
@@ -68,6 +65,9 @@
         dotDir = config.home.homeDirectory;
         shellAliases = aliases;
         enableCompletion = true;
+        # Home Manager activation removes the dump below. First shell rebuilds
+        # it; later shells skip compaudit and reuse the generated completion map.
+        completionInit = "autoload -U compinit && compinit -C";
         autosuggestion = {
           enable = true;
           highlight = "fg=#565f89"; # fish_color_autosuggestion
@@ -98,11 +98,6 @@
         };
         plugins = [
           {
-            name = "zsh-abbr";
-            src = pkgs.zsh-abbr;
-            file = "share/zsh/zsh-abbr/zsh-abbr.plugin.zsh";
-          }
-          {
             name = "fzf-tab";
             src = pkgs.zsh-fzf-tab;
             file = "share/fzf-tab/fzf-tab.plugin.zsh";
@@ -110,6 +105,10 @@
         ];
 
         initContent = ''
+          if [[ -o interactive && -t 0 && -t 1 ]]; then
+            source <(${pkgs.fzf}/bin/fzf --zsh)
+          fi
+
           ${pkgs.nix-your-shell}/bin/nix-your-shell zsh | source /dev/stdin
 
           export GOPATH="''${XDG_DATA_HOME:-$HOME/.local/share}/go"
@@ -181,22 +180,16 @@
                   --bind 'enter:become(nvim {1} +{2})'
           }
 
-          # command-not-found: offer to run via comma (run-from-nixpkgs, with
-          # a gum confirm and per-session memory), then fall back to nix-index's
-          # nix-locate suggestion. Ported from fish (which composed both the
-          # same way). We source + capture nix-index's handler here rather than
+          # command-not-found: use nix-index's nix-locate suggestion. Running a
+          # missing command through comma remains explicit (`comma <command>`),
+          # avoiding an unexpected Nix evaluation after a typo. We source +
+          # capture nix-index's handler here rather than
           # via programs.nix-index.enableZshIntegration so exactly one module
           # owns command_not_found_handler (no init-order race).
           source ${pkgs.nix-index}/etc/profile.d/command-not-found.sh
           functions[_cnf_nix_index]=$functions[command_not_found_handler]
-          typeset -gA __comma_confirmed
           command_not_found_handler() {
             local cmd="$1"
-            if [[ -n "''${__comma_confirmed[$cmd]}" ]] || ${pkgs.gum}/bin/gum confirm --selected.background=2 "Run using comma?"; then
-              __comma_confirmed[$cmd]=1
-              comma -- "$@"
-              return $?
-            fi
             if typeset -f _cnf_nix_index >/dev/null; then
               _cnf_nix_index "$@"
               return $?
@@ -207,10 +200,11 @@
         '';
       };
 
-      # zsh-abbr's declarative source of abbreviations (read-only; abbr add at
-      # runtime replaces the symlink until the next switch restores it).
-      home.sessionVariables.ABBR_USER_ABBREVIATIONS_FILE = "${config.home.homeDirectory}/.config/zsh-abbr/user-abbreviations";
-      xdg.configFile."zsh-abbr/user-abbreviations".text = abbrFile + "\n";
+      # Invalidate completion metadata when Home Manager activates a new
+      # generation. The next shell recreates it before fast cached startups.
+      home.activation.invalidateZshCompletionCache = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        rm -f ${lib.escapeShellArg "${config.home.homeDirectory}/.zcompdump"}
+      '';
     };
   };
 }

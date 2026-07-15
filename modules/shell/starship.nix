@@ -25,6 +25,8 @@ _: {
       enableZshIntegration = true;
       enableBashIntegration = false;
       settings = {
+        scan_timeout = 10;
+        command_timeout = 200;
         format = "[  ](bold ${c.cyan})$username$hostname$directory$git_branch$git_state$git_status$git_metrics$fill$cmd_duration$jobs$direnv$time$line_break$character";
         custom.times = {
           description = "Display Execution Times (Start and End Time)";
@@ -606,7 +608,7 @@ _: {
         };
         git_commit.tag_symbol = "◈";
         git_metrics = {
-          disabled = false;
+          disabled = true;
           added_style = "${c.purple}";
           deleted_style = "${c.purple}";
           format = "([\\[[$added]($added_style) ± [$deleted]($deleted_style)\\]](${c.purple}) )";

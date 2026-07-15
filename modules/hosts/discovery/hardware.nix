@@ -18,16 +18,15 @@ _: {
     hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
     # --- Disko: 2x 480GB SSD RAID1 mirror (OS) ---
-    # disko processes disks alphabetically (ssd1 before ssd2).
-    # The btrfs RAID1 mkfs on ssd2/sda references ssd1/sdc's partition as the peer.
-    # So ssd1 MUST be sdc (mirror) to get partitioned first; ssd2 is sda (primary).
-    # sdb = Seagate ST4000DM004 3.6TB HDD — data disk, NOT managed by disko.
+    # disko processes disks alphabetically (ssd1 before ssd2). Stable ATA IDs
+    # prevent volatile sdX ordering from ever selecting the vault HDD.
+    # The btrfs RAID1 mkfs on ssd2 references ssd1's partition as the peer.
     disko.devices = {
       disk = {
         ssd1 = {
-          # sdc: mirror SSD — partitioned first so /dev/sdc1 exists when sda's btrfs runs
+          # Kingston serial ...098: mirror SSD, partitioned first.
           type = "disk";
-          device = "/dev/sdc";
+          device = "/dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098";
           content = {
             type = "gpt";
             partitions = {
@@ -41,9 +40,9 @@ _: {
           };
         };
         ssd2 = {
-          # sda: primary SSD — ESP + btrfs RAID1 root (references sdc1 as RAID peer)
+          # Kingston serial ...105: primary SSD with ESP and RAID1 root.
           type = "disk";
-          device = "/dev/sda";
+          device = "/dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105";
           content = {
             type = "gpt";
             partitions = {
@@ -63,7 +62,16 @@ _: {
                 size = "100%";
                 content = {
                   type = "btrfs";
-                  extraArgs = ["-L" "nixos" "-f" "-d" "raid1" "-m" "raid1" "/dev/sdc1"];
+                  extraArgs = [
+                    "-L"
+                    "nixos"
+                    "-f"
+                    "-d"
+                    "raid1"
+                    "-m"
+                    "raid1"
+                    "/dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098-part1"
+                  ];
                   subvolumes = {
                     "/root" = {
                       mountpoint = "/";
@@ -87,8 +95,8 @@ _: {
             };
           };
         };
-        # sdb (3.6TB HDD) is intentionally absent from disko.
-        # It holds all docker volumes, media, and the HAOS QCOW2.
+        # Seagate serial ZTT25R4M is intentionally absent from disko.
+        # It holds vault data and the HAOS QCOW2; Docker currently lives on RAID.
         # Declared as a pre-existing mount below — nixos-anywhere will not touch it.
       };
     };
