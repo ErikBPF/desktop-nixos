@@ -40,7 +40,7 @@ class WorkerExporterContract(unittest.TestCase):
                   cat {reply_dir}/"$n"
                 }}
                 rows={root}/rows; : >"$rows"
-                if check_dns_matrix 04 system tcp "$rows"; then rc=0; else rc=$?; fi
+                if check_dns_matrix 04 system tcp "$rows" 0123456789abcdef0123456789abcdef; then rc=0; else rc=$?; fi
                 printf 'RC=%s ROWS=%s\\n' "$rc" "$(wc -l <"$rows")"
                 exit "$rc"
                 """
@@ -50,7 +50,7 @@ class WorkerExporterContract(unittest.TestCase):
     @staticmethod
     def valid_replies():
         return [
-            ";; ->>HEADER<<- status: NOERROR, id: 1\n;; flags; QUERY: 1, ANSWER: 1\nx 1 IN A 192.168.10.210\n",
+            ";; ->>HEADER<<- status: NOERROR, id: 1\n;; flags; QUERY: 1, ANSWER: 1\n;; ANSWER SECTION:\nx 1 IN A 192.168.10.210\n",
             ";; ->>HEADER<<- status: NOERROR, id: 2\n;; flags; QUERY: 1, ANSWER: 0\n",
             ";; ->>HEADER<<- status: NOERROR, id: 3\n;; flags; QUERY: 1, ANSWER: 1\nx 1 IN A 1.1.1.1\n",
             ";; ->>HEADER<<- status: NOERROR, id: 4\n;; flags; QUERY: 1, ANSWER: 1\nx 1 IN AAAA 2606:4700::1111\n",
@@ -87,11 +87,129 @@ class WorkerExporterContract(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("RC=0 ROWS=6", result.stdout)
 
-    def test_worker04_malformed_sixth_row_freezes_35_partial_rows_only(self):
+    def test_fleet_a_uses_only_answer_rrs_and_requires_exact_discovery_address(self):
+        rejected = (
+            # The approved address appears only in the question/comment text.
+            ";; status: NOERROR, id: 1\n;; ANSWER: 1\n;; QUESTION SECTION:\n;192.168.10.210.example. IN A\n;; no answer; expected 192.168.10.210\n",
+            # One approved and one foreign A answer must not be accepted.
+            ";; status: NOERROR, id: 1\n;; ANSWER: 2\n;; ANSWER SECTION:\nx 1 IN A 192.168.10.210\ny 1 IN A 192.168.10.99\n",
+        )
+        for reply in rejected:
+            with self.subTest(reply=reply):
+                replies = self.valid_replies()
+                replies[0] = reply
+                result = self.run_matrix(replies)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        replies = self.valid_replies()
+        replies[0] = (
+            ";; status: NOERROR, id: 1\n;; ANSWER: 2\n;; ANSWER SECTION:\n"
+            "x 1 IN A 192.168.10.210\ny 1 IN A 192.168.10.210\n"
+        )
+        result = self.run_matrix(replies)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("RC=0 ROWS=6", result.stdout)
+
+    def test_core_success_is_independent_of_asymmetric_diagnostic_terminal_results(self):
+        worker_source = self.source[
+            self.source.index("check_dns_matrix()") : self.source.index("append_postrestore_matrix()")
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            script = worker_source + textwrap.dedent(
+                f"""
+                set -u
+                run_dir={root}; namespace=fixture; rdnss=fd00::53; outage_nonce=0123456789abcdef0123456789abcdef
+                enforce_deadline=true; outage_deadline=$(($(date +%s%3N)+30000))
+                timeout_duration() {{ printf 30s; }}
+                deadline_check() {{ return 0; }}
+                timeout() {{ shift; "$@"; }}
+                sudo() {{
+                  local args="$*" name type
+                  name=${{@: -2:1}}; type=${{@: -1}}
+                  if [[ $args == *'@fd00::53'* && $args == *'+tcp'* ]];then
+                    printf '%s\n' 'malformed diagnostic reply'
+                    return 0
+                  fi
+                  [[ $args == *'@fd00::53'* ]] || sleep 0.02
+                  case "$name:$type" in
+                    *.homelab.pastelariadev.com:A)
+                      printf '%s\n' ';; status: NOERROR, id: 1' ';; ANSWER: 1' ';; ANSWER SECTION:' 'x 1 IN A 192.168.10.210' ;;
+                    *.homelab.pastelariadev.com:AAAA)
+                      printf '%s\n' ';; status: NOERROR, id: 2' ';; ANSWER: 0' ;;
+                    *.1-1-1-1.sslip.io:A)
+                      printf '%s\n' ';; status: NOERROR, id: 3' ';; ANSWER: 1' 'x 1 IN A 1.1.1.1' ;;
+                    *.2606-4700-4700--1111.sslip.io:AAAA)
+                      printf '%s\n' ';; status: NOERROR, id: 4' ';; ANSWER: 1' 'x 1 IN AAAA 2606:4700::1111' ;;
+                    *.invalid:A)
+                      printf '%s\n' ';; status: NXDOMAIN, id: 5' ';; ANSWER: 0' ;;
+                    *.doubleclick.net:A)
+                      printf '%s\n' ';; status: NXDOMAIN, id: 6' ';; ANSWER: 0' ;;
+                    *) return 90 ;;
+                  esac
+                }}
+                run_outage_workers; rc=$?
+                [ "$rc" -eq 0 ] || exit 91
+                [ "$(cat "${{worker_files[@]}}" | wc -l)" -eq 24 ] || exit 92
+                [ "${{#diagnostic_terminal_files[@]}}" -eq 2 ] || exit 93
+                for terminal in "${{diagnostic_terminal_files[@]}}";do
+                  [ "$(stat -c %a "$terminal")" = 600 ] || exit 94
+                  jq -e 'keys==["ordinal","rc_class","resolver_label","row_count","status","transport"]' "$terminal" >/dev/null || exit 95
+                done
+                jq -e '.ordinal==1 and .resolver_label=="gateway-rdnss" and .transport=="udp" and .rc_class=="success" and .status=="complete" and .row_count==6' "${{diagnostic_terminal_files[0]}}" >/dev/null || exit 96
+                jq -e '.ordinal==2 and .resolver_label=="gateway-rdnss" and .transport=="tcp" and .rc_class=="failed" and .status=="failed" and .row_count==0' "${{diagnostic_terminal_files[1]}}" >/dev/null || exit 97
+                """
+            )
+            result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_core_failure_reaps_blocked_diagnostics_and_freezes_two_terminal_records(self):
+        worker_source = self.source[
+            self.source.index("check_dns_matrix()") : self.source.index("append_postrestore_matrix()")
+        ]
+        freeze_source = function(self.source, "freeze_outage_evidence", "recover")
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            script = worker_source + freeze_source + textwrap.dedent(
+                f"""
+                set -u
+                run_dir={root}; namespace=fixture; rdnss=fd00::53; outage_nonce=0123456789abcdef0123456789abcdef
+                enforce_deadline=true; outage_deadline=$(($(date +%s%3N)+30000)); outage_complete=false
+                timeout_duration() {{ printf 30s; }}
+                deadline_check() {{ return 0; }}
+                timeout() {{ shift; "$@"; }}
+                sudo() {{
+                  if [[ $* == *'@fd00::53'* ]];then
+                    printf '%s\n' "$BASHPID" >>{root}/diagnostic-pids
+                    exec sleep 30
+                  fi
+                  printf '%s\n' 'malformed required-core reply'
+                }}
+                if run_outage_workers;then exit 91;else rc=$?;fi
+                [ "$rc" -ne 0 ] || exit 92
+                [ "${{#diagnostic_terminal_files[@]}}" -eq 2 ] || exit 93
+                for terminal in "${{diagnostic_terminal_files[@]}}";do
+                  [ -s "$terminal" ] || exit 94
+                  [ "$(stat -c %a "$terminal")" = 600 ] || exit 95
+                  jq -e '.resolver_label=="gateway-rdnss" and .rc_class=="cancelled" and .status=="cancelled" and .row_count==0' "$terminal" >/dev/null || exit 96
+                done
+                if [ -f {root}/diagnostic-pids ];then
+                  while read -r child;do kill -0 "$child" 2>/dev/null && exit 97;done <{root}/diagnostic-pids
+                fi
+                frozen_outage_results_sha256=;outage_evidence=;diagnostic_evidence=
+                freeze_outage_evidence || exit 98
+                [ "$diagnostic_evidence_status" = partial ] || exit 99
+                [ -n "$partial_diagnostic_results_sha256" ] || exit 100
+                """
+            )
+            result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_worker04_malformed_sixth_row_keeps_required_core_partial_only(self):
         contract = self.source
         self.assertIn('partial_outage_results_sha256', contract)
-        self.assertIn('if $outage_complete;then frozen_outage_results_sha256=', contract)
-        self.assertRegex(contract, r'run_outage_workers\s*\n\[ "\$\(cat .*wc -l\)" -eq 36 \]')
+        self.assertIn('if $outage_complete&&[ "$core_evidence_rows" -eq 24 ]', contract)
+        self.assertRegex(contract, r'run_outage_workers\s*\n\[ "\$\(cat .*wc -l\)" -eq 24 \]')
         replies = self.valid_replies()
         replies[-1] = ";; status: NOERROR, id: 6\n;; ANSWER: broken\n"
         result = self.run_matrix(replies)
@@ -107,7 +225,7 @@ class WorkerExporterContract(unittest.TestCase):
             script = worker_source + textwrap.dedent(
                 f"""
                 set -u
-                run_dir={root}; namespace=fixture; rdnss=fd00::53
+                run_dir={root}; namespace=fixture; rdnss=fd00::53; outage_nonce=0123456789abcdef0123456789abcdef
                 enforce_deadline=true; outage_deadline=$(($(date +%s%3N)+120000))
                 timeout_duration() {{ printf 120s; }}
                 deadline_check() {{ [ "$(date +%s%3N)" -le "$outage_deadline" ]; }}
@@ -118,7 +236,7 @@ class WorkerExporterContract(unittest.TestCase):
                   name=${{@: -2:1}}; type=${{@: -1}}
                   case "$name:$type" in
                     *.homelab.pastelariadev.com:A)
-                      printf '%s\n' ';; status: NOERROR, id: 1' ';; ANSWER: 1' 'x 1 IN A 192.168.10.210' ;;
+                      printf '%s\n' ';; status: NOERROR, id: 1' ';; ANSWER: 1' ';; ANSWER SECTION:' 'x 1 IN A 192.168.10.210' ;;
                     *.homelab.pastelariadev.com:AAAA)
                       printf '%s\n' ';; status: NOERROR, id: 2' ';; ANSWER: 0' ;;
                     *.1-1-1-1.sslip.io:A)
@@ -133,16 +251,16 @@ class WorkerExporterContract(unittest.TestCase):
                   esac
                 }}
                 for iteration in $(seq 1 20);do
-                  rm -f "$run_dir"/outage-worker-*.rows
+                  rm -f "$run_dir"/core-worker-*.rows "$run_dir"/diagnostic-worker-*.rows
                   run_outage_workers || exit 91
-                  [ "${{#worker_files[@]}}" -eq 6 ] || exit 92
-                  [ "$(printf '%s\n' "${{worker_files[@]}}" | sort -u | wc -l)" -eq 6 ] || exit 93
+                  [ "${{#worker_files[@]}}" -eq 4 ] || exit 92
+                  [ "$(printf '%s\n' "${{worker_files[@]}}" | sort -u | wc -l)" -eq 4 ] || exit 93
                   for file in "${{worker_files[@]}}";do
                     [ "$(stat -c %a "$file")" = 600 ] || exit 94
                     [ "$(wc -l <"$file")" -eq 6 ] || exit 95
                   done
                   prefixes=$(cat "${{worker_files[@]}}" | LC_ALL=C sort -t: -k1,1n -k2,2n | cut -d: -f1-2)
-                  expected=$(for ordinal in 01 02 03 04 05 06;do for row in 01 02 03 04 05 06;do printf '%s:%s\n' "$ordinal" "$row";done;done)
+                  expected=$(for ordinal in 01 02 03 04;do for row in 01 02 03 04 05 06;do printf '%s:%s\n' "$ordinal" "$row";done;done)
                   [ "$prefixes" = "$expected" ] || exit 96
                 done
                 """

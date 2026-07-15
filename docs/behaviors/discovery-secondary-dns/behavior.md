@@ -1,6 +1,6 @@
 # Discovery secondary DNS
 
-**Status:** Draft P3 behavior; no runtime or network mutation authorized
+**Status:** Amended P3 behavior; a new v4 manifest and exact approval are required
 
 ## Outcome
 
@@ -93,12 +93,22 @@ The drill must:
 5. Prove the client's normal resolver path fails over within a recorded bound.
 6. Prove direct secondary UDP and TCP queries answer fleet A, the declared
    fleet AAAA/NODATA contract, external A and AAAA, and NXDOMAIN behavior.
-7. Restore AdGuard and verify both resolvers, normal primary filtering, SWAG,
+7. Observe the gateway RDNSS UDP and TCP paths concurrently and retain their
+   bounded complete or partial diagnostic evidence. A brief gateway/local DNS
+   provider outage is accepted here because router redundancy preserves
+   Internet access; this diagnostic does not gate the outage result.
+8. Restore AdGuard and verify the gateway RDNSS, both declared resolvers,
+   normal primary filtering, SWAG,
    and dependent DNS paths.
 
 Direct `dig` success alone is insufficient: the generic client's actual system
-resolver must fail over. IPv6 RA/RDNSS must be inspected so it cannot silently
-replace the intended DHCP contract.
+resolver must fail over. During the outage, success requires the complete
+system-resolver and direct-Kepler matrices over UDP and TCP within one
+10-second bound. They use the same fresh nonce, and the system path must return
+the private fleet answer plus the filtering-policy response so public fallback
+cannot mask a failed Kepler path. IPv6 RA/RDNSS must be inspected so it cannot
+silently replace the intended DHCP contract; it remains mandatory before and
+after the outage but is diagnostic-only while AdGuard is stopped.
 
 ## Failure and rollback
 

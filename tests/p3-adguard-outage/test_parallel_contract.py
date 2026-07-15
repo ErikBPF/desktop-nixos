@@ -12,26 +12,26 @@ class ParallelProbeContract(unittest.TestCase):
     def setUp(self):
         self.source = DRILL.read_text()
 
-    def test_outage_matrix_is_six_deterministic_parallel_workers(self):
-        """The stopped gate launches system/RDNSS/Kepler x UDP/TCP concurrently."""
+    def test_outage_matrix_separates_four_required_and_two_diagnostic_workers(self):
         function = self.source[self.source.index("run_outage_workers()") : self.source.index("append_postrestore_matrix()")]
         outage = self.source[self.source.index("record stopped-gate passed") :]
-        proof = function + outage[: outage.index("record secondary-matrix passed")]
+        proof = function + outage[: outage.index("record failover-probe passed")]
         failures = []
         for token in (
             "worker_pids",
             "worker_files",
-            "outage-worker-$worker_ordinal",
+            "core-worker-$worker_ordinal",
+            "diagnostic-worker-$worker_ordinal",
             "chmod 0600",
             "wait",
         ):
             if token not in proof:
                 failures.append(token)
-        if 'resolvers=(system system "$rdnss" "$rdnss" 192.168.10.230 192.168.10.230)' not in proof:
+        if "core_resolvers=(system system 192.168.10.230 192.168.10.230)" not in proof:
             failures.append("canonical-resolver-order")
-        if "transports=(udp tcp udp tcp udp tcp)" not in proof:
+        if "core_transports=(udp tcp udp tcp)" not in proof or 'diagnostic_resolvers=("$rdnss" "$rdnss")' not in proof:
             failures.append("canonical-transport-order")
-        if "for worker_ordinal in 01 02 03 04 05 06" not in function or "worker_pids+=(\"$!\")" not in function:
+        if "for worker_ordinal in 01 02 03 04" not in function or "for worker_ordinal in 01 02" not in function:
             failures.append("six-background-workers")
         self.assertEqual(failures, [])
 
@@ -75,8 +75,10 @@ if timeout "$duration" sh -c 'sleep 1';then exit 90;else [ "$?" -eq 124 ];fi
         ):
             if token not in self.source:
                 failures.append(token)
-        if not re.search(r"(wc -l|length).*36|36.*(wc -l|length)", self.source, re.S):
-            failures.append("six-workers-times-six-rows")
+        if not re.search(r"(wc -l|length).*24|24.*(wc -l|length)", self.source, re.S):
+            failures.append("four-required-workers-times-six-rows")
+        if "diagnostic_evidence_rows" not in self.source:
+            failures.append("diagnostic-row-count")
         self.assertEqual(failures, [])
 
     def test_failure_deadline_and_signals_cancel_and_reap_every_worker(self):

@@ -38,12 +38,12 @@ class FinalReviewContract(unittest.TestCase):
         self.assertLess(timer, stopped_gate)
         self.assertNotIn("matrix_start=", outage)
 
-        proof_end = outage.index("record secondary-matrix passed")
+        proof_end = outage.index("record failover-probe passed")
         proof = outage[:proof_end]
         workers = source[source.index("run_outage_workers()") : source.index("append_postrestore_matrix()")]
-        self.assertIn('resolvers=(system system "$rdnss" "$rdnss" 192.168.10.230 192.168.10.230)', workers)
-        self.assertIn("transports=(udp tcp udp tcp udp tcp)", workers)
-        self.assertIn("for worker_ordinal in 01 02 03 04 05 06", workers)
+        self.assertIn("core_resolvers=(system system 192.168.10.230 192.168.10.230)", workers)
+        self.assertIn("core_transports=(udp tcp udp tcp)", workers)
+        self.assertIn("for worker_ordinal in 01 02 03 04", workers)
         self.assertIn("run_outage_workers", proof)
 
     def test_postrestore_checks_run_after_restore_even_when_outage_proof_failed(self):

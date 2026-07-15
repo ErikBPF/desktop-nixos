@@ -10,14 +10,14 @@ canonical=$(jq -cS . "$observation")
 jq -e '.version==3 and .client.persistent_macvlan==true and .client.overlays==[] and (.ipv6.router|test("^fe80:")) and (.ipv6.prefix|test("/64$")) and (.ipv6.rdnss|test(":")) and .ipv6.router_lifetime=="positive" and .ipv6.rdnss_lifetime=="positive" and .resolvers.nameservers==[.ipv6.rdnss,"192.168.10.210","192.168.10.230"] and .resolvers.options==["timeout:2","attempts:1"] and .probe_contract=={filter_template:"{nonce}.doubleclick.net A",fleet_templates:["{nonce}.homelab.pastelariadev.com A","{nonce}.homelab.pastelariadev.com AAAA"],negative_template:"{nonce}.invalid A",public_templates:["{nonce}.1-1-1-1.sslip.io A","{nonce}.2606-4700-4700--1111.sslip.io AAAA"],resolvers:["gateway","adguard","kepler","system"],transports:["udp","tcp"]} and all(.probe_evidence[];test("^[0-9a-f]{64}$")) and (.probe_evidence|keys)==["classifications_sha256","nonce_sha256","qnames_sha256","results_sha256"] and (.failover_bound_ms>0 and .failover_bound_ms<=10000) and (.containers|length==5) and ([.containers[].name]|sort)==["adguard","adguard-exporter","k8s-apiserver","swag","swag-init"]' >/dev/null <<<"$canonical" || { echo "p3-outage-drill: BLOCKED: observation contract differs" >&2;exit 1; }
 inventory_sha=$(printf %s "$canonical"|sha256sum|cut -d' ' -f1)
 network_contract_sha=$(jq -cS '{ipv6,probe_contract,resolvers}' <<<"$canonical"|sha256sum|cut -d' ' -f1)
-plan=$(jq -cnS --arg inventory "$inventory_sha" --arg network_contract "$network_contract_sha" --argjson probe_evidence "$(jq -cS .probe_evidence <<<"$canonical")" --arg known_hosts "$(sha "$known_hosts")" --arg client "$(sha "$client")" --arg observer "$(sha "$observer")" --arg drill "$(sha "$0")" --arg callback "$(sha "$callback")" --arg rdisc6 "$(sha "$rdisc6")" '{actions:["verify-bindings","fresh-observe","stop-adguard-exporter","stop-adguard","prove-failover","restore-adguard","restore-adguard-exporter","verify-invariants"],bindings:{callback_sha256:$callback,client_sha256:$client,drill_sha256:$drill,known_hosts_sha256:$known_hosts,observer_sha256:$observer,rdisc6_sha256:$rdisc6},evidence_phases:["outage","postrestore"],inventory_sha256:$inventory,mode:"approved-outage-drill",network_contract_sha256:$network_contract,probe_evidence:$probe_evidence,resources:["adguard-exporter","adguard"],version:3}')
+plan=$(jq -cnS --arg inventory "$inventory_sha" --arg network_contract "$network_contract_sha" --argjson probe_evidence "$(jq -cS .probe_evidence <<<"$canonical")" --arg known_hosts "$(sha "$known_hosts")" --arg client "$(sha "$client")" --arg observer "$(sha "$observer")" --arg drill "$(sha "$0")" --arg callback "$(sha "$callback")" --arg rdisc6 "$(sha "$rdisc6")" '{actions:["verify-bindings","fresh-observe","stop-adguard-exporter","stop-adguard","prove-required-core","diagnose-gateway-rdnss","restore-adguard","restore-adguard-exporter","verify-postrestore-gateway-adguard-kepler","verify-invariants"],bindings:{callback_sha256:$callback,client_sha256:$client,drill_sha256:$drill,known_hosts_sha256:$known_hosts,observer_sha256:$observer,rdisc6_sha256:$rdisc6},diagnostic_workers:[{ordinal:1,resolver:"gateway-rdnss",transport:"udp"},{ordinal:2,resolver:"gateway-rdnss",transport:"tcp"}],evidence_phases:["outage-core","outage-diagnostic","postrestore"],inventory_sha256:$inventory,mode:"approved-outage-drill",network_contract_sha256:$network_contract,probe_contracts:[{contract:"fleet-a",name_template:"{nonce}.homelab.pastelariadev.com",type:"A"},{contract:"fleet-aaaa",name_template:"{nonce}.homelab.pastelariadev.com",type:"AAAA"},{contract:"external",name_template:"{nonce}.1-1-1-1.sslip.io",type:"A"},{contract:"external",name_template:"{nonce}.2606-4700-4700--1111.sslip.io",type:"AAAA"},{contract:"nxdomain",name_template:"{nonce}.invalid",type:"A"},{contract:"filtered",name_template:"{nonce}.doubleclick.net",type:"A"}],probe_evidence:$probe_evidence,required_workers:[{ordinal:1,resolver:"system",transport:"udp"},{ordinal:2,resolver:"system",transport:"tcp"},{ordinal:3,resolver:"kepler",transport:"udp"},{ordinal:4,resolver:"kepler",transport:"tcp"}],resources:["adguard-exporter","adguard"],shared_nonce:{generated_after:"stopped-gate",hash:"sha256",scope:"all-outage-workers"},version:4}')
 hash=$(printf %s "$plan"|sha256sum|cut -d' ' -f1)
 if [ "$mode" = plan ];then jq -cnS --argjson manifest "$plan" --arg manifest_sha256 "$hash" '{manifest:$manifest,manifest_sha256:$manifest_sha256}';exit 0;fi
 [ "$mode" = execute ] && [ "$#" -eq 9 ] || { echo "p3-outage-drill: BLOCKED: authorization differs" >&2;exit 1; }
 [ ! -e "$run_dir" ];mkdir -m 0700 "$run_dir"
 journal=$run_dir/journal.jsonl;: >"$journal";chmod 0600 "$journal"
 record(){ jq -cnS --arg event "$1" --arg status "$2" --arg manifest_sha256 "$hash" '{event:$event,manifest_sha256:$manifest_sha256,status:$status,version:1}' >>"$journal"; }
-finish_artifact(){ local name=$1 status=$2 tmp postrestore_results_sha=;if [[ ${outage_start:-} =~ ^[0-9]+$ ]];then postrestore_results_sha=$(printf %b "${postrestore_evidence:-}"|sha256sum|cut -d' ' -f1);fi;tmp=$(mktemp "$run_dir/.artifact.XXXXXX");jq -cnS --arg manifest_sha256 "$hash" --arg status "$status" --arg outage_results_sha256 "${frozen_outage_results_sha256:-}" --arg partial_outage_results_sha256 "${partial_outage_results_sha256:-}" --arg postrestore_results_sha256 "$postrestore_results_sha" --argjson elapsed_ms "${elapsed:-null}" --argjson bound_ms "${bound:-null}" --argjson original_failure_rc "${original_failure_rc:-null}" --argjson recovery_failed "${recovery_failed:-false}" '{actual_elapsed_ms:$elapsed_ms,failover_bound_ms:$bound_ms,manifest_sha256:$manifest_sha256,original_failure_rc:$original_failure_rc,outage_results_sha256:(if $outage_results_sha256=="" then null else $outage_results_sha256 end),partial_outage_results_sha256:(if $partial_outage_results_sha256=="" then null else $partial_outage_results_sha256 end),postrestore_results_sha256:(if $postrestore_results_sha256=="" then null else $postrestore_results_sha256 end),recovery_failed:$recovery_failed,status:$status,version:3}' >"$tmp";chmod 0600 "$tmp";mv -n "$tmp" "$run_dir/$name" || { rm -f "$tmp";return 1; }; }
+finish_artifact(){ local name=$1 status=$2 tmp postrestore_results_sha=;postrestore_evidence_rows=$(printf %b "${postrestore_evidence:-}"|sed '/^$/d'|wc -l);if [ "$postrestore_evidence_rows" -gt 0 ];then postrestore_results_sha=$(printf %b "$postrestore_evidence"|sha256sum|cut -d' ' -f1);fi;tmp=$(mktemp "$run_dir/.artifact.XXXXXX");jq -cnS --arg manifest_sha256 "$hash" --arg status "$status" --arg outage_results_sha256 "${frozen_outage_results_sha256:-}" --arg partial_outage_results_sha256 "${partial_outage_results_sha256:-}" --arg diagnostic_results_sha256 "${frozen_diagnostic_results_sha256:-}" --arg partial_diagnostic_results_sha256 "${partial_diagnostic_results_sha256:-}" --arg core_status "${core_evidence_status:-not-started}" --arg diagnostic_status "${diagnostic_evidence_status:-not-started}" --arg postrestore_status "${postrestore_status:-not-started}" --arg shared_nonce_sha256 "${outage_nonce_sha256:-}" --arg postrestore_results_sha256 "$postrestore_results_sha" --argjson core_rows "${core_evidence_rows:-0}" --argjson diagnostic_rows "${diagnostic_evidence_rows:-0}" --argjson postrestore_rows "${postrestore_evidence_rows:-0}" --argjson elapsed_ms "${elapsed:-null}" --argjson bound_ms "${bound:-null}" --argjson original_failure_rc "${original_failure_rc:-null}" --argjson recovery_failed "${recovery_failed:-false}" '{actual_elapsed_ms:$elapsed_ms,core_evidence:{rows:$core_rows,status:$core_status},core_partial_results_sha256:(if $partial_outage_results_sha256=="" then null else $partial_outage_results_sha256 end),core_results_sha256:(if $outage_results_sha256=="" then null else $outage_results_sha256 end),core_row_count:$core_rows,diagnostic_evidence:{rows:$diagnostic_rows,status:$diagnostic_status},diagnostic_results_sha256:(if $diagnostic_results_sha256=="" then null else $diagnostic_results_sha256 end),diagnostic_row_count:$diagnostic_rows,diagnostic_status:$diagnostic_status,failover_bound_ms:$bound_ms,manifest_sha256:$manifest_sha256,original_failure_rc:$original_failure_rc,outage_results_sha256:(if $outage_results_sha256=="" then null else $outage_results_sha256 end),partial_diagnostic_results_sha256:(if $partial_diagnostic_results_sha256=="" then null else $partial_diagnostic_results_sha256 end),partial_outage_results_sha256:(if $partial_outage_results_sha256=="" then null else $partial_outage_results_sha256 end),postrestore_evidence:{rows:$postrestore_rows,status:$postrestore_status},postrestore_row_count:$postrestore_rows,postrestore_results_sha256:(if $postrestore_results_sha256=="" then null else $postrestore_results_sha256 end),postrestore_status:$postrestore_status,recovery_failed:$recovery_failed,shared_nonce_sha256:(if $shared_nonce_sha256=="" then null else $shared_nonce_sha256 end),status:$status,version:4}' >"$tmp";chmod 0600 "$tmp";mv -n "$tmp" "$run_dir/$name" || { rm -f "$tmp";return 1; }; }
 [ "$authorization" = "$hash" ] || { finish_artifact failure.json authorization-drift;echo "p3-outage-drill: BLOCKED: authorization differs" >&2;exit 1; }
 for binding in "$known_hosts" "$client" "$observer" "$0" "$callback" "$rdisc6";do [ -r "$binding" ] || exit 1;done
 [ "$(sha "$known_hosts")" = "$(jq -r .bindings.known_hosts_sha256 <<<"$plan")" ] && [ "$(sha "$client")" = "$(jq -r .bindings.client_sha256 <<<"$plan")" ] && [ "$(sha "$observer")" = "$(jq -r .bindings.observer_sha256 <<<"$plan")" ] && [ "$(sha "$0")" = "$(jq -r .bindings.drill_sha256 <<<"$plan")" ] && [ "$(sha "$callback")" = "$(jq -r .bindings.callback_sha256 <<<"$plan")" ] && [ "$(sha "$rdisc6")" = "$(jq -r .bindings.rdisc6_sha256 <<<"$plan")" ] || { finish_artifact failure.json binding-drift;exit 1; }
@@ -27,7 +27,7 @@ fresh=$("$observer" "$namespace" "$client_interface" "$remote_ip" "$bound" "$kno
 ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=8 -o ConnectionAttempts=1 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o GlobalKnownHostsFile=/dev/null);ssh_command=(ssh "${ssh_opts[@]}" "erik@$remote_ip");remote=(timeout 12 "${ssh_command[@]}")
 adguard_id=$(jq -r '.containers[]|select(.name=="adguard")|.id' <<<"$canonical");exporter_id=$(jq -r '.containers[]|select(.name=="adguard-exporter")|.id' <<<"$canonical")
 approved_exporter_ip=$(jq -er '[.containers[]|select(.name=="adguard-exporter")] as $exporters|select(($exporters|length)==1)|$exporters[0]|select((.networks|type)=="array" and (.networks|length)==1 and .networks[0].name=="homelab-net")|.networks[0].ip_address|select(type=="string") as $ip|($ip|split(".")) as $parts|select(($parts|length)==4 and all($parts[];test("^[0-9]{1,3}$") and (tonumber<=255)))|$ip' <<<"$canonical") || { echo "p3-outage-drill: BLOCKED: approved exporter network differs" >&2;exit 1; }
-mutated=false;emit=false;outage_complete=false;tmp=$(mktemp);outage_evidence=;postrestore_evidence=;enforce_deadline=false;worker_pids=();worker_files=();cleanup(){ rm -f "$tmp"; };trap cleanup EXIT INT TERM
+mutated=false;emit=false;outage_complete=false;tmp=$(mktemp);outage_evidence=;diagnostic_evidence=;postrestore_evidence=;postrestore_status=not-started;postrestore_evidence_rows=0;enforce_deadline=false;worker_pids=();worker_files=();diagnostic_pids=();diagnostic_files=();diagnostic_terminal_files=();cleanup(){ rm -f "$tmp"; };trap cleanup EXIT INT TERM
 deadline_check(){ if ! $enforce_deadline;then return 0;fi;[ "$(date +%s%3N)" -le "${outage_deadline:-0}" ]; }
 timeout_duration(){
   local milliseconds=$1;[[ $milliseconds =~ ^[1-9][0-9]*$ ]] || return 1
@@ -38,8 +38,8 @@ deadline_sleep(){ local deadline=$1 requested=$2 remaining duration;[[ $requeste
 recovery_run(){ local duration;duration=$(deadline_duration "$recovery_deadline") || return 1;timeout "$duration" "$@"; }
 recovery_capture(){ local duration capture_file rc;duration=$(deadline_duration "$recovery_deadline") || return 1;capture_file=$(mktemp "$run_dir/.recovery-capture.XXXXXX");chmod 0600 "$capture_file";if timeout "$duration" "$@" >"$capture_file";then rc=0;else rc=$?;fi;REPLY=$(<"$capture_file");rm -f "$capture_file";return "$rc"; }
 check_dns_matrix() {
-  local ordinal=$1 resolver=$2 transport=$3 destination=$4 name type _expected_status contract out answers nonce rc dns_status count_class classification qname_sha evidence_line now remaining duration row=0
-  nonce=$(od -An -N16 -tx1 /dev/urandom|tr -d ' \n') || return 1
+  local ordinal=$1 resolver=$2 transport=$3 destination=$4 nonce=$5 name type _expected_status contract out answers rc dns_status count_class classification qname_sha evidence_line now remaining duration row=0 answer_rrs rr_count a_values a_count unique_a_values
+  [[ $nonce =~ ^[0-9a-f]{32}$ ]] || return 1
   local -a args=();if [ "$resolver" != system ];then args+=(@"$resolver");fi;if [ "$transport" = tcp ];then args+=(+tcp);fi
   while read -r name type _expected_status contract;do
     deadline_check || return 1
@@ -55,7 +55,7 @@ check_dns_matrix() {
     [[ $answers != *$'\n'* && $answers =~ ^[0-9]+$ ]] || return 1
     if [ "$answers" -eq 0 ];then count_class=zero;else count_class=positive;fi
     case $contract in
-      fleet-a) if [ "$dns_status" != NOERROR ]||[ "$count_class" != positive ]||! grep -q '192\.168\.10\.210' <<<"$out";then return 1;fi;classification="fleet-a";;
+      fleet-a) answer_rrs=$(awk '/^;; ANSWER SECTION:/{inside=1;next}/^;;/{if(inside)exit}inside&&NF{print}' <<<"$out") || return 1;rr_count=$(printf '%s\n' "$answer_rrs"|sed '/^$/d'|wc -l);a_values=$(awk '$4=="A"{print $5}' <<<"$answer_rrs") || return 1;a_count=$(printf '%s\n' "$a_values"|sed '/^$/d'|wc -l);unique_a_values=$(printf '%s\n' "$a_values"|sed '/^$/d'|LC_ALL=C sort -u);if [ "$dns_status" != NOERROR ]||[ "$count_class" != positive ]||[ "$rr_count" -ne "$answers" ]||[ "$a_count" -ne "$answers" ]||[ "$unique_a_values" != 192.168.10.210 ];then return 1;fi;classification="fleet-a";;
       fleet-aaaa) if [ "$dns_status" != NOERROR ]||[ "$count_class" != zero ];then return 1;fi;classification="nodata";;
       external) if [ "$dns_status" != NOERROR ]||[ "$count_class" != positive ];then return 1;fi;classification="external-positive";;
       nxdomain) if [ "$dns_status" != NXDOMAIN ]||[ "$count_class" != zero ];then return 1;fi;classification="nxdomain";;
@@ -76,22 +76,38 @@ check_dns_matrix() {
 {nonce}.doubleclick.net A ANY filtered
 EOF
 }
-worker_cleanup(){ if [ -n "${active_timeout_pid:-}" ];then kill "$active_timeout_pid" 2>/dev/null||true;wait "$active_timeout_pid" 2>/dev/null||true;active_timeout_pid=;fi;[ -z "${worker_query_tmp:-}" ]||rm -f "$worker_query_tmp"; }
+worker_write_terminal(){ local row_count status tmp_terminal;[ -n "${worker_terminal_file:-}" ]||return 0;[ "${worker_terminal_written:-false}" = false ]||return 0;row_count=$(wc -l <"$worker_rows_file");case ${worker_rc_class:-failed}:$row_count in success:6) status=complete;;cancelled:*) status=cancelled;;*:0) status=failed;;*) status=partial;;esac;tmp_terminal=$(mktemp "$run_dir/.diagnostic-terminal.XXXXXX")||return 1;jq -cnS --argjson ordinal "$worker_terminal_ordinal" --arg resolver_label "$worker_terminal_resolver_label" --arg transport "$worker_terminal_transport" --arg rc_class "${worker_rc_class:-failed}" --arg status "$status" --argjson row_count "$row_count" '{ordinal:$ordinal,rc_class:$rc_class,resolver_label:$resolver_label,row_count:$row_count,status:$status,transport:$transport}' >"$tmp_terminal"||{ rm -f "$tmp_terminal";return 1; };chmod 0600 "$tmp_terminal"||{ rm -f "$tmp_terminal";return 1; };mv "$tmp_terminal" "$worker_terminal_file"||{ rm -f "$tmp_terminal";return 1; };worker_terminal_written=true; }
+worker_cleanup(){ if [ -n "${active_timeout_pid:-}" ];then kill "$active_timeout_pid" 2>/dev/null||true;wait "$active_timeout_pid" 2>/dev/null||true;active_timeout_pid=;fi;[ -z "${worker_query_tmp:-}" ]||rm -f "$worker_query_tmp";worker_write_terminal; }
 # shellcheck disable=SC2329 # Invoked by the worker's INT/TERM traps.
-worker_signal(){ local rc=$1;trap - EXIT INT TERM;worker_cleanup;exit "$rc"; }
-worker_entry(){ local rc;active_timeout_pid=;worker_query_tmp=;trap worker_cleanup EXIT;trap 'worker_signal 130' INT;trap 'worker_signal 143' TERM;if check_dns_matrix "$@";then rc=0;else rc=$?;fi;trap - EXIT INT TERM;worker_cleanup;return "$rc"; }
+worker_signal(){ local rc=$1;worker_rc_class=cancelled;trap - EXIT INT TERM;worker_cleanup;exit "$rc"; }
+worker_entry(){ local rc;active_timeout_pid=;worker_query_tmp=;worker_rc_class=failed;trap worker_cleanup EXIT;trap 'worker_signal 130' INT;trap 'worker_signal 143' TERM;if check_dns_matrix "$@";then rc=0;worker_rc_class=success;else rc=$?;worker_rc_class=failed;fi;trap - EXIT INT TERM;worker_cleanup;return "$rc"; }
 cancel_workers(){ local pid;for pid in "${worker_pids[@]:-}";do kill "$pid" 2>/dev/null||true;done;for pid in "${worker_pids[@]:-}";do wait "$pid" 2>/dev/null||true;done;worker_pids=(); }
 run_outage_workers(){
-  local worker_ordinal index pid rc=0 file;local -a resolvers=(system system "$rdnss" "$rdnss" 192.168.10.230 192.168.10.230) transports=(udp tcp udp tcp udp tcp)
-  worker_pids=();worker_files=()
-  for worker_ordinal in 01 02 03 04 05 06;do
-    index=$((10#$worker_ordinal-1));file="$run_dir/outage-worker-$worker_ordinal.rows";: >"$file";chmod 0600 "$file";worker_files+=("$file")
-    (trap - EXIT INT TERM;worker_entry "$worker_ordinal" "${resolvers[$index]}" "${transports[$index]}" "$file") & worker_pids+=("$!")
+  local worker_ordinal index pid rc=0 file terminal best_effort_diagnostic=true;local -a core_resolvers=(system system 192.168.10.230 192.168.10.230) core_transports=(udp tcp udp tcp) diagnostic_resolvers=("$rdnss" "$rdnss") diagnostic_transports=(udp tcp) core_pids=()
+  [[ ${outage_deadline:-} =~ ^[0-9]+$ ]] || return 1
+  worker_pids=();worker_files=();diagnostic_pids=();diagnostic_files=();diagnostic_terminal_files=()
+  for worker_ordinal in 01 02 03 04;do
+    index=$((10#$worker_ordinal-1));file="$run_dir/core-worker-$worker_ordinal.rows";: >"$file";chmod 0600 "$file";worker_files+=("$file")
+    (trap - EXIT INT TERM;worker_entry "$worker_ordinal" "${core_resolvers[$index]}" "${core_transports[$index]}" "$file" "$outage_nonce") & pid=$!;core_pids+=("$pid");worker_pids+=("$pid")
   done
-  for pid in "${worker_pids[@]}";do if ! wait "$pid";then rc=1;cancel_workers;break;fi;done
+  for worker_ordinal in 01 02;do
+    index=$((10#$worker_ordinal-1));file="$run_dir/diagnostic-worker-$worker_ordinal.rows";: >"$file";chmod 0600 "$file";diagnostic_files+=("$file");terminal="$run_dir/diagnostic-terminal-$worker_ordinal.json";diagnostic_terminal_files+=("$terminal")
+    (trap - EXIT INT TERM;worker_terminal_file=$terminal;worker_terminal_ordinal=$((10#$worker_ordinal));worker_terminal_resolver_label=gateway-rdnss;worker_terminal_transport=${diagnostic_transports[$index]};worker_rows_file=$file;worker_terminal_written=false;worker_entry "$worker_ordinal" "${diagnostic_resolvers[$index]}" "${diagnostic_transports[$index]}" "$file" "$outage_nonce") & pid=$!;diagnostic_pids+=("$pid");worker_pids+=("$pid")
+  done
+  for pid in "${core_pids[@]}";do if ! wait "$pid";then rc=1;cancel_workers;break;fi;done
+  if [ "$rc" -eq 0 ]&&$best_effort_diagnostic;then
+    for pid in "${diagnostic_pids[@]}";do kill "$pid" 2>/dev/null||true;done
+    for pid in "${diagnostic_pids[@]}";do wait "$pid" 2>/dev/null||true;done
+  fi
+  for index in 0 1;do
+    if [ ! -s "${diagnostic_terminal_files[$index]}" ];then
+      worker_terminal_file=${diagnostic_terminal_files[$index]};worker_terminal_ordinal=$((index+1));worker_terminal_resolver_label=gateway-rdnss;worker_terminal_transport=${diagnostic_transports[$index]};worker_rows_file=${diagnostic_files[$index]};worker_terminal_written=false;worker_rc_class=cancelled
+      worker_write_terminal || true
+    fi
+  done
   worker_pids=();return "$rc"
 }
-append_postrestore_matrix(){ local ordinal=$1 resolver=$2 transport=$3 recovery_deadline=$4 file;file=$(mktemp "$run_dir/.postrestore.XXXXXX");chmod 0600 "$file";check_dns_matrix "$ordinal" "$resolver" "$transport" "$file" || { rm -f "$file";return 1; };postrestore_evidence+="$(<"$file")"$'\n';rm -f "$file"; }
+append_postrestore_matrix(){ local ordinal=$1 resolver=$2 transport=$3 recovery_deadline=$4 file nonce;nonce=$(od -An -N16 -tx1 /dev/urandom|tr -d ' \n') || return 1;file=$(mktemp "$run_dir/.postrestore.XXXXXX");chmod 0600 "$file";check_dns_matrix "$ordinal" "$resolver" "$transport" "$file" "$nonce" || { rm -f "$file";return 1; };postrestore_evidence+="$(<"$file")"$'\n';rm -f "$file"; }
 postrestore_identity() {
   local post nonmutable_before nonmutable_after mutable_before mutable_after
   recovery_capture "$observer" "$namespace" "$client_interface" "$remote_ip" "$bound" "$known_hosts" "$rdisc6" "$client" "$callback" || return 1;post=$REPLY
@@ -111,7 +127,7 @@ postrestore_identity() {
 }
 restored_operational_checks() {
   local resolver transport filtered metrics family duration
-  for resolver in 192.168.10.210 192.168.10.230;do for transport in udp tcp;do append_postrestore_matrix 00 "$resolver" "$transport" "$recovery_deadline" || return 1;done;done
+  for resolver in "$rdnss" 192.168.10.210 192.168.10.230;do for transport in udp tcp;do append_postrestore_matrix 00 "$resolver" "$transport" "$recovery_deadline" || return 1;done;done
   recovery_run sudo -n ip netns exec "$namespace" getent ahostsv4 discovery.homelab.pastelariadev.com >/dev/null || return 1
   duration=$(deadline_duration "$recovery_deadline") || return 1;filtered=$(timeout "$duration" sudo -n ip netns exec "$namespace" dig +time=2 +tries=1 @192.168.10.210 doubleclick.net A) || return 1
   grep -Eq '0\.0\.0\.0|status: NXDOMAIN' <<<"$filtered" || return 1
@@ -133,12 +149,21 @@ exporter_metrics_ready() {
   return 1
 }
 freeze_outage_evidence() {
-  local file
+  local file diagnostic_hash_evidence terminal_count complete_terminal_count
   if [ -z "${frozen_outage_results_sha256:-}" ];then
     outage_evidence=;for file in "${worker_files[@]:-}";do [ -f "$file" ]&&outage_evidence+="$(<"$file")"$'\n';done
     outage_evidence=$(printf %s "$outage_evidence"|LC_ALL=C sort -s -t: -k1,1n -k2,2n)
+    core_evidence_rows=$(printf '%s\n' "$outage_evidence"|sed '/^$/d'|wc -l);core_evidence_status=partial
     partial_outage_results_sha256=$(printf '%s\n' "$outage_evidence"|sha256sum|cut -d' ' -f1)
-    if $outage_complete;then frozen_outage_results_sha256=$partial_outage_results_sha256;fi
+    if $outage_complete&&[ "$core_evidence_rows" -eq 24 ];then frozen_outage_results_sha256=$partial_outage_results_sha256;core_evidence_status=complete;fi
+    diagnostic_evidence=;for file in "${diagnostic_files[@]:-}";do [ -f "$file" ]&&diagnostic_evidence+="$(<"$file")"$'\n';done
+    diagnostic_evidence=$(printf %s "$diagnostic_evidence"|LC_ALL=C sort -s -t: -k1,1n -k2,2n)
+    diagnostic_hash_evidence=$diagnostic_evidence;terminal_count=0;complete_terminal_count=0
+    for file in "${diagnostic_terminal_files[@]:-}";do if [ -s "$file" ];then diagnostic_hash_evidence+="$(jq -cS . "$file")"$'\n';terminal_count=$((terminal_count+1));[ "$(jq -r .status "$file")" = complete ]&&complete_terminal_count=$((complete_terminal_count+1));fi;done
+    diagnostic_evidence_rows=$(printf '%s\n' "$diagnostic_evidence"|sed '/^$/d'|wc -l);diagnostic_evidence_status=unavailable
+    partial_diagnostic_results_sha256=$(printf '%s\n' "$diagnostic_hash_evidence"|sha256sum|cut -d' ' -f1)
+    if [ "$terminal_count" -gt 0 ]||[ "$diagnostic_evidence_rows" -gt 0 ];then diagnostic_evidence_status=partial;fi
+    if [ "$terminal_count" -eq 2 ]&&[ "$complete_terminal_count" -eq 2 ]&&[ "$diagnostic_evidence_rows" -eq 12 ];then frozen_diagnostic_results_sha256=$partial_diagnostic_results_sha256;diagnostic_evidence_status=complete;fi
   fi
 }
 recover() {
@@ -157,14 +182,15 @@ recover() {
       [ "$state" = healthy ] || { record recovery-outcome health-failed;continue; }
       recovery_run "${ssh_command[@]}" "docker start $exporter_id" >/dev/null 2>&1 || { record recovery-outcome start-exporter-failed;continue; }
       exporter_metrics_ready "$recovery_deadline" || { record recovery-outcome exporter-readiness-failed;break; }
-      postrestore_identity || { record recovery-outcome identity-failed;continue; }
+      postrestore_status=partial
+      postrestore_identity || { postrestore_status=failed;record recovery-outcome identity-failed;continue; }
       record recovery-outcome restored;ok=true;break
     done
     if ! $ok;then recovery_failed=true;original=1;fi
     if $ok;then
       record postrestore-checks started
-      postrestore_operational || postrestore_rc=$?
-      if [ "$postrestore_rc" -eq 0 ];then record postrestore-checks passed;else record postrestore-checks failed;recovery_failed=true;original=1;fi
+      postrestore_status=partial;postrestore_operational || postrestore_rc=$?
+      if [ "$postrestore_rc" -eq 0 ];then postrestore_status=complete;record postrestore-checks passed;else postrestore_status=failed;record postrestore-checks failed;recovery_failed=true;original=1;fi
     fi
   fi
   if [ "$original" -eq 0 ] && $emit;then finish_artifact result.json passed;else finish_artifact failure.json failed || true;fi
@@ -179,9 +205,10 @@ record stop-exporter passed;record stop-adguard started
 outage_start=$(date +%s%3N);outage_deadline=$((outage_start+bound));enforce_deadline=true
 record stop-adguard passed;record stopped-gate started
 [ "$("${remote[@]}" "docker inspect -f '{{.State.Status}}' $exporter_id $adguard_id"|tr '\n' ' ')" = "exited exited " ]
-record stopped-gate passed;record failover-probe started
-record secondary-matrix started
+record stopped-gate passed
+outage_nonce=$(od -An -N16 -tx1 /dev/urandom|tr -d ' \n') || exit 1;[[ $outage_nonce =~ ^[0-9a-f]{32}$ ]];outage_nonce_sha256=$(printf %s "$outage_nonce"|sha256sum|cut -d' ' -f1)
+record failover-probe started;record gateway-diagnostic started
 run_outage_workers
-[ "$(cat "${worker_files[@]}"|wc -l)" -eq 36 ]
+[ "$(cat "${worker_files[@]}"|wc -l)" -eq 24 ]
 deadline_check;elapsed=$(($(date +%s%3N)-outage_start))
-outage_complete=true;record failover-probe passed;record secondary-matrix passed;emit=true;record outage-proof passed;trap - EXIT INT TERM;recover
+outage_complete=true;record failover-probe passed;record gateway-diagnostic captured;emit=true;record outage-proof passed;trap - EXIT INT TERM;recover

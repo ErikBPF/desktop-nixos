@@ -94,8 +94,9 @@ Offline state-machine fixtures cover:
    drift, or an observed RDNSS path that differs from the approved
    fleet/external/NXDOMAIN/filtering contract over UDP or TCP: halt. An exact
    gateway RDNSS path may proceed only when it is bound into the observation,
-   placed first in the namespace resolver order, and re-proved before, during,
-   and after the outage with nonce-derived queries.
+   placed first in the namespace resolver order, and re-proved before and after
+   the outage with nonce-derived queries. While AdGuard is stopped, gateway
+   RDNSS is a bounded diagnostic and may be unavailable without failing P3.
 4. Secondary direct UDP works but TCP fails: halt.
 5. Fleet works but external fails, or external works but fleet fails: halt.
 6. Explicit secondary works but system resolver never fails over within the
@@ -111,9 +112,20 @@ Offline state-machine fixtures cover:
     the stop: halt.
 12. Recovery makes at most three bounded attempts, retains a value-free journal
     on every outcome, and always targets the same approved container IDs.
-13. RDNSS succeeds only from cache, loses filtering during the outage, fails
-    TCP, changes router/prefix/lifetime, or masks a failed normal resolver path:
-    halt and restore AdGuard.
+13. The four required outage workers — system UDP/TCP and Kepler UDP/TCP — use
+    one fresh shared nonce and produce exactly 24 canonical rows. Any missing
+    fleet, external, NXDOMAIN, filtering, UDP, or TCP result halts and restores
+    AdGuard. The system fleet A must be the private `.210` answer and filtering
+    must be NXDOMAIN/zero or `0.0.0.0`, preventing public fallback from masking
+    a failed Kepler path.
+14. Gateway RDNSS UDP/TCP workers run concurrently under the same bound but are
+    diagnostic-only during the outage. Their 0–12 canonical rows, terminal
+    statuses, and partial/full hashes are separate from the required 24-row
+    success hash. Their failure must not delay recovery or contaminate required
+    or post-restore evidence.
+15. Gateway RDNSS succeeds only from cache, changes router/prefix/lifetime, or
+    fails its full post-restore contract: halt. A bounded during-outage RDNSS
+    timeout or malformed response alone does not fail the amended v4 gate.
 
 Live evidence records only resolver addresses, query names selected for the
 contract, record types, response codes/counts, latency bounds, service states,
@@ -139,6 +151,8 @@ an unknown fleet-zone A name is not an NXDOMAIN case.
 
 P3 passes only when fresh evidence proves the Kepler LAN resolver, preserved
 vanguard tailnet resolver, narrow DHCP apply, generic-client lease, actual
-system-resolver failover during the approved AdGuard outage, successful restore,
-and post-restore health. The final artifact states that P2 mutation remains a
-separate manifest-bound approval.
+system-resolver failover and direct Kepler UDP/TCP during the approved AdGuard
+outage, successful exact-ID restore, and full post-restore gateway/AdGuard/
+Kepler health. During-outage gateway RDNSS evidence is diagnostic-only. The
+final artifact states that P2 mutation remains a separate manifest-bound
+approval.

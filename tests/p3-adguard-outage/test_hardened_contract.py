@@ -102,10 +102,10 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         self.assertNotEqual(missing.returncode, 0)
         self.assertEqual(ip_log.read_text().splitlines(), ["-4 address flush dev p3d1234"])
 
-    def test_manifest_v3_binds_inventory_and_all_implementations(self):
+    def test_manifest_v4_binds_inventory_and_all_implementations(self):
         result = self.drill("plan"); self.assertEqual(result.returncode, 0, result.stderr)
         value = json.loads(result.stdout); manifest = value["manifest"]
-        self.assertEqual(manifest["version"], 3); self.assertEqual(set(manifest["bindings"]), {"client_sha256", "observer_sha256", "drill_sha256", "callback_sha256", "known_hosts_sha256", "rdisc6_sha256"})
+        self.assertEqual(manifest["version"], 4); self.assertEqual(set(manifest["bindings"]), {"client_sha256", "observer_sha256", "drill_sha256", "callback_sha256", "known_hosts_sha256", "rdisc6_sha256"})
         self.assertRegex(manifest["network_contract_sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(manifest["probe_evidence"], observation(raw_containers())["probe_evidence"])
         canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")); self.assertEqual(value["manifest_sha256"], hashlib.sha256(canonical.encode()).hexdigest())
@@ -231,7 +231,18 @@ esac
         executable(bindir / "sudo", '[ "$1" = -n ] || exit 90; shift; case "$*" in *getent*) [ "$PROBE_FAIL" = 1 ] && exit 1;; esac; exec "$@"\n')
         executable(bindir / "ip", r'''case "$*" in
  netns\ exec\ *\ getent\ *) exit 0;;
- netns\ exec\ *\ dig\ *) if [ "$OUTAGE_FAIL" = 1 ] && [ ! -e "$RESTORED" ];then exit 1;fi; if [ "$OUTAGE_TIMEOUT" = 1 ] && [ ! -e "$RESTORED" ];then sleep 0.02;fi; case "$*" in *".invalid A"*) echo 'status: NXDOMAIN, ANSWER: 0';; *doubleclick.net*) echo 'status: NOERROR, ANSWER: 1 0.0.0.0';; *homelab.pastelariadev.com*AAAA*) echo 'status: NOERROR, ANSWER: 0';; *homelab.pastelariadev.com*) echo 'status: NOERROR, ANSWER: 1 192.168.10.210';; *AAAA*) echo 'status: NOERROR, ANSWER: 1 2001:db8::1';; *) echo 'status: NOERROR, ANSWER: 1 93.184.216.34';; esac;; esac
+ netns\ exec\ *\ dig\ *)
+   if [ "$OUTAGE_FAIL" = 1 ] && [ ! -e "$RESTORED" ];then exit 1;fi
+   if [ "$OUTAGE_TIMEOUT" = 1 ] && [ ! -e "$RESTORED" ];then sleep 0.02;fi
+   case "$*" in
+    *".invalid A"*) echo 'status: NXDOMAIN, ANSWER: 0';;
+    *doubleclick.net*) echo 'status: NOERROR, ANSWER: 1 0.0.0.0';;
+    *homelab.pastelariadev.com*AAAA*) echo 'status: NOERROR, ANSWER: 0';;
+    *homelab.pastelariadev.com*) printf 'status: NOERROR, ANSWER: 1\n;; ANSWER SECTION:\nx 1 IN A 192.168.10.210\n';;
+    *AAAA*) echo 'status: NOERROR, ANSWER: 1 2001:db8::1';;
+    *) echo 'status: NOERROR, ANSWER: 1 93.184.216.34';;
+   esac;;
+esac
 ''')
         executable(bindir / "ssh", '''for cmd do :;done; echo "$cmd" >>"$LOG"
 case "$cmd" in
@@ -265,7 +276,7 @@ case "$cmd" in
             args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
             result = subprocess.run(args, env=env | {"POST_DRIFT": drift}, text=True, capture_output=True)
             self.assertEqual(result.returncode, expected, result.stderr); journal = (run_dir / "journal.jsonl").read_text()
-            for phase in ("stop-exporter", "stop-adguard", "stopped-gate", "failover-probe", "secondary-matrix", "recovery-attempt"):
+            for phase in ("stop-exporter", "stop-adguard", "stopped-gate", "failover-probe", "gateway-diagnostic", "recovery-attempt"):
                 self.assertIn(f'"event":"{phase}"', journal)
             artifact_path = run_dir / ("result.json" if expected == 0 else "failure.json"); self.assertTrue(artifact_path.exists())
             if expected == 0:

@@ -546,6 +546,17 @@ timed out exporter readiness, while the immediate declarative diagnostic
 reported all three families and the complete post-restore observation passed.
 The three-attempt cap is exhausted. No further AdGuard outage may run until a
 new RDNSS design or an explicitly amended behavior contract is reviewed.
+The operator then explicitly accepted brief local DNS-provider unavailability
+during the outage because router redundancy preserves Internet access. P3 v4
+therefore narrows the live availability gate to the four policy-bearing paths:
+the generic client's system resolver over UDP/TCP and direct Kepler over
+UDP/TCP, all using one fresh nonce and completing the full 24-row fleet,
+external, NXDOMAIN, and filtering matrix within 10,000 ms. Gateway RDNSS
+UDP/TCP remains a concurrent bounded diagnostic during the outage, with
+separate partial/full evidence, but remains mandatory before the stop and after
+exact-ID restoration. This amendment resets the attempt cap only after its
+behavior, test contract, implementation, fixtures, and v4 manifest are
+committed and freshly verified; no v3 approval may be reused.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -716,7 +727,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | Blocked — three-attempt cap exhausted; services restored | Desktop through `9d7b08c`; retained manifests `4b394b17…`, `4caa2fda…`, `ea017b56…`; final hardened attempt produced `6,6,6,1,6,6`, isolating incomplete gateway-RDNSS TCP behavior during outage; exporter 3/3 and full post-restore observations passed | New RDNSS design or explicitly amended behavior contract; no further outage under the current contract |
+| P3 | Amended v4 implementation pending; services restored | Desktop through `9d7b08c`; three immutable v3 attempts retained; operator accepts brief during-outage gateway/local-provider loss; required v4 gate is system+Kepler UDP/TCP 24 rows, gateway RDNSS diagnostic-only during outage and mandatory before/after | Land and verify v4 fixtures/harness; renew observation/manifest; obtain fresh exact approval |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
