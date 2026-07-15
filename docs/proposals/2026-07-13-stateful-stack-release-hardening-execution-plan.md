@@ -500,8 +500,14 @@ plan, but a renewed client still received RA, prefix, default route, and gateway
 RDNSS. The experiment was reverted in `ef3956e`; approved rollback
 `83a42ead…` restored `false→true`, reached zero diff, reproduced the baseline RA
 and RDNSS, and passed namespace/parent cleanup. Disabling RA is not an approved
-shortcut because it would remove client IPv6. P3 now requires two stable,
-reachable IPv6 DNS endpoints or another controller-supported RDNSS mechanism.
+shortcut because it would remove client IPv6. A subsequent read-only generic
+client proved that the existing gateway RDNSS already matches `.210` and `.230`
+for fleet A, fleet AAAA/NODATA, external A/AAAA, reserved NXDOMAIN, and blocked
+responses over direct queries. The drill harness now treats that exact observed
+gateway as an approval-bound third resolver, places it first in the namespace
+resolver order, and requires nonce-derived UDP/TCP equivalence before, during,
+and after the outage. No WAN/USG import is required; independence remains to be
+proved only by the separately approved outage.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -672,7 +678,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | DHCPv4 and generic-client proof complete; IPv6 RDNSS blocks outage | Desktop `3c88a30`, `5903ca0`, `a50415e`, `19aac0d`, `b64d290`, `ce88dfa`, `d78ce3c`, `75f82a1`; homelab-iac `85f2737`, failed experiment `4819834`, rollback `ef3956e`; forward/rollback plans `9ee93dfb…`/`83a42ead…`; zero-diff and baseline restored | Add stable IPv6 DNS endpoints or another proven RDNSS control; renew observation; approve AdGuard outage/restore proof |
+| P3 | DHCPv4/generic proof complete; RDNSS equivalence proven read-only; outage pending | Desktop `3c88a30`, `5903ca0`, `a50415e`, `19aac0d`, `b64d290`, `ce88dfa`, `d78ce3c`, `75f82a1`, `aa914cb`; homelab-iac `85f2737`, failed experiment `4819834`, rollback `ef3956e`; zero-diff/baseline restored; gateway RDNSS matches fleet/filter contract | Renew hash-bound RDNSS-first observation; approve exact AdGuard outage/restore proof |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |

@@ -1520,17 +1520,27 @@ p3-adguard-outage-prepare interface="enp0s13f0u1u3" namespace="p3-dhcp-outage":
     evidence_dir=.gsd/evidence/p3-dns
     mkdir -p "$evidence_dir"
     chmod 700 "$evidence_dir"
+    tooling_tmp= callback= tmp=
+    cleanup() {
+      test -z "$callback" || sudo rm -f "$callback"
+      test -z "$tooling_tmp" || rm -f "$tooling_tmp"
+      test -z "$tmp" || rm -f "$tmp"
+    }
+    trap cleanup EXIT INT TERM
     builders=$(just _builders endeavour)
     busybox=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#busybox \
       --builders "$builders" --builders-use-substitutes --max-jobs 0)
+    ndisc6=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#ndisc6 \
+      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+    tooling_tmp=$(mktemp "$evidence_dir/.tooling.XXXXXX")
+    jq -cnS --arg rdisc6 "$ndisc6/bin/rdisc6" '{rdisc6:$rdisc6,version:1}' >"$tooling_tmp"
+    mv "$tooling_tmp" "$evidence_dir/tooling.json"
+    tooling_tmp=
     callback=$(sudo mktemp /run/p3-outage-udhcpc.XXXXXX)
-    tmp=
-    cleanup() { sudo rm -f "$callback"; test -z "$tmp" || rm -f "$tmp"; }
-    trap cleanup EXIT INT TERM
     sudo install -o root -g root -m 0755 scripts/p3-udhcpc-capture.sh "$callback"
     tmp=$(mktemp "$evidence_dir/.client.XXXXXX")
     sudo scripts/p3-adguard-outage-client.sh prepare "{{namespace}}" "{{interface}}" \
-      "$busybox/bin/udhcpc" "$callback" >"$tmp"
+      "$busybox/bin/udhcpc" "$callback" "$ndisc6/bin/rdisc6" >"$tmp"
     jq -e '.status == "prepared" and .version == 1' "$tmp" >/dev/null
     mv "$tmp" "$evidence_dir/client.json"
     tmp=
@@ -1556,13 +1566,9 @@ p3-adguard-outage-observe bound_ms="10000":
     test -s "$known_tmp"
     chmod 0400 "$known_tmp"
     mv -f "$known_tmp" "$known_hosts"
-    builders=$(just _builders endeavour)
-    ndisc6=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#ndisc6 \
-      --builders "$builders" --builders-use-substitutes --max-jobs 0)
-    jq -cnS --arg rdisc6 "$ndisc6/bin/rdisc6" '{rdisc6:$rdisc6,version:1}' \
-      >"$evidence_dir/tooling.json"
+    rdisc6=$(jq -r .rdisc6 "$evidence_dir/tooling.json")
     scripts/p3-adguard-outage-observe.sh "$namespace" "$interface" "$discovery" \
-      "{{bound_ms}}" "$known_hosts" "$ndisc6/bin/rdisc6" \
+      "{{bound_ms}}" "$known_hosts" "$rdisc6" \
       scripts/p3-adguard-outage-client.sh scripts/p3-udhcpc-capture.sh >"$tmp"
     jq -e '.version == 3' "$tmp" >/dev/null
     mv "$tmp" "$evidence_dir/observation.json"

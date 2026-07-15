@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import stat
 import subprocess
 import tempfile
@@ -49,19 +50,37 @@ def observation(containers):
             "networks": [{"name": "homelab-net", "aliases": [name], "ip_address": "172.30.0.2", "global_ipv6_address": ""}],
             "mounts": [{"type": "bind", "name": None, "source": f"/srv/{name}", "destination": "/config", "driver": None, "mode": "ro", "rw": False, "propagation": "rprivate"}]})
     return {"client": {"interface": "p3d1234", "namespace": "p3-dhcp-proof", "overlays": [], "persistent_macvlan": True},
-        "containers": sorted(projected, key=lambda x: x["name"]), "dhcp_dns": ["192.168.10.210", "192.168.10.230"],
-        "failover_bound_ms": 5000, "ipv6": {"default_routes": [], "rdnss": [], "ra_probe": "bounded-no-ra"},
-        "remote": {"ip": "192.168.10.210", "recovery_by_ip": True}, "version": 3}
+        "containers": sorted(projected, key=lambda x: x["name"]), "failover_bound_ms": 5000,
+        "ipv6": {"default_route": {"dev": "p3d1234", "dst": "default", "gateway": "fe80::1", "protocol": "ra"},
+            "prefix": "2001:db8:10::/64", "rdnss": "2001:db8:10::53", "rdnss_lifetime": "positive",
+            "router": "fe80::1", "router_lifetime": "positive"},
+        "probe_contract": {"filter_template": "{nonce}.doubleclick.net A",
+            "fleet_templates": ["{nonce}.homelab.pastelariadev.com A", "{nonce}.homelab.pastelariadev.com AAAA"],
+            "negative_template": "{nonce}.invalid A", "public_templates": ["{nonce}.1-1-1-1.sslip.io A", "{nonce}.2606-4700-4700--1111.sslip.io AAAA"],
+            "resolvers": ["gateway", "adguard", "kepler", "system"], "transports": ["udp", "tcp"]},
+        "probe_evidence": {"classifications_sha256": "0" * 64, "nonce_sha256": "1" * 64,
+            "qnames_sha256": "2" * 64, "results_sha256": "3" * 64},
+        "remote": {"ip": "192.168.10.210", "recovery_by_ip": True},
+        "resolvers": {"nameservers": ["2001:db8:10::53", "192.168.10.210", "192.168.10.230"],
+            "options": ["timeout:2", "attempts:1"]}, "version": 3}
 
 
 class HardenedContract(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = pathlib.Path(self.temp.name); self.known = self.root / "known_hosts"; self.known.write_text("[192.168.10.210]:2222 key\n");self.known.chmod(0o400)
-        self.rdisc = self.root / "rdisc6"; executable(self.rdisc, "[ \"$RA_MODE\" = response ] && { echo 'Router advertisement RDNSS'; exit 0; }; [ \"$RA_MODE\" = toolfail ] && exit 1; [ \"$RA_MODE\" = timeout ] && exit 124; echo 'No response'; exit 2\n")
+        self.rdisc = self.root / "rdisc6"; executable(self.rdisc, r'''case "$RA_MODE" in
+ extra-router) extra='from fe80::2';; extra-rdnss) extra='Recursive DNS server : 2001:db8:10::54';;
+ zero-router) router_lifetime=0;; zero-rdnss) dns_lifetime=0;; toolfail) exit 1;; timeout) exit 124;; esac
+printf 'from fe80::1\nPrefix : 2001:db8:10::/64\nRecursive DNS server : 2001:db8:10::53\nRouter lifetime : %s seconds\nDNS server lifetime : %s seconds\n%s\n' "${router_lifetime:-1800}" "${dns_lifetime:-1200}" "${extra:-}"
+''')
         self.obs_json = self.root / "observation.json"; self.obs_json.write_text(json.dumps(observation(raw_containers())))
         self.fake_observer = self.root / "observer"; executable(self.fake_observer, '''[ -n "${OBSERVER_CALLED:-}" ] && touch "$OBSERVER_CALLED"
-if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .name=="swag" then .image_ref="drift" else . end)' "$OBS_JSON";else cat "$OBS_JSON";fi
+if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .name=="swag" then .image_ref="drift" else . end)|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
+elif [ "${STALE_NONCE:-0}" = 1 ];then cat "$OBS_JSON"
+elif [ "${FRESH_DRIFT:-}" = rdnss ];then jq '.ipv6.rdnss="2001:db8:10::54"|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
+elif [ "${FRESH_DRIFT:-}" = order ];then jq '.resolvers.nameservers|=reverse|.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON"
+else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5"*64)|.probe_evidence.results_sha256=("6"*64)' "$OBS_JSON";fi
 ''')
         self.fake_client = self.root / "client"; executable(self.fake_client, "exit 0\n")
         self.fake_callback = self.root / "callback"; executable(self.fake_callback, "exit 0\n")
@@ -70,11 +89,17 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
         args = [DRILL, *tail, self.obs_json, self.known, self.rdisc, self.fake_client, self.fake_observer, self.fake_callback]
         return subprocess.run(args, text=True, capture_output=True, env=(os.environ | {"OBS_JSON": str(self.obs_json), "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")} | (env or {})))
 
-    def test_manifest_v2_binds_inventory_and_all_implementations(self):
+    def test_manifest_v3_binds_inventory_and_all_implementations(self):
         result = self.drill("plan"); self.assertEqual(result.returncode, 0, result.stderr)
         value = json.loads(result.stdout); manifest = value["manifest"]
-        self.assertEqual(manifest["version"], 2); self.assertEqual(set(manifest["bindings"]), {"client_sha256", "observer_sha256", "drill_sha256", "callback_sha256", "known_hosts_sha256", "rdisc6_sha256"})
+        self.assertEqual(manifest["version"], 3); self.assertEqual(set(manifest["bindings"]), {"client_sha256", "observer_sha256", "drill_sha256", "callback_sha256", "known_hosts_sha256", "rdisc6_sha256"})
+        self.assertRegex(manifest["network_contract_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(manifest["probe_evidence"], observation(raw_containers())["probe_evidence"])
         canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")); self.assertEqual(value["manifest_sha256"], hashlib.sha256(canonical.encode()).hexdigest())
+        original = value["manifest_sha256"]
+        changed = observation(raw_containers()); changed["probe_evidence"]["results_sha256"] = "5" * 64
+        self.obs_json.write_text(json.dumps(changed)); self.assertNotEqual(original, json.loads(self.drill("plan").stdout)["manifest_sha256"])
+        self.obs_json.write_text(json.dumps(observation(raw_containers())))
         old = value["manifest_sha256"]; self.known.chmod(0o600);self.known.write_text("changed\n");self.known.chmod(0o400); self.assertNotEqual(old, json.loads(self.drill("plan").stdout)["manifest_sha256"])
         self.known.chmod(0o600); self.assertNotEqual(self.drill("plan").returncode, 0); self.known.chmod(0o400)
         target = self.root / "known-target"; self.known.rename(target); self.known.symlink_to(target); self.assertNotEqual(self.drill("plan").returncode, 0)
@@ -86,7 +111,21 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
         result = subprocess.run(args, env=os.environ | {"OBS_JSON": str(self.obs_json), "OBSERVER_CALLED": str(observer_called)}, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0); self.assertTrue((run_dir / "failure.json").exists()); self.assertFalse((run_dir / "journal.jsonl").read_text()); self.assertFalse(observer_called.exists())
 
-    def test_observer_rootless_strict_ssh_full_allowlist_and_no_ra(self):
+    def test_rdnss_order_and_cached_nonce_drift_block_before_stop(self):
+        plan = json.loads(self.drill("plan").stdout)
+        for mode in ("rdnss", "order", "stale"):
+            run_dir = self.root / f"fresh-{mode}"
+            args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client,
+                self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+            extra = {"STALE_NONCE": "1"} if mode == "stale" else {"FRESH_DRIFT": mode}
+            result = subprocess.run(args, env=os.environ | {"OBS_JSON": str(self.obs_json),
+                "POST_DRIFT": "0", "RESTORED": str(self.root / "restored")} | extra,
+                text=True, capture_output=True)
+            self.assertNotEqual(result.returncode, 0, mode)
+            self.assertTrue((run_dir / "failure.json").exists(), mode)
+            self.assertFalse((run_dir / "journal.jsonl").read_text(), mode)
+
+    def test_observer_rootless_strict_ssh_full_allowlist_and_gateway_rdnss(self):
         bindir = self.root / "bin"; bindir.mkdir(); log = self.root / "log"; containers = self.root / "containers.json"; containers.write_text(json.dumps(raw_containers()))
         executable(bindir / "sudo", '[ "$1" = -n ] || exit 90; shift; [ "$SUDO_DENY" = 1 ] && exit 1; exec "$@"\n')
         executable(bindir / "timeout", 'shift; "$@"\n')
@@ -94,22 +133,27 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
  "netns list") echo p3-dhcp-proof;;
  "-n p3-dhcp-proof -d link show dev p3d1234") echo macvlan;;
  "-n p3-dhcp-proof -o link show") printf '1: lo: x\n2: p3d1234@if3: x\n';;
- "-n p3-dhcp-proof -6 route show default") [ "$RA_MODE" = route ] && echo 'default via fe80::1';;
+ "-j -n p3-dhcp-proof -6 route show default") gateway=fe80::1; [ "$RA_MODE" = route ] && gateway=fe80::2; printf '[{"dst":"default","gateway":"%s","dev":"p3d1234","protocol":"ra","expires":1200}]\n' "$gateway";;
  "-j -n p3-dhcp-proof -6 address show dev p3d1234 scope link") if [ "$RA_MODE" = missing-link-local ];then echo '[]';else echo '[{"addr_info":[{"family":"inet6","local":"fe80::1234","prefixlen":64,"scope":"link"}]}]';fi;;
- netns\ exec\ p3-dhcp-proof\ awk\ *) if [ "$RA_MODE" = resolver ];then printf '192.168.10.210\n192.168.10.230\nfe80::1\n';else printf '192.168.10.210\n192.168.10.230\n';fi;;
- netns\ exec\ p3-dhcp-proof\ *) shift 3; if [ "$RA_MODE" = response ];then echo 'Router advertisement RDNSS';exit 0;else "$@";fi;; esac
+ netns\ exec\ p3-dhcp-proof\ cat\ /etc/resolv.conf) if [ "$RA_MODE" = resolver-order ];then printf 'nameserver 192.168.10.210\nnameserver 2001:db8:10::53\nnameserver 192.168.10.230\noptions timeout:2 attempts:1\n';elif [ "$RA_MODE" = resolver-extra ];then printf 'nameserver 2001:db8:10::53\nnameserver 192.168.10.210\nnameserver 192.168.10.230\noptions timeout:2 attempts:1\nsearch invalid.example\n';else printf 'nameserver 2001:db8:10::53\nnameserver 192.168.10.210\nnameserver 192.168.10.230\noptions timeout:2 attempts:1\n';fi;;
+ netns\ exec\ p3-dhcp-proof\ *dig*) case "$*" in *".invalid A"*) echo 'status: NXDOMAIN, ANSWER: 0';; *doubleclick.net*) if [ "$FILTER_NXDOMAIN" = 1 ];then echo 'status: NXDOMAIN, ANSWER: 0';else echo 'status: NOERROR, ANSWER: 1 0.0.0.0';fi;; *homelab.pastelariadev.com*AAAA*) echo 'status: NOERROR, ANSWER: 0';; *homelab.pastelariadev.com*) echo 'status: NOERROR, ANSWER: 1 192.168.10.210';; *AAAA*) echo 'status: NOERROR, ANSWER: 1 2001:db8::1';; *) echo 'status: NOERROR, ANSWER: 1 93.184.216.34';; esac;;
+ netns\ exec\ p3-dhcp-proof\ *) shift 3; "$@";; esac
 ''')
         executable(bindir / "ssh", '''echo "$*" >>"$LOG"; case "$*" in
  *"docker info"*) exit 0;;
  *"docker ps -aq"*) jq -r '.[].Id' "$CONTAINERS"; [ "$EXTRA_PROJECT" = 1 ] && printf '%064d\n' 9;;
  *"docker inspect"*) cat "$CONTAINERS";; esac
 ''')
-        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "LOG": str(log), "CONTAINERS": str(containers), "RA_MODE": "", "SUDO_DENY": "0", "EXTRA_PROJECT": "0"}
+        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "LOG": str(log), "CONTAINERS": str(containers), "RA_MODE": "", "SUDO_DENY": "0", "EXTRA_PROJECT": "0", "FILTER_NXDOMAIN": "0"}
         args = [OBSERVE, "p3-dhcp-proof", "p3d1234", "192.168.10.210", "5000", self.known, self.rdisc, CLIENT, CALLBACK]
         good = subprocess.run(args, env=env, text=True, capture_output=True); self.assertEqual(good.returncode, 0, good.stderr)
-        value = json.loads(good.stdout); self.assertEqual([x["name"] for x in value["containers"]], sorted(NAMES)); self.assertEqual(value["ipv6"]["ra_probe"], "bounded-no-ra")
+        filtered_nxdomain = subprocess.run(args, env=env | {"FILTER_NXDOMAIN": "1"}, text=True, capture_output=True); self.assertEqual(filtered_nxdomain.returncode, 0, filtered_nxdomain.stderr)
+        value = json.loads(good.stdout); self.assertEqual([x["name"] for x in value["containers"]], sorted(NAMES)); self.assertEqual(value["ipv6"], observation(raw_containers())["ipv6"])
+        self.assertEqual(value["resolvers"], observation(raw_containers())["resolvers"]); self.assertEqual(value["probe_contract"], observation(raw_containers())["probe_contract"])
+        self.assertEqual(set(value["probe_evidence"]), {"classifications_sha256", "nonce_sha256", "qnames_sha256", "results_sha256"})
+        for digest in value["probe_evidence"].values(): self.assertRegex(digest, r"^[0-9a-f]{64}$")
         ssh_log = log.read_text(); self.assertIn("StrictHostKeyChecking=yes", ssh_log); self.assertIn(f"UserKnownHostsFile={self.known}", ssh_log); self.assertNotIn("sudo docker", ssh_log)
-        for mode in ("route", "resolver", "response", "toolfail", "timeout", "missing-link-local"):
+        for mode in ("route", "resolver-order", "resolver-extra", "missing-link-local"):
             bad = subprocess.run(args, env=env | {"RA_MODE": mode}, text=True, capture_output=True); self.assertNotEqual(bad.returncode, 0, mode)
         denied = subprocess.run(args, env=env | {"SUDO_DENY": "1"}, text=True, capture_output=True); self.assertNotEqual(denied.returncode, 0)
         extra = subprocess.run(args, env=env | {"EXTRA_PROJECT": "1"}, text=True, capture_output=True); self.assertNotEqual(extra.returncode, 0)
@@ -133,7 +177,7 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
         executable(bindir / "sudo", '[ "$1" = -n ] || exit 90; shift; case "$*" in *getent*) [ "$PROBE_FAIL" = 1 ] && exit 1;; esac; exec "$@"\n')
         executable(bindir / "ip", r'''case "$*" in
  netns\ exec\ *\ getent\ *) exit 0;;
- netns\ exec\ *\ dig\ *) case "$*" in *p3-nonexistent.invalid*) echo 'status: NXDOMAIN, ANSWER: 0';; *doubleclick.net*) echo 'status: NOERROR, ANSWER: 1 0.0.0.0';; *homelab.pastelariadev.com*AAAA*) echo 'status: NOERROR, ANSWER: 0';; *homelab.pastelariadev.com*) echo 'status: NOERROR, ANSWER: 1 192.168.10.210';; *AAAA*) echo 'status: NOERROR, ANSWER: 1 2001:db8::1';; *) echo 'status: NOERROR, ANSWER: 1 93.184.216.34';; esac;; esac
+ netns\ exec\ *\ dig\ *) if [ "$OUTAGE_FAIL" = 1 ] && [ ! -e "$RESTORED" ];then exit 1;fi; if [ "$OUTAGE_TIMEOUT" = 1 ] && [ ! -e "$RESTORED" ];then sleep 0.02;fi; case "$*" in *".invalid A"*) echo 'status: NXDOMAIN, ANSWER: 0';; *doubleclick.net*) echo 'status: NOERROR, ANSWER: 1 0.0.0.0';; *homelab.pastelariadev.com*AAAA*) echo 'status: NOERROR, ANSWER: 0';; *homelab.pastelariadev.com*) echo 'status: NOERROR, ANSWER: 1 192.168.10.210';; *AAAA*) echo 'status: NOERROR, ANSWER: 1 2001:db8::1';; *) echo 'status: NOERROR, ANSWER: 1 93.184.216.34';; esac;; esac
 ''')
         executable(bindir / "ssh", '''for cmd do :;done; echo "$cmd" >>"$LOG"
 case "$cmd" in
@@ -145,7 +189,7 @@ case "$cmd" in
  *"9618/metrics"*) n=0; [ -f "$METRICS_COUNTER" ] && n=$(cat "$METRICS_COUNTER"); n=$((n+1)); echo "$n" >"$METRICS_COUNTER"; [ "$n" -le "$METRIC_DELAYS" ] && exit 1; printf '# TYPE adguard_queries counter\n# TYPE adguard_queries_blocked counter\n# TYPE adguard_avg_processing_time_seconds gauge\n';;
  *curl*) exit 0;; esac
 ''')
-        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json), "LOG": str(log), "COUNTER": str(counter), "RESTORED": str(self.root / "restored"), "POST_DRIFT": "0", "PROBE_FAIL": "1", "HEALTH_COUNTER": str(self.root / "health-counter"), "METRICS_COUNTER": str(self.root / "metrics-counter"), "HEALTH_DELAYS": "0", "METRIC_DELAYS": "0"}
+        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json), "LOG": str(log), "COUNTER": str(counter), "RESTORED": str(self.root / "restored"), "POST_DRIFT": "0", "PROBE_FAIL": "1", "OUTAGE_FAIL": "0", "OUTAGE_TIMEOUT": "0", "HEALTH_COUNTER": str(self.root / "health-counter"), "METRICS_COUNTER": str(self.root / "metrics-counter"), "HEALTH_DELAYS": "0", "METRIC_DELAYS": "0"}
         for failures, expected_attempts, exhausted in ((0, 1, False), (1, 2, False), (2, 3, False), (3, 3, True)):
             counter.unlink(missing_ok=True); pathlib.Path(env["RESTORED"]).unlink(missing_ok=True); log.write_text(""); run_dir = self.root / f"run-{failures}"
             plan = json.loads(self.drill("plan", env=env).stdout)
@@ -169,6 +213,56 @@ case "$cmd" in
             for phase in ("stop-exporter", "stop-adguard", "stopped-gate", "failover-probe", "secondary-matrix", "recovery-attempt"):
                 self.assertIn(f'"event":"{phase}"', journal)
             self.assertTrue((run_dir / ("result.json" if expected == 0 else "failure.json")).exists())
+
+    def test_outage_deadline_failure_preserves_original_rc_after_successful_recovery_checks(self):
+        self.test_recovery_succeeds_on_attempts_one_two_three_or_records_exhaustion()
+        bindir = self.root / "lifecycle-bin"
+        restored = self.root / "restored"; restored.unlink(missing_ok=True)
+        bounded = observation(raw_containers()); bounded["failover_bound_ms"] = 1
+        self.obs_json.write_text(json.dumps(bounded))
+        env = os.environ | {
+            "PATH": f"{bindir}:{os.environ['PATH']}", "OBS_JSON": str(self.obs_json),
+            "LOG": str(self.root / "lifecycle.log"), "COUNTER": str(self.root / "counter"),
+            "RESTORED": str(restored), "START_FAILS": "0", "PROBE_FAIL": "0",
+            "OUTAGE_FAIL": "0", "OUTAGE_TIMEOUT": "1", "POST_DRIFT": "0",
+            "HEALTH_COUNTER": str(self.root / "health-counter"),
+            "METRICS_COUNTER": str(self.root / "metrics-counter"),
+            "HEALTH_DELAYS": "0", "METRIC_DELAYS": "0",
+        }
+        for key in ("COUNTER", "HEALTH_COUNTER", "METRICS_COUNTER"):
+            pathlib.Path(env[key]).unlink(missing_ok=True)
+        run_dir = self.root / "outage-partial-failure"
+        plan = json.loads(self.drill("plan", env=env).stdout)
+        args = [DRILL, "execute", self.obs_json, self.known, self.rdisc, self.fake_client,
+            self.fake_observer, self.fake_callback, run_dir, plan["manifest_sha256"]]
+        result = subprocess.run(args, env=env, text=True, capture_output=True)
+
+        self.assertNotEqual(result.returncode, 0)
+        artifact = json.loads((run_dir / "failure.json").read_text())
+        journal = (run_dir / "journal.jsonl").read_text()
+        records = [json.loads(line) for line in journal.splitlines()]
+        failures = []
+        if artifact.get("original_failure_rc", 0) <= 0: failures.append("original_failure_rc")
+        if artifact.get("recovery_failed") is not False: failures.append("recovery_failed")
+        if artifact.get("actual_elapsed_ms") is None: failures.append("actual_elapsed_ms")
+        if not re.fullmatch(r"[0-9a-f]{64}", artifact.get("outage_results_sha256") or ""):
+            failures.append("outage-results-hash")
+        if not re.fullmatch(r"[0-9a-f]{64}", artifact.get("postrestore_results_sha256") or ""):
+            failures.append("postrestore-results-hash")
+        if not any(record.get("event") == "postrestore-checks" and
+                   record.get("status") == "passed" for record in records):
+            failures.append("postrestore-checks-passed")
+        source = DRILL.read_text()
+        if "frozen_outage_results_sha256" not in source:
+            failures.append("frozen-outage-hash")
+        else:
+            freeze = source.index("frozen_outage_results_sha256")
+            recovery = source.index("recover() {")
+            postrestore = source.index("postrestore_operational")
+            if not freeze < recovery < postrestore: failures.append("freeze-order")
+            if re.search(r"frozen_outage_results_sha256\s*=", source[recovery:]):
+                failures.append("outage-hash-mutated-during-recovery")
+        self.assertEqual(failures, [])
 
 
 if __name__ == "__main__":

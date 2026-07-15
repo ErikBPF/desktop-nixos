@@ -90,8 +90,12 @@ Offline state-machine fixtures cover:
 
 1. Lease lacks secondary: no outage action.
 2. Client has Tailscale/NetBird: not valid generic-client evidence.
-3. IPv6 RDNSS overrides the DHCP pair, an IPv6 default route exists, or the
-   bounded router-advertisement probe cannot prove the no-RA result: halt.
+3. Missing/ambiguous RA evidence, more than one RDNSS server, resolver-order
+   drift, or an observed RDNSS path that differs from the approved
+   fleet/external/NXDOMAIN/filtering contract over UDP or TCP: halt. An exact
+   gateway RDNSS path may proceed only when it is bound into the observation,
+   placed first in the namespace resolver order, and re-proved before, during,
+   and after the outage with nonce-derived queries.
 4. Secondary direct UDP works but TCP fails: halt.
 5. Fleet works but external fails, or external works but fleet fails: halt.
 6. Explicit secondary works but system resolver never fails over within the
@@ -107,6 +111,9 @@ Offline state-machine fixtures cover:
     the stop: halt.
 12. Recovery makes at most three bounded attempts, retains a value-free journal
     on every outcome, and always targets the same approved container IDs.
+13. RDNSS succeeds only from cache, loses filtering during the outage, fails
+    TCP, changes router/prefix/lifetime, or masks a failed normal resolver path:
+    halt and restore AdGuard.
 
 Live evidence records only resolver addresses, query names selected for the
 contract, record types, response codes/counts, latency bounds, service states,
