@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Read-only, value-free Discovery AdGuard inventory collector."""
-import argparse, hashlib, json, os, pathlib, re, stat, subprocess, sys, urllib.request
+import argparse, hashlib, ipaddress, json, os, pathlib, re, stat, subprocess, sys, urllib.request
 
 REPOSITORY=pathlib.Path("/home/erik/servarr");WORKDIR=REPOSITORY/"machines/discovery";COMPOSE=WORKDIR/"networking.yml"
 ENV_FILE=WORKDIR/".env";VAULT_ENV=pathlib.Path("/run/vault-agent/networking.env");CONFIG=WORKDIR/"config/adguard"
 VOLUME="networking_adguard_work";COLLISION="discovery_adguard_work"
+ADGUARD_API_BASE="http://192.168.10.210:8090"
 RENDER_CONTRACT={"version":1,"cwd":str(WORKDIR),"argv":["docker-compose","--project-name","networking","--project-directory",str(WORKDIR),"--env-file",str(ENV_FILE),"--env-file",str(VAULT_ENV),"-f",str(COMPOSE),"config","--no-interpolate","--no-env-resolution"]}
 
 def run(command,*,binary=False):return subprocess.check_output(command,stderr=subprocess.DEVNULL,text=not binary)
@@ -44,15 +45,25 @@ def auth_from_env(path):
     return {"username":"erik","password":value}
 def api_json(path,auth):
     import base64
-    request=urllib.request.Request("http://127.0.0.1:8090"+path,headers={"Authorization":"Basic "+base64.b64encode((auth["username"]+":"+auth["password"]).encode()).decode()})
+    request=urllib.request.Request(ADGUARD_API_BASE+path,headers={"Authorization":"Basic "+base64.b64encode((auth["username"]+":"+auth["password"]).encode()).decode()})
     with urllib.request.urlopen(request,timeout=10) as response:return json.load(response)
 def dns_probe(name,record="A"):
     output=run(["dig","+time=3","+tries=1","+noall","+comments","+answer","@192.168.10.210",name,record])
     status=re.search(r"status: ([A-Z]+)",output);answers=sum(1 for line in output.splitlines() if line and not line.startswith(";"))
     return {"answer_count":answers,"status":status.group(1) if status else "UNKNOWN"}
-def baseline():
+def exporter_metrics_endpoint(containers):
+    matches=[item for item in containers if item.get("Name")=="/adguard-exporter"]
+    if len(matches)!=1:raise ValueError("AdGuard exporter runtime identity invalid")
+    networks=matches[0].get("NetworkSettings",{}).get("Networks",{})
+    if set(networks)!={"homelab-net"}:raise ValueError("AdGuard exporter network metadata invalid")
+    address=networks["homelab-net"].get("IPAddress","")
+    try:parsed=ipaddress.ip_address(address)
+    except ValueError as error:raise ValueError("AdGuard exporter network metadata invalid") from error
+    if parsed.version!=4:raise ValueError("AdGuard exporter network metadata invalid")
+    return f"http://{parsed}:9618/metrics"
+def baseline(containers):
     auth=vault_auth();status=api_json("/control/status",auth);filters=api_json("/control/filtering/status",auth);query_config=api_json("/control/querylog/config",auth);queries=api_json("/control/querylog?older_than=&limit=1",auth);stats=api_json("/control/stats",auth);rewrites=api_json("/control/rewrite/list",auth)
-    metrics=urllib.request.urlopen("http://127.0.0.1:9618/metrics",timeout=10).read().decode("utf-8")
+    metrics=urllib.request.urlopen(exporter_metrics_endpoint(containers),timeout=10).read().decode("utf-8")
     samples=[line for line in metrics.splitlines() if line and not line.startswith("#")]
     required=("adguard_avg_processing_time","adguard_dns_queries","adguard_num_blocked_filtering")
     return {"api":{"protection_enabled":bool(status.get("protection_enabled")),"filtering_enabled":bool(filters.get("enabled")),"enabled_filter_count":sum(bool(item.get("enabled")) for item in filters.get("filters",[])),"filter_count":len(filters.get("filters",[])),"user_rule_count":len(filters.get("user_rules",[])),"query_log_enabled":bool(query_config.get("enabled")),"query_sample_count":len(queries.get("data",[])),"rewrite_count":len(rewrites),"stats":{"dns_queries":int(stats.get("num_dns_queries",0)),"blocked_filtering":int(stats.get("num_blocked_filtering",0))}},"dns":{"blocked":dns_probe("doubleclick.net"),"external":dns_probe("example.com"),"lan_a":dns_probe("discovery.homelab.pastelariadev.com"),"lan_aaaa":dns_probe("discovery.homelab.pastelariadev.com","AAAA"),"rewrite":dns_probe("grafana.homelab.pastelariadev.com")},"exporter":{"reachable":True,"required_family_count":sum(any(line.startswith(name) for line in samples) for name in required),"sample_count":len(samples)}}
@@ -64,7 +75,7 @@ def capture():
     render=subprocess.run(RENDER_CONTRACT["argv"],cwd=RENDER_CONTRACT["cwd"],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL).stdout
     semantics_argv=RENDER_CONTRACT["argv"]+["--format","json"]
     semantics=json.loads(subprocess.run(semantics_argv,cwd=RENDER_CONTRACT["cwd"],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL).stdout)
-    return normalize({"baseline":baseline(),"collision":{"driver":collision_inspect["Driver"],"exists":True,"labels":collision_inspect.get("Labels") or {},"mountpoint":collision_inspect["Mountpoint"],"name":collision_inspect["Name"],"references":references},"config_metadata":file_metadata(CONFIG),"containers":containers,"images":images,"servarr":{"commit":run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"]).strip(),"render_semantics":render_semantics(semantics),"render_sha256":hashlib.sha256(render).hexdigest()},"volume":volume,"volume_references":volume_references,"volume_metadata":file_metadata(volume["Mountpoint"],with_size=True)})
+    return normalize({"baseline":baseline(containers),"collision":{"driver":collision_inspect["Driver"],"exists":True,"labels":collision_inspect.get("Labels") or {},"mountpoint":collision_inspect["Mountpoint"],"name":collision_inspect["Name"],"references":references},"config_metadata":file_metadata(CONFIG),"containers":containers,"images":images,"servarr":{"commit":run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"]).strip(),"render_semantics":render_semantics(semantics),"render_sha256":hashlib.sha256(render).hexdigest()},"volume":volume,"volume_references":volume_references,"volume_metadata":file_metadata(volume["Mountpoint"],with_size=True)})
 def main(argv=None):
     parser=argparse.ArgumentParser();parser.add_argument("command",choices=("capture","normalize"));parser.add_argument("input",nargs="?");args=parser.parse_args(argv)
     try:result=capture() if args.command=="capture" else normalize(json.loads(pathlib.Path(args.input).read_text()))
