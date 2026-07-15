@@ -26,6 +26,7 @@ fresh=$("$observer" "$namespace" "$client_interface" "$remote_ip" "$bound" "$kno
 [ "$(jq -cS 'del(.probe_evidence)' <<<"$fresh")" = "$(jq -cS 'del(.probe_evidence)' <<<"$canonical")" ] && [ "$(jq -r .probe_evidence.nonce_sha256 <<<"$fresh")" != "$(jq -r .probe_evidence.nonce_sha256 <<<"$canonical")" ] && [ "$(jq -r .probe_evidence.qnames_sha256 <<<"$fresh")" != "$(jq -r .probe_evidence.qnames_sha256 <<<"$canonical")" ] && [ "$(jq -r .probe_evidence.results_sha256 <<<"$fresh")" != "$(jq -r .probe_evidence.results_sha256 <<<"$canonical")" ] && [ "$(jq -r .probe_evidence.classifications_sha256 <<<"$fresh")" = "$(jq -r .probe_evidence.classifications_sha256 <<<"$canonical")" ] || { finish_artifact failure.json inventory-drift;exit 1; }
 ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=8 -o ConnectionAttempts=1 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o GlobalKnownHostsFile=/dev/null);ssh_command=(ssh "${ssh_opts[@]}" "erik@$remote_ip");remote=(timeout 12 "${ssh_command[@]}")
 adguard_id=$(jq -r '.containers[]|select(.name=="adguard")|.id' <<<"$canonical");exporter_id=$(jq -r '.containers[]|select(.name=="adguard-exporter")|.id' <<<"$canonical")
+approved_exporter_ip=$(jq -er '[.containers[]|select(.name=="adguard-exporter")] as $exporters|select(($exporters|length)==1)|$exporters[0]|select((.networks|type)=="array" and (.networks|length)==1 and .networks[0].name=="homelab-net")|.networks[0].ip_address|select(type=="string") as $ip|($ip|split(".")) as $parts|select(($parts|length)==4 and all($parts[];test("^[0-9]{1,3}$") and (tonumber<=255)))|$ip' <<<"$canonical") || { echo "p3-outage-drill: BLOCKED: approved exporter network differs" >&2;exit 1; }
 mutated=false;emit=false;outage_complete=false;tmp=$(mktemp);outage_evidence=;postrestore_evidence=;enforce_deadline=false;worker_pids=();worker_files=();cleanup(){ rm -f "$tmp"; };trap cleanup EXIT INT TERM
 deadline_check(){ if ! $enforce_deadline;then return 0;fi;[ "$(date +%s%3N)" -le "${outage_deadline:-0}" ]; }
 timeout_duration(){
@@ -37,22 +38,35 @@ deadline_sleep(){ local deadline=$1 requested=$2 remaining duration;[[ $requeste
 recovery_run(){ local duration;duration=$(deadline_duration "$recovery_deadline") || return 1;timeout "$duration" "$@"; }
 recovery_capture(){ local duration capture_file rc;duration=$(deadline_duration "$recovery_deadline") || return 1;capture_file=$(mktemp "$run_dir/.recovery-capture.XXXXXX");chmod 0600 "$capture_file";if timeout "$duration" "$@" >"$capture_file";then rc=0;else rc=$?;fi;REPLY=$(<"$capture_file");rm -f "$capture_file";return "$rc"; }
 check_dns_matrix() {
-  local ordinal=$1 resolver=$2 transport=$3 destination=$4 name type _expected_status contract out answers nonce rc dns_status count_class classification qname_sha evidence_line now remaining duration row=0;nonce=$(od -An -N16 -tx1 /dev/urandom|tr -d ' \n')
-  local -a args=();[ "$resolver" != system ]&&args+=(@"$resolver");[ "$transport" = tcp ]&&args+=(+tcp)
+  local ordinal=$1 resolver=$2 transport=$3 destination=$4 name type _expected_status contract out answers nonce rc dns_status count_class classification qname_sha evidence_line now remaining duration row=0
+  nonce=$(od -An -N16 -tx1 /dev/urandom|tr -d ' \n') || return 1
+  local -a args=();if [ "$resolver" != system ];then args+=(@"$resolver");fi;if [ "$transport" = tcp ];then args+=(+tcp);fi
   while read -r name type _expected_status contract;do
-    deadline_check;if $enforce_deadline;then now=$(date +%s%3N);remaining=$((outage_deadline-now));[ "$remaining" -gt 0 ];elif [[ ${recovery_deadline:-} =~ ^[0-9]+$ ]];then now=$(date +%s%3N);remaining=$((recovery_deadline-now));[ "$remaining" -gt 0 ];else remaining=2000;fi;duration=$(timeout_duration "$remaining");name=${name//\{nonce\}/$nonce}
-    worker_query_tmp="${destination}.query";: >"$worker_query_tmp";chmod 0600 "$worker_query_tmp";timeout "$duration" sudo -n ip netns exec "$namespace" dig "${args[@]}" +time=1 +tries=1 "$name" "$type" >"$worker_query_tmp" & active_timeout_pid=$!
-    if wait "$active_timeout_pid";then rc=0;else rc=$?;fi;active_timeout_pid=;out=$(<"$worker_query_tmp");rm -f "$worker_query_tmp";worker_query_tmp=
-    [ "$rc" -eq 0 ];dns_status=$(sed -n 's/.*status: \([^,]*\).*/\1/p' <<<"$out"|head -1);answers=$(sed -n 's/.*ANSWER: \([0-9]*\).*/\1/p' <<<"$out"|head -1);[[ $answers =~ ^[0-9]+$ ]];if [ "$answers" -eq 0 ];then count_class=zero;else count_class=positive;fi
+    deadline_check || return 1
+    if $enforce_deadline;then now=$(date +%s%3N) || return 1;remaining=$((outage_deadline-now));[ "$remaining" -gt 0 ] || return 1;elif [[ ${recovery_deadline:-} =~ ^[0-9]+$ ]];then now=$(date +%s%3N) || return 1;remaining=$((recovery_deadline-now));[ "$remaining" -gt 0 ] || return 1;else remaining=2000;fi
+    duration=$(timeout_duration "$remaining") || return 1;name=${name//\{nonce\}/$nonce}
+    worker_query_tmp="${destination}.query";: >"$worker_query_tmp" || return 1;chmod 0600 "$worker_query_tmp" || return 1
+    timeout "$duration" sudo -n ip netns exec "$namespace" dig "${args[@]}" +time=1 +tries=1 "$name" "$type" >"$worker_query_tmp" & active_timeout_pid=$!
+    if wait "$active_timeout_pid";then rc=0;else rc=$?;fi;active_timeout_pid=;out=$(<"$worker_query_tmp") || return 1;rm -f "$worker_query_tmp" || return 1;worker_query_tmp=
+    [ "$rc" -eq 0 ] || return 1
+    dns_status=$(sed -n 's/.*status: \([^,]*\).*/\1/p' <<<"$out") || return 1
+    [[ $dns_status != *$'\n'* && $dns_status =~ ^(NOERROR|NXDOMAIN)$ ]] || return 1
+    answers=$(sed -n 's/.*ANSWER: \([^,;[:space:]]*\).*/\1/p' <<<"$out") || return 1
+    [[ $answers != *$'\n'* && $answers =~ ^[0-9]+$ ]] || return 1
+    if [ "$answers" -eq 0 ];then count_class=zero;else count_class=positive;fi
     case $contract in
-      fleet-a) [ "$dns_status" = NOERROR ]&&[ "$count_class" = positive ]&&grep -q '192\.168\.10\.210' <<<"$out";classification="fleet-a";;
-      fleet-aaaa) [ "$dns_status" = NOERROR ]&&[ "$count_class" = zero ];classification="nodata";;
-      external) [ "$dns_status" = NOERROR ]&&[ "$count_class" = positive ];classification="external-positive";;
-      nxdomain) [ "$dns_status" = NXDOMAIN ]&&[ "$count_class" = zero ];classification="nxdomain";;
+      fleet-a) if [ "$dns_status" != NOERROR ]||[ "$count_class" != positive ]||! grep -q '192\.168\.10\.210' <<<"$out";then return 1;fi;classification="fleet-a";;
+      fleet-aaaa) if [ "$dns_status" != NOERROR ]||[ "$count_class" != zero ];then return 1;fi;classification="nodata";;
+      external) if [ "$dns_status" != NOERROR ]||[ "$count_class" != positive ];then return 1;fi;classification="external-positive";;
+      nxdomain) if [ "$dns_status" != NXDOMAIN ]||[ "$count_class" != zero ];then return 1;fi;classification="nxdomain";;
       # Filtering accepts status: NXDOMAIN with zero answers or NOERROR with 0.0.0.0.
       filtered) if [ "$dns_status" = NXDOMAIN ]&&[ "$count_class" = zero ];then classification="filtered-nxdomain";elif [ "$dns_status" = NOERROR ]&&grep -q '0\.0\.0\.0' <<<"$out";then classification="filtered-null";else return 1;fi;;
+      *) return 1;;
     esac
-    qname_sha=$(printf %s "$name"|sha256sum|cut -d' ' -f1);evidence_line="$resolver:$transport:$type:$contract:observed_rc=$rc:observed_status=$dns_status:answer_count_class=$count_class:answer_classification=$classification:qname_sha256=$qname_sha";printf '%02d:%02d:%s\n' "$ordinal" "$((++row))" "$evidence_line" >>"$destination";deadline_check
+    qname_sha=$(printf %s "$name"|sha256sum|cut -d' ' -f1) || return 1
+    evidence_line="$resolver:$transport:$type:$contract:observed_rc=$rc:observed_status=$dns_status:answer_count_class=$count_class:answer_classification=$classification:qname_sha256=$qname_sha"
+    printf '%02d:%02d:%s\n' "$ordinal" "$((++row))" "$evidence_line" >>"$destination" || return 1
+    deadline_check || return 1
   done <<'EOF'
 {nonce}.homelab.pastelariadev.com A NOERROR fleet-a
 {nonce}.homelab.pastelariadev.com AAAA NOERROR fleet-aaaa
@@ -106,11 +120,13 @@ restored_operational_checks() {
   duration=$(deadline_duration "$recovery_deadline") || return 1;timeout "$duration" sudo -n ip netns exec "$namespace" dig +time=2 +tries=1 @192.168.10.210 k8s.pastelariadev.com A|grep -q 'status: NOERROR' || return 1
 }
 exporter_metrics_ready() {
-  local recovery_deadline=$1 metrics family attempt now remaining duration warmup_deadline;local ready
+  local recovery_deadline=$1 inspect_json ip metrics family attempt now remaining duration warmup_deadline;local ready
   now=$(date +%s%3N);warmup_deadline=$((now+30000));[ "$warmup_deadline" -le "$recovery_deadline" ] || warmup_deadline=$recovery_deadline
   for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29;do
     now=$(date +%s%3N);remaining=$((warmup_deadline-now));[ "$remaining" -gt 0 ] || return 1
-    duration=$(timeout_duration "$remaining");metrics=$(timeout "$duration" "${ssh_command[@]}" "ip=\$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $exporter_id); curl -fsS --max-time 3 http://\$ip:9618/metrics" 2>/dev/null||true)
+    duration=$(timeout_duration "$remaining");inspect_json=$(timeout "$duration" "${ssh_command[@]}" "docker inspect $exporter_id" 2>/dev/null||true)
+    ip=$(jq -er --arg id "$exporter_id" 'if length==1 and .[0].Id==$id and ((.[0].NetworkSettings.Networks|keys|sort)==["homelab-net"]) then .[0].NetworkSettings.Networks["homelab-net"].IPAddress else empty end|select(type=="string")|split(".") as $parts|select(($parts|length)==4 and all($parts[];test("^[0-9]{1,3}$") and (tonumber<=255)))' <<<"$inspect_json" 2>/dev/null||true)
+    if [ -n "$ip" ]&&[ "$ip" = "$approved_exporter_ip" ];then now=$(date +%s%3N);remaining=$((warmup_deadline-now));[ "$remaining" -gt 0 ] || return 1;duration=$(timeout_duration "$remaining");metrics=$(timeout "$duration" "${ssh_command[@]}" "curl -fsS --max-time 3 http://$ip:9618/metrics" 2>/dev/null||true);else metrics=;fi
     ready=true;for family in adguard_queries adguard_queries_blocked adguard_avg_processing_time_seconds;do grep -Eq "^# TYPE $family " <<<"$metrics" || ready=false;done
     $ready && return 0;[ "$attempt" -eq 29 ] || deadline_sleep "$warmup_deadline" 1000 || return 1
   done

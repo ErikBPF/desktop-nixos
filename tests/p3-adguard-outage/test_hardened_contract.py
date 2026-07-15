@@ -240,6 +240,7 @@ case "$cmd" in
  *"docker start aaaa"*) n=0; [ -f "$COUNTER" ] && n=$(cat "$COUNTER"); n=$((n+1)); echo "$n" >"$COUNTER"; [ "$n" -le "$START_FAILS" ] && exit 1; exit 0;;
  *"State.Health"*) n=0; [ -f "$HEALTH_COUNTER" ] && n=$(cat "$HEALTH_COUNTER"); n=$((n+1)); echo "$n" >"$HEALTH_COUNTER"; [ "$n" -le "$HEALTH_DELAYS" ] && echo starting || echo healthy;;
  *"docker start bbbb"*) touch "$RESTORED"; exit 0;;
+ *"docker inspect bbbb"*) printf '[{"Id":"%s","NetworkSettings":{"Networks":{"homelab-net":{"IPAddress":"172.30.0.2"}}}}]\n' "$(printf 'b%.0s' {1..64})";;
  *"9618/metrics"*) n=0; [ -f "$METRICS_COUNTER" ] && n=$(cat "$METRICS_COUNTER"); n=$((n+1)); echo "$n" >"$METRICS_COUNTER"; [ "$n" -le "$METRIC_DELAYS" ] && exit 1; printf '# TYPE adguard_queries counter\n# TYPE adguard_queries_blocked counter\n# TYPE adguard_avg_processing_time_seconds gauge\n';;
  *curl*) exit 0;; esac
 ''')

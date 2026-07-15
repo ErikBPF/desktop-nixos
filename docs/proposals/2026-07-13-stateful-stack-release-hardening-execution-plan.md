@@ -520,6 +520,20 @@ container identity. This proves the services were restored; it does not
 retroactively pass the failed drill. P3 remains blocked while the harness gains
 deterministic parallel outage probes and a separately bounded exporter warm-up,
 after which observation, manifest, and exact approval must all be renewed.
+Commit `5a0a836` added those corrections and produced renewed approved manifest
+`4caa2fda…`. Its exact-ID outage reached the parallel matrix within 4,523 ms,
+but retained worker row counts `6,6,6,5,6,6`: the RDNSS/TCP worker received an
+unusable parsed response and a Bash conditional suppressed `errexit`, allowing
+empty fields to reach an integer comparison. The run therefore failed closed
+with only a partial evidence hash; it is a harness failure, not evidence of DNS
+contention or a passed outage. Recovery again restarted the exact IDs and found
+AdGuard healthy, but the exporter probe selected its address by concatenating
+all attached-network values and exhausted its readiness window. Immediately
+afterward, the declarative value-free diagnostic again reported all three
+required exporter families and the complete observation passed. Services are
+restored; P3 remains blocked until worker validation is explicitly fail-closed
+and exporter readiness selects the single bound `homelab-net` address, followed
+by another renewed observation, manifest, and exact approval.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -690,7 +704,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | Blocked — approved outage missed strict deadline; services restored | Desktop through `aedb9e5`; approved manifest `4b394b17…`/inventory `ab3cc2e8…`; normal matrix passed; full proof failed at 10,459/10,000 ms; retained journal; exporter 3/3 and full post-restore observation passed | Parallel deterministic probe harness; bounded exporter warm-up; renew observation/manifest; obtain fresh exact approval |
+| P3 | Blocked — two approved harness attempts failed; services restored | Desktop through `5a0a836`; retained manifests `4b394b17…` and `4caa2fda…`; first missed 10,000 ms deadline; second retained `6,6,6,5,6,6` partial rows due conditional-`errexit` parser bug; exporter 3/3 and full post-restore observations passed after both | Explicit worker guards; exact `homelab-net` exporter readiness; renew observation/manifest; obtain fresh exact approval |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
