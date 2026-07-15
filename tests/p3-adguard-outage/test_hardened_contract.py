@@ -154,10 +154,10 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
 ''')
         executable(bindir / "ssh", '''echo "$*" >>"$LOG"; case "$*" in
  *"docker info"*) exit 0;;
- *"docker ps -aq"*) jq -r '.[].Id' "$CONTAINERS"; [ "$EXTRA_PROJECT" = 1 ] && printf '%064d\n' 9;;
+ *"docker ps"*) if [ "$IGNORE_NO_TRUNC" = 1 ] || ! printf '%s' "$*"|grep -Fq 'docker ps --no-trunc -aq --filter label=com.docker.compose.project=networking';then jq -r '.[].Id[0:12]' "$CONTAINERS";else jq -r '.[].Id' "$CONTAINERS";fi; [ "$EXTRA_PROJECT" = 1 ] && printf '%064d\n' 9;;
  *"docker inspect"*) cat "$CONTAINERS";; esac
 ''')
-        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "LOG": str(log), "CONTAINERS": str(containers), "RA_MODE": "", "SUDO_DENY": "0", "EXTRA_PROJECT": "0", "FILTER_NXDOMAIN": "0"}
+        env = os.environ | {"PATH": f"{bindir}:{os.environ['PATH']}", "LOG": str(log), "CONTAINERS": str(containers), "RA_MODE": "", "SUDO_DENY": "0", "EXTRA_PROJECT": "0", "FILTER_NXDOMAIN": "0", "IGNORE_NO_TRUNC": "0"}
         args = [OBSERVE, "p3-dhcp-proof", "p3d1234", "192.168.10.210", "5000", self.known, self.rdisc, CLIENT, CALLBACK]
         good = subprocess.run(args, env=env, text=True, capture_output=True); self.assertEqual(good.returncode, 0, good.stderr)
         filtered_nxdomain = subprocess.run(args, env=env | {"FILTER_NXDOMAIN": "1"}, text=True, capture_output=True); self.assertEqual(filtered_nxdomain.returncode, 0, filtered_nxdomain.stderr)
@@ -166,6 +166,9 @@ else jq '.probe_evidence.nonce_sha256=("4"*64)|.probe_evidence.qnames_sha256=("5
         self.assertEqual(set(value["probe_evidence"]), {"classifications_sha256", "nonce_sha256", "qnames_sha256", "results_sha256"})
         for digest in value["probe_evidence"].values(): self.assertRegex(digest, r"^[0-9a-f]{64}$")
         ssh_log = log.read_text(); self.assertIn("StrictHostKeyChecking=yes", ssh_log); self.assertIn(f"UserKnownHostsFile={self.known}", ssh_log); self.assertNotIn("sudo docker", ssh_log)
+        self.assertIn("docker ps --no-trunc -aq --filter label=com.docker.compose.project=networking", ssh_log)
+        short_ids = subprocess.run(args, env=env | {"IGNORE_NO_TRUNC": "1"}, text=True, capture_output=True)
+        self.assertNotEqual(short_ids.returncode, 0); self.assertNotIn("docker inspect", log.read_text().split("docker ps")[-1])
         for mode in ("route", "resolver-order", "resolver-extra", "missing-link-local"):
             bad = subprocess.run(args, env=env | {"RA_MODE": mode}, text=True, capture_output=True); self.assertNotEqual(bad.returncode, 0, mode)
         denied = subprocess.run(args, env=env | {"SUDO_DENY": "1"}, text=True, capture_output=True); self.assertNotEqual(denied.returncode, 0)
