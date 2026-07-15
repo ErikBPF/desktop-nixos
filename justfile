@@ -2762,7 +2762,7 @@ discovery-swag-resume-execute authorization manifest-sha:
     hash='{{manifest-sha}}'
     [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved resume manifest SHA-256' >&2; exit 1; }
     test -f "{{authorization}}" || { echo 'BLOCKED: resume authorization file absent' >&2; exit 1; }
-    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+    test "$(python3 -c 'import json,pathlib,sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text())["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
       echo 'BLOCKED: authorization file does not contain approved resume manifest SHA-256' >&2
       exit 1
     }
@@ -2832,6 +2832,16 @@ discovery-swag-transition-target-render:
     docker compose -f "$repo/machines/discovery/networking.yml" \
       config --no-interpolate --no-env-resolution 2>/dev/null | sha256sum | awk '{print $1}'
 
+# Value-free Git binding diagnostic; does not fetch, reset, or change the clone.
+discovery-swag-transition-ref-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} '
+      printf "head="; git -C /home/erik/servarr rev-parse HEAD
+      printf "origin_main="; git -C /home/erik/servarr rev-parse refs/remotes/origin/main
+      printf "remote_main="; git -C /home/erik/servarr ls-remote origin refs/heads/main | awk "{print \$1}"
+    '
+
 discovery-swag-transition-observe output:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -2871,7 +2881,7 @@ discovery-swag-transition-execute observation authorization manifest-sha:
     hash='{{manifest-sha}}'
     [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED: invalid approved transition manifest SHA-256' >&2; exit 1; }
     test -f "{{observation}}" -a -f "{{authorization}}" || { echo 'BLOCKED: transition artifacts absent' >&2; exit 1; }
-    test "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
+    test "$(python3 -c 'import json,pathlib,sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text())["manifest_sha256"])' "{{authorization}}")" = "$hash" || {
       echo 'BLOCKED: authorization file does not contain approved transition manifest SHA-256' >&2
       exit 1
     }

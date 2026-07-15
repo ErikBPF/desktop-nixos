@@ -292,7 +292,7 @@ def execute(observation,authorization,expected_sha):
             head=run(["git","-C",str(REPOSITORY),"rev-parse","HEAD"],capture=True).strip()
             if head==CURRENT:
                 if render_sha()!=observation["servarr"]["render_sha256"] or metadata()!=observation["credential"] or current_runtime()!=observation["runtime"]: raise Drift("pre-reset state differs")
-                run(["git","-C",str(REPOSITORY),"fetch","--quiet","origin","main"])
+                run(["git","-C",str(REPOSITORY),"fetch","--quiet","origin","refs/heads/main:refs/remotes/origin/main"])
                 if run(["git","-C",str(REPOSITORY),"rev-parse","origin/main"],capture=True).strip()!=TARGET: raise Drift("origin/main differs from exact target")
                 run(["git","-C",str(REPOSITORY),"reset","--hard",TARGET])
             elif head!=TARGET: raise Drift("repository is neither authorized pre-state nor exact target")
