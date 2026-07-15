@@ -12,6 +12,12 @@
       "role": "server",
       "tailscaleIp": "100.76.140.121"
     },
+    "endeavour": {
+      "ip": null,
+      "mac": null,
+      "role": "laptop",
+      "tailscaleIp": null
+    },
     "homeassistant": {
       "ip": "192.168.10.115",
       "mac": "52:54:00:d6:a5:ce",
@@ -40,7 +46,7 @@
       "ip": "192.168.10.125",
       "mac": "54:bf:64:28:cb:2e",
       "role": "workstation",
-      "tailscaleIp": "100.104.92.5"
+      "tailscaleIp": "100.102.248.13"
     },
     "telstar": {
       "ip": null,
