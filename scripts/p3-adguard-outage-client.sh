@@ -31,6 +31,9 @@ install -d -m 0700 "$state_dir";printf '%s\n' "$parent" >"$state_dir/parent";par
 ip netns add "$namespace";created=true
 mac=$(printf '02:%02x:%02x:%02x:%02x:%02x' $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))
 ip link add link "$parent" name "$probe" address "$mac" type macvlan mode bridge;ip link set "$probe" netns "$namespace";ip -n "$namespace" link set lo up;ip -n "$namespace" link set "$probe" up
+iid=$(printf '%s' "$namespace:$probe:$RANDOM:$RANDOM:$(date +%s%N)"|sha256sum|cut -c1-16);link_local="fe80::${iid:0:4}:${iid:4:4}:${iid:8:4}:${iid:12:4}"
+ip -n "$namespace" -6 address add "$link_local/64" dev "$probe" nodad
+[ "$(ip -j -n "$namespace" -6 address show dev "$probe" scope link|jq -r --arg address "$link_local" '[.[].addr_info[]|select(.family=="inet6" and .scope=="link" and .local==$address)]|length')" -eq 1 ]
 capture=$(mktemp);P3_DHCP_CAPTURE=$capture timeout 25 ip netns exec "$namespace" "$udhcpc" -f -n -q -T 3 -t 4 -A 2 -O dns -i "$probe" -s "$callback" >/dev/null
 record=$(<"$capture");[[ $record =~ ^event=(bound|renew)[[:space:]]dns=192\.168\.10\.210[[:space:]]192\.168\.10\.230$ ]]
 install -d -m 0700 "$netns_etc";tmp=$(mktemp "$netns_etc/resolv.conf.tmp.XXXXXX");chmod 0600 "$tmp";printf 'nameserver 192.168.10.210\nnameserver 192.168.10.230\n' >"$tmp";mv "$tmp" "$netns_etc/resolv.conf";tmp=

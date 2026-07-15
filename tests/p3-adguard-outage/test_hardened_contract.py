@@ -95,6 +95,7 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
  "-n p3-dhcp-proof -d link show dev p3d1234") echo macvlan;;
  "-n p3-dhcp-proof -o link show") printf '1: lo: x\n2: p3d1234@if3: x\n';;
  "-n p3-dhcp-proof -6 route show default") [ "$RA_MODE" = route ] && echo 'default via fe80::1';;
+ "-j -n p3-dhcp-proof -6 address show dev p3d1234 scope link") if [ "$RA_MODE" = missing-link-local ];then echo '[]';else echo '[{"addr_info":[{"family":"inet6","local":"fe80::1234","prefixlen":64,"scope":"link"}]}]';fi;;
  netns\ exec\ p3-dhcp-proof\ awk\ *) if [ "$RA_MODE" = resolver ];then printf '192.168.10.210\n192.168.10.230\nfe80::1\n';else printf '192.168.10.210\n192.168.10.230\n';fi;;
  netns\ exec\ p3-dhcp-proof\ *) shift 3; if [ "$RA_MODE" = response ];then echo 'Router advertisement RDNSS';exit 0;else "$@";fi;; esac
 ''')
@@ -108,7 +109,7 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
         good = subprocess.run(args, env=env, text=True, capture_output=True); self.assertEqual(good.returncode, 0, good.stderr)
         value = json.loads(good.stdout); self.assertEqual([x["name"] for x in value["containers"]], sorted(NAMES)); self.assertEqual(value["ipv6"]["ra_probe"], "bounded-no-ra")
         ssh_log = log.read_text(); self.assertIn("StrictHostKeyChecking=yes", ssh_log); self.assertIn(f"UserKnownHostsFile={self.known}", ssh_log); self.assertNotIn("sudo docker", ssh_log)
-        for mode in ("route", "resolver", "response", "toolfail", "timeout"):
+        for mode in ("route", "resolver", "response", "toolfail", "timeout", "missing-link-local"):
             bad = subprocess.run(args, env=env | {"RA_MODE": mode}, text=True, capture_output=True); self.assertNotEqual(bad.returncode, 0, mode)
         denied = subprocess.run(args, env=env | {"SUDO_DENY": "1"}, text=True, capture_output=True); self.assertNotEqual(denied.returncode, 0)
         extra = subprocess.run(args, env=env | {"EXTRA_PROJECT": "1"}, text=True, capture_output=True); self.assertNotEqual(extra.returncode, 0)
@@ -124,6 +125,7 @@ if [ "$POST_DRIFT" = 1 ] && [ -e "$RESTORED" ];then jq '.containers |= map(if .n
         source = DRILL.read_text(); self.assertIn("for attempt in 1 2 3", source); self.assertIn("mkdir -m 0700", source); self.assertIn("mv -n", source)
         self.assertNotIn('"sudo docker', source); self.assertIn("trap recover EXIT INT TERM", source); self.assertIn("rm -f", source)
         client = CLIENT.read_text(); self.assertNotIn("trap 'rm -f \"$capture\"' RETURN", client); self.assertIn('[ -n "$capture" ]&&rm -f "$capture"', client); self.assertIn('[ -n "$tmp" ]&&rm -f "$tmp"', client)
+        self.assertIn('-6 address add "$link_local/64" dev "$probe" nodad', client); self.assertIn('-6 address show dev "$probe" scope link', client)
 
     def test_recovery_succeeds_on_attempts_one_two_three_or_records_exhaustion(self):
         bindir = self.root / "lifecycle-bin"; bindir.mkdir(); log = self.root / "lifecycle.log"; counter = self.root / "counter"

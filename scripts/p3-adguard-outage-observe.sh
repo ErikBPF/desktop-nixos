@@ -16,6 +16,8 @@ mapfile -t resolvers < <(sudo -n ip netns exec "$namespace" awk '/^nameserver[[:
 [ "${resolvers[*]}" = "192.168.10.210 192.168.10.230" ]
 mapfile -t ipv6_default < <(sudo -n ip -n "$namespace" -6 route show default)
 [ "${#ipv6_default[@]}" -eq 0 ];for resolver in "${resolvers[@]}";do [[ $resolver != *:* ]] || exit 1;done
+link_local=$(sudo -n ip -j -n "$namespace" -6 address show dev "$interface" scope link)
+jq -e '[.[].addr_info[]|select(.family=="inet6" and .scope=="link" and (.local|test("^fe80:")))]|length==1' >/dev/null <<<"$link_local"
 ra_file=$(mktemp);cleanup(){ rm -f "$ra_file"; };trap cleanup EXIT INT TERM
 set +e
 timeout "$(awk "BEGIN{print $bound/1000}")" sudo -n ip netns exec "$namespace" "$rdisc6" -1 "$interface" >"$ra_file" 2>&1
