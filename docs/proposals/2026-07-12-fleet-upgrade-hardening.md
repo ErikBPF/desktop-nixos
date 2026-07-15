@@ -36,6 +36,13 @@ The build path now has explicit, independently verifiable operations:
   explicit port and builder key, without realizing a production closure.
 - `build-all` submits the fleet as one scheduler graph so shared derivations are
   built once and independent work can run concurrently.
+- `check-remote orion [ref]` runs evaluation and checks from a temporary clean
+  clone of a commit already published on `origin/main`; Orion builds locally
+  and may spill work to Kepler. `check-remote kepler [ref]` reverses those roles.
+  The dispatching laptop performs no evaluation or build.
+- Remote checks fail fast when the local-only KACE fixed-output is absent from
+  both server stores. After `just add-ampagent`, `just seed-ampagent-builders`
+  copies that existing store path to Orion and Kepler without building locally.
 - The K3s HA fixture follows the production control-plane bootstrap invariant
   instead of racing three embedded-etcd members at once.
 

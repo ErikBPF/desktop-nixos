@@ -440,6 +440,23 @@ Rule of thumb: when a change touches more than one of these repos, land the
 **leaf** repo first (hermes-flake / servarr / home-assistant-config /
 klipper-biqu), then bump the input / sync, then deploy from `desktop-nixos`.
 
+## Instruction file layering
+
+This repo uses three instruction surfaces for AI coding agents:
+
+| Tool | Project instructions | Global instructions |
+|------|----------------------|---------------------|
+| opencode | `AGENTS.md` (repo root) | `~/.config/opencode/AGENTS.md` (Home Manager via `opencode-flake`; source: `modules/dev/opencode-agents.md`) |
+| Codex | `AGENTS.md` (repo root) | `~/.codex/AGENTS.md` (Home Manager via `codex-flake`) |
+| Claude Code | `CLAUDE.md` symlink to `AGENTS.md` | `~/.claude/CLAUDE.md` (hand-managed defensive commit rules) |
+
+opencode loads both local `AGENTS.md` and global
+`~/.config/opencode/AGENTS.md`. It skips `~/.claude/CLAUDE.md` because
+`OPENCODE_DISABLE_CLAUDE_CODE=1` is set declaratively.
+
+The canonical workflow is the spicyphus per-slice loop below. BMAD is dormant;
+invoke or reinstall it only when explicitly requested.
+
 ## Per-slice TDD mechanics (nixos-flake variant)
 
 Spicyphus per-slice loop is canonical here, per global `AGENTS.md`. This

@@ -1,13 +1,14 @@
 # Instruction File Consolidation Proposal
 
-**Status:** Phase 1 + 2 + 3 done (2026-07-12) — `CLAUDE.md` renamed to
+**Status:** Implemented (2026-07-14) — `CLAUDE.md` renamed to
 `AGENTS.md` (symlink `CLAUDE.md` → `AGENTS.md` retained for Claude Code
 compat); BMAD bulk (`_bmad/` + `.claude/`) removed (was gitignored +
 untracked — local-only delete); `party-elicitation` skill extracted as
 standalone before removal; `tdd` skill from obra/superpowers also
 extracted declaratively; codex project-instruction behavior verified
 (canonical `AGENTS.md` at repo root — codex inherits project context
-free, no codex-flake change needed). Phase 4 open.
+free, no codex-flake change needed); instruction layering is documented in
+repo-root `AGENTS.md`.
 **Audience:** Maintainer of `desktop-nixos` and the sibling repo fleet.
 **Post-read action:** Pick which phases to implement. Each phase is
 independent; phases 1 and 2 are the high-value ones.
@@ -289,7 +290,7 @@ change.
 | 1 | Rename `CLAUDE.md` → `AGENTS.md`, add `CLAUDE.md` symlink | repo only | **DONE** |
 | 2 | Relocate BMAD to dormant subdir, OR delete entirely | repo only (verify bmalph re-install behavior) | **DONE** (delete — was gitignored + untracked; extracted `party-elicitation` first) |
 | 3 | Verify codex reads project `AGENTS.md`; if not, open codex-flake RFC | repo + possibly sister | **DONE** (free from Phase 1 — codex reads `AGENTS.md` at repo root per openai/codex docs) |
-| 4 | Document the layering in renamed `AGENTS.md` | repo only | open |
+| 4 | Document the layering in renamed `AGENTS.md` | repo only | **DONE** (2026-07-14) |
 
 ## 5. What this proposal does NOT do
 

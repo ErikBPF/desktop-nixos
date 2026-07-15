@@ -1,8 +1,9 @@
 # NetBird overlay — implementation plan (build breakdown)
 
-**Status:** Built + merged; control plane + relay#2 **LIVE** (§Deploy status) and
-laptop CLI enrollment proven. Remaining: voyager relay#1 and broader fleet
-enrollment. Dashboard passkey login is deferred upstream — 2026-07-14.
+**Status:** Implemented build plan (2026-07-14) — WP0–WP4 built and merged;
+control plane + relay#2 are live and laptop CLI enrollment is proven. Remaining
+operations (voyager relay#1 and broader fleet enrollment) stay tracked in the
+active self-hosted-overlay RFC. Dashboard passkey login is deferred upstream.
 
 > **Build results (2026-07-10).** WP0–WP4 done by four sonnet agents + verified
 > together: `just lint`/`fmt-check`/`structure-check` clean, and **zero
@@ -15,7 +16,7 @@ enrollment. Dashboard passkey login is deferred upstream — 2026-07-14.
 > protection is NetBird's JWT + peer-approval + PAT scope. Nothing deployed; Phase S
 > + Phase O remain the human checklist below.
 
-Build breakdown for [`2026-07-10-netbird-selfhosted-overlay.md`](2026-07-10-netbird-selfhosted-overlay.md)
+Build breakdown for [`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)
 (RFC; all gates ruled §11). Maps every artifact to an owner + a verify gate.
 
 ## Guard rails (non-negotiable)

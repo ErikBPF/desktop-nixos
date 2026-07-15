@@ -232,4 +232,6 @@ or deploying. A few install-time specifics:
   state (`.ralph/`, `.bg-shell/`, `_bmad-output/`, `logs/`).
 - **`ampagent-*.deb` at the repo root is local-only and token-bearing** — the
   source `just add-ampagent` imports into the nix store. Never commit it; don't
-  delete the only copy unless it is already in the store.
+  delete the only copy unless it is already in the store. Run
+  `just seed-ampagent-builders` after importing it so clean-clone checks on
+  Orion or Kepler do not depend on the laptop's store.

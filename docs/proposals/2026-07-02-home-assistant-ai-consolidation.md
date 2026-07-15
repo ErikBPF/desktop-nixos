@@ -19,6 +19,16 @@ make the calls.
 [`../reference/kepler-ai-serving.md`](../reference/kepler-ai-serving.md)
 (serving as-built).
 
+> **Implementation update — 2026-07-14:** D-FT is no longer an open model
+> question. Qwen3-4B with the v8 on-policy DPO adapter is the selected
+> act-nothing shadow candidate. Offline shadow contracts and the reversible HA
+> mirror have been implemented and tested, but Kepler deployment is paused at
+> the capacity gate. Whisper leaves 4,178 MiB free after a real request; the
+> 2.69 GiB GGUF plus Q8 KV, CUDA, and server buffers does not leave safe
+> headroom. Move `bge-m3` from GPU to CPU and restore or deliberately retire the
+> unhealthy F5-TTS/reranker services before repeating the concurrent capacity
+> test. Do not enable real capture until that gate passes.
+
 ---
 
 ## 1. Purpose
@@ -246,3 +256,93 @@ human call; nothing here is locked.
   8 GB. Is orion Vulkan-serving a VLM acceptable, or does it wait for a GPU?
 - **Small-model serving slot:** where does an always-on ~8B tool-caller live
   without starving embeddings or the 35B? This may itself gate D-FT.
+
+---
+
+## 8. Shadow-stack implementation checkpoint — 2026-07-14
+
+This section supersedes the older speculative fine-tune and host-placement
+language above. It exists so a fresh operator can resume without reconstructing
+the experiment history.
+
+### Selected candidate and boundary
+
+- Base: Qwen3-4B.
+- Adapter: v8 on-policy DPO, 1,536-token maximum sequence.
+- Serving artifact: Q5_K_M GGUF with Q8_0 K/V and entity-enumerating GBNF.
+- Frozen-116 constrained exact: 0.871; zero hallucinated entities.
+- Measured candidate latency on Orion: 523 ms p50, 662 ms p95.
+- Incumbent HA/Whisper path remains authoritative.
+- Candidate receives no HA credential and has no dispatch capability.
+- Real HA adoption remains transcript mirroring only; no conversation-agent
+  replacement or live canary is approved.
+
+### Implemented, not deployed
+
+The shadow runtime now has tested contracts for:
+
+- immutable, schema-validated capture events;
+- bounded non-blocking queueing with recorded saturation drops;
+- authenticated versioned capture API, payload limits, and path traversal
+  rejection;
+- encrypted-mount enforcement for the local SQLite evidence store;
+- raw transcript/audio exclusion from external telemetry;
+- immutable model, grammar, snapshot, prompt, and harness cohort hashes;
+- deterministic session-level 60/40 train/escrow assignment;
+- five-minute satellite-wide validated-target memory with per-request opt-out;
+- GPU, thermal, corrupt-trace, queue, and incumbent-latency circuit breakers;
+- manual pause and selective evidence deletion;
+- candidate replay through an act-nothing Rust harness that exposes no dispatch
+  capability;
+- separate counterfactual intent, harness safety, and verified household outcome
+  fields;
+- a fake candidate-to-harness-to-evidence end-to-end test.
+
+The HA side has a tested reversible conversation proxy design. It forwards the
+request synchronously to the current incumbent, returns the exact incumbent
+result, and places the immutable shadow capture on a bounded asynchronous fork.
+Timeout, crash, or saturation cannot delay or replace the incumbent result.
+Rollback is reselecting the incumbent conversation entity. No live HA config was
+changed.
+
+Verification at this checkpoint:
+
+- ha-agent Python suite: 118 passing;
+- Rust harness suite: 98 passing;
+- HA configuration suite: 11 passing;
+- Python lint, HA component compilation, and patch checks passing.
+
+### Capacity gate and current blocker
+
+Kepler required a full cold power cycle after the RTX 3070 failed driver
+initialization. GPU, CDI, and Whisper recovered afterward. Capacity measurement
+then produced:
+
+| State | VRAM used | VRAM free | Temperature |
+|---|---:|---:|---:|
+| Cold-boot baseline with GPU `bge-m3` | 1,373 MiB | 6,468 MiB | 46°C |
+| After a real Whisper request | 3,663 MiB | 4,178 MiB | 53°C |
+
+The candidate GGUF is 2,889,513,248 bytes and its expected SHA-256 was verified
+on Orion. It was intentionally not copied or loaded on Kepler: Q8 KV, CUDA, and
+llama-server buffers would leave an unsafe margin beside Whisper. F5-TTS and the
+reranker were also unhealthy during the capacity run, so the full warmed-stack
+baseline was not established.
+
+### Resume sequence
+
+1. Move `bge-m3` to its CPU image through the existing declarative Compose and
+   systemd ownership path. Do not use an ad-hoc container.
+2. Decide whether F5-TTS remains a supported resident service; repair it or
+   disable it explicitly so capacity calculations describe the real stack.
+3. Restore reranker health and verify incumbent routes before loading Qwen.
+4. Repeat warm VRAM, thermal, Whisper latency, and concurrent Whisper/Qwen tests.
+   Reject the layout on OOM, driver fault, thermal violation, or incumbent p95
+   regression above 10% after at least 20 requests in ten minutes.
+5. Only after the capacity gate passes, add separate llama-server and shadow
+   worker containers on a private network. systemd owns lifecycle; no shared pod
+   is required.
+6. Validate restart persistence and run the containerized fake E2E. Prove that
+   stopping or removing the shadow stack leaves incumbent HA healthy.
+7. Enable the HA mirror only after all preceding gates pass. Keep the candidate
+   act-nothing; supervised and autonomous canaries remain out of scope.

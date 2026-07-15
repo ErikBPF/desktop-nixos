@@ -1,126 +1,205 @@
-# RFC: Fleet ESP enlargement (512M → 2G) via staged reinstall
+# Fleet ESP enlargement: risk-triggered migration to 2G
 
-**Status:** Draft — 2026-07-12 — reinstalls **gated behind explicit approval**
+**Status:** Pathfinder, Orion, and Kepler migrated to 2G ESPs on 2026-07-14.
+Pathfinder is accepted without a dedicated soak. Laptop migration is cancelled
+because that machine will be replaced. Discovery is the only remaining
+existing-host migration and retains independent rehearsal and approval gates.
 
-> Spun out of `docs/proposals/2026-07-12-fleet-upgrade-hardening.md` P3. That
-> RFC's decision: enlarge the ESP fleet-wide, accepting a full re-format, rather
-> than band-aid with shrink-initrd / `configurationLimit=1`. The **config-size
-> bump landed already** (commit bumping `ESP.size` `"512M"`→`"2G"` in every
-> disko-managed host's `hardware.nix`); it takes effect **only** on a fresh disko
-> install, so running hosts are untouched. This RFC covers the **destructive
-> second half** — migrating the *existing* hosts to the roomy ESP, which is a
-> per-host reinstall. **Do not execute any step here without explicit per-host
-> approval in the turn.**
+## Policy
 
-## Why
+Future disko installs already allocate a 2G ESP. Existing 512M ESPs are not a
+fleet-wide reinstall campaign. A host migrates only when:
 
-Every disko-managed host's ESP was 512M. With ~180–200M initrds (kepler 180M,
-discovery ~199M once nvidia GSP firmware is in) and `configurationLimit=2`, a
-nixpkgs bump was one large initrd away from overflowing the ESP on every deploy
-(systemd-boot writes the new generation before pruning the old). kepler only fit
-the 2026-07-12 bump by reclaiming ~207M of stale GRUB debris — a one-time win.
-2G gives ≥8× today's initrd, room for `configurationLimit` head-room, and
-survives a doubled initrd. See `memory/kepler_kvm_boot_constraints`,
-`memory/fleet_upgrade_2026_07_12` #2.
+- upgrade preflight cannot fit candidate + one known-good generation + 25%
+  reserve; or
+- another approved reinstall creates a safe opportunity.
 
-## Target layout
+Projected reserve below 50% warns. Below 25% blocks activation. Cleanup cannot
+override this rule.
 
-- **ESP:** `2G`, `vfat`, `type = EF00`, `mountpoint = /boot` (unchanged except size).
-- **Root:** the remaining `100%` — unchanged per host (btrfs / LUKS+btrfs / btrfs
-  RAID1). The 1.5G the ESP grows by comes out of the front of the root
-  partition; no other partition changes.
-- **Data disks / pools:** left exactly as they are **only where they are not in
-  the host's disko config** — see the audit below, because for one host they
-  *are*.
+Original scope covered the existing disko-managed x86 physical hosts:
+`pathfinder`, `laptop`, `orion`, `kepler`, and `discovery`. Laptop is now out of
+scope; its replacement receives the 2 GiB layout on first install. Archinaut uses a
+Raspberry Pi firmware partition; Voyager and Vanguard retain provider layouts;
+Telstar will start with 2G if provisioned.
 
-## Data-preservation audit (READ FIRST — the premise "disko wipes only the boot
-disk" is FALSE for orion)
+## Shared destructive contract
 
-`nixos-anywhere` runs the host's **full** `diskoScript`, which formats **every
-disk declared in `disko.devices`** — not just the one holding the ESP. So the
-survival question is per-disk: *is this disk in the disko config?* If yes → it is
-wiped. If it is a pre-existing mount (`fileSystems.*` only) or an imperative pool
-→ it survives.
+Each host is an independent migration slice. Never run two concurrently.
 
-| Host | disko wipes | Survives (not in disko) | Notes / pre-reinstall action |
-|------|-------------|-------------------------|------------------------------|
-| **kepler** | OS M.2 only (`disk.os`, Toshiba 256G) | ZFS `fast-pool` (4× Kingston SSD) → `/fast`; future `bulk-pool` → `/bulk`. Pools are **imperative**, explicitly *not* in disko. | Safest host. `/home/erik` (root subvol) is wiped → servarr clone re-pulls. Confirm `zpool import fast-pool` after reinstall; sanoid snapshots live in the pool → survive. |
-| **discovery** | `sda` (ESP + RAID1 root half) **and** `sdc` (RAID1 mirror) | `sdb` (Seagate 3.6T HDD, `LABEL=vault` → `/home/erik/vault`): all docker volumes, media, HAOS QCOW2. Not in disko. | **Hub / crown jewel — last.** `/home/erik/homelab/apps/*` (netbird pocket-id, hermes datadirs, netbird GeoIP) and `/home/erik/servarr` are on the **root `/home` subvol → WIPED**. netbird accounts/peers live in the **postgres** container (volume on `sdb`) → survive **iff** Docker data-root is on `sdb` — **verify `docker info | grep "Docker Root Dir"` points at `sdb` before wiping.** Re-provision pocket-id/hermes datadirs (GeoIP re-downloads). |
-| **orion** | **all three disks**: `nvme0` (ESP+root), `sda` (`/opt/models`), `sdb` (`/projects`) | **nothing** — every disk is in disko | ⚠️ **Highest risk.** A naive `just deploy-orion` **destroys `/projects` (ML / ha-agent) and `/opt/models` (Steam + GGUF).** Two safe options: (a) **scope disko to the boot disk only** (partition `nvme0` by hand / a boot-disk-only disko invocation, leave `sda`/`sdb` mounted); or (b) back up `/projects` first (`/opt/models` is re-downloadable per `memory/orion_disk_layout`) then let the full disko run and restore. Prefer (a). Builder/cache host → **last with discovery.** |
-| **laptop** | single disk (ESP + LUKS + btrfs root) | — | Full `/home` wipe. Data is largely syncthing/git/cloud, but treat as a clean install: back up `/home/erik` (or confirm syncthing is 100% converged) first. **This is the machine work is driven from** — reinstall needs another host or a live-USB to run `nixos-anywhere` against it; cannot self-reinstall while running. |
-| **pathfinder** | single disk (ESP + LUKS + btrfs root) | — | Secondary workstation, currently on an old rev anyway. Low stakes — good early canary. |
-| **telstar** | OS disk | — | OCI guest, `profile-oci-guest`, effectively stateless. Cloud reinstall. Good first canary to validate the 2G layout end-to-end. |
+Before destruction, an automated fail-closed preflight must capture:
 
-**Not in scope (no disko ESP to enlarge):** voyager and vanguard use Oracle's
-fixed pre-partitioned `/boot/efi` (`fileSystems`, not disko — cannot be resized
-by us); archinaut (RPi 3B+) is SD-card kernel-direct boot, no ESP.
+- disk model, serial, partition, filesystem, and mount-source inventory;
+- actual and projected ESP capacity;
+- a fresh encrypted backup after the migration freeze;
+- successful multi-class restore drill and restore-drill age no greater than 90
+  days: one bootstrap credential, one dotfile, one document, and one large file
+  when those classes exist;
+- installer media, console or physical access, sops key, SSH key, host closure,
+  and cache availability;
+- host-specific data-survival assertions.
 
-**Crown-jewel backup gate (all hosts, before its reinstall):** restic-snapshot
-the host's config/state to the voyager off-site anchor
-(`memory/voyager_offsite_dr_anchor`) and confirm the snapshot lists, *before*
-wiping. For discovery this includes the postgres dumps + `/home/erik/homelab`
-app state; for orion, `/projects`.
+The restore drill reads selected files directly from the encrypted snapshot,
+hashes them, and writes no full-home restore. One representative hash remains
+the minimum emergency gate when a class is absent, but a snapshot listing alone
+is never restore proof.
 
-## Staged reinstall order (least-critical first; hub + builder last)
+Recovery is forward-only, not rollback. If installation fails, reinstall the
+same host and restore it. Stop the fleet migration until that host is healthy.
 
-1. **telstar** — stateless OCI canary. Validates the 2G disko layout + boot end
-   to end with nothing to lose.
-2. **pathfinder** — secondary workstation on an old rev; low stakes, second canary.
-3. **laptop** — after syncthing-converged / `/home` backup; driven from another
-   host or live-USB (cannot self-reinstall).
-4. **kepler** — schedule around an AI-serving window (LiteLLM / voice backend).
-   Safest data-wise (ZFS pools survive); still a serving outage during reinstall.
-5. **orion** — builder/cache + the 3-disk data hazard. Use the boot-disk-scoped
-   disko path (audit option a) or back up `/projects` first. Warm the binary
-   cache expectations: while orion is down the fleet loses its substituter.
-6. **discovery** — hub / crown jewel, **last**. Everything else depends on it
-   (Vault, Prometheus/Grafana, SWAG ingress, netbird control plane, Loki). Verify
-   `sdb` survival plan (Docker data-root) first; expect to re-provision
-   `/home/erik/homelab` app datadirs and re-pull the servarr clone after.
+## Host hazards
 
-Never more than one host in flight. Verify boot + services on host *N* before
-touching *N+1*.
+- **Pathfinder:** one `/dev/sda`; full wipe is approved. Windows no longer
+  exists. Clean workstation bootstrap; encrypted `/home/erik` safety snapshot
+  goes to Kepler and a representative file must restore before wipe.
+- **Laptop:** one encrypted disk and the normal control workstation. Another
+  host must drive installation; preserve non-reproducible home data first.
+- **Kepler:** wipe only the OS M.2. ZFS pools must remain outside the destructive
+  graph and import cleanly afterward.
+- **Orion:** current full disko graph includes `/projects` and `/opt/models`.
+  The normal installer is forbidden. Build a reviewed boot-disk-only installer
+  module and prove data disks are absent from its destructive graph.
+- **Discovery:** root RAID members are destructive; vault disk survives only if
+  live inventory proves it is outside disko. Prove Docker data ownership and
+  restore representative state before approval.
 
-## Per-host procedure
+## Pathfinder execution slice (completed)
 
-For each host, in order:
+Pathfinder was the first approved migration. The planned installer-media path
+evolved to `nixos-anywhere --force-kexec` from the live system after port 22 was
+confirmed unavailable. The same disk identity, backup, closure, and passphrase
+gates remained in force.
 
-1. **Backup gate.** restic → voyager; confirm the snapshot exists. For orion also
-   back up `/projects`; for discovery confirm docker volumes are on `sdb`.
-2. **Confirm the config bump is live in the flake.** `ESP.size = "2G"` for the
-   host (already committed) — `just dry <host>` clean.
-3. **Reinstall.** `just deploy-<host>` (nixos-anywhere wipe+reinstall) — **except
-   orion**, where the disko run must be scoped to the boot disk (see audit) so
-   `/opt/models` + `/projects` are not formatted.
-4. **Restore data.** Re-import ZFS pools (kepler), re-mount `vault` + re-provision
-   app datadirs + re-pull servarr (discovery), re-mount `/projects`+`/opt/models`
-   (orion), sync `/home` (laptop).
-5. **Verify.** `systemctl --failed` empty (or only known false-fatals), the
-   host's key services up (`systemctl status` / `journalctl -u` / curl per the
-   fleet-upgrade-hardening "Verify changes" rules), and `df -h /boot` shows the
-   ~2G ESP. A green rebuild is not proof — check the service.
+1. Boot the current system and make it reachable.
+2. Run read-only inventory and ESP projection.
+3. Freeze writes to non-reproducible home data.
+4. Create an encrypted `/home/erik` safety snapshot on Kepler.
+5. Restore a representative file into a temporary directory and compare it.
+6. Build the Pathfinder closure and verify trusted installer media.
+7. Present the evidence bundle. Destructive `/dev/sda` wipe is already approved
+   for this slice, but any failed gate stops execution.
+8. Laptop drives `nixos-anywhere` while Pathfinder runs trusted NixOS installer
+   media.
+9. Use LUKS passphrase only. Do not log or place it in command arguments.
+10. Boot, restore only non-reproducible data, then verify networking, SSH,
+    Syncthing, Home Manager, GPU/session health, boot counting, revision, failed
+    units, and the 2G ESP.
 
-## Rollback / abort
+Pathfinder's obsolete Windows dual-boot and FIDO2-unlock configuration must be
+removed with this slice.
 
-A reinstall is destructive and has **no in-place rollback** — once disko runs,
-the old root is gone. The safety model is therefore *forward-only with a net*:
+## Pathfinder findings incorporated into later slices
 
-- **Backup-first + one-at-a-time** (above) is the rollback: if host *N* fails to
-  boot or a service won't come up, **stop the fleet migration**, restore *N* from
-  its restic snapshot onto a re-run install, and do **not** proceed to *N+1*
-  until *N* is green.
-- If a reinstall fails mid-run (nixos-anywhere aborts), the host is down until
-  re-run; it does not cascade to other hosts because they are untouched. Cloud
-  hosts (telstar) can be re-imaged from the provider console; physical hosts need
-  a live-USB.
-- **Abort criteria:** any host that needs more than one restore attempt, or any
-  data disk that comes back unreadable, halts the migration for human review —
-  do not "push through" the remaining hosts.
+Pathfinder completed on 2026-07-14. Its encrypted Restic snapshot `00eba53c`
+stored 28.324 GiB on Kepler; a representative file was streamed back and its
+SHA-256 matched before the wipe. The completed migration exposed bootstrap
+requirements that are now gates for later hosts:
 
-## Open items
+- declare `users.mutableUsers = false`; otherwise an install that initially
+  lacks decrypted `hashedPasswordFile` creates a locked user and later
+  activations preserve it;
+- stage the sops age key, verify first-boot decryption, require `passwd -S` to
+  report a password-bearing account, and prove an actual greeter login;
+- create every configured Syncthing folder root as the target user before
+  Home Manager runs; `.stignore` symlink creation must not leave root-owned
+  parents;
+- remove a stale Tailscale machine before enrolling its replacement;
+  workstations remain user-owned and use interactive enrollment because the
+  fleet OAuth credential is intentionally scoped to `tag:server`;
+- record and republish the new Tailscale IP in the fleet SSOT;
+- build only on declared remote builders (`--max-jobs 0`); the control laptop
+  may evaluate and orchestrate but must not compile closures;
+- judge activation by resulting generation and service evidence. A failed
+  AppArmor reload can make `switch-to-configuration` return nonzero after the
+  generation and secrets were applied, so diagnose that unit explicitly rather
+  than treating the misleading sudo footer as the cause;
+- post-switch evidence must include zero failed units, Home Manager, Syncthing,
+  sops staging cleanup, Tailscale name/IP, account state, greeter login, and ESP
+  capacity. Pathfinder finished with a 2 GiB ESP and 78% projected reserve.
 
-- orion boot-disk-scoped disko invocation: decide the exact mechanism (hand
-  `sgdisk` + `mkfs` on `nvme0` then `nixos-install`, vs a trimmed disko config)
-  and document it before orion's turn.
-- discovery Docker data-root confirmation (is it really on `sdb`?) — verify on
-  the live host before scheduling.
+The following implementation improvements landed from those findings:
+
+- the generic deploy escape hatch now uses declared fleet builders and
+  `--max-jobs 0`, preventing laptop compilation;
+- the fleet user module enforces immutable declarative passwords and provides a
+  silent local password-hash rotation path that writes only sops ciphertext;
+- the Syncthing topology creates all folder roots with user ownership before
+  linking `.stignore`;
+- Pathfinder has fingerprint-pinned SSH host-key replacement, bootstrap/login
+  diagnostics, and explicit user-owned Tailscale enrollment recipes;
+- Pathfinder's new Tailscale address, `100.102.248.13`, is recorded in the fleet
+  SSOT.
+
+## Orion migration (completed)
+
+Live inventory on 2026-07-14 corrected the assumed `sdX` mapping. Orion has:
+
+- Force MP510 NVMe, serial `19458242000129183963`: current 512 MiB ESP and
+  Btrfs root/home/nix/log; this is the only migration target;
+- SanDisk SSD PLUS, serial `193181805834`: Btrfs `/projects`, filesystem UUID
+  `d4511ef9-7f62-4f0f-86d2-ee015344c289`;
+- Kingston SV300S37A480G, serial `50026B724709FD21`: ext4 `/opt/models` and the
+  Steam bind source, filesystem UUID
+  `88a7f0d3-2fa2-4354-a4cd-8cab451dce85`.
+
+The filesystem design remains unchanged: Btrfs is retained for the NVMe system
+and `/projects`; ext4 is retained for model and Steam data. Filesystem redesign
+would add unrelated failure modes to an ESP migration.
+
+An `orion-esp-installer` configuration now force-replaces the normal disko disk
+graph with only
+`/dev/disk/by-id/nvme-Force_MP510_19458242000129183963`. The two SATA filesystems
+are mounted by UUID but are absent from the destructive graph. The generated
+disko script passed a fail-closed graph proof, and the installer toplevel passed
+a dry-run evaluation. The normal Orion installer remained forbidden for this
+migration.
+
+Orion's home is approximately 117 GiB. The encrypted backup recipe excludes
+the nested SATA mounts and requires four successful selective restores: the
+sops age key, a dotfile, the flake document, and a 5.3 GiB model shard. This
+backup and restore drill completed before destructive approval. Orion then
+migrated only the Force MP510 NVMe. `/projects` and `/opt/models` survived on
+their original SATA filesystems and mounted by UUID after boot. The generated
+host key changed during reinstall; builder trust was repaired only after its
+new fingerprint was verified. The controller laptop orchestrated but did not
+build the closure.
+
+## Kepler migration (completed)
+
+Live inventory corrected Kepler's volatile `sdX` mapping immediately before
+the wipe. The only destructive target was Toshiba M.2 serial
+`58SF70G0F5WP`; the four-disk `fast-pool`, five-disk `bulk-pool`, and two cache
+SSDs were excluded from the generated disko graph by a fail-closed proof.
+
+The encrypted OS-state snapshot on Orion is `6a5aa2da`. Four selective restore
+classes passed before destruction, including SSH identity, Tailscale state,
+sops age key, and a 5.3 GiB model shard. Orion built the Kepler closure with
+`--max-jobs 0`; the control laptop only orchestrated. `nixos-anywhere
+--force-kexec` installed the 2G ESP and Btrfs root while staged extra files
+preserved SSH, Tailscale, and sops identity.
+
+After boot, both ZFS pools imported ONLINE with zero errors and `/fast` and
+`/bulk` mounted from their original members. The 134 GiB home tree was restored
+from the verified snapshot; the representative large-file SHA-256 matched.
+Home Manager was reasserted after restore, Syncthing/NFS resumed, and all eight
+currently declared AI/docs containers reached healthy state. The historical
+`f5-tts-server` container was correctly absent because current config retired
+it on 2026-07-14.
+
+## Next steps
+
+1. Retain Pathfinder, Orion, and Kepler snapshots according to normal backup
+   policy; no migration-specific soak gates further fleet work.
+2. Do not migrate the current laptop. Its replacement receives the 2 GiB ESP
+   layout during first installation.
+3. Execute Discovery preparation through the independent
+   [Discovery ESP migration plan](2026-07-14-discovery-esp-migration.md): prove
+   the root RAID destructive graph, vault exclusion, cold Docker recovery,
+   encrypted restores, and OpenBao/Harbor/Compose recovery order.
+4. Discovery destruction remains blocked pending its evidence manifest and a
+   separate explicit approval.
+
+## Later-host approval
+
+Pathfinder approval does not authorize another host. Every later destructive
+migration needs its own evidence and explicit per-host approval.

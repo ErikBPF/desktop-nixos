@@ -20,7 +20,7 @@ supported path recorded in the NetBird + PocketID Terraform implementation.
 > docs.netbird.io) — not guessed, per the plan-doc landmine #2. The order of
 > operations is a **human-gated runbook**: no agent runs `switch-discovery` (§7).
 > This RFC is the focused slice the NetBird implementation plan spun out
-> ([`2026-07-10-netbird-implementation-plan.md`](../proposals/2026-07-10-netbird-implementation-plan.md)
+> ([`2026-07-10-netbird-implementation-plan.md`](2026-07-10-netbird-implementation-plan.md)
 > §"Deploy status & discovered prerequisites"): stand PocketID up **without
 > breaking the crown-jewel hub**, hand off the passkey + OIDC-client step, then
 > wire NetBird management/dashboard to it.
@@ -376,7 +376,7 @@ Ruled by a human before/at wire-up. Recommendation first where there is one.
 
 *Cross-refs:* [`2026-07-10-netbird-selfhosted-overlay.md`](../proposals/2026-07-10-netbird-selfhosted-overlay.md)
 (parent RFC — §5 exposure, §6/§6a IdP+MFA, §9 secrets),
-[`2026-07-10-netbird-implementation-plan.md`](../proposals/2026-07-10-netbird-implementation-plan.md)
+[`2026-07-10-netbird-implementation-plan.md`](2026-07-10-netbird-implementation-plan.md)
 (discovered prerequisites this doc clears),
 [`2026-07-10-vanguard-second-oracle-node.md`](2026-07-10-vanguard-second-oracle-node.md)
 (sibling Track-1 node), [`../reference/service-exposure.md`](../reference/service-exposure.md)
