@@ -118,6 +118,7 @@
           # relay2 DNS fresh once that role is enabled).
           ip = "163.176.206.86";
           role = "server";
+          tailscaleIp = "100.90.247.79";
         };
         laptop = {
           # Roaming — Tailscale-only, no fixed LAN reservation.

@@ -1461,6 +1461,41 @@ verify-firewall target:
     ssh -p 2222 erik@"$IP" "command -v docker >/dev/null && docker ps --format '{{{{.Names}}}}\t{{{{.Ports}}}}' | grep '0.0.0.0\|:::' || echo '(no docker / no published ports)'"
     echo ":: Compare against the intended exposure manifest before trusting this host."
 
+# P3 read-only gate before enabling Kepler CoreDNS. Kepler :53 must be free;
+# the existing vanguard tailnet resolver must still answer over UDP and TCP.
+p3-dns-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEPLER=$(just _host-ip kepler)
+    VANGUARD_TAIL=$(jq -r '.hosts.vanguard.tailscaleIp' fleet.json)
+    listeners=$(ssh -p 2222 erik@"$KEPLER" \
+      "sudo ss -H -lntu 'sport = :53' | grep -Ev '127\\.0\\.0\\.(53|54)(%lo)?:53|\\[::1\\]:53' || true")
+    test -z "$listeners" || { echo "BLOCKED: Kepler non-loopback port 53 already in use" >&2; exit 1; }
+    for transport in +notcp +tcp; do
+      test "$(dig "$transport" +short +time=3 +tries=1 @"$VANGUARD_TAIL" grafana.homelab.pastelariadev.com A)" = "192.168.10.210"
+      test -n "$(dig "$transport" +short +time=3 +tries=1 @"$VANGUARD_TAIL" example.com A)"
+    done
+    echo ":: P3 preflight OK — Kepler :53 free; vanguard UDP/TCP DNS healthy"
+
+# P3 direct-secondary verification after a Kepler deployment. DHCP remains
+# untouched until this gate also passes after reboot.
+p3-dns-verify:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEPLER=$(just _host-ip kepler)
+    for transport in +notcp +tcp; do
+      test "$(dig "$transport" +short +time=3 +tries=1 @"$KEPLER" grafana.homelab.pastelariadev.com A)" = "192.168.10.210"
+      test -n "$(dig "$transport" +short +time=3 +tries=1 @"$KEPLER" example.com A)"
+      dig "$transport" +time=3 +tries=1 @"$KEPLER" grafana.homelab.pastelariadev.com AAAA | grep -q 'status: NOERROR'
+    done
+    ssh -p 2222 erik@"$KEPLER" '
+      set -euo pipefail
+      test "$(systemctl is-active coredns.service)" = active
+      ! sudo ss -H -lntu "sport = :53" | grep -Eq "(^|[[:space:]])(0\\.0\\.0\\.0|\\[::\\]):53"
+      test "$(systemctl show coredns.service -P NRestarts)" = 0
+    '
+    echo ":: P3 direct secondary OK — Kepler UDP/TCP fleet/external DNS healthy"
+
 # Validate the declared disko /dev/sda layout end-to-end: partition, install, and
 # boot in a throwaway VM (does NOT touch Oracle). This is the same install path
 # `deploy-voyager` runs. Complements voyager-vm-* which exercise runtime/compose

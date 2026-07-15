@@ -58,7 +58,7 @@
       "ip": "163.176.206.86",
       "mac": null,
       "role": "server",
-      "tailscaleIp": null
+      "tailscaleIp": "100.90.247.79"
     },
     "voyager": {
       "ip": "147.15.7.254",
