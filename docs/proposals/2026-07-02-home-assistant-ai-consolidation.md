@@ -12,8 +12,8 @@ make the calls.
 `orion` (reasoning LLM), plus a candidate small-model host (see §5).
 **Related:**
 [`../implemented/2026-05-27-home-assistant-voice-assistant.md`](../implemented/2026-05-27-home-assistant-voice-assistant.md)
-(the shipped core), [`2026-05-23-home-assistant-declarative.md`](2026-05-23-home-assistant-declarative.md)
-(config-management workflow, backlog A11),
+(the shipped core), [`2026-05-23-home-assistant-declarative.md`](../implemented/2026-05-23-home-assistant-declarative.md)
+(implemented config-management workflow; A11 resolved),
 [`2026-07-02-open-decisions-and-work.md`](2026-07-02-open-decisions-and-work.md)
 (backlog A12 — this doc is the "RFC próprio" A12 asks for),
 [`../reference/kepler-ai-serving.md`](../reference/kepler-ai-serving.md)

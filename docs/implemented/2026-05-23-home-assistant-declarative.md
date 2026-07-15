@@ -1,13 +1,28 @@
 # Home Assistant as a First-Class Citizen
 
 **Date:** 2026-05-23
-**Status:** Proposal
+**Status:** Implemented — Phase 1 shipped; HAOS retained by decision (2026-07-14)
 **Owner:** erik
-**Target hosts:** `discovery` (primary), optional `orion` fallback
+**Target host:** `discovery`
 
 ---
 
-## 1. Goal
+## 1. Outcome
+
+Phase 1 shipped in the `home-assistant-config` repository. Home Assistant app
+configuration, automations, scripts, blueprints, dashboards, and vendored custom
+components now live in Git. CI validates changes, workstation changes flow through
+PRs, and HAOS creates reviewable snapshot PRs for UI-managed changes.
+
+HAOS remains the runtime appliance on `discovery`. The fleet tracks its addressing
+and declarative libvirt definition; `home-assistant-config` owns application config.
+This boundary matches the fleet SSOT/SRP contract.
+
+Migration to Container or NixOS is deferred without a target date. Reconsider only
+when concrete HAOS operational pain outweighs Supervisor/add-on convenience and the
+state, USB/Zigbee, backup, and rollback migration risks.
+
+## 2. Original goal
 
 Promote the Home Assistant deployment from an opaque HAOS VM to a fully version-controlled, declarative subsystem that lives alongside the existing NixOS + servarr (compose) configuration.
 
@@ -21,7 +36,7 @@ Concretely:
 
 ---
 
-## 2. Current State (baseline)
+## 3. Original baseline
 
 | Item | Where |
 |---|---|
@@ -34,11 +49,14 @@ Concretely:
 | Git | **None** — `/config` inside HAOS is not under version control |
 | servarr pattern (reference) | `homelab.compose.stacks` in `modules/hosts/{orion,discovery}/compose.nix` with bind-mounted dirs under `/home/erik/servarr/machines/<host>/` |
 
-**Gap:** the HAOS VM is the *only* part of the homelab that isn't reproducible from `git clone && nixos-rebuild`. Every other service (servarr stacks, hermes agent, alloy, kepler-nfs) is declared in Nix and/or compose YAML tracked in this repo.
+**Historical gap:** HA application config was not version-controlled. Fleet state now
+spans multiple owner repositories, so full recovery is not a single
+`git clone && nixos-rebuild`; each owner publishes or delivers its own artifact or
+configuration.
 
 ---
 
-## 3. Options
+## 4. Options considered
 
 Three paths, in increasing order of "Nix-native" purity and decreasing order of HAOS-feature parity.
 
@@ -93,21 +111,27 @@ Splits the difference. HA runs as an OCI container under the existing `homelab.c
 
 ---
 
-## 4. Recommendation
+## 5. Decision
 
-**Phase 1 → Option A (this month).** Buys version control + rollback immediately, zero risk of breaking the running instance, unblocks "PR-driven automations" workflow today.
+**Implemented → Option A.** Version control, validation, rollback, and PR-driven
+configuration shipped without replacing the working appliance.
 
-**Phase 2 → Option C (next quarter).** Once the config is clean YAML in Git, swapping HAOS for an OCI container is a low-effort migration: stop VM, point compose stack at the same `/config` git checkout, start container, re-pair Zigbee. Matches the servarr pattern exactly and keeps `discovery` homogeneous.
+**Deferred → Option C.** A future container migration would belong to the `servarr`
+household-workload repository, while this flake would own required host support.
+Clean YAML reduces config migration cost, but HA state, Supervisor add-ons,
+USB/Zigbee, backup, and rollback still make this a significant migration.
 
-**Phase 3 (optional, only if a future need pushes us) → Option B.** Pure-Nix is appealing but the Add-on/HACS regression risk is non-trivial; only worth it if we discover Supervisor itself is causing problems.
+**Deferred → Option B.** Pure Nix remains an alternative only if concrete runtime
+needs justify Add-on/HACS compatibility work.
 
-Rationale: each phase is independently shippable, and Phase 1 is already 80% of the perceived value ("declarative config of plugins and automations, synced to GitHub").
+No migration is scheduled. Retain HAOS until measured operational pain creates a
+reason to reopen this decision.
 
 ---
 
-## 5. Phased Implementation
+## 6. Implementation record and deferred alternatives
 
-### Phase 1 — Git-sync the existing HAOS instance
+### Phase 1 — Git-sync the existing HAOS instance (implemented)
 
 1. **Repo bootstrap**
    - Create private GitHub repo `ErikBPF/home-assistant-config`.
@@ -179,13 +203,10 @@ Rationale: each phase is independently shippable, and Phase 1 is already 80% of 
 
 7. **Document plugins/HACS in repo** — vendor `custom_components/<name>/` into git directly (do **not** rely on HACS pulling them at runtime). Same for blueprints under `blueprints/automation/<author>/<name>.yaml`. From here on, "install a plugin" = open a PR.
 
-### Phase 2 — Migrate to containerised HA (Option C)
+### Deferred alternative — Migrate to containerised HA (Option C)
 
-1. Add a new stack to `modules/hosts/discovery/compose.nix`:
-   ```nix
-   homelab.compose.stacks = [ "shared" "ai-models" "hermes-agent" "home-assistant" ];
-   ```
-2. Create `~/servarr/machines/discovery/home-assistant/`:
+1. Add a household workload stack under the `servarr` repository for `discovery`.
+2. In that stack:
    - `compose.yaml` with `ghcr.io/home-assistant/home-assistant:stable`, host networking, USB device passthrough by stable `by-id` path.
    - `config/` → git submodule of `home-assistant-config`.
    - Sibling services for replaced add-ons (`eclipse-mosquitto`, `esphome/esphome`).
@@ -193,22 +214,26 @@ Rationale: each phase is independently shippable, and Phase 1 is already 80% of 
 4. **Cut-over plan**: keep VM running, bring up container on a different MAC/IP, validate, then swap DHCP reservation and shut down the VM. Keep the qcow2 around for one release cycle.
 5. Retire `modules/hosts/discovery/haos.nix` and `haos-domain.xml` (or gate them behind an `enable = false` toggle for one cycle).
 
-### Phase 3 — Optional Nix-native (only if Phase 2 frustrates us)
+### Deferred alternative — Nix-native
 
 Skipped unless we hit concrete pain (e.g., container drift, add-on coupling). Tracked but not scheduled.
 
 ---
 
-## 6. Open Questions
+## 7. Reopening criteria
 
-- **Plugin inventory:** which HACS components are currently installed in the live HAOS? Need to enumerate before Phase 1 step 7 — anything not vendorable from upstream needs a plan.
-- **Secrets strategy:** keep `secrets.yaml` outside git, or bring it into `sops-nix` like everything else in this repo? (Leans `sops-nix` for consistency.)
-- **Backup target:** in Phase 2, where does the HA DB live? Same `/home/erik/vault/` mount, or onto `kepler-nfs`?
-- **UI-edit policy:** allow auto-commit (current Phase 1 plan) or forbid UI edits entirely and force PR workflow? Trade-off: ergonomics vs. cleanliness of history.
+- A required integration cannot run reliably under HAOS.
+- Supervisor or HAOS lifecycle creates recurring, measured operational failures.
+- Existing backup and restore behavior proves insufficient.
+- Container or NixOS migration offers a concrete capability unavailable in HAOS.
+
+Before reopening, inventory add-ons and HACS components, test native backup restore,
+export the Zigbee coordinator backup, choose runtime-secret handling under the D5
+Vault/sops boundary, and define a tested rollback window.
 
 ---
 
-## 7. Risks
+## 8. Risks
 
 | Risk | Mitigation |
 |---|---|
@@ -220,7 +245,7 @@ Skipped unless we hit concrete pain (e.g., container drift, add-on coupling). Tr
 
 ---
 
-## 8. HAOS → Container Regression Study
+## 9. HAOS → Container Regression Study
 
 Concrete inventory of what disappears when we leave the HAOS VM behind (Option C / Option B). Use this checklist to decide whether each loss is acceptable before cutting over.
 
@@ -273,7 +298,7 @@ Going from HAOS → Container costs **add-ons + Supervisor UI conveniences**. It
 
 ---
 
-## 9. Sync Direction & Conflict Model
+## 10. Sync Direction & Conflict Model
 
 Bidirectional sync (UI edits flow back to GitHub **and** GitHub PRs flow forward to HA) is the goal but also the failure mode. Concrete model:
 
@@ -346,7 +371,7 @@ Start at 1a; promote to 1b only after a week with no surprises.
 
 ---
 
-## 10. References
+## 11. References
 
 - [NixOS Wiki — Home Assistant](https://wiki.nixos.org/wiki/Home_Assistant)
 - [nixpkgs `nixos/tests/home-assistant.nix`](https://github.com/NixOS/nixpkgs/blob/master/nixos/tests/home-assistant.nix) — canonical declarative example with blueprints + custom components

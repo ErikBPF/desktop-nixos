@@ -10,7 +10,7 @@ announcements) are future enhancements — tracked as backlog decision A12 in
 [`../proposals/2026-07-02-open-decisions-and-work.md`](../proposals/2026-07-02-open-decisions-and-work.md).
 **Owner:** erik
 **Target hosts:** `discovery` (HAOS + LiteLLM), `kepler` (STT/TTS/vision), `orion` (reasoning LLM)
-**Related:** [`2026-05-23-home-assistant-declarative.md`](../proposals/2026-05-23-home-assistant-declarative.md) — this proposal's config changes land in the `home-assistant-config` repo per that doc's Phase 1 workflow.
+**Related:** [`2026-05-23-home-assistant-declarative.md`](2026-05-23-home-assistant-declarative.md) — this proposal's config changes land in the `home-assistant-config` repo per that doc's implemented Phase 1 workflow.
 
 ---
 
