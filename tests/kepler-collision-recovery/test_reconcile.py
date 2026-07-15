@@ -43,8 +43,8 @@ class ReconcileTests(unittest.TestCase):
     def envelope(self, kind, payload):
         return {kind: payload, f"{kind}_sha256": self.module.digest(payload), "schema": f"kepler-collision-{kind}-v1"}
 
-    def reconcile(self):
-        return self.module.reconcile(self.envelope("inventory", self.inventory), self.envelope("desired", self.desired), {"desktop-nixos": SHA, "servarr": "2" * 40})
+    def reconcile(self, mode="migration"):
+        return self.module.reconcile(self.envelope("inventory", self.inventory), self.envelope("desired", self.desired), {"desktop-nixos": SHA, "servarr": "2" * 40}, mode=mode)
 
     def make_legacy(self):
         container = self.inventory["containers"][0]
@@ -64,6 +64,191 @@ class ReconcileTests(unittest.TestCase):
     def test_running_collision_halts(self):
         self.inventory["containers"][0]["state"] = "running"
         self.assertIn("running-collision", self.reconcile()["manifest"]["halt_reasons"])
+
+    def test_post_recovery_audit_marks_exact_running_desired_container_converged(self):
+        self.inventory["containers"][0]["state"] = "running"
+        first = self.reconcile(mode="post-recovery-audit")
+        second = self.reconcile(mode="post-recovery-audit")
+        item = first["manifest"]["classifications"][0]
+        self.assertEqual(first, second)
+        self.assertEqual(first["manifest_sha256"], self.module.digest(first["manifest"]))
+        self.assertEqual(first["manifest"]["mode"], "post-recovery-audit")
+        self.assertEqual(first["manifest"]["status"], "converged")
+        self.assertEqual((item["action"], item["classification"], item["reason"]),
+                         ("none", "converged", "exact-running-desired"))
+
+    def test_post_recovery_audit_still_halts_on_runtime_drift(self):
+        self.inventory["containers"][0]["state"] = "running"
+        self.inventory["containers"][0]["networks"] = ["foreign"]
+        result = self.reconcile(mode="post-recovery-audit")["manifest"]
+        self.assertEqual(result["status"], "halt")
+        self.assertIn("declared-runtime-mismatch", result["halt_reasons"])
+
+    def test_post_recovery_audit_halts_when_desired_container_is_absent(self):
+        self.inventory["containers"] = []
+        result = self.reconcile(mode="post-recovery-audit")["manifest"]
+        self.assertEqual(result["status"], "halt")
+        self.assertIn("desired-container-absent", result["halt_reasons"])
+
+    def test_post_recovery_audit_halts_when_exact_retired_resource_remains(self):
+        self.inventory["containers"][0]["state"] = "running"
+        self.inventory["containers"].append({
+            **self.inventory["containers"][0], "id": "c" * 64, "name": "restate",
+            "labels": {"com.docker.compose.project": "restate", "com.docker.compose.service": "restate"},
+        })
+        result = self.reconcile(mode="post-recovery-audit")["manifest"]
+        retired = next(item for item in result["classifications"] if item["container"] == "restate")
+        self.assertEqual(result["status"], "halt")
+        self.assertIn("retired-resource-still-present", result["halt_reasons"])
+        self.assertEqual((retired["action"], retired["classification"], retired["reason"]),
+                         ("halt", "halt", "retired-resource-still-present"))
+
+    def test_post_recovery_audit_fail_closed_matrix(self):
+        mutations = (
+            (lambda c: c.update({"state": "exited"}), "desired-container-not-running"),
+            (lambda c: c["labels"].clear(), "missing-compose-labels"),
+            (lambda c: c["labels"].update({"com.docker.compose.project": "foreign"}), "foreign-compose-project"),
+            (lambda c: c["labels"].update({"com.docker.compose.service": "foreign"}), "foreign-compose-service"),
+            (lambda c: c["mounts"][0].update({"source": "/wrong"}), "declared-runtime-mismatch"),
+            (lambda c: c["mounts"][0].update({"read_only": True}), "declared-runtime-mismatch"),
+            (lambda c: c.update({"image_digest": "sha256:" + "b" * 64}), "immutable-registry-digest-required"),
+        )
+        for mutation, reason in mutations:
+            with self.subTest(reason=reason):
+                original_inventory = copy.deepcopy(self.inventory)
+                original_desired = copy.deepcopy(self.desired)
+                self.inventory["containers"][0]["state"] = "running"
+                mutation(self.inventory["containers"][0])
+                self.assertIn(reason, self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"])
+                self.inventory = original_inventory
+                self.desired = original_desired
+
+    def test_post_recovery_audit_halts_on_local_model_coverage_and_unknown_owner(self):
+        container = self.inventory["containers"][0]
+        container["state"] = "running"
+        desired_item = self.desired["services"][0]
+        desired_item["digest_status"] = "local-provenance-recorded"
+        desired_item["provenance_status"] = {
+            "local_image": "kepler/postgres:test", "model_artifacts": ["postgres-model"],
+        }
+        desired_item["image"] = "kepler/postgres:test"
+        desired_item["mounts"][0]["source"] = "/outside/data"
+        container["image"] = "kepler/postgres:test"
+        container["mounts"][0]["source"] = "/outside/data"
+        self.desired["local_images"] = {}
+        self.desired["model_artifacts"] = {"postgres-model": {"status": "identity-required"}}
+        self.inventory["containers"].append({
+            **container, "id": "d" * 64, "name": "unknown", "labels": {},
+        })
+        reasons = self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"]
+        self.assertIn("local-image-or-model-provenance-required", reasons)
+        self.assertIn("persistent-mount-outside-snapshot-boundary", reasons)
+        self.assertIn("unknown-owner", reasons)
+
+    def test_post_recovery_audit_accepts_runtime_registry_ref_without_desired_tag(self):
+        item = self.desired["services"][0]
+        item["image"] = "rhasspy/wyoming-piper:2.2.2@sha256:" + "a" * 64
+        container = self.inventory["containers"][0]
+        container.update({
+            "state": "running",
+            "image": "docker.io/rhasspy/wyoming-piper@sha256:" + "a" * 64,
+        })
+        self.assertEqual(self.reconcile(mode="post-recovery-audit")["manifest"]["status"], "converged")
+
+    def test_post_recovery_audit_resolves_relative_bind_against_compose_working_dir(self):
+        item = self.desired["services"][0]
+        item["mounts"][0]["source"] = "./scripts/provision-db.sql"
+        item["mounts"][0]["read_only"] = True
+        container = self.inventory["containers"][0]
+        container["state"] = "running"
+        container["labels"] = copy.deepcopy(container["labels"])
+        container["labels"]["com.docker.compose.project.working_dir"] = "/home/erik/servarr/machines/kepler"
+        container["mounts"][0]["source"] = "/home/erik/servarr/machines/kepler/scripts/provision-db.sql"
+        container["mounts"][0]["read_only"] = True
+        self.assertEqual(self.reconcile(mode="post-recovery-audit")["manifest"]["status"], "converged")
+        container["mounts"][0]["source"] = "/tmp/scripts/provision-db.sql"
+        self.assertIn("declared-runtime-mismatch", self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"])
+        container["labels"]["com.docker.compose.project.working_dir"] = "/tmp/checkout"
+        container["mounts"][0]["source"] = "/tmp/checkout/scripts/provision-db.sql"
+        self.assertIn("declared-runtime-mismatch", self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"])
+
+    def test_post_recovery_audit_resolves_compose_named_volume_and_coverage(self):
+        item = self.desired["services"][0]
+        item.update({"container_name": "redis", "service": "redis"})
+        item["required_labels"]["com.docker.compose.service"] = "redis"
+        item["mounts"] = [{"source": "redis_data", "target": "/data", "type": "volume"}]
+        container = self.inventory["containers"][0]
+        container["name"] = "redis"
+        container["labels"]["com.docker.compose.service"] = "redis"
+        container["state"] = "running"
+        mountpoint = "/var/lib/containers/storage/volumes/infra_redis_data/_data"
+        container["mounts"] = [{
+            "source": mountpoint, "destination": "/data", "name": "infra_redis_data",
+        }]
+        self.inventory["volumes"] = [{"name": "infra_redis_data", "mountpoint": mountpoint}]
+        result = self.reconcile(mode="post-recovery-audit")["manifest"]
+        self.assertEqual(result["status"], "converged")
+        self.assertFalse(result["persistent_coverage_gaps"])
+        container["mounts"][0]["source"] = "/wrong/infra_redis_data/_data"
+        self.assertIn("declared-runtime-mismatch", self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"])
+
+    def test_post_recovery_audit_nonredis_named_volume_outside_dataset_halts(self):
+        item = self.desired["services"][0]
+        item["mounts"] = [{"source": "data", "target": "/data", "type": "volume"}]
+        container = self.inventory["containers"][0]
+        container["state"] = "running"
+        mountpoint = "/var/lib/containers/storage/volumes/infra_data/_data"
+        container["mounts"] = [{"source": mountpoint, "destination": "/data", "name": "infra_data"}]
+        self.inventory["volumes"] = [{"name": "infra_data", "mountpoint": mountpoint}]
+        self.assertIn(
+            "persistent-mount-outside-snapshot-boundary",
+            self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"],
+        )
+
+    def test_post_recovery_audit_relative_bind_requires_exact_working_dir_and_absolute_runtime(self):
+        item = self.desired["services"][0]
+        item["mounts"][0].update({"source": "./scripts/provision-db.sql", "read_only": True})
+        container = self.inventory["containers"][0]
+        container["state"] = "running"
+        container["labels"] = copy.deepcopy(container["labels"])
+        container["mounts"][0].update({"source": "./scripts/provision-db.sql", "read_only": True})
+        for working_dir in ("", "/wrong"):
+            with self.subTest(working_dir=working_dir):
+                if working_dir:
+                    container["labels"]["com.docker.compose.project.working_dir"] = working_dir
+                else:
+                    container["labels"].pop("com.docker.compose.project.working_dir", None)
+                self.assertIn(
+                    "declared-runtime-mismatch",
+                    self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"],
+                )
+        container["labels"]["com.docker.compose.project.working_dir"] = "/home/erik/servarr/machines/kepler"
+        self.assertIn(
+            "declared-runtime-mismatch",
+            self.reconcile(mode="post-recovery-audit")["manifest"]["halt_reasons"],
+        )
+
+    def test_empty_or_duplicate_inventory_volume_names_fail_closed(self):
+        valid = {"name": "infra_data", "mountpoint": "/fast/infra_data"}
+        for volumes in ([{**valid, "name": ""}], [valid, copy.deepcopy(valid)]):
+            with self.subTest(volumes=volumes):
+                self.inventory["volumes"] = volumes
+                with self.assertRaisesRegex(self.module.ReconcileHalt, "volumes require unique non-empty names"):
+                    self.reconcile(mode="post-recovery-audit")
+
+    def test_duplicate_or_empty_inventory_names_fail_closed_independent_of_order(self):
+        duplicate = {**copy.deepcopy(self.inventory["containers"][0]), "id": "c" * 64}
+        for containers in (
+            [self.inventory["containers"][0], duplicate],
+            [duplicate, self.inventory["containers"][0]],
+        ):
+            with self.subTest(order=[item["id"] for item in containers]):
+                self.inventory["containers"] = containers
+                with self.assertRaisesRegex(self.module.ReconcileHalt, "unique non-empty names"):
+                    self.reconcile(mode="post-recovery-audit")
+        self.inventory["containers"] = [{**duplicate, "name": ""}]
+        with self.assertRaisesRegex(self.module.ReconcileHalt, "unique non-empty names"):
+            self.reconcile(mode="post-recovery-audit")
 
     def test_exact_stopped_legacy_infra_collision_migrates(self):
         self.make_legacy()

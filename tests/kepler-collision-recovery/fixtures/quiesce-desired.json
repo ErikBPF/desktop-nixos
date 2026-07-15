@@ -4,11 +4,6 @@
     "protected_services": [],
     "services": [
       {
-        "container_name": "piper-openai",
-        "project": "ai-serving",
-        "service": "piper-openai"
-      },
-      {
         "container_name": "docs-search",
         "project": "docs-search",
         "service": "docs-search"

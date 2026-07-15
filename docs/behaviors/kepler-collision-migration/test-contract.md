@@ -1,6 +1,6 @@
 # Kepler collision migration test contract
 
-**Status:** Approved contract; K0 fixture tests implemented, K1 live dry-run pending
+**Status:** Implemented; current desired-state amended after AI-serving retirement
 
 ## Test boundary
 
@@ -49,7 +49,7 @@ Inject failures at each phase:
 2. Unknown classification: exit before snapshot or deletion.
 3. Retained-database backup/restore failure: no Airflow database drop or retirement wipe.
 4. Retired-secret selection or external credential revocation failure: no retirement wipe.
-5. Postgres checkpoint, Redis save/backup/restore, Qdrant-idle, or MinIO-idle failure: no snapshot or migration.
+5. PostgreSQL checkpoint, exact stopped legacy Redis reset selection, Qdrant-idle, or MinIO-idle failure: no snapshot or migration. Redis has no backup/restore gate.
 6. Unprotected persistent mount or ZFS snapshot failure: no declared-container mutation.
 7. Replacement start failure: legacy container remains quarantined; halt.
 8. Health, log, mount, state, endpoint, smoke, observation, or reboot failure: stop further slices, retain legacy and snapshot, halt.
@@ -70,11 +70,26 @@ Before execution, the read-only run must record sanitized evidence for:
 - SecretSpec value-free resolution and Compose/declaration drift reports.
 - Immutable registry, local image, build, and model identities.
 - Relevant ZFS datasets and proposed snapshot name.
-- Redis named-volume backup destination and proof that every persistent mount is inside the snapshot boundary or independently backed up.
+- Exact stopped legacy `redis` container ID/labels and exact `homelab_redis_data` volume identity, mountpoint, driver, and sole reference selected for manifest-bound reset. The manifest contains no Redis backup/restore action; declarative `infra` recreates desired Redis after the exact reset.
 - Dependency-stop, checkpoint, retirement, protection, migration, validation, reboot, retention, and abort commands in execution order.
 - Deterministic action-manifest SHA-256 and proof that execution rejects changed inventory.
 
 Any difference between live inventory and fixture assumptions blocks execution and requires a contract update plus a new test run.
+
+The 2026-07-14 retirement adds a focused contract: exactly seven full
+container IDs, seven distinct unshared image IDs, and `/fast/ai-models`; both
+`infra` and `docs-search` must remain present. Two consecutive inventories
+must render the same SHA-256-bound manifest before execution. No network,
+volume, broad prune, dataset, snapshot, or parent path is selected.
+This supersedes the active three-stack-order, AI immutable-provenance, and AI
+route success assertions. Their fixtures remain historical K0/K1 evidence.
+The current desired-state assertions require exactly `infra`, then
+`docs-search`. Retirement is resumable only at exact stage boundaries: all
+seven approved containers, zero approved containers with any subset of the
+seven images, zero approved containers/images before exact-path removal, or
+everything absent. Image removal and path removal are separate double-inventory
+stages. Any survivor bind at, below, or above `/fast/ai-models` halts.
+Partial/mismatched containers halt.
 
 ## Live success gate
 

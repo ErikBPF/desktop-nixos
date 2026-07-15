@@ -1,6 +1,6 @@
 # Kepler collision migration
 
-**Status:** Approved behavior; K0 complete, K1 read-only inventory blocked pending approval manifest
+**Status:** Implemented with recorded deviation; AI-serving retired 2026-07-14
 
 ## Outcome
 
@@ -31,8 +31,8 @@ No broad Podman prune is allowed. Generic image layers still referenced by anoth
    - Restate logical volume: `restate_data`, resolved from Compose labels rather than an assumed runtime prefix.
    - Secrets: `GITLAB_RUNNER_TOKEN`, `POSTGRES_DB_AIRFLOW`, `AIRFLOW_FERNET_KEY`, `AIRFLOW_SECRET_KEY`, and `AIRFLOW_ADMIN_PASSWORD`.
 5. Remove retired secrets from current SecretSpec, SOPS, OpenBao, generated env, and runtime; revoke externally valid credentials. GitLab and Airflow were disposable homelab tests, so K1 does not inventory historical copies, sanitize mixed backups, or rewrite encrypted Git history.
-6. Stop dependent workloads and make remaining state application-consistent: checkpoint Postgres, force a Redis persistence save, and confirm Qdrant and MinIO writes are idle.
-7. Restore-test logical PostgreSQL and Redis backups. Copy the Redis named-volume backup into a relevant `/fast` dataset, then create a timestamped recursive ZFS snapshot containing retained state only. Any persistent mount outside the snapshot boundary without a verified backup is a `halt`. Thirty days makes the snapshot cleanup-eligible; it does not authorize automatic deletion.
+6. Stop dependent workloads and make retained state application-consistent: checkpoint PostgreSQL and confirm Qdrant and MinIO writes are idle. Redis is a disposable cache whose consumers repopulate it; do not back up or restore its legacy data.
+7. Restore-test the retained PostgreSQL backup, then create a timestamped recursive ZFS snapshot containing retained state only. The manifest must bind the exact stopped legacy `redis` container and exact `homelab_redis_data` volume for reset; no other container or volume may be selected. During the `infra` slice, remove only those approved Redis resources and let declarative `infra` recreate the desired Redis service and volume. Any other persistent mount outside the snapshot boundary without a verified backup is a `halt`. Thirty days makes the snapshot cleanup-eligible; it does not authorize automatic deletion.
 8. Require immutable identity before replacement: registry digest, or local image ID plus source commit/build inputs, and independent model artifact checksum/version where applicable.
 9. Process declared stacks in dependency order: `infra`, `ai-serving`, then `docs-search`. Each is a resumable slice with its own ledger. Process one colliding container at a time.
 10. Rename each stopped legacy container to `legacy-<name>-<timestamp>`. Start the declarative replacement under the original name.
@@ -58,3 +58,23 @@ The live execution is blocked until Kepler SecretSpec profiles, Compose/declarat
 ## Completion
 
 Recovery is complete only when all declared stacks pass their gates before and after reboot, no name collisions remain, current GitLab/Airflow/Restate resources are absent, retained-state protections exist, Discovery routes work, and a second dry run reports no pending mutation. Cleanup remains a separate approval.
+
+## 2026-07-14 retirement amendment
+
+After recovery, the operator declared all seven `ai-serving` workloads and
+their model cache disposable. Servarr removed the stack at `8edab1a`; current
+desired-state and quiesce order are therefore `infra`, then `docs-search`.
+Historical K0 fixture coverage remains evidence of the original migration
+contract. Retirement is a separate exact-ID, fail-closed operation and never
+authorizes prune, network removal, volume removal, or parent-path deletion.
+For current desired state this amendment supersedes clause 8's AI image/model
+identity gate, clause 9's three-stack order, clause 14's AI route validation,
+and the AI-serving portions of Completion. Those clauses remain historical
+evidence for the completed recovery; they no longer require recreating a
+retired stack. Clauses protecting `infra`, `docs-search`, retained state, and
+exact-resource execution remain active.
+
+Execution completed with exact manifest SHA-256
+`de8ce750ba6a1316ffca0b354615badfab994ec7a19fdd0de67ac2cd35660c3f`.
+The post-reboot audit contains only `infra` and `docs-search`, with five
+zero-action classifications and no retired selection or halt reason.

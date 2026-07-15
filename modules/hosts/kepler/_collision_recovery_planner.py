@@ -67,7 +67,7 @@ POLICY = {
     "restate_secrets": [],
 }
 
-MIGRATION_ORDER = ["infra", "ai-serving", "docs-search"]
+MIGRATION_ORDER = ["infra", "docs-search"]
 PHASE_ORDER = [
     "inventory",
     "classify",
@@ -90,7 +90,7 @@ GATE_ORDER = [
     "mixed_backup_sanitization",
     "exact_artifact_selection",
     "postgres_checkpoint",
-    "redis_save_backup_restore",
+    "redis_disposable_reset",
     "qdrant_idle",
     "minio_idle",
     "persistent_mount_coverage",
@@ -101,7 +101,7 @@ GATE_ORDER = [
     "cleanup_manifest_match",
 ]
 SCHEMA = {
-    "inventory": {"containers", "local_artifacts", "persistent_mounts", "completed", "gates", "image_references"},
+    "inventory": {"containers", "local_artifacts", "persistent_mounts", "completed", "gates", "image_references", "redis_reset"},
     "container": {
         "name", "collision", "state", "project", "labels_complete", "mounts",
         "desired_mounts", "image", "retired_kind", "image_service_specific",
@@ -111,6 +111,10 @@ SCHEMA = {
     "completion": {"resource", "evidence_sha256", "final_state"},
     "image_artifact": {"kind", "name", "image_id", "source_commit", "build_inputs_sha256"},
     "model_artifact": {"kind", "name", "model_sha256", "version"},
+    "redis_reset": {
+        "container_id", "container_name", "container_state", "project", "service",
+        "volume_driver", "volume_mountpoint", "volume_name", "volume_references",
+    },
 }
 
 
@@ -165,6 +169,42 @@ def _validate_schema(inventory):
         for image, users in references.items()
     ):
         raise PlanHalt("image_references must map image identities to resource-name lists")
+    _exact_keys(inventory.get("redis_reset"), SCHEMA["redis_reset"], "inventory.redis_reset")
+
+
+def _validate_redis_reset(item):
+    expected = {
+        "container_name": "redis",
+        "container_state": "stopped",
+        "project": "homelab",
+        "service": "redis",
+        "volume_driver": "local",
+        "volume_mountpoint": "/home/erik/.local/share/containers/storage/volumes/homelab_redis_data/_data",
+        "volume_name": "homelab_redis_data",
+        "volume_references": ["redis"],
+    }
+    if not SHA256.fullmatch(str(item.get("container_id", ""))):
+        raise PlanHalt("invalid disposable Redis container identity")
+    for field, value in expected.items():
+        if item.get(field) != value:
+            raise PlanHalt(f"disposable Redis reset mismatch: {field}")
+    return {
+        "container": {
+            "id": item["container_id"],
+            "name": item["container_name"],
+            "state": item["container_state"],
+        },
+        "mode": "dry-run",
+        "next": "declarative-infra-recreates-desired-redis",
+        "project": item["project"],
+        "service": item["service"],
+        "volume": {
+            "driver": item["volume_driver"],
+            "mountpoint": item["volume_mountpoint"],
+            "name": item["volume_name"],
+            "references": item["volume_references"],
+        },
+    }
 
 
 def _validate_identities(inventory):
@@ -254,6 +294,7 @@ def plan(inventory):
     _validate_gates(inventory)
     _validate_identities(inventory)
     _validate_mount_coverage(inventory)
+    redis_reset = _validate_redis_reset(inventory["redis_reset"])
     completed = {}
     for record in inventory.get("completed", []):
         expected_state = "retired-absent" if _retired_kind(record["resource"]) else "replacement-validated"
@@ -320,6 +361,7 @@ def plan(inventory):
         "failed_gate": failed_gate,
         "operations": operations,
         "actions": actions,
+        "redis_reset": redis_reset,
         "retention": {
             "cleanup_eligible_days": 30,
             "cleanup": "separate-exact-resource-approval",

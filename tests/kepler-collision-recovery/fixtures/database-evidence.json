@@ -6,7 +6,8 @@
   "database_inventory": [
     {"name": "airflow", "owner": "airflow"},
     {"name": "app", "owner": "app_owner"},
-    {"name": "postgres", "owner": "postgres"}
+    {"name": "postgres", "owner": "postgres"},
+    {"name": "template1", "owner": "postgres"}
   ],
   "retained_databases": [
     {"name": "app", "owner": "app_owner"},
@@ -20,7 +21,7 @@
   },
   "cluster_restore": {
     "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "database_inventory_sha256": "6266ad94d59584d92a809f4bbdd005aa074c68101708f23e1d326f06b21a3a28",
+    "database_inventory_sha256": "4f57b3f7b78c3d8629e1efde194a10db5e573a25aa38394b30044a4434ea6346",
     "logical_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "retained_databases": ["app", "postgres"],
     "status": "passed"

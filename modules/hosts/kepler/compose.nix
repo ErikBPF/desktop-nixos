@@ -12,7 +12,6 @@ _: {
         # (knowledge, photos, cicd, security) remain manual until migrated off
         # the legacy TrueNAS deployment.
         "infra"
-        "ai-serving"
         "docs-search"
       ];
     };

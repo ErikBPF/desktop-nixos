@@ -26,7 +26,6 @@ in {
       m.nixos.kepler-compose
       m.nixos.kepler-recovery-tooling
       m.nixos.kepler-k1-inventory-tooling
-      m.nixos.kepler-ai-serving
       m.nixos.kepler-k3s-cluster
       m.nixos.first-boot
       m.nixos.alloy
@@ -77,9 +76,6 @@ in {
     # compaction stalls under sustained IO. Leave THP at the kernel default
     # (madvise) on this host; the CUDA inference workload that motivated the
     # change is still future, and the ZFS pool is the primary daily driver.
-
-    # CUDA container toolkit for AI inference workloads
-    hardware.nvidia-container-toolkit.enable = true;
 
     # Allow the laptop's dedicated root-owned builder key. Client-side
     # scheduling caps this host at two ordinary x86_64 jobs and excludes

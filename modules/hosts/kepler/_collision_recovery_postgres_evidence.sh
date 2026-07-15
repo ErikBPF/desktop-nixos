@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 set -euo pipefail
 
 [[ $# -eq 3 && $1 =~ ^run(-stopped)?$ && $2 =~ ^[0-9a-f]{64}$ && $3 =~ ^[0-9a-f]{64}$ ]] || {
@@ -25,6 +26,13 @@ created=false
 volume_created=false
 source_started=false
 umask 077
+stage=preflight
+on_error() {
+  exit_code=$?
+  printf 'postgres evidence halted: stage %s\n' "$stage" >&2
+  exit "$exit_code"
+}
+trap on_error ERR
 
 cleanup() {
   if [[ $created == true ]]; then
@@ -52,8 +60,10 @@ elif [[ $1 == run-stopped ]]; then
     echo "postgres evidence halted: exact source container is not exited" >&2
     exit 2
   }
+  stage=source-start
   podman start "$expected_id" >/dev/null 2>&1
   source_started=true
+  stage=source-readiness
   for _ in $(seq 1 60); do
     podman exec "$expected_id" pg_isready >/dev/null 2>&1 && break
     sleep 1
@@ -77,6 +87,7 @@ normalized_dump_sha() {
   sed -e '/^\\restrict [A-Za-z0-9_-]\+$/d' -e '/^\\unrestrict [A-Za-z0-9_-]\+$/d' "$1" \
     | sha256sum | cut -d' ' -f1
 }
+stage=source-inventory
 # Names and owners are metadata. Credentials remain expanded only inside Postgres.
 podman exec "$container" sh -ceu 'exec psql -Atq -F "|" -U "$POSTGRES_USER" -d postgres -c "select datname, pg_get_userbyid(datdba) from pg_database where datallowconn order by datname"' >"$work/inventory.raw" 2>/dev/null
 python3 - "$work/inventory.raw" "$work/inventory.json" "$work/retained" <<'PY'
@@ -96,23 +107,30 @@ for line in raw.read_text().splitlines():
 if len(items) != len({item["name"] for item in items}) or [item["name"] for item in items].count("airflow") != 1:
     raise SystemExit("database evidence halted: exact Airflow inventory unavailable")
 inventory_path.write_text(json.dumps(items, sort_keys=True, separators=(",", ":")) + "\n")
-retained_path.write_text("".join(f'{item["name"]}|{item["owner"]}\n' for item in items if item["name"] != "airflow"))
+retained_path.write_text("".join(
+    f'{item["name"]}|{item["owner"]}\n'
+    for item in items
+    if item["name"] not in {"airflow", "template1"}
+))
 PY
 while IFS='|' read -r name owner; do
   [[ -n $name && -n $owner ]] || continue
+  stage=source-dump
   podman exec "$container" sh -ceu 'exec pg_dump --clean --if-exists --no-owner --no-privileges --format=plain -U "$POSTGRES_USER" -d "$1"' sh "$name" >"$work/source/$name.sql" 2>/dev/null
 done <"$work/retained"
 tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf "$artifact" -C "$work" source
 artifact_sha=$(sha256sum "$artifact" | cut -d' ' -f1)
 artifact_bytes=$(stat -c %s "$artifact")
 
+stage=restore-create
 podman volume create "$volume" >/dev/null 2>&1
 volume_created=true
 podman create --network none --name "$disposable" \
-  --mount "type=volume,src=$volume,dst=/var/lib/postgresql/data" \
+  --mount "type=volume,src=$volume,dst=/var/lib/postgresql" \
   --env POSTGRES_HOST_AUTH_METHOD=trust "$image_id" >/dev/null 2>&1
 created=true
 podman start "$disposable" >/dev/null 2>&1
+stage=restore-readiness
 for _ in $(seq 1 60); do
   podman exec "$disposable" pg_isready -U postgres >/dev/null 2>&1 && break
   sleep 1
@@ -121,6 +139,7 @@ podman exec "$disposable" pg_isready -U postgres >/dev/null 2>&1
 declare -A owners=()
 while IFS='|' read -r name owner; do
   [[ -n $name && -n $owner ]] || continue
+  stage=restore-database
   if [[ $owner != postgres && ! -v owners[$owner] ]]; then
     podman exec "$disposable" createuser -U postgres "$owner" >/dev/null 2>&1
     owners[$owner]=1
@@ -128,7 +147,9 @@ while IFS='|' read -r name owner; do
   if [[ $name != postgres ]]; then
     podman exec "$disposable" createdb -U postgres -O "$owner" "$name" >/dev/null 2>&1
   fi
+  stage=restore-load
   podman exec --interactive "$disposable" psql -v ON_ERROR_STOP=1 -U postgres -d "$name" <"$work/source/$name.sql" >/dev/null 2>&1
+  stage=restore-dump
   podman exec "$disposable" pg_dump --clean --if-exists --no-owner --no-privileges --format=plain -U postgres -d "$name" >"$work/restored/$name.sql" 2>/dev/null
   [[ $(normalized_dump_sha "$work/source/$name.sql") == $(normalized_dump_sha "$work/restored/$name.sql") ]] || {
     echo "postgres evidence halted: restored logical hash mismatch" >&2
@@ -137,6 +158,7 @@ while IFS='|' read -r name owner; do
 done <"$work/retained"
 logical_sha=$(while IFS='|' read -r name _owner; do printf '%s %s\n' "$name" "$(normalized_dump_sha "$work/source/$name.sql")"; done <"$work/retained" | sha256sum | cut -d' ' -f1)
 timestamp=$(date --utc +%Y-%m-%dT%H:%M:%SZ)
+stage=result
 python3 - "$inventory_sha" "$expected_id" "$artifact_sha" "$artifact_bytes" "$logical_sha" "$timestamp" "$work/inventory.json" "$work/retained" <<'PY'
 import json
 import pathlib

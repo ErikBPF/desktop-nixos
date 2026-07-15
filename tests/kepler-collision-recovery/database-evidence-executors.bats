@@ -30,7 +30,7 @@ case " $* " in
   *" inspect --format {{.State.Status}} "*) printf '%s\n' "$MOCK_STATE" ;;
   *" inspect --format {{.Id}} "*) printf '%s\n' "$MOCK_ID" ;;
   *" inspect --format {{.Image}} "*) printf '%s\n' "$MOCK_IMAGE_ID" ;;
-  *" pg_get_userbyid"*) printf 'airflow|airflow\napp|app_owner\npostgres|postgres\n' ;;
+  *" pg_get_userbyid"*) printf 'airflow|airflow\napp|app_owner\npostgres|postgres\ntemplate1|postgres\n' ;;
   *" exec kepler-k1-postgres-restore-"*" pg_dump "*)
     if [[ $MOCK_DUMP_VARIANCE == true ]]; then printf '\\restrict RESTORED\n'; fi
     printf '%s\n' 'CREATE TABLE retained(id integer);'
@@ -69,6 +69,7 @@ SH
   [ -f "$KEPLER_RECOVERY_TEST_ROOT/postgres/$SHA/retained-databases.tar" ]
   grep -F -- "--network none --name kepler-k1-postgres-restore-aaaaaaaaaaaa" "$MOCK_LOG"
   grep -F -- "volume create kepler-k1-postgres-restore-aaaaaaaaaaaa-data" "$MOCK_LOG"
+  grep -F -- "dst=/var/lib/postgresql " "$MOCK_LOG"
   grep -F -- "volume rm kepler-k1-postgres-restore-aaaaaaaaaaaa-data" "$MOCK_LOG"
   run ! grep -E 'prune|system reset|rm --all' "$MOCK_LOG"
 }

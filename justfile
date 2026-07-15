@@ -1869,39 +1869,10 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
-# Remote ai-serving health probe (runs from your workstation, hits kepler:<ports>)
-ai-kepler-health:
-    @just verify-port kepler {{ip_kepler}} 8085
-    @just verify-port kepler {{ip_kepler}} 8087
-    @just verify-port kepler {{ip_kepler}} 9000
-    @just verify-port kepler {{ip_kepler}} 10200
-
-# Retrieval-model status plus bounded recent logs; no secret output.
-ai-kepler-retrieval-health:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'for name in slm-bge-m3 slm-bge-reranker; do docker inspect --format=":: {{"{{"}}.Name{{"}}"}} state={{"{{"}}.State.Status{{"}}"}} health={{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name"; docker logs --tail 15 "$name" 2>&1; done'
-
-ai-kepler-gpu-health:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'timeout 15s nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader; timeout 15s nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader'
-
-# Reset the embedder CUDA context with the competing reranker stopped.
-ai-kepler-embed-reset:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'docker stop slm-bge-reranker >/dev/null 2>&1 || true; docker restart slm-bge-m3 >/dev/null; for _ in $(seq 1 60); do health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" slm-bge-m3); if [ "$health" = healthy ]; then echo ":: slm-bge-m3 healthy"; exit 0; fi; sleep 2; done; echo ":: slm-bge-m3 failed to become healthy" >&2; exit 1'
-
-# Clear queued rerank work, then wait through the CPU model warmup.
-ai-kepler-reranker-reset:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip kepler)"
-    ssh -p 2222 erik@"$IP" 'docker restart slm-bge-reranker >/dev/null; for _ in $(seq 1 180); do health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" slm-bge-reranker); if [ "$health" = healthy ]; then echo ":: slm-bge-reranker healthy"; exit 0; fi; sleep 2; done; echo ":: slm-bge-reranker failed to become healthy" >&2; exit 1'
+# Permanently remove the seven disposable AI containers, their seven exact
+# images, and /fast/ai-models. The helper re-inventories and fails closed.
+kepler-retire-ai-serving-user-approved:
+    ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" - --execute-user-approved' < modules/hosts/kepler/_retire_ai_serving.py
 
 # Activate the generation staged by `just switch-kepler`, then wait for SSH.
 reboot-kepler:
@@ -2001,80 +1972,6 @@ kepler-recovery-retirement-paths:
     trap - EXIT
     printf 'retirement_paths=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["evidence_sha256"])' "$out")"
 
-# Resolve only reviewed K1 model artifact paths. The committed helper performs
-# read-only traversal and emits no directory listings, contents, or environment.
-kepler-recovery-model-paths:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    umask 077
-    helper="modules/hosts/kepler/_collision_recovery_model_paths_remote.py"
-    evidence_dir=".gsd/evidence/kepler-k1"
-    out="$evidence_dir/model-paths.json"
-    test -f "$helper"
-    mkdir -p "$evidence_dir"
-    chmod 700 "$evidence_dir"
-    tmp="$(mktemp "$evidence_dir/.model-paths.XXXXXX")"
-    trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' < "$helper" > "$tmp"
-    python3 - "$tmp" <<'PY'
-    import json
-    import pathlib
-    import sys
-
-    path = pathlib.Path(sys.argv[1])
-    result = json.loads(path.read_text())
-    if result.get("schema") != "kepler-k1-model-paths-v1":
-        raise SystemExit("model-path evidence schema validation failed")
-    artifacts = result.get("artifacts")
-    if not isinstance(artifacts, list) or len(artifacts) != 4:
-        raise SystemExit("model-path evidence artifact validation failed")
-    PY
-    chmod 600 "$tmp"
-    mv "$tmp" "$out"
-    trap - EXIT
-    printf 'model_paths=%s\n' "$out"
-
-# Hash the four reviewed model artifacts remotely. Output contains only artifact
-# identifiers, hashes, counts, and schema metadata; paths and contents stay on Kepler.
-kepler-recovery-model-identities:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    umask 077
-    just kepler-recovery-model-paths
-    helper="modules/hosts/kepler/_collision_recovery_model_identity_remote.py"
-    evidence_dir=".gsd/evidence/kepler-k1"
-    paths="$evidence_dir/model-paths.json"
-    out="$evidence_dir/model-identities.json"
-    test -f "$helper" -a -f "$paths"
-    request_b64="$(base64 -w0 < "$paths")"
-    tmp="$(mktemp "$evidence_dir/.model-identities.XXXXXX")"
-    trap 'rm -f "$tmp"' EXIT
-    {
-      printf 'import base64,io,sys\nsys.stdin=io.StringIO(base64.b64decode("%s").decode())\n' "$request_b64"
-      sed '1{/^#!/d;}' "$helper"
-    } | ssh -p 2222 erik@{{ip_kepler}} 'tool=$(command -v kepler-collision-recovery-inventory); interpreter=$(head -n1 "$tool"); interpreter=${interpreter#\#!}; exec "$interpreter" -' > "$tmp"
-    python3 - "$tmp" <<'PY'
-    import hashlib
-    import json
-    import pathlib
-    import sys
-
-    result = json.loads(pathlib.Path(sys.argv[1]).read_text())
-    evidence = result.get("evidence")
-    canonical = json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
-    if (
-        result.get("schema") != "kepler-k1-model-identities-envelope-v1"
-        or not isinstance(evidence, dict)
-        or result.get("evidence_sha256") != hashlib.sha256(canonical).hexdigest()
-        or len(evidence.get("artifacts", [])) != 4
-    ):
-        raise SystemExit("model identity envelope/hash validation failed")
-    PY
-    chmod 600 "$tmp"
-    mv "$tmp" "$out"
-    trap - EXIT
-    printf 'model_identities=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["evidence_sha256"])' "$out")"
-
 # Render only the separately-approved stop plan. This recipe never stops a service.
 kepler-recovery-quiesce-plan inventory_sha256:
     #!/usr/bin/env bash
@@ -2109,8 +2006,31 @@ kepler-recovery-postgres-evidence-run inventory_sha256 container_id mode="run-st
     out=".gsd/evidence/kepler-k1/database-evidence.json"
     tmp="$(mktemp .gsd/evidence/kepler-k1/.database-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} \
-      kepler-collision-postgres-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
+    submission="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job \
+      submit postgres "{{mode}}" "{{inventory_sha256}}" "{{container_id}}")"
+    request_sha="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["request_sha256"])' "$submission")"
+    [[ $request_sha =~ ^[0-9a-f]{64}$ ]] || { echo "invalid PostgreSQL evidence request" >&2; exit 2; }
+    for _ in $(seq 1 180); do
+      if ! status="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job status "$request_sha")"; then
+        sleep 5
+        continue
+      fi
+      state="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["state"])' "$status")"
+      case "$state" in
+        passed)
+          ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job result "$request_sha" > "$tmp" && break
+          ;;
+        failed)
+          reason="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("reason", "unspecified"))' "$status")"
+          echo "PostgreSQL evidence job failed: $reason" >&2
+          exit 2
+          ;;
+        pending|running) ;;
+        *) echo "invalid PostgreSQL evidence job state" >&2; exit 2 ;;
+      esac
+      sleep 5
+    done
+    [[ -s $tmp ]] || { echo "PostgreSQL evidence job timed out; remote job was not stopped" >&2; exit 2; }
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
     mv "$tmp" "$out"
@@ -2134,8 +2054,31 @@ kepler-recovery-redis-evidence-run inventory_sha256 container_id mode="run-stopp
     out=".gsd/evidence/kepler-k1/redis-evidence.json"
     tmp="$(mktemp .gsd/evidence/kepler-k1/.redis-evidence.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@{{ip_kepler}} \
-      kepler-collision-redis-evidence "{{mode}}" "{{inventory_sha256}}" "{{container_id}}" > "$tmp"
+    submission="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job \
+      submit redis "{{mode}}" "{{inventory_sha256}}" "{{container_id}}")"
+    request_sha="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["request_sha256"])' "$submission")"
+    [[ $request_sha =~ ^[0-9a-f]{64}$ ]] || { echo "invalid Redis evidence request" >&2; exit 2; }
+    for _ in $(seq 1 180); do
+      if ! status="$(ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job status "$request_sha")"; then
+        sleep 5
+        continue
+      fi
+      state="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["state"])' "$status")"
+      case "$state" in
+        passed)
+          ssh -p 2222 erik@{{ip_kepler}} kepler-collision-evidence-job result "$request_sha" > "$tmp" && break
+          ;;
+        failed)
+          reason="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("reason", "unspecified"))' "$status")"
+          echo "Redis evidence job failed: $reason" >&2
+          exit 2
+          ;;
+        pending|running) ;;
+        *) echo "invalid Redis evidence job state" >&2; exit 2 ;;
+      esac
+      sleep 5
+    done
+    [[ -s $tmp ]] || { echo "Redis evidence job timed out; remote job was not stopped" >&2; exit 2; }
     python3 -m json.tool "$tmp" >/dev/null
     chmod 600 "$tmp"
     mv "$tmp" "$out"
@@ -2208,9 +2151,31 @@ kepler-recovery-retirement-plan evidence=".gsd/evidence/kepler-k1/retirement-evi
     printf 'retirement_manifest=%s\nsha256=%s\n' "$out" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["manifest_sha256"])' "$out")"
 
 # Execute one reviewed retirement manifest after a fresh inventory hash match.
+kepler-recovery-retirement-remote-verify manifest_sha256 inventory_sha256 manifest=".gsd/evidence/kepler-k1/retirement-manifest.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "{{manifest_sha256}}" =~ ^[0-9a-f]{64}$ && "{{inventory_sha256}}" =~ ^[0-9a-f]{64}$ ]] || {
+      echo "invalid retirement binding" >&2
+      exit 2
+    }
+    python3 - "{{manifest}}" "{{manifest_sha256}}" <<'PY'
+    import json, pathlib, sys
+    wrapper = json.loads(pathlib.Path(sys.argv[1]).read_text())
+    if wrapper.get("manifest_sha256") != sys.argv[2]:
+        raise SystemExit("retirement manifest SHA-256 mismatch")
+    PY
+    ssh -p 2222 erik@{{ip_kepler}} \
+      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --manifest "$tmp" --manifest-sha256 "{{manifest_sha256}}" --inventory-sha256 "{{inventory_sha256}}"' \
+      < "{{manifest}}"
+
+# Execute one reviewed retirement manifest after a fresh inventory hash match.
 kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".gsd/evidence/kepler-k1/retirement-manifest.json":
     #!/usr/bin/env bash
     set -euo pipefail
+    [[ "{{manifest_sha256}}" =~ ^[0-9a-f]{64}$ && "{{inventory_sha256}}" =~ ^[0-9a-f]{64}$ ]] || {
+      echo "invalid retirement binding" >&2
+      exit 2
+    }
     just kepler-recovery-inventory
     actual="$(python3 -c 'import json; print(json.load(open(".gsd/evidence/kepler-k1/inventory.json"))["inventory_sha256"])')"
     test "$actual" = "{{inventory_sha256}}" || { echo "retirement inventory drift" >&2; exit 2; }
@@ -2220,9 +2185,91 @@ kepler-recovery-retirement-execute manifest_sha256 inventory_sha256 manifest=".g
     if wrapper.get("manifest_sha256") != sys.argv[2]:
         raise SystemExit("retirement manifest SHA-256 mismatch")
     PY
-    ssh -p 2222 erik@{{ip_kepler}} \
-      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-recovery-executor --execute --manifest "$tmp" --manifest-sha256 "$1" --inventory-sha256 "$2"' \
-      sh "{{manifest_sha256}}" "{{inventory_sha256}}" < "{{manifest}}"
+    ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+    submission="$(ssh "${ssh_opts[@]}" erik@{{ip_kepler}} \
+      'tmp=$(mktemp); trap '\''rm -f "$tmp"'\'' EXIT; cat >"$tmp"; kepler-collision-retirement-job submit "$tmp" "{{manifest_sha256}}" "{{inventory_sha256}}"' \
+      < "{{manifest}}")"
+    request_sha="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["request_sha256"])' <<<"$submission")"
+    [[ "$request_sha" =~ ^[0-9a-f]{64}$ ]] || { echo "invalid retirement request binding" >&2; exit 2; }
+    for _ in $(seq 1 120); do
+      if status="$(ssh "${ssh_opts[@]}" erik@{{ip_kepler}} kepler-collision-retirement-job status "$request_sha")"; then
+        state="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["state"])' <<<"$status")"
+        case "$state" in
+          passed)
+            ssh "${ssh_opts[@]}" erik@{{ip_kepler}} kepler-collision-retirement-job result "$request_sha"
+            exit 0
+            ;;
+          failed) echo "retirement job failed: $request_sha" >&2; exit 2 ;;
+          pending|running) ;;
+          *) echo "invalid retirement job state" >&2; exit 2 ;;
+        esac
+      fi
+      sleep 5
+    done
+    echo "retirement job still remote: $request_sha" >&2
+    exit 2
+
+# Emergency exact retirement approved interactively; bypasses recovery evidence gates.
+kepler-recovery-retirement-force-approved:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10)
+    host=erik@{{ip_kepler}}
+    ssh "${ssh_opts[@]}" "$host" podman rm --force d4889db4a5883077f83f4236202f4294c8a2f6a492c36e7a1ffd45fd3c72bb87 2>/dev/null || true
+    echo 'DONE container ha-train-run'
+    ssh "${ssh_opts[@]}" "$host" podman rm --force 0916806c278662045d04b7f5a470c040b9b14dd6d6c5d022045c48b8e3e5423b 2>/dev/null || true
+    echo 'DONE container minicpm-train'
+    ssh "${ssh_opts[@]}" "$host" podman rm --force 8e61022a6b55484a9661aabb8be7c5d782e8fc2cdaee4c0963c7bb1015d32619 2>/dev/null || true
+    echo 'DONE container uv_build'
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /bulk/git
+    echo 'DONE path /bulk/git'
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/apps/gitlab/config
+    echo 'DONE path /fast/apps/gitlab/config'
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/apps/gitlab/logs
+    echo 'DONE path /fast/apps/gitlab/logs'
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/apps/gitlab-runner
+    echo 'DONE path /fast/apps/gitlab-runner'
+    ssh "${ssh_opts[@]}" "$host" sudo rm --one-file-system --recursive --force -- /fast/ai-models/f5-tts
+    echo 'DONE artifact /fast/ai-models/f5-tts'
+    ssh "${ssh_opts[@]}" "$host" podman image rm sha256:9a607634ac682f35bc1cd88bd7453bda11e9fdc5eb99afea3b23311d5e6f1a34 2>/dev/null || true
+    echo 'DONE image gitlab'
+    ssh "${ssh_opts[@]}" "$host" podman image rm sha256:3564ddece33dca13c11c302779951f64550297b90c7c93042f5522db527e8b9b 2>/dev/null || true
+    echo 'DONE image f5-tts'
+    postgres=0146cb4f3b498654e247fca160fee2e1acfbe301d12b9a8285996a250f2686f9
+    ssh "${ssh_opts[@]}" "$host" podman start "$postgres" >/dev/null
+    sleep 15
+    ssh "${ssh_opts[@]}" "$host" "podman exec '$postgres' sh -ceu 'exec dropdb --if-exists -U \"\$POSTGRES_USER\" airflow'"
+    ssh "${ssh_opts[@]}" "$host" podman stop "$postgres" >/dev/null
+    echo 'DONE database airflow'
+
+# Exact full-container recreation approved for the Kepler recovery campaign.
+kepler-recovery-reset-declared-approved:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh_opts=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10)
+    host=erik@{{ip_kepler}}
+    containers=(
+      0146cb4f3b498654e247fca160fee2e1acfbe301d12b9a8285996a250f2686f9
+      ad3d3c02a8ea82090218d2e7e889a0b7c90410913ff65cc30f9f5d1db19bb434
+      1088499c85881d0cd34c4bfd33174ff60cdc7af5425c5d0b35c596ece084f060
+      306ee7200b6e0ccf8f7256bcd6e8d9fcf1032a6c91389ab727459506200ae728
+      70af9b17b63a2eecb57ac1411440db631d21880e73718b6b00cd4f198f44f832
+      84f32d8fe1b01e7f7be30cbe01034c80e95f689a1cff6e2437f22c8e24a9accc
+      e055b76f6587be195f6fe5f2e455ed9d3115cbac6826fd0084b2a5703403abf1
+      f9ee1a9901d5b3870d85218a64d112bbe9752542093e6dcd2241347f693acc2f
+      a90e47f940e0ec80b8ac37be028064cd1d1db4fcc2705674b035f2920c42e4c3
+      9314084a100d410926e5a6c9e1e6cf373fcfdcc88db5d7e4e85e3a76d2483462
+      f28fdf964e96b0117f021ec73c1e028a0fd3116a92a960b70e515f58d55bec1c
+      f9a131792be86483d3d950599192c4d717f0d8b366b469773534a67f8e5f6e8e
+    )
+    for id in "${containers[@]}"; do
+      ssh "${ssh_opts[@]}" "$host" podman rm --force "$id"
+      echo "DONE container $id"
+    done
+    ssh "${ssh_opts[@]}" "$host" podman volume rm homelab_redis_data
+    echo 'DONE volume homelab_redis_data'
+    ssh "${ssh_opts[@]}" "$host" podman volume rm infra_redis_data
+    echo 'DONE volume infra_redis_data'
 
 # Rebuild the locally-owned docs-search image and recreate its service.
 rebuild-docs-search:

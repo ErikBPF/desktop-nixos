@@ -16,7 +16,7 @@ HEX64 = re.compile(r"[0-9a-f]{64}")
 COMPOSE_PROJECT = "com.docker.compose.project"
 COMPOSE_SERVICE = "com.docker.compose.service"
 ACTIVE_STATES = {"paused", "restarting", "running"}
-STOP_ORDER = ("docs-search", "ai-serving", "infra")
+STOP_ORDER = ("docs-search", "infra")
 START_ORDER = tuple(reversed(STOP_ORDER))
 RETIRED = {
     "gitlab": {"gitlab", "gitlab-runner"},

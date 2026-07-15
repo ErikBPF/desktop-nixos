@@ -52,6 +52,7 @@ class DatabaseEvidenceTests(unittest.TestCase):
         self.assertEqual(
             first["manifest"]["inventory_sha256"], self.inventory["inventory_sha256"]
         )
+        self.assertEqual(first["manifest"]["source_container_id"], "b" * 64)
         self.assertEqual(first["manifest"]["status"], "retained-databases-verified")
         rendered = json.dumps(first, sort_keys=True).lower()
         for forbidden in ("password", "secret", "connection", "environment", "contents"):
@@ -118,6 +119,11 @@ class DatabaseEvidenceTests(unittest.TestCase):
 
     def test_requires_backup_for_every_discovered_non_airflow_database(self):
         self.evidence["retained_databases"].pop()
+        with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "database inventory coverage"):
+            self.plan()
+
+    def test_requires_exact_template1_system_database(self):
+        self.evidence["database_inventory"][-1]["name"] = "template2"
         with self.assertRaisesRegex(self.module.DatabaseEvidenceHalt, "database inventory coverage"):
             self.plan()
         self.evidence = json.loads(FIXTURE.read_text())

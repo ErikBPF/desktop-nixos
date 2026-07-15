@@ -12,8 +12,8 @@ import sys
 import tomllib
 
 
-SERVARR_COMMIT = "4fbc093fe1badbe6a99b55a02b676794a433c97f"
-MIGRATION_STACKS = ("infra", "ai-serving", "docs-search")
+SERVARR_COMMIT = "8edab1af0252426a55cbf8d15c5dcd06a77a8995"
+MIGRATION_STACKS = ("infra", "docs-search")
 PROTECTED_STACKS = ()
 STACKS = MIGRATION_STACKS + PROTECTED_STACKS
 VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(?::-|:\?)[^}]*)?\}")

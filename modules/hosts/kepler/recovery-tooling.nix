@@ -39,6 +39,29 @@
       ];
       text = builtins.readFile ./_collision_recovery_redis_evidence.sh;
     };
+    evidenceJob = pkgs.writeShellApplication {
+      name = "kepler-collision-evidence-job";
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.python3
+        pkgs.systemd
+        pkgs.util-linux
+        postgresEvidence
+        redisEvidence
+      ];
+      text = builtins.readFile ./_collision_recovery_evidence_job.sh;
+    };
+    retirementJob = pkgs.writeShellApplication {
+      name = "kepler-collision-retirement-job";
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.python3
+        pkgs.systemd
+        pkgs.util-linux
+        executor
+      ];
+      text = builtins.readFile ./_collision_recovery_retirement_job.sh;
+    };
   in {
     assertions = [
       {
@@ -53,6 +76,30 @@
       planner
       postgresEvidence
       redisEvidence
+      evidenceJob
+      retirementJob
     ];
+
+    systemd.user.services."kepler-collision-evidence@" = {
+      description = "Kepler collision recovery evidence job %i";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${evidenceJob}/bin/kepler-collision-evidence-job execute %i";
+        UMask = "0077";
+        TimeoutStartSec = "infinity";
+        KillMode = "control-group";
+      };
+    };
+
+    systemd.user.services."kepler-collision-retirement@" = {
+      description = "Kepler collision recovery retirement job %i";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${retirementJob}/bin/kepler-collision-retirement-job execute %i";
+        UMask = "0077";
+        TimeoutStartSec = "infinity";
+        KillMode = "control-group";
+      };
+    };
   };
 }

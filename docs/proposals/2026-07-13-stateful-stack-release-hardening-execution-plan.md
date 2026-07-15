@@ -1,8 +1,9 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 and Kepler K0 complete; K1 evidence collection,
-backup/restore proof, and exact approval-manifest generation are the active
-gate. Discovery P1 remains staged and frozen until K5 completes.
+**Status:** In progress — P0 and Kepler recovery complete; operator-approved
+retirement of Kepler AI-serving executed and verified after reboot. Discovery
+consumers must stop routing to the retired endpoints before Discovery P1 can
+unfreeze.
 
 ## 1. Purpose and authority
 
@@ -78,28 +79,78 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 - K1 remains blocked pending a fresh read-only live inventory and exact
   approval manifest.
 
-### K1 — in progress, dry-run gates only
+### K1–K4 — operational recovery complete with recorded deviation
 
 - Servarr `6e215e9` removes F5-TTS from the desired Kepler stack, environment
   contract, local-image provenance, model provenance, validation, and operator
-  recipes. This is source retirement only; the live host has not been mutated.
+  recipes.
 - Desktop `4fdae50` pins that Servarr revision, removes the F5-TTS host port and
   model-path expectations, and adds value-free dry-run planners for retained
-  PostgreSQL evidence, Redis backup/restore, and exact retirement/disposition.
+  PostgreSQL evidence, disposable Redis reset planning, and exact retirement/disposition.
 - The retirement planner validates the live inventory's internal SHA-256,
   rejects shared images and unknown resources, exact-allowlists Restate, binds nested
   evidence, and emits no execute mode or destructive command.
-- The recovery suite passes 122 tests. Documentation, lint, format, Kepler
-  dry-build, and the full flake check pass. The full check used only Orion and
-  Kepler as builders; the laptop coordinator had zero local build jobs.
-- No GitLab/Airflow resource, F5 artifact, scratch container, database, volume,
-  snapshot, backup, secret, or external credential has been removed or revoked.
-- Live execution remains blocked until a fresh inventory, value-free evidence,
-  restore-tested PostgreSQL and Redis backups, and an exact hash-bound approval
-  manifest exist. Historical GitLab/Airflow copies and mixed-backup sanitation
-  are explicitly out of scope because both stacks were disposable homelab
-  tests. A secret-safe executor also
-  requires the repository's Bats prerequisite before implementation.
+- Exact retirement manifests were rendered from fresh value-free inventories
+  and explicitly approved by hash. After evidence-gated execution repeatedly
+  stopped on stale runtime facts, the operator explicitly authorized the
+  bounded force path and full declared-stack reset because the retired payloads
+  were disposable homelab tests and downtime was acceptable.
+- The force path removed only the exact Airflow database, approved scratch
+  containers, GitLab/F5 bind paths, and exact GitLab/F5 images. It did not run a
+  broad prune, delete a parent dataset, delete snapshots/backups, or expose
+  secret values.
+- The declared-stack reset removed exactly the 12 inventory-bound containers
+  plus disposable Redis volumes `homelab_redis_data` and `infra_redis_data`.
+  Persistent PostgreSQL, Qdrant, MinIO, and model bind paths were retained.
+- `infra`, `ai-serving`, and `docs-search` were recreated declaratively. A fresh
+  inventory found all 12 expected containers running under their desired
+  Compose projects and reproduced inventory SHA-256
+  `74c70f4ab0c025bac510734f31d0b351df4a28f431bf68ae57dbae0ee42f184a`.
+- This was an approved operational deviation from K3 snapshot/restore proof and
+  K4 collision-by-collision quarantine. Those unexecuted protections must not
+  be claimed as evidence or retroactively marked complete.
+
+### K5 — superseded by AI-serving retirement
+
+- Kepler rebooted once through the documented workflow and returned after an
+  extended boot interval.
+- Post-reboot host verification passed: zero failed units, Tailscale and
+  Syncthing active, Home Manager successful, SOPS age key present, and staging
+  cleanup complete.
+- All 12 expected containers are running in `infra`, `ai-serving`, and
+  `docs-search`. Ports `8085`, `8087`, `9000`, `10200`, and `8765` respond; the
+  NVIDIA RTX 3070 and embedding workload are visible on the GPU.
+- `slm-bge-m3` reached healthy. The reranker remained in normal cold-start when
+  the operator waived further waiting; this is recorded as incomplete health
+  evidence, not a failure.
+- The final read-only post-recovery audit converged with all 12 declared
+  containers classified as `none`, no retired resources selected, no halt
+  reasons, inventory SHA-256
+  `74c70f4ab0c025bac510734f31d0b351df4a28f431bf68ae57dbae0ee42f184a`,
+  and manifest SHA-256
+  `b1a43fae85f277b682fcde3c3daacece70e65bf0447dab4df3788ce0329c0331`.
+- Discovery LiteLLM route checks passed through the gateway for `bge-m3`,
+  `bge-reranker-v2-m3`, `whisper-pt-br`, and the offline
+  `tts-pt-br-piper` fallback. The primary Edge TTS route `tts-pt-br` returned
+  HTTP 500 on three bounded attempts (approximately 31–38 seconds each).
+  K5 therefore remains blocked on that route; Discovery P1 stays frozen. No
+  service restart or runtime configuration change was attempted.
+- On 2026-07-14 the operator declared the entire Kepler AI-serving stack and
+  model cache disposable and reproducible. Servarr `8edab1a` removes all seven
+  services. Desktop desired state now contains only `infra` and `docs-search`,
+  closes the retired ports, and removes the model-cache tmpfiles and NVIDIA
+  container runtime. The exact-ID retirement removed the seven containers,
+  seven local images, and `/fast/ai-models`, then returned idempotent status
+  `already-retired` with manifest SHA-256
+  `de8ce750ba6a1316ffca0b354615badfab994ec7a19fdd0de67ac2cd35660c3f`.
+  After reboot, only the four `infra` containers and `docs-search` remain;
+  ports `8002`, `8003`, `8085`, `8087`, `9000`, `9835`, and `10200` are closed.
+  The final read-only audit converged with five `none` actions, inventory
+  SHA-256 `71e89e49eb36a2eef72dba78fa84a7b17edb005fb965b064a2afd1917cb8c1b8`,
+  and manifest SHA-256
+  `508eda98acacfadf8ba0368321f1c433352f6a74e60b64669e3810951077ca5c`.
+  No network, volume, snapshot, dataset, or broad-prune cleanup ran.
+  Discovery/HA routes are now consumer cleanup, not a K5 health gate.
 
 ### Known later gates
 
@@ -234,10 +285,12 @@ published. No remote execution path exists yet, and no K1 mutation has run.
 
 ### K3 — retained-state protection
 
-1. Stop dependents; checkpoint PostgreSQL; force Redis persistence; confirm
-   Qdrant and MinIO writes are idle.
-2. Restore-test logical PostgreSQL and Redis backups. Copy the Redis named-volume
-   backup into protected `/fast` state and checksum it.
+1. Stop dependents; checkpoint PostgreSQL; confirm Qdrant and MinIO writes are
+   idle. Redis is a disposable cache and has no backup/restore requirement.
+2. Restore-test logical PostgreSQL backups. Bind the exact stopped legacy
+   `redis` container and exact `homelab_redis_data` volume in the approval
+   manifest. Any running container, foreign ownership, additional reference,
+   or inventory drift halts before reset.
 3. Create a timestamped recursive ZFS snapshot of retained state only. Every
    persistent mount outside its boundary requires an independently verified
    backup or the campaign halts.
@@ -256,6 +309,12 @@ clean logs, state checks, endpoint probes, dependent smoke tests, and 15 minutes
 without restart or regression. A failure stops the replacement and retains the
 quarantine and snapshot. Never restore ZFS or restart legacy state
 automatically. Do not delete quarantined non-retired containers in K4.
+
+The `infra` slice is the explicit Redis exception: remove only the approved,
+stopped legacy `redis` container and approved `homelab_redis_data` volume, then
+let declarative `infra` recreate desired Redis. Do not rename, back up, restore,
+or quarantine legacy Redis cache data. No broad container or volume deletion is
+permitted, and a changed inventory invalidates the manifest.
 
 ### K5 — reboot, cross-host validation, and retention ledger
 
@@ -476,9 +535,9 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is K1 read-only inventory, backup/restore evidence, and
-exact approval-manifest generation. Implementing the secret-safe executor first
-requires Bats in the declarative test environment. Kepler K2/K4 execution then
+The current active gate is K1 read-only inventory, retained-state backup/restore
+evidence, disposable Redis reset selection, and exact approval-manifest
+generation. Kepler K2/K4 execution then
 requires that fresh, exact K1 manifest and matching approval. The staged Discovery
 gate to replace `swag` and `swag-init` becomes active only after K5 and does not
 authorize deletion of bind state, volumes, P0 fixtures, P1 protection, or
@@ -490,10 +549,10 @@ legacy resources.
 |---|---|---|---|
 | P0 | Complete | Servarr `98ecafb`; desktop `50454f9`, `6217215`, `061a1cc`, `5a24439`; retained fixture | P9 cleanup only |
 | K0 | Complete | Servarr `1805e1d`; 21 planner fixtures; Kepler dry-build; full flake check | K1 evidence and exact approval manifest |
-| K1 | In progress | Servarr `6e215e9`; desktop `4fdae50`; 122 recovery tests; docs/lint/fmt/Kepler dry/full flake gates | Bats prerequisite; secret-safe executor; fresh inventory; restore proofs; exact manifest review and approval |
+| K1 | In progress | Prior published evidence plus local disposable-Redis contract verification: 144 recovery tests | Fresh inventory; retained-state restore proof; exact Redis reset selection; manifest review and approval |
 | K2 | Pending | — | Approved, drift-free K1 manifest |
-| K3 | Pending | — | K2 verified; retained-state backups |
-| K4 | Pending | — | K3 snapshot and coverage proof |
+| K3 | Pending | Redis cache declared disposable; exact reset contract fixture | K2 verified; retained-state backups and exact Redis reset selection |
+| K4 | Pending | — | K3 snapshot/coverage proof and approved exact Redis reset selection |
 | K5 | Pending | — | K4 green; reboot and cross-host validation |
 | P1 | Staged/frozen | Servarr `c2b0714`; desktop `3bbefaf`; live preflight | K5 complete, then approval for `swag`, `swag-init` replacement |
 | P2 | Pending | — | P1 complete |

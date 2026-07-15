@@ -63,6 +63,17 @@
     {"source": "restate_data", "backup_verified": true}
   ],
   "completed": [],
+  "redis_reset": {
+    "container_id": "2222222222222222222222222222222222222222222222222222222222222222",
+    "container_name": "redis",
+    "container_state": "stopped",
+    "project": "homelab",
+    "service": "redis",
+    "volume_driver": "local",
+    "volume_mountpoint": "/home/erik/.local/share/containers/storage/volumes/homelab_redis_data/_data",
+    "volume_name": "homelab_redis_data",
+    "volume_references": ["redis"]
+  },
   "gates": {
     "inventory_collection": true,
     "classification": true,
@@ -71,7 +82,7 @@
     "mixed_backup_sanitization": true,
     "exact_artifact_selection": true,
     "postgres_checkpoint": true,
-    "redis_save_backup_restore": true,
+    "redis_disposable_reset": true,
     "qdrant_idle": true,
     "minio_idle": true,
     "persistent_mount_coverage": true,
