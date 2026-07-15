@@ -42,6 +42,12 @@ class PreflightTest(unittest.TestCase):
                 with self.subTest(name=name,value=value),self.assertRaises(self.p.Drift):self.p.plan(changed)
             changed=copy.deepcopy(self.inventory);changed["containers"][index]["image_digest"]="sha256:"+"0"*64
             with self.subTest(name=name,digest="wrong"),self.assertRaises(self.p.Drift):self.p.plan(changed)
+    def test_exporter_family_map_is_exact_private_and_diagnostic(self):
+        for mutation in (lambda families:families.update(adguard_dns_queries=False),lambda families:families.update(unexpected_metric=True)):
+            changed=copy.deepcopy(self.inventory);mutation(changed["baseline"]["exporter"]["families"])
+            with self.assertRaises(self.p.Drift):self.p.plan(changed)
+        rendered=str(self.p.plan(self.inventory)["baseline"]["exporter"])
+        self.assertNotIn("metric_value",rendered);self.assertNotIn("labels",rendered)
     def test_planner_has_no_execution_surface(self):
         source=PLANNER.read_text().lower()
         for token in ("subprocess","docker stop","compose up","snapshot","archive","volume rm","prune","execute"):self.assertNotIn(token,source)
