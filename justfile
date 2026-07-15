@@ -1555,7 +1555,7 @@ p3-adguard-outage-observe bound_ms="10000":
       | sed '/^#/d' >"$known_tmp"
     test -s "$known_tmp"
     chmod 0400 "$known_tmp"
-    mv "$known_tmp" "$known_hosts"
+    mv -f "$known_tmp" "$known_hosts"
     builders=$(just _builders endeavour)
     ndisc6=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#ndisc6 \
       --builders "$builders" --builders-use-substitutes --max-jobs 0)

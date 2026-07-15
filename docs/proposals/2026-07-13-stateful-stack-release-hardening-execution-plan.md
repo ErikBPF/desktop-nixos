@@ -488,6 +488,11 @@ while authorizing mutation of only `adguard-exporter` and `adguard`. Execution
 rejects inventory or implementation drift, requires a bounded no-RA/RDNSS proof,
 caps normal-resolver failover at 10 seconds, restores the same container IDs in
 at most three bounded attempts, and retains failed-run journals for diagnosis.
+The first renewed outage-client observation halted before manifest generation:
+the Main LAN emits an IPv6 router advertisement containing a gateway RDNSS
+server, so a normal dual-stack client can bypass the approved DHCPv4 resolver
+order. P3 remains blocked until that RDNSS path is made declaratively consistent
+or explicitly removed and a renewed generic-client observation passes.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -658,7 +663,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | DHCP and generic-client proof complete; outage proof pending | Desktop `3c88a30`, `5903ca0`, `a50415e`, `19aac0d`, `b64d290`; homelab-iac `85f2737`; CI `29439836040`; saved plan `8371490a…`; clean post-apply plan; isolated lease `.175` with exact option 6 `.210,.230` and cleanup invariants | Approved AdGuard outage/restore proof |
+| P3 | DHCPv4 and generic-client proof complete; IPv6 RDNSS blocks outage | Desktop `3c88a30`, `5903ca0`, `a50415e`, `19aac0d`, `b64d290`, `ce88dfa`, `d78ce3c`; homelab-iac `85f2737`; CI `29439836040`; saved plan `8371490a…`; exact DHCPv4 option 6 and cleanup invariants; renewed observation halted on gateway RDNSS | Declaratively align/remove Main LAN RDNSS; renew observation; approve AdGuard outage/restore proof |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
