@@ -228,7 +228,7 @@ def plan_resume(observation):
     _reject_value_fields(observation)
     _require_keys(observation, {"current_runtime", "dns_file_metadata", "retained", "servarr"}, "resume observation")
     _require_keys(observation["dns_file_metadata"], {"mode", "owner", "path"}, "DNS file metadata")
-    if observation["dns_file_metadata"] != {"mode": "0600", "owner": "0:0", "path": DNS_CREDENTIAL_PATH}:
+    if observation["dns_file_metadata"] != {"mode": "0644", "owner": "1000:100", "path": DNS_CREDENTIAL_PATH}:
         raise PreflightHalt("initial credential metadata differs")
     _require_keys(observation["servarr"], {"commit", "compose_file", "render_sha256"}, "resume Servarr")
     if not HEX40.fullmatch(observation["servarr"]["commit"]) or not HEX64.fullmatch(observation["servarr"]["render_sha256"]):

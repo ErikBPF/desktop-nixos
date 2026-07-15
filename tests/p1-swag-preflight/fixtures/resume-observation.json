@@ -1,7 +1,7 @@
 {
   "dns_file_metadata": {
-    "owner": "0:0",
-    "mode": "0600",
+    "owner": "1000:100",
+    "mode": "0644",
     "path": "/home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini"
   },
   "current_runtime": {

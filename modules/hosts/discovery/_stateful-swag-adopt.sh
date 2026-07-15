@@ -273,7 +273,7 @@ resume_attempt_02_main() {
   compose=(docker-compose --project-name networking --env-file "$env_file" --env-file "$vault_env" -f "$compose_file")
   if [ ! -d "$init_complete" ]; then
     if cmp --silent <(jq -S '.containers' "$runtime") <(jq -S '.manifest.current_runtime.containers' "$attempt_02_authorization") &&
-      [ "$(stat -c '%a:%u:%g' "$dns_ini")" = 600:0:0 ]; then
+      [ "$(stat -c '%a:%u:%g' "$dns_ini")" = 644:1000:100 ]; then
       assert_fresh_compose_binding "$attempt_02_authorization"
       "${compose[@]}" up --no-deps --force-recreate --abort-on-container-exit --exit-code-from swag-init swag-init
       assert_fresh_compose_binding "$attempt_02_authorization"

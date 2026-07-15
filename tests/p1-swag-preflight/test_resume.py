@@ -39,8 +39,8 @@ class SwagResumeTest(unittest.TestCase):
         self.assertEqual(set(manifest["retained"]), {"authorization", "approved_inventory", "ledger", "archive", "archive_checksum", "snapshot"})
         self.assertEqual([x["name"] for x in manifest["current_runtime"]["containers"]], ["swag", "swag-init"])
         self.assertEqual(manifest["dns_file_metadata"], {
-            "mode": "0600",
-            "owner": "0:0",
+            "mode": "0644",
+            "owner": "1000:100",
             "path": "/home/erik/servarr/machines/discovery/config/swag/dns-conf/cloudflare.ini",
         })
         self.assertEqual(manifest["servarr"], self.observation["servarr"])
@@ -73,7 +73,7 @@ class SwagResumeTest(unittest.TestCase):
     def test_initial_failed_credential_transition_is_exact(self):
         authorization = self.planner.resume_envelope(self.planner.plan_resume(self.observation))
         self.planner.verify_resume(self.observation, authorization)
-        for key, value in (("owner", "1000:100"), ("owner", "0:100"), ("mode", "0640"), ("path", "/tmp/cloudflare.ini")):
+        for key, value in (("owner", "0:0"), ("owner", "0:100"), ("mode", "0600"), ("path", "/tmp/cloudflare.ini")):
             changed = copy.deepcopy(self.observation)
             changed["dns_file_metadata"][key] = value
             with self.subTest(key=key, value=value), self.assertRaises(self.planner.InventoryDrift):
