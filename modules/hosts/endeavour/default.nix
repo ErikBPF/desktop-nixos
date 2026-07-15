@@ -20,7 +20,7 @@ in {
       m.nixos.endeavour-networking
       m.nixos.laptop-syncthing
       m.nixos.laptop-appimage
-      m.nixos.laptop-ampagent
+      m.nixos.endeavour-ampagent
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs

@@ -230,8 +230,7 @@ or deploying. A few install-time specifics:
 - **Local junk is gitignored and safe to delete** — it regenerates on demand:
   `.direnv/`, `.ruff_cache/`, `result`/`result-*` symlinks, and agent runtime
   state (`.ralph/`, `.bg-shell/`, `_bmad-output/`, `logs/`).
-- **`ampagent-*.deb` at the repo root is local-only and token-bearing** — the
-  source `just add-ampagent` imports into the nix store. Never commit it; don't
-  delete the only copy unless it is already in the store. Run
-  `just seed-ampagent-builders` after importing it so clean-clone checks on
-  Orion or Kepler do not depend on the laptop's store.
+- **`ampagent-*.deb` at the repo root is Endeavour-only and token-bearing** —
+  `just add-ampagent` imports it into Endeavour's Nix store. Never commit it or
+  copy it to shared builders. Validate that host with the Endeavour-specific
+  remote check; fleet checks on Orion/Kepler deliberately exclude it.

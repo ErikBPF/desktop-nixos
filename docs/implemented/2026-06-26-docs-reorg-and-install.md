@@ -124,9 +124,9 @@ note that is genuinely new:
 - Gitignored, regenerated-on-demand, safe to delete: `.direnv/`, `.ruff_cache/`,
   `result` / `result-*` symlinks, agent runtime state (`.ralph/`, `.bg-shell/`,
   `_bmad-output/`, `logs/`).
-- `ampagent-*.deb` at the root is **local-only and token-bearing** — the source
-  `just add-ampagent` imports into the nix store. Do not commit it; do not
-  delete the only copy unless it is already in the store.
+- `ampagent-*.deb` at the root is **Endeavour-only and token-bearing** —
+  `just add-ampagent` imports it into Endeavour's store. Do not commit it or
+  seed it to shared builders.
 - `.gitignore` now also covers `.ruff_cache/ .mypy_cache/ .pytest_cache/`
   (added during the cleanup that motivated this proposal).
 

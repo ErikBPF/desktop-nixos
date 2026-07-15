@@ -49,8 +49,8 @@
         git reset --hard origin/main
 
         # One host's broken closure must not skip the others' warm (observed
-        # 2026-07-02: laptop's requireFile ampagent failed and aborted the
-        # run before discovery/kepler were built). Attempt every host, fail
+        # 2026-07-02: one unavailable fixed-output aborted the run before the
+        # remaining hosts were built). Attempt every host, fail
         # the unit at the end so the failure still surfaces.
         echo ":: Building host closures..."
         failed=""

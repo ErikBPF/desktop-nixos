@@ -40,9 +40,9 @@ The build path now has explicit, independently verifiable operations:
   clone of a commit already published on `origin/main`; Orion builds locally
   and may spill work to Kepler. `check-remote kepler [ref]` reverses those roles.
   The dispatching laptop performs no evaluation or build.
-- Remote checks fail fast when the local-only KACE fixed-output is absent from
-  both server stores. After `just add-ampagent`, `just seed-ampagent-builders`
-  copies that existing store path to Orion and Kepler without building locally.
+- Remote fleet checks exclude Endeavour so the proprietary KACE fixed-output
+  never enters Orion or Kepler's stores. Endeavour has a separate dispatched
+  check and remains the only host that imports or installs KACE.
 - The K3s HA fixture follows the production control-plane bootstrap invariant
   instead of racing three embedded-etcd members at once.
 

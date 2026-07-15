@@ -238,29 +238,12 @@ check:
 eval:
     nix flake check
 
-# Run the complete flake check from a clean clone on a fleet host. The ref must
-# already be published on origin/main; dirty local work is never copied. The
-# coordinator builds locally and may offload to the other server, so the laptop
-# performs neither evaluation nor builds after dispatch.
-check-remote coordinator="orion" ref="HEAD":
+# Build every flake check except Endeavour from a clean clone on Orion. The ref
+# must already be published on origin/main; dirty local work is never copied.
+# Orion evaluates/builds and may offload to Kepler. KACE stays on Endeavour.
+check-remote ref="HEAD":
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{coordinator}}" in
-      orion)
-        ip="{{ip_orion}}"
-        builders='{{kepler_builder}}'
-        peer_store="ssh-ng://erik@{{ip_kepler}}:2222?ssh-key=/home/erik/.ssh/id_ed25519"
-        ;;
-      kepler)
-        ip="{{ip_kepler}}"
-        builders='{{orion_builder}}'
-        peer_store="ssh-ng://erik@{{ip_orion}}:2222?ssh-key=/home/erik/.ssh/id_ed25519"
-        ;;
-      *)
-        echo ":: coordinator must be orion or kepler" >&2
-        exit 2
-        ;;
-    esac
     git fetch --quiet origin main
     commit="$(git rev-parse --verify "{{ref}}^{commit}")"
     git merge-base --is-ancestor "$commit" refs/remotes/origin/main || {
@@ -268,9 +251,9 @@ check-remote coordinator="orion" ref="HEAD":
       exit 2
     }
     remote_url="https://github.com/ErikBPF/desktop-nixos.git"
+    builders="$(just _builders orion)"
     builders_b64="$(printf '%s' "$builders" | base64 -w0)"
-    peer_store_b64="$(printf '%s' "$peer_store" | base64 -w0)"
-    printf ':: remote flake check coordinator=%s commit=%s\n' "{{coordinator}}" "$commit"
+    printf ':: remote non-Endeavour flake checks coordinator=orion commit=%s\n' "$commit"
     remote_script='set -euo pipefail
     work=$(mktemp -d)
     trap '\''rm -rf "$work"'\'' EXIT
@@ -279,36 +262,46 @@ check-remote coordinator="orion" ref="HEAD":
     test -z "$(git -C "$work/repo" status --porcelain)"
     cd "$work/repo"
     builders=$(printf %s "$3" | base64 -d)
-    peer_store=$(printf %s "$4" | base64 -d)
-    ampagent=/nix/store/c2f6ayn5cclzxv7ravb6iy70ijj0vdkn-ampagent-15.0.54.deb
-    nix path-info "$ampagent" >/dev/null 2>&1 \
-      || nix path-info --store "$peer_store" "$ampagent" >/dev/null 2>&1 \
-      || { echo ":: BLOCKED: KACE fixed-output missing; run: just seed-ampagent-builders" >&2; exit 2; }
-    exec nix flake check --show-trace \
+    check_map=$(nix eval --json .#checks \
+      --apply "systems: builtins.mapAttrs (_: checks: builtins.attrNames checks) systems")
+    printf %s "$check_map" | jq -e \
+      "any(.[]?[]; . == \"configurations:nixos:endeavour\")" >/dev/null
+    mapfile -t installables < <(printf %s "$check_map" | jq -r \
+      "to_entries[] as \$system | \$system.value[] |
+        select(. != "configurations:nixos:endeavour") |
+        \".#checks.\\(\$system.key).\\(. | @json)\"")
+    test "${#installables[@]}" -gt 0
+    printf ":: building %d non-Endeavour checks\n" "${#installables[@]}"
+    exec nix build --no-link --show-trace "${installables[@]}" \
       --option builders "$builders" \
       --option builders-use-substitutes true'
     printf '%s\n' "$remote_script" | ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
-      erik@"$ip" bash -s -- "$remote_url" "$commit" "$builders_b64" "$peer_store_b64"
+      erik@"{{ip_orion}}" bash -s -- "$remote_url" "$commit" "$builders_b64"
 
-# Replicate the already-imported proprietary KACE fixed-output to both remote
-# stores. This copies one store path; it does not build on the laptop or expose
-# the token-bearing source filename/content.
-seed-ampagent-builders:
+# Validate/build Endeavour only on Endeavour, where its proprietary KACE
+# fixed-output is permitted to exist. No evaluation or build occurs here.
+check-endeavour-remote target="endeavour" ref="HEAD":
     #!/usr/bin/env bash
     set -euo pipefail
-    path=/nix/store/c2f6ayn5cclzxv7ravb6iy70ijj0vdkn-ampagent-15.0.54.deb
-    nix path-info "$path" >/dev/null 2>&1 || {
-      echo ":: BLOCKED: KACE fixed-output absent locally; import it with: just add-ampagent" >&2
+    git fetch --quiet origin main
+    commit="$(git rev-parse --verify "{{ref}}^{commit}")"
+    git merge-base --is-ancestor "$commit" refs/remotes/origin/main || {
+      echo ":: BLOCKED: $commit is not published on origin/main" >&2
       exit 2
     }
-    for store in \
-      "ssh-ng://erik@{{ip_orion}}:2222?ssh-key=/home/erik/.ssh/id_ed25519" \
-      "ssh-ng://erik@{{ip_kepler}}:2222?ssh-key=/home/erik/.ssh/id_ed25519"
-    do
-      nix copy --to "$store" "$path"
-      nix path-info --store "$store" "$path" >/dev/null
-    done
-    echo ":: KACE fixed-output available on Orion and Kepler"
+    remote_url="https://github.com/ErikBPF/desktop-nixos.git"
+    printf ':: remote Endeavour check target=%s commit=%s\n' "{{target}}" "$commit"
+    remote_script='set -euo pipefail
+    work=$(mktemp -d)
+    trap '\''rm -rf "$work"'\'' EXIT
+    git clone --quiet --no-checkout "$1" "$work/repo"
+    git -C "$work/repo" checkout --quiet --detach "$2"
+    test -z "$(git -C "$work/repo" status --porcelain)"
+    cd "$work/repo"
+    exec nix build --no-link --show-trace \
+      .#checks.x86_64-linux.\"configurations:nixos:endeavour\"'
+    printf '%s\n' "$remote_script" | ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
+      erik@"{{target}}" bash -s -- "$remote_url" "$commit"
 
 # ── Remote Deploy ─────────────────────────────────────────
 # laptop is Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
