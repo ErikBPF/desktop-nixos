@@ -1,9 +1,8 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0 and Kepler recovery complete; operator-approved
-retirement of Kepler AI-serving executed and verified after reboot. Discovery
-P1 in-place SWAG adoption passed under the approved amendment manifest and is
-idempotent. P1 remains open only for reboot-persistence verification.
+**Status:** In progress — P0, Kepler recovery, and Discovery P1 SWAG adoption
+are complete. The operator-approved amendment is idempotent and passed again
+after a verified Discovery reboot. P2 AdGuard in-place adoption is next.
 
 ## 1. Purpose and authority
 
@@ -49,7 +48,7 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   comparisons passed. All fixture resources remain retained.
 - P0 completion evidence is in desktop `5a24439`.
 
-### P1 — in-place adoption complete; reboot gate pending
+### P1 — complete
 
 - Servarr `b676063` retains immutable SWAG and `swag-init` pins, publishes the
   complete Discovery networking SecretSpec contract, removes the tracked
@@ -76,10 +75,15 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   `e695dbefc12260c86a0ae77dbeb6f22d38ea3ee717a17a815c04e0e25d5309a6`.
   Re-executing the same approved amendment returned the identical result and
   performed no container recreation, proving resumability after completion.
-- Desktop `ca6f41d` is the final executor/gate revision. Post-switch host
-  verification found no failed units; Tailscale, Syncthing, Home Manager, and
-  SOPS checks passed. A Discovery reboot and repeated SWAG gates remain before
-  P1 closes.
+- Desktop `e167be6` is the final executor/gate revision. Discovery was observed
+  transitioning down and up through the fixed reboot recipe. Tailscale briefly
+  waited on DNS during the first boot probe, then repeated host verification
+  passed with no failed units and healthy Tailscale, Syncthing, Home Manager,
+  and SOPS checks.
+- The approved amendment binding remained valid after reboot. Completed-state
+  validation returned the identical `status: passed`, runtime SHA-256, render
+  SHA-256, and Kindle PNG SHA-256 without recreating either container. P1 is
+  closed; every journal and superseded record remains retained.
 - A fixture-tested, offline preflight now exact-binds the two container IDs,
   Compose labels and working directory, immutable image references and image
   IDs, `/config` binds, Servarr commit and rendered-Compose hash, evidence
@@ -117,18 +121,20 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 
 ### K0 — complete
 
+At K0 completion:
+
 - Kepler collision behavior and fixture-test contract are approved.
 - GitLab, Airflow, and Restate declarations are retired; their exact live
-  resources have not yet been deleted. All three were disposable homelab tests.
+  resources had not yet been deleted. All three were disposable homelab tests.
 - SecretSpec `0.13.0` is available from the pinned nixpkgs. It is a declaration
   and preflight layer, not a replacement for SOPS or Vault Agent.
 - No Kepler runtime mutation, destructive wipe, backup purge, snapshot, or
-  quarantine has run.
+  quarantine had run.
 - Servarr `1805e1d` published the value-free Kepler SecretSpec contract.
 - Twenty-one planner fixtures, Kepler dry-build, and full flake verification
   passed without changing production secret resolution or runtime startup.
-- K1 remains blocked pending a fresh read-only live inventory and exact
-  approval manifest.
+- K1 was blocked pending a fresh read-only live inventory and exact approval
+  manifest.
 
 ### K1–K4 — operational recovery complete with recorded deviation
 
@@ -184,8 +190,9 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   `bge-reranker-v2-m3`, `whisper-pt-br`, and the offline
   `tts-pt-br-piper` fallback. The primary Edge TTS route `tts-pt-br` returned
   HTTP 500 on three bounded attempts (approximately 31–38 seconds each).
-  K5 therefore remains blocked on that route; Discovery P1 stays frozen. No
-  service restart or runtime configuration change was attempted.
+  At that checkpoint K5 was blocked on that route and Discovery P1 remained
+  frozen. No service restart or runtime configuration change was attempted;
+  the operator-approved retirement deviation below superseded this route gate.
 - On 2026-07-14 the operator declared the entire Kepler AI-serving stack and
   model cache disposable and reproducible. Servarr `8edab1a` removes all seven
   services. Desktop desired state now contains only `infra` and `docs-search`,
@@ -381,7 +388,7 @@ permitted, and a changed inventory invalidates the manifest.
    separate cleanup manifest for later named-resource approval.
 7. Unfreeze Discovery P1 only after all K5 gates are green.
 
-### P1 — SWAG in-place adoption — reboot gate pending
+### P1 — SWAG in-place adoption — complete
 
 #### P1.1 Immutable pins — complete
 
@@ -425,6 +432,12 @@ retained observation, authorization, and manifest hash:
 recreation and repeats the exact SWAG identity, mount, credential-metadata,
 health, certificate, DNS-01, ingress, and Kindle gates. Record both results;
 then close P1.
+
+Completed: Discovery was observed down then up; generic host verification and
+the exact completed-state amendment gates passed. Reboot-time device/inode
+changes from the declared atomic credential writer are accepted only in the
+read-only persistence validator. Path, file type, symlink state, mode, and
+ownership remain exact; transition-time identity evidence remains immutable.
 
 ### P2 — AdGuard in-place adoption
 
@@ -597,12 +610,10 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is P1.3: reboot Discovery through the documented recipe,
-then repeat SWAG identity, health, mount, credential-metadata, certificate,
-DNS-01, ingress, and Kindle probes. The completed amendment did not authorize
-deletion of bind state, volumes, snapshots, backups, P0 fixtures, P1 evidence,
-or legacy resources. P2 remains blocked until this reboot-persistence gate is
-green.
+The current active gate is P2: refresh the AdGuard baseline and produce its
+value-free, exact in-place adoption evidence before requesting any mutation.
+P1 did not authorize deletion of bind state, volumes, snapshots, backups, P0
+fixtures, P1 evidence, or legacy resources.
 
 ## 8. Completion ledger
 
@@ -612,7 +623,7 @@ green.
 | K0 | Complete | Servarr `1805e1d`; 21 planner fixtures; Kepler dry-build; full flake check | K1 evidence and exact approval manifest |
 | K1–K4 | Complete with approved deviation | Exact manifests and force/reset evidence; retained PostgreSQL/Qdrant/MinIO state; disposable Redis reset; final inventory `74c70f4…` | P9 retained-evidence cleanup only |
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
-| P1 | Adoption complete; reboot pending | Servarr `b676063`; amendment `94781f28…` passed and idempotent; desktop `ca6f41d`; post-switch host verification | Reboot Discovery and repeat persistence/smoke gates |
+| P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Pending | — | P1 complete |
 | P3 | Pending | Read-only audit | P2; LAN-reachable design |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
