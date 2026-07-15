@@ -153,7 +153,7 @@ def main():
             if second["stage"] == "remove-containers":
                 subprocess.run(["podman", "rm", "--force", *second["containers"]], check=True)
             elif second["stage"] == "remove-images":
-                subprocess.run(["podman", "image", "rm", *second["images"]], check=True)
+                subprocess.run(["podman", "image", "rm", "--force", *second["images"]], check=True)
             elif second["stage"] == "remove-path":
                 subprocess.run(["sudo", "rm", "--one-file-system", "--recursive", "--force", "--", PATH], check=True)
     except (json.JSONDecodeError, subprocess.CalledProcessError, ValueError) as error:

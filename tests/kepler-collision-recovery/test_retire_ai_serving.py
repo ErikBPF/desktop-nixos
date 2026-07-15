@@ -117,6 +117,7 @@ class RetireAiServingTests(unittest.TestCase):
         source = SCRIPT.read_text()
         for forbidden in ("prune", "zfs destroy", "volume rm", "/fast\""):
             self.assertNotIn(forbidden, source)
+        self.assertIn('["podman", "image", "rm", "--force", *second["images"]]', source)
 
     def test_remote_recipe_uses_declarative_python_interpreter(self):
         recipe = (ROOT / "justfile").read_text()
