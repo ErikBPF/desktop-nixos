@@ -502,12 +502,14 @@ in {
         '';
       };
 
-      sops.secrets."k3s_bootstrap/argocd_repo_ssh_key" = {
+      sops.secrets.k3s-bootstrap-argocd-repo-ssh-key = {
         inherit sopsFile;
+        key = "k3s_bootstrap/argocd_repo_ssh_key";
         mode = "0400";
       };
-      sops.secrets."k3s_bootstrap/vault_approle_secret_id" = {
+      sops.secrets.k3s-bootstrap-vault-approle-secret-id = {
         inherit sopsFile;
+        key = "k3s_bootstrap/vault_approle_secret_id";
         mode = "0400";
       };
 
@@ -528,9 +530,9 @@ in {
               UMask = "0077";
             };
             script = ''
-              install -m 0400 ${config.sops.secrets."k3s_bootstrap/argocd_repo_ssh_key".path} \
+              install -m 0400 ${config.sops.secrets.k3s-bootstrap-argocd-repo-ssh-key.path} \
                 ${bootstrapDir}/argocd_repo_ssh_key
-              install -m 0400 ${config.sops.secrets."k3s_bootstrap/vault_approle_secret_id".path} \
+              install -m 0400 ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path} \
                 ${bootstrapDir}/vault_approle_secret_id
             '';
           };
