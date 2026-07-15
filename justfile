@@ -1915,6 +1915,35 @@ reboot-kepler:
     echo ":: kepler did not return within 120s" >&2
     exit 1
 
+# Read-only proof for the k3s guest reconciler and embedded-etcd metrics.
+verify-k3s-observability:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} '
+      set -euo pipefail
+      for attempt in $(seq 1 60); do
+        states=$(sudo systemctl is-active microvm@cp-1.service microvm@cp-2.service microvm@cp-3.service || true)
+        if [ "$(printf '%s\n' "$states" | grep -c '^active$')" -eq 3 ]; then
+          break
+        fi
+        if [ "$attempt" -eq 60 ]; then
+          printf '%s\n' "$states" >&2
+          exit 1
+        fi
+        sleep 5
+      done
+      for node in 11 12 13; do
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.$node \
+          "systemctl is-active k3s.service k3s-manifest-reconcile.service"
+        curl --fail --silent --show-error --max-time 5 http://10.250.0.$node:2381/metrics \
+          | grep -c "^etcd_server_has_leader 1$" | grep -qx 1
+      done
+    '
+    response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
+      --data-urlencode 'query=up{job="etcd"}')
+    printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
+    test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
+
 # Collect sanitized K1 collision evidence. Collector executes from committed
 # stdin, writes nothing remotely, and emits only allowlisted runtime metadata.
 kepler-recovery-inventory:

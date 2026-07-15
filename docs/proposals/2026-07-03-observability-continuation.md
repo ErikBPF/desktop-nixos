@@ -7,6 +7,10 @@ items are independent and ranked inside each section.
 **Date:** 2026-07-03
 **Audience:** Maintainers of `desktop-nixos` + `servarr` + `homelab-gitops`
 
+**Shipped 2026-07-15:** embedded-etcd scrape + provisioned dashboard. All three
+control-plane targets verified `up=1`; that work is no longer part of this
+backlog.
+
 ## Context
 
 The 2026-06-29 fleet-monitoring RFC shipped: 15 provisioned dashboards, the

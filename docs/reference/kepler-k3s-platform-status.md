@@ -9,7 +9,7 @@ servarr-style — **not** Nix-deployed). Pairs with the two design docs:
 (the workloads). Recipes in `justfile` remain the operational source of truth;
 this doc explains the shape and tracks what's left.
 
-Last updated: 2026-06-21.
+Last updated: 2026-07-15.
 
 ## Topology
 
@@ -59,9 +59,9 @@ Last updated: 2026-06-21.
 - Single-replica **Alloy** (`alloy-metrics`) in-cluster: KSM + per-node kubelet
   cAdvisor + **Traefik** (`traefik-metrics` svc :9100) → discovery Prometheus.
   Separate Alloy DaemonSet ships pod logs → discovery Loki, label cardinality
-  trimmed (drops `pod`, keeps namespace/app/container). **etcd metrics are NOT
-  scraped** — k3s embedded etcd needs `--etcd-expose-metrics` (guest flag →
-  rolling CP bounce); deferred to the next bounce window.
+  trimmed (drops `pod`, keeps namespace/app/container). Embedded-etcd metrics
+  from all three control-plane nodes are scraped on `:2381`; Prometheus target
+  health is `up{job="etcd"}`.
 - LB ingress upstream cut over from ingress-nginx (`30443`) to **Traefik
   (`30444`)** — host nginx reload, no guest bounce.
 
@@ -116,6 +116,13 @@ Synced + Healthy:**
 - **ntfy alerting** — disk-fill `predict_linear` rule + ntfy webhook contact
   point + root policy; Prometheus datasource uid pinned to `prometheus`.
 
+### Done (2026-07-15)
+
+- **k3s manifest reconciliation + etcd observability** — the reconciler is
+  active on cp-1/2/3; every embedded-etcd endpoint reports a leader; Alloy
+  remote-writes three healthy `up{job="etcd"}` series to discovery Prometheus.
+  The provisioned Grafana dashboard is `etcd-control-plane`.
+
 ### Deferred — needs a deliberate node bounce (schedule, ideally with orion up)
 
 - **Harbor pull-through mirror** — point k3s nodes at Harbor via
@@ -127,10 +134,6 @@ Synced + Healthy:**
   one-flip rollback for the Traefik cutover. Removing it from `autoDeployCharts`
   is a guest-config change → same rolling-bounce window. Do it together with the
   mirror change to spend one bounce, not two.
-- **etcd metrics** — add `--etcd-expose-metrics` to the k3s server flags
-  (`k3s-cluster.nix`) so etcd exposes `/metrics`, then scrape it from
-  `alloy-metrics` and build the etcd dashboard. Guest-config change → rolling CP
-  bounce; fold into the same window.
 
 ### Needs user action
 

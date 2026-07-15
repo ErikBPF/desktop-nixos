@@ -1,59 +1,129 @@
-# Backlog da frota — decisões pendentes e implementações a fazer
+# Backlog da frota — decisões e execução por cluster
 
 **Date:** 2026-07-02
-**Status:** Backlog (tracked, not scheduled) — consolidado da auditoria de
-propostas de 2026-07-02 (três leitores paralelos, evidência em código) + das
-threads abertas dos RFCs recém-graduados. Cada item aponta o doc-fonte; ao
-concluir, atualize o doc-fonte e risque aqui. Itens hermes ficam nos backlogs
-próprios ([`2026-06-25-hermes-deferred-plans.md`](2026-06-25-hermes-deferred-plans.md),
-[`2026-06-29-hermes-deferred-improvements.md`](2026-06-29-hermes-deferred-improvements.md))
-— não duplicados aqui.
+**Status:** Backlog ativo — reagrupado e reavaliado em 2026-07-15
+**Regra:** cada concern tem um doc-fonte. Este arquivo decide prioridade e aponta
+o próximo gate; não duplica planos detalhados. IDs antigos permanecem para não
+quebrar referências históricas.
 
 ---
 
-## A. Decisões a tomar (julgamento humano — `TODO(erik)`)
+## Avaliação dos RFCs ativos
 
-| # | Decisão | Contexto / doc-fonte | Opções em jogo |
-|---|---------|----------------------|----------------|
-| A1 | **lazy-trees: seguir ou aposentar o RFC** | [`2026-06-20-lazy-trees-determinate-nix.md`](2026-06-20-lazy-trees-determinate-nix.md) — zero progresso desde 2026-06-20; 4 decisões abertas (knob do installer, escopo free-tier, canário orion, escopo da frota) | Decidir e executar, ou deletar o RFC (proposals/ é só para RFC ativo) |
-| A2 | **`k8s-apiserver` no stack networking do discovery ainda é desejado?** | [`../implemented/2026-06-29-discovery-resilience-fixes.md`](../implemented/2026-06-29-discovery-resilience-fixes.md) P1-1 — drift de project-name recorrente | Manter (e padronizar `--project-name`) vs remover do stack |
-| A3 | **Split de DNS do discovery (self-dependency)** | mesmo doc, P1-2 — resolução do próprio host não pode depender do AdGuard que ele mesmo roda | Definir caminho não-self para o resolver do host vs aceitar o risco |
-| A4 | **repo-structure Fases 1–5: go/no-go** | [`2026-06-24-repo-structure-improvements.md`](2026-06-24-repo-structure-improvements.md) — Fase 0 (contrato + `structure-check`) entregue; 1–5 são refactor grande da árvore | Executar em etapas, ou aceitar a árvore atual e fechar o RFC na Fase 0 |
-| A5 | **Sudo hardening nos servers (P0.3)** | [`2026-06-24-source-backed-host-improvements.md`](2026-06-24-source-backed-host-improvements.md) — foi adiado até o caminho de sudo do deploy provar estabilidade; deploy-rs agora é padrão da frota → possivelmente desbloqueado | Apertar agora vs esperar mais ciclos de deploy-rs |
-| A6 | **Escopo P2+ de host-improvements** | mesmo doc — impermanence seletiva, sandboxing de serviços, testes de aceitação, role-profiles estreitos | Priorizar subconjunto vs backlog permanente |
-| A7 | **Harbor pull-through P1: Job declarativo vs setup manual documentado** | [`../implemented/2026-06-22-harbor-pullthrough-mirror.md`](../implemented/2026-06-22-harbor-pullthrough-mirror.md) — mirror já funcional de execução manual; RFC recomenda o Job (sobrevive a reinstall do Harbor) | Job no homelab-gitops (recomendado) vs doc manual |
-| A9 | **kepler-k3s: julgamentos adiados** | [`../implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) §5–§14 — rolling CP restart (vale o custo?), helper `just scale-down N`/`cluster-status`/`cluster-reset`, split de repo (Option 0 agora vs Option 2 depois) | Observar padrão de deploys antes de decidir o rolling restart |
-| A10 | **OpenBao: segundo guardião de unseal-key / root break-glass no password manager** | [`../implemented/2026-06-30-openbao-root-recovery.md`](../implemented/2026-06-30-openbao-root-recovery.md) — token perdido uma vez; incidente sealed-21h de 2026-07-01 reforça | Definir custódia antes do próximo incidente |
-| A11 | ~~**HA declarative: seguir Fase 1 ou aposentar**~~ | **Resolvido 2026-07-14:** [Fase 1 implementada](../implemented/2026-05-23-home-assistant-declarative.md); HAOS mantido até existir necessidade concreta de migração | Encerrado |
-| A12 | **Voice assistant §6: quais sinergias valem** | [`2026-05-27-home-assistant-voice-assistant.md`](../implemented/2026-05-27-home-assistant-voice-assistant.md) — núcleo entregue; aberto só: visão por câmera, ponte hermes-MCP, clone de voz f5-tts, memória RAG, anúncios Alexa | Escolher 0–2 para RFC próprio; o resto morre |
+| RFC | Disposição | Motivo / próximo passo |
+|-----|------------|------------------------|
+| `repo-structure-improvements` | **Graduar: Phase 0 implementada** | Contrato + `structure-check` entregues; refactor amplo recusado. `_flake/` conflita com o skip de segmentos `_` do `import-tree`. |
+| `source-backed-host-improvements` | **Graduar P0/P1; extrair cauda** | Exposição, deploy-rs e inventário entregues. Restam decisões concretas H1–H4 abaixo, não um programa aberto de melhorias. |
+| `hermes-agentmemory-integration` | **Retirar como plano ativo; preservar como referência de HAI6** | Wiki nativa substituiu agentmemory. Reabrir só se busca semântica provar necessidade. |
+| `hermes-deferred-plans` | **Apagar após corrigir links** | Supersedido integralmente pelo backlog consolidado de Hermes. |
+| `hermes-deferred-improvements` | **Manter** | Dono único da cauda Hermes. |
+| `telstar-oracle-arm-host` | **Manter bloqueado** | Implementação pronta; serviço de captura aguarda capacidade A1. |
+| `free-tier-cloud-resources` | **Retirar RFC amplo; extrair C3–C5** | Catálogo mistura oportunidades sem demanda. Só decisões com benefício identificado sobrevivem. |
+| `home-assistant-ai-consolidation` | **Manter** | Shadow stack implementado, capacity/deploy gates ainda abertos. |
+| `tokensave-dataplatform-eval` | **Graduado: avaliado e removido** | Self-benchmark forte, mas sem A/B independente; 81 tools + índices stale falharam o contrato. |
+| `impermanence-ephemeral-root` | **Retirar** | Sem problema concreto, inventário de persistência ou host-canário. Reabrir após H4, não antes. |
+| `observability-continuation` | **Manter** | Dono do cluster O1–O5. |
+| `netbird-selfhosted-overlay` | **Manter** | Parcialmente live; rollout e hardening restantes. |
+| `fleet-container-placement-srp` | **Manter para N3/N4** | Regra proposta; separações ainda precisam decisão explícita. |
+| `fleet-esp-enlargement` | **Manter até R1; depois graduar** | Três hosts concluídos; Discovery é o último gate e tem plano próprio. |
+| `fleet-upgrade-hardening` | **Manter** | Contrato parcialmente entregue; orquestração e projeção ESP abertas. |
+| `opencode-litellm-routing` | **Graduar** | Roteamento, aliases, chave virtual e agents já estão declarados no laptop. |
+| `stateful-stack-release-hardening` + execution plan | **Manter ambos** | RFC fixa decisões; execution plan controla gates operacionais. Não são duplicados. |
+| `discovery-esp-migration` | **Manter bloqueado por aprovação** | Plano destrutivo correto: ensaios/evidência antes da janela. |
 
-## B. Implementações a fazer (decisão já tomada ou não requerida)
+---
 
-| # | Trabalho | Doc-fonte / onde | Próximo passo concreto |
-|---|----------|------------------|------------------------|
-| B2 | **Drill trimestral de restore do OpenBao** (agendar + executar 1º) | [`../implemented/2026-06-29-vault-backup-plan.md`](../implemented/2026-06-29-vault-backup-plan.md) §7; runbook [`../reference/vault-disaster-recovery.md`](../reference/vault-disaster-recovery.md) | Janela de manutenção; considerar lembrete automatizado (cron/ntfy) |
-| B3 | **Drill do runbook etcd (k3s)** — documentado, nunca testado | [`../implemented/2026-06-19-kepler-k3s-microvm-cluster.md`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) §15 | Janela própria no kepler |
-| B4 | **Custódia do escrow — parte física restante**: escrow ON voyager verificado 2026-07-04 (`~/escrow/age-key.age` = age-scrypt válido + `sops-config.tar.gz` presentes, offsite). Falta só o que é físico: cópia offline da passphrase fora de casa + cópia break-glass da age key **fora da frota** (+ apagar output do generator) | crown-jewels §11c; [`../implemented/2026-06-29-vault-secrets-platform.md`](../implemented/2026-06-29-vault-secrets-platform.md) | Verificação física/password-manager (só erik); 30 min |
-| B5 | **Deploy do `k3s-manifest-reconcile`** — código pronto em `modules/services/_k3s-node.nix`, falta bounce dos guests | [`2026-06-22-declarative-implementation-plan.md`](2026-06-22-declarative-implementation-plan.md) item C | Combinar na MESMA janela: bounce staggered + verificação Harbor P1 (`crictl pull` via mirror) — um restart, não três |
-| B6 | **Observabilidade etcd** — scrape no alloy-metrics (gitops) + dashboard (servarr) | mesmo doc, item D.3 — métricas já fluem em `:2381` | Par com B5/Fase 3 |
-| B7 | **Grafana Fase 3: alertas do cluster k3s** | [`2026-06-29-grafana-fleet-monitoring.md`](../implemented/2026-06-29-grafana-fleet-monitoring.md) — kube-state-metrics já roda no cluster | Escrever rules KSM (pod crashloop, PVC, node) no rules.yaml do servarr |
-| B8 | **Grafana Fase 2: alertas por container** — bloqueado pelo gap de name-labels do cadvisor | mesmo doc; gotcha em memória (rootless podman `/run/user/1000` 0700; docker sem labels) | Trabalho real = consertar o pipeline de métricas, não as rules |
-| B9 | **telstar: provisionar quando houver capacidade A1** | [`2026-07-01-telstar-oracle-arm-host.md`](2026-07-01-telstar-oracle-arm-host.md) — 100% staged; captura agora é **serviço declarativo persistente** `discovery-telstar-capture` (`modules/hosts/discovery/telstar-capture.nix`, 2026-07-04) tentando a cada 60s até liberar slot | Sem ação até liberar (serviço já loopando); sucesso → setar `hosts.telstar.ip` → `just fleet-json` → `just deploy-telstar` + `just switch-telstar` → graduar o RFC |
-| B10 | **discovery P2: root-cause da instabilidade** — fase de coleta ativa | [`../implemented/2026-06-29-discovery-resilience-fixes.md`](../implemented/2026-06-29-discovery-resilience-fixes.md) | Após o próximo evento: analisar journal persistente + `net-watch` + sysstat |
-| B11 | **P3.3 servarr→Vault: cauda** — harbor (special-case) + reavaliar chaves mantidas em sops de propósito (`LITELLM_MASTER_KEY`, `MINIO_*`) | [`../implemented/2026-06-29-vault-secrets-platform.md`](../implemented/2026-06-29-vault-secrets-platform.md) | Migrar harbor ou registrar decisão de mantê-lo em sops |
-| B12 | **iac: sobras do repo-ssot** — `terragrunt import` da reserva HA `.115`; limpeza das reservas velhas `.205`/`.40` | [`../implemented/2026-06-29-repo-ssot-srp.md`](../implemented/2026-06-29-repo-ssot-srp.md) P1 | Host cabeado; revisar `tofu plan` antes do apply |
+## Cluster R — recovery, estado e upgrades
 
-## Já fechado (não retrabalhar)
+Decisões que podem destruir estado ou mudar política de ativação. Ordem:
+evidência → aprovação → execução.
 
-Verificados nesta sessão de 2026-07-01/02 — constam aqui só para não
-reabrirem: monitoramento do voyager (§11b), guard `rtk proxy sops` no hook,
-unseal fail-loud + probe `openbao_sealed` + rule Grafana, cloudflare.ini do
-SWAG (dry-run de renovação provado), revogação do token temporário
-`cfut_9tU2…` (sweep da conta limpo — só bootstrap + swag-dns01), tailscale
-OAuth sem expiração, kepler `:7860` (rota removida do SSOT), **migração do
-token Cloudflare** (escopado/revogável, implementada — RFC 2026-06-28; um
-bootstrap token permanece manual por design; helper `just sync-cf-token` para
->1 token bridged é opcional, não bloqueia), **drill de restore do voyager**
-(2026-07-04 PASS — restore da REST append-only via creds sops: 38 arquivos, tier
-de tofu-state completo/atual, JSON OpenTofu válido com envelope pbkdf2; registrado
-em `../reference/voyager-offsite-maintenance.md`).
+| ID | Decisão / trabalho | Dono | Próximo gate |
+|----|--------------------|------|--------------|
+| R1 | **Discovery ESP: autorizar ou não a migração destrutiva** | [`discovery-esp-migration`](2026-07-14-discovery-esp-migration.md) | Completar D1–D4, apresentar manifest de evidência <24h; só então pedir aprovação da janela D5. |
+| R2 | **Stateful P1: autorizar adoção in-place do SWAG** | [`stateful-stack-release-hardening-execution-plan`](2026-07-13-stateful-stack-release-hardening-execution-plan.md) | Inventário/backups/pins verdes + approval manifest exato; P1 continua frozen até aprovação. |
+| R3 | **Orquestração de upgrade: até onde automatizar** | [`fleet-upgrade-hardening`](2026-07-12-fleet-upgrade-hardening.md) | Escolher build-only, staged activation ou rollout automático por classe de host; preservar stop rules. |
+| B2 | **Primeiro drill trimestral de restore OpenBao** | [`vault-disaster-recovery`](../reference/vault-disaster-recovery.md) | Janela própria; registrar snapshot, restore isolado e resultado. |
+| B3 | **Drill destrutivo do runbook etcd** | [`kepler-k3s-microvm-cluster`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) §15 | Janela própria no Kepler; não acoplar a deploy comum. |
+| B4 | **Escrow físico restante** | [`vault-secrets-platform`](../implemented/2026-06-29-vault-secrets-platform.md) | Cópia offline da passphrase fora de casa + age key break-glass fora da frota. |
+
+## Cluster N — rede, edge, cloud e placement
+
+| ID | Decisão / trabalho | Dono | Próximo gate |
+|----|--------------------|------|--------------|
+| A2 | **Manter `k8s-apiserver` no stack networking do Discovery?** | [`discovery-resilience-fixes`](../implemented/2026-06-29-discovery-resilience-fixes.md) | Padronizar `--project-name` ou remover stack; não aceitar drift recorrente. |
+| A3 | **Resolver self-dependency DNS do Discovery** | mesmo doc | Definir resolver do host independente do AdGuard local. |
+| N1 | **NetBird: escopo final do rollout e convivência com Tailscale** | [`netbird-selfhosted-overlay`](2026-07-10-netbird-selfhosted-overlay.md) | Definir hosts a migrar, período dual-overlay e critério de retirada; completar hardening/IaC restante. |
+| N2 | **Telstar: PAYG para furar capacity pool ou continuar esperando** | [`telstar-oracle-arm-host`](2026-07-01-telstar-oracle-arm-host.md) | Default: esperar serviço de captura. PAYG exige decisão explícita de gasto. |
+| N3 | **Adotar regra de placement proposta** | [`fleet-container-placement-srp`](2026-07-11-fleet-container-placement-srp.md) | Aprovar regra por propósito/runtime antes de mover qualquer workload. |
+| N4 | **Separar PocketID e quais outros serviços** | mesmo doc | Decidir PocketID primeiro; secondary separations somente por benefício isolado. |
+| C3 | **Adicionar mirror externo de monitoramento** | [`free-tier-cloud-resources`](2026-07-02-free-tier-cloud-resources.md) | Escolher Grafana Cloud ou probe outside-in mínimo; sem duplicar observabilidade inteira. |
+| C4 | **Object storage offsite: OCI, R2 ou B2** | mesmo doc | Só escolher após definir dataset, tamanho, retenção e restore test. |
+| C5 | **Permitir inferência/embeddings cloud com dados privados?** | mesmo doc | Default: não. Exceção exige classificação dos dados e rota degradada explícita. |
+| B9 | **Provisionar Telstar quando A1 liberar** | Telstar RFC | IP → `fleet-json` → deploy → switch → verificação → graduar. |
+| B10 | **Root-cause da instabilidade do Discovery** | discovery resilience | Próximo evento: correlacionar journal persistente, `net-watch` e sysstat. |
+| B12 | **IaC: importar reserva HA `.115` e remover reservas velhas** | [`repo-ssot-srp`](../implemented/2026-06-29-repo-ssot-srp.md) | Host cabeado; revisar saved plan antes do apply. |
+
+## Cluster H — arquitetura e hardening dos hosts
+
+| ID | Decisão / trabalho | Dono | Próximo gate |
+|----|--------------------|------|--------------|
+| A4 | ~~**Fases 1–5 do repo-structure**~~ | **Resolvido 2026-07-15:** aceitar árvore atual; graduar Phase 0 | Encerrado. Splits futuros só quando trabalho real expuser boundary. |
+| A5 / H1 | **Apertar sudo nos servers agora?** | [`source-backed-host-improvements`](2026-06-24-source-backed-host-improvements.md) | Auditar comandos realmente usados por deploy-rs/ops; propor regras específicas antes de remover passwordless wheel. |
+| H2 | **Narrow NFS `no_root_squash` no Kepler** | mesmo doc | Inventariar clientes/CSI paths; separar exports; dry + mount/chown tests. |
+| H3 | **Qual serviço customizado sandboxar primeiro** | mesmo doc | Rank por blast radius; um unit por slice com `systemd-analyze security` antes/depois. |
+| H4 | **Inventário de estado por host** | mesmo doc | Fazer inventário sem mudar mount topology. Só evidência de drift recorrente pode reabrir impermanence. |
+| H5 | **Acceptance checks de host que valem CI** | mesmo doc | Escolher contratos estáveis: SSH, firewall, secrets existentes e critical units. |
+
+## Cluster O — cluster k3s e observabilidade
+
+| ID | Decisão / trabalho | Dono | Próximo gate |
+|----|--------------------|------|--------------|
+| A7 | **Harbor pull-through: Job declarativo ou reconciler atual** | [`harbor-pullthrough-mirror`](../implemented/2026-06-22-harbor-pullthrough-mirror.md) | Auditar se `ExecStartPost` já satisfaz reinstall; só criar Job se existir gap real. |
+| A9 | **Rolling CP restart e helpers k3s valem o custo?** | [`kepler-k3s-microvm-cluster`](../implemented/2026-06-19-kepler-k3s-microvm-cluster.md) | Decidir a partir de histórico de deploy/downtime, não preferência abstrata. |
+| B5 | ~~**Ativar/verificar `k3s-manifest-reconcile`**~~ | módulo compartilhado k3s + Harbor RFC | **Resolvido 2026-07-15:** serviço ativo em cp-1/2/3 após o bounce. |
+| B6 / O1 | ~~**Scrape e dashboard etcd**~~ | [`observability-continuation`](2026-07-03-observability-continuation.md) | **Resolvido 2026-07-15:** três endpoints `:2381` com leader e `up{job="etcd"}=1`; dashboard provisionado. |
+| B7 / O2 | **Alertas KSM do cluster** | mesmo doc | CrashLoop, PVC, node, jobs; verificar firing e recovery. |
+| B8 / O3 | **Labels de container no pipeline de métricas** | mesmo doc | Corrigir descoberta/labels antes de escrever alert rules por container. |
+| O4 | **Fechar incidentes e cleanups restantes** | mesmo doc | Cada item precisa owner, evidência e regra de remoção. |
+
+## Cluster HAI — HA, Hermes, OpenCode e tooling de agentes
+
+| ID | Decisão / trabalho | Dono | Próximo gate |
+|----|--------------------|------|--------------|
+| A12 / HAI1 | **Quais extensões HA/voice sobrevivem** | [`home-assistant-ai-consolidation`](2026-07-02-home-assistant-ai-consolidation.md) | Resolver gates §5; escolher no máximo 0–2 extensões além do shadow stack. |
+| HAI2 | **Deploy do shadow tool-caller HA** | mesmo doc | Resolver capacity gate; validar corpus/modelo/rollback antes de trocar pipeline live. |
+| HAI3 | **Sandbox do Hermes antes de ampliar alcance** | [`hermes-deferred-improvements`](2026-06-29-hermes-deferred-improvements.md) P1 | Decidir docker socket/DinD vs blast radius atual. |
+| HAI4 | **Merge/cadência do wiki Hermes + memory caps** | mesmo doc P2/P4 | Revisar qualidade; escolher cadence; medir tokens antes/depois dos caps. |
+| HAI5 | **Pin/healthcheck do OCI Hermes** | mesmo doc P5 | Corrigir primeiro no `hermes-flake`, depois bump e deploy no consumer. |
+| HAI6 | **Reabrir agentmemory?** | mesmo doc P6 | Default: não. Reabrir só com falha demonstrada de keyword/file recall. |
+| HAI7 | ~~**TokenSave: benchmark ou remover**~~ | [`tokensave-dataplatform-eval`](../implemented/2026-07-02-tokensave-dataplatform-eval.md) | **Resolvido 2026-07-15:** benchmark executado; eval removida por não provar o contrato de adoção. |
+| HAI8 | **OpenCode LiteLLM routing** | [`opencode-litellm-routing`](2026-07-12-opencode-litellm-routing.md) | Implementado; verificar no próximo `switch laptop`, depois graduar RFC. |
+
+## Cluster S — secrets, custódia e caudas IaC
+
+| ID | Decisão / trabalho | Dono | Próximo gate |
+|----|--------------------|------|--------------|
+| A10 / S1 | **Segundo guardião da unseal key + root break-glass** | [`openbao-root-recovery`](../implemented/2026-06-30-openbao-root-recovery.md) | Definir custódia fora do host antes do próximo incidente. |
+| B11 / S2 | **Cauda servarr→Vault** | [`vault-secrets-platform`](../implemented/2026-06-29-vault-secrets-platform.md) | Reavaliar somente chaves ainda em sops por intenção; registrar exceções. |
+| S3 | **Provider admission para Terraform stateful** | [`stateful-stack-release-hardening`](2026-07-13-stateful-stack-release-hardening.md) | Nenhum provider ganha ownership sem export/import/plan/recovery proof. |
+
+---
+
+## Ordem sugerida
+
+1. **R1/R2** — não executar; fechar evidence manifests e trazer aprovação.
+2. **HAI8 + A4** — graduations documentais já decididas.
+3. **H1** — sudo agora desbloqueado por deploy-rs, mas exige command audit.
+4. **B7/O2** — alertas KSM agora são a próxima decisão de observabilidade.
+5. **N3/N4** — decidir placement antes de qualquer separação de containers.
+6. Restante por trigger explícito; ausência de trigger não é trabalho pendente.
+
+## Já fechado — não retrabalhar
+
+- A1 lazy-trees: RFC aposentado; árvore Git pequena, nenhum gargalo medido.
+- A11 HA declarative: Phase 1 implementada; HAOS retido até necessidade concreta.
+- Harbor declarative: oneshot NixOS é o desenho aceito; static compose abandonado.
+- Deploy layer: deploy-rs é o padrão da frota.
+- Restore Voyager: PASS 2026-07-04.
+- Fleet ESP: Pathfinder, Orion e Kepler concluídos; Laptop retirado do escopo.

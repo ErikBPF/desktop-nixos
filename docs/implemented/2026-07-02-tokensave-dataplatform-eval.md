@@ -1,13 +1,13 @@
 # TokenSave on the dataplatform repos — evaluation
 
-**Status:** Enabled for eval (2026-07-02) — binary + graph live on
-`dataplatform-airflow` and `dataplatform-spark` via gitignored local config;
-benchmark not yet run. Decision pending §7 exit criteria.
+**Status:** Evaluated and dropped (2026-07-15) — self-benchmark claimed 95%
+savings, but the evaluation failed the adoption contract: no independent A/B
+correctness evidence, 81 MCP tool schemas, and stale/branch-drifted indexes.
 **Date:** 2026-07-02.
 **Audience:** Maintainer of the nstech dataplatform repos + this flake's dev
 tooling.
-**Post-read action:** Run the §5 benchmark on a normal work session, record
-numbers in §6, then decide per §7.
+**Post-read action:** None. Reopen only with an independent correctness-controlled
+A/B method that addresses §7.
 
 ## 1. Context
 
@@ -162,10 +162,23 @@ Keep model, prompt, and repo state identical between A and B.
   docs); confirm the graph isn't padded with irrelevant vendored trees that
   dilute results.
 
-## 6. Results (fill in after running §5)
+## 6. Results (2026-07-15)
 
-_TBD — record per-task A/B input tokens, correctness verdict, and the
-overhead/staleness observations here._
+| repo | TokenSave self-benchmark | Index state | Verdict |
+|------|--------------------------|-------------|---------|
+| airflow | 310.2k → 6.9k claimed (95%) | fallback after branch/worktree drift; full sync 12d old | drop |
+| spark | 140.3k → 5.7k claimed (95%) | full sync 12d old | drop |
+
+The numbers are TokenSave's own estimated avoided-file tokens, not independent
+session input-token measurements. `tokensave doctor` also exposed 81 tool
+permissions/schemas. The fixed schema cost, stale graph risk, and absence of a
+clean correctness-controlled A/B mean the ≥40% adoption criterion was not
+proven despite the strong self-reported number.
+
+Backout completed: both project-local MCP configs, local devenv packages,
+indexes, and TokenSave-only permissions were removed. Global Claude hooks and
+`~/.tokensave` state were also removed. Unrelated worktree changes were left
+untouched.
 
 ## 7. Decision / exit criteria
 
