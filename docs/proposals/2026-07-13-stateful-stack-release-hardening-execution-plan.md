@@ -570,6 +570,18 @@ unprivileged container-IP probe with the declarative privileged helper, binds
 that helper's implementation SHA-256, and keeps exact-ID identity verification
 as the subsequent recovery gate. This was v4 attempt 1; at most two renewed
 attempts remain after the helper is deployed and freshly bound.
+Commit `d18edea` deployed the source-hash-bound privileged helper and renewed
+manifest `326cee98…`. V4 attempt 2 again proved all 24 core rows in
+1,561/10,000 ms with an allowed partial gateway diagnostic. The pre-stop helper
+identity check passed, but the exact helper remained non-ready through its
+30-second warm-up; the identical official diagnostic and a full observation
+passed immediately afterward. Attempts 1 and 2 therefore place exporter
+stabilization just beyond the artificial 30-second boundary. The final bounded
+correction gives helper readiness 60 seconds inside one 120-second recovery
+ceiling, leaving time for identity and full post-restore checks without
+extending the DNS outage: AdGuard is already healthy during exporter warm-up.
+This consumed v4 attempt 2. Exactly one renewed v4 attempt remains; a failure
+there stops P3 pending another reviewed contract.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -740,7 +752,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | v4 core proven; recovery helper correction pending; services restored | Desktop `bcc3cbb`; v4 manifest `43899fa6…`: core 24/24 in 1,560 ms, gateway diagnostic 9-row partial accepted, recovery artifact failed at unprivileged exporter readiness; immediate privileged 3/3 diagnostic and full observation passed | Bind/deploy privileged helper implementation; renew observation/manifest; exact approval; two v4 attempts remain |
+| P3 | v4 core proven twice; final bounded recovery attempt pending | Desktop `d18edea`; manifests `43899fa6…` and `326cee98…`: core 24/24 in 1,560/1,561 ms, allowed partial diagnostics; source-bound helper stayed non-ready for 30 s then immediate 3/3/full observations passed; services restored | Verify 60 s warm-up/120 s recovery correction; renew manifest and exact approval; one v4 attempt remains |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |

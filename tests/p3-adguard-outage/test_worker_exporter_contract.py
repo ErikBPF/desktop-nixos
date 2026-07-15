@@ -297,7 +297,7 @@ class WorkerExporterContract(unittest.TestCase):
         self.assertIn("ATTEMPTS=3", result.stdout)
         result = self.run_exporter(delayed, ready_after=999)
         self.assertNotEqual(result.returncode, 0)
-        self.assertLessEqual(int(result.stdout.split("ATTEMPTS=")[-1].split()[0]), 29)
+        self.assertLessEqual(int(result.stdout.split("ATTEMPTS=")[-1].split()[0]), 60)
 
     def test_exporter_capture_failures_and_stale_output_fail_closed(self):
         for mode in ("mktemp", "chmod", "read", "remove", "stale"):
@@ -323,12 +323,33 @@ class WorkerExporterContract(unittest.TestCase):
                     fixture_ssh() {{ printf 'adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=true\nrequired_family_count=3\n'; }}
                     exporter_metrics_ready $(($(date +%s%3N)+100)); rc=$?
                     printf 'RC=%s ATTEMPTS=%s\n' "$rc" "$(<"$attempts")"
-                    [ "$rc" -ne 0 ] && [ "$(<"$attempts")" -le 29 ]
+                    [ "$rc" -ne 0 ] && [ "$(<"$attempts")" -le 60 ]
                     """
                 )
                 result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("RC=1", result.stdout)
+
+    def test_exporter_fake_clock_accepts_31_and_59_seconds_but_not_60(self):
+        canonical = "adguard_avg_processing_time_seconds=true\\nadguard_queries=true\\nadguard_queries_blocked=true\\nrequired_family_count=3\\n"
+        for ready_at, expected_rc in ((31000, 0), (59000, 0), (60000, 1), (999999, 1)):
+            with self.subTest(ready_at=ready_at), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                script = self.exporter + textwrap.dedent(
+                    f"""
+                    run_dir={root}; clock={root}/clock; printf 0 >"$clock"; ssh_command=(fixture_ssh)
+                    date() {{ [ "$1" = +%s%3N ] || return 1; cat "$clock"; }}
+                    timeout_duration() {{ printf 1s; }}
+                    deadline_sleep() {{ now=$(<"$clock"); printf %s $((now+$2)) >"$clock"; [ $((now+$2)) -lt "$1" ]; }}
+                    timeout() {{ shift; "$@"; }}
+                    fixture_ssh() {{ [ "$(<"$clock")" -ge {ready_at} ] && printf %b '{canonical}'; }}
+                    exporter_metrics_ready 120000; rc=$?
+                    printf 'RC=%s CLOCK=%s\n' "$rc" "$(<"$clock")"
+                    [ "$rc" -eq {expected_rc} ] && [ "$(<"$clock")" -le 60000 ]
+                    """
+                )
+                result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def run_exporter(self, output, ready_after, mode="normal"):
         with tempfile.TemporaryDirectory() as directory:
@@ -346,7 +367,7 @@ class WorkerExporterContract(unittest.TestCase):
                   [ "$n" -ge {ready_after} ] || return 1
                   printf %b {output!r}
                 }}
-                if exporter_metrics_ready $(($(date +%s%3N)+30000));then rc=0;else rc=$?;fi
+                if exporter_metrics_ready $(($(date +%s%3N)+120000));then rc=0;else rc=$?;fi
                 printf 'ATTEMPTS=%s RC=%s\\n' "$(<{counter})" "$rc"
                 exit "$rc"
                 """

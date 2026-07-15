@@ -98,26 +98,46 @@ if timeout "$duration" sh -c 'sleep 1';then exit 90;else [ "$?" -eq 124 ];fi
         warmup = self.source[
             self.source.index("exporter_metrics_ready()") : self.source.index("freeze_outage_evidence()")
         ]
-        attempts = re.search(r"for attempt in ([^;]+);do", warmup)
-        self.assertIsNotNone(attempts)
-        count = len(attempts.group(1).split())
-        self.assertGreater(count, 5)
-        self.assertLess(count, 30)
+        self.assertIn("for attempt in {1..60};do", warmup)
+        self.assertIn("now+60000", warmup)
         self.assertNotRegex(warmup, r"docker (?:start|stop|restart)")
-        self.assertLessEqual(count, 29)
 
-    def test_never_ready_recovery_has_one_absolute_ninety_second_ceiling(self):
+    def test_never_ready_recovery_has_one_absolute_120_second_ceiling(self):
         recover = self.source[
             self.source.index("recover() {") : self.source.index("postrestore_operational(){")
         ]
         failures = []
         if "recovery_deadline" not in recover:
             failures.append("absolute-recovery-deadline")
-        if not re.search(r"90000|90(?:s|\b)", recover):
-            failures.append("ninety-second-ceiling")
+        if "120000" not in recover:
+            failures.append("120-second-ceiling")
         if not re.search(r"exporter_metrics_ready[^\n]*recovery_deadline|recovery_deadline[^\n]*exporter_metrics_ready", recover):
             failures.append("exporter-shares-recovery-deadline")
+        if recover.count("recovery_deadline=$(($(date +%s%3N)+120000))") != 1:
+            failures.append("single-recovery-budget")
+        if "9618/metrics" in recover or "approved_exporter_ip" in recover:
+            failures.append("direct-exporter-ip")
+        operational = self.source[
+            self.source.index("restored_operational_checks()") : self.source.index("exporter_metrics_ready()")
+        ]
+        if 'exporter_metrics_ready "$recovery_deadline"' not in operational:
+            failures.append("postrestore-shares-remaining-budget")
         self.assertEqual(failures, [])
+
+    def test_fake_clock_enforces_global_120_second_hard_stop(self):
+        helpers = self.source[
+            self.source.index("timeout_duration()") : self.source.index("check_dns_matrix()")
+        ]
+        command = helpers + r'''
+clock=119999
+date(){ printf %s "$clock"; }
+recovery_deadline=120000
+[ "$(deadline_duration "$recovery_deadline")" = 0.001s ]
+clock=120000
+if deadline_duration "$recovery_deadline";then exit 90;fi
+'''
+        result = subprocess.run(["bash", "-c", command], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_all_exporter_families_are_validated_from_the_same_response(self):
         warmup = self.source[
@@ -156,8 +176,8 @@ if timeout "$duration" sh -c 'sleep 1';then exit 90;else [ "$?" -eq 124 ];fi
                     printf 'adguard_queries_blocked=true\nrequired_family_count=1\n'
                   fi
                 }}
-                if exporter_metrics_ready $(($(date +%s%3N)+30000));then exit 90;fi
-                [ "$(<{counter})" -eq 29 ]
+                if exporter_metrics_ready $(($(date +%s%3N)+120000));then exit 90;fi
+                [ "$(<{counter})" -eq 60 ]
                 """
             )
             result = subprocess.run(["bash", "-c", script], text=True, capture_output=True)

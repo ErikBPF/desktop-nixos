@@ -140,8 +140,8 @@ restored_operational_checks() {
 exporter_metrics_ready() {
   local recovery_deadline=$1 attempt now remaining duration warmup_deadline capture_file output rc expected
   expected=$'adguard_avg_processing_time_seconds=true\nadguard_queries=true\nadguard_queries_blocked=true\nrequired_family_count=3'
-  now=$(date +%s%3N);warmup_deadline=$((now+30000));[ "$warmup_deadline" -le "$recovery_deadline" ] || warmup_deadline=$recovery_deadline
-  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29;do
+  now=$(date +%s%3N);warmup_deadline=$((now+60000));[ "$warmup_deadline" -le "$recovery_deadline" ] || warmup_deadline=$recovery_deadline
+  for attempt in {1..60};do
     now=$(date +%s%3N);remaining=$((warmup_deadline-now));[ "$remaining" -gt 0 ] || return 1
     duration=$(timeout_duration "$remaining") || return 1
     capture_file=$(mktemp "$run_dir/.exporter-families.XXXXXX") || return 1
@@ -151,7 +151,7 @@ exporter_metrics_ready() {
     if ! output=$(<"$capture_file");then rm -f "$capture_file" || true;return 1;fi
     rm -f "$capture_file" || return 1
     if [ "$rc" -eq 0 ]&&[ "$output" = "$expected" ];then return 0;fi
-    [ "$attempt" -eq 29 ] || deadline_sleep "$warmup_deadline" 1000 || return 1
+    [ "$attempt" -eq 60 ] || deadline_sleep "$warmup_deadline" 1000 || return 1
   done
   return 1
 }
@@ -179,7 +179,7 @@ recover() {
   if [[ ${outage_start:-} =~ ^[0-9]+$ ]];then elapsed=$(($(date +%s%3N)-outage_start));fi
   cancel_workers;freeze_outage_evidence
   trap - EXIT INT TERM;enforce_deadline=false
-  recovery_deadline=$(($(date +%s%3N)+90000))
+  recovery_deadline=$(($(date +%s%3N)+120000))
   if $mutated;then
     for attempt in 1 2 3;do
       [ "$(date +%s%3N)" -lt "$recovery_deadline" ] || break
