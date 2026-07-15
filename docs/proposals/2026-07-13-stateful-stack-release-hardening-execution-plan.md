@@ -3,7 +3,7 @@
 **Status:** In progress — P0, Kepler recovery, and Discovery P1 SWAG adoption
 are complete. P2 AdGuard read-only inventory and preflight are binding-valid;
 mutation remains blocked on backup/restore evidence and completion of the P3
-generic-client/outage proof.
+outage proof.
 
 ## 1. Purpose and authority
 
@@ -474,9 +474,13 @@ passed on Orion. Kepler passed direct UDP/TCP fleet and external queries before
 and after reboot. Homelab-IaC `85f2737` passed CI and declared the exact Main
 DHCP order `.210`, `.230`. The operator-approved wired saved plan
 `8371490a…` updated only `unifi_network.this["Main"].dhcp_dns`; the post-apply
-plan is clean and state inspection matches the exact pair. P3 remains open for
-a renewed generic non-overlay client lease and the separately approved AdGuard
-outage/restore drill.
+plan is clean and state inspection matches the exact pair. Desktop `a50415e`,
+`19aac0d`, and `b64d290` added and hardened the isolated generic-client proof.
+Its final live run obtained lease `.175` from the UDM, received the exact DHCP
+option 6 order `.210`, `.230`, passed UDP/TCP fleet, wildcard, AAAA NODATA, and
+external NXDOMAIN probes against both resolvers, removed its namespace, and
+left the parent interface unchanged. P3 remains open only for the separately
+approved AdGuard outage/restore drill.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -647,7 +651,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | DHCP applied; outage proof pending | Desktop `3c88a30`, `5903ca0`; homelab-iac `85f2737`; CI `29439836040`; saved plan `8371490a…`; clean post-apply plan | Renewed generic-client lease; approved AdGuard outage/restore proof |
+| P3 | DHCP and generic-client proof complete; outage proof pending | Desktop `3c88a30`, `5903ca0`, `a50415e`, `19aac0d`, `b64d290`; homelab-iac `85f2737`; CI `29439836040`; saved plan `8371490a…`; clean post-apply plan; isolated lease `.175` with exact option 6 `.210,.230` and cleanup invariants | Approved AdGuard outage/restore proof |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
