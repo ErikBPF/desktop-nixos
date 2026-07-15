@@ -182,6 +182,13 @@ class SwagResumeTest(unittest.TestCase):
         resume = adopt[adopt.index("resume_attempt_02_main()") :]
         self.assertLess(resume.index("flock 9"), resume.index("assert_fresh_compose_binding"))
 
+    def test_normal_returns_disarm_local_cleanup_traps(self):
+        source = ADOPT.read_text()
+        observe = source[source.index("observe_attempt_02_main()") : source.index("assert_fresh_compose_binding()")]
+        resume = source[source.index("resume_attempt_02_main()") : source.index("assert_workflow_contract()")]
+        self.assertIn("trap - EXIT", observe)
+        self.assertGreaterEqual(resume.count("trap - EXIT"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

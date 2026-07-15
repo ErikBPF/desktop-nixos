@@ -109,6 +109,8 @@ observe_attempt_02_main() {
   trap 'rm -f "$runtime" "$observation"' EXIT
   capture_resume_observation "$runtime" "$observation"
   cat "$observation"
+  rm -f "$runtime" "$observation"
+  trap - EXIT
 }
 
 assert_fresh_compose_binding() {
@@ -239,6 +241,8 @@ resume_attempt_02_main() {
       .version == 2 and .status == "passed" and .manifest_sha256 == $sha and .post_runtime_sha256 == $post_sha
     ' "$attempt_02_result" >/dev/null || die 'attempt-02 result invalid'
     cat "$attempt_02_result"
+    rm -f "$runtime" "$observation" "${stdin_authorization:-}"
+    trap - EXIT
     return
   fi
 
@@ -325,6 +329,8 @@ resume_attempt_02_main() {
     '{version:2,status:"passed",$completed_at,$manifest_sha256,$post_runtime_sha256,predecessor_retained:true}' >"$result_tmp"
   install -m 0400 "$result_tmp" "$attempt_02_result"
   cat "$attempt_02_result"
+  rm -f "$runtime" "$observation" "$result_tmp" "${stdin_authorization:-}"
+  trap - EXIT
 }
 
 assert_workflow_contract() {
