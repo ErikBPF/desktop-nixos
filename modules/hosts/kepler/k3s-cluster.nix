@@ -522,8 +522,6 @@ in {
             description = "Materialize k3s bootstrap credentials for cp-1";
             requiredBy = ["microvm@cp-1.service"];
             before = ["microvm@cp-1.service"];
-            after = ["sops-nix.service"];
-            requires = ["sops-nix.service"];
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
