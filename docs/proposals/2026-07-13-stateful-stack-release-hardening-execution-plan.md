@@ -128,7 +128,12 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
   `74c70f4ab0c025bac510734f31d0b351df4a28f431bf68ae57dbae0ee42f184a`,
   and manifest SHA-256
   `b1a43fae85f277b682fcde3c3daacece70e65bf0447dab4df3788ce0329c0331`.
-- Discovery LiteLLM route checks remain open. Discovery P1 stays frozen.
+- Discovery LiteLLM route checks passed through the gateway for `bge-m3`,
+  `bge-reranker-v2-m3`, `whisper-pt-br`, and the offline
+  `tts-pt-br-piper` fallback. The primary Edge TTS route `tts-pt-br` returned
+  HTTP 500 on three bounded attempts (approximately 31–38 seconds each).
+  K5 therefore remains blocked on that route; Discovery P1 stays frozen. No
+  service restart or runtime configuration change was attempted.
 
 ### Known later gates
 
