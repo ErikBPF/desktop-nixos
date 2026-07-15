@@ -262,14 +262,22 @@ check-remote ref="HEAD":
     test -z "$(git -C "$work/repo" status --porcelain)"
     cd "$work/repo"
     builders=$(printf %s "$3" | base64 -d)
-    check_map=$(nix eval --json .#checks \
-      --apply "systems: builtins.mapAttrs (_: checks: builtins.attrNames checks) systems")
-    printf %s "$check_map" | jq -e \
-      "any(.[]?[]; . == \"configurations:nixos:endeavour\")" >/dev/null
-    mapfile -t installables < <(printf %s "$check_map" | jq -r \
-      "to_entries[] as \$system | \$system.value[] |
-        select(. != "configurations:nixos:endeavour") |
-        \".#checks.\\(\$system.key).\\(. | @json)\"")
+    check_map=$(nix eval --raw .#checks --apply "
+      systems: builtins.concatStringsSep \"\\n\" (builtins.concatLists
+        (builtins.attrValues (builtins.mapAttrs
+          (system: checks: map (name: system + \"\\t\" + name) (builtins.attrNames checks))
+          systems)))")
+    installables=()
+    found_endeavour=false
+    while IFS=$'\t' read -r system name; do
+      [ -n "$name" ] || continue
+      if [ "$name" = "configurations:nixos:endeavour" ]; then
+        found_endeavour=true
+        continue
+      fi
+      installables+=(".#checks.$system.\"$name\"")
+    done <<<"$check_map"
+    "$found_endeavour"
     test "${#installables[@]}" -gt 0
     printf ":: building %d non-Endeavour checks\n" "${#installables[@]}"
     exec nix build --no-link --show-trace "${installables[@]}" \
