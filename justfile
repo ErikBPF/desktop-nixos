@@ -269,7 +269,7 @@ check-remote ref="HEAD":
           systems)))")
     installables=()
     found_endeavour=false
-    while IFS=$'\t' read -r system name; do
+    while IFS="$(printf "\\t")" read -r system name; do
       [ -n "$name" ] || continue
       if [ "$name" = "configurations:nixos:endeavour" ]; then
         found_endeavour=true
