@@ -534,6 +534,18 @@ required exporter families and the complete observation passed. Services are
 restored; P3 remains blocked until worker validation is explicitly fail-closed
 and exporter readiness selects the single bound `homelab-net` address, followed
 by another renewed observation, manifest, and exact approval.
+Commit `9d7b08c` made both corrections and renewed approved manifest
+`ea017b56…`. The third exact-ID attempt failed closed at 5,413/10,000 ms with
+worker row counts `6,6,6,1,6,6`: both normal-system workers, both Kepler
+workers, and the RDNSS/UDP worker completed, while RDNSS/TCP stopped after its
+first validated row. The hardened parser emitted no false success and retained
+only the partial hash. This is now evidence that the gateway RDNSS TCP path does
+not satisfy the full outage contract, rather than another arithmetic/parser
+failure. Recovery restarted the same IDs; its artifact again conservatively
+timed out exporter readiness, while the immediate declarative diagnostic
+reported all three families and the complete post-restore observation passed.
+The three-attempt cap is exhausted. No further AdGuard outage may run until a
+new RDNSS design or an explicitly amended behavior contract is reviewed.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -704,7 +716,7 @@ fixtures, P1 evidence, or legacy resources.
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | Blocked — two approved harness attempts failed; services restored | Desktop through `5a0a836`; retained manifests `4b394b17…` and `4caa2fda…`; first missed 10,000 ms deadline; second retained `6,6,6,5,6,6` partial rows due conditional-`errexit` parser bug; exporter 3/3 and full post-restore observations passed after both | Explicit worker guards; exact `homelab-net` exporter readiness; renew observation/manifest; obtain fresh exact approval |
+| P3 | Blocked — three-attempt cap exhausted; services restored | Desktop through `9d7b08c`; retained manifests `4b394b17…`, `4caa2fda…`, `ea017b56…`; final hardened attempt produced `6,6,6,1,6,6`, isolating incomplete gateway-RDNSS TCP behavior during outage; exporter 3/3 and full post-restore observations passed | New RDNSS design or explicitly amended behavior contract; no further outage under the current contract |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
