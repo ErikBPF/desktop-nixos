@@ -19,14 +19,26 @@ callback_mode=$(stat -c %a "$udhcpc_callback")
 [ ! -e "$sys_class_net/$wired_interface/wireless" ] || { echo "wireless parent rejected" >&2; exit 1; }
 route_dev=$(ip -j -4 route get 192.168.10.1 | jq -er 'if length == 1 then .[0].dev else empty end')
 [ "$route_dev" = "$wired_interface" ] || { echo "gateway route does not use exact parent" >&2; exit 1; }
-before_addr=$(ip -j address show dev "$wired_interface");before_routes=$(ip -j route show table all dev "$wired_interface");before_carrier=$(cat "$sys_class_net/$wired_interface/carrier")
+parent_addresses() {
+  ip -j address show dev "$wired_interface" | jq -cS '
+    map({ifname,address,mtu,flags:(.flags|sort),addr_info:(
+      [.addr_info[]|{family,local,prefixlen,scope,label}]|sort_by(.family,.local,.prefixlen,.scope,.label)
+    )})'
+}
+parent_routes() {
+  ip -j route show table all dev "$wired_interface" | jq -cS '
+    map(del(.expires,.cache,.used,.lastuse)
+      | if .nexthops then .nexthops |= sort_by(.dev,.gateway,.weight) else . end)
+    | sort_by(.table//"main",.dst//"default",.gateway//"",.prefsrc//"",.protocol//"")'
+}
+before_addr=$(parent_addresses);before_routes=$(parent_routes);before_carrier=$(cat "$sys_class_net/$wired_interface/carrier")
 
 cleanup() {
   rc=$?;trap - EXIT INT TERM
   $namespace_created && ip netns delete "$namespace" >/dev/null 2>&1 || true
   if ip netns list | awk '{print $1}' | grep -Fxq "$namespace"; then echo "namespace cleanup failed" >&2;rc=1;fi
-  [ "$(ip -j address show dev "$wired_interface")" = "$before_addr" ] || { echo "parent addresses changed" >&2;rc=1; }
-  [ "$(ip -j route show table all dev "$wired_interface")" = "$before_routes" ] || { echo "parent routes changed" >&2;rc=1; }
+  [ "$(parent_addresses)" = "$before_addr" ] || { echo "parent addresses changed" >&2;rc=1; }
+  [ "$(parent_routes)" = "$before_routes" ] || { echo "parent routes changed" >&2;rc=1; }
   [ "$(cat "$sys_class_net/$wired_interface/carrier")" = "$before_carrier" ] || { echo "parent carrier changed" >&2;rc=1; }
   [ -z "$temp_dir" ] || rm -rf "$temp_dir"
   exit "$rc"

@@ -16,7 +16,7 @@ interface=${{interface_name:-probe}} ip=192.168.10.99 subnet=255.255.255.0 route
 echo "$*" >> "$IP_LOG"
 case "$*" in
  "-j -4 route get 192.168.10.1") printf '[{"dst":"192.168.10.1","dev":"%s"}]\n' "$MOCK_ROUTE_DEV";;
- "-j address show dev eno1") if [ "$MOCK_DRIFT" = 1 ]&&grep -q 'netns delete' "$IP_LOG";then echo '[{"addr":"changed"}]';else echo '[{"addr":"192.168.10.50"}]';fi;;
+ "-j address show dev eno1") if [ "$MOCK_DRIFT" = 1 ]&&grep -q 'netns delete' "$IP_LOG";then echo '[{"ifname":"eno1","address":"changed","mtu":1500,"flags":["UP"],"addr_info":[{"family":"inet","local":"192.168.10.50","prefixlen":24,"scope":"global","label":"eno1"}]}]';else echo '[{"ifname":"eno1","address":"00:11:22:33:44:55","mtu":1500,"flags":["UP"],"addr_info":[{"family":"inet","local":"192.168.10.50","prefixlen":24,"scope":"global","label":"eno1"}]}]';fi;;
  "-j route show table all dev eno1") echo '[{"dst":"default"}]';;
  "netns list") :;;
  -n*" -o link show") name=$(awk '/link add link/{for(i=1;i<=NF;i++)if($i=="name")print $(i+1)}' "$IP_LOG"|tail -1); if [ -n "$MOCK_LINKS" ];then printf '%b' "$MOCK_LINKS";else printf '1: lo: x\n2: %s@if3: x\n' "$name";fi;;
