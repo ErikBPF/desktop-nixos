@@ -1,8 +1,8 @@
 # Stateful stack release hardening — execution plan
 
 **Status:** In progress — P0 and Kepler K0 complete; the approved Kepler exact
-retirement and declared-stack reset/recreation have run. K5 cross-host and
-second-planner evidence remain before Discovery P1 can unfreeze.
+retirement and declared-stack reset/recreation have run. K5 Discovery route
+evidence remains before Discovery P1 can unfreeze.
 
 ## 1. Purpose and authority
 
@@ -122,8 +122,13 @@ Kepler is recovered; after K5, Kepler remains stable while Discovery resumes.
 - `slm-bge-m3` reached healthy. The reranker remained in normal cold-start when
   the operator waived further waiting; this is recorded as incomplete health
   evidence, not a failure.
-- Discovery LiteLLM route checks and the final read-only zero-mutation planner
-  remain open. Discovery P1 stays frozen.
+- The final read-only post-recovery audit converged with all 12 declared
+  containers classified as `none`, no retired resources selected, no halt
+  reasons, inventory SHA-256
+  `74c70f4ab0c025bac510734f31d0b351df4a28f431bf68ae57dbae0ee42f184a`,
+  and manifest SHA-256
+  `b1a43fae85f277b682fcde3c3daacece70e65bf0447dab4df3788ce0329c0331`.
+- Discovery LiteLLM route checks remain open. Discovery P1 stays frozen.
 
 ### Known later gates
 

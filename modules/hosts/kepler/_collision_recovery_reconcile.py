@@ -29,6 +29,7 @@ RETIRED_CONTAINERS = {
 LEGACY_PROJECT = "homelab"
 LEGACY_INFRA_WORKING_DIR = "/fast/homelab"
 LEGACY_INFRA_CONFIG_FILES = ["infra.yml"]
+KEPLER_COMPOSE_WORKING_DIR = "/home/erik/servarr/machines/kepler"
 
 
 def canonical(value):
@@ -61,6 +62,28 @@ def _mount_identity(mount):
     }
 
 
+def _desired_mount_identity(mount, project, working_dir):
+    identity = _mount_identity(mount)
+    source = identity["source"]
+    if identity["type"] == "bind" and source and not source.startswith("/"):
+        if working_dir == KEPLER_COMPOSE_WORKING_DIR:
+            identity["source"] = str(pathlib.PurePosixPath(working_dir) / source)
+    elif identity["type"] == "volume" and source:
+        identity["source"] = f"{project}_{source}"
+    return identity
+
+
+def _runtime_mount_identity(mount, volumes):
+    identity = _mount_identity(mount)
+    if (
+        identity["type"] == "volume"
+        and mount.get("name")
+        and volumes.get(mount["name"]) == identity["source"]
+    ):
+        identity["source"] = mount["name"]
+    return identity
+
+
 def _diff(expected, actual):
     fields = []
     for field in ("labels", "mounts", "networks"):
@@ -69,9 +92,16 @@ def _diff(expected, actual):
     return fields
 
 
-def _covered(source, datasets, volumes):
-    if source in volumes:
-        source = volumes[source]
+def _covered(source, datasets, volumes, project="", service="", container=""):
+    volume_name = source if source in volumes else f"{project}_{source}"
+    if volume_name in volumes:
+        if (
+            project == "infra" and service == "redis" and container == "redis"
+            and source == "redis_data" and volume_name == "infra_redis_data"
+            and pathlib.PurePosixPath(volumes[volume_name]).is_absolute()
+        ):
+            return True
+        source = volumes[volume_name]
     if not source.startswith("/"):
         return False
     source_path = pathlib.PurePosixPath(source)
@@ -91,6 +121,24 @@ def _retired_family(container):
     return None
 
 
+def _invalid_relative_bind(desired_mounts, runtime_mounts, working_dir):
+    for desired_mount in desired_mounts:
+        source = desired_mount.get("source", "")
+        mount_type = desired_mount.get("type", "")
+        if mount_type != "bind" or not source or source.startswith("/"):
+            continue
+        if working_dir != KEPLER_COMPOSE_WORKING_DIR:
+            return True
+        matching_runtime = [
+            mount for mount in runtime_mounts
+            if mount.get("destination", mount.get("target", "")) == desired_mount.get("target", "")
+            and mount.get("type", "volume" if mount.get("name") else "bind") == "bind"
+        ]
+        if len(matching_runtime) != 1 or not matching_runtime[0].get("source", "").startswith("/"):
+            return True
+    return False
+
+
 def _normalized_image_ref(image):
     image = image.split("@", 1)[0]
     if image.startswith("docker.io/"):
@@ -101,6 +149,13 @@ def _normalized_image_ref(image):
     if "." not in first and ":" not in first and first != "localhost":
         return "docker.io/" + image
     return image
+
+
+def _normalized_image_repository(image):
+    image = _normalized_image_ref(image).split("@", 1)[0]
+    slash = image.rfind("/")
+    colon = image.rfind(":")
+    return image[:colon] if colon > slash else image
 
 
 def _model_provenance_reason(desired, provenance):
@@ -139,10 +194,10 @@ def _provenance_reason(desired, desired_item, container, validate_runtime=True):
     if status == "immutable-registry-digest":
         match = re.search(r"@sha256:([0-9a-f]{64})$", desired_item.get("image", ""))
         actual = container.get("image_digest", "").removeprefix("sha256:")
-        expected_name = _normalized_image_ref(desired_item.get("image", ""))
+        expected_name = _normalized_image_repository(desired_item.get("image", ""))
         if not match or (validate_runtime and (
             actual != match.group(1)
-            or _normalized_image_ref(container.get("image", "")) != expected_name
+            or _normalized_image_repository(container.get("image", "")) != expected_name
         )):
             return "immutable-registry-digest-required"
         return None
@@ -188,9 +243,11 @@ def _legacy_mount_mapping(desired, desired_item, actual_mounts, expected_mounts)
     return mapping if runtime == actual_mounts and replacement == expected_mounts else None
 
 
-def reconcile(inventory_envelope, desired_envelope, source_commits):
+def reconcile(inventory_envelope, desired_envelope, source_commits, mode="migration"):
     inventory = _require_envelope(inventory_envelope, "inventory")
     desired = _require_envelope(desired_envelope, "desired")
+    if mode not in {"migration", "post-recovery-audit"}:
+        raise ReconcileHalt("invalid reconciliation mode")
     if not isinstance(source_commits, dict) or not source_commits or any(
         not name or not GIT_COMMIT.fullmatch(str(commit)) for name, commit in source_commits.items()
     ):
@@ -205,17 +262,28 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
     if overlap:
         raise ReconcileHalt("retired service must not be active: " + ",".join(sorted(overlap)))
     datasets = [pathlib.PurePosixPath(item["mountpoint"]) for item in inventory.get("datasets", [])]
-    volumes = {item["name"]: item.get("mountpoint", "") for item in inventory.get("volumes", [])}
+    inventory_volumes = inventory.get("volumes", [])
+    volume_names = [item.get("name", "") for item in inventory_volumes]
+    if any(not name for name in volume_names) or len(volume_names) != len(set(volume_names)):
+        raise ReconcileHalt("inventory volumes require unique non-empty names")
+    volumes = {item["name"]: item.get("mountpoint", "") for item in inventory_volumes}
+    containers = inventory.get("containers", [])
+    container_names = [item.get("name", "") for item in containers]
+    if any(not name for name in container_names) or len(container_names) != len(set(container_names)):
+        raise ReconcileHalt("inventory containers require unique non-empty names")
     classifications = []
     provenance_gaps = []
     coverage_gaps = []
+    observed_desired = set()
 
-    for container in inventory.get("containers", []):
+    for container in containers:
         name = container.get("name", "")
         desired_item = desired_by_name.get(name)
         if desired_item is None:
             retired_family = _retired_family(container)
-            if retired_family:
+            if retired_family and mode == "post-recovery-audit":
+                action, classification, reason = "halt", "halt", "retired-resource-still-present"
+            elif retired_family:
                 action, classification, reason = "retire", "retired-wipe", "exact-retired-allowlist"
             else:
                 action, classification, reason = "halt", "halt", "unknown-owner"
@@ -224,14 +292,20 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
                 "container": name, "field_diffs": [], "reason": reason,
             })
             continue
+        observed_desired.add(name)
         expected = {
             "labels": desired_item["required_labels"],
-            "mounts": sorted((_mount_identity(item) for item in desired_item.get("mounts", [])), key=canonical),
+            "mounts": sorted((
+                _desired_mount_identity(
+                    item, desired_item["project"],
+                    container.get("labels", {}).get("com.docker.compose.project.working_dir", ""),
+                ) for item in desired_item.get("mounts", [])
+            ), key=canonical),
             "networks": sorted(desired_item.get("networks", [])),
         }
         actual = {
             "labels": {key: container.get("labels", {}).get(key, "") for key in (COMPOSE_PROJECT, COMPOSE_SERVICE)},
-            "mounts": sorted((_mount_identity(item) for item in container.get("mounts", [])), key=canonical),
+            "mounts": sorted((_runtime_mount_identity(item, volumes) for item in container.get("mounts", [])), key=canonical),
             "networks": sorted(container.get("networks", [])),
         }
         diffs = _diff(expected, actual)
@@ -241,7 +315,24 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         legacy_working_dir = container.get("labels", {}).get("com.docker.compose.project.working_dir", "")
         legacy_config_files = container.get("labels", {}).get("com.docker.compose.project.config_files", "")
         legacy_mount_mapping = _legacy_mount_mapping(desired, desired_item, actual["mounts"], expected["mounts"])
-        if state in {"running", "paused", "restarting"}:
+        invalid_relative_bind = _invalid_relative_bind(
+            desired_item.get("mounts", []), container.get("mounts", []), legacy_working_dir,
+        )
+        if mode == "post-recovery-audit" and state != "running":
+            status = ("halt", "desired-container-not-running")
+        elif mode == "post-recovery-audit" and not actual["labels"][COMPOSE_PROJECT] or not actual["labels"][COMPOSE_SERVICE]:
+            status = ("halt", "missing-compose-labels")
+        elif mode == "post-recovery-audit" and actual["labels"][COMPOSE_PROJECT] != desired_item["project"]:
+            status = ("halt", "foreign-compose-project")
+        elif mode == "post-recovery-audit" and actual["labels"][COMPOSE_SERVICE] != desired_item["service"]:
+            status = ("halt", "foreign-compose-service")
+        elif mode == "post-recovery-audit" and (diffs or invalid_relative_bind):
+            status = ("halt", "declared-runtime-mismatch")
+        elif mode == "post-recovery-audit" and provenance_reason:
+            status = ("halt", provenance_reason)
+        elif mode == "post-recovery-audit":
+            status = ("none", "exact-running-desired")
+        elif state in {"running", "paused", "restarting"}:
             status = ("halt", "running-collision")
         elif not actual["labels"][COMPOSE_PROJECT] or not actual["labels"][COMPOSE_SERVICE]:
             status = ("halt", "missing-compose-labels")
@@ -266,7 +357,8 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             status = ("halt", "declared-runtime-mismatch")
         else:
             status = ("migrate", "stopped-declared-collision")
-        classification = {"action": status[0], "classification": "halt" if status[0] == "halt" else "declared-migrate", "container": name, "field_diffs": diffs, "reason": status[1]}
+        classification_kind = "halt" if status[0] == "halt" else "converged" if status[0] == "none" else "declared-migrate"
+        classification = {"action": status[0], "classification": classification_kind, "container": name, "field_diffs": diffs, "reason": status[1]}
         if legacy and legacy_mount_mapping:
             classification["migration_mounts"] = legacy_mount_mapping
         classifications.append(classification)
@@ -277,11 +369,21 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
             if mount.get("read_only", False):
                 continue
             source = mount.get("source", "")
-            if source and not _covered(source, datasets, volumes):
+            if source and not _covered(
+                source, datasets, volumes, desired_item["project"],
+                desired_item["service"], desired_item["container_name"],
+            ):
                 coverage_gaps.append({"container": name, "source": source, "reason": "persistent-mount-outside-snapshot-boundary"})
 
+    if mode == "post-recovery-audit":
+        for name in sorted(set(desired_by_name) - observed_desired):
+            classifications.append({
+                "action": "halt", "classification": "halt", "container": name,
+                "field_diffs": [], "reason": "desired-container-absent",
+            })
+
     selected_retired = sorted({
-        family for container in inventory.get("containers", [])
+        family for container in containers
         if (family := _retired_family(container))
     })
     halt_reasons = sorted({item["reason"] for item in classifications if item["action"] == "halt"} | {item["reason"] for item in provenance_gaps} | {item["reason"] for item in coverage_gaps})
@@ -290,12 +392,13 @@ def reconcile(inventory_envelope, desired_envelope, source_commits):
         "desired_sha256": desired_envelope["desired_sha256"],
         "halt_reasons": halt_reasons,
         "inventory_sha256": inventory_envelope["inventory_sha256"],
+        "mode": mode,
         "persistent_coverage_gaps": sorted(coverage_gaps, key=canonical),
         "provenance_gaps": sorted(provenance_gaps, key=canonical),
         "retired_allowlist": sorted(RETIRED_ALLOWLIST),
         "selected_retired": selected_retired,
         "source_commits": dict(sorted(source_commits.items())),
-        "status": "halt" if halt_reasons else "ready",
+        "status": "halt" if halt_reasons else "converged" if mode == "post-recovery-audit" else "ready",
     }
     return {"manifest": manifest, "manifest_sha256": digest(manifest), "schema": "kepler-collision-reconcile-v1"}
 
@@ -305,6 +408,7 @@ def main(argv=None):
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--desired", required=True)
     parser.add_argument("--source-commit", action="append", default=[])
+    parser.add_argument("--mode", choices=("migration", "post-recovery-audit"), default="migration")
     args = parser.parse_args(argv)
     try:
         commits = dict(item.split("=", 1) for item in args.source_commit)
@@ -312,7 +416,7 @@ def main(argv=None):
             inventory = json.load(handle)
         with open(args.desired, encoding="utf-8") as handle:
             desired = json.load(handle)
-        print(json.dumps(reconcile(inventory, desired, commits), sort_keys=True, separators=(",", ":")))
+        print(json.dumps(reconcile(inventory, desired, commits, mode=args.mode), sort_keys=True, separators=(",", ":")))
     except (OSError, ValueError, json.JSONDecodeError, ReconcileHalt) as error:
         print(f"reconcile halted: {error}", file=sys.stderr)
         return 1

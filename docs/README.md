@@ -38,7 +38,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | Doc | Status |
 |-----|--------|
 | [`behaviors/kepler-collision-migration/behavior.md`](behaviors/kepler-collision-migration/behavior.md) · [`test contract`](behaviors/kepler-collision-migration/test-contract.md) | Approved normative K0–K5 recovery contract — K0 complete; K1 read-only inventory and exact approval manifest are next. No K1–K5 mutation is authorized by K0. |
-| [`proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md`](proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md) | In progress — Kepler exact retirement and declared-stack recovery ran; K5 cross-host and second-planner evidence remain. Discovery P1 stays frozen. |
+| [`proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md`](proposals/2026-07-13-stateful-stack-release-hardening-execution-plan.md) | In progress — Kepler recovery and final zero-action audit passed; K5 Discovery route evidence remains. Discovery P1 stays frozen. |
 | [`proposals/2026-07-13-stateful-stack-release-hardening.md`](proposals/2026-07-13-stateful-stack-release-hardening.md) | In progress — P0 and Kepler K0 complete; merged Kepler K1–K5 precedes staged Discovery P1. |
 | [`proposals/2026-07-12-opencode-litellm-routing.md`](proposals/2026-07-12-opencode-litellm-routing.md) | Proposed — GLM orchestration/review and MiMo execution through stable LiteLLM aliases. |
 | [`proposals/2026-07-12-fleet-esp-enlargement.md`](proposals/2026-07-12-fleet-esp-enlargement.md) | Approved risk-triggered migration — future installs use 2G; existing 512M hosts migrate only on capacity failure or planned reinstall. Pathfinder is the first approved slice. |
