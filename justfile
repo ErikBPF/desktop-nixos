@@ -2133,14 +2133,14 @@ reboot-kepler:
         sleep 1
     done
     echo ":: waiting for kepler to return..."
-    for _ in $(seq 1 60); do
+    for _ in $(seq 1 150); do
         if ssh -p 2222 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
             echo ":: kepler reachable"
             exit 0
         fi
         sleep 2
     done
-    echo ":: kepler did not return within 120s" >&2
+    echo ":: kepler did not return within 300s" >&2
     exit 1
 
 # Reboot Discovery and prove the host transitioned down then up. The separate
