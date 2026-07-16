@@ -3566,7 +3566,7 @@ discovery-adguard-runtime-split servarr_commit:
     test -f "$legacy" || { echo 'BLOCKED: legacy tracked YAML absent' >&2; exit 1; }
     test ! -e "$runtime" || { echo 'BLOCKED: runtime YAML already exists' >&2; exit 1; }
     test "$(git ls-files --error-unmatch machines/discovery/config/adguard/AdGuardHome.yaml)" = machines/discovery/config/adguard/AdGuardHome.yaml
-    git diff --quiet && git diff --cached --quiet || { echo 'BLOCKED: deployed Servarr checkout dirty' >&2; exit 1; }
+    git diff --quiet -- . ':(exclude)machines/discovery/config/adguard/AdGuardHome.yaml' && git diff --cached --quiet || { echo 'BLOCKED: deployed Servarr checkout dirty outside legacy AdGuard YAML' >&2; exit 1; }
     test "$(docker inspect adguard | jq -er '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source')" = "$repo/machines/discovery/config/adguard"
     test "$(docker inspect adguard | jq -er '.[0].Config.Labels | .["com.docker.compose.project"] + "/" + .["com.docker.compose.service"]')" = networking/adguard
     test "$(docker inspect adguard-exporter | jq -er '.[0].Config.Labels | .["com.docker.compose.project"] + "/" + .["com.docker.compose.service"]')" = networking/adguard-exporter
@@ -3576,10 +3576,10 @@ discovery-adguard-runtime-split servarr_commit:
     trap 'rm -f "$tmp"' EXIT
     git show "$EXPECTED:$helper" >"$tmp"
     chmod 0500 "$tmp"
-    "$tmp" "$legacy" "$runtime"
+    sudo -n "$tmp" "$legacy" "$runtime"
     test -f "$runtime" -a ! -L "$runtime"
     test "$(stat -c %a "$runtime")" = 600
-    cmp -s "$legacy" "$runtime"
+    sudo -n cmp -s "$legacy" "$runtime"
     REMOTE
     just pull-servarr discovery "$branch"
     ssh -p 2222 erik@"$IP" "EXPECTED='$commit' bash -s" <<'REMOTE'
