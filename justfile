@@ -3546,6 +3546,85 @@ discovery-adguard-exporter-diagnostic:
     ssh -p 2222 erik@"$IP" \
       'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory exporter-families'
 
+# One-time no-clobber cutover from the tracked live AdGuard YAML to the
+# gitignored runtime bind. The migration helper is read from the exact reviewed
+# Servarr commit and runs before pull-servarr can reset the legacy tracked file.
+discovery-adguard-runtime-split servarr_commit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    commit={{ quote(servarr_commit) }}
+    branch=feat/adguard-runtime-yaml-split
+    [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo 'BLOCKED: Servarr commit must be a full SHA-1' >&2; exit 1; }
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" "EXPECTED='$commit' BRANCH='$branch' bash -s" <<'REMOTE'
+    set -euo pipefail
+    repo=/home/erik/servarr
+    legacy=$repo/machines/discovery/config/adguard/AdGuardHome.yaml
+    runtime=$repo/machines/discovery/runtime/adguard/AdGuardHome.yaml
+    helper=machines/discovery/scripts/init-adguard-runtime.sh
+    cd "$repo"
+    test -f "$legacy" || { echo 'BLOCKED: legacy tracked YAML absent' >&2; exit 1; }
+    test ! -e "$runtime" || { echo 'BLOCKED: runtime YAML already exists' >&2; exit 1; }
+    test "$(git ls-files --error-unmatch machines/discovery/config/adguard/AdGuardHome.yaml)" = machines/discovery/config/adguard/AdGuardHome.yaml
+    git diff --quiet && git diff --cached --quiet || { echo 'BLOCKED: deployed Servarr checkout dirty' >&2; exit 1; }
+    test "$(docker inspect adguard | jq -er '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source')" = "$repo/machines/discovery/config/adguard"
+    test "$(docker inspect adguard | jq -er '.[0].Config.Labels | .["com.docker.compose.project"] + "/" + .["com.docker.compose.service"]')" = networking/adguard
+    test "$(docker inspect adguard-exporter | jq -er '.[0].Config.Labels | .["com.docker.compose.project"] + "/" + .["com.docker.compose.service"]')" = networking/adguard-exporter
+    git fetch origin "$BRANCH"
+    test "$(git rev-parse "origin/$BRANCH^{commit}")" = "$EXPECTED" || { echo 'BLOCKED: branch tip differs from approved commit' >&2; exit 1; }
+    tmp=$(mktemp)
+    trap 'rm -f "$tmp"' EXIT
+    git show "$EXPECTED:$helper" >"$tmp"
+    chmod 0500 "$tmp"
+    "$tmp" "$legacy" "$runtime"
+    test -f "$runtime" -a ! -L "$runtime"
+    test "$(stat -c %a "$runtime")" = 600
+    cmp -s "$legacy" "$runtime"
+    REMOTE
+    just pull-servarr discovery "$branch"
+    ssh -p 2222 erik@"$IP" "EXPECTED='$commit' bash -s" <<'REMOTE'
+    set -euo pipefail
+    repo=/home/erik/servarr
+    runtime=$repo/machines/discovery/runtime/adguard/AdGuardHome.yaml
+    cd "$repo"
+    test "$(git rev-parse HEAD)" = "$EXPECTED"
+    test -f "$runtime" -a ! -L "$runtime"
+    test "$(stat -c %a "$runtime")" = 600
+    test "$(git check-ignore -q machines/discovery/runtime/adguard/AdGuardHome.yaml; echo $?)" = 0
+    cd machines/discovery
+    docker-compose --project-name networking --project-directory "$PWD" --env-file .env --env-file /run/vault-agent/networking.env -f networking.yml config >/dev/null
+    REMOTE
+    just discovery-adguard-recover-current
+    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null'
+    just discovery-adguard-recover-current
+    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null'
+    echo ':: AdGuard runtime split passed two value-free smoke cycles'
+
+# Roll back declarations to one exact prior Servarr commit. The gitignored
+# runtime YAML is retained; no YAML, volume, container data, or evidence is removed.
+discovery-adguard-runtime-split-rollback prior_commit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    commit={{ quote(prior_commit) }}
+    [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo 'BLOCKED: prior commit must be a full SHA-1' >&2; exit 1; }
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" "EXPECTED='$commit' bash -s" <<'REMOTE'
+    set -euo pipefail
+    cd /home/erik/servarr
+    git fetch origin main
+    git merge-base --is-ancestor "$EXPECTED" origin/main || { echo 'BLOCKED: prior commit is not on origin/main' >&2; exit 1; }
+    test "$(git rev-parse 'origin/main^{commit}')" = "$EXPECTED" || { echo 'BLOCKED: origin/main differs from approved prior commit' >&2; exit 1; }
+    printf '%s\n' main >.deploy-branch
+    REMOTE
+    just pull-servarr discovery main
+    ssh -p 2222 erik@"$IP" "test \"\$(git -C /home/erik/servarr rev-parse HEAD)\" = '$commit'" || {
+      echo 'BLOCKED: origin/main does not equal approved prior commit' >&2
+      exit 1
+    }
+    just discovery-adguard-recover-current
+    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null'
+    echo ':: rollback passed; runtime YAML retained'
+
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault
 # identity or volatile sdX path.
