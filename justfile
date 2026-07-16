@@ -3218,7 +3218,7 @@ discovery-adguard-inventory output:
     tmp="{{output}}.tmp.$$"
     trap 'rm -f "$tmp"' EXIT
     IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" 'sudo discovery-stateful-adguard-inventory capture' >"$tmp"
+    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture' >"$tmp"
     P2_ADGUARD_TARGET_COMMIT=9969e35dca0cfb49a68bda3ba10156667cd4b53f \
       P2_ADGUARD_IMAGE_ADGUARD=adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927 \
       P2_ADGUARD_IMAGE_EXPORTER=ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1@sha256:42a9581bae4a91e6d4985415d1fe89ab9b1f50fbe2945a1c122d212d6354b747 \
@@ -3268,7 +3268,7 @@ discovery-adguard-revision-prefetch output:
       cache=/home/erik/.cache/stateful-stack-migrations/p2-adguard
       pending=$cache/revision-prefetch.json.pending
       test ! -e "$pending" || { echo "BLOCKED: pending prefetch already exists" >&2; exit 1; }
-      sudo -n test ! -e "$remote" || { echo "BLOCKED: retained prefetch already exists" >&2; exit 1; }
+      sudo -n /run/current-system/sw/bin/test ! -e "$remote" || { echo "BLOCKED: retained prefetch already exists" >&2; exit 1; }
       mkdir -p "$cache"
       chmod 0700 "$cache"
       helper=$(readlink -f "$(command -v servarr-exact-revision)")
@@ -3282,7 +3282,7 @@ discovery-adguard-revision-prefetch output:
     '
     tmp="$output.tmp.$$"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@"$IP" "sudo -n cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"
+    ssh -p 2222 erik@"$IP" "sudo -n /run/current-system/sw/bin/cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"
     chmod 0400 "$tmp"
     ln "$tmp" "$output"
     rm "$tmp"
@@ -3316,8 +3316,8 @@ discovery-adguard-transition-plan inventory p3_manifest p3_observation p3_result
       bundle=$(mktemp -d)
       trap '\''rm -rf "$bundle"'\'' EXIT
       tar -C "$bundle" -xf -
-      cmp "$bundle/revision-prefetch.json" /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
-      sudo discovery-stateful-adguard-transition plan \
+      sudo -n /run/current-system/sw/bin/cmp "$bundle/revision-prefetch.json" /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+      sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-transition plan \
         "$bundle/inventory.json" "$bundle/p3-manifest.json" \
         "$bundle/p3-observation.json" "$bundle/p3-result.json" \
         /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
@@ -3351,7 +3351,7 @@ discovery-adguard-transition-verify inventory p3_manifest p3_observation p3_resu
       bundle=$(mktemp -d)
       trap '\''rm -rf "$bundle"'\'' EXIT
       tar -C "$bundle" -xf -
-      sudo discovery-stateful-adguard-transition verify \
+      sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-transition verify \
         "$bundle/inventory.json" "$bundle/p3-manifest.json" \
         "$bundle/p3-observation.json" "$bundle/p3-result.json" \
         /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json \
@@ -3376,7 +3376,7 @@ discovery-adguard-transition-execute authorization manifest_sha256:
         tar -C \"\$bundle\" -xf -
         remote_authorization=\$(find \"\$bundle\" -mindepth 1 -maxdepth 1 -type f -print -quit)
         test -n \"\$remote_authorization\"
-        sudo discovery-stateful-adguard-transition execute \"\$remote_authorization\" \"$manifest_sha256\"
+        sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-transition execute \"\$remote_authorization\" \"$manifest_sha256\"
       "
 
 # Value-free exporter diagnostic: allowlisted family presence only.
@@ -3385,7 +3385,7 @@ discovery-adguard-exporter-diagnostic:
     set -euo pipefail
     IP="$(just _host-ip discovery)"
     ssh -p 2222 erik@"$IP" \
-      'sudo discovery-stateful-adguard-inventory exporter-families'
+      'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory exporter-families'
 
 # Build Discovery's generated disko script without executing it, then prove the
 # destructive set contains exactly the two reviewed Kingston SSDs and no vault

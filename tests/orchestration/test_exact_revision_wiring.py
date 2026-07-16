@@ -1,4 +1,5 @@
 import pathlib
+import re
 import tempfile
 import unittest
 
@@ -61,13 +62,13 @@ class ExactRevisionWiringTest(unittest.TestCase):
         recipe = recipe.split("\n# ", 1)[0]
         self.assertIn("pending=$cache/revision-prefetch.json.pending", recipe)
         self.assertIn('test ! -e "$pending"', recipe)
-        self.assertIn('sudo -n test ! -e "$remote"', recipe)
+        self.assertIn('sudo -n /run/current-system/sw/bin/test ! -e "$remote"', recipe)
         self.assertIn("trap '\\''rm -f \"$pending\"'\\'' EXIT", recipe)
         self.assertIn("sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-prefetch-publish", recipe)
         self.assertNotIn("sudo -n bash", recipe)
         self.assertNotIn("sudo -n python", recipe)
         self.assertNotIn("sudo -n env", recipe)
-        self.assertIn('"sudo -n cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"', recipe)
+        self.assertIn('"sudo -n /run/current-system/sw/bin/cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"', recipe)
         self.assertIn('chmod 0400 "$tmp"', recipe)
 
     def test_root_publisher_is_declaratively_installed(self):
@@ -112,6 +113,26 @@ class ExactRevisionWiringTest(unittest.TestCase):
             staging.unlink(missing_ok=True)
             self.assertFalse(staging.exists())
             self.assertEqual(final.read_bytes(), payload)
+
+    def test_all_p2_privileged_commands_use_noninteractive_absolute_entrypoints(self):
+        source = JUSTFILE.read_text()
+        p2 = source.split("# P2 read-only inventory.", 1)[1]
+        p2 = p2.split("# Build Discovery's generated disko script", 1)[0]
+        self.assertIsNone(re.search(r"\bsudo\s+(?!-n\s)", p2))
+        for command in (
+            "/run/current-system/sw/bin/test",
+            "/run/current-system/sw/bin/cat",
+            "/run/current-system/sw/bin/cmp",
+            "/run/current-system/sw/bin/discovery-stateful-adguard-prefetch-publish",
+            "/run/current-system/sw/bin/discovery-stateful-adguard-transition plan",
+            "/run/current-system/sw/bin/discovery-stateful-adguard-transition verify",
+            "/run/current-system/sw/bin/discovery-stateful-adguard-transition execute",
+            "/run/current-system/sw/bin/discovery-stateful-adguard-inventory capture",
+            "/run/current-system/sw/bin/discovery-stateful-adguard-inventory exporter-families",
+        ):
+            self.assertIn("sudo -n " + command, p2)
+        self.assertNotIn("sudo -n discovery-stateful-adguard", p2)
+        self.assertNotIn("sudo -n cmp", p2)
 
 
 if __name__ == "__main__":
