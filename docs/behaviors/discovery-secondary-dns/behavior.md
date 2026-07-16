@@ -1,6 +1,6 @@
 # Discovery secondary DNS
 
-**Status:** Amended P3 behavior; a new v4 manifest and exact approval are required
+**Status:** Implemented and proven by the approved P3 v4 outage drill
 
 ## Outcome
 

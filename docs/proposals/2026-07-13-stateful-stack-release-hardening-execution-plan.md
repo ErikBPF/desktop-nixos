@@ -1,9 +1,9 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0, Kepler recovery, and Discovery P1 SWAG adoption
-are complete. P2 AdGuard read-only inventory and preflight are binding-valid;
-mutation remains blocked on backup/restore evidence and completion of the P3
-outage proof.
+**Status:** In progress — P0, Kepler recovery, Discovery P1 SWAG adoption, and
+P3 secondary-DNS outage proof are complete. P2 AdGuard read-only inventory and
+preflight are binding-valid; mutation remains blocked on backup/restore evidence
+and exact mutation approval.
 
 ## 1. Purpose and authority
 
@@ -582,6 +582,17 @@ ceiling, leaving time for identity and full post-restore checks without
 extending the DNS outage: AdGuard is already healthy during exporter warm-up.
 This consumed v4 attempt 2. Exactly one renewed v4 attempt remains; a failure
 there stops P3 pending another reviewed contract.
+Commit `8eb1212` extended only the bounded validation windows and produced
+approved manifest `d5cf3b59…`. The final v4 attempt passed: all 24 required
+system/Kepler rows completed in 1,639/10,000 ms; gateway RDNSS retained an
+allowed partial 7-row diagnostic; the same container IDs restored on recovery
+attempt 1; and 37 post-restore evidence rows completed with exporter readiness,
+gateway/AdGuard/Kepler UDP/TCP, identity, SWAG, and dependent checks. The result
+artifact is `passed`, `original_failure_rc=0`, and `recovery_failed=false`.
+An immediate independent privileged exporter diagnostic again reported all
+three families, the full observation passed, and the ephemeral namespace was
+removed. P3 is complete. The active gate returns to P2 backup/restore evidence
+and its separately bound mutation approval.
 
 1. Reconfirm DHCP resolvers and vanguard listeners/routes.
 2. Design a LAN-reachable secondary that resolves fleet and external names;
@@ -751,8 +762,8 @@ fixtures, P1 evidence, or legacy resources.
 | K1–K4 | Complete with approved deviation | Exact manifests and force/reset evidence; retained PostgreSQL/Qdrant/MinIO state; disposable Redis reset; final inventory `74c70f4…` | P9 retained-evidence cleanup only |
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
-| P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…` | Backup/restore evidence; secondary DNS or explicit bounded waiver; exact mutation approval |
-| P3 | v4 core proven twice; final bounded recovery attempt pending | Desktop `d18edea`; manifests `43899fa6…` and `326cee98…`: core 24/24 in 1,560/1,561 ms, allowed partial diagnostics; source-bound helper stayed non-ready for 30 s then immediate 3/3/full observations passed; services restored | Verify 60 s warm-up/120 s recovery correction; renew manifest and exact approval; one v4 attempt remains |
+| P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…`; P3 interlock complete | Backup/restore evidence; exact mutation approval |
+| P3 | Complete | Desktop through `8eb1212`; approved manifest `d5cf3b59…`: core 24/24 in 1,639 ms, allowed 7-row gateway diagnostic, exact-ID recovery attempt 1, post-restore 37 rows complete, exporter 3/3, namespace removed | P9 retained-evidence cleanup only |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |

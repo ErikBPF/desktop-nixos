@@ -1,6 +1,6 @@
 # Discovery secondary DNS test contract
 
-**Status:** Draft P3 contract; offline tests precede any deployment or apply
+**Status:** Implemented and proven by the approved P3 v4 outage drill
 
 ## Test boundary
 
