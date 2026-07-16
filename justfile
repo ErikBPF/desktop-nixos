@@ -3411,6 +3411,14 @@ discovery-adguard-transition-execute authorization manifest_sha256:
         sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-transition execute \"\$remote_authorization\" \"$manifest_sha256\"
       "
 
+# Report only value-free P2 phase state from the retained Discovery journal.
+discovery-adguard-transition-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" \
+      'sudo -n /run/current-system/sw/bin/jq -sc '\''map({event,phase,status,error_class,recovery_failed})'\'' /var/lib/stateful-stack-migrations/p2-adguard/journal.jsonl'
+
 # Value-free exporter diagnostic: allowlisted family presence only.
 discovery-adguard-exporter-diagnostic:
     #!/usr/bin/env bash
