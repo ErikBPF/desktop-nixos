@@ -63,8 +63,9 @@ def validate_post(manifest,value,channel="forward"):
         expected_ref=images[name] if channel=="forward" else wanted["image_ref"];expected_digest=images[name].rsplit("@",1)[1] if channel=="forward" else wanted["image_digest"]
         if item["image_ref"]!=expected_ref or item["image_digest"]!=expected_digest or item["image_id"]!=wanted["image_id"]:raise Drift(f"post {channel} {name} image differs")
         if item["state"]!="running" or item["restart_count"]!=0 or item["health"]!=("healthy" if name=="adguard" else "none") or not re.fullmatch(r"[0-9a-f]{64}",item["id"]):raise Drift(f"post {name} runtime differs")
-    volume=value["volume"];wanted_volume=manifest["resources"]["volume"]
-    if {**volume,"references":[]}!={**wanted_volume,"references":[]} or volume["references"]!=[ids["adguard"]] or value["config_bind"]!=manifest["resources"]["config_bind"]:raise Drift("post storage differs")
+    volume=json.loads(json.dumps(value["volume"]));wanted_volume=json.loads(json.dumps(manifest["resources"]["volume"]));size=volume["metadata"]["size_bytes"]
+    volume["references"]=[];wanted_volume["references"]=[];volume["metadata"]["size_bytes"]=0;wanted_volume["metadata"]["size_bytes"]=0
+    if type(size) is not int or size<=0 or volume!=wanted_volume or value["volume"]["references"]!=[ids["adguard"]] or value["config_bind"]!=manifest["resources"]["config_bind"]:raise Drift("post storage differs")
     if len(set(ids.values()))!=2 or set(ids.values())&pre_ids or stable_baseline(value["baseline"])!=stable_baseline(manifest["resources"]["baseline"]):raise Drift("post baseline differs")
     return {"baseline_sha256":digest(stable_baseline(value["baseline"])),"container_ids":ids}
 def sanitize_startup_scan(value):
@@ -131,10 +132,13 @@ class ProductionRunner:
             pathlib.Path(temp).unlink(missing_ok=True)
     def run_inventory_ready(self,argv):
         for attempt in range(12):
-            try:return subprocess.run(argv,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=120)
+            try:
+                result=subprocess.run(argv,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=120);value=json.loads(result.stdout);exporter=value["baseline"]["exporter"]
+                if exporter["reachable"] is True and exporter["required_family_count"]==3 and all(exporter["families"].values()):return result
             except subprocess.CalledProcessError:
-                if attempt==11:raise
-                time.sleep(5)
+                pass
+            if attempt==11:raise Drift("inventory readiness timeout")
+            time.sleep(5)
     def run(self,phase,argv):
         if phase in ("activate-forward-revision","recovery-activate-rollback"):result=self.run_revision(argv)
         elif phase in ("verify-recreated-identities","smoke-test","recovery-verify-identities"):result=self.run_inventory_ready(argv)

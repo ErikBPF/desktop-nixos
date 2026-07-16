@@ -115,10 +115,10 @@ class TransitionExecTest(unittest.TestCase):
             with mock.patch.object(self.e.subprocess,"run",side_effect=invoke) as run:self.e.ProductionRunner(self.case.t.LAYOUT).run("activate-forward-revision",argv)
             self.assertEqual(output.read_text(),'{"evidence":{}}');self.assertEqual(stat.S_IMODE(root.stat().st_mode),0o700);self.assertEqual(stat.S_IMODE(base.stat().st_mode),0o700);self.assertEqual(stat.S_IMODE(prefetch.stat().st_mode),0o400);self.assertNotEqual(run.call_args.args[0][-1],str(output))
     def test_production_identity_capture_retries_readiness(self):
-        ready=mock.Mock(stdout=json.dumps(self.case.inventory).encode());blocked=subprocess.CalledProcessError(1,["inventory"])
-        with mock.patch.object(self.e.subprocess,"run",side_effect=[blocked,ready]) as run,mock.patch.object(self.e.time,"sleep") as sleep:
+        not_ready=copy.deepcopy(self.case.inventory);not_ready["baseline"]["exporter"]["families"]["adguard_queries"]=False;not_ready["baseline"]["exporter"]["required_family_count"]=2;ready=mock.Mock(stdout=json.dumps(self.case.inventory).encode());warming=mock.Mock(stdout=json.dumps(not_ready).encode());blocked=subprocess.CalledProcessError(1,["inventory"])
+        with mock.patch.object(self.e.subprocess,"run",side_effect=[blocked,warming,ready]) as run,mock.patch.object(self.e.time,"sleep") as sleep:
             result=self.e.ProductionRunner(self.case.t.LAYOUT).run("verify-recreated-identities",["inventory"])
-        self.assertEqual(result["inventory"],self.case.inventory);self.assertEqual(run.call_count,2);sleep.assert_called_once_with(5)
+        self.assertEqual(result["inventory"],self.case.inventory);self.assertEqual(run.call_count,3);self.assertEqual(sleep.call_args_list,[mock.call(5),mock.call(5)])
     def test_complete_then_identical_second_run_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             contract,layout=self.contract(directory);runner=Runner(self.case.inventory,layout);runner.render_sha=contract["manifest"]["resources"]["servarr"]["render_sha256"]
@@ -153,7 +153,9 @@ class TransitionExecTest(unittest.TestCase):
             forward["servarr"].update(commit=manifest["revision_contract"]["forward"]["commit"],render_sha256=manifest["revision_contract"]["forward"]["render_sha256"])
             for item in forward["containers"]:item["image_ref"]=forward["servarr"]["render_semantics"]["images"][item["name"]]
             rollback["servarr"].update(commit=manifest["revision_contract"]["rollback"]["commit"],render_sha256=manifest["revision_contract"]["rollback"]["render_sha256"])
-            self.e.validate_post(manifest,forward,"forward");self.e.validate_post(manifest,rollback,"rollback")
+            forward["volume"]["metadata"]["size_bytes"]+=4096;self.e.validate_post(manifest,forward,"forward");self.e.validate_post(manifest,rollback,"rollback")
+            invalid_size=copy.deepcopy(forward);invalid_size["volume"]["metadata"]["size_bytes"]=0
+            with self.assertRaises(self.e.Drift):self.e.validate_post(manifest,invalid_size,"forward")
             with self.assertRaises(self.e.Drift):self.e.validate_post(manifest,rollback,"forward")
             rollback_as_forward=copy.deepcopy(forward);rollback_as_forward["servarr"].update(commit=manifest["revision_contract"]["rollback"]["commit"],render_sha256=manifest["revision_contract"]["rollback"]["render_sha256"])
             with self.assertRaises(self.e.Drift):self.e.validate_post(manifest,rollback_as_forward,"rollback")
