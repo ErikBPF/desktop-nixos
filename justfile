@@ -3336,6 +3336,36 @@ discovery-adguard-revision-prefetch-retire-invalid expected_sha256:
     sudo -n /run/current-system/sw/bin/rm -- "$path"
     REMOTE
 
+# Retire only the exact P2 rollback deployment pin so normal origin/main pulls
+# resume. This never touches Compose state, containers, volumes, or evidence.
+discovery-adguard-retire-rollback-pin:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    repo=/home/erik/servarr
+    pin=$repo/.deploy-commit
+    rollback=b676063eafa53c00947c458d631493f98349f63c
+    test -f "$pin" || { echo 'BLOCKED: exact revision pin absent' >&2; exit 1; }
+    jq -e --arg rollback "$rollback" '
+      (keys | sort) == ["pin", "pin_sha256"] and
+      (.pin | keys | sort) == ["commit", "render_sha256", "selection", "tree", "version"] and
+      .pin.version == 1 and
+      .pin.commit == $rollback and
+      .pin.selection == "rollback" and
+      (.pin.tree | test("^[0-9a-f]{40}$")) and
+      (.pin.render_sha256 | test("^[0-9a-f]{64}$")) and
+      (.pin_sha256 | test("^[0-9a-f]{64}$"))
+    ' "$pin" >/dev/null || { echo 'BLOCKED: exact revision pin is not the P2 rollback' >&2; exit 1; }
+    actual=$(jq -jcS .pin "$pin" | sha256sum)
+    actual=${actual%% *}
+    expected=$(jq -r .pin_sha256 "$pin")
+    test "$actual" = "$expected" || { echo 'BLOCKED: exact revision pin hash differs' >&2; exit 1; }
+    test "$(git -C "$repo" rev-parse HEAD)" = "$rollback" || { echo 'BLOCKED: checkout is not the pinned rollback' >&2; exit 1; }
+    rm -- "$pin"
+    REMOTE
+
 # Build the value-free, exact P2 authorization candidate on Discovery so the
 # installed Nix-store source hashes and retained revision prefetch are bound.
 discovery-adguard-transition-plan inventory p3_manifest p3_observation p3_result prefetch output:

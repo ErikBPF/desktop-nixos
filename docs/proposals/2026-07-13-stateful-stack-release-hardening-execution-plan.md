@@ -1,9 +1,8 @@
 # Stateful stack release hardening — execution plan
 
-**Status:** In progress — P0, Kepler recovery, Discovery P1 SWAG adoption, and
-P3 secondary-DNS outage proof are complete. P2 AdGuard read-only inventory and
-preflight are binding-valid; mutation remains blocked on backup/restore evidence
-and exact mutation approval.
+**Status:** In progress — P0, Kepler recovery, Discovery P1 SWAG adoption, P2
+AdGuard in-place adoption, and P3 secondary-DNS outage proof are complete. P4
+full AdGuard Terraform ownership is the active gate.
 
 ## 1. Purpose and authority
 
@@ -466,6 +465,29 @@ mutation. The protected `discovery_adguard_work` collision remains untouched.
    exporter.
 7. Verify rollback to the same physical mapping; retain state.
 
+Completed with an operator-approved practical recovery deviation on 2026-07-16.
+The exact transition completed its snapshot, archive, non-live restore/compare,
+forward revision activation, exact-pair recreation, identity checks, fatal-log
+scan, 15-minute stable observation, and smoke test. Its terminal
+`record-rollback-evidence` bookkeeping failed with `Drift`; automatic recovery
+then failed with `KeyError` and left the Servarr checkout pinned to rollback
+revision `b676063e…`. The failed journal remains retained as evidence; it was not
+rewritten into a pass.
+
+Because temporary local-DNS downtime was explicitly accepted and the workload
+state is already defined by the retained YAML and physical volume, recovery used
+the normal documented deployment path instead of another transition manifest.
+The exact rollback `.deploy-commit` pin was retired only after validating its
+schema, content hash, selection, commit, and current HEAD. `just pull-servarr
+discovery` then converged the host to published Servarr `9969e35`, and `just
+kick-stack discovery networking` recreated the declared stack without copying
+or deleting storage. Fresh value-free inventory `f63ab37f…` proves AdGuard
+healthy with zero restarts, all LAN/external/rewrite/blocked DNS probes returning
+`NOERROR`, protection and filtering enabled, exporter reachable with all three
+required metric families, and `networking_adguard_work` still mounted with
+`65534:65534` ownership and mode `0700`. The protected legacy collision remains
+untouched.
+
 ### P3 — secondary fleet DNS
 
 Desktop `3c88a30` enabled Kepler's LAN-only resolver; `5903ca0` added the
@@ -748,10 +770,11 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is P2: refresh the AdGuard baseline and produce its
-value-free, exact in-place adoption evidence before requesting any mutation.
-P1 did not authorize deletion of bind state, volumes, snapshots, backups, P0
-fixtures, P1 evidence, or legacy resources.
+The current active gate is P4: prove the AdGuard provider lifecycle against a
+disposable target before expanding Terraform ownership beyond the existing
+rewrites, user rules, and filters. P2 did not authorize deletion of bind state,
+volumes, snapshots, backups, failed journals, P0 fixtures, P1 evidence, or
+legacy resources.
 
 ## 8. Completion ledger
 
@@ -762,7 +785,7 @@ fixtures, P1 evidence, or legacy resources.
 | K1–K4 | Complete with approved deviation | Exact manifests and force/reset evidence; retained PostgreSQL/Qdrant/MinIO state; disposable Redis reset; final inventory `74c70f4…` | P9 retained-evidence cleanup only |
 | K5 | Complete via approved retirement deviation | Reboot verification; AI-serving retirement manifest `de8ce750…`; final audit `71e89e49…` | P9 retained-evidence cleanup only |
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
-| P2 | Read-only preflight complete | Servarr `9969e35`; desktop `6dc5c0c`; inventory `c4c1139e…`; stable binding `6c37a3d0…`; manifest `b1517c27…`; P3 interlock complete | Backup/restore evidence; exact mutation approval |
+| P2 | Complete with approved practical recovery deviation | Servarr `9969e35`; transition passed backup/restore, recreate, 15-minute observation, and smoke; terminal bookkeeping failure retained; normal pull/recreate recovery; final inventory `f63ab37f…` | P9 retained-evidence cleanup only |
 | P3 | Complete | Desktop through `8eb1212`; approved manifest `d5cf3b59…`: core 24/24 in 1,639 ms, allowed 7-row gateway diagnostic, exact-ID recovery attempt 1, post-restore 37 rows complete, exporter 3/3, namespace removed | P9 retained-evidence cleanup only |
 | P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
 | P5 | Pending | Collision inventory | P4; collision resolution |
