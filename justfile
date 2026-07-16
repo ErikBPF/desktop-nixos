@@ -3244,6 +3244,21 @@ discovery-adguard-inventory output:
     trap - EXIT
     sha256sum "{{output}}"
 
+# Capture the same value-free inventory without planner validation.
+discovery-adguard-inventory-raw output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{output}}" || { echo "BLOCKED: output already exists: {{output}}" >&2; exit 1; }
+    tmp="{{output}}.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '/run/wrappers/bin/sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture' >"$tmp"
+    chmod 0400 "$tmp"
+    ln "$tmp" "{{output}}"
+    rm "$tmp"
+    trap - EXIT
+    sha256sum "{{output}}"
+
 discovery-adguard-preflight inventory output:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -3437,7 +3452,8 @@ discovery-adguard-transition-retire-failed manifest_sha256:
     ssh -p 2222 erik@"$IP" "/run/wrappers/bin/sudo -n /run/current-system/sw/bin/bash -s -- '$expected'" <<'REMOTE'
     set -euo pipefail
     EXPECTED=$1
-    base=/var/lib/stateful-stack-migrations/p2-adguard
+    root=/var/lib/stateful-stack-migrations
+    base=$root/p2-adguard
     journal=$base/journal.jsonl
     dest=$base/superseded-$EXPECTED
     snapshot=/home/.snapshots/stateful-stack-p2-adguard
@@ -3454,6 +3470,42 @@ discovery-adguard-transition-retire-failed manifest_sha256:
       /run/current-system/sw/bin/test ! -e "$snapshot_dest"
       /run/current-system/sw/bin/mv -- "$snapshot" "$snapshot_dest"
     fi
+    REMOTE
+
+# Restore the exact pre-transition split state from one superseded attempt.
+discovery-adguard-recover-superseded manifest_sha256:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    expected={{ quote(manifest_sha256) }}
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" "/run/wrappers/bin/sudo -n /run/current-system/sw/bin/bash -s -- '$expected'" <<'REMOTE'
+    set -euo pipefail
+    EXPECTED=$1
+    root=/var/lib/stateful-stack-migrations
+    base=$root/p2-adguard
+    evidence=$base/superseded-$EXPECTED
+    prefetch=$base/revision-prefetch.json
+    helper=/run/current-system/sw/bin/servarr-exact-revision
+    compose=/run/current-system/sw/bin/docker-compose
+    root_mode=$(/run/current-system/sw/bin/stat -c %a "$root")
+    base_mode=$(/run/current-system/sw/bin/stat -c %a "$base")
+    rollback_output=/tmp/p2-adguard-$EXPECTED-manual-rollback.json
+    forward_output=/tmp/p2-adguard-$EXPECTED-manual-forward.json
+    trap '/run/current-system/sw/bin/chmod 0400 "$prefetch"; /run/current-system/sw/bin/chmod "$base_mode" "$base"; /run/current-system/sw/bin/chmod "$root_mode" "$root"; /run/current-system/sw/bin/chmod 0700 "$evidence"; /run/current-system/sw/bin/rm -f "$rollback_output" "$forward_output"' EXIT
+    /run/current-system/sw/bin/test -f "$evidence/revision-rollback-authorization.json"
+    /run/current-system/sw/bin/test -f "$evidence/revision-forward-authorization.json"
+    /run/current-system/sw/bin/test ! -e "$evidence/manual-rollback-revision.json"
+    /run/current-system/sw/bin/test ! -e "$evidence/manual-forward-revision.json"
+    /run/current-system/sw/bin/chmod 0444 "$prefetch"
+    /run/current-system/sw/bin/chmod 0755 "$root"
+    /run/current-system/sw/bin/chmod 0755 "$base"
+    /run/current-system/sw/bin/chmod 0755 "$evidence"
+    /run/wrappers/bin/sudo -u erik -- "$helper" activate rollback --prefetch "$prefetch" --authorization "$evidence/revision-rollback-authorization.json" --output "$rollback_output"
+    /run/wrappers/bin/sudo -u erik -- "$compose" --project-name networking --project-directory /home/erik/servarr/machines/discovery --env-file /home/erik/servarr/machines/discovery/.env --env-file /run/vault-agent/networking.env -f /home/erik/servarr/machines/discovery/networking.yml up -d --no-deps --force-recreate adguard adguard-exporter
+    /run/wrappers/bin/sudo -u erik -- "$helper" activate forward --prefetch "$prefetch" --authorization "$evidence/revision-forward-authorization.json" --output "$forward_output"
+    /run/current-system/sw/bin/install -m 0400 "$rollback_output" "$evidence/manual-rollback-revision.json"
+    /run/current-system/sw/bin/install -m 0400 "$forward_output" "$evidence/manual-forward-revision.json"
     REMOTE
 
 # Value-free exporter diagnostic: allowlisted family presence only.
