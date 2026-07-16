@@ -69,6 +69,12 @@ class TransitionExecTest(unittest.TestCase):
             with self.assertRaises(self.e.Drift):self.e.execute(contract,contract["manifest_sha256"],runner,allow_unwired=True,allow_fixture_layout=True)
             self.assertEqual(runner.calls,[])
         with tempfile.TemporaryDirectory() as directory:
+            contract,layout=self.contract(directory);changed=copy.deepcopy(self.case.inventory);changed["baseline"]["api"]["stats"]["dns_queries"]+=1;changed["baseline"]["api"]["stats"]["blocked_filtering"]+=1;runner=Runner(changed,layout);runner.render_sha=contract["manifest"]["resources"]["servarr"]["render_sha256"]
+            result=self.e.execute(contract,contract["manifest_sha256"],runner,allow_unwired=True,allow_fixture_layout=True)
+            self.assertEqual(result["status"],"completed")
+            retained=json.loads(pathlib.Path(layout["approved_inventory"]).read_text())
+            self.assertEqual(retained["baseline"]["api"]["stats"],changed["baseline"]["api"]["stats"])
+        with tempfile.TemporaryDirectory() as directory:
             contract,layout=self.contract(directory);changed=copy.deepcopy(self.case.inventory);changed["containers"][0]["restart_count"]=1;runner=Runner(self.case.inventory,layout,verify_inventory=changed)
             result=self.e.execute(contract,contract["manifest_sha256"],runner,allow_unwired=True,allow_fixture_layout=True)
             self.assertEqual(result["failed_phase"],"verify-bindings");self.assertEqual([phase for phase,_ in runner.calls],["verify-bindings"]);self.assertFalse(any(phase.startswith("stop-") for phase,_ in runner.calls));self.assertFalse(pathlib.Path(layout["ledger"]).exists())

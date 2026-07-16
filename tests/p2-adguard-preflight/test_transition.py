@@ -43,6 +43,16 @@ class TransitionTest(unittest.TestCase):
         self.p3={"manifest_envelope":manifest_envelope,"observation":observation,"result":result}
         self.revisions={"forward":{"commit":"9969e35dca0cfb49a68bda3ba10156667cd4b53f","render_sha256":self.inventory["servarr"]["render_sha256"],"tree":"64d61bb25e0ee7cadda556e54ec86c4faf4f1fd8"},"prefetch":{"path":"/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json","sha256":"6"*64},"rollback":{"commit":"b676063eafa53c00947c458d631493f98349f63c","render_sha256":"7"*64,"tree":"d312855e4a501995cb3f0216659d63763c6b3205"}}
     def approved(self):return self.t.envelope(self.t.plan(self.inventory,self.p3,self.t.LAYOUT,self.revisions,preflight=self.p))
+    def test_inventory_binding_ignores_only_monotonic_stats(self):
+        original=self.t.inventory_digest(self.inventory)
+        for key in ("blocked_filtering","dns_queries"):
+            changed=copy.deepcopy(self.inventory);changed["baseline"]["api"]["stats"][key]+=1
+            self.assertEqual(self.t.inventory_digest(changed),original)
+        changed=copy.deepcopy(self.inventory);changed["baseline"]["api"]["query_sample_count"]+=1
+        self.assertNotEqual(self.t.inventory_digest(changed),original)
+        manifest=self.approved()["manifest"]
+        self.assertEqual(manifest["resources"]["baseline"]["api"]["stats"],self.inventory["baseline"]["api"]["stats"])
+        self.assertEqual(manifest["version"],6)
     def test_exact_revision_channel_is_bound_before_recreate(self):
         manifest=self.approved()["manifest"];self.assertEqual(manifest["revision_contract"],self.revisions);self.assertIn("revision_helper_sha256",manifest["source_hashes"])
         forward=manifest["commands"][manifest["phases"].index("activate-forward-revision")];recreate_index=manifest["phases"].index("recreate-exact-pair");self.assertEqual(forward,["sudo","-u","erik","--","servarr-exact-revision","activate","forward","--prefetch",self.revisions["prefetch"]["path"],"--authorization",self.t.LAYOUT["revision_forward_authorization"],"--output",self.t.BASE+"/forward-revision.json"]);self.assertLess(manifest["phases"].index("activate-forward-revision"),manifest["phases"].index("verify-compose-render"));self.assertLess(manifest["phases"].index("verify-compose-render"),recreate_index)

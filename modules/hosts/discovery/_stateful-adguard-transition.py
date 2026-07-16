@@ -21,6 +21,10 @@ MANIFEST_FIELDS={"actions","bindings","diagnostic_workers","evidence_phases","in
 class Drift(ValueError):pass
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=True).encode()
 def digest(value):return hashlib.sha256(canonical(value)).hexdigest()
+def inventory_digest(value):
+    normalized=json.loads(json.dumps(value));stats=normalized["baseline"]["api"]["stats"]
+    if set(stats)!={"blocked_filtering","dns_queries"} or any(type(item) is not int or item<0 for item in stats.values()):raise Drift("inventory counters invalid")
+    stats.update(blocked_filtering=0,dns_queries=0);return digest(normalized)
 def file_digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def envelope(value):return {"manifest":value,"manifest_sha256":digest(value)}
 def exact(value,keys,label):
@@ -66,7 +70,7 @@ def plan(inventory,p3_bundle,layout,revisions,*,preflight):
     hashes_valid=all(HEX64.fullmatch(value) for value in hashes.values())
     main,recovery=commands(resources,layout,revisions);wiring=os.environ.get("P2_ADGUARD_DECLARATIVE_WIRING_SHA256","");binary=os.environ.get("P2_ADGUARD_EXACT_REVISION_BIN","");postcheck_wiring=os.environ.get("P2_ADGUARD_POSTCHECK_WIRING_SHA256","");postcheck_binary=os.environ.get("P2_ADGUARD_POSTCHECK_BIN","");revision_wiring_valid=wiring==hashes["exact_revision_helper_sha256"] and binary.startswith("/nix/store/") and pathlib.Path(binary).is_absolute();postcheck_wiring_valid=postcheck_wiring==hashes["postcheck_helper_sha256"] and postcheck_binary.startswith("/nix/store/") and pathlib.Path(postcheck_binary).is_absolute();wiring_valid=revision_wiring_valid and postcheck_wiring_valid;blockers=[] if wiring_valid else ([] if revision_wiring_valid else ["declarative_executor_wiring_absent","revision_activation_helper_unwired"])+([] if postcheck_wiring_valid else ["postcheck_helper_unwired"])
     authorizations={channel:REVISION.authorization(channel,revisions) for channel in ("forward","rollback")}
-    return {"approval_ready":wiring_valid,"blockers":blockers,"commands":main,"declarative_wiring_sha256":wiring if wiring_valid else None,"evidence_layout":layout,"inventory_sha256":digest(inventory),"mode":"production-command-contract" if wiring_valid else "production-command-contract-draft","p3_manifest_envelope_sha256":digest(p3_bundle["manifest_envelope"]),"p3_observation_sha256":digest(p3_bundle["observation"]),"p3_result_sha256":digest(p3_bundle["result"]),"phase":"p2-adguard-in-place-adoption","phases":PHASES,"preflight_manifest_sha256":digest(preflight_manifest),"recovery_commands":recovery,"recovery_render_sha256":revisions["rollback"]["render_sha256"],"resources":resources,"revision_authorizations":authorizations,"revision_contract":revisions,"source_hashes":hashes,"source_hashes_valid":hashes_valid,"version":5}
+    return {"approval_ready":wiring_valid,"blockers":blockers,"commands":main,"declarative_wiring_sha256":wiring if wiring_valid else None,"evidence_layout":layout,"inventory_sha256":inventory_digest(inventory),"mode":"production-command-contract" if wiring_valid else "production-command-contract-draft","p3_manifest_envelope_sha256":digest(p3_bundle["manifest_envelope"]),"p3_observation_sha256":digest(p3_bundle["observation"]),"p3_result_sha256":digest(p3_bundle["result"]),"phase":"p2-adguard-in-place-adoption","phases":PHASES,"preflight_manifest_sha256":digest(preflight_manifest),"recovery_commands":recovery,"recovery_render_sha256":revisions["rollback"]["render_sha256"],"resources":resources,"revision_authorizations":authorizations,"revision_contract":revisions,"source_hashes":hashes,"source_hashes_valid":hashes_valid,"version":6}
 def read(path):return json.loads(pathlib.Path(path).read_text())
 def revisions_from_prefetch(path):
     resolved=pathlib.Path(path).resolve();expected=os.environ.get("P2_ADGUARD_REVISION_PREFETCH_PATH",REVISION.PREFETCH_PATH)

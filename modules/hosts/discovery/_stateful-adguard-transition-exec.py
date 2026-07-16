@@ -6,6 +6,10 @@ BASE="/var/lib/stateful-stack-migrations/p2-adguard";EXPECTED_LAYOUT={"approved_
 class Drift(ValueError):pass
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=True).encode()
 def digest(value):return hashlib.sha256(canonical(value)).hexdigest()
+def inventory_digest(value):
+    normalized=json.loads(json.dumps(value));stats=normalized["baseline"]["api"]["stats"]
+    if set(stats)!={"blocked_filtering","dns_queries"} or any(type(item) is not int or item<0 for item in stats.values()):raise Drift("inventory counters invalid")
+    stats.update(blocked_filtering=0,dns_queries=0);return digest(normalized)
 def revision_authorization(channel,revision):
     body={"prefetch":revision["prefetch"],"selected":revision[channel],"selection":channel,"version":1}
     return {"authorization":body,"authorization_sha256":digest(body)}
@@ -168,7 +172,7 @@ def execute(contract,authorization,runner,*,allow_unwired=False,allow_fixture_la
     prior=completed(layout,authorization,runner)
     if prior:return prior
     fresh=runner.capture_inventory()
-    if digest(fresh)!=manifest["inventory_sha256"]:raise Drift("fresh inventory differs")
+    if inventory_digest(fresh)!=manifest["inventory_sha256"]:raise Drift("fresh inventory differs")
     for name,path in layout.items():
         if pathlib.Path(path).exists():raise Drift(f"existing evidence path: {name}")
     atomic_create(layout["approved_inventory"],canonical(fresh));atomic_create(layout["approved_authorization"],canonical(contract));atomic_create(layout["revision_forward_authorization"],canonical(manifest["revision_authorizations"]["forward"]),0o444);atomic_create(layout["revision_rollback_authorization"],canonical(manifest["revision_authorizations"]["rollback"]),0o444);atomic_create(layout["phase_ledger"],canonical([]));atomic_create(layout["journal"],b"")
@@ -179,7 +183,7 @@ def execute(contract,authorization,runner,*,allow_unwired=False,allow_fixture_la
             stopped=stopped or phase.startswith("stop-")
             evidence=runner.run(phase,argv)
             if phase=="verify-bindings":
-                if digest(evidence.get("inventory"))!=manifest["inventory_sha256"]:raise Drift("verify-bindings inventory differs")
+                if inventory_digest(evidence.get("inventory"))!=manifest["inventory_sha256"]:raise Drift("verify-bindings inventory differs")
                 evidence={"inventory_sha256":manifest["inventory_sha256"]}
             if phase=="scan-startup-fatal-logs":evidence=sanitize_startup_scan(evidence)
             if phase=="observe-stable-15-minutes":evidence=validate_observation(manifest,evidence)
