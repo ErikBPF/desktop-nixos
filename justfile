@@ -3434,8 +3434,9 @@ discovery-adguard-transition-retire-failed manifest_sha256:
     expected={{ quote(manifest_sha256) }}
     [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
     IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" "EXPECTED='$expected' /run/wrappers/bin/sudo -n /run/current-system/sw/bin/bash -s" <<'REMOTE'
+    ssh -p 2222 erik@"$IP" "/run/wrappers/bin/sudo -n /run/current-system/sw/bin/bash -s -- '$expected'" <<'REMOTE'
     set -euo pipefail
+    EXPECTED=$1
     base=/var/lib/stateful-stack-migrations/p2-adguard
     journal=$base/journal.jsonl
     dest=$base/superseded-$EXPECTED
