@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fail-closed P2 AdGuard executor; not installed until declaratively wired."""
-import argparse, hashlib, json, os, pathlib, re, stat, subprocess, sys, tempfile
+import argparse, hashlib, json, os, pathlib, re, stat, subprocess, sys, tempfile, time
 
 BASE="/var/lib/stateful-stack-migrations/p2-adguard";EXPECTED_LAYOUT={"approved_authorization":BASE+"/authorization.json","approved_inventory":BASE+"/inventory.json","archive":BASE+"/work.tar.zst","archive_checksum":BASE+"/work.tar.zst.sha256","artifact_index":BASE+"/artifact-index.json","config_snapshot":"/home/.snapshots/stateful-stack-p2-adguard","journal":BASE+"/journal.jsonl","ledger":BASE+"/ledger.json","phase_ledger":BASE+"/phase-ledger.json","restore_target":BASE+"/restore-work","revision_forward_authorization":BASE+"/revision-forward-authorization.json","revision_forward_evidence":BASE+"/forward-revision.json","revision_rollback_authorization":BASE+"/revision-rollback-authorization.json","revision_rollback_evidence":BASE+"/rollback-revision.json","rollback_evidence":BASE+"/rollback.json"}
 class Drift(ValueError):pass
@@ -129,8 +129,15 @@ class ProductionRunner:
         finally:
             for item,mode in zip(protected,modes,strict=True):os.chmod(item,mode)
             pathlib.Path(temp).unlink(missing_ok=True)
+    def run_inventory_ready(self,argv):
+        for attempt in range(12):
+            try:return subprocess.run(argv,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=120)
+            except subprocess.CalledProcessError:
+                if attempt==11:raise
+                time.sleep(5)
     def run(self,phase,argv):
         if phase in ("activate-forward-revision","recovery-activate-rollback"):result=self.run_revision(argv)
+        elif phase in ("verify-recreated-identities","smoke-test","recovery-verify-identities"):result=self.run_inventory_ready(argv)
         else:
             if phase=="restore-work-non-live":
                 target=pathlib.Path(self.layout["restore_target"]);target.mkdir(mode=0o700,parents=False)
