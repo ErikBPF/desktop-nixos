@@ -627,6 +627,27 @@ and its separately bound mutation approval.
 
 ### P4 — full AdGuard Terraform ownership
 
+Provider admission and non-live modeling advanced on 2026-07-16. Homelab-IaC
+`fdf4d80` exact-pins `gmichels/adguard` 1.7.0 and proves create, refreshed
+zero-drift plan, unrelated DNS update with DHCP disabled, second zero-drift
+plan, and destroy against a loopback-only disposable AdGuard instance using
+dummy credentials and temporary state. An initial refresh-only assertion was
+corrected because exit code 2 there represented state refresh rather than an
+actionable configuration diff; two subsequent stock-provider lifecycle runs
+passed. No provider fork is required.
+
+Homelab-IaC `e5b2d00` adds the production-shaped, non-secret `adguard_config`
+model for provider-supported DNS, cache, filtering, protection, safe-search,
+query-log, statistics, blocked-service, and global rewrite settings. The model
+explicitly excludes credentials, users, TLS key/certificate material, DHCP,
+runtime data, and provider-unsupported bootstrap fields. Those exclusions stay
+Servarr/Vault/SOPS-owned until a separately proven representation exists.
+OpenTofu init/validate, exact lock metadata, Terragrunt render, sensitive-key
+rejection, formatting, and the disposable lifecycle are green. No live import,
+plan, apply, API request, or YAML removal has occurred. The active P4 gate is a
+documented wired-host entry point, followed by singleton import and a read-only
+plan; apply remains separately gated.
+
 #### Provider admission
 
 1. Isolate unrelated homelab-iac dirty work.
@@ -787,7 +808,7 @@ legacy resources.
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Complete with approved practical recovery deviation | Servarr `9969e35`; transition passed backup/restore, recreate, 15-minute observation, and smoke; terminal bookkeeping failure retained; normal pull/recreate recovery; final inventory `f63ab37f…` | P9 retained-evidence cleanup only |
 | P3 | Complete | Desktop through `8eb1212`; approved manifest `d5cf3b59…`: core 24/24 in 1,639 ms, allowed 7-row gateway diagnostic, exact-ID recovery attempt 1, post-restore 37 rows complete, exporter 3/3, namespace removed | P9 retained-evidence cleanup only |
-| P4 | Pending | Read-only audit | P3; clean IaC scope; lifecycle proof |
+| P4 | In progress | Homelab-IaC `fdf4d80`: stock-provider lifecycle green; `e5b2d00`: supported non-secret config model and lock | Wired-host import; read-only plan; exact saved-plan apply; YAML overlap removal |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
 | P7 | Pending | P0 inventory | P6; per-service ledgers |
