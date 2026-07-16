@@ -86,6 +86,8 @@ in {
     # (madvise) on this host; the CUDA inference workload that motivated the
     # change is still future, and the ZFS pool is the primary daily driver.
 
+    hardware.nvidia-container-toolkit.enable = true;
+
     # Allow the laptop's dedicated root-owned builder key. Client-side
     # scheduling caps this host at two ordinary x86_64 jobs and excludes
     # Kepler itself from using Kepler as a remote builder.
