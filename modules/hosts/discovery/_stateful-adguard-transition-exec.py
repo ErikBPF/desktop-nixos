@@ -109,7 +109,7 @@ def validate_rollback(manifest,evidence):
 class ProductionRunner:
     def __init__(self,layout):self.layout=layout
     def capture_inventory(self):
-        output=subprocess.run(["sudo","-n","/run/current-system/sw/bin/discovery-stateful-adguard-inventory","capture"],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,timeout=30).stdout
+        output=subprocess.run(["/run/current-system/sw/bin/discovery-stateful-adguard-inventory","capture"],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,timeout=30).stdout
         return json.loads(output)
     def snapshot_binding(self,path):
         root=pathlib.Path(path);output=subprocess.run(["btrfs","subvolume","show",root],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True).stdout;matches=re.findall(r"^\s*UUID:\s*([0-9a-f-]+)\s*$",output,re.MULTILINE)

@@ -101,7 +101,7 @@ class TransitionExecTest(unittest.TestCase):
         completed=mock.Mock(stdout=json.dumps(self.case.inventory))
         with mock.patch.object(self.e.subprocess,"run",return_value=completed) as run:
             self.assertEqual(self.e.ProductionRunner(self.case.t.LAYOUT).capture_inventory(),self.case.inventory)
-        self.assertEqual(run.call_args.args[0],["sudo","-n","/run/current-system/sw/bin/discovery-stateful-adguard-inventory","capture"])
+        self.assertEqual(run.call_args.args[0],["/run/current-system/sw/bin/discovery-stateful-adguard-inventory","capture"])
     def test_complete_then_identical_second_run_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             contract,layout=self.contract(directory);runner=Runner(self.case.inventory,layout);runner.render_sha=contract["manifest"]["resources"]["servarr"]["render_sha256"]
