@@ -643,10 +643,31 @@ explicitly excludes credentials, users, TLS key/certificate material, DHCP,
 runtime data, and provider-unsupported bootstrap fields. Those exclusions stay
 Servarr/Vault/SOPS-owned until a separately proven representation exists.
 OpenTofu init/validate, exact lock metadata, Terragrunt render, sensitive-key
-rejection, formatting, and the disposable lifecycle are green. No live import,
-plan, apply, API request, or YAML removal has occurred. The active P4 gate is a
-documented wired-host entry point, followed by singleton import and a read-only
-plan; apply remains separately gated.
+rejection, formatting, and the disposable lifecycle are green. At that
+checkpoint, no live import, plan, apply, API request, or YAML removal had
+occurred; the next gate was the wired-host import.
+
+The wired-host import then completed for the existing singleton without changing
+AdGuard. The first saved-plan apply through the community provider failed closed
+with AdGuard HTTP 400 because the provider serialized an invalid empty DHCPv4
+object during an unrelated update; no apply completed and the failed saved plan
+was retired. This converted the previously suspected provider limitation into a
+reproduced production-shape defect.
+
+The provider ownership decision is now to maintain the public
+`ErikBPF/terraform-provider-adguardhome` fork rather than preserve a permanent
+dummy-DHCP workaround. Provider commit `57a447c` rebrands the Registry address
+and resource prefix, retains upstream MIT history, fixes disabled-DHCP writes,
+normalizes singleton/TLS refresh state, removes secret-bearing diagnostics,
+adds focused regression tests, and establishes pinned CI, acceptance, signed
+release, checksum, SBOM, and provenance workflows. Unit/race/vet/build,
+generated documentation, workflow lint, and an unsigned multi-platform
+GoReleaser snapshot passed. The accepted v1 direction is one resource per real
+AdGuard API concern; v0.1 retains compatible schemas under the new
+`adguardhome_*` prefix for safe adoption first. The remaining gate is GPG-backed
+`v0.1.0` publication and Registry onboarding, followed by explicit encrypted
+state provider/address migration, a fresh saved plan, smoke tests, a second
+no-op plan, and state-passphrase rotation. YAML has not been removed.
 
 #### Provider admission
 
@@ -808,7 +829,7 @@ legacy resources.
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Complete with approved practical recovery deviation | Servarr `9969e35`; transition passed backup/restore, recreate, 15-minute observation, and smoke; terminal bookkeeping failure retained; normal pull/recreate recovery; final inventory `f63ab37f…` | P9 retained-evidence cleanup only |
 | P3 | Complete | Desktop through `8eb1212`; approved manifest `d5cf3b59…`: core 24/24 in 1,639 ms, allowed 7-row gateway diagnostic, exact-ID recovery attempt 1, post-restore 37 rows complete, exporter 3/3, namespace removed | P9 retained-evidence cleanup only |
-| P4 | In progress | Homelab-IaC `fdf4d80`: stock-provider lifecycle green; `e5b2d00`: supported non-secret config model and lock | Wired-host import; read-only plan; exact saved-plan apply; YAML overlap removal |
+| P4 | In progress | Homelab-IaC `fdf4d80`, `e5b2d00`, `57b2e78`, `7e00e90`; singleton imported; stock apply failed closed; own provider `57a447c` tested and pushed | Publish/register provider v0.1; migrate state; saved-plan apply; no-op plan; rotate passphrase; YAML overlap removal |
 | P5 | Pending | Collision inventory | P4; collision resolution |
 | P6 | Pending | Read-only release audit | P5; settings/credentials |
 | P7 | Pending | P0 inventory | P6; per-service ledgers |
