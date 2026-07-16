@@ -23,6 +23,7 @@ _: {
           4002 # rpc.mountd (pinned)
           445 # Samba SMB (NetBIOS disabled — port 445 only)
           8765 # authenticated docs-search MCP (Daedalus via tailnet/LAN)
+          9000 # faster-whisper OpenAI API (LiteLLM on discovery)
         ];
         allowedUDPPorts = [
           21027 # syncthing discovery
