@@ -134,8 +134,8 @@ _: {
         RemainAfterExit = true;
       };
       script = ''
-        ${config.hardware.nvidia.package}/bin/nvidia-smi --power-limit=170
-        ${config.hardware.nvidia.package}/bin/nvidia-smi --lock-gpu-clocks=210,1500
+        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --power-limit=170
+        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --lock-gpu-clocks=210,1500
       '';
     };
 
