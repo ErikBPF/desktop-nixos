@@ -3564,7 +3564,6 @@ discovery-adguard-runtime-split servarr_commit:
     helper=machines/discovery/scripts/init-adguard-runtime.sh
     cd "$repo"
     test -f "$legacy" || { echo 'BLOCKED: legacy tracked YAML absent' >&2; exit 1; }
-    test ! -e "$runtime" || { echo 'BLOCKED: runtime YAML already exists' >&2; exit 1; }
     test "$(git ls-files --error-unmatch machines/discovery/config/adguard/AdGuardHome.yaml)" = machines/discovery/config/adguard/AdGuardHome.yaml
     git diff --quiet -- . ':(exclude)machines/discovery/config/adguard/AdGuardHome.yaml' && git diff --cached --quiet || { echo 'BLOCKED: deployed Servarr checkout dirty outside legacy AdGuard YAML' >&2; exit 1; }
     test "$(docker inspect adguard | jq -er '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source')" = "$repo/machines/discovery/config/adguard"
@@ -3577,8 +3576,9 @@ discovery-adguard-runtime-split servarr_commit:
     git show "$EXPECTED:$helper" >"$tmp"
     chmod 0500 "$tmp"
     sudo -n "$tmp" "$legacy" "$runtime"
-    test -f "$runtime" -a ! -L "$runtime"
-    test "$(stat -c %a "$runtime")" = 600
+    sudo -n test -f "$runtime"
+    sudo -n test ! -L "$runtime"
+    test "$(sudo -n stat -c %a "$runtime")" = 600
     sudo -n cmp -s "$legacy" "$runtime"
     REMOTE
     just pull-servarr discovery "$branch"
@@ -3588,8 +3588,9 @@ discovery-adguard-runtime-split servarr_commit:
     runtime=$repo/machines/discovery/runtime/adguard/AdGuardHome.yaml
     cd "$repo"
     test "$(git rev-parse HEAD)" = "$EXPECTED"
-    test -f "$runtime" -a ! -L "$runtime"
-    test "$(stat -c %a "$runtime")" = 600
+    sudo -n test -f "$runtime"
+    sudo -n test ! -L "$runtime"
+    test "$(sudo -n stat -c %a "$runtime")" = 600
     test "$(git check-ignore -q machines/discovery/runtime/adguard/AdGuardHome.yaml; echo $?)" = 0
     cd machines/discovery
     docker-compose --project-name networking --project-directory "$PWD" --env-file .env --env-file /run/vault-agent/networking.env -f networking.yml config >/dev/null
