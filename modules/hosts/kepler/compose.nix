@@ -13,6 +13,8 @@ _: {
         # the legacy TrueNAS deployment.
         "infra"
         "docs-search"
+        "whisper-gpu"
+        "parakeet-gpu"
       ];
     };
   };
