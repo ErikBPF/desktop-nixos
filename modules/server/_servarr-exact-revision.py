@@ -148,6 +148,13 @@ def _expected_trees():
     return None, None
 
 
+def _render_digest(rendered, workdir):
+    """Normalize the detached checkout path to the canonical Compose workdir."""
+    detached = os.fsencode(Path(workdir))
+    canonical = os.fsencode(REPOSITORY / "machines/discovery")
+    return hashlib.sha256(rendered.replace(detached, canonical)).hexdigest()
+
+
 def render_revision(repo, commit, runner=None):
     """Hash a fixed Compose render from a detached temporary worktree."""
     runner = runner or GitRunner()
@@ -169,7 +176,7 @@ def render_revision(repo, commit, runner=None):
                                     stderr=subprocess.PIPE, check=False)
             if result.returncode:
                 raise ContractError("compose render failed")
-            return hashlib.sha256(result.stdout).hexdigest()
+            return _render_digest(result.stdout, workdir)
         finally:
             runner.run(repo, "worktree", "remove", "--force", str(checkout), check=False)
 

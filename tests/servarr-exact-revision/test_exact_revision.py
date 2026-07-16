@@ -108,6 +108,21 @@ class ExactRevisionTest(unittest.TestCase):
         self.assertRegex(evidence["evidence"]["forward"]["render_sha256"], r"^[0-9a-f]{64}$")
         self.assertNotIn(str(self.temp.name), json.dumps(evidence))
 
+    def test_render_digest_is_checkout_path_independent(self):
+        first = pathlib.Path("/tmp/servarr-render-one/checkout/machines/discovery")
+        second = pathlib.Path("/different/servarr-render-two/checkout/machines/discovery")
+        suffix = b"/networking.yml\nworking_dir: "
+        first_render = b"file: " + str(first).encode() + suffix + str(first).encode() + b"\n"
+        second_render = b"file: " + str(second).encode() + suffix + str(second).encode() + b"\n"
+        self.assertEqual(self.m._render_digest(first_render, first), self.m._render_digest(second_render, second))
+
+    def test_detached_render_normalizes_to_canonical_live_render(self):
+        detached = pathlib.Path("/tmp/fixture/checkout/machines/discovery")
+        canonical = self.m.REPOSITORY / "machines/discovery"
+        detached_render = b"name: networking\nfile: " + str(detached / "networking.yml").encode() + b"\nworking_dir: " + str(detached).encode() + b"\n"
+        live_render = b"name: networking\nfile: " + str(canonical / "networking.yml").encode() + b"\nworking_dir: " + str(canonical).encode() + b"\n"
+        self.assertEqual(self.m._render_digest(detached_render, detached), hashlib.sha256(live_render).hexdigest())
+
     def test_prefetch_rejects_unpublished_nonancestor_malformed_and_extra_schema(self):
         original_forward, original_rollback = self.m.FORWARD, self.m.ROLLBACK
         try:
