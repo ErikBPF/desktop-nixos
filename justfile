@@ -3417,7 +3417,8 @@ discovery-adguard-transition-status:
     set -euo pipefail
     IP="$(just _host-ip discovery)"
     ssh -p 2222 erik@"$IP" \
-      'sudo -n /run/current-system/sw/bin/jq -sc '\''map({event,phase,status,error_class,recovery_failed})'\'' /var/lib/stateful-stack-migrations/p2-adguard/journal.jsonl'
+      'path=/var/lib/stateful-stack-migrations/p2-adguard/journal.jsonl; if test -e "$path"; then sudo -n /run/current-system/sw/bin/cat "$path"; else printf '\''{"status":"not-started"}\n'\''; fi' | \
+      jq -sc 'map({event,phase,status,error_class,recovery_failed})'
 
 # Value-free exporter diagnostic: allowlisted family presence only.
 discovery-adguard-exporter-diagnostic:

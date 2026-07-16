@@ -97,6 +97,11 @@ class TransitionExecTest(unittest.TestCase):
         post=POSTCHECK_MODULE._normalized_point(Runner(self.case.inventory,self.case.t.LAYOUT)._post_inventory());raw={"duration_seconds":900,"end":post,"raw_logs_retained":False,"sample_interval_seconds":30,"samples":31,"start":post,"status":"stable","version":1};completed=mock.Mock(stdout=json.dumps(raw).encode())
         with mock.patch.object(self.e.subprocess,"run",return_value=completed) as run:
             self.assertEqual(self.e.ProductionRunner(self.case.t.LAYOUT).run("observe-stable-15-minutes",["postcheck"]),raw);run.assert_called_once();self.assertEqual(run.call_args.kwargs["timeout"],950)
+    def test_production_runner_captures_inventory_without_nested_sudo(self):
+        completed=mock.Mock(stdout=json.dumps(self.case.inventory))
+        with mock.patch.object(self.e.subprocess,"run",return_value=completed) as run:
+            self.assertEqual(self.e.ProductionRunner(self.case.t.LAYOUT).capture_inventory(),self.case.inventory)
+        self.assertEqual(run.call_args.args[0],["sudo","-n","/run/current-system/sw/bin/discovery-stateful-adguard-inventory","capture"])
     def test_complete_then_identical_second_run_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             contract,layout=self.contract(directory);runner=Runner(self.case.inventory,layout);runner.render_sha=contract["manifest"]["resources"]["servarr"]["render_sha256"]
