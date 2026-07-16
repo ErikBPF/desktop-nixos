@@ -1,4 +1,4 @@
-import copy, hashlib, importlib, importlib.util, json, pathlib, subprocess, sys, tempfile, unittest
+import copy, hashlib, importlib, importlib.util, json, pathlib, stat, subprocess, sys, tempfile, unittest
 from unittest import mock
 ROOT=pathlib.Path(__file__).resolve().parents[2];EXEC=ROOT/"modules/hosts/discovery/_stateful-adguard-transition-exec.py";POSTCHECK=ROOT/"modules/hosts/discovery/_stateful-adguard-postcheck.py"
 def load():spec=importlib.util.spec_from_file_location("transition_exec",EXEC);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
@@ -108,6 +108,12 @@ class TransitionExecTest(unittest.TestCase):
         with mock.patch.object(self.e.subprocess,"run",return_value=completed) as run:
             self.assertEqual(self.e.ProductionRunner(self.case.t.LAYOUT).capture_inventory(),self.case.inventory)
         self.assertEqual(run.call_args.args[0],["/run/current-system/sw/bin/discovery-stateful-adguard-inventory","capture"])
+    def test_production_revision_run_restores_read_modes_and_installs_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory)/"migrations";base=root/"p2-adguard";base.mkdir(parents=True);prefetch=base/"revision-prefetch.json";prefetch.write_text("{}");prefetch.chmod(0o400);base.chmod(0o700);root.chmod(0o700);output=base/"forward-revision.json";argv=["/run/wrappers/bin/sudo","-u","erik","--","helper","activate","forward","--prefetch",str(prefetch),"--authorization",str(base/"authorization.json"),"--output",str(output)]
+            def invoke(command,**kwargs):pathlib.Path(command[-1]).write_text('{"evidence":{}}');return mock.Mock(stdout=b"")
+            with mock.patch.object(self.e.subprocess,"run",side_effect=invoke) as run:self.e.ProductionRunner(self.case.t.LAYOUT).run("activate-forward-revision",argv)
+            self.assertEqual(output.read_text(),'{"evidence":{}}');self.assertEqual(stat.S_IMODE(root.stat().st_mode),0o700);self.assertEqual(stat.S_IMODE(base.stat().st_mode),0o700);self.assertEqual(stat.S_IMODE(prefetch.stat().st_mode),0o400);self.assertNotEqual(run.call_args.args[0][-1],str(output))
     def test_complete_then_identical_second_run_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             contract,layout=self.contract(directory);runner=Runner(self.case.inventory,layout);runner.render_sha=contract["manifest"]["resources"]["servarr"]["render_sha256"]

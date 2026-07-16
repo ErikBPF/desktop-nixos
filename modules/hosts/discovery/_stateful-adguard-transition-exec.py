@@ -119,10 +119,22 @@ class ProductionRunner:
         root=pathlib.Path(path);output=subprocess.run(["btrfs","subvolume","show",root],check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True).stdout;matches=re.findall(r"^\s*UUID:\s*([0-9a-f-]+)\s*$",output,re.MULTILINE)
         if len(matches)!=1:raise Drift("snapshot binding invalid")
         return {"path":str(root),"uuid":matches[0]}
+    def run_revision(self,argv):
+        prefetch=pathlib.Path(argv[8]);output=pathlib.Path(argv[-1]);protected=[prefetch.parent.parent,prefetch.parent,prefetch];modes=[stat.S_IMODE(item.stat().st_mode) for item in protected]
+        descriptor,temp=tempfile.mkstemp(prefix="p2-adguard-revision-",dir="/tmp");os.close(descriptor);pathlib.Path(temp).unlink()
+        try:
+            os.chmod(protected[0],0o755);os.chmod(protected[1],0o755);os.chmod(prefetch,0o444);adjusted=[*argv[:-1],temp]
+            result=subprocess.run(adjusted,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=120)
+            atomic_create(output,pathlib.Path(temp).read_bytes(),0o400);return result
+        finally:
+            for item,mode in zip(protected,modes,strict=True):os.chmod(item,mode)
+            pathlib.Path(temp).unlink(missing_ok=True)
     def run(self,phase,argv):
-        if phase=="restore-work-non-live":
-            target=pathlib.Path(self.layout["restore_target"]);target.mkdir(mode=0o700,parents=False)
-        result=subprocess.run(argv,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=950 if phase=="observe-stable-15-minutes" else 120,cwd="/home/erik/servarr/machines/discovery" if argv[0]=="docker-compose" else None)
+        if phase in ("activate-forward-revision","recovery-activate-rollback"):result=self.run_revision(argv)
+        else:
+            if phase=="restore-work-non-live":
+                target=pathlib.Path(self.layout["restore_target"]);target.mkdir(mode=0o700,parents=False)
+            result=subprocess.run(argv,check=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=950 if phase=="observe-stable-15-minutes" else 120,cwd="/home/erik/servarr/machines/discovery" if argv[0]=="docker-compose" else None)
         if phase=="verify-bindings":return {"inventory":json.loads(result.stdout)}
         if phase=="snapshot-config-readonly":return {"status":"snapshot-created"}
         if phase in ("scan-startup-fatal-logs","observe-stable-15-minutes"):
