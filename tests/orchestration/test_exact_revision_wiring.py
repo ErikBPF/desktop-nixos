@@ -6,6 +6,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MODULE = ROOT / "modules/server/orchestration.nix"
 JUSTFILE = ROOT / "justfile"
+DISCOVERY_MODULE = ROOT / "modules/hosts/discovery/stateful-stack-ops.nix"
 
 
 class ExactRevisionWiringTest(unittest.TestCase):
@@ -62,25 +63,19 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('test ! -e "$pending"', recipe)
         self.assertIn('sudo -n test ! -e "$remote"', recipe)
         self.assertIn("trap '\\''rm -f \"$pending\"'\\'' EXIT", recipe)
-        self.assertIn('sudo -n bash -s -- "$pending"', recipe)
-        self.assertIn("staging=$directory/.revision-prefetch.json.publish", recipe)
-        self.assertIn("final=$directory/revision-prefetch.json", recipe)
-        self.assertIn('install -D -m 0600 -o root -g root "$source" "$staging"', recipe)
-        self.assertIn('cmp -s -- "$source" "$staging"', recipe)
-        self.assertIn('json.load(open(sys.argv[1]))', recipe)
-        self.assertIn('os.fsync(descriptor)', recipe)
-        self.assertIn('ln -- "$staging" "$final"', recipe)
-        self.assertIn('rm -- "$staging"', recipe)
-        self.assertIn('trap cleanup EXIT', recipe)
-        self.assertNotIn('rm -f -- "$final"', recipe)
-        self.assertNotIn("published=", recipe)
-        self.assertLess(recipe.index('test ! -e "$final"'), recipe.index('install -D'))
-        self.assertLess(recipe.index('test ! -e "$final"'), recipe.index('trap cleanup EXIT'))
-        self.assertLess(recipe.index('install -D'), recipe.index('cmp -s'))
-        self.assertLess(recipe.index('cmp -s'), recipe.index('ln --'))
-        self.assertLess(recipe.index('ln --'), recipe.index('rm -- "$staging"'))
+        self.assertIn("sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-prefetch-publish", recipe)
+        self.assertNotIn("sudo -n bash", recipe)
+        self.assertNotIn("sudo -n python", recipe)
+        self.assertNotIn("sudo -n env", recipe)
         self.assertIn('"sudo -n cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"', recipe)
         self.assertIn('chmod 0400 "$tmp"', recipe)
+
+    def test_root_publisher_is_declaratively_installed(self):
+        source = DISCOVERY_MODULE.read_text()
+        self.assertIn('statefulAdguardPrefetchPublish = pkgs.writeShellScriptBin "discovery-stateful-adguard-prefetch-publish"', source)
+        self.assertIn("${./_stateful-adguard-prefetch-publish.py}", source)
+        packages = source.split("environment.systemPackages = [", 1)[1].split("];", 1)[0]
+        self.assertIn("statefulAdguardPrefetchPublish", packages)
 
     def test_hard_link_publish_is_no_clobber_and_cleanup_preserves_existing_final(self):
         with tempfile.TemporaryDirectory() as directory:

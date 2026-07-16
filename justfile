@@ -3278,27 +3278,7 @@ discovery-adguard-revision-prefetch output:
       esac
       trap '\''rm -f "$pending"'\'' EXIT
       "$helper" prefetch --output "$pending"
-      sudo -n bash -s -- "$pending" <<'\''ROOT_PUBLISH'\''
-      set -euo pipefail
-      source=$1
-      directory=/var/lib/stateful-stack-migrations/p2-adguard
-      staging=$directory/.revision-prefetch.json.publish
-      final=$directory/revision-prefetch.json
-      cleanup() {
-        rm -f -- "$staging"
-      }
-      test ! -e "$staging"
-      test ! -e "$final"
-      trap cleanup EXIT
-      install -D -m 0600 -o root -g root "$source" "$staging"
-      cmp -s -- "$source" "$staging"
-      python3 -c "import json,sys; value=json.load(open(sys.argv[1])); assert sorted(value)==[\"contract\",\"contract_sha256\",\"evidence\",\"evidence_sha256\"]" "$staging"
-      python3 -c "import os,sys; descriptor=os.open(sys.argv[1],os.O_RDONLY); os.fsync(descriptor); os.close(descriptor)" "$staging"
-      ln -- "$staging" "$final"
-      rm -- "$staging"
-      python3 -c "import os,sys; descriptor=os.open(sys.argv[1],os.O_RDONLY|getattr(os,\"O_DIRECTORY\",0)); os.fsync(descriptor); os.close(descriptor)" "$directory"
-      trap - EXIT
-      ROOT_PUBLISH
+      sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-prefetch-publish
     '
     tmp="$output.tmp.$$"
     trap 'rm -f "$tmp"' EXIT

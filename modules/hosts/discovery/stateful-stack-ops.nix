@@ -78,6 +78,9 @@ _: {
         exec python3 ${./_stateful-adguard-postcheck.py} "$@"
       '';
     };
+    statefulAdguardPrefetchPublish = pkgs.writeShellScriptBin "discovery-stateful-adguard-prefetch-publish" ''
+      exec ${pkgs.python3}/bin/python3 ${./_stateful-adguard-prefetch-publish.py} "$@"
+    '';
     servarrExactRevision = pkgs.writeShellApplication {
       name = "servarr-exact-revision";
       runtimeInputs = with pkgs; [docker-compose git python3 sops];
@@ -171,6 +174,7 @@ _: {
       statefulAdguardInventory
       statefulAdguardPreflight
       statefulAdguardPostcheck
+      statefulAdguardPrefetchPublish
       statefulAdguardTransition
       statefulSwagAdopt
       statefulSwagInventory
