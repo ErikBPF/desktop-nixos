@@ -130,10 +130,11 @@ class ExactRevisionTest(unittest.TestCase):
         fixed = "/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json"
         self.assertEqual(recipe.count(fixed), 1)
         self.assertIn('[[ "$expected" =~ ^[0-9a-f]{64}$ ]]', recipe)
-        self.assertIn('actual=\\$(sudo -n /run/current-system/sw/bin/sha256sum \\"\\$path\\")', recipe)
-        self.assertIn('test \\"\\$actual\\" = \'$expected\'', recipe)
-        self.assertIn('sudo -n /run/current-system/sw/bin/rm -- \\"\\$path\\"', recipe)
-        self.assertNotIn("*", recipe.replace("\\${actual%% *}", ""))
+        self.assertIn("\"EXPECTED='$expected' bash -s\" <<'REMOTE'", recipe)
+        self.assertIn('actual=$(sudo -n /run/current-system/sw/bin/sha256sum "$path")', recipe)
+        self.assertIn('test "$actual" = "$EXPECTED"', recipe)
+        self.assertIn('sudo -n /run/current-system/sw/bin/rm -- "$path"', recipe)
+        self.assertNotIn("*", recipe.replace("${actual%% *}", ""))
         self.assertNotIn("find ", recipe)
 
     def test_prefetch_rejects_unpublished_nonancestor_malformed_and_extra_schema(self):

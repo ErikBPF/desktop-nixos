@@ -3312,14 +3312,14 @@ discovery-adguard-revision-prefetch-retire-invalid expected_sha256:
     expected={{ quote(expected_sha256) }}
     [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo "BLOCKED: invalid expected SHA-256" >&2; exit 1; }
     IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" "
-      set -euo pipefail
-      path=/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
-      actual=\$(sudo -n /run/current-system/sw/bin/sha256sum \"\$path\")
-      actual=\${actual%% *}
-      test \"\$actual\" = '$expected' || { echo 'BLOCKED: retained prefetch SHA-256 differs' >&2; exit 1; }
-      sudo -n /run/current-system/sw/bin/rm -- \"\$path\"
-    "
+    ssh -p 2222 erik@"$IP" "EXPECTED='$expected' bash -s" <<'REMOTE'
+    set -euo pipefail
+    path=/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+    actual=$(sudo -n /run/current-system/sw/bin/sha256sum "$path")
+    actual=${actual%% *}
+    test "$actual" = "$EXPECTED" || { echo 'BLOCKED: retained prefetch SHA-256 differs' >&2; exit 1; }
+    sudo -n /run/current-system/sw/bin/rm -- "$path"
+    REMOTE
 
 # Build the value-free, exact P2 authorization candidate on Discovery so the
 # installed Nix-store source hashes and retained revision prefetch are bound.
