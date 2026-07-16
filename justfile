@@ -3304,6 +3304,23 @@ discovery-adguard-revision-prefetch output:
     trap - EXIT
     sha256sum "$output"
 
+# Retire only the reviewed invalid P2 revision prefetch after exact SHA match.
+# The next prefetch recipe recreates it; no other migration evidence is touched.
+discovery-adguard-revision-prefetch-retire-invalid expected_sha256:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    expected={{ quote(expected_sha256) }}
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo "BLOCKED: invalid expected SHA-256" >&2; exit 1; }
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" "
+      set -euo pipefail
+      path=/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+      actual=\$(sudo -n /run/current-system/sw/bin/sha256sum \"\$path\")
+      actual=\${actual%% *}
+      test \"\$actual\" = '$expected' || { echo 'BLOCKED: retained prefetch SHA-256 differs' >&2; exit 1; }
+      sudo -n /run/current-system/sw/bin/rm -- \"\$path\"
+    "
+
 # Build the value-free, exact P2 authorization candidate on Discovery so the
 # installed Nix-store source hashes and retained revision prefetch are bound.
 discovery-adguard-transition-plan inventory p3_manifest p3_observation p3_result prefetch output:

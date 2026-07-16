@@ -13,6 +13,7 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HELPER = ROOT / "modules/server/_servarr-exact-revision.py"
+JUSTFILE = ROOT / "justfile"
 FORWARD = "9969e35dca0cfb49a68bda3ba10156667cd4b53f"
 ROLLBACK = "b676063eafa53c00947c458d631493f98349f63c"
 
@@ -122,6 +123,18 @@ class ExactRevisionTest(unittest.TestCase):
         detached_render = b"name: networking\nfile: " + str(detached / "networking.yml").encode() + b"\nworking_dir: " + str(detached).encode() + b"\n"
         live_render = b"name: networking\nfile: " + str(canonical / "networking.yml").encode() + b"\nworking_dir: " + str(canonical).encode() + b"\n"
         self.assertEqual(self.m._render_digest(detached_render, detached), hashlib.sha256(live_render).hexdigest())
+
+    def test_invalid_prefetch_retirement_recipe_is_exactly_interlocked(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split("discovery-adguard-revision-prefetch-retire-invalid expected_sha256:", 1)[1].split("\n# Build the value-free", 1)[0]
+        fixed = "/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json"
+        self.assertEqual(recipe.count(fixed), 1)
+        self.assertIn('[[ "$expected" =~ ^[0-9a-f]{64}$ ]]', recipe)
+        self.assertIn('actual=\\$(sudo -n /run/current-system/sw/bin/sha256sum \\"\\$path\\")', recipe)
+        self.assertIn('test \\"\\$actual\\" = \'$expected\'', recipe)
+        self.assertIn('sudo -n /run/current-system/sw/bin/rm -- \\"\\$path\\"', recipe)
+        self.assertNotIn("*", recipe.replace("\\${actual%% *}", ""))
+        self.assertNotIn("find ", recipe)
 
     def test_prefetch_rejects_unpublished_nonancestor_malformed_and_extra_schema(self):
         original_forward, original_rollback = self.m.FORWARD, self.m.ROLLBACK
