@@ -3262,12 +3262,47 @@ discovery-adguard-revision-prefetch output:
     output={{ quote(output) }}
     test ! -e "$output" || { echo "BLOCKED: output already exists" >&2; exit 1; }
     IP="$(just _host-ip discovery)"
-    remote=/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
-    ssh -p 2222 erik@"$IP" "test ! -e '$remote'"
-    ssh -p 2222 erik@"$IP" "servarr-exact-revision prefetch --output '$remote'"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      remote=/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+      cache=/home/erik/.cache/stateful-stack-migrations/p2-adguard
+      pending=$cache/revision-prefetch.json.pending
+      test ! -e "$pending" || { echo "BLOCKED: pending prefetch already exists" >&2; exit 1; }
+      sudo -n test ! -e "$remote" || { echo "BLOCKED: retained prefetch already exists" >&2; exit 1; }
+      mkdir -p "$cache"
+      chmod 0700 "$cache"
+      helper=$(readlink -f "$(command -v servarr-exact-revision)")
+      case "$helper" in
+        /nix/store/*/bin/servarr-exact-revision) ;;
+        *) echo "BLOCKED: exact revision helper is not Nix-store bound" >&2; exit 1 ;;
+      esac
+      trap '\''rm -f "$pending"'\'' EXIT
+      "$helper" prefetch --output "$pending"
+      sudo -n bash -s -- "$pending" <<'\''ROOT_PUBLISH'\''
+      set -euo pipefail
+      source=$1
+      directory=/var/lib/stateful-stack-migrations/p2-adguard
+      staging=$directory/.revision-prefetch.json.publish
+      final=$directory/revision-prefetch.json
+      cleanup() {
+        rm -f -- "$staging"
+      }
+      test ! -e "$staging"
+      test ! -e "$final"
+      trap cleanup EXIT
+      install -D -m 0600 -o root -g root "$source" "$staging"
+      cmp -s -- "$source" "$staging"
+      python3 -c "import json,sys; value=json.load(open(sys.argv[1])); assert sorted(value)==[\"contract\",\"contract_sha256\",\"evidence\",\"evidence_sha256\"]" "$staging"
+      python3 -c "import os,sys; descriptor=os.open(sys.argv[1],os.O_RDONLY); os.fsync(descriptor); os.close(descriptor)" "$staging"
+      ln -- "$staging" "$final"
+      rm -- "$staging"
+      python3 -c "import os,sys; descriptor=os.open(sys.argv[1],os.O_RDONLY|getattr(os,\"O_DIRECTORY\",0)); os.fsync(descriptor); os.close(descriptor)" "$directory"
+      trap - EXIT
+      ROOT_PUBLISH
+    '
     tmp="$output.tmp.$$"
     trap 'rm -f "$tmp"' EXIT
-    ssh -p 2222 erik@"$IP" "cat '$remote'" >"$tmp"
+    ssh -p 2222 erik@"$IP" "sudo -n cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"
     chmod 0400 "$tmp"
     ln "$tmp" "$output"
     rm "$tmp"

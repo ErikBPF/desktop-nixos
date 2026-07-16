@@ -1,9 +1,11 @@
 import pathlib
+import tempfile
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MODULE = ROOT / "modules/server/orchestration.nix"
+JUSTFILE = ROOT / "justfile"
 
 
 class ExactRevisionWiringTest(unittest.TestCase):
@@ -39,6 +41,82 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('name = "servarr-exact-revision";', self.source)
         self.assertIn("${./_servarr-exact-revision.py}", self.source)
         self.assertIn("servarrExactRevision", self.source)
+
+    def test_prefetch_recipe_keeps_git_render_and_helper_unprivileged(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split("discovery-adguard-revision-prefetch output:", 1)[1]
+        recipe = recipe.split("\n# ", 1)[0]
+        self.assertIn('helper=$(readlink -f "$(command -v servarr-exact-revision)")', recipe)
+        self.assertIn('/nix/store/*/bin/servarr-exact-revision)', recipe)
+        self.assertIn('"$helper" prefetch --output "$pending"', recipe)
+        self.assertNotIn("sudo -n servarr-exact-revision", recipe)
+        self.assertNotIn('sudo -n "$helper"', recipe)
+        self.assertNotIn("sudo -n git", recipe)
+        self.assertNotIn("sudo -n docker-compose", recipe)
+
+    def test_prefetch_recipe_promotes_only_completed_private_temp(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split("discovery-adguard-revision-prefetch output:", 1)[1]
+        recipe = recipe.split("\n# ", 1)[0]
+        self.assertIn("pending=$cache/revision-prefetch.json.pending", recipe)
+        self.assertIn('test ! -e "$pending"', recipe)
+        self.assertIn('sudo -n test ! -e "$remote"', recipe)
+        self.assertIn("trap '\\''rm -f \"$pending\"'\\'' EXIT", recipe)
+        self.assertIn('sudo -n bash -s -- "$pending"', recipe)
+        self.assertIn("staging=$directory/.revision-prefetch.json.publish", recipe)
+        self.assertIn("final=$directory/revision-prefetch.json", recipe)
+        self.assertIn('install -D -m 0600 -o root -g root "$source" "$staging"', recipe)
+        self.assertIn('cmp -s -- "$source" "$staging"', recipe)
+        self.assertIn('json.load(open(sys.argv[1]))', recipe)
+        self.assertIn('os.fsync(descriptor)', recipe)
+        self.assertIn('ln -- "$staging" "$final"', recipe)
+        self.assertIn('rm -- "$staging"', recipe)
+        self.assertIn('trap cleanup EXIT', recipe)
+        self.assertNotIn('rm -f -- "$final"', recipe)
+        self.assertNotIn("published=", recipe)
+        self.assertLess(recipe.index('test ! -e "$final"'), recipe.index('install -D'))
+        self.assertLess(recipe.index('test ! -e "$final"'), recipe.index('trap cleanup EXIT'))
+        self.assertLess(recipe.index('install -D'), recipe.index('cmp -s'))
+        self.assertLess(recipe.index('cmp -s'), recipe.index('ln --'))
+        self.assertLess(recipe.index('ln --'), recipe.index('rm -- "$staging"'))
+        self.assertIn('"sudo -n cat /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json" >"$tmp"', recipe)
+        self.assertIn('chmod 0400 "$tmp"', recipe)
+
+    def test_hard_link_publish_is_no_clobber_and_cleanup_preserves_existing_final(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            staging = root / ".revision-prefetch.json.publish"
+            final = root / "revision-prefetch.json"
+            staging.write_bytes(b"candidate")
+            final.write_bytes(b"retained")
+            with self.assertRaises(FileExistsError):
+                final.hardlink_to(staging)
+            staging.unlink(missing_ok=True)
+            self.assertEqual(final.read_bytes(), b"retained")
+            self.assertFalse(staging.exists())
+
+    def test_copy_failure_cleanup_leaves_no_publishable_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            staging = root / ".revision-prefetch.json.publish"
+            final = root / "revision-prefetch.json"
+            staging.write_bytes(b"partial")
+            staging.unlink(missing_ok=True)
+            self.assertFalse(staging.exists())
+            self.assertFalse(final.exists())
+
+    def test_post_link_failure_retains_complete_validated_final(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            staging = root / ".revision-prefetch.json.publish"
+            final = root / "revision-prefetch.json"
+            payload = b'{"contract":{},"contract_sha256":"a","evidence":{},"evidence_sha256":"b"}'
+            staging.write_bytes(payload)
+            final.hardlink_to(staging)
+            # Model EXIT cleanup after a directory-fsync failure.
+            staging.unlink(missing_ok=True)
+            self.assertFalse(staging.exists())
+            self.assertEqual(final.read_bytes(), payload)
 
 
 if __name__ == "__main__":
