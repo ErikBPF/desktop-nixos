@@ -74,6 +74,8 @@ in {
         default = "main";
         description = ''
           Branch servarr-pull syncs to when no per-host override is set.
+          An exact `.deploy-commit` pin takes precedence and is activated
+          without network access; malformed or unavailable pins fail closed.
           A feature-branch deploy is opt-in: `just pull-servarr <host> <branch>`
           writes a `.deploy-branch` pointer next to the clone; servarr-pull reads
           it (falling back to this default) and `reset --hard`s to origin/<branch>.
@@ -86,6 +88,13 @@ in {
     config = let
       cfg = config.homelab.compose;
       declaredStacks = cfg.stacks;
+      servarrExactRevision = pkgs.writeShellApplication {
+        name = "servarr-exact-revision";
+        runtimeInputs = with pkgs; [docker-compose git python3 sops];
+        text = ''
+          exec python3 ${./_servarr-exact-revision.py} "$@"
+        '';
+      };
 
       # Stacks in vaultEnvStacks get one --env-file per listed vault-agent render,
       # layered after the sops .env (later --env-file wins for overlapping keys).
@@ -144,7 +153,7 @@ in {
 
         # docker-compose standalone binary (avoids CLI plugin path issues
         # in minimal systemd user session environments).
-        environment.systemPackages = [pkgs.docker-compose pkgs.git];
+        environment.systemPackages = [pkgs.docker-compose pkgs.git servarrExactRevision];
         systemd.tmpfiles.rules = [
           "f /run/lock/servarr-repository.lock 0660 root users - -"
         ];
@@ -187,11 +196,6 @@ in {
                       # leaves it in place — a feature-branch deploy stays put
                       # across reboots until `just pull-servarr <host>` (no arg)
                       # rewrites it to the default. Trim whitespace; ignore empty.
-                      BRANCH="${cfg.defaultBranch}"
-                      if [ -s "$REPO/.deploy-branch" ]; then
-                        PINNED="$(tr -d '[:space:]' < "$REPO/.deploy-branch")"
-                        [ -n "$PINNED" ] && BRANCH="$PINNED"
-                      fi
                       if [ ! -d "$REPO/.git" ]; then
                         ${pkgs.git}/bin/git clone ${cfg.repoUrl} "$REPO"
                       fi
@@ -207,9 +211,41 @@ in {
                       # .deploy-branch pointer) is left untouched. No `|| true`: a
                       # fetch/reset failure now fails the unit loudly instead of
                       # leaving the host silently stale.
-                      echo "servarr-pull: syncing $REPO → origin/$BRANCH"
-                      ${pkgs.git}/bin/git -C "$REPO" fetch --prune origin "$BRANCH"
-                      ${pkgs.git}/bin/git -C "$REPO" reset --hard "origin/$BRANCH"
+                      if [ -e "$REPO/.deploy-commit" ]; then
+                        [ -f "$REPO/.deploy-commit" ] || { echo "servarr-pull: exact revision pin is not a regular file" >&2; exit 1; }
+                        ${pkgs.jq}/bin/jq -e '
+                          (keys | sort) == ["pin", "pin_sha256"] and
+                          (.pin | keys | sort) == ["commit", "render_sha256", "selection", "tree", "version"] and
+                          .pin.version == 1 and
+                          (.pin.commit | test("^[0-9a-f]{40}$")) and
+                          (.pin.tree | test("^[0-9a-f]{40}$")) and
+                          (.pin.render_sha256 | test("^[0-9a-f]{64}$")) and
+                          (.pin.selection == "forward" or .pin.selection == "rollback") and
+                          (.pin_sha256 | test("^[0-9a-f]{64}$"))
+                        ' "$REPO/.deploy-commit" >/dev/null || { echo "servarr-pull: malformed exact revision pin" >&2; exit 1; }
+                        PINNED_COMMIT="$(${pkgs.jq}/bin/jq -r .pin.commit "$REPO/.deploy-commit")"
+                        PINNED_TREE="$(${pkgs.jq}/bin/jq -r .pin.tree "$REPO/.deploy-commit")"
+                        PINNED_RENDER="$(${pkgs.jq}/bin/jq -r .pin.render_sha256 "$REPO/.deploy-commit")"
+                        PINNED_SHA="$(${pkgs.jq}/bin/jq -r .pin_sha256 "$REPO/.deploy-commit")"
+                        ACTUAL_PIN_SHA="$(${pkgs.jq}/bin/jq -jcS .pin "$REPO/.deploy-commit" | ${pkgs.coreutils}/bin/sha256sum | cut -d' ' -f1)"
+                        [ "$ACTUAL_PIN_SHA" = "$PINNED_SHA" ] || { echo "servarr-pull: exact revision pin hash differs" >&2; exit 1; }
+                        ${pkgs.git}/bin/git -C "$REPO" cat-file -e "$PINNED_COMMIT^{commit}" || { echo "servarr-pull: exact revision object absent" >&2; exit 1; }
+                        [ "$(${pkgs.git}/bin/git -C "$REPO" show -s --format=%T "$PINNED_COMMIT")" = "$PINNED_TREE" ] || { echo "servarr-pull: exact revision tree differs" >&2; exit 1; }
+                        echo "servarr-pull: activating prefetched exact revision"
+                        ${pkgs.git}/bin/git -C "$REPO" reset --hard "$PINNED_COMMIT"
+                        [ "$(${pkgs.git}/bin/git -C "$REPO" rev-parse HEAD)" = "$PINNED_COMMIT" ] || { echo "servarr-pull: exact revision activation differs" >&2; exit 1; }
+                        EXACT_PIN_ACTIVE=1
+                      else
+                        EXACT_PIN_ACTIVE=0
+                        BRANCH="${cfg.defaultBranch}"
+                        if [ -s "$REPO/.deploy-branch" ]; then
+                          PINNED="$(tr -d '[:space:]' < "$REPO/.deploy-branch")"
+                          [ -n "$PINNED" ] && BRANCH="$PINNED"
+                        fi
+                        echo "servarr-pull: syncing $REPO → origin/$BRANCH"
+                        ${pkgs.git}/bin/git -C "$REPO" fetch --prune origin "$BRANCH"
+                        ${pkgs.git}/bin/git -C "$REPO" reset --hard "origin/$BRANCH"
+                      fi
                       # Decrypt .env.sops → .env if stale or missing.
                       # --input-type/--output-type dotenv is required: sops
                       # uses file-extension auto-detection, and a `.env.sops`
@@ -221,6 +257,14 @@ in {
                       if [ -f "$MACHINE_DIR/.env.sops" ] && { [ ! -f "$MACHINE_DIR/.env" ] || [ "$MACHINE_DIR/.env.sops" -nt "$MACHINE_DIR/.env" ]; }; then
                         ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt "$MACHINE_DIR/.env.sops" > "$MACHINE_DIR/.env.new" \
                           && mv "$MACHINE_DIR/.env.new" "$MACHINE_DIR/.env"
+                      fi
+                      if [ "$EXACT_PIN_ACTIVE" -eq 1 ]; then
+                        ACTUAL_RENDER="$(${pkgs.docker-compose}/bin/docker-compose \
+                          --project-name networking --project-directory "$MACHINE_DIR" \
+                          --env-file "$MACHINE_DIR/.env" --env-file /run/vault-agent/networking.env \
+                          -f "$MACHINE_DIR/networking.yml" config --no-interpolate --no-env-resolution \
+                          | ${pkgs.coreutils}/bin/sha256sum | cut -d' ' -f1)"
+                        [ "$ACTUAL_RENDER" = "$PINNED_RENDER" ] || { echo "servarr-pull: exact revision render differs" >&2; exit 1; }
                       fi
                       # Ensure homelab-net Docker/Podman network exists.
                       # Compose stacks declare it as external so it must be

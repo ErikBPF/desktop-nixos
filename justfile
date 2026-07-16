@@ -3254,6 +3254,116 @@ discovery-adguard-result inventory authorization:
       python3 modules/hosts/discovery/_stateful-adguard-preflight.py verify \
         "{{inventory}}" "{{authorization}}"
 
+# Prefetch and render the two exact published Servarr revisions while DNS is
+# healthy. The installed helper is the only command allowed to fetch here.
+discovery-adguard-revision-prefetch output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output={{ quote(output) }}
+    test ! -e "$output" || { echo "BLOCKED: output already exists" >&2; exit 1; }
+    IP="$(just _host-ip discovery)"
+    remote=/var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+    ssh -p 2222 erik@"$IP" "test ! -e '$remote'"
+    ssh -p 2222 erik@"$IP" "servarr-exact-revision prefetch --output '$remote'"
+    tmp="$output.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT
+    ssh -p 2222 erik@"$IP" "cat '$remote'" >"$tmp"
+    chmod 0400 "$tmp"
+    ln "$tmp" "$output"
+    rm "$tmp"
+    trap - EXIT
+    sha256sum "$output"
+
+# Build the value-free, exact P2 authorization candidate on Discovery so the
+# installed Nix-store source hashes and retained revision prefetch are bound.
+discovery-adguard-transition-plan inventory p3_manifest p3_observation p3_result prefetch output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    inventory={{ quote(inventory) }}
+    p3_manifest={{ quote(p3_manifest) }}
+    p3_observation={{ quote(p3_observation) }}
+    p3_result={{ quote(p3_result) }}
+    prefetch={{ quote(prefetch) }}
+    output={{ quote(output) }}
+    test ! -e "$output" || { echo "BLOCKED: output already exists" >&2; exit 1; }
+    IP="$(just _host-ip discovery)"
+    bundle="$(mktemp -d)"
+    tmp="$output.tmp.$$"
+    cleanup() { rm -rf "$bundle"; rm -f "$tmp"; }
+    trap cleanup EXIT
+    install -m 0400 "$inventory" "$bundle/inventory.json"
+    install -m 0400 "$p3_manifest" "$bundle/p3-manifest.json"
+    install -m 0400 "$p3_observation" "$bundle/p3-observation.json"
+    install -m 0400 "$p3_result" "$bundle/p3-result.json"
+    install -m 0400 "$prefetch" "$bundle/revision-prefetch.json"
+    tar -C "$bundle" -cf - . | ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      bundle=$(mktemp -d)
+      trap '\''rm -rf "$bundle"'\'' EXIT
+      tar -C "$bundle" -xf -
+      cmp "$bundle/revision-prefetch.json" /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+      sudo discovery-stateful-adguard-transition plan \
+        "$bundle/inventory.json" "$bundle/p3-manifest.json" \
+        "$bundle/p3-observation.json" "$bundle/p3-result.json" \
+        /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json
+    ' >"$tmp"
+    jq -e '.manifest.approval_ready == true and .manifest.blockers == []' "$tmp" >/dev/null
+    chmod 0400 "$tmp"
+    ln "$tmp" "$output"
+    rm "$tmp"
+    trap - EXIT
+    sha256sum "$output"
+
+# Recompute every binding against the installed helper before approval/execution.
+discovery-adguard-transition-verify inventory p3_manifest p3_observation p3_result authorization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    inventory={{ quote(inventory) }}
+    p3_manifest={{ quote(p3_manifest) }}
+    p3_observation={{ quote(p3_observation) }}
+    p3_result={{ quote(p3_result) }}
+    authorization={{ quote(authorization) }}
+    IP="$(just _host-ip discovery)"
+    bundle="$(mktemp -d)"
+    trap 'rm -rf "$bundle"' EXIT
+    install -m 0400 "$inventory" "$bundle/inventory.json"
+    install -m 0400 "$p3_manifest" "$bundle/p3-manifest.json"
+    install -m 0400 "$p3_observation" "$bundle/p3-observation.json"
+    install -m 0400 "$p3_result" "$bundle/p3-result.json"
+    install -m 0400 "$authorization" "$bundle/authorization.json"
+    tar -C "$bundle" -cf - . | ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      bundle=$(mktemp -d)
+      trap '\''rm -rf "$bundle"'\'' EXIT
+      tar -C "$bundle" -xf -
+      sudo discovery-stateful-adguard-transition verify \
+        "$bundle/inventory.json" "$bundle/p3-manifest.json" \
+        "$bundle/p3-observation.json" "$bundle/p3-result.json" \
+        /var/lib/stateful-stack-migrations/p2-adguard/revision-prefetch.json \
+        "$bundle/authorization.json"
+    '
+
+# Execute only the exact approved manifest SHA. The executor re-inventories
+# Discovery before the first mutation and retains every protection artifact.
+discovery-adguard-transition-execute authorization manifest_sha256:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    authorization={{ quote(authorization) }}
+    manifest_sha256={{ quote(manifest_sha256) }}
+    [[ "$manifest_sha256" =~ ^[0-9a-f]{64}$ ]]
+    test "$(jq -r .manifest_sha256 "$authorization")" = "$manifest_sha256"
+    IP="$(just _host-ip discovery)"
+    tar -C "$(dirname "$authorization")" -cf - "$(basename "$authorization")" | \
+      ssh -p 2222 erik@"$IP" "
+        set -euo pipefail
+        bundle=\$(mktemp -d)
+        trap 'rm -rf \"\$bundle\"' EXIT
+        tar -C \"\$bundle\" -xf -
+        remote_authorization=\$(find \"\$bundle\" -mindepth 1 -maxdepth 1 -type f -print -quit)
+        test -n \"\$remote_authorization\"
+        sudo discovery-stateful-adguard-transition execute \"\$remote_authorization\" \"$manifest_sha256\"
+      "
+
 # Value-free exporter diagnostic: allowlisted family presence only.
 discovery-adguard-exporter-diagnostic:
     #!/usr/bin/env bash
