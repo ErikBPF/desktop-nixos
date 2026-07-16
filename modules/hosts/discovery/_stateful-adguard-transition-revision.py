@@ -26,4 +26,4 @@ def authorization(channel,value):
 def activation_argv(channel,value,authorization_path,output,binary="servarr-exact-revision"):
     validate(value,value["prefetch"].get("path"))
     if channel not in ("forward","rollback"):raise Drift("revision channel differs")
-    return ["sudo","-u","erik","--",binary,"activate",channel,"--prefetch",value["prefetch"]["path"],"--authorization",authorization_path,"--output",output]
+    return ["/run/wrappers/bin/sudo","-u","erik","--",binary,"activate",channel,"--prefetch",value["prefetch"]["path"],"--authorization",authorization_path,"--output",output]

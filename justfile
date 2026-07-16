@@ -3417,8 +3417,43 @@ discovery-adguard-transition-status:
     set -euo pipefail
     IP="$(just _host-ip discovery)"
     ssh -p 2222 erik@"$IP" \
-      'path=/var/lib/stateful-stack-migrations/p2-adguard/journal.jsonl; if test -e "$path"; then sudo -n /run/current-system/sw/bin/cat "$path"; else printf '\''{"status":"not-started"}\n'\''; fi' | \
+      'path=/var/lib/stateful-stack-migrations/p2-adguard/journal.jsonl; if /run/wrappers/bin/sudo -n /run/current-system/sw/bin/test -e "$path"; then /run/wrappers/bin/sudo -n /run/current-system/sw/bin/cat "$path"; else printf '\''{"status":"not-started"}\n'\''; fi' | \
       jq -sc 'map({event,phase,status,error_class,recovery_failed})'
+
+# Emergency exact-pair recovery after a retained P2 transition failure.
+discovery-adguard-recover-current:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'cd /home/erik/servarr/machines/discovery && docker-compose --project-name networking --project-directory /home/erik/servarr/machines/discovery --env-file /home/erik/servarr/machines/discovery/.env --env-file /run/vault-agent/networking.env -f /home/erik/servarr/machines/discovery/networking.yml up -d --no-deps --force-recreate adguard adguard-exporter'
+
+# Preserve one exact failed P2 attempt under its manifest hash before retry.
+discovery-adguard-transition-retire-failed manifest_sha256:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    expected={{ quote(manifest_sha256) }}
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" "EXPECTED='$expected' /run/wrappers/bin/sudo -n /run/current-system/sw/bin/bash -s" <<'REMOTE'
+    set -euo pipefail
+    base=/var/lib/stateful-stack-migrations/p2-adguard
+    journal=$base/journal.jsonl
+    dest=$base/superseded-$EXPECTED
+    snapshot=/home/.snapshots/stateful-stack-p2-adguard
+    snapshot_dest=/home/.snapshots/stateful-stack-p2-adguard-superseded-$EXPECTED
+    /run/current-system/sw/bin/test -f "$journal"
+    /run/current-system/sw/bin/grep -Fq "\"manifest_sha256\":\"$EXPECTED\"" "$journal"
+    /run/current-system/sw/bin/grep -Fq '"status":"failed"' "$journal"
+    /run/current-system/sw/bin/test ! -e "$dest"
+    /run/current-system/sw/bin/mkdir -m 0700 "$dest"
+    for name in authorization.json inventory.json work.tar.zst work.tar.zst.sha256 ledger.json phase-ledger.json restore-work forward-revision.json rollback-revision.json rollback.json artifact-index.json journal.jsonl revision-forward-authorization.json revision-rollback-authorization.json; do
+      if /run/current-system/sw/bin/test -e "$base/$name"; then /run/current-system/sw/bin/mv -- "$base/$name" "$dest/$name"; fi
+    done
+    if /run/current-system/sw/bin/test -e "$snapshot"; then
+      /run/current-system/sw/bin/test ! -e "$snapshot_dest"
+      /run/current-system/sw/bin/mv -- "$snapshot" "$snapshot_dest"
+    fi
+    REMOTE
 
 # Value-free exporter diagnostic: allowlisted family presence only.
 discovery-adguard-exporter-diagnostic:
