@@ -1622,6 +1622,21 @@ p3-adguard-outage-execute authorization:
       exit "$rc"
     fi
 
+# Offline reconstruction of the exact observation approved by a passed P3 run.
+# Preserves the current input and recovered output as immutable 0400 artifacts.
+p3-adguard-observation-recover run_dir preserved recovered:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    evidence_dir=.gsd/evidence/p3-dns
+    python3 modules/hosts/discovery/_p3-observation-recover.py \
+      "$evidence_dir/observation.json" "$evidence_dir/manifest.json" \
+      "{{run_dir}}/result.json" "{{run_dir}}/journal.jsonl" \
+      "{{preserved}}" "{{recovered}}" \
+      "{{run_dir}}/core-worker-01.rows" "{{run_dir}}/core-worker-02.rows" \
+      "{{run_dir}}/core-worker-03.rows" "{{run_dir}}/core-worker-04.rows" \
+      "{{run_dir}}/diagnostic-worker-01.rows" "{{run_dir}}/diagnostic-worker-02.rows" \
+      "{{run_dir}}/diagnostic-terminal-01.json" "{{run_dir}}/diagnostic-terminal-02.json"
+
 # Remove only the local ephemeral outage client after a successful drill.
 p3-adguard-outage-cleanup:
     #!/usr/bin/env bash
