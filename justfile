@@ -1844,12 +1844,16 @@ kubeconfig:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p ~/.kube
-    ssh -A -p 2222 erik@{{ip_kepler}} \
+    tmp=$(mktemp ~/.kube/config.XXXXXX)
+    trap 'rm -f "$tmp"' EXIT
+    ssh -A -o StrictHostKeyChecking=accept-new -p 2222 erik@{{ip_kepler}} \
         'ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 "cat /etc/rancher/k3s/k3s.yaml"' \
         | sed 's#https://127.0.0.1:6443#https://k8s.pastelariadev.com:6443#' \
         | sed 's/: default$/: pastelariadev/' \
-        > ~/.kube/config
-    chmod 600 ~/.kube/config
+        > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" ~/.kube/config
+    trap - EXIT
     echo ":: kubeconfig → context $(kubectl config current-context)"
     kubectl get nodes
 
@@ -1861,12 +1865,16 @@ kubeconfig-lan:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p ~/.kube
-    ssh -A -p 2222 erik@{{ip_kepler}} \
+    tmp=$(mktemp ~/.kube/pastelariadev-lan.yaml.XXXXXX)
+    trap 'rm -f "$tmp"' EXIT
+    ssh -A -o StrictHostKeyChecking=accept-new -p 2222 erik@{{ip_kepler}} \
         'ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 "cat /etc/rancher/k3s/k3s.yaml"' \
         | sed 's#https://127.0.0.1:6443#https://192.168.10.245:6443#' \
         | sed 's/: default$/: pastelariadev-lan/' \
-        > ~/.kube/pastelariadev-lan.yaml
-    chmod 600 ~/.kube/pastelariadev-lan.yaml
+        > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" ~/.kube/pastelariadev-lan.yaml
+    trap - EXIT
     echo ":: LAN kubeconfig → ~/.kube/pastelariadev-lan.yaml (context pastelariadev-lan)"
     KUBECONFIG=~/.kube/pastelariadev-lan.yaml kubectl get nodes
 
