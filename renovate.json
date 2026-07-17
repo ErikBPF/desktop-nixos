@@ -1,0 +1,12 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>ErikBPF/renovate-config"],
+  "enabledManagers": ["github-actions", "nix"],
+  "packageRules": [
+    {
+      "description": "Keep GitHub Actions pinned to immutable commits",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    }
+  ]
+}
