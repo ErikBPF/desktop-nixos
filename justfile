@@ -3549,11 +3549,35 @@ discovery-adguard-exporter-diagnostic:
 # One-time no-clobber cutover from the tracked live AdGuard YAML to the
 # gitignored runtime bind. The migration helper is read from the exact reviewed
 # Servarr commit and runs before pull-servarr can reset the legacy tracked file.
+discovery-servarr-status-value-free:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'git -C /home/erik/servarr status --short --branch --untracked-files=no'
+
+discovery-servarr-pull-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'systemctl --user --no-pager --full status servarr-pull.service || true; journalctl --user -u servarr-pull.service -n 30 --no-pager'
+
 discovery-adguard-runtime-split servarr_commit:
     #!/usr/bin/env bash
     set -euo pipefail
     commit={{ quote(servarr_commit) }}
     branch=feat/adguard-runtime-yaml-split
+    inventory_ready() {
+      local IP=$1
+      local attempt
+      for attempt in $(seq 1 30); do
+        if ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null 2>/dev/null'; then
+          return 0
+        fi
+        sleep 1
+      done
+      echo 'BLOCKED: AdGuard inventory did not become ready within 30 seconds' >&2
+      return 1
+    }
     [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo 'BLOCKED: Servarr commit must be a full SHA-1' >&2; exit 1; }
     IP="$(just _host-ip discovery)"
     ssh -p 2222 erik@"$IP" "EXPECTED='$commit' BRANCH='$branch' bash -s" <<'REMOTE'
@@ -3563,23 +3587,56 @@ discovery-adguard-runtime-split servarr_commit:
     runtime=$repo/machines/discovery/runtime/adguard/AdGuardHome.yaml
     helper=machines/discovery/scripts/init-adguard-runtime.sh
     cd "$repo"
-    test -f "$legacy" || { echo 'BLOCKED: legacy tracked YAML absent' >&2; exit 1; }
-    test "$(git ls-files --error-unmatch machines/discovery/config/adguard/AdGuardHome.yaml)" = machines/discovery/config/adguard/AdGuardHome.yaml
-    git diff --quiet -- . ':(exclude)machines/discovery/config/adguard/AdGuardHome.yaml' && git diff --cached --quiet || { echo 'BLOCKED: deployed Servarr checkout dirty outside legacy AdGuard YAML' >&2; exit 1; }
-    test "$(docker inspect adguard | jq -er '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source')" = "$repo/machines/discovery/config/adguard"
+    if test -f "$legacy"; then
+      test "$(git ls-files --error-unmatch machines/discovery/config/adguard/AdGuardHome.yaml)" = machines/discovery/config/adguard/AdGuardHome.yaml
+      helper_source=$legacy
+    else
+      sudo -n test -f "$runtime"
+      sudo -n test ! -L "$runtime"
+      test "$(sudo -n stat -c %a "$runtime")" = 600
+      helper_source=$runtime
+    fi
+    mount_source=$(docker inspect adguard | jq -er '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source')
+    case "$mount_source" in
+      "$repo/machines/discovery/config/adguard"|"$repo/machines/discovery/runtime/adguard") ;;
+      *) echo 'BLOCKED: unexpected AdGuard config bind source' >&2; exit 1 ;;
+    esac
     test "$(docker inspect adguard | jq -er '.[0].Config.Labels | .["com.docker.compose.project"] + "/" + .["com.docker.compose.service"]')" = networking/adguard
     test "$(docker inspect adguard-exporter | jq -er '.[0].Config.Labels | .["com.docker.compose.project"] + "/" + .["com.docker.compose.service"]')" = networking/adguard-exporter
     git fetch origin "$BRANCH"
     test "$(git rev-parse "origin/$BRANCH^{commit}")" = "$EXPECTED" || { echo 'BLOCKED: branch tip differs from approved commit' >&2; exit 1; }
     tmp=$(mktemp)
-    trap 'rm -f "$tmp"' EXIT
+    trap 'rm -f "$tmp" "$tmp.target-paths"' EXIT
     git show "$EXPECTED:$helper" >"$tmp"
     chmod 0500 "$tmp"
-    sudo -n "$tmp" "$legacy" "$runtime"
+    runtime_preexisting=false
+    sudo -n test -e "$runtime" && runtime_preexisting=true
+    sudo -n "$tmp" "$helper_source" "$runtime"
     sudo -n test -f "$runtime"
     sudo -n test ! -L "$runtime"
     test "$(sudo -n stat -c %a "$runtime")" = 600
-    sudo -n cmp -s "$legacy" "$runtime"
+    if ! $runtime_preexisting; then
+      sudo -n cmp -s "$helper_source" "$runtime"
+    fi
+    if ! git diff --quiet -- . ':(exclude)machines/discovery/config/adguard/AdGuardHome.yaml'; then
+      approved_tree=false
+      git diff --name-only HEAD "$EXPECTED" >"$tmp.target-paths"
+      if ! git diff --name-only | grep -Fvx -f "$tmp.target-paths" >/dev/null; then
+        approved_tree=true
+        while IFS= read -r path; do
+          if git diff --quiet -- "$path" && git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+            continue
+          fi
+          if blob=$(git rev-parse "$EXPECTED:$path" 2>/dev/null); then
+            test ! -e "$path" || { test -f "$path" && test "$(git hash-object "$path")" = "$blob"; } || approved_tree=false
+          else
+            test ! -e "$path" || approved_tree=false
+          fi
+        done <"$tmp.target-paths"
+      fi
+      $approved_tree || { echo 'BLOCKED: deployed Servarr checkout has unapproved tracked changes' >&2; exit 1; }
+    fi
+    git diff --cached --quiet || { echo 'BLOCKED: deployed Servarr checkout has staged changes' >&2; exit 1; }
     REMOTE
     just pull-servarr discovery "$branch"
     ssh -p 2222 erik@"$IP" "EXPECTED='$commit' bash -s" <<'REMOTE'
@@ -3596,9 +3653,11 @@ discovery-adguard-runtime-split servarr_commit:
     docker-compose --project-name networking --project-directory "$PWD" --env-file .env --env-file /run/vault-agent/networking.env -f networking.yml config >/dev/null
     REMOTE
     just discovery-adguard-recover-current
-    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null'
+    ssh -p 2222 erik@"$IP" 'test "$(docker inspect adguard | jq -er '\''.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source'\'')" = /home/erik/servarr/machines/discovery/runtime/adguard'
+    inventory_ready "$IP"
     just discovery-adguard-recover-current
-    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null'
+    ssh -p 2222 erik@"$IP" 'test "$(docker inspect adguard | jq -er '\''.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source'\'')" = /home/erik/servarr/machines/discovery/runtime/adguard'
+    inventory_ready "$IP"
     echo ':: AdGuard runtime split passed two value-free smoke cycles'
 
 # Roll back declarations to one exact prior Servarr commit. The gitignored
@@ -3607,6 +3666,18 @@ discovery-adguard-runtime-split-rollback prior_commit:
     #!/usr/bin/env bash
     set -euo pipefail
     commit={{ quote(prior_commit) }}
+    inventory_ready() {
+      local IP=$1
+      local attempt
+      for attempt in $(seq 1 30); do
+        if ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null 2>/dev/null'; then
+          return 0
+        fi
+        sleep 1
+      done
+      echo 'BLOCKED: AdGuard inventory did not become ready within 30 seconds' >&2
+      return 1
+    }
     [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo 'BLOCKED: prior commit must be a full SHA-1' >&2; exit 1; }
     IP="$(just _host-ip discovery)"
     ssh -p 2222 erik@"$IP" "EXPECTED='$commit' bash -s" <<'REMOTE'
@@ -3623,7 +3694,7 @@ discovery-adguard-runtime-split-rollback prior_commit:
       exit 1
     }
     just discovery-adguard-recover-current
-    ssh -p 2222 erik@"$IP" 'sudo -n /run/current-system/sw/bin/discovery-stateful-adguard-inventory capture >/dev/null'
+    inventory_ready "$IP"
     echo ':: rollback passed; runtime YAML retained'
 
 # Build Discovery's generated disko script without executing it, then prove the
