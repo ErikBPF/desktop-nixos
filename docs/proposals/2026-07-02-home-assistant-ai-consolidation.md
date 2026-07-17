@@ -28,6 +28,16 @@ make the calls.
 > headroom. Move `bge-m3` from GPU to CPU and restore or deliberately retire the
 > unhealthy F5-TTS/reranker services before repeating the concurrent capacity
 > test. Do not enable real capture until that gate passes.
+>
+> **Topology correction — 2026-07-16:** the capacity sequence above was
+> superseded when Kepler's complete AI-serving stack was intentionally retired
+> on 2026-07-14. Do not restore that general stack or treat Whisper,
+> embeddings, reranking, or TTS as resident dependencies. The replacement is a
+> minimal transcript-shadow runtime defined in
+> [`2026-07-16-ha-shadow-runtime.md`](2026-07-16-ha-shadow-runtime.md). It
+> consumes the incumbent transcript from the disabled HA mirror and adds only
+> the capture/evidence worker, dedicated Qwen server, and act-nothing Rust
+> harness. The incumbent voice path remains unchanged.
 
 ---
 
@@ -314,6 +324,10 @@ Verification at this checkpoint:
 
 ### Capacity gate and current blocker
 
+> **Superseded 2026-07-16.** This subsection records the pre-retirement
+> measurement. It is not a resume procedure. Use the minimal shadow-runtime
+> design and measure its actual post-retirement topology.
+
 Kepler required a full cold power cycle after the RTX 3070 failed driver
 initialization. GPU, CDI, and Whisper recovered afterward. Capacity measurement
 then produced:
@@ -330,6 +344,9 @@ reranker were also unhealthy during the capacity run, so the full warmed-stack
 baseline was not established.
 
 ### Resume sequence
+
+> **Retired sequence.** Do not execute steps 1–7 below. They assumed the former
+> Kepler AI-serving stack still existed and would be repaired in place.
 
 1. Move `bge-m3` to its CPU image through the existing declarative Compose and
    systemd ownership path. Do not use an ad-hoc container.

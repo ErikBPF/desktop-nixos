@@ -120,6 +120,27 @@ _: {
       package = config.boot.kernelPackages.nvidiaPackages.stable;
     };
 
+    hardware.nvidia-container-toolkit.enable = true;
+
+    # This card has produced repeatable NVIDIA Xid 13/31 faults under
+    # faster-whisper large-v3 inference at stock boost. Keep the model and
+    # reduce boost/power transients instead: 170 W is ~77% of the RTX 3070's
+    # stock 220 W limit, while 1500 MHz remains ample for voice STT latency.
+    systemd.services.nvidia-conservative-clocks = {
+      description = "Apply conservative NVIDIA power and clock limits";
+      wantedBy = ["multi-user.target"];
+      after = ["nvidia-persistenced.service"];
+      requires = ["nvidia-persistenced.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --power-limit=170
+        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --lock-gpu-clocks=210,1500
+      '';
+    };
+
     environment.systemPackages = with pkgs; [
       nvtopPackages.nvidia
       zfs
