@@ -39,7 +39,7 @@ it is unreachable from the network.
 
 | Port | Bound to | Service | Notes |
 |---|---|---|---|
-| 8200 | 127.0.0.1 + tailnet IP + `172.31.82.1` | OpenBao (`bao`) | tailnet listener allowlisted on `tailscale0`; SWAG listener restricted to dedicated `br-openbao-proxy` bridge |
+| 8200 | 127.0.0.1 + tailnet IP + `172.31.82.1` | OpenBao (`bao`) | tailnet listener allowlisted on `tailscale0`; SWAG listener restricted to dedicated `br-openbao` bridge |
 | 8384 | 127.0.0.1 | syncthing GUI | |
 | 8888 | 127.0.0.1 | atuin-server | |
 | 12345 | 127.0.0.1 | alloy | |

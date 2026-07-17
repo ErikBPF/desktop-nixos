@@ -68,7 +68,7 @@
     # discovery-networking stays default-closed (8200 not in allowedTCPPorts),
     # so the store is unreachable from the LAN/eno1/br0.
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [8200];
-    networking.firewall.interfaces.br-openbao-proxy.allowedTCPPorts = [8200];
+    networking.firewall.interfaces.br-openbao.allowedTCPPorts = [8200];
 
     # The tailnet and SWAG listeners bind addresses created by tailscaled and
     # Docker. A cold boot can race either interface, so retry without a
