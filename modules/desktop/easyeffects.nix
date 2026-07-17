@@ -36,78 +36,93 @@ _: {
         };
       };
     };
+    zeroRedCrinacleFilters = [
+      {
+        type = "Lo-shelf";
+        frequency = 105;
+        gain = 1.5;
+        q = 0.7;
+      }
+      {
+        type = "Bell";
+        frequency = 6877;
+        gain = 3.9;
+        q = 0.5;
+      }
+      {
+        type = "Bell";
+        frequency = 335;
+        gain = -1.2;
+        q = 1.26;
+      }
+      {
+        type = "Bell";
+        frequency = 1556;
+        gain = -2.0;
+        q = 2.24;
+      }
+      {
+        type = "Bell";
+        frequency = 3765;
+        gain = -2.7;
+        q = 1.2;
+      }
+      {
+        type = "Hi-shelf";
+        frequency = 10000;
+        gain = -2.3;
+        q = 0.7;
+      }
+      {
+        type = "Bell";
+        frequency = 893;
+        gain = 0.5;
+        q = 2.68;
+      }
+      {
+        type = "Bell";
+        frequency = 35;
+        gain = -0.1;
+        q = 2.03;
+      }
+      {
+        type = "Bell";
+        frequency = 5984;
+        gain = 0.7;
+        q = 6.0;
+      }
+      {
+        type = "Bell";
+        frequency = 1206;
+        gain = -0.4;
+        q = 4.33;
+      }
+    ];
   in {
     services.easyeffects = {
       enable = true;
       # Zero:RED is the daily driver; the others are activated on demand from
       # the EasyEffects preset picker.
-      preset = "truthear-zero-red-crinacle";
+      preset = "truthear-zero-red-crinacle-bass-boost";
       extraPresets = {
         # TRUTHEAR x Crinacle Zero:RED — crinacle 711-coupler measurement.
         truthear-zero-red-crinacle = mkPreset {
           preamp = -3.2;
-          filters = [
-            {
-              type = "Lo-shelf";
-              frequency = 105;
-              gain = 1.5;
-              q = 0.7;
-            }
-            {
-              type = "Bell";
-              frequency = 6877;
-              gain = 3.9;
-              q = 0.5;
-            }
-            {
-              type = "Bell";
-              frequency = 335;
-              gain = -1.2;
-              q = 1.26;
-            }
-            {
-              type = "Bell";
-              frequency = 1556;
-              gain = -2.0;
-              q = 2.24;
-            }
-            {
-              type = "Bell";
-              frequency = 3765;
-              gain = -2.7;
-              q = 1.2;
-            }
-            {
-              type = "Hi-shelf";
-              frequency = 10000;
-              gain = -2.3;
-              q = 0.7;
-            }
-            {
-              type = "Bell";
-              frequency = 893;
-              gain = 0.5;
-              q = 2.68;
-            }
-            {
-              type = "Bell";
-              frequency = 35;
-              gain = -0.1;
-              q = 2.03;
-            }
-            {
-              type = "Bell";
-              frequency = 5984;
-              gain = 0.7;
-              q = 6.0;
-            }
-            {
-              type = "Bell";
-              frequency = 1206;
-              gain = -0.4;
-              q = 4.33;
-            }
-          ];
+          filters = zeroRedCrinacleFilters;
+        };
+        # Crinacle correction plus a subtle broad bass shelf.
+        truthear-zero-red-crinacle-bass-boost = mkPreset {
+          preamp = -5.2;
+          filters =
+            zeroRedCrinacleFilters
+            ++ [
+              {
+                type = "Lo-shelf";
+                frequency = 105;
+                gain = 2.0;
+                q = 0.7;
+              }
+            ];
         };
         # Zero:RED with Crinacle's "Bass+" tuning target — same measurement.
         truthear-zero-red-crinacle-bassplus = mkPreset {

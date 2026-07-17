@@ -12,6 +12,7 @@ _: {
         # (knowledge, photos, cicd, security) remain manual until migrated off
         # the legacy TrueNAS deployment.
         "infra"
+        "whisper-gpu"
         "docs-search"
         "whisper-gpu"
         "parakeet-gpu"

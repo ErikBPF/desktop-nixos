@@ -1,16 +1,11 @@
 # Telstar — Oracle Ampere A1 host for public-facing personal projects
 
 **Date:** 2026-07-01
-**Status:** Ready — fully staged, **blocked only on Oracle A1 host capacity**
-(external, not a work item). Capture is now driven by a **persistent,
-declarative service** — `discovery-telstar-capture` (NixOS system service on the
-always-on discovery, `modules/hosts/discovery/telstar-capture.nix`, added
-2026-07-04) — which retries `terragrunt apply` on the `oracle/compute-telstar`
-unit every 60s until a free-tier slot appears, then prints the `public_ip`. On
-success: set `hosts.telstar.ip` in `meta.nix` → `just fleet-json` →
-`just deploy-telstar`. Runbook + auth details:
-`homelab-iac/oracle/telstar-capture-status.md`. Not yet deployed (still no
-capacity). Graduates to `implemented/` on first successful cutover.
+**Status:** Ready — host and IaC staged; blocked on Oracle A1 host capacity.
+Discovery is the sole acquisition owner. Its declarative service runs the
+IaC-owned retry script every minute for up to seven days; no second host or
+container may compete for the Terragrunt state lock. Not yet provisioned.
+Graduates to `implemented/` on first successful cutover.
 **Owner:** erik
 **Scope:** A second Oracle Always-Free VM, `telstar` — an **Ampere A1** (aarch64,
 2 OCPU / 12 GB) — to expose personal projects to the public internet, kept off
@@ -95,7 +90,28 @@ Evidence: a per-minute `terragrunt apply` loop ran **10 h (586 attempts,
 2026-06-30 → 07-01)** and a one-shot retry on 2026-07-01 12:11 — **all** returned
 "Out of host capacity." Zero slots in the window.
 
-## 6. Cutover path (when capacity appears)
+## 6. Scheduled acquisition plan
+
+Use Discovery's declarative systemd service to run the IaC-owned retry script.
+It makes one real `terragrunt apply` attempt every 60 seconds for up to seven
+days. Discovery is always on, already holds the encrypted OCI credentials, and
+is the only host allowed to run this acquisition loop.
+
+Required safeguards:
+
+- one active acquisition service only;
+- capacity exhaustion is a normal outcome; auth, state, quota, or plan errors
+  are failures and stop retries;
+- success reports the public IP and exits zero, ending the retry loop;
+- the plan is reviewed before enablement and must contain one
+  `VM.Standard.A1.Flex`, 2 OCPU / 12 GB, 50 GB boot-volume instance only;
+- no automatic continuation after a PAYG account change;
+- optional capacity report is telemetry, not a launch gate.
+
+Implementation and verification details live in the free-resource proposal's
+§1e. IaC owns retry behavior; this flake owns the Discovery service.
+
+## 7. Cutover path (when capacity appears)
 
 1. `cd homelab-iac/oracle/compute-telstar && terragrunt apply` succeeds → note
    the assigned public IP.
@@ -107,7 +123,7 @@ Evidence: a per-minute `terragrunt apply` loop ran **10 h (586 attempts,
    security-list ingress rule in `homelab-iac`; deploy with `just switch-telstar`.
 6. Graduate this doc to `implemented/`.
 
-## 7. Open items (post-cutover)
+## 8. Open items (post-cutover)
 
 - **Public ingress model.** Decide per-project exposure: direct security-list
   port, or a reverse proxy / Cloudflare tunnel (as the home fleet uses) so raw
@@ -115,13 +131,15 @@ Evidence: a per-minute `terragrunt apply` loop ran **10 h (586 attempts,
 - **IP handling.** Ephemeral public IP changes on recreate; `meta.hosts.telstar.ip`
   is filled after provisioning. Consider a reserved public IP if a project needs
   a stable address.
-- **Re-arm cadence.** Whether to keep a persistent capacity-retry loop running,
-  drop to hourly, or launch manually. Currently **stopped** — telstar stays
-  staged; launch on demand.
+- **Re-arm policy.** Timer stops permanently after successful creation. A future
+  recreate or resize requires plan review and explicit re-enable; it must not
+  become a permanent background provisioner.
 
-## 8. Links
+## 9. Links
 
 - Sibling Oracle host (as-built, off-premise backup receiver):
   [`../implemented/2026-06-29-voyager-oracle-offsite-host.md`](../implemented/2026-06-29-voyager-oracle-offsite-host.md).
 - Deploy standard used for the switch phase:
   [`../implemented/2026-06-30-deploy-rs-as-deploy-standard.md`](../implemented/2026-06-30-deploy-rs-as-deploy-standard.md).
+- Acquisition rationale and phased free-resource roadmap:
+  [`2026-07-02-free-tier-cloud-resources.md`](2026-07-02-free-tier-cloud-resources.md).

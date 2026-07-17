@@ -1,6 +1,7 @@
 # Free-tier cloud resources — usage plan for reliability & privacy
 
-**Status:** Proposal (skeleton — judgment marked `TODO(erik)`)
+**Status:** Proposal — reviewed 2026-07-15; execution order decided, product and
+privacy forks remain marked `TODO(erik)`
 **Date:** 2026-07-02
 **Owner:** erik
 **Scope:** Map every verified free-tier cloud resource onto fleet needs, biased
@@ -8,6 +9,27 @@ toward **reliability** (more failure domains for the things that already exist)
 and **privacy** (nothing readable leaves the house). All quotas verified
 against official docs 2026-07-01/02 (research session); lowest-confidence items
 flagged inline.
+
+## Executive recommendation
+
+Do not implement this document as one program. Treat free resources as
+independent, disposable improvements and ship them in value order:
+
+1. **Acquire telstar:** keep Discovery as the single acquisition owner. Its
+   declarative service runs real launch attempts against the IaC-owned
+   Terragrunt unit. Capacity reports are useful telemetry, but do not reserve a
+   free-tier slot.
+2. **Add offsite failure detection:** Grafana Cloud receives only an allowlist
+   of non-content metrics and runs outside-in probes. Skip OCI APM initially.
+3. **Add backup diversity:** OCI Object Storage adds a service-diverse leg;
+   B2 or R2 adds the more valuable provider/account-diverse leg.
+4. **Use Cloudflare edge services per public project:** no speculative shared
+   platform before a project needs it.
+5. **Defer third-party AI and database services:** weak fleet benefit and the
+   largest privacy/abandonment risk.
+
+No free-tier resource becomes sole storage, sole monitoring, identity, DNS, or
+recovery path. Every phase must remain removable without breaking the fleet.
 
 ## 0. Principles
 
@@ -77,20 +99,43 @@ flagged inline.
      47 ≈ 142 of 200 GB — fits).
 - `TODO(erik)`: role. Recommendation: (1).
 
-### 1e. A1 capacity ping-plan (telstar unblock)
+### 1e. A1 acquisition plan (telstar unblock)
 
-- **Phase 1 — probe + alert (build now, no decisions):** systemd timer on
-  discovery, 60–90 s jitter, `oci compute compute-capacity-report create`
-  for `VM.Standard.A1.Flex 2/12` (single AD in São Paulo). Probes capacity
-  **without launching** — no terraform state involved. On `AVAILABLE`:
-  Discord webhook (transition-edge only) + textfile gauge
-  `oci_a1_capacity_available` for history. OCI CLI + read-scoped API key via
-  sops. Caveat: report reflects the overall pool; free-tier launch can still
-  fail — trigger, not guarantee.
-- **Phase 2 — auto-apply (only if Phase-1 alerts miss the window):**
-  discovery runs the `upgrade-retry.sh`-pattern `terragrunt apply` loop on
-  AVAILABLE. Needs homelab-iac checkout + OCI env secrets on discovery —
-  real state to manage; defer until Phase 1 proves insufficient.
+Use the existing declarative systemd service on Discovery, not cron and not a
+second host. Credentials, logs, restart policy, and failure state already
+belong there. The service drives the existing Terragrunt unit; Terragrunt state
+remains the creation lock and source of truth.
+
+Current schedule:
+
+- One Discovery service makes a real create attempt every 60 seconds for up to
+  seven days.
+- systemd restarts genuine service failures with a bounded start limit.
+- No second poller may run concurrently; Terragrunt's remote state lock remains
+  defense in depth, not normal coordination.
+- On success the script emits `public_ip` and exits zero, ending the loop.
+  Human cutover remains deliberate: update fleet metadata, regenerate
+  `fleet.json`, then run the documented Telstar deploy recipe.
+
+Why not capacity-report gating: OCI documents capacity reports as a point-in-time
+guide for instance creation. They do not reserve capacity or prove an Always
+Free launch will succeed. Record a report as optional telemetry immediately
+as separate telemetry, but let the real, idempotent apply decide.
+
+Rollout gates:
+
+1. Keep the IaC-owned retry script as the only launch implementation.
+2. Keep the declarative Discovery service as the only scheduler.
+3. Dry-build Discovery before changes and deploy through its documented recipe.
+4. Confirm capacity exhaustion is normal, real errors fail, and no paid shape
+   is planned.
+
+**Cost guard:** keep the account Free Tier and pin shape, OCPU, memory, boot
+volume, region, and `create_instance=true` in reviewed IaC. Before enabling the
+service, `terragrunt plan` must contain exactly one Always-Free-eligible A1
+instance and no paid resource. Do not auto-provision after any PAYG upgrade
+until compartment quotas and budget alarms are separately reviewed.
+
 - **Parallel lever — PAYG upgrade** (`TODO(erik)`, the big fork): paid-pool
   capacity priority (the only *reliable* A1 fix), idle-reclamation immunity,
   Object Storage 20→30 GB (per-tier), unlocks the AI-service monthly quotas
@@ -241,7 +286,7 @@ GPU is slower but private). Colab free as fallback.
 
 | Phase | Items | Decisions needed |
 |---|---|---|
-| **0 — now** | CT monitoring on; ping-plan Phase 1; OCI Vault escrow copy; Vultr application | none |
+| **0 — now** | Discovery Telstar capture service; CT monitoring on; OCI Vault escrow copy; Vultr application | none |
 | **1 — DR legs** | OCI bucket (WORM) + 2 restic jobs + dead-man metrics; diverse leg R2-or-B2 | 2d fork |
 | **2 — monitoring mirror** | Grafana Cloud account, filtered remote_write allowlist, cloud alert rules, synthetics; retire/skip OCI APM | 1c/§3 forks |
 | **3 — telstar edge** | Pages/Workers/Turnstile/DB per project; blocked on A1 capacity (or PAYG) | 1e PAYG fork |
@@ -265,8 +310,17 @@ restic leg; force-fire each new alert; kill -9 test against the probe timer).
 
 ## 9. Sources
 
-Quotas verified 2026-07-01/02 against official pricing/docs pages (Oracle
-Always-Free docs, Cloudflare dev-docs, grafana.com/pricing, provider pricing
-pages) via research agents; per-claim URLs live in the session transcripts.
-Flagged low-confidence: Grafana Cloud over-quota behavior, CF card-required
-flags (inference), Zero Trust seat count (JS-only page), New Relic numbers.
+Quotas were first checked 2026-07-01/02. Oracle compute and storage claims were
+rechecked 2026-07-15 against:
+
+- [OCI Always Free resources](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)
+  — current A1 allowance is 2 OCPUs / 12 GB, 200 GB combined block storage;
+  Oracle explicitly describes host-capacity errors as temporary and recommends
+  retrying later.
+- [OCI compute capacity reports](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/compute/compute-capacity-report/create.html)
+  — reports describe capacity available for instance creation at report time.
+
+Before implementing any non-Oracle phase, re-verify every provider quota and
+billing prerequisite against its current official documentation. Flagged
+low-confidence: Grafana Cloud over-quota behavior, Cloudflare card-required
+flags, Zero Trust seat count, and New Relic numbers.
