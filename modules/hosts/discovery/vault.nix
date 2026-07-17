@@ -47,6 +47,14 @@
           address = "100.76.140.121:8200";
           tls_disable = true;
         };
+        # SWAG reaches the UI/API through a dedicated internal Docker bridge.
+        # Only SWAG joins this network; the listener is not exposed to the LAN
+        # or the general homelab container network.
+        listener.swag_proxy = {
+          type = "tcp";
+          address = "172.31.82.1:8200";
+          tls_disable = true;
+        };
         storage.raft = {
           path = "/var/lib/openbao";
           node_id = "discovery";
@@ -60,12 +68,11 @@
     # discovery-networking stays default-closed (8200 not in allowedTCPPorts),
     # so the store is unreachable from the LAN/eno1/br0.
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [8200];
+    networking.firewall.interfaces.br-openbao.allowedTCPPorts = [8200];
 
-    # The tailnet listener binds 100.76.140.121, which only exists once tailscaled
-    # has brought the interface up. openbao starts after network.target, so a cold
-    # boot can race the IP and the bind fails. Order after tailscaled and retry
-    # without a start-limit cap so the unit self-heals once the IP appears
-    # (rather than tripping the default 5-in-10s limit and staying dead).
+    # The tailnet and SWAG listeners bind addresses created by tailscaled and
+    # Docker. A cold boot can race either interface, so retry without a
+    # start-limit cap until both exist.
     systemd.services.openbao = {
       after = ["tailscaled.service" "network-online.target"];
       wants = ["network-online.target"];
