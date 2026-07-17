@@ -169,15 +169,15 @@ Verification expectations:
 ## Cross-repo synergies
 
 This flake (`desktop-nixos`) is the source of truth for host system
-configuration. **Eleven** sister repos plug into it. Each is exposed as a gitignored symlink
+configuration. **Twelve** sister repos plug into it. Each is exposed as a gitignored symlink
 under `references/repos/` for quick local access (the real working trees live at
 `~/Documents/erik/...`):
 
 ```
 references/repos/servarr               → ~/Documents/erik/servarr            (home compose workloads)
 references/repos/homelab-gitops        → ~/Documents/erik/homelab-gitops     (lab k8s workloads, Argo CD)
-references/repos/homelab-iac           → ~/Documents/erik/homelab-iac        (UniFi/network substrate)
-references/repos/hermes-flake          → ~/Documents/erik/hermes-flake       (hermes-agent package + module)
+references/repos/homelab-iac           → ~/Documents/erik/homelab-iac        (multi-provider infrastructure control plane)
+references/repos/hermes-flake          → ~/Documents/erik/hermes-flake       (hermes-agent package + deployment modules)
 references/repos/hermes-skills         → ~/Documents/erik/hermes-skills      (hermes skill content)
 references/repos/opencode-flake         → ~/Documents/erik/opencode-flake      (opencode package + HM module; flake input)
 references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config  (HA app config)
@@ -185,6 +185,7 @@ references/repos/klipper-biqu          → ~/Documents/erik/klipper-biqu       (
 references/repos/kindle-dash           → ~/Documents/erik/kindle-dash        (e-ink dashboard; standalone OSS — P4)
 references/repos/ha-agent              → ~/Documents/erik/ha-agent           (PT-BR HA tool-caller fine-tune; local-only)
 references/repos/codex-flake           → ~/Documents/erik/codex-flake        (codex CLI package + HM module; flake input)
+references/repos/cosmo-notes           → ~/Documents/erik/cosmo-notes        (private ESP32 voice-recorder firmware)
 ```
 
 Justfile recipes resolve through these symlinks (`readlink -f
@@ -213,6 +214,7 @@ owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 | hermes skill content | `hermes-skills` |
 | HA app config · printer config/state | `home-assistant-config` · `klipper-biqu` |
 | Kindle dashboard image (standalone OSS) | `kindle-dash` (D8) |
+| Cosmo/Pala Note device firmware + transport runbook | `cosmo-notes` (private, non-redistributable) |
 
 D1–D9 one-liners: D1 two peer envs (home=servarr, lab=gitops), placed by purpose;
 D2 lab self-contained (own obs/ingress/CoreDNS), only the network is shared; D3
@@ -235,6 +237,9 @@ one sanctioned runtime dep).
    (`home-assistant-config`, `klipper-biqu`) — this flake owns its OS, not its config.
 5. **A fleet-wide *fact*** (host IP/MAC/role, ingress zone, public/cross-host
    service) → `desktop-nixos` `modules/meta.nix` (`fleet.*`) → `fleet.json`.
+6. **Device firmware** → the device repo (`cosmo-notes` for the Pala Note);
+   edge resources still belong to `homelab-iac`, host-side serving to `servarr`,
+   and this flake only owns required host substrate.
 
 No forced migration of existing home stacks; peer envs are placed by **purpose**,
 not absorbed.
@@ -262,33 +267,36 @@ not absorbed.
 - Targets today: `kepler`, `discovery`, `orion`. Each host owns a stack
   directory under `references/repos/servarr/machines/<host>/`.
 
-### `hermes-flake` — hermes-agent package + NixOS module
+### `hermes-flake` — hermes-agent package + deployment modules
 
 - Lives at `~/Documents/erik/hermes-flake`. Reachable in-repo via
   `references/repos/hermes-flake`. Vendored as a flake input.
-- Provides `packages.hermes-agent` and `nixosModules.hermes-agent`. Consumed
-  by `kepler` (AI serving host) and any other host running hermes.
+- Provides base/full packages, Home Manager installation, and NixOS modules for
+  bare-metal, systemd-nspawn, nix-built OCI, upstream OCI, and microVM isolation.
+  `discovery` consumes the upstream-OCI module; clients reach it through declared
+  ingress and LiteLLM routing.
 - Upstream version bumps: run `just update-check` then `just update` inside
   `hermes-flake`, build there (`just build`), commit, then update
   `desktop-nixos`'s `flake.lock` (`nix flake lock --update-input
-  hermes-flake`) and deploy with `just switch-kepler`.
-- TTS / LiteLLM routing nuances are recorded in recent commits and in
-  `docs/reference/kepler-ai-serving.md` — follow those before changing wiring.
+  hermes-flake`) and deploy with `just switch-discovery`.
+- Current routing lives on `discovery`; the retired Kepler stack recorded in
+  `docs/reference/kepler-ai-serving.md` is historical, not a deploy runbook.
 
 ### `code/home-assistant-config` — HA config on the HA host
 
 - Lives at `~/Documents/erik/code/home-assistant-config`. Reachable in-repo
-  via `references/repos/home-assistant-config`. Pushed to the HA instance
-  via its own deploy flow (the HA host pulls from the repo; see that repo's
-  `README.md` and `hooks/`).
+  via `references/repos/home-assistant-config`. Runs on the HAOS VM at
+  `192.168.10.115` on `discovery`. Production deploys use its `just deploy`
+  fast-forward flow after merge. For pre-merge tests, use transactional
+  `just live-test <explicit-files>` and always finish with `just live-rollback`.
 - PR flow: push branches, **do not auto-merge** — wait for the user's
   explicit "merge" (see `memory/feedback_ha_pr_flow.md`).
-- Voice-assistant integration touches `kepler` (LiteLLM / piper-openai /
-  whisper). When changing voice routing on the HA side, cross-check ports
-  and service names against `desktop-nixos/machines/kepler/` and
-  `docs/reference/kepler-ai-serving.md`.
-- See `memory/ha_voice_assistant.md` for locked decisions and the active
-  Phase-1 branch.
+- The former general Kepler voice/AI-serving stack was retired 2026-07-14.
+  `docs/reference/kepler-ai-serving.md` is historical. Current tool-caller work
+  is an act-nothing shadow proposal: HA keeps its incumbent response path,
+  mirrors bounded transcripts to an isolated Kepler runtime, and reaches the
+  candidate through a dedicated Discovery LiteLLM alias. See
+  `docs/proposals/2026-07-16-ha-shadow-runtime.md`.
 
 ### `klipper-biqu` — BIQU B1 printer config (Klipper + OrcaSlicer)
 
@@ -320,15 +328,17 @@ not absorbed.
   today. Touch it like `home-assistant-config`: it owns the app config, this
   flake owns the host OS.
 
-### `homelab-iac` — declarative UniFi network (OpenTofu + Terragrunt)
+### `homelab-iac` — declarative infrastructure control plane (OpenTofu + Terragrunt)
 
 - Lives at `~/Documents/erik/homelab-iac`. Reachable in-repo via
   `references/repos/homelab-iac`. Remote:
   `git@github.com:ErikBPF/homelab-iac.git`.
-- Source of truth for the **network the fleet lives on**: VLANs, WLANs, static
-  DNS, and **DHCP fixed-IP reservations** on the home UDM (`192.168.10.1`), via
-  the `filipowm/unifi` provider (Terragrunt units per stack, config under
-  `unifi/`). Two envs: `home` (live) and `lab` (stub).
+- Source of truth for the **network the fleet lives on**: UniFi VLANs/WLANs/
+  DHCP/static DNS, Tailscale, Cloudflare, AdGuard policy, and NetBird/PocketID.
+  It also owns selected infrastructure API resources such as GitHub repo
+  settings and LiteLLM model/credential registration. Components are isolated
+  under top-level Terragrunt directories; consult that repo's README before
+  choosing a component.
 - **Addressing contract** with this flake: the reservations there assign the
   IPs hosts use here — `kepler .230`, `homeassistant .115`, `archinaut .225`,
   `nix-erik .125`, … Change a host's IP in one repo → update the matching
@@ -343,10 +353,14 @@ not absorbed.
 - Lives at `~/Documents/erik/homelab-gitops`. Reachable via
   `references/repos/homelab-gitops`. **Not Nix** (prod-mimic, servarr-style repo).
 - Owns the **lab** env (D1): k8s workloads synced by Argo CD onto the kepler k3s
-  cluster, with ESO→Vault@discovery for secrets, in-cluster Prometheus/Grafana/
-  ingress/CoreDNS (D2 — lab is self-contained; only the *network* is shared).
-  Ephemeral experiments use **vcluster** (D3). Lab hostnames live here, not in the
-  fleet domains SSOT. See `memory/platform_gitops_repo.md`.
+  cluster. Current root app manages 11 children: Argo, Traefik, NFS CSI, ESO,
+  KSM, Alloy metrics, KEDA, Jaeger, OTel Collector, trace-demo, and demo.
+  ESO reads OpenBao@discovery; Traefik is the default ingress; telemetry
+  remote-writes to discovery. Harbor runs on discovery and in-cluster Vault was
+  retired, so neither is a current Argo app. Ephemeral experiments are assigned
+  to **vcluster** by D3, though no vcluster app is currently declared. Lab
+  hostnames live here, not in the fleet domains SSOT. See
+  `docs/reference/kepler-k3s-platform-status.md`.
 
 ### `hermes-skills` — hermes skill content
 
@@ -360,10 +374,10 @@ not absorbed.
 
 - Lives at `~/Documents/erik/kindle-dash`. Reachable via
   `references/repos/kindle-dash`. See `memory/kindle_dashboard.md`.
-- **Target state (D8, P4 — in progress):** standalone OSS project that owns its
+- **Implemented state (D8, P4):** standalone OSS project that owns its
   container **build + device scripts** and publishes the image (**GHCR** public +
   **Harbor** private, D7). Consuming stacks (servarr) only *reference* the pinned
-  digest + supply deploy config. Strip homelab-specific deploy glue out of it.
+  digest + supply deploy config.
 
 ### `opencode-flake` — opencode package + Home-Manager module
 
@@ -398,21 +412,36 @@ not absorbed.
 ### `ha-agent` — PT-BR Home Assistant tool-caller fine-tune
 
 - Lives at `~/Documents/erik/ha-agent`. Reachable via `references/repos/ha-agent`.
-- Trains a small offline **PT-BR tool-calling** model for HA voice commands
-  (lights, whole-house, forecast, escalate-to-reasoner, clarify/decline/noop).
-  The intended runtime home is the **kepler AI-serving** host behind LiteLLM,
-  as the fast local first-responder that escalates hard queries to the 35B —
-  the natural language backend for the HA voice-assistant (see
-  `docs/proposals/2026-07-02-home-assistant-ai-consolidation.md` and
-  `docs/reference/kepler-ai-serving.md`).
+- Owns the **PT-BR tool-calling** model, grammar, safety harness, shadow worker,
+  and evidence contracts for HA commands. The selected Qwen3-4B candidate is
+  not yet an authoritative responder: next milestone is an isolated,
+  act-nothing Kepler shadow runtime behind a dedicated Discovery LiteLLM alias.
+  Do not revive the retired general AI-serving stack; see
+  `docs/proposals/2026-07-16-ha-shadow-runtime.md`.
 - **Local-only, never pushed public:** the corpus embeds real home `entity_id`s.
   Secrets (LiteLLM/Kaggle keys) stay in a gitignored `.env`, not committed.
-- **Config/data + model repo — no flake input, no NixOS module** (today). Touch
-  it like `home-assistant-config`/`klipper-biqu`: it owns the model + corpus,
-  this flake owns the host that will serve it. Training runs on **orion** (RX
+- **Config/data + model/runtime-source repo — no flake input, no NixOS module**
+  today. It owns model + corpus + harness; `servarr` will own container
+  lifecycle, this flake owns host substrate, and `homelab-iac` owns the
+  LiteLLM alias/key. Training runs on **orion** (RX
   9070 XT, fp16 LoRA only — no bnb on gfx1201) and **Kaggle** (big models).
   Iterate-small-then-big loop + all training gotchas:
   `ha-agent/docs/LOOP-improve-4b.md` and `docs/RUNBOOK-corpus-and-train.md`.
+
+### `cosmo-notes` — private ESP32 voice-recorder firmware
+
+- Lives at `~/Documents/erik/cosmo-notes`. Reachable via
+  `references/repos/cosmo-notes`.
+- Owns Pala Note/Cosmo ESP32-S3 firmware, read-only proprietary baseline,
+  device UI/storage behavior, and outside-home transport runbook. Firmware is
+  implemented through v1.5; README/RFC status headers lag shipped commits, so
+  use firmware history and locked RFC decisions together.
+- **Private and non-redistributable:** derived from personal-use-only Pala Note
+  material. Never make public, publish firmware/source, or copy its proprietary
+  baseline into another repo.
+- Cross-repo boundary: `homelab-iac` owns Cloudflare Access/tunnel/DNS and
+  LiteLLM model/key resources; `servarr` owns Discovery firmware serving; this
+  flake declares only host substrate (currently Discovery's `firmware` stack).
 
 ### Coupling map
 
@@ -423,14 +452,14 @@ desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
 ├── inputs.opencode-flake → opencode pkg + HM module (FlakeHub); laptop dev env
 ├── inputs.codex-flake  → codex CLI pkg + HM module (FlakeHub); laptop dev env
 ├── k3s microvms (kepler) ← homelab-gitops syncs lab k8s workloads via Argo CD
-├── deploys / hosts     → kepler also serves HA voice backend
-│                         ↑
-│                         home-assistant-config (HA app config)
+├── deploys / hosts     → discovery hosts HAOS; home-assistant-config owns HA app config
 ├── archinaut host      → klipper-biqu owns /var/lib/klipper config (git source-of-truth)
 ├── kindle-dash         → standalone OSS image (GHCR+Harbor); servarr references it
-└── kepler AI serving   ← ha-agent trains the PT-BR HA tool-caller LiteLLM will front (local-only)
+├── ha-agent            → PT-BR HA tool-caller + safety harness; proposed act-nothing
+│                         shadow on kepler through Discovery LiteLLM (local-only)
+└── discovery firmware  ← cosmo-notes device firmware; edge/IaC owned by homelab-iac
 
-homelab-iac (UniFi network)  ← the substrate all the above run on:
+homelab-iac (infrastructure control plane) ← network/edge resources for the above:
   DHCP reservations pin every host's IP; static DNS pins service hostnames —
   both VENDOR desktop-nixos's fleet.json (D9 publish-and-pin), re-synced on a
   deliberate bump. desktop-nixos owns the hosts; homelab-iac owns the network.

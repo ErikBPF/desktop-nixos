@@ -9,7 +9,7 @@ servarr-style — **not** Nix-deployed). Pairs with the two design docs:
 (the workloads). Recipes in `justfile` remain the operational source of truth;
 this doc explains the shape and tracks what's left.
 
-Last updated: 2026-07-15.
+Last updated: 2026-07-17.
 
 ## Topology
 
@@ -149,11 +149,16 @@ OutOfSync while post-reboot controllers refresh.
 
 ### Needs user action
 
-- **Renovate** — enroll `homelab-gitops` (`.env` token).
 - **Branch protection** on `homelab-gitops`.
 - **etcd restore drill** — exercise a snapshot restore (destructive; explicit
   confirmation).
 - **k8up backup target** — pick where cluster backups land.
+
+### Done (2026-07-17)
+
+- **Dependency automation** — fleet Renovate is active. Helm and GitHub Actions
+  updates now use PRs gated by `helm template | kubeconform`; current chart
+  bumps have landed through that lane.
 
 ## Gotchas (learned the hard way)
 

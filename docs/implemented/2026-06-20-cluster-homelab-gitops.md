@@ -2,10 +2,12 @@
 
 **Date:** 2026-06-20
 **Status:** Implemented (2026-07-02 audit) — the skeleton became the live
-`homelab-gitops` sister repo: 14 Argo CD applications Synced+Healthy on the
-kepler k3s cluster (Argo self-managed, in-cluster Vault + ESO AppRole,
-csi-driver-nfs fast/slow, Traefik default IngressClass, Harbor, KEDA,
-Jaeger+OTel, kube-state-metrics/alloy-metrics, podinfo demo). As-built record:
+`homelab-gitops` sister repo. It reached 14 Argo CD applications during initial
+bring-up; Harbor then moved to Discovery and in-cluster Vault was replaced by
+OpenBao@Discovery. Current state is 11 child apps plus the root app (12 total):
+Argo self-management, ESO AppRole, csi-driver-nfs fast/slow, Traefik default
+IngressClass, KEDA, Jaeger+OTel, kube-state-metrics/alloy-metrics, and demos.
+As-built record:
 [`reference/kepler-k3s-platform-status.md`](../reference/kepler-k3s-platform-status.md).
 Remaining `TODO(erik)` items below are enhancements, not gaps: external-dns
 provider choice, Jaeger storage/dual-sink tracing, Harbor blob-storage policy
