@@ -2207,6 +2207,13 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
+# Re-render static OpenBao templates after a credential rotation.
+refresh-vault-agent target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" 'sudo systemctl restart vault-agent.service; sudo systemctl is-active vault-agent.service; for _ in $(seq 1 100); do sudo test -s /run/vault-agent/ha-harness.env && break; sleep 0.1; done; sudo test -s /run/vault-agent/ha-harness.env; sudo journalctl -u vault-agent.service --no-pager -n20; sudo awk -F= '"'"'$1 == "LITELLM_API_KEY" {print $2}'"'"' /run/vault-agent/ha-harness.env | sha256sum | sed "s/ .*$/  ha-harness LITELLM_API_KEY/"'
+
 # Permanently remove the seven disposable AI containers, their seven exact
 # images, and /fast/ai-models. The helper re-inventories and fails closed.
 kepler-retire-ai-serving-user-approved:

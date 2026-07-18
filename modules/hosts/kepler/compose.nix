@@ -14,8 +14,7 @@ _: {
         "infra"
         "whisper-gpu"
         "docs-search"
-        "whisper-gpu"
-        "parakeet-gpu"
+        "qwen4b-gpu"
       ];
     };
   };
