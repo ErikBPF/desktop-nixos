@@ -37,18 +37,19 @@ _: {
         # the switch broke the interface/routing/uplink but sshd/tailscaled stay
         # "active", so the loop above misses it and the host silently locks out
         # (the exact failure class deploy-rs magic rollback catches and this
-        # module previously did not). Ping the default gateway; roll back only if
-        # it stays unreachable across retries, to tolerate a transient blip while
-        # networking re-settles after activation.
+        # module previously did not). Probe the UniFi gateway's HTTPS listener;
+        # it deliberately rejects ICMP on some hosts, making ping a permanent
+        # false failure. Roll back only if TCP/443 stays unreachable across
+        # retries, tolerating a transient blip while networking re-settles.
         gw="$(${pkgs.iproute2}/bin/ip route show default | ${pkgs.gawk}/bin/awk '/default/{print $3; exit}')"
         if [ -n "$gw" ]; then
           reachable=0
           for _ in 1 2 3 4 5 6; do
-            if ${pkgs.iputils}/bin/ping -c1 -W2 "$gw" >/dev/null 2>&1; then reachable=1; break; fi
+            if ${pkgs.coreutils}/bin/timeout 2 ${pkgs.bash}/bin/bash -c "exec 3<>/dev/tcp/$gw/443"; then reachable=1; break; fi
             sleep 5
           done
           if [ "$reachable" -ne 1 ]; then
-            echo "HEALTH CHECK: default gateway $gw unreachable after upgrade — rolling back" >&2
+            echo "HEALTH CHECK: default gateway $gw TCP/443 unreachable after upgrade — rolling back" >&2
             ${pkgs.nix}/bin/nix-env --profile /nix/var/nix/profiles/system --rollback
             /nix/var/nix/profiles/system/bin/switch-to-configuration switch
             exit 1
