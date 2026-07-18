@@ -134,6 +134,7 @@
       description = "Quest KACE AMP WatchDog";
       after = ["ampagent.service"];
       wants = ["ampagent.service"];
+      path = [pkgs.nettools];
 
       serviceConfig = {
         Type = "oneshot";
