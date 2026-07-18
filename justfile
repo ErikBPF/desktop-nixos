@@ -2105,6 +2105,90 @@ sync-hermes-skills target:
         "$SRC/" \
         "erik@$IP:/home/erik/hermes-skills/"
 
+# List current Grafana alert instances. Credentials stay inside the remote shell;
+# output contains only alert state, labels, and annotations.
+grafana-alert-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      user=$(docker exec grafana printenv GF_SECURITY_ADMIN_USER)
+      password=$(docker exec grafana printenv GF_SECURITY_ADMIN_PASSWORD)
+      grafana_ip=$(docker inspect -f "{{"{{"}}range .NetworkSettings.Networks{{"}}"}}{{"{{"}}.IPAddress{{"}}"}}{{"{{"}}end{{"}}"}}" grafana)
+      curl -fsS --user "$user:$password" \
+        "http://$grafana_ip:3000/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false"
+    ' | jq -r '
+      if length == 0 then
+        "active=0"
+      else
+        "active=\(length)",
+        (.[] | [
+          (.status.state // "active"),
+          (.labels.severity // "unknown"),
+          (.labels.alertname // "unnamed"),
+          (.labels.instance // "-"),
+          (.annotations.summary // "-")
+        ] | @tsv)
+      end
+    '
+
+# Read recent systemd status and journal for the failed-unit alert allowlist.
+grafana-alert-diagnostics:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    diagnose() {
+      local host=$1 unit=$2
+      echo ":: $host — $unit"
+      if [ "$(hostname)" = "$host" ]; then
+        systemctl status "$unit" --no-pager -l || true
+        journalctl -u "$unit" -n 80 --no-pager || true
+      else
+        local ip
+        ip="$(jq -r --arg host "$host" '.hosts[$host].tailscaleIp // empty' fleet.json)"
+        [ -n "$ip" ] || ip="$(just _host-ip "$host")"
+        ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" \
+          "systemctl status '$unit' --no-pager -l || true; journalctl -u '$unit' -n 80 --no-pager || true" \
+          || true
+      fi
+    }
+    diagnose endeavour ampagent-watchdog.service
+    diagnose orion nixos-upgrade.service
+    diagnose discovery telstar-capture.service
+    diagnose discovery homelab-iac-drift.service
+
+# Identify the process killed by the kernel OOM detector on Discovery.
+grafana-alert-oom-diagnostics:
+    ip="$(jq -r '.hosts.discovery.tailscaleIp // empty' fleet.json)"; \
+    [ -n "$ip" ] || ip="$(just _host-ip discovery)"; \
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" \
+      "journalctl -k --since '-20 minutes' --no-pager | grep -Ei 'oom|out of memory|killed process' || true"
+
+# Clear or retry only the units covered by grafana-alert-diagnostics.
+grafana-alert-retry target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+      endeavour) host=endeavour; unit=ampagent-watchdog.service; action=start ;;
+      orion) host=orion; unit=nixos-upgrade.service; action=reset ;;
+      discovery-telstar) host=discovery; unit=telstar-capture.service; action=start-no-block ;;
+      discovery-drift) host=discovery; unit=homelab-iac-drift.service; action=recover-drift ;;
+      *) echo "target must be endeavour, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
+    esac
+    command="sudo systemctl reset-failed '$unit'"
+    [ "$action" = start ] && command="$command && sudo systemctl start '$unit'"
+    [ "$action" = start-no-block ] && command="$command && sudo systemctl start --no-block '$unit'"
+    if [ "$action" = recover-drift ]; then
+      command="cd /home/erik/homelab-iac && checkout_state=\$(git status --porcelain); unexpected=\$(printf '%s\n' \"\$checkout_state\" | grep -vE '^\?\? .*/\.terraform\.lock\.hcl$' || true); if [ -n \"\$unexpected\" ]; then echo 'refusing recovery: unexpected checkout changes' >&2; exit 1; elif [ -n \"\$checkout_state\" ]; then git stash push --include-untracked -m grafana-alert-recovery -- ':(glob)**/.terraform.lock.hcl'; fi; $command && sudo systemctl start '$unit'"
+    fi
+    if [ "$(hostname)" = "$host" ]; then
+      bash -c "$command"
+    else
+      ip="$(jq -r --arg host "$host" '.hosts[$host].tailscaleIp // empty' fleet.json)"
+      [ -n "$ip" ] || ip="$(just _host-ip "$host")"
+      ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" "$command"
+    fi
+
 # After pulling, kick the compose stack on the remote host:
 #   just kick-stack kepler ai-serving
 kick-stack target stack:

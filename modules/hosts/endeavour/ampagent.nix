@@ -49,6 +49,8 @@
     systemd.tmpfiles.rules = [
       "d /var/quest/kace 0755 root root -"
       "d /var/quest/kace/user 0777 root root -"
+      "d /opt/quest/kace 0755 root root -"
+      "L+ /opt/quest/kace/bin - - - - ${ampagent}/bin"
       "d /usr/local/share/ca-certificates 0755 root root -"
     ];
 

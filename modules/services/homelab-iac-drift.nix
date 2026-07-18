@@ -58,6 +58,24 @@ _: {
           ~/.ssh/id_ed25519.pub).
         '';
       };
+
+      ociConsoleSshPubKeyFile = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Path to the RSA SSH public key used by OCI serial console connections.";
+      };
+
+      litellmContainer = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Local container whose LITELLM_MASTER_KEY authenticates LiteLLM provider plans.";
+      };
+
+      litellmApiBase = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Optional LiteLLM provider API endpoint; empty discovers the container IP.";
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -82,6 +100,8 @@ _: {
           curl
           jq
           git
+          openssh
+          docker
           gnugrep
           gnused
           coreutils
@@ -98,6 +118,9 @@ _: {
           }
           // lib.optionalAttrs (cfg.ociSshPubKeyFile != "") {
             OCI_SSH_PUBKEY_FILE = cfg.ociSshPubKeyFile;
+          }
+          // lib.optionalAttrs (cfg.ociConsoleSshPubKeyFile != "") {
+            OCI_CONSOLE_PUBKEY_FILE = cfg.ociConsoleSshPubKeyFile;
           };
 
         serviceConfig = {
@@ -111,10 +134,26 @@ _: {
           # export via `set -a`. Plaintext stays in a pipe — never on disk.
           ExecStart = pkgs.writeShellScript "homelab-iac-drift" ''
             cd ${lib.escapeShellArg cfg.repoPath}
+            # Refresh first so newly encrypted credentials are available to
+            # this invocation instead of only the next scheduled run.
+            ${pkgs.git}/bin/git pull --ff-only
             # Read the Discord webhook from its secret file (kept out of the Nix
             # store / process env baked at eval). drift-check.sh alerts if set.
             ${lib.optionalString (cfg.discordWebhookFile != "") ''
               [ -r ${lib.escapeShellArg cfg.discordWebhookFile} ] && export DISCORD_WEBHOOK_URL="$(cat ${lib.escapeShellArg cfg.discordWebhookFile})"
+            ''}
+            ${lib.optionalString (cfg.litellmContainer != "") ''
+              litellm_api_base=${lib.escapeShellArg cfg.litellmApiBase}
+              if [ -z "$litellm_api_base" ]; then
+                litellm_ip="$(${pkgs.docker}/bin/docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${lib.escapeShellArg cfg.litellmContainer})"
+                [ -n "$litellm_ip" ] || {
+                  echo "homelab-iac: unable to discover LiteLLM container IP" >&2
+                  exit 1
+                }
+                litellm_api_base="http://$litellm_ip:4000"
+              fi
+              export LITELLM_API_BASE="$litellm_api_base"
+              export LITELLM_API_KEY="$(${pkgs.docker}/bin/docker exec ${lib.escapeShellArg cfg.litellmContainer} printenv LITELLM_MASTER_KEY)"
             ''}
             # Load each KEY=value via a quoted export (no shell-eval of values,
             # so spaces/metacharacters in PSKs/passphrases survive intact).
@@ -124,7 +163,13 @@ _: {
             # (base64decode then fails and the oracle units error out).
             while IFS= read -r line; do
               case "$line" in ""|"#"*) continue ;; esac
-              export "''${line%%=*}=''${line#*=}"
+              key="''${line%%=*}"
+              value="''${line#*=}"
+              value="''${value%\"}"
+              value="''${value#\"}"
+              value="''${value%\'}"
+              value="''${value#\'}"
+              export "$key=$value"
             done < <(${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops)
             exec bash bin/drift-check.sh
           '';

@@ -113,6 +113,8 @@ in {
       # back to ~/.ssh/id_ed25519.pub (absent here) and fail the whole run.
       # This is the laptop pubkey (== the key in OCI state), copied here.
       ociSshPubKeyFile = "/home/${config.username}/telstar-ssh-key.pub";
+      ociConsoleSshPubKeyFile = "${./oci-console-rsa.pub}";
+      litellmContainer = "litellm";
     };
 
     # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.
