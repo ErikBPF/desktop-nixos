@@ -32,6 +32,7 @@ in {
           53 # DNS
           80 # HTTP
           443 # HTTPS
+          8091 # HA harness dry-run API (bearer-authenticated)
           22000 # syncthing
           32400 # Plex Media Server
         ];

@@ -15,6 +15,7 @@ _: {
         homepage = ["shared-arr" "shared-grafana"];
         "media-server" = ["media-server" "shared-db"];
         "ai-serving" = ["ai-serving" "shared-db"];
+        "ha-harness" = ["ha-harness"];
         infra = ["shared-db"];
       };
       stacks = [
@@ -29,6 +30,7 @@ _: {
         "homepage" # homepage dashboard
         "tunneling" # cloudflare tunnels
         "ai-serving" # ai inference stack
+        "ha-harness" # HA Qwen tool-caller dry-run; no HA dispatch credential
         "dockhand" # dockhand container updater
         "firmware" # static OTA firmware host (cosmo-notes), LAN-only via SWAG
         "kindle-dash" # e-ink dashboard renderer
