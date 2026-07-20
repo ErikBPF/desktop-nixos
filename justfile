@@ -2207,8 +2207,8 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
-# Exercise the deployed HA harness through its Vault-backed LiteLLM route.
-# The request is read-only and the runtime remains dry-run.
+# Exercise the deployed authoritative HA harness through its Vault-backed LiteLLM route.
+# The synthetic request is read-only and cannot change HA state.
 verify-ha-harness-model target="discovery":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -2219,13 +2219,14 @@ verify-ha-harness-model target="discovery":
     source /run/vault-agent/ha-harness.env
     set +a
     payload='{
-      "transcript": "qual é o estado da luz da parede do escritório",
+      "transcript": "qual o estado das luzes do escritório?",
       "room": "escritorio",
       "area_aliases": ["Escritório"],
-      "manifest_sha256": "285e119ff6eea5713581877cc1a1262cac55923af8727329f42c4f340678fd03",
-      "manifest_source_sha256": "b2461d55a11c6980497019b6914e261480cd346a75440a97b3603e65de633469",
+      "manifest_sha256": "ffd6bd177ebd3609ffc455189f3b288c75bb27e5d9e907a2099b1c99819b2cd3",
+      "manifest_source_sha256": "0c8a6ccce770e4d60bdb79d2a939e87e6fc14c0b9c7a1df01e7fd4185c9e8e94",
       "entities": [{
         "entity_id": "switch.interruptor_escritorio_l2",
+        "state": "off",
         "display_name": "Parede do escritório",
         "voice_name": "Parede do escritório",
         "area_id": "escritorio",
@@ -2244,9 +2245,14 @@ verify-ha-harness-model target="discovery":
         --data "$payload" \
         http://127.0.0.1:8091/v1/decide
     )"
-    jq -e '.decision and (.calls | type == "array") and (.issues | type == "array")' \
+    jq -c '{decision, response, calls, issues}' <<<"$response"
+    jq -e '
+      .decision == "execute"
+      and .calls == [{"name":"HassGetState","arguments":{"area":"escritório","domain":"switch"}}]
+      and (.response | contains("desligada"))
+      and (.issues | type == "array")
+    ' \
       <<<"$response" >/dev/null
-    jq -c '{decision, calls, issues}' <<<"$response"
     REMOTE
 
 # Re-render static OpenBao templates after a credential rotation.
