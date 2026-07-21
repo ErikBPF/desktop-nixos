@@ -64,6 +64,17 @@ in {
       inputs.hermes-flake.nixosModules.hermes-agent-oci-argus
     ];
 
+    assertions = [
+      {
+        assertion = builtins.match "^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$" config.services.hermes-agent-oci-daedalus.image != null;
+        message = "Discovery Daedalus Hermes image must use an immutable sha256 digest";
+      }
+      {
+        assertion = builtins.match "^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$" config.services.hermes-agent-oci-argus.image != null;
+        message = "Discovery Argus Hermes image must use an immutable sha256 digest";
+      }
+    ];
+
     sops.secrets."hermes_agents/daedalus_env" = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
       key = "hermes_agents/daedalus_env";
@@ -81,7 +92,7 @@ in {
 
     services.hermes-agent-oci-daedalus = {
       enable = true;
-      image = "nousresearch/hermes-agent:latest";
+      image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-daedalus";
       environmentFile = config.sops.secrets."hermes_agents/daedalus_env".path;
       openBindAddress = "0.0.0.0";
@@ -131,7 +142,7 @@ in {
 
     services.hermes-agent-oci-argus = {
       enable = true;
-      image = "nousresearch/hermes-agent:latest";
+      image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-argus";
       environmentFile = config.sops.secrets."hermes_agents/argus_env".path;
       openBindAddress = "0.0.0.0";
