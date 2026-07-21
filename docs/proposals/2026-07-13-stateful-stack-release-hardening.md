@@ -10,6 +10,12 @@ preflight, P3 implementation/outage proof, then separately approved P2
 mutation. This proposal remains authoritative for architecture and acceptance
 criteria; the merged execution plan is authoritative for rollout order.
 
+**SecretSpec authority update (2026-07-21):** Discovery SecretSpec scope,
+ordering, and status now live in Servarr's
+[`machines/discovery/secretspec-inventory.md`](https://github.com/ErikBPF/servarr/blob/d88f5ab11e7723d7ff605f35856819307b245194/machines/discovery/secretspec-inventory.md).
+This proposal retains the architecture and historical acceptance evidence; it
+does not define future Discovery SecretSpec profiles.
+
 ## 1. Summary
 
 Make discovery's stateful Compose stacks and the kindle-dash release path safe

@@ -1,5 +1,20 @@
 _: {
-  flake.modules.nixos.packages-desktop = {pkgs, ...}: {
+  flake.modules.nixos.packages-desktop = {pkgs, ...}: let
+    bottlesForFusion = pkgs.bottles.override {
+      removeWarningPopup = true;
+      bottles-unwrapped = pkgs.bottles-unwrapped.override {
+        python3Packages = pkgs.python3Packages.overrideScope (
+          _final: prev: {
+            # patool 4.0.5 MIME tests fail with current file/bzip2 output.
+            patool = prev.patool.overrideAttrs {
+              doCheck = false;
+              doInstallCheck = false;
+            };
+          }
+        );
+      };
+    };
+  in {
     # Auto-start Cloudflare WARP daemon (warp-svc.service ships with the package).
     systemd.packages = [pkgs.cloudflare-warp];
     systemd.services.warp-svc.wantedBy = ["multi-user.target"];
@@ -101,6 +116,7 @@ _: {
       # --- CAD / EDA (TPS43 touchpad mount + PCB work) ---
       kicad # EDA suite
       openscad # parametric .scad mounts
+      bottlesForFusion # Wine prefixes for unsupported Windows CAD apps (Fusion 360)
       # freecad — TEMPORARILY REMOVED 2026-07-12: build broken on the current
       # nixpkgs (gdal-minimal/pdal/vtk chain fails). Re-enable once upstream fixes.
       # freecad # gen_step.py STEP export (import FreeCAD, Part)

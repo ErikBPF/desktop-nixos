@@ -27,6 +27,11 @@ document must be corrected.
 Leaf repositories land first. Consumers and host orchestration follow only
 after the leaf commit is published and pinned.
 
+Discovery SecretSpec rollout is now tracked independently in Servarr's
+[`machines/discovery/secretspec-inventory.md`](https://github.com/ErikBPF/servarr/blob/d88f5ab11e7723d7ff605f35856819307b245194/machines/discovery/secretspec-inventory.md).
+This execution plan retains K0 and P1 evidence only; its P2–P9 phases do not
+authorize or order additional SecretSpec profiles.
+
 The merged order is `P0 → K0–K5 → P1 → P2 read-only → P3 → P2 mutation → P4–P9`.
 P3 is advanced only as the secondary-DNS safety interlock required by P2; its
 behavior and test contract define the boundary. Kepler and Discovery live mutations
