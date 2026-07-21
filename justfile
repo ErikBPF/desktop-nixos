@@ -4417,7 +4417,7 @@ provision-kindle-release-reporting:
         --arg private_key_b64 "$KINDLE_RELEASE_PRIVATE_KEY_B64" \
         '{data:{app_id:($app_id|tonumber),installation_id:($installation_id|tonumber),private_key_b64:$private_key_b64}}'
     } | base64 -w0)"
-    policy_payload="$(jq -cn --arg policy $'path "secret/data/shared/discord" { capabilities = ["read"] }\npath "secret/data/shared/kindle-release" { capabilities = ["read"] }' '{policy:$policy}' | base64 -w0)"
+    policy_payload="$(jq -cn --arg policy $'path "secret/data/shared/kindle-release" { capabilities = ["read"] }' '{policy:$policy}' | base64 -w0)"
     unset KINDLE_RELEASE_APP_ID KINDLE_RELEASE_INSTALLATION_ID KINDLE_RELEASE_PRIVATE_KEY_B64
     token="$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)"
     printf '%s\n%s\n%s\n' "$token" "$policy_payload" "$payload" | ssh -p 2222 erik@{{ip_discovery}} '
@@ -4434,12 +4434,23 @@ provision-kindle-release-reporting:
       printf "%s" "$policy_payload" | base64 --decode > "$body"
       unset policy_payload
       curl --header @"$header" --silent --show-error --fail --request PUT \
-        --data-binary @"$body" http://127.0.0.1:8200/v1/sys/policies/acl/discord-read
+        --data-binary @"$body" http://127.0.0.1:8200/v1/sys/policies/acl/kindle-release-read
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/auth/approle/role/vault-agent > "$body"
+      role_payload="$(jq -c "
+        .data.token_policies
+        | if index(\"kindle-release-read\") then . else . + [\"kindle-release-read\"] end
+        | {token_policies:.}
+      " "$body")"
+      printf "%s" "$role_payload" > "$body"
+      unset role_payload
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$body" http://127.0.0.1:8200/v1/auth/approle/role/vault-agent
       printf "%s" "$payload" | base64 --decode > "$body"
       unset payload
       curl --header @"$header" --silent --show-error --fail --request POST \
         --data-binary @"$body" http://127.0.0.1:8200/v1/secret/data/shared/kindle-release
-      echo "kindle_release_reporting=provisioned policy=discord-read"
+      echo "kindle_release_reporting=provisioned policy=kindle-release-read"
     '
 
 diagnose-kindle-claude-usage:
