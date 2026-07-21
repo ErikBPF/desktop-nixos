@@ -54,12 +54,11 @@ deterministic rather than model-discretion.
   instead of inferred from request dumps. *(§9.3.)*
 
 ## P5 — Reproducibility / correctness
-- **Pin the OCI image digest.** `nousresearch/hermes-agent:latest` is not
-  auto-repulled under oci-containers → neither reproducible nor auto-upgrading.
-  Pin a `@sha256:` digest, bump deliberately. *(§8 open risk.)*
-- **`enableHealthcheck` is a no-op on the OCI path** — `hermes-flake/nixos/oci.nix`
-  never imports `healthcheck.nix`. Either wire it or drop the option (it lies).
-  → upstream `hermes-flake` fix. *(§9.4.)*
+**Completed 2026-07-21.** Discovery's three Hermes containers pin
+`nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019`.
+`hermes-flake` 0.2.44 wires `enableHealthcheck` to systemd timers and resolves
+the container bridge IP when ports are unpublished. Deployment and one full
+timer cycle passed with all containers running and no failed units.
 
 ## P6 — Memory architecture: agentmemory "unified approach"
 The richer long-term design (parked): re-integrate agentmemory as the
