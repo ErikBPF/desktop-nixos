@@ -1,0 +1,134 @@
+{
+  "names": [
+    "CLICKHOUSE_PASSWORD",
+    "CLOUDFLARE_API_TOKEN",
+    "CLOUDFLARE_TUNNEL_TOKEN",
+    "DISCORD_WEBHOOK_DEPLOYS",
+    "DISCORD_WEBHOOK_INCIDENTS",
+    "GRAFANA_ADMIN_PASSWORD",
+    "GRAFANA_ADMIN_USER",
+    "GRAFANA_SECRET_KEY",
+    "HARBOR_ADMIN_PASSWORD",
+    "HARBOR_DB_PASSWORD",
+    "HARBOR_ROBOT_SECRET",
+    "HARBOR_ROBOT_USER",
+    "HA_HARNESS_TOKEN",
+    "HEALTHCHECKS_SECRET_KEY",
+    "HEALTHCHECKS_SUPERUSER_PASSWORD",
+    "JELLYSTAT_JWT_SECRET",
+    "LANGFUSE_INIT_USER_PASSWORD",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_SALT",
+    "LANGFUSE_SECRET_KEY",
+    "LIDARR_API_KEY",
+    "LITELLM_API_KEY",
+    "LITELLM_SALT_KEY",
+    "MINIO_ROOT_PASSWORD",
+    "NORDVPN_PASSWORD",
+    "NORDVPN_USER",
+    "OPENCODE_GO_KEY",
+    "POSTGRES_PASSWORD",
+    "QBITTORRENT_PASSWORD",
+    "QBITTORRENT_USER",
+    "RADARR_API_KEY",
+    "REDIS_PASSWORD",
+    "SCRUTINY_INFLUXDB_PASSWORD",
+    "SCRUTINY_INFLUXDB_TOKEN",
+    "SCRUTINY_NOTIFY_URLS",
+    "SEARXNG_SECRET_KEY",
+    "SONARR_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "UI_PASSWORD",
+    "WEBHOOK_GRAFANA_ALERTS_SECRET"
+  ],
+  "owner": "desktop-nixos",
+  "renders": [
+    {
+      "destination": "/run/vault-agent/discord.env",
+      "names": [
+        "DISCORD_WEBHOOK_DEPLOYS",
+        "DISCORD_WEBHOOK_INCIDENTS",
+        "SCRUTINY_NOTIFY_URLS",
+        "WEBHOOK_GRAFANA_ALERTS_SECRET"
+      ]
+    },
+    {
+      "destination": "/run/vault-agent/tunneling.env",
+      "names": ["CLOUDFLARE_TUNNEL_TOKEN"]
+    },
+    {
+      "destination": "/run/vault-agent/monitoring.env",
+      "names": [
+        "GRAFANA_SECRET_KEY",
+        "HEALTHCHECKS_SECRET_KEY",
+        "HEALTHCHECKS_SUPERUSER_PASSWORD",
+        "SCRUTINY_INFLUXDB_PASSWORD",
+        "SCRUTINY_INFLUXDB_TOKEN",
+        "TELEGRAM_BOT_TOKEN"
+      ]
+    },
+    {
+      "destination": "/run/vault-agent/shared-db.env",
+      "names": ["POSTGRES_PASSWORD", "REDIS_PASSWORD"]
+    },
+    {
+      "destination": "/run/vault-agent/shared-arr.env",
+      "names": ["LIDARR_API_KEY", "RADARR_API_KEY", "SONARR_API_KEY"]
+    },
+    {
+      "destination": "/run/vault-agent/shared-grafana.env",
+      "names": ["GRAFANA_ADMIN_PASSWORD", "GRAFANA_ADMIN_USER"]
+    },
+    {
+      "destination": "/run/vault-agent/media-server.env",
+      "names": ["JELLYSTAT_JWT_SECRET"]
+    },
+    {
+      "destination": "/run/vault-agent/tools.env",
+      "names": ["SEARXNG_SECRET_KEY"]
+    },
+    {
+      "destination": "/run/vault-agent/media.env",
+      "names": [
+        "NORDVPN_PASSWORD",
+        "NORDVPN_USER",
+        "QBITTORRENT_PASSWORD",
+        "QBITTORRENT_USER"
+      ]
+    },
+    {
+      "destination": "/run/vault-agent/ai-serving.env",
+      "names": [
+        "CLICKHOUSE_PASSWORD",
+        "LANGFUSE_INIT_USER_PASSWORD",
+        "LANGFUSE_PUBLIC_KEY",
+        "LANGFUSE_SALT",
+        "LANGFUSE_SECRET_KEY",
+        "LITELLM_SALT_KEY",
+        "MINIO_ROOT_PASSWORD",
+        "OPENCODE_GO_KEY",
+        "UI_PASSWORD"
+      ]
+    },
+    {
+      "destination": "/run/vault-agent/networking.env",
+      "names": ["CLOUDFLARE_API_TOKEN"]
+    },
+    {
+      "destination": "/run/vault-agent/harbor.env",
+      "names": [
+        "HARBOR_ADMIN_PASSWORD",
+        "HARBOR_DB_PASSWORD",
+        "HARBOR_ROBOT_SECRET",
+        "HARBOR_ROBOT_USER"
+      ]
+    },
+    {
+      "destination": "/run/vault-agent/ha-harness.env",
+      "names": ["HA_HARNESS_TOKEN", "LITELLM_API_KEY"]
+    }
+  ],
+  "schema_version": 1,
+  "source": "modules/hosts/discovery/vault.nix",
+  "source_sha256": "7a583e3e81ca8df927d5e37d140d3e57fb3cdd7b412a9104bac20f318ee3c42e"
+}
