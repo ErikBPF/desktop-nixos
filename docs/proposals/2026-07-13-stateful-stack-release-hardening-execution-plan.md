@@ -1,8 +1,9 @@
 # Stateful stack release hardening — execution plan
 
 **Status:** In progress — P0, Kepler recovery, Discovery P1 SWAG adoption, P2
-AdGuard in-place adoption, and P3 secondary-DNS outage proof are complete. P4
-full AdGuard Terraform ownership is the active gate.
+AdGuard in-place adoption, P3 secondary-DNS outage proof, and P4 full AdGuard
+Terraform ownership, P5 canonical-volume migration, and P6 kindle-dash
+protected automatic releases are complete. P7 is active.
 
 ## 1. Purpose and authority
 
@@ -219,8 +220,18 @@ At K0 completion:
 - P4: `gmichels/adguard` `v1.7.0` previously failed an update with DHCP
   disabled. A disposable lifecycle proof or provider fix is required. The IaC
   repository also contains unrelated dirty work that must be isolated.
-- P5: empty `discovery_adguard_work` already collides with the canonical name.
-  It cannot be reused or deleted without proof and explicit approval.
+- P5: complete 2026-07-19. The approved empty collision
+  `discovery_adguard_work` was deleted after revalidating zero references,
+  entries, and bytes. Servarr commit
+  `eaa1f4f79305009356bcba3f87560f09d2c1fdd5` declares
+  `discovery-adguard-work`. Migration ledger, read-only Btrfs snapshot, and
+  checksum-verified 3.25 GB archive were retained; archive restore matched
+  byte/metadata state before recreation. Pre- and post-reboot probes proved the
+  canonical mount, healthy zero-restart containers, external and rewrite DNS,
+  exporter metrics, and readable archive. Legacy `networking_adguard_work`
+  remains unreferenced and retained for rollback. Discovery returned shortly
+  after the reboot recipe's 240-second timeout; subsequent host verification
+  showed no failed units and all P5 probes passed.
 - P6: kindle-dash `main` is unprotected; releases are tag-only and unsigned;
   no scoped GitHub App credentials exist for verified servarr pin PRs.
 
@@ -654,7 +665,7 @@ object during an unrelated update; no apply completed and the failed saved plan
 was retired. This converted the previously suspected provider limitation into a
 reproduced production-shape defect.
 
-The provider ownership decision is now to maintain the public
+The provider ownership decision was to maintain the public
 `ErikBPF/terraform-provider-adguardhome` fork rather than preserve a permanent
 dummy-DHCP workaround. Provider commit `57a447c` rebrands the Registry address
 and resource prefix, retains upstream MIT history, fixes disabled-DHCP writes,
@@ -664,10 +675,18 @@ release, checksum, SBOM, and provenance workflows. Unit/race/vet/build,
 generated documentation, workflow lint, and an unsigned multi-platform
 GoReleaser snapshot passed. The accepted v1 direction is one resource per real
 AdGuard API concern; v0.1 retains compatible schemas under the new
-`adguardhome_*` prefix for safe adoption first. The remaining gate is GPG-backed
-`v0.1.0` publication and Registry onboarding, followed by explicit encrypted
-state provider/address migration, a fresh saved plan, smoke tests, a second
-no-op plan, and state-passphrase rotation. YAML has not been removed.
+`adguardhome_*` prefix for safe adoption first.
+
+P4 completed on 2026-07-19. Homelab-IaC `ff5e633` adopted the owned Registry
+provider, `369f0d5` pinned signed release `0.1.8`, and `1b91cab` migrated
+filtering state. The production config singleton was already migrated. From a
+wired LAN client, the disposable lifecycle passed and both `adguard/config`
+and `adguard/filtering` refreshed to zero-change plans. The first config plan
+exposed an unrelated stale networking stack: primary DNS timed out while the
+Kepler secondary answered. Recovery used `just kick-stack discovery
+networking`; primary/secondary fleet resolution and MinIO backend health then
+passed. No production apply was needed because both saved plans were no-op.
+Provider-unsupported bootstrap/runtime fields remain Servarr-owned.
 
 #### Provider admission
 
@@ -707,6 +726,40 @@ no-op plan, and state-passphrase rotation. YAML has not been removed.
 7. Retain `networking_adguard_work` and all protection.
 
 ### P6 — kindle-dash protected automatic releases
+
+**Status 2026-07-19:** protected publication, verified consumer pin, exact
+Harbor mirror, and managed Discovery deployment are complete. Kindle-dash run
+`29705578290` published and verified `v0.3.2` at
+`sha256:0776e18e4f2097ade4872b63e507d482430a20c855dfebb95bb3834906df00a3`.
+The narrow `erikbpf-kindle-release` GitHub App created Servarr PR `#52`; after
+its installation gained read-only Actions permission, the App identity read
+all eight green checks and merged the PR. Servarr PR `#53` (`c6b6b32`) then
+locked complete OCI-index copying with Skopeo `--all --preserve-digests`.
+
+Discovery receives the project-scoped Harbor robot only through the root-only
+Vault Agent render. `cosign` verified the exact protected-main workflow
+identity; Harbor preserved the complete source index digest. The host reset to
+merged Servarr `main`, recreated `podman-compose-kindle-dash`, and passed the
+fixed gates: expected running digest, Compose owner `kindle-dash`, external
+`discovery_kindle_dash_data` mounted at `/data`, healthy container, and valid
+PNG. No administrator or personal credential was used.
+
+**Status 2026-07-21:** P6 is complete. The fixed pull-based release agent
+promoted signed `v0.3.4` at
+`sha256:2f06bcf3bcb3405a77cd4e5a22434d60cdf87f703b574103c0db8a4611abc182`
+from merged Servarr commit `62e22346bd87bce26f6afec036e3fe4e40407d88`.
+Its enabled timer triggered unattended at 13:01:49 -03 and exited successfully;
+the container remained healthy with the expected external data volume and a
+valid PNG.
+
+The v0.3.3 controlled post-recreate failure drill restored the previous pin
+and image without replacing the data volume. Phase-interruption fixtures prove
+resume only after revalidation. A revoked provider credential produced only
+`external-reporting-unavailable`, left the running stack untouched, and cleared
+after credential recovery. Atomic state, systemd status, node-exporter metrics,
+GitHub checks, and Discord reporting carry the same release snapshot. The
+agent's 91 deterministic tests cover promotion, rollback, resume, degraded
+reporting, and fixed-input boundaries.
 
 #### Tests and release semantics
 
@@ -812,11 +865,10 @@ Stop and request only the narrow missing authority for:
 - unapproved GitHub branch-protection/repository-setting changes;
 - ambiguous ownership or missing/failed backup.
 
-The current active gate is P4: prove the AdGuard provider lifecycle against a
-disposable target before expanding Terraform ownership beyond the existing
-rewrites, user rules, and filters. P2 did not authorize deletion of bind state,
-volumes, snapshots, backups, failed journals, P0 fixtures, P1 evidence, or
-legacy resources.
+The current active gate is P7: create per-service ledgers and migrate the
+remaining stateful stacks. P6 did not authorize deletion of bind state, volumes,
+snapshots, backups, failed journals, P0 fixtures, P1 evidence, or legacy
+resources.
 
 ## 8. Completion ledger
 
@@ -829,10 +881,10 @@ legacy resources.
 | P1 | Complete | Servarr `b676063`; amendment `94781f28…` passed, idempotent, and passed after reboot; desktop `e167be6`; host and SWAG persistence gates | P9 retained-evidence cleanup only |
 | P2 | Complete with approved practical recovery deviation | Servarr `9969e35`; transition passed backup/restore, recreate, 15-minute observation, and smoke; terminal bookkeeping failure retained; normal pull/recreate recovery; final inventory `f63ab37f…` | P9 retained-evidence cleanup only |
 | P3 | Complete | Desktop through `8eb1212`; approved manifest `d5cf3b59…`: core 24/24 in 1,639 ms, allowed 7-row gateway diagnostic, exact-ID recovery attempt 1, post-restore 37 rows complete, exporter 3/3, namespace removed | P9 retained-evidence cleanup only |
-| P4 | In progress | Homelab-IaC `fdf4d80`, `e5b2d00`, `57b2e78`, `7e00e90`; singleton imported; stock apply failed closed; own provider `57a447c` tested and pushed | Publish/register provider v0.1; migrate state; saved-plan apply; no-op plan; rotate passphrase; YAML overlap removal |
-| P5 | Pending | Collision inventory | P4; collision resolution |
-| P6 | Pending | Read-only release audit | P5; settings/credentials |
-| P7 | Pending | P0 inventory | P6; per-service ledgers |
+| P4 | Complete | Homelab-IaC through `ff5e633`, `369f0d5`, `1b91cab`; signed provider 0.1.8; disposable lifecycle green; config and filtering production plans no-op; primary DNS recovered through approved recipe | P9 retained-evidence cleanup only |
+| P5 | Complete | Servarr `eaa1f4f`; retained ledger/snapshot/archive; canonical mount and reboot probes green | P9 retained-evidence cleanup only |
+| P6 | Complete | Protected releases through `v0.3.4`; App-merged Servarr pins; exact Harbor parity; fixed pull agent; v0.3.3 rollback and auth-degradation drills; resume fixtures; aligned reporting; scheduled trigger 2026-07-21 13:01:49 -03; live digest/volume/health/PNG green | P9 retained-evidence cleanup only |
+| P7 | Active | P0 inventory | Per-service ledgers |
 | P8 | Pending | — | P7 |
 | P9 | Pending | Candidate inventory | P8; per-resource approvals |
 
