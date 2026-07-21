@@ -38,10 +38,8 @@ in {
       # config/SOUL/sops, rtk store-mounted, git-versioned skills via
       # external_dirs). Keeps the `hermes-agent` name + ports + homelab-net so
       # SWAG/litellm wiring is unchanged. The old nspawn blueprint
-      # (./hermes-agent.nix, module discovery-hermes-agent) is superseded and no
-      # longer imported. ⚠ Cutover is NOT live until the servarr hermes stack is
-      # stopped and the sops env gains bare TELEGRAM_BOT_TOKEN/DISCORD_BOT_TOKEN
-      # — see docs/implemented/2026-06-24-hermes-memory-skills.md §8 runbook.
+      # (discovery-hermes-agent) was superseded by this and deleted 2026-07-21.
+      # Cutover history: docs/implemented/2026-06-24-hermes-memory-skills.md §8.
       m.nixos.discovery-hermes-oci
       m.nixos.discovery-hermes-agents
       # Declarative bootstrap for the hermes native LLM wiki (sops deploy key +

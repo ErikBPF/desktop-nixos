@@ -44,7 +44,7 @@
             ip = lib.mkOption {
               type = lib.types.nullOr lib.types.singleLineStr;
               default = null;
-              description = "Primary IPv4 (LAN, or public for voyager). null = roaming/tailnet-only (laptop).";
+              description = "Primary IPv4 (LAN, or public for voyager). null = roaming/tailnet-only.";
             };
             mac = lib.mkOption {
               type = lib.types.nullOr lib.types.singleLineStr;
@@ -120,14 +120,10 @@
           role = "server";
           tailscaleIp = "100.90.247.79";
         };
-        laptop = {
-          # Roaming — Tailscale-only, no fixed LAN reservation.
-          role = "laptop";
-          tailscaleIp = "100.74.137.124";
-        };
         endeavour = {
-          # Roaming replacement for laptop; no fixed LAN reservation.
+          # Primary roaming workstation; Tailscale-only, no fixed LAN reservation.
           role = "laptop";
+          tailscaleIp = "100.107.225.13";
         };
         # Non-NixOS device tracked for addressing only: Home Assistant OS,
         # a KVM guest on discovery (MAC from modules/hosts/discovery/haos.nix).
