@@ -39,6 +39,13 @@ in {
   in {
     imports = [inputs.hermes-flake.nixosModules.hermes-agent-oci];
 
+    assertions = [
+      {
+        assertion = builtins.match "^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$" config.services.hermes-agent-oci.image != null;
+        message = "Discovery Hermes image must use an immutable sha256 digest";
+      }
+    ];
+
     # sops dotenv with UPSTREAM-BARE names (no HERMES_ bridge on the OCI path):
     # OPENAI_API_KEY, API_SERVER_KEY, TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN,
     # EXA_API_KEY. Read by the docker daemon (root) at container start.
@@ -61,7 +68,7 @@ in {
       # Keep the container name + ports so SWAG (hermes.* → hermes-agent:8642)
       # and the tailnet/host clients keep working unchanged across the cutover.
       containerName = "hermes-agent";
-      image = "nousresearch/hermes-agent:latest";
+      image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       # Reuse the existing live state dir (restic-backed btrfs subvol):
       # memories, sessions, skills, lazy venv survive the Docker→OCI swap.
       hostDataDir = "/home/${username}/homelab/apps/hermes-agent";
