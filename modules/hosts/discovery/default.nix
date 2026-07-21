@@ -29,6 +29,7 @@ in {
       m.nixos.discovery-containers
       m.nixos.discovery-compose
       m.nixos.discovery-stateful-stack-ops
+      m.nixos.discovery-kindle-release-agent
       m.nixos.discovery-harbor
       m.nixos.discovery-restic-voyager-check
       m.nixos.discovery-telstar-capture
@@ -69,6 +70,11 @@ in {
     services.netbirdServer = {
       enable = true;
       idpOnly = false;
+    };
+
+    services.kindleReleaseAgent = {
+      enable = true;
+      timerEnable = true;
     };
 
     # Discord webhook for incident alerts (cert monitor, restic failure, iac
