@@ -12,7 +12,7 @@ criteria; the merged execution plan is authoritative for rollout order.
 
 **SecretSpec authority update (2026-07-21):** Discovery SecretSpec scope,
 ordering, and status now live in Servarr's
-[`machines/discovery/secretspec-inventory.md`](https://github.com/ErikBPF/servarr/blob/a05cd713be4108624d5ea3306a21e190761a0b1e/machines/discovery/secretspec-inventory.md).
+[`machines/discovery/secretspec-inventory.md`](https://github.com/ErikBPF/servarr/blob/9cb834bdcd978fc9ef8d779114e10d85fa3ee0c7/machines/discovery/secretspec-inventory.md).
 This proposal retains the architecture and historical acceptance evidence; it
 does not define future Discovery SecretSpec profiles.
 

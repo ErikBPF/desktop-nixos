@@ -28,7 +28,7 @@ Leaf repositories land first. Consumers and host orchestration follow only
 after the leaf commit is published and pinned.
 
 Discovery SecretSpec rollout is now tracked independently in Servarr's
-[`machines/discovery/secretspec-inventory.md`](https://github.com/ErikBPF/servarr/blob/a05cd713be4108624d5ea3306a21e190761a0b1e/machines/discovery/secretspec-inventory.md).
+[`machines/discovery/secretspec-inventory.md`](https://github.com/ErikBPF/servarr/blob/9cb834bdcd978fc9ef8d779114e10d85fa3ee0c7/machines/discovery/secretspec-inventory.md).
 This execution plan retains K0 and P1 evidence only; its P2–P9 phases do not
 authorize or order additional SecretSpec profiles.
 
