@@ -25,6 +25,9 @@ bmalph
 
 # ── GSD baseline (auto-generated) ──
 .gsd
+.agents/
+skills-lock.json
+/voice-lab-test-*.wav
 .DS_Store
 Thumbs.db
 *.swp

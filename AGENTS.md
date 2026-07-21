@@ -89,6 +89,10 @@ fmt-check + dry-all). CI evaluates all five hosts on push/PR. After a remote
 `switch`, verify services per the rules below — a green rebuild is not proof
 the service came up.
 
+Never run `nix flake check` on this machine, directly or through a local wrapper
+such as `just eval`. Use the targeted `just dry <host>` / `just check` gates
+locally; full flake checks belong in CI or the documented remote-check flow.
+
 ## Docs map
 
 `docs/README.md` is the index. Operational truth lives in `justfile`
@@ -132,7 +136,7 @@ here. The items below extend (not relax) them with repo-specific patterns.
 ## Remote actions — autonomous, but channelled
 
 Claude **may** update remote hosts (`pathfinder`, `kepler`, `discovery`,
-`orion`, `laptop`, hermes targets, servarr targets) without prompting per
+`orion`, `endeavour`, hermes targets, servarr targets) without prompting per
 command, **on the strict condition** that every remote-touching action goes
 through a documented entry point:
 
@@ -306,7 +310,7 @@ not absorbed.
   (Klipper — `printer.cfg`, `mainsail.cfg`, macros; pushed by the
   `klipper-config-backup` service **on the Pi**, which is safe for this shared
   repo — it mirrors only `printer_data/config/` and never touches
-  `orcaslicer/`) and `orcaslicer/` (OrcaSlicer presets; pushed from the laptop
+  `orcaslicer/`) and `orcaslicer/` (OrcaSlicer presets; pushed from Endeavour
   via that repo's `just orca-sync`).
 - Klipper host: the NixOS `archinaut` fleet host (RPi 3 **Model B+**), on WiFi
   **`192.168.10.225`** (DHCP-reserved on the wlan0 MAC; wired retired). As-built
@@ -386,11 +390,11 @@ not absorbed.
   `git@github_erikbpf:ErikBPF/opencode-flake.git`.
 - **Vendored as a flake input**, but *not* pinned to the local tree — consumed via
   **FlakeHub** (`url = "https://flakehub.com/f/ErikBPF/opencode-flake/*"`). Provides
-  the opencode package (`withPackage`) + a Home-Manager module; the **laptop** dev
+  the opencode package (`withPackage`) + a Home-Manager module; the **Endeavour** dev
   env is fully HM-managed off it (config, permissions, rtk plugin). Ships a **daily
   auto-merge lane** + FlakeHub publish; no Cachix (the orion cache covers the fleet).
 - Bump flow like `hermes-flake`: land upstream in the leaf → the daily lane republishes
-  to FlakeHub → `nix flake update opencode-flake` here → `just switch laptop`. Gotchas
+  to FlakeHub → `nix flake update opencode-flake` here → `just switch endeavour`. Gotchas
   (HM crash on `package=null` HM#9589, placeholder jsonschema nixpkgs#537917, rtk=plugin
   not markdown, permissions need `dag.entryAfter`): `memory/opencode_flake_rfc.md`.
 
@@ -403,11 +407,11 @@ not absorbed.
   "https://flakehub.com/f/ErikBPF/codex-flake/*"`, pinned in `flake.lock`). Provides
   `packages.codex`, a Home-Manager module (`homeManagerModules.{default,codex-profile}`
   + a `withPackage` helper), and a `codex-latest` overlay. Twin of `opencode-flake`;
-  consumed by the **laptop** dev env via `modules/dev/codex.nix`
+  consumed by the **Endeavour** dev env via `modules/dev/codex.nix`
   (`flake.modules.home.codex`, imported by `profile-desktop`).
 - Ships **official prebuilt openai codex binaries** (4 platforms, hourly build, required
   package-build gate). Bump flow like `opencode-flake`/`hermes-flake`: land upstream in the
-  leaf → FlakeHub republishes → `nix flake update codex-flake` here → `just switch laptop`.
+  leaf → FlakeHub republishes → `nix flake update codex-flake` here → `just switch endeavour`.
 
 ### `ha-agent` — PT-BR Home Assistant tool-caller fine-tune
 
@@ -449,8 +453,8 @@ not absorbed.
 desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
 ├── inputs.servarr      → home compose workloads on kepler/discovery/orion
 ├── inputs.hermes-flake → hermes-agent (+ hermes-skills content, git-synced)
-├── inputs.opencode-flake → opencode pkg + HM module (FlakeHub); laptop dev env
-├── inputs.codex-flake  → codex CLI pkg + HM module (FlakeHub); laptop dev env
+├── inputs.opencode-flake → opencode pkg + HM module (FlakeHub); Endeavour dev env
+├── inputs.codex-flake  → codex CLI pkg + HM module (FlakeHub); Endeavour dev env
 ├── k3s microvms (kepler) ← homelab-gitops syncs lab k8s workloads via Argo CD
 ├── deploys / hosts     → discovery hosts HAOS; home-assistant-config owns HA app config
 ├── archinaut host      → klipper-biqu owns /var/lib/klipper config (git source-of-truth)
@@ -505,7 +509,7 @@ change lands in first (per `Rule of thumb` above); this flake's
 **Test framework by surface (red/green gate):**
 
 - Nix expressions (`modules/**`, `flake.nix`): red/green = `just dry <host>`
-  for every touched host + `nix flake check --no-link` for the closure. The
+  for every touched host. The
   just recipe is authoritative (per `Recipe wins` rule); raw
   `nixos-rebuild … --target-host` is **forbidden** (see `Remote actions`).
 - Full-system module changes: dry-build first (`just dry <host>`), inspect
@@ -525,8 +529,8 @@ change lands in first (per `Rule of thumb` above); this flake's
   impl. Source-of-trUTH: agent edits `modules/**` + `flake.nix` only —
   never edits `/nix/store` or remote host files (re-iterate the `Remote
   actions → repo → deploy` rule).
-- Verify: `just dry <host>` MUST pass before green claim; `nix flake
-  check` final gate before PR.
+- Verify: `just dry <host>` MUST pass before green claim; use CI or the
+  documented remote-check flow for the final full-flake gate before PR.
 - Parallel dispatch: spawn 1..N `@general` agents in one message for
   independent impl slices (each owns one module/sub-feature).
 
@@ -537,7 +541,7 @@ but the build broke.
 
 **HM rebuild is the deploy step for ethos + agent routing changes:** edit
 `modules/dev/opencode-agents.md` (ethos) and `modules/dev/opencode.nix`
-(opencode.json + the per-agent `agent` block), then `just switch laptop` so
+(opencode.json + the per-agent `agent` block), then `just switch endeavour` so
 the `/nix/store` copy + `~/.config/opencode/AGENTS.md` symlink refresh.
 Never hand-edit `~/.config/opencode/AGENTS.md` or
 `~/.config/opencode/opencode.json` directly — both are `/nix/store`
