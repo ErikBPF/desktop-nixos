@@ -200,8 +200,13 @@
             destination = "/run/vault-agent/kindle-release-github-app.pem"
             perms = "0600"
           }
+          # argus_webhook_hmac: HMAC secret Grafana uses to sign the alert
+          # webhook to hermes-argus (contactpoints.yaml hmacConfig). Same value
+          # must live in sops hermes_agents/argus_env as
+          # WEBHOOK_GRAFANA_ALERTS_SECRET. Renders empty until the key is
+          # written to secret/shared/discord (missing keys don't fail render).
           template {
-            contents = "DISCORD_WEBHOOK_INCIDENTS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.incidents }}{{ end }}\nDISCORD_WEBHOOK_DEPLOYS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.deploys }}{{ end }}\nSCRUTINY_NOTIFY_URLS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.scrutiny }}{{ end }}\n"
+            contents = "DISCORD_WEBHOOK_INCIDENTS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.incidents }}{{ end }}\nDISCORD_WEBHOOK_DEPLOYS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.deploys }}{{ end }}\nSCRUTINY_NOTIFY_URLS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.scrutiny }}{{ end }}\nWEBHOOK_GRAFANA_ALERTS_SECRET={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.argus_webhook_hmac }}{{ end }}\n"
             destination = "/run/vault-agent/discord.env"
             perms = "0444"
           }

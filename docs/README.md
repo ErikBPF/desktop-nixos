@@ -37,6 +37,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Status |
 |-----|--------|
+| [`proposals/2026-07-21-hermes-argus-n0-responder.md`](proposals/2026-07-21-hermes-argus-n0-responder.md) | Staged — Argus extended as N0 first-line responder on Discord #incidents/#deploys (channel-scoped listen, staged Grafana HMAC webhook, agentmemory incident recall); deploy gated on Discord app token + OpenBao HMAC key. |
 | [`behaviors/discovery-secondary-dns/behavior.md`](behaviors/discovery-secondary-dns/behavior.md) · [`test contract`](behaviors/discovery-secondary-dns/test-contract.md) | Draft P3 contract — Kepler LAN secondary, preserved vanguard tailnet resolver, narrow DHCP ownership, and outage proof before P2 mutation. |
 | [`behaviors/discovery-adguard-adoption/behavior.md`](behaviors/discovery-adguard-adoption/behavior.md) · [`test contract`](behaviors/discovery-adguard-adoption/test-contract.md) | Draft P2 contract — fixtures and value-free read-only preflight only; mutation remains blocked by protection evidence and secondary DNS or an exact waiver. |
 | [`behaviors/kepler-collision-migration/behavior.md`](behaviors/kepler-collision-migration/behavior.md) · [`test contract`](behaviors/kepler-collision-migration/test-contract.md) | Approved normative K0–K5 recovery contract — recovery completed with the execution plan's recorded operator-approved retirement deviation. |
