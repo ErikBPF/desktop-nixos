@@ -16,7 +16,7 @@
       "ip": null,
       "mac": null,
       "role": "laptop",
-      "tailscaleIp": null
+      "tailscaleIp": "100.107.225.13"
     },
     "homeassistant": {
       "ip": "192.168.10.115",
@@ -29,12 +29,6 @@
       "mac": "74:56:3c:47:d1:77",
       "role": "server",
       "tailscaleIp": "100.94.239.46"
-    },
-    "laptop": {
-      "ip": null,
-      "mac": null,
-      "role": "laptop",
-      "tailscaleIp": "100.74.137.124"
     },
     "orion": {
       "ip": "192.168.10.220",

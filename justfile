@@ -1,6 +1,6 @@
-profile := `hostname`
+profile := "endeavour"
 
-# Host IPs (LAN, SSH port 2222). laptop is Tailscale-only (roaming).
+# Host IPs (LAN, SSH port 2222). Endeavour is Tailscale-only (roaming).
 # Derived from the fleet SSOT (modules/meta.nix → fleet.json); regenerate with
 # `just fleet-json` after changing an IP. archinaut is wifi (wlan0, DHCP-reserved
 # on the wlan0 MAC; wired retired) — roaming/admin → deploy via tailscale.
@@ -58,7 +58,7 @@ fleet-check:
 # Fleet nixpkgs drift at a glance: each host's BOOTED nixpkgs short-rev vs the
 # flake's target (the root `nixpkgs` input in flake.lock — the rev a `switch`
 # would build). DRIFT = host is behind/ahead of the flake. Reaches hosts over the
-# tailnet (tailscaleIp, works roaming); laptop is read locally; homeassistant
+# tailnet (tailscaleIp, works roaming); Endeavour is read locally; homeassistant
 # (HAOS, not NixOS) is skipped. Makes P5 drift a command, not a memory file
 # (docs/proposals/2026-07-12-fleet-upgrade-hardening.md).
 fleet-status:
@@ -69,8 +69,8 @@ fleet-status:
     row() { printf '%-12s %-12s %-9s %s\n' "$1" "$2" "$target" "$3"; }
     printf '%-12s %-12s %-9s %s\n' HOST BOOTED TARGET STATE
     b=$(revof "$(nixos-version)")
-    row laptop "$b" "$([ "$b" = "$target" ] && echo OK || echo DRIFT)"
-    for h in $(jq -r '.hosts | keys[] | select(. != "laptop" and . != "homeassistant")' fleet.json); do
+    row endeavour "$b" "$([ "$b" = "$target" ] && echo OK || echo DRIFT)"
+    for h in $(jq -r '.hosts | keys[] | select(. != "endeavour" and . != "homeassistant")' fleet.json); do
         addr=$(jq -r --arg h "$h" '.hosts[$h].tailscaleIp // empty' fleet.json)
         [ -z "$addr" ] && { row "$h" "no-tsip" "SKIP"; continue; }
         out=$(timeout 10 ssh -p 2222 -o ConnectTimeout=6 -o BatchMode=yes -o StrictHostKeyChecking=accept-new "erik@$addr" nixos-version 2>/dev/null || true)
@@ -82,12 +82,12 @@ fleet-status:
         fi
     done
 
-# Read-only migration inventory from the roaming laptop. Reports metadata and
+# Read-only migration inventory from the roaming Endeavour. Reports metadata and
 # public fingerprints only; never prints private key or credential contents.
-audit-laptop-state target="":
+audit-endeavour-state target="":
     #!/usr/bin/env bash
     set -euo pipefail
-    tail_ip=$(jq -r '.hosts.laptop.tailscaleIp' fleet.json)
+    tail_ip=$(jq -r '.hosts.endeavour.tailscaleIp' fleet.json)
     ip="{{target}}"
     [ -n "$ip" ] || ip="$tail_ip"
     tailscale ping -c 3 "$tail_ip"
@@ -184,7 +184,7 @@ build-all:
     nix build --no-link \
         .#nixosConfigurations.pathfinder.config.system.build.toplevel \
         .#nixosConfigurations.discovery.config.system.build.toplevel \
-        .#nixosConfigurations.laptop.config.system.build.toplevel \
+        .#nixosConfigurations.endeavour.config.system.build.toplevel \
         .#nixosConfigurations.orion.config.system.build.toplevel \
         .#nixosConfigurations.kepler.config.system.build.toplevel \
         .#nixosConfigurations.voyager.config.system.build.toplevel \
@@ -194,7 +194,7 @@ build-all:
 dry-all:
     sudo nixos-rebuild dry-build --flake .#pathfinder --show-trace
     sudo nixos-rebuild dry-build --flake .#discovery --show-trace
-    sudo nixos-rebuild dry-build --flake .#laptop --show-trace
+    sudo nixos-rebuild dry-build --flake .#endeavour --show-trace
     sudo nixos-rebuild dry-build --flake .#orion --show-trace
     sudo nixos-rebuild dry-build --flake .#kepler --show-trace
     sudo nixos-rebuild dry-build --flake .#voyager --show-trace
@@ -358,7 +358,7 @@ check-endeavour-remote target="endeavour" ref="HEAD":
       erik@"{{target}}" bash -s -- "$remote_url" "$commit"
 
 # ── Remote Deploy ─────────────────────────────────────────
-# laptop is Tailscale only (roaming), use: just deploy laptop <tailscale-ip> 2222
+# Endeavour is Tailscale only (roaming), use: just deploy endeavour <tailscale-ip> 2222
 
 # Remote switches go through deploy-rs (magic rollback + build on Orion). The
 # generic `deploy` recipe below stays as the escape hatch (plain nixos-rebuild,
