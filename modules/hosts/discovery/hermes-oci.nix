@@ -64,6 +64,7 @@ in {
 
     services.hermes-agent-oci = {
       enable = true;
+      enableHealthcheck = false;
       backend = "docker";
       # Keep the container name + ports so SWAG (hermes.* → hermes-agent:8642)
       # and the tailnet/host clients keep working unchanged across the cutover.

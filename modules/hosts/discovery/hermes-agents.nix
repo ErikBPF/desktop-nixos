@@ -92,6 +92,7 @@ in {
 
     services.hermes-agent-oci-daedalus = {
       enable = true;
+      enableHealthcheck = false;
       image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-daedalus";
       environmentFile = config.sops.secrets."hermes_agents/daedalus_env".path;
@@ -142,6 +143,7 @@ in {
 
     services.hermes-agent-oci-argus = {
       enable = true;
+      enableHealthcheck = false;
       image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-argus";
       environmentFile = config.sops.secrets."hermes_agents/argus_env".path;
