@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import stat
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -18,6 +19,7 @@ from unittest import mock
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 AGENT_PATH = ROOT / "modules/hosts/discovery/_kindle-release-agent.py"
 MODULE_PATH = ROOT / "modules/hosts/discovery/kindle-release-agent.nix"
+JUSTFILE_PATH = ROOT / "justfile"
 
 
 def load_agent():
@@ -1065,11 +1067,9 @@ class ObservationContract(unittest.TestCase):
                 ],
                 [
                     *git,
-                    "diff-tree",
-                    "--no-commit-id",
+                    "diff",
                     "--name-only",
-                    "-r",
-                    self.target,
+                    f"{self.previous}..{self.target}",
                 ],
                 [
                     *git,
@@ -2366,7 +2366,7 @@ class ReleasePollingContract(unittest.TestCase):
         )
         self.assertIs(result, terminal)
 
-    def test_failed_attempt_recovers_previous_baseline_before_retry(self):
+    def test_failed_attempt_quarantines_candidate_until_origin_advances(self):
         failed = self.agent.validate_state(
             dict(
                 self.current,
@@ -2385,9 +2385,7 @@ class ReleasePollingContract(unittest.TestCase):
         )
         operations = mock.Mock()
         persist = mock.Mock()
-        with mock.patch.object(
-            self.agent, "poll_release", return_value=self.current
-        ) as poll:
+        with mock.patch.object(self.agent, "poll_release") as poll:
             result = self.agent.recover_failed_attempt(
                 failed,
                 operations,
@@ -2400,8 +2398,8 @@ class ReleasePollingContract(unittest.TestCase):
         self.assertEqual(recovered["commit"], self.current["commit"])
         self.assertEqual(recovered["phase"], "succeeded")
         self.assertIsNone(recovered["previous"])
-        poll.assert_called_once()
-        self.assertIs(result, self.current)
+        poll.assert_not_called()
+        self.assertEqual(result, recovered)
 
 
 class ReportingOrchestrationContract(unittest.TestCase):
@@ -2897,6 +2895,33 @@ class EntrypointContract(unittest.TestCase):
 
 
 class NixModuleContract(unittest.TestCase):
+    def test_reporting_provision_adds_dedicated_policy_without_replacing_shared(self):
+        source = JUSTFILE_PATH.read_text()
+        recipe = source.split("provision-kindle-release-reporting:", 1)[1].split(
+            "diagnose-kindle-claude-usage:", 1
+        )[0]
+        self.assertIn("sys/policies/acl/kindle-release-read", recipe)
+        self.assertIn("auth/approle/role/vault-agent", recipe)
+        self.assertIn("token_policies", recipe)
+        self.assertNotIn("sys/policies/acl/discord-read", recipe)
+        self.assertNotIn('role_payload="$(jq -c \'', recipe)
+
+    def test_reporting_provision_recipe_has_valid_shell_syntax(self):
+        rendered = subprocess.run(
+            ["just", "--dry-run", "provision-kindle-release-reporting"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        checked = subprocess.run(
+            ["bash", "-n"],
+            input=rendered,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+
     def test_module_declares_fixed_oneshot_and_disabled_timer(self):
         source = MODULE_PATH.read_text()
         required = (

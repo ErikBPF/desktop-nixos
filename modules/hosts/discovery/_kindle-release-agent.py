@@ -679,7 +679,7 @@ def observe_candidate(runner, previous_commit):
         return None
     runner.run(git + ["merge-base", "--is-ancestor", previous_commit, commit])
     changed_paths = runner.run(
-        git + ["diff-tree", "--no-commit-id", "--name-only", "-r", commit]
+        git + ["diff", "--name-only", f"{previous_commit}..{commit}"]
     ).splitlines()
     compose_text = runner.run(git + ["show", f"{commit}:{COMPOSE_PATH}"])
     return validate_candidate(commit, changed_paths, compose_text)
@@ -1349,7 +1349,7 @@ def recover_failed_attempt(state, operations, persist, now, after_revalidate):
         }
     )
     persist(recovered)
-    return poll_release(recovered, operations, persist, now, after_revalidate)
+    return recovered
 
 
 def execute_once():
