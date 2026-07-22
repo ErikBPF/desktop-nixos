@@ -28,6 +28,9 @@ _: {
       secretSpecRuntimeProfiles."media-server" = "media-server";
       secretSpecRuntimeIgnoredSourceNames."media-server" = ["REDIS_PASSWORD"];
       secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];
+      secretSpecRuntimeProfiles.monitoring = "monitoring";
+      secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];
+      secretSpecRuntimeHealthContainers.monitoring = ["grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
