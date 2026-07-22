@@ -55,6 +55,7 @@
     },
     {
       "destination": "/run/vault-agent/tunneling.env",
+      "group": "docker",
       "names": [
         "CLOUDFLARE_TUNNEL_TOKEN"
       ],
@@ -74,11 +75,12 @@
     },
     {
       "destination": "/run/vault-agent/shared-db.env",
+      "group": "docker",
       "names": [
         "POSTGRES_PASSWORD",
         "REDIS_PASSWORD"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/shared-arr.env",
@@ -139,6 +141,7 @@
     },
     {
       "destination": "/run/vault-agent/networking.env",
+      "group": "docker",
       "names": [
         "CLOUDFLARE_API_TOKEN"
       ],
@@ -172,5 +175,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "8ece31a6673c4c3761c819f643e88c54d3e3063ebff93b9d5fa779df19fc70b8"
+  "source_sha256": "9dd32502169307f96795ece44941e1545667b2d40c83fd8411ace919ed4dac12"
 }

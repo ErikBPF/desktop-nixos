@@ -25,6 +25,13 @@ _: {
       secretSpecRuntimeProfiles.networking = "networking";
       secretSpecRuntimeLegacySecretNames.networking = ["ADGUARD_PASSWORD"];
       secretSpecRuntimeHealthContainers.networking = ["swag" "adguard"];
+      secretSpecRuntimeProfiles.infra = "infra";
+      secretSpecRuntimeLegacySecretNames.infra = [
+        "MINIO_TFSTATE_ROOT_PASSWORD"
+        "VAULTWARDEN_ADMIN_TOKEN"
+        "VAULT_DEV_ROOT_TOKEN"
+      ];
+      secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "minio-tfstate"];
       secretSpecRuntimeProfiles.ha-harness = "ha-harness";
       secretSpecRuntimeHealthContainers.ha-harness = ["ha-harness"];
       secretSpecRuntimeProfiles.homepage = "homepage";

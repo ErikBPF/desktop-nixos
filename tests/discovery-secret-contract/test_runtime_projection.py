@@ -252,6 +252,27 @@ class RuntimeProjectionTest(unittest.TestCase):
         networking = next(row for row in contract["renders"] if row["destination"].endswith("/networking.env"))
         self.assertEqual(networking["perms"], "0440")
 
+    def test_infra_cutover_has_exact_sources_gates_and_render_check(self):
+        compose = COMPOSE.read_text()
+        justfile = JUSTFILE.read_text()
+        vault = VAULT.read_text()
+        contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
+        self.assertIn('secretSpecRuntimeProfiles.infra = "infra";', compose)
+        self.assertIn(
+            'secretSpecRuntimeLegacySecretNames.infra = [\n        "MINIO_TFSTATE_ROOT_PASSWORD"\n        "VAULTWARDEN_ADMIN_TOKEN"\n        "VAULT_DEV_ROOT_TOKEN"\n      ];',
+            compose,
+        )
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "minio-tfstate"];',
+            compose,
+        )
+        self.assertIn("verify-infra-secret-render:", justfile)
+        self.assertIn('expected="$(printf "POSTGRES_PASSWORD\\nREDIS_PASSWORD")"', justfile)
+        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]', vault)
+        shared_db = next(row for row in contract["renders"] if row["destination"].endswith("/shared-db.env"))
+        self.assertEqual(shared_db["perms"], "0440")
+        self.assertEqual(shared_db["group"], "docker")
+
 
 if __name__ == "__main__":
     unittest.main()
