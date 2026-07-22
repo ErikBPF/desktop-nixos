@@ -102,6 +102,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    ponytail = {
+      url = "github:DietrichGebert/ponytail";
+      flake = false;
+    };
+
     # Terminal multiplexer for AI coding agents (claude-code/codex/opencode/
     # hermes). Third-party Rust flake — pinned to a release tag, and left on
     # its own nixpkgs (no `follows`) so the Rust toolchain it builds against
