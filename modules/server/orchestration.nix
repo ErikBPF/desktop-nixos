@@ -79,6 +79,24 @@ in {
         '';
       };
 
+      secretSpecRuntimeSourceConfigNames = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = {};
+        description = ''
+          Non-secret names co-rendered beside a profile's Vault secrets. These
+          names replace their legacy dotenv rows in the config-only projection.
+        '';
+      };
+
+      secretSpecRuntimeMaxAgeSeconds = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 900;
+        description = ''
+          Maximum accepted age for every Vault Agent input used to create a
+          profile-atomic SecretSpec provider projection.
+        '';
+      };
+
       dockerSocket = lib.mkOption {
         type = lib.types.str;
         default = "unix:///run/user/1000/podman/podman.sock";
@@ -114,28 +132,39 @@ in {
           exec python3 ${./_servarr-exact-revision.py} "$@"
         '';
       };
+      secretSpecRuntimeProjection = pkgs.writeShellApplication {
+        name = "secretspec-runtime-projection";
+        runtimeInputs = [pkgs.python3];
+        text = ''
+          exec python3 ${./_secretspec-runtime-projection.py} "$@"
+        '';
+      };
 
       # Stacks in vaultEnvStacks get one --env-file per listed vault-agent render,
       # layered after the sops .env (later --env-file wins for overlapping keys).
       makeService = idx: name: let
         secretSpecProfile = cfg.secretSpecRuntimeProfiles.${name} or null;
         secretSpecHealthContainer = cfg.secretSpecRuntimeHealthContainers.${name} or null;
-        secretSpecEnv =
-          if secretSpecProfile == null
-          then name
-          else secretSpecProfile;
+        secretSpecSourceConfigNames = cfg.secretSpecRuntimeSourceConfigNames.${name} or [];
         vaultBasenames = cfg.vaultEnvStacks.${name} or [];
         vaultEnvFlags =
           lib.concatMapStrings (b: " --env-file /run/vault-agent/${b}.env")
-          (lib.filter (b: b != secretSpecProfile) vaultBasenames);
-        secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecEnv} --provider dotenv:/run/vault-agent/${secretSpecEnv}.env --reason discovery-${name}-production-runtime -- ";
-        secretSpecPreflight = pkgs.writeShellScript "secretspec-${name}-preflight" ''
-          set -euo pipefail
-          ${pkgs.systemd}/bin/systemctl is-active vault-agent.service >/dev/null
-          render=/run/vault-agent/${secretSpecEnv}.env
-          [ "$(${pkgs.coreutils}/bin/stat -c '%a %U %G' "$render")" = "440 root docker" ]
-          ${pkgs.coreutils}/bin/head -c0 "$render"
-        '';
+          (lib.optionals (secretSpecProfile == null) vaultBasenames);
+        runtimeDirectory = "servarr-secretspec-${name}";
+        runtimeOutputDir = "%t/${runtimeDirectory}";
+        runtimeProvider = "${runtimeOutputDir}/current/provider.env";
+        runtimeConfig = "${runtimeOutputDir}/current/config.env";
+        composeEnv =
+          if secretSpecProfile == null
+          then "${cfg.composeDir}/.env"
+          else runtimeConfig;
+        projectionSourceFlags = lib.concatMapStrings (b: " --source /run/vault-agent/${b}.env") vaultBasenames;
+        projectionConfigFlags = lib.concatMapStrings (n: " --source-config-name ${n}") secretSpecSourceConfigNames;
+        secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --provider dotenv:${runtimeProvider} --reason discovery-${name}-production-runtime -- ";
+        secretSpecPreflight = [
+          "${pkgs.systemd}/bin/systemctl is-active vault-agent.service"
+          "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
+        ];
         secretSpecHealthGate =
           if secretSpecHealthContainer == null
           then null
@@ -177,13 +206,15 @@ in {
             RestartSec = "30s";
             StartLimitBurst = 5;
             # Load .env so compose variable substitution works.
-            EnvironmentFile = "-${cfg.composeDir}/.env";
+            EnvironmentFile = lib.optional (secretSpecProfile == null) "-${cfg.composeDir}/.env";
             # Docker socket — rootless Podman by default, override for rootful Docker.
             Environment = "DOCKER_HOST=${cfg.dockerSocket}";
-            ExecStartPre = lib.optional (secretSpecProfile != null) secretSpecPreflight;
-            ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
+            RuntimeDirectory = lib.optional (secretSpecProfile != null) runtimeDirectory;
+            RuntimeDirectoryMode = lib.optionalString (secretSpecProfile != null) "0700";
+            ExecStartPre = lib.optionals (secretSpecProfile != null) secretSpecPreflight;
+            ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
             ExecStartPost = lib.optional (secretSpecHealthContainer != null) secretSpecHealthGate;
-            ExecStop = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
+            ExecStop = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
             TimeoutStopSec = 60;
           };
           # Empty WantedBy — these units are enabled (symlinked) but not pulled
@@ -204,7 +235,7 @@ in {
 
         # docker-compose standalone binary (avoids CLI plugin path issues
         # in minimal systemd user session environments).
-        environment.systemPackages = [pkgs.docker-compose pkgs.git servarrExactRevision];
+        environment.systemPackages = [pkgs.docker-compose pkgs.git servarrExactRevision secretSpecRuntimeProjection];
         systemd.tmpfiles.rules = [
           "f /run/lock/servarr-repository.lock 0660 root users - -"
         ];
