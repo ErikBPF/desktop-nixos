@@ -142,6 +142,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("--ignored-source-name ${n}", source)
         self.assertIn("secretSpecRuntimeLegacySecretNames", source)
         self.assertIn("--legacy-secret-name ${n}", source)
+        self.assertIn("lib.optionals (vaultBasenames != [])", source)
 
     def test_vault_dotenv_renders_publish_a_freshness_witness(self):
         source = VAULT.read_text()

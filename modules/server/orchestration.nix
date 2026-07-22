@@ -181,10 +181,13 @@ in {
         projectionLegacyFlags = lib.concatMapStrings (n: " --legacy-secret-name ${n}") secretSpecLegacySecretNames;
         secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --provider dotenv:${runtimeProvider} --reason discovery-${name}-production-runtime -- ";
         legacyStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
-        secretSpecPreflight = [
-          "${pkgs.systemd}/bin/systemctl is-active vault-agent.service"
-          "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags}${projectionIgnoredFlags}${projectionLegacyFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
-        ];
+        secretSpecPreflight =
+          lib.optionals (vaultBasenames != []) [
+            "${pkgs.systemd}/bin/systemctl is-active vault-agent.service"
+          ]
+          ++ [
+            "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags}${projectionIgnoredFlags}${projectionLegacyFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
+          ];
         secretSpecHealthGate =
           if secretSpecHealthContainers == []
           then null
