@@ -15,6 +15,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "modules/server/_secretspec-runtime-projection.py"
 ORCHESTRATION = ROOT / "modules/server/orchestration.nix"
 VAULT = ROOT / "modules/hosts/discovery/vault.nix"
+COMPOSE = ROOT / "modules/hosts/discovery/compose.nix"
 
 
 class RuntimeProjectionTest(unittest.TestCase):
@@ -145,6 +146,18 @@ class RuntimeProjectionTest(unittest.TestCase):
         for block in dotenv_templates:
             template = block.split("template {", 1)[0]
             self.assertIn('contents = "${renderedAt}', template)
+
+    def test_media_server_uses_exact_profile_boundary(self):
+        source = COMPOSE.read_text()
+        self.assertIn('secretSpecRuntimeProfiles."media-server" = "media-server";', source)
+        self.assertIn(
+            'secretSpecRuntimeIgnoredSourceNames."media-server" = ["REDIS_PASSWORD"];',
+            source,
+        )
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers."media-server" = "jellystat";',
+            source,
+        )
 
 
 if __name__ == "__main__":
