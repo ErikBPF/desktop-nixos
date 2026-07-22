@@ -36,6 +36,11 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertEqual(contract["names"], sorted(contract["names"]))
             self.assertIn("CLOUDFLARE_API_TOKEN", contract["names"])
             self.assertIn("HARBOR_ROBOT_SECRET", contract["names"])
+            self.assertEqual(
+                contract["service_identity"],
+                {"group": "root", "runtime_directory": "/run/vault-agent", "unit": "vault-agent.service", "user": "root"},
+            )
+            self.assertTrue(all("perms" in render for render in contract["renders"]))
             rendered = generated.read_text()
             self.assertNotIn(".Data.data", rendered)
             self.assertNotIn("{{", rendered)
