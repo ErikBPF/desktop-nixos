@@ -2342,7 +2342,7 @@ verify-tools-secret-render:
         exit 1
       fi
       sudo find /run/vault-agent/tools.env -mmin -15 -print -quit | grep -q .
-      test "$(sudo cut -d= -f1 /run/vault-agent/tools.env)" = SEARXNG_SECRET_KEY
+      test "$(sudo grep -v '^#' /run/vault-agent/tools.env | cut -d= -f1)" = SEARXNG_SECRET_KEY
       echo "tools_render=ready mode=0440 owner=root group=docker fresh=true"
     '
 
@@ -2361,7 +2361,7 @@ verify-ha-harness-secret-render:
         exit 1
       fi
       sudo find /run/vault-agent/ha-harness.env -mmin -15 -print -quit | grep -q .
-      actual="$(sudo cut -d= -f1 /run/vault-agent/ha-harness.env | sort -u)"
+      actual="$(sudo grep -v '^#' /run/vault-agent/ha-harness.env | cut -d= -f1 | sort -u)"
       expected="$(printf "HA_HARNESS_TOKEN\nLITELLM_API_KEY")"
       test "$actual" = "$expected"
       echo "ha_harness_render=ready mode=0440 owner=root group=docker fresh=true"
