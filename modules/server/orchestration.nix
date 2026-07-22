@@ -60,6 +60,16 @@ in {
         '';
       };
 
+      secretSpecRuntimeProfiles = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {};
+        description = ''
+          Stack-to-profile map for approved SecretSpec runtime boundaries. The
+          matching vault-agent env basename is resolved by SecretSpec and is not
+          also passed directly to Compose.
+        '';
+      };
+
       dockerSocket = lib.mkOption {
         type = lib.types.str;
         default = "unix:///run/user/1000/podman/podman.sock";
@@ -99,9 +109,24 @@ in {
       # Stacks in vaultEnvStacks get one --env-file per listed vault-agent render,
       # layered after the sops .env (later --env-file wins for overlapping keys).
       makeService = idx: name: let
+        secretSpecProfile = cfg.secretSpecRuntimeProfiles.${name} or null;
+        secretSpecEnv =
+          if secretSpecProfile == null
+          then name
+          else secretSpecProfile;
+        vaultBasenames = cfg.vaultEnvStacks.${name} or [];
         vaultEnvFlags =
           lib.concatMapStrings (b: " --env-file /run/vault-agent/${b}.env")
-          (cfg.vaultEnvStacks.${name} or []);
+          (lib.filter (b: b != secretSpecProfile) vaultBasenames);
+        secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecEnv} --provider dotenv:/run/vault-agent/${secretSpecEnv}.env --reason discovery-${name}-production-runtime -- ";
+        secretSpecWait = lib.optionalString (secretSpecProfile != null) " --wait";
+        secretSpecPreflight = pkgs.writeShellScript "secretspec-${name}-preflight" ''
+          set -euo pipefail
+          ${pkgs.systemd}/bin/systemctl is-active vault-agent.service >/dev/null
+          render=/run/vault-agent/${secretSpecEnv}.env
+          [ "$(${pkgs.coreutils}/bin/stat -c '%a %U %G' "$render")" = "440 root docker" ]
+          ${pkgs.coreutils}/bin/head -c0 "$render"
+        '';
       in {
         "podman-compose-${name}" = {
           Unit = {
@@ -131,8 +156,9 @@ in {
             EnvironmentFile = "-${cfg.composeDir}/.env";
             # Docker socket — rootless Podman by default, override for rootful Docker.
             Environment = "DOCKER_HOST=${cfg.dockerSocket}";
-            ExecStart = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
-            ExecStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
+            ExecStartPre = lib.optional (secretSpecProfile != null) secretSpecPreflight;
+            ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans${secretSpecWait}";
+            ExecStop = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
             TimeoutStopSec = 60;
           };
           # Empty WantedBy — these units are enabled (symlinked) but not pulled
