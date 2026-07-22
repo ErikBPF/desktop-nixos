@@ -98,6 +98,23 @@ class PinContract(unittest.TestCase):
                 f"    image: {self.pin}\n",
             )
 
+    def test_active_revision_allows_unrelated_repository_advances(self):
+        runner = mock.Mock()
+        runner.run.side_effect = ["expected-blob\n", "expected-blob\n"]
+        commit = "b" * 40
+        self.agent.verify_active_commit(runner, commit)
+        commands = runner.run.call_args_list
+        self.assertEqual(len(commands), 2)
+        self.assertIn(f"{commit}:{self.agent.COMPOSE_PATH}", commands[0].args[0])
+        self.assertIn("hash-object", commands[1].args[0])
+        self.assertNotIn("HEAD", commands[0].args[0] + commands[1].args[0])
+
+    def test_active_revision_rejects_compose_drift(self):
+        runner = mock.Mock()
+        runner.run.side_effect = ["expected-blob\n", "different-blob\n"]
+        with self.assertRaisesRegex(ValueError, "active Kindle compose mismatch"):
+            self.agent.verify_active_commit(runner, "b" * 40)
+
 
 class PhaseContract(unittest.TestCase):
     def setUp(self):
@@ -1645,7 +1662,8 @@ class BootstrapContract(unittest.TestCase):
             "",
             self.digest + "\n",
             self.digest + "\n",
-            self.commit + "\n",
+            "compose-blob\n",
+            "compose-blob\n",
             json.dumps([self.container]),
             json.dumps([self.image]),
         ]
@@ -1656,7 +1674,7 @@ class BootstrapContract(unittest.TestCase):
         events = []
 
         def now():
-            self.assertEqual(len(runner.calls), 11)
+            self.assertEqual(len(runner.calls), 12)
             events.append("clock")
             return "2026-07-20T10:11:12Z"
 
@@ -1751,7 +1769,7 @@ class BootstrapContract(unittest.TestCase):
         self.assertEqual(runner.environment_calls, [])
 
     def test_each_subprocess_or_png_gate_failure_prevents_persistence(self):
-        for fail_at in range(11):
+        for fail_at in range(12):
             with self.subTest(fail_at=fail_at):
                 runner = self.Runner(self.outputs(), fail_at=fail_at)
                 persisted = []

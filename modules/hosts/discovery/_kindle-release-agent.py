@@ -818,21 +818,11 @@ def activate_revision(runner, commit):
 def verify_active_commit(runner, commit):
     if not COMMIT_RE.fullmatch(commit):
         raise ValueError("invalid active commit")
-    actual = runner.run(
-        [
-            "runuser",
-            "-u",
-            "erik",
-            "--",
-            "git",
-            "-C",
-            str(SERVARR_REPO),
-            "rev-parse",
-            "HEAD",
-        ]
-    ).strip()
-    if actual != commit:
-        raise ValueError(f"active Servarr commit mismatch: expected {commit}, got {actual}")
+    git = ["runuser", "-u", "erik", "--", "git", "-C", str(SERVARR_REPO)]
+    expected = runner.run(git + ["rev-parse", f"{commit}:{COMPOSE_PATH}"]).strip()
+    actual = runner.run(git + ["hash-object", str(SERVARR_REPO / COMPOSE_PATH)]).strip()
+    if actual != expected:
+        raise ValueError("active Kindle compose mismatch for recorded commit")
 
 
 def recreate_kindle(runner, uid):
