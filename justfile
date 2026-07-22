@@ -2336,8 +2336,11 @@ verify-tools-secret-render:
       set -euo pipefail
       sudo systemctl is-active vault-agent.service
       test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/tools.env)" = "440 root docker"
-      sudo -u erik test -r /run/vault-agent/tools.env
-      sudo -u nobody test ! -r /run/vault-agent/tools.env
+      sudo -u erik head -c0 /run/vault-agent/tools.env
+      if sudo -u nobody head -c0 /run/vault-agent/tools.env 2>/dev/null; then
+        echo "nobody unexpectedly read tools render" >&2
+        exit 1
+      fi
       sudo find /run/vault-agent/tools.env -mmin -15 -print -quit | grep -q .
       test "$(sudo cut -d= -f1 /run/vault-agent/tools.env)" = SEARXNG_SECRET_KEY
       echo "tools_render=ready mode=0440 owner=root group=docker fresh=true"

@@ -56,8 +56,8 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
     def test_tools_render_has_value_free_live_verification_recipe(self):
         justfile = JUSTFILE.read_text()
         self.assertIn("verify-tools-secret-render:", justfile)
-        self.assertIn("sudo -u erik test -r /run/vault-agent/tools.env", justfile)
-        self.assertIn("sudo -u nobody test ! -r /run/vault-agent/tools.env", justfile)
+        self.assertIn("sudo -u erik head -c0 /run/vault-agent/tools.env", justfile)
+        self.assertIn("sudo -u nobody head -c0 /run/vault-agent/tools.env", justfile)
         self.assertIn("sudo stat -c", justfile)
         self.assertIn("440 root docker", justfile)
 
