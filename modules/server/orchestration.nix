@@ -172,6 +172,7 @@ in {
         projectionConfigFlags = lib.concatMapStrings (n: " --source-config-name ${n}") secretSpecSourceConfigNames;
         projectionIgnoredFlags = lib.concatMapStrings (n: " --ignored-source-name ${n}") secretSpecIgnoredSourceNames;
         secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --provider dotenv:${runtimeProvider} --reason discovery-${name}-production-runtime -- ";
+        legacyStop = "/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
         secretSpecPreflight = [
           "${pkgs.systemd}/bin/systemctl is-active vault-agent.service"
           "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags}${projectionIgnoredFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
@@ -191,6 +192,12 @@ in {
               done
               exit 1
             '';
+        stopStack = pkgs.writeShellScript "stop-compose-${name}" ''
+          set -euo pipefail
+          ${pkgs.docker}/bin/docker ps --quiet \
+            --filter "label=com.docker.compose.project=${name}" \
+            | ${pkgs.findutils}/bin/xargs --no-run-if-empty ${pkgs.docker}/bin/docker stop
+        '';
       in {
         "podman-compose-${name}" = {
           Unit = {
@@ -207,27 +214,35 @@ in {
               );
             Wants = ["servarr-pull.service"];
           };
-          Service = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            WorkingDirectory = cfg.composeDir;
-            # Retry on failure — handles transient boot-time races
-            # (e.g. homelab-net not ready, port conflicts with previous run).
-            Restart = "on-failure";
-            RestartSec = "30s";
-            StartLimitBurst = 5;
-            # Load .env so compose variable substitution works.
-            EnvironmentFile = lib.optional (secretSpecProfile == null) "-${cfg.composeDir}/.env";
-            # Docker socket — rootless Podman by default, override for rootful Docker.
-            Environment = "DOCKER_HOST=${cfg.dockerSocket}";
-            RuntimeDirectory = lib.optional (secretSpecProfile != null) runtimeDirectory;
-            RuntimeDirectoryMode = lib.optionalString (secretSpecProfile != null) "0700";
-            ExecStartPre = lib.optionals (secretSpecProfile != null) secretSpecPreflight;
-            ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
-            ExecStartPost = lib.optional (secretSpecHealthContainer != null) secretSpecHealthGate;
-            ExecStop = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
-            TimeoutStopSec = 60;
-          };
+          Service =
+            {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              WorkingDirectory = cfg.composeDir;
+              # Retry on failure — handles transient boot-time races
+              # (e.g. homelab-net not ready, port conflicts with previous run).
+              Restart = "on-failure";
+              RestartSec = "30s";
+              StartLimitBurst = 5;
+              # Load .env so compose variable substitution works.
+              EnvironmentFile = lib.optional (secretSpecProfile == null) "-${cfg.composeDir}/.env";
+              # Docker socket — rootless Podman by default, override for rootful Docker.
+              Environment = "DOCKER_HOST=${cfg.dockerSocket}";
+              ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
+              ExecStartPost = lib.optional (secretSpecHealthContainer != null) secretSpecHealthGate;
+              # Stop by Compose's project label so shutdown never depends on a
+              # runtime secret projection that may not exist during unit upgrade.
+              ExecStop =
+                if secretSpecProfile == null
+                then legacyStop
+                else "${stopStack}";
+              TimeoutStopSec = 60;
+            }
+            // lib.optionalAttrs (secretSpecProfile != null) {
+              RuntimeDirectory = runtimeDirectory;
+              RuntimeDirectoryMode = "0700";
+              ExecStartPre = secretSpecPreflight;
+            };
           # Empty WantedBy — these units are enabled (symlinked) but not pulled
           # in automatically by default.target during home-manager activation.
           # On boot they start via linger: systemd starts the user session which
