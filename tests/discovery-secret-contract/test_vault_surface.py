@@ -49,6 +49,12 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertEqual(tools["perms"], "0440")
             self.assertEqual(tools["group"], "docker")
             self.assertIn('command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tools.env"]', SOURCE.read_text())
+            ha_harness = next(
+                render for render in contract["renders"]
+                if render["destination"] == "/run/vault-agent/ha-harness.env"
+            )
+            self.assertEqual(ha_harness["perms"], "0440")
+            self.assertEqual(ha_harness["group"], "docker")
             rendered = generated.read_text()
             self.assertNotIn(".Data.data", rendered)
             self.assertNotIn("{{", rendered)
@@ -60,6 +66,14 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("sudo -u nobody head -c0 /run/vault-agent/tools.env", justfile)
         self.assertIn("sudo stat -c", justfile)
         self.assertIn("440 root docker", justfile)
+
+    def test_ha_harness_render_has_value_free_live_verification_recipe(self):
+        justfile = JUSTFILE.read_text()
+        self.assertIn("verify-ha-harness-secret-render:", justfile)
+        self.assertIn("sudo -u erik head -c0 /run/vault-agent/ha-harness.env", justfile)
+        self.assertIn("sudo -u nobody head -c0 /run/vault-agent/ha-harness.env", justfile)
+        self.assertIn('sort -u', justfile)
+        self.assertIn('HA_HARNESS_TOKEN\\nLITELLM_API_KEY', justfile)
 
 
 if __name__ == "__main__":
