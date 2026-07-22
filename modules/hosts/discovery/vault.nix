@@ -241,7 +241,10 @@
           template {
             contents = "${renderedAt}{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
             destination = "/run/vault-agent/shared-db.env"
-            perms = "0444"
+            perms = "0440"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]
+            }
           }
           # P3.3 shared: arr API keys (media + homepage) and grafana admin creds
           # (monitoring + homepage). Each consumer lists these in vaultEnvStacks.

@@ -2386,6 +2386,27 @@ verify-networking-secret-render:
       echo "networking_render=ready mode=0440 owner=root group=docker fresh=true"
     '
 
+# Prove the critical infra render is fresh and least-privilege without printing it.
+verify-infra-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/shared-db.env)" = "440 root docker"
+      sudo -u erik head -c0 /run/vault-agent/shared-db.env
+      if sudo -u nobody head -c0 /run/vault-agent/shared-db.env 2>/dev/null; then
+        echo "nobody unexpectedly read infra render" >&2
+        exit 1
+      fi
+      sudo find /run/vault-agent/shared-db.env -mmin -15 -print -quit | grep -q .
+      actual="$(sudo grep -v '^#' /run/vault-agent/shared-db.env | cut -d= -f1 | sort -u)"
+      expected="$(printf "POSTGRES_PASSWORD\nREDIS_PASSWORD")"
+      test "$actual" = "$expected"
+      echo "infra_render=ready mode=0440 owner=root group=docker fresh=true"
+    '
+
 # Prove the DS8 ha-harness render is fresh and least-privilege without printing it.
 verify-ha-harness-secret-render:
     #!/usr/bin/env bash
