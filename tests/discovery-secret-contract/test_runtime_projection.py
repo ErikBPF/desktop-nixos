@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import subprocess
@@ -218,6 +219,8 @@ class RuntimeProjectionTest(unittest.TestCase):
     def test_tunneling_cutover_has_exact_gate_and_value_free_render_check(self):
         compose = COMPOSE.read_text()
         justfile = JUSTFILE.read_text()
+        vault = VAULT.read_text()
+        contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
         self.assertIn('secretSpecRuntimeProfiles.tunneling = "tunneling";', compose)
         self.assertIn(
             'secretSpecRuntimeHealthContainers.tunneling = ["cloudflared"];',
@@ -225,6 +228,9 @@ class RuntimeProjectionTest(unittest.TestCase):
         )
         self.assertIn("verify-tunneling-secret-render:", justfile)
         self.assertIn('test "$actual" = CLOUDFLARE_TUNNEL_TOKEN', justfile)
+        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]', vault)
+        tunneling = next(row for row in contract["renders"] if row["destination"].endswith("/tunneling.env"))
+        self.assertEqual(tunneling["perms"], "0440")
 
 
 if __name__ == "__main__":

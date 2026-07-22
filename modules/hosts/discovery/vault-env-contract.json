@@ -58,7 +58,7 @@
       "names": [
         "CLOUDFLARE_TUNNEL_TOKEN"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/monitoring.env",
