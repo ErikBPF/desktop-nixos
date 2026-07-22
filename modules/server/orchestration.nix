@@ -88,6 +88,15 @@ in {
         '';
       };
 
+      secretSpecRuntimeIgnoredSourceNames = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = {};
+        description = ''
+          Names present in a shared Vault render but unused by a runtime
+          profile. They are accepted for source closure and emitted nowhere.
+        '';
+      };
+
       secretSpecRuntimeMaxAgeSeconds = lib.mkOption {
         type = lib.types.ints.positive;
         default = 900;
@@ -146,6 +155,7 @@ in {
         secretSpecProfile = cfg.secretSpecRuntimeProfiles.${name} or null;
         secretSpecHealthContainer = cfg.secretSpecRuntimeHealthContainers.${name} or null;
         secretSpecSourceConfigNames = cfg.secretSpecRuntimeSourceConfigNames.${name} or [];
+        secretSpecIgnoredSourceNames = cfg.secretSpecRuntimeIgnoredSourceNames.${name} or [];
         vaultBasenames = cfg.vaultEnvStacks.${name} or [];
         vaultEnvFlags =
           lib.concatMapStrings (b: " --env-file /run/vault-agent/${b}.env")
@@ -160,10 +170,11 @@ in {
           else runtimeConfig;
         projectionSourceFlags = lib.concatMapStrings (b: " --source /run/vault-agent/${b}.env") vaultBasenames;
         projectionConfigFlags = lib.concatMapStrings (n: " --source-config-name ${n}") secretSpecSourceConfigNames;
+        projectionIgnoredFlags = lib.concatMapStrings (n: " --ignored-source-name ${n}") secretSpecIgnoredSourceNames;
         secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --provider dotenv:${runtimeProvider} --reason discovery-${name}-production-runtime -- ";
         secretSpecPreflight = [
           "${pkgs.systemd}/bin/systemctl is-active vault-agent.service"
-          "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
+          "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags}${projectionIgnoredFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
         ];
         secretSpecHealthGate =
           if secretSpecHealthContainer == null

@@ -30,7 +30,10 @@ class RuntimeProjectionTest(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def run_projection(self, *sources: str, max_age: int = 900, source_config_names=()):
+    def run_projection(
+        self, *sources: str, max_age: int = 900, source_config_names=(),
+        ignored_source_names=(),
+    ):
         command = [
             "python3", str(SCRIPT), "--manifest", str(self.root / "secretspec.toml"),
             "--profile", "homepage", "--legacy-env", str(self.root / ".env"),
@@ -41,6 +44,8 @@ class RuntimeProjectionTest(unittest.TestCase):
             command.extend(["--source", str(self.root / source)])
         for name in source_config_names:
             command.extend(["--source-config-name", name])
+        for name in ignored_source_names:
+            command.extend(["--ignored-source-name", name])
         return subprocess.run(command, text=True, capture_output=True, check=False)
 
     def test_merges_exact_provider_and_removes_secrets_from_compose_env(self):
@@ -87,6 +92,17 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertEqual((current / "config.env").read_text(), "PORT=8080\nUSER=source-user\n")
         self.assertNotIn("source-user", result.stdout + result.stderr)
 
+    def test_declared_shared_source_surplus_is_emitted_nowhere(self):
+        (self.root / "two.env").write_text("B=sentinel-b\nREDIS_PASSWORD=ignored-value\n")
+        result = self.run_projection(
+            "one.env", "two.env", ignored_source_names=("REDIS_PASSWORD",)
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        current = self.root / "runtime/current"
+        self.assertEqual((current / "provider.env").read_text(), "A=sentinel-a\nB=sentinel-b\n")
+        self.assertNotIn("REDIS_PASSWORD", (current / "config.env").read_text())
+        self.assertNotIn("ignored-value", result.stdout + result.stderr)
+
     def test_empty_malformed_and_stale_inputs_fail_closed(self):
         for content in ("A=\nB=sentinel-b\n", "A\nB=sentinel-b\n"):
             (self.root / "one.env").write_text(content)
@@ -111,6 +127,8 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("--max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}", source)
         self.assertIn("secretSpecRuntimeSourceConfigNames", source)
         self.assertIn("--source-config-name ${n}", source)
+        self.assertIn("secretSpecRuntimeIgnoredSourceNames", source)
+        self.assertIn("--ignored-source-name ${n}", source)
 
 
 if __name__ == "__main__":

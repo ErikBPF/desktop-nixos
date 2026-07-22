@@ -105,6 +105,7 @@ def main() -> None:
     parser.add_argument("--legacy-env", type=pathlib.Path, required=True)
     parser.add_argument("--source", type=pathlib.Path, action="append", required=True)
     parser.add_argument("--source-config-name", action="append", default=[])
+    parser.add_argument("--ignored-source-name", action="append", default=[])
     parser.add_argument("--output-dir", type=pathlib.Path, required=True)
     parser.add_argument("--max-age-seconds", type=int, default=900)
     args = parser.parse_args()
@@ -125,7 +126,14 @@ def main() -> None:
             raise ProjectionError("invalid or duplicate source config name")
         if expected_names & source_config_names:
             raise ProjectionError("source config overlaps SecretSpec profile")
-        allowed_names = expected_names | source_config_names
+        ignored_source_names = set(args.ignored_source_name)
+        if len(ignored_source_names) != len(args.ignored_source_name) or any(
+            not NAME.fullmatch(name) for name in ignored_source_names
+        ):
+            raise ProjectionError("invalid or duplicate ignored source name")
+        if ignored_source_names & (expected_names | source_config_names):
+            raise ProjectionError("ignored source name overlaps emitted name")
+        allowed_names = expected_names | source_config_names | ignored_source_names
 
         now = time.time()
         merged: dict[str, str] = {}
@@ -175,7 +183,8 @@ def main() -> None:
         atomic_publish(args.output_dir, provider, config)
         print(
             f"projection=ready profile={args.profile} names={len(expected_names)} "
-            f"source_config_names={len(source_config_names)}"
+            f"source_config_names={len(source_config_names)} "
+            f"ignored_source_names={len(ignored_source_names)}"
         )
     except (OSError, KeyError, TypeError, ProjectionError, tomllib.TOMLDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
