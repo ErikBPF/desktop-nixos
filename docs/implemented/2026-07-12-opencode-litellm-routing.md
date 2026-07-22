@@ -1,6 +1,6 @@
 # OpenCode routing through LiteLLM
 
-**Status:** Proposed
+**Status:** Implemented — live Home Manager config verified 2026-07-22.
 
 ## Decision
 
@@ -26,3 +26,8 @@ No response or semantic cache for coding agents. Use upstream prompt-prefix cach
 - General/Explore responses record `litellm/mimo`.
 - LiteLLM traces attribute calls to the OpenCode consumer.
 - Direct-provider fallback is selectable but never default.
+
+Verified against the live Home Manager-managed `opencode.json` on Endeavour on
+2026-07-22: the default, architect, and plan models resolve to
+`litellm/glm-5`; general and explore resolve to `litellm/mimo`; direct routes
+remain non-default fallbacks.
