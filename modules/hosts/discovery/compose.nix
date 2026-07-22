@@ -22,6 +22,9 @@ _: {
       secretSpecRuntimeHealthContainers.tools = "searxng";
       secretSpecRuntimeProfiles.ha-harness = "ha-harness";
       secretSpecRuntimeHealthContainers.ha-harness = "ha-harness";
+      secretSpecRuntimeProfiles.homepage = "homepage";
+      secretSpecRuntimeSourceConfigNames.homepage = ["GRAFANA_ADMIN_USER"];
+      secretSpecRuntimeHealthContainers.homepage = "homepage";
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
