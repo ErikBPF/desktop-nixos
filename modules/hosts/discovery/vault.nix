@@ -218,12 +218,14 @@
           # --env-file for podman-compose-tunneling (orchestration.nix
           # vaultEnvStacks). cloudflared keeps its CLOUDFLARE_TUNNEL_TOKEN
           # interpolation; the value comes from OpenBao (secret/home/tunneling)
-          # instead of the sops .env. 0444 so the rootless-compose user reads it
-          # (matches discord.env; /run is tmpfs).
+          # instead of the sops .env. Restrict the render to the compose user.
           template {
             contents = "${renderedAt}CLOUDFLARE_TUNNEL_TOKEN={{ with secret \"secret/data/home/tunneling\" }}{{ .Data.data.CLOUDFLARE_TUNNEL_TOKEN }}{{ end }}\n"
             destination = "/run/vault-agent/tunneling.env"
-            perms = "0444"
+            perms = "0440"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]
+            }
           }
           # P3.3: monitoring stack-local secrets (grafana/healthchecks/scrutiny).
           # GRAFANA_ADMIN_{USER,PASSWORD} are shared with homepage → in the
