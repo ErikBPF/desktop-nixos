@@ -31,6 +31,24 @@ _: {
       secretSpecRuntimeProfiles.monitoring = "monitoring";
       secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];
       secretSpecRuntimeHealthContainers.monitoring = ["grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];
+      secretSpecRuntimeProfiles.media = "media";
+      secretSpecRuntimeSourceConfigNames.media = ["NORDVPN_USER" "QBITTORRENT_USER"];
+      secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr"];
+      secretSpecRuntimeProfiles.plex = "plex";
+      secretSpecRuntimeLegacySecretNames.plex = ["PLEX_CLAIM"];
+      secretSpecRuntimeHealthContainers.plex = ["plex"];
+      secretSpecRuntimeProfiles."kindle-dash" = "kindle-dash";
+      secretSpecRuntimeLegacySecretNames."kindle-dash" = [
+        "KINDLE_DASH_CLAUDE_REFRESH_TOKEN"
+        "KINDLE_DASH_CODEX_REFRESH_TOKEN"
+        "KINDLE_DASH_HA_TOKEN"
+        "KINDLE_DASH_OPENCODE_AUTH_COOKIE"
+      ];
+      secretSpecRuntimeHealthContainers."kindle-dash" = ["kindle-dash"];
+      secretSpecRuntimeProfiles."ai-serving" = "ai-serving";
+      secretSpecRuntimeSourceConfigNames."ai-serving" = ["LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT"];
+      secretSpecRuntimeLegacySecretNames."ai-serving" = ["LITELLM_MASTER_KEY" "OPENCODE_ZEN_KEY"];
+      secretSpecRuntimeHealthContainers."ai-serving" = ["litellm" "langfuse-clickhouse" "langfuse-web" "langfuse-worker"];
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
