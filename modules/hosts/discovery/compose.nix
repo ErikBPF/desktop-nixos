@@ -22,6 +22,9 @@ _: {
       secretSpecRuntimeHealthContainers.tools = ["searxng"];
       secretSpecRuntimeProfiles.tunneling = "tunneling";
       secretSpecRuntimeHealthContainers.tunneling = ["cloudflared"];
+      secretSpecRuntimeProfiles.networking = "networking";
+      secretSpecRuntimeLegacySecretNames.networking = ["ADGUARD_PASSWORD"];
+      secretSpecRuntimeHealthContainers.networking = ["swag" "adguard"];
       secretSpecRuntimeProfiles.ha-harness = "ha-harness";
       secretSpecRuntimeHealthContainers.ha-harness = ["ha-harness"];
       secretSpecRuntimeProfiles.homepage = "homepage";
