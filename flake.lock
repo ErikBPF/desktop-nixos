@@ -1167,6 +1167,22 @@
         "url": "https://flakehub.com/f/ErikBPF/opencode-flake/%2A"
       }
     },
+    "ponytail": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784151135,
+        "narHash": "sha256-Y7d4s7uqjH6IbEXhqAiQ+yaxr6iiGcv2X64LuMtG1T8=",
+        "owner": "DietrichGebert",
+        "repo": "ponytail",
+        "rev": "16f29800fd2681bdf24f3eb4ccffe38be3baec6b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "DietrichGebert",
+        "repo": "ponytail",
+        "type": "github"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat_3",
@@ -1282,6 +1298,7 @@
         "nixpkgs-orca": "nixpkgs-orca",
         "nixvim": "nixvim",
         "opencode-flake": "opencode-flake",
+        "ponytail": "ponytail",
         "quickshell": "quickshell",
         "sops-nix": "sops-nix",
         "stylix": "stylix"

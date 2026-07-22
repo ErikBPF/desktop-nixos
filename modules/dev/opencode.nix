@@ -38,7 +38,10 @@
     # /run/secrets/opencode/*).
     programs.opencode.settings = {
       instructions = ["AGENTS.md"];
-      plugin = ["./plugins/rtk.ts"];
+      plugin = [
+        "./plugins/rtk.ts"
+        "${inputs.ponytail}/.opencode/plugins/ponytail.mjs"
+      ];
       model = "litellm/glm-5";
 
       provider = {
