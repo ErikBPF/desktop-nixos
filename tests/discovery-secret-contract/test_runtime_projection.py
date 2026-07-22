@@ -14,6 +14,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "modules/server/_secretspec-runtime-projection.py"
 ORCHESTRATION = ROOT / "modules/server/orchestration.nix"
+VAULT = ROOT / "modules/hosts/discovery/vault.nix"
 
 
 class RuntimeProjectionTest(unittest.TestCase):
@@ -129,6 +130,21 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("--source-config-name ${n}", source)
         self.assertIn("secretSpecRuntimeIgnoredSourceNames", source)
         self.assertIn("--ignored-source-name ${n}", source)
+
+    def test_vault_dotenv_renders_publish_a_freshness_witness(self):
+        source = VAULT.read_text()
+        self.assertIn('static_secret_render_interval = "5m"', source)
+        self.assertIn("renderedAt = ''# rendered_at={{ timestamp }}\\n'';", source)
+        dotenv_templates = [
+            block
+            for block in source.split("template {")[1:]
+            if 'destination = "/run/vault-agent/' in block
+            and '.env"' in block.split("template {", 1)[0]
+        ]
+        self.assertGreaterEqual(len(dotenv_templates), 12)
+        for block in dotenv_templates:
+            template = block.split("template {", 1)[0]
+            self.assertIn('contents = "${renderedAt}', template)
 
 
 if __name__ == "__main__":
