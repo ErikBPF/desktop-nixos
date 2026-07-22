@@ -112,14 +112,12 @@ def main() -> None:
     try:
         with args.manifest.open("rb") as handle:
             manifest = tomllib.load(handle)
-        expected = manifest["profiles"][args.profile]
-        if not isinstance(expected, list) or not expected or any(
-            not isinstance(name, str) or not NAME.fullmatch(name) for name in expected
-        ):
+        profile = manifest["profiles"][args.profile]
+        if not isinstance(profile, dict) or not profile:
             raise ProjectionError("invalid or empty SecretSpec profile")
-        expected_names = set(expected)
-        if len(expected_names) != len(expected):
-            raise ProjectionError("duplicate SecretSpec profile name")
+        expected_names = set(profile)
+        if any(not NAME.fullmatch(name) for name in expected_names):
+            raise ProjectionError("invalid SecretSpec profile name")
         source_config_names = set(args.source_config_name)
         if len(source_config_names) != len(args.source_config_name) or any(
             not NAME.fullmatch(name) for name in source_config_names
