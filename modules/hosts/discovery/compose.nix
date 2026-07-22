@@ -20,6 +20,8 @@ _: {
       };
       secretSpecRuntimeProfiles.tools = "tools";
       secretSpecRuntimeHealthContainers.tools = ["searxng"];
+      secretSpecRuntimeProfiles.tunneling = "tunneling";
+      secretSpecRuntimeHealthContainers.tunneling = ["cloudflared"];
       secretSpecRuntimeProfiles.ha-harness = "ha-harness";
       secretSpecRuntimeHealthContainers.ha-harness = ["ha-harness"];
       secretSpecRuntimeProfiles.homepage = "homepage";

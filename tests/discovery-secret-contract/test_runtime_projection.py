@@ -16,6 +16,7 @@ SCRIPT = ROOT / "modules/server/_secretspec-runtime-projection.py"
 ORCHESTRATION = ROOT / "modules/server/orchestration.nix"
 VAULT = ROOT / "modules/hosts/discovery/vault.nix"
 COMPOSE = ROOT / "modules/hosts/discovery/compose.nix"
+JUSTFILE = ROOT / "justfile"
 
 
 class RuntimeProjectionTest(unittest.TestCase):
@@ -213,6 +214,17 @@ class RuntimeProjectionTest(unittest.TestCase):
             'secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];',
             compose,
         )
+
+    def test_tunneling_cutover_has_exact_gate_and_value_free_render_check(self):
+        compose = COMPOSE.read_text()
+        justfile = JUSTFILE.read_text()
+        self.assertIn('secretSpecRuntimeProfiles.tunneling = "tunneling";', compose)
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers.tunneling = ["cloudflared"];',
+            compose,
+        )
+        self.assertIn("verify-tunneling-secret-render:", justfile)
+        self.assertIn('test "$actual" = CLOUDFLARE_TUNNEL_TOKEN', justfile)
 
 
 if __name__ == "__main__":
