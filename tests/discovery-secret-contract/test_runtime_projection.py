@@ -20,7 +20,9 @@ class RuntimeProjectionTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.temporary.name)
-        (self.root / "secretspec.toml").write_text('[profiles]\nhomepage = ["A", "B"]\n')
+        (self.root / "secretspec.toml").write_text(
+            '[profiles.homepage]\nA = { required = true }\nB = { required = true }\n'
+        )
         (self.root / ".env").write_text("# config\nPORT=8080\nA=legacy-a\nB=legacy-b\n")
         (self.root / "one.env").write_text("A=sentinel-a\n")
         (self.root / "two.env").write_text("B=sentinel-b\n")
