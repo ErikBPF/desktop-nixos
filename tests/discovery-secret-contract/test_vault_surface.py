@@ -14,6 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "modules/hosts/discovery/vault.nix"
 EXPORTER = ROOT / "scripts/export-discovery-vault-contract.py"
 ARTIFACT = ROOT / "modules/hosts/discovery/vault-env-contract.json"
+JUSTFILE = ROOT / "justfile"
 
 
 class DiscoveryVaultSurfaceTest(unittest.TestCase):
@@ -51,6 +52,14 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             rendered = generated.read_text()
             self.assertNotIn(".Data.data", rendered)
             self.assertNotIn("{{", rendered)
+
+    def test_tools_render_has_value_free_live_verification_recipe(self):
+        justfile = JUSTFILE.read_text()
+        self.assertIn("verify-tools-secret-render:", justfile)
+        self.assertIn("sudo -u erik test -r /run/vault-agent/tools.env", justfile)
+        self.assertIn("sudo -u nobody test ! -r /run/vault-agent/tools.env", justfile)
+        self.assertIn("sudo stat -c", justfile)
+        self.assertIn("440 root docker", justfile)
 
 
 if __name__ == "__main__":

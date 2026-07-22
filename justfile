@@ -2327,6 +2327,22 @@ refresh-vault-agent target:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'sudo systemctl restart vault-agent.service; sudo systemctl is-active vault-agent.service; for _ in $(seq 1 100); do sudo test -s /run/vault-agent/ha-harness.env && break; sleep 0.1; done; sudo test -s /run/vault-agent/ha-harness.env; sudo journalctl -u vault-agent.service --no-pager -n20; sudo awk -F= '"'"'$1 == "LITELLM_API_KEY" {print $2}'"'"' /run/vault-agent/ha-harness.env | sha256sum | sed "s/ .*$/  ha-harness LITELLM_API_KEY/"'
 
+# Prove the DS8 tools render is fresh and least-privilege without printing it.
+verify-tools-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/tools.env)" = "440 root docker"
+      sudo -u erik test -r /run/vault-agent/tools.env
+      sudo -u nobody test ! -r /run/vault-agent/tools.env
+      sudo find /run/vault-agent/tools.env -mmin -15 -print -quit | grep -q .
+      test "$(sudo cut -d= -f1 /run/vault-agent/tools.env)" = SEARXNG_SECRET_KEY
+      echo "tools_render=ready mode=0440 owner=root group=docker fresh=true"
+    '
+
 # Permanently remove the seven disposable AI containers, their seven exact
 # images, and /fast/ai-models. The helper re-inventories and fails closed.
 kepler-retire-ai-serving-user-approved:
