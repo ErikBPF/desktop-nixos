@@ -29,6 +29,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`reference/voyager-offsite-maintenance.md`](reference/voyager-offsite-maintenance.md) | Voyager append-only restic tier: what lives there, monitoring/alerts, weekly `restic check`, manual prune window, owed restore drill. | As-built (2026-07-01) |
 | [`reference/service-exposure.md`](reference/service-exposure.md) | Discovery exposure audit: what's LAN/tailnet/internet-reachable and why — Docker-published ports bypass the NixOS firewall. Re-audit with `just verify-firewall`. | As-built (2026-07-01) |
 | [`reference/recovery-frozen-pid1.md`](reference/recovery-frozen-pid1.md) | Emergency tape: a systemd-bumping `switch` froze PID1 (net dead, `sudo reboot` hangs) → SysRq S+U+B, else force power-off is safe (btrfs/LUKS is CoW-clean, 0 corruption verified 2026-07-12). Fleet-upgrade-hardening P6. | Reference |
+| [`guides/break-glass.md`](guides/break-glass.md) | Value-free incident decision tree for deploy, Servarr, SecretSpec, Vault Agent, OpenBao, DNS, PID1, and credential recovery. | Guide |
 | [`guides/obsidian.md`](guides/obsidian.md) | Obsidian + sync configuration for the desktop hosts. | Guide |
 | [`guides/install.md`](guides/install.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). | Guide |
 | [`guides/yazi.md`](guides/yazi.md) | Yazi file manager for GUI users: GUI→yazi keymap bridge, cheatsheet popup, Nautilus fallback. | Guide |
