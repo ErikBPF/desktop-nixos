@@ -71,10 +71,10 @@ in {
       };
 
       secretSpecRuntimeHealthContainers = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
         default = {};
         description = ''
-          Stack-to-container map for targeted post-start health gates on
+          Stack-to-containers map for targeted post-start health gates on
           SecretSpec runtime boundaries.
         '';
       };
@@ -153,7 +153,7 @@ in {
       # layered after the sops .env (later --env-file wins for overlapping keys).
       makeService = idx: name: let
         secretSpecProfile = cfg.secretSpecRuntimeProfiles.${name} or null;
-        secretSpecHealthContainer = cfg.secretSpecRuntimeHealthContainers.${name} or null;
+        secretSpecHealthContainers = cfg.secretSpecRuntimeHealthContainers.${name} or [];
         secretSpecSourceConfigNames = cfg.secretSpecRuntimeSourceConfigNames.${name} or [];
         secretSpecIgnoredSourceNames = cfg.secretSpecRuntimeIgnoredSourceNames.${name} or [];
         vaultBasenames = cfg.vaultEnvStacks.${name} or [];
@@ -178,16 +178,20 @@ in {
           "${secretSpecRuntimeProjection}/bin/secretspec-runtime-projection --manifest ${cfg.composeDir}/secretspec.toml --profile ${secretSpecProfile} --legacy-env ${cfg.composeDir}/.env${projectionSourceFlags}${projectionConfigFlags}${projectionIgnoredFlags} --output-dir ${runtimeOutputDir} --max-age-seconds ${toString cfg.secretSpecRuntimeMaxAgeSeconds}"
         ];
         secretSpecHealthGate =
-          if secretSpecHealthContainer == null
+          if secretSpecHealthContainers == []
           then null
           else
             pkgs.writeShellScript "secretspec-${name}-health" ''
               set -euo pipefail
-              health_container="${secretSpecHealthContainer}"
+              health_containers=(${lib.escapeShellArgs secretSpecHealthContainers})
               for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
-                status="$(${pkgs.docker}/bin/docker inspect --format '{{.State.Health.Status}}' "$health_container" 2>/dev/null || true)"
-                [ "$status" = healthy ] && exit 0
-                [ "$status" = unhealthy ] && exit 1
+                all_healthy=1
+                for health_container in "''${health_containers[@]}"; do
+                  status="$(${pkgs.docker}/bin/docker inspect --format '{{.State.Health.Status}}' "$health_container" 2>/dev/null || true)"
+                  [ "$status" = unhealthy ] && exit 1
+                  [ "$status" = healthy ] || all_healthy=0
+                done
+                [ "$all_healthy" -eq 1 ] && exit 0
                 ${pkgs.coreutils}/bin/sleep 2
               done
               exit 1
@@ -229,7 +233,7 @@ in {
               # Docker socket — rootless Podman by default, override for rootful Docker.
               Environment = "DOCKER_HOST=${cfg.dockerSocket}";
               ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
-              ExecStartPost = lib.optional (secretSpecHealthContainer != null) secretSpecHealthGate;
+              ExecStartPost = lib.optional (secretSpecHealthContainers != []) secretSpecHealthGate;
               # Stop by Compose's project label so shutdown never depends on a
               # runtime secret projection that may not exist during unit upgrade.
               ExecStop =
