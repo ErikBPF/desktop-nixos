@@ -1050,6 +1050,7 @@ class ObservationContract(unittest.TestCase):
                 "",
                 self.target + "\n",
                 "",
+                self.target + "\n",
                 self.agent.COMPOSE_PATH + "\n",
                 self.compose,
             ]
@@ -1084,9 +1085,19 @@ class ObservationContract(unittest.TestCase):
                 ],
                 [
                     *git,
-                    "diff",
-                    "--name-only",
+                    "rev-list",
+                    "--reverse",
                     f"{self.previous}..{self.target}",
+                    "--",
+                    self.agent.COMPOSE_PATH,
+                ],
+                [
+                    *git,
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "-r",
+                    self.target,
                 ],
                 [
                     *git,
@@ -1103,12 +1114,17 @@ class ObservationContract(unittest.TestCase):
                 "",
                 self.target,
                 "",
+                self.target,
                 self.agent.COMPOSE_PATH + "\nother.yml\n",
                 self.compose,
             ]
         )
         with self.assertRaises(ValueError):
             self.agent.observe_candidate(runner, self.previous)
+
+    def test_observation_ignores_advances_without_compose_change(self):
+        runner = self.Runner(["", self.target, "", ""])
+        self.assertIsNone(self.agent.observe_candidate(runner, self.previous))
 
     def test_observation_returns_none_when_main_has_not_advanced(self):
         runner = self.Runner(["", self.previous + "\n"])

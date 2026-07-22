@@ -678,11 +678,17 @@ def observe_candidate(runner, previous_commit):
     if commit == previous_commit:
         return None
     runner.run(git + ["merge-base", "--is-ancestor", previous_commit, commit])
-    changed_paths = runner.run(
-        git + ["diff", "--name-only", f"{previous_commit}..{commit}"]
+    candidates = runner.run(
+        git + ["rev-list", "--reverse", f"{previous_commit}..{commit}", "--", COMPOSE_PATH]
     ).splitlines()
-    compose_text = runner.run(git + ["show", f"{commit}:{COMPOSE_PATH}"])
-    return validate_candidate(commit, changed_paths, compose_text)
+    if not candidates:
+        return None
+    candidate = candidates[0]
+    changed_paths = runner.run(
+        git + ["diff-tree", "--no-commit-id", "--name-only", "-r", candidate]
+    ).splitlines()
+    compose_text = runner.run(git + ["show", f"{candidate}:{COMPOSE_PATH}"])
+    return validate_candidate(candidate, changed_paths, compose_text)
 
 
 def observe_live_release(runner):
