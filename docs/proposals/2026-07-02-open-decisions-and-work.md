@@ -99,7 +99,7 @@ evidência → aprovação → execução.
 | HAI5 | **Pin/healthcheck do OCI Hermes** | mesmo doc P5 | Corrigir primeiro no `hermes-flake`, depois bump e deploy no consumer. |
 | HAI6 | **Reabrir agentmemory?** | mesmo doc P6 | Default: não. Reabrir só com falha demonstrada de keyword/file recall. |
 | HAI7 | ~~**TokenSave: benchmark ou remover**~~ | [`tokensave-dataplatform-eval`](../implemented/2026-07-02-tokensave-dataplatform-eval.md) | **Resolvido 2026-07-15:** benchmark executado; eval removida por não provar o contrato de adoção. |
-| HAI8 | **OpenCode LiteLLM routing** | [`opencode-litellm-routing`](2026-07-12-opencode-litellm-routing.md) | Implementado; verificar no próximo `switch laptop`, depois graduar RFC. |
+| HAI8 | **OpenCode LiteLLM routing** | [`opencode-litellm-routing`](../implemented/2026-07-12-opencode-litellm-routing.md) | Implementado e verificado no Endeavour; RFC graduado. |
 
 ## Cluster S — secrets, custódia e caudas IaC
 
