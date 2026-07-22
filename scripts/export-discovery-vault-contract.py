@@ -13,6 +13,7 @@ import re
 NAME = re.compile(r"([A-Z][A-Z0-9_]*)=\{\{")
 DESTINATION = re.compile(r'^\s*destination = "([^"]+)"')
 PERMS = re.compile(r'^\s*perms = "([0-7]{4})"')
+CHGRP = re.compile(r'^\s*command = \["[^"]*/chgrp", "([^"]+)", "([^"]+)"\]')
 
 
 def export(source: pathlib.Path) -> dict[str, object]:
@@ -34,6 +35,15 @@ def export(source: pathlib.Path) -> dict[str, object]:
             current["perms"] = match.group(1)
             renders.append(current)
             current = None
+            continue
+        match = CHGRP.match(line)
+        if match:
+            group, destination = match.groups()
+            render = next(
+                (row for row in renders if row["destination"] == destination), None
+            )
+            if render is not None:
+                render["group"] = group
     names = sorted({name for render in renders for name in render["names"]})
     return {
         "schema_version": 1,

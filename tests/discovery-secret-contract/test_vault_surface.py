@@ -41,6 +41,13 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
                 {"group": "root", "runtime_directory": "/run/vault-agent", "unit": "vault-agent.service", "user": "root"},
             )
             self.assertTrue(all("perms" in render for render in contract["renders"]))
+            tools = next(
+                render for render in contract["renders"]
+                if render["destination"] == "/run/vault-agent/tools.env"
+            )
+            self.assertEqual(tools["perms"], "0440")
+            self.assertEqual(tools["group"], "docker")
+            self.assertIn('command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tools.env"]', SOURCE.read_text())
             rendered = generated.read_text()
             self.assertNotIn(".Data.data", rendered)
             self.assertNotIn("{{", rendered)
