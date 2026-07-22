@@ -155,6 +155,18 @@ class RuntimeProjectionTest(unittest.TestCase):
             source,
         )
 
+    def test_monitoring_gates_all_secret_consumers(self):
+        source = COMPOSE.read_text()
+        self.assertIn('secretSpecRuntimeProfiles.monitoring = "monitoring";', source)
+        self.assertIn(
+            'secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];',
+            source,
+        )
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers.monitoring = ["grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];',
+            source,
+        )
+
     def test_runtime_health_gate_accepts_all_secret_consumers(self):
         orchestration = ORCHESTRATION.read_text()
         compose = COMPOSE.read_text()
