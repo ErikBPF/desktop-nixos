@@ -283,7 +283,10 @@
           template {
             contents = "${renderedAt}{{ with secret \"secret/data/home/networking\" }}CLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"
             destination = "/run/vault-agent/networking.env"
-            perms = "0444"
+            perms = "0440"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/networking.env"]
+            }
           }
           # Harbor setup and the fixed mirror recipe run as root. Keep the
           # project-scoped robot beside the admin/database inputs without

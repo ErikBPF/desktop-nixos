@@ -232,6 +232,26 @@ class RuntimeProjectionTest(unittest.TestCase):
         tunneling = next(row for row in contract["renders"] if row["destination"].endswith("/tunneling.env"))
         self.assertEqual(tunneling["perms"], "0440")
 
+    def test_networking_cutover_has_exact_sources_gates_and_render_check(self):
+        compose = COMPOSE.read_text()
+        justfile = JUSTFILE.read_text()
+        vault = VAULT.read_text()
+        contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
+        self.assertIn('secretSpecRuntimeProfiles.networking = "networking";', compose)
+        self.assertIn(
+            'secretSpecRuntimeLegacySecretNames.networking = ["ADGUARD_PASSWORD"];',
+            compose,
+        )
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers.networking = ["swag" "adguard"];',
+            compose,
+        )
+        self.assertIn("verify-networking-secret-render:", justfile)
+        self.assertIn('test "$actual" = CLOUDFLARE_API_TOKEN', justfile)
+        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/networking.env"]', vault)
+        networking = next(row for row in contract["renders"] if row["destination"].endswith("/networking.env"))
+        self.assertEqual(networking["perms"], "0440")
+
 
 if __name__ == "__main__":
     unittest.main()

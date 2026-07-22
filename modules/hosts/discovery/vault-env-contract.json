@@ -142,7 +142,7 @@
       "names": [
         "CLOUDFLARE_API_TOKEN"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/harbor.env",
