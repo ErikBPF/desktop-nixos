@@ -11,7 +11,7 @@ and moved into sops 2026-07-11, `b98026f`). As-built boot details:
 `2026-06-20-archinaut-kernel-direct-boot.md`.
 **Owner:** erik
 **Target host:** `archinaut` — Raspberry Pi 3 **Model B+**, WiFi `192.168.10.225` (DHCP-reserved on `wlan0`; wired retired — `lan78xx` blacklisted for webcam USB bandwidth)
-**Related:** sister repo [`klipper-biqu`](../../references/repos/klipper-biqu) (printer config + as-built reference); fleet host pattern follows `discovery`.
+**Related:** sister repo [`klipper-biqu`](https://github.com/ErikBPF/klipper-biqu) (printer config + as-built reference); fleet host pattern follows `discovery`.
 
 > Naming: fleet hosts are real spacecraft matched to machine focus. **Archinaut
 > One** (Made In Space / Redwire) is the in-space 3D-printing + robotic-assembly
