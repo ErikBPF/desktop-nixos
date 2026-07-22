@@ -34,7 +34,7 @@ class RuntimeProjectionTest(unittest.TestCase):
 
     def run_projection(
         self, *sources: str, max_age: int = 900, source_config_names=(),
-        ignored_source_names=(),
+        ignored_source_names=(), legacy_secret_names=(),
     ):
         command = [
             "python3", str(SCRIPT), "--manifest", str(self.root / "secretspec.toml"),
@@ -48,6 +48,8 @@ class RuntimeProjectionTest(unittest.TestCase):
             command.extend(["--source-config-name", name])
         for name in ignored_source_names:
             command.extend(["--ignored-source-name", name])
+        for name in legacy_secret_names:
+            command.extend(["--legacy-secret-name", name])
         return subprocess.run(command, text=True, capture_output=True, check=False)
 
     def test_merges_exact_provider_and_removes_secrets_from_compose_env(self):
@@ -105,6 +107,13 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertNotIn("REDIS_PASSWORD", (current / "config.env").read_text())
         self.assertNotIn("ignored-value", result.stdout + result.stderr)
 
+    def test_can_project_sops_decrypted_secrets_from_legacy_env(self):
+        result = self.run_projection(legacy_secret_names=("A", "B"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        current = self.root / "runtime/current"
+        self.assertEqual((current / "provider.env").read_text(), "A=legacy-a\nB=legacy-b\n")
+        self.assertEqual((current / "config.env").read_text(), "# config\nPORT=8080\n")
+
     def test_empty_malformed_and_stale_inputs_fail_closed(self):
         for content in ("A=\nB=sentinel-b\n", "A\nB=sentinel-b\n"):
             (self.root / "one.env").write_text(content)
@@ -131,6 +140,8 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("--source-config-name ${n}", source)
         self.assertIn("secretSpecRuntimeIgnoredSourceNames", source)
         self.assertIn("--ignored-source-name ${n}", source)
+        self.assertIn("secretSpecRuntimeLegacySecretNames", source)
+        self.assertIn("--legacy-secret-name ${n}", source)
 
     def test_vault_dotenv_renders_publish_a_freshness_witness(self):
         source = VAULT.read_text()

@@ -103,7 +103,8 @@ def main() -> None:
     parser.add_argument("--manifest", type=pathlib.Path, required=True)
     parser.add_argument("--profile", required=True)
     parser.add_argument("--legacy-env", type=pathlib.Path, required=True)
-    parser.add_argument("--source", type=pathlib.Path, action="append", required=True)
+    parser.add_argument("--source", type=pathlib.Path, action="append", default=[])
+    parser.add_argument("--legacy-secret-name", action="append", default=[])
     parser.add_argument("--source-config-name", action="append", default=[])
     parser.add_argument("--ignored-source-name", action="append", default=[])
     parser.add_argument("--output-dir", type=pathlib.Path, required=True)
@@ -119,6 +120,9 @@ def main() -> None:
         expected_names = set(profile)
         if any(not NAME.fullmatch(name) for name in expected_names):
             raise ProjectionError("invalid SecretSpec profile name")
+        legacy_secret_names = set(args.legacy_secret_name)
+        if len(legacy_secret_names) != len(args.legacy_secret_name) or not legacy_secret_names <= expected_names:
+            raise ProjectionError("invalid, duplicate, or out-of-profile legacy secret name")
         source_config_names = set(args.source_config_name)
         if len(source_config_names) != len(args.source_config_name) or any(
             not NAME.fullmatch(name) for name in source_config_names
@@ -151,15 +155,6 @@ def main() -> None:
                     raise ProjectionError(f"conflicting duplicate dotenv name: {name}")
                 merged[name] = row
 
-        actual_names = set(merged)
-        if actual_names != allowed_names:
-            missing = sorted(allowed_names - actual_names)
-            extra = sorted(actual_names - allowed_names)
-            raise ProjectionError(
-                f"provider name closure differs (missing={','.join(missing) or '-'}; "
-                f"extra={','.join(extra) or '-'})"
-            )
-
         legacy_lines = args.legacy_env.read_text().splitlines()
         config_lines: list[str] = []
         for number, raw in enumerate(legacy_lines, 1):
@@ -170,11 +165,26 @@ def main() -> None:
             declaration = line[7:].lstrip() if line.startswith("export ") else line
             if "=" not in declaration:
                 raise ProjectionError(f"malformed legacy dotenv declaration: {args.legacy_env}:{number}")
-            name = declaration.split("=", 1)[0]
+            name, value = declaration.split("=", 1)
             if not NAME.fullmatch(name):
                 raise ProjectionError(f"invalid legacy dotenv name: {args.legacy_env}:{number}")
+            if name in legacy_secret_names:
+                if not value.strip():
+                    raise ProjectionError(f"empty legacy secret: {args.legacy_env}:{number}")
+                if name in merged and merged[name] != declaration:
+                    raise ProjectionError(f"conflicting duplicate dotenv name: {name}")
+                merged[name] = declaration
             if name not in allowed_names:
                 config_lines.append(raw)
+
+        actual_names = set(merged)
+        if actual_names != allowed_names:
+            missing = sorted(allowed_names - actual_names)
+            extra = sorted(actual_names - allowed_names)
+            raise ProjectionError(
+                f"provider name closure differs (missing={','.join(missing) or '-'}; "
+                f"extra={','.join(extra) or '-'})"
+            )
 
         config_lines.extend(merged[name] for name in sorted(source_config_names))
 
