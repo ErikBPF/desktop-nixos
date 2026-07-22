@@ -610,7 +610,7 @@ backup-kepler-esp-orion:
     ssh -p 2222 erik@"$KEPLER" \
       "sudo tar --one-file-system -C / -cpf - home/erik etc/ssh var/lib/tailscale" \
       | restic backup --stdin --stdin-filename kepler-os-state.tar --tag esp-migration
-    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r 'max_by(.time).short_id')
     test -n "$snapshot" -a "$snapshot" != null
     ssh -p 2222 erik@"$KEPLER" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user start podman-compose-infra.service'
     quiesced=0
@@ -883,7 +883,7 @@ backup-orion-home-kepler:
     done
     ssh -p 2222 erik@"$ORION" "sudo tar --one-file-system -C /home/erik -cpf - ." \
       | restic backup --stdin --stdin-filename orion-home.tar --tag esp-migration
-    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r 'max_by(.time).short_id')
     test -n "$snapshot" -a "$snapshot" != null
     members=()
     for sample in "${samples[@]}"; do members+=("./$sample"); done
@@ -922,7 +922,7 @@ verify-orion-home-backup-kepler:
     for sample in "${samples[@]}"; do
       ssh -p 2222 erik@"$ORION" "sha256sum '/home/erik/$sample'" >>"$hashes"
     done
-    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r 'max_by(.time).short_id')
     test -n "$snapshot" -a "$snapshot" != null
     members=()
     for sample in "${samples[@]}"; do members+=("./$sample"); done
@@ -1002,9 +1002,9 @@ backup-pathfinder-home-kepler sample:
     if ! restic snapshots >/dev/null 2>&1; then restic init; fi
     source_hash=$(ssh -p 2222 erik@"$PATHFINDER" "sha256sum '/home/erik/$sample'" | awk '{print $1}')
     test -n "$source_hash"
-    ssh -p 2222 erik@"$PATHFINDER" "sudo tar --one-file-system -C /home/erik -cpf - ." \
+    ssh -p 2222 erik@"$PATHFINDER" "sudo tar --ignore-failed-read --one-file-system -C /home/erik -cpf - ." \
       | restic backup --stdin --stdin-filename pathfinder-home.tar --tag esp-migration
-    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r '.[0].short_id')
+    snapshot=$(restic snapshots --tag esp-migration --latest 1 --json | jq -r 'max_by(.time).short_id')
     test -n "$snapshot" -a "$snapshot" != null
     restored_hash=$(restic dump "$snapshot" pathfinder-home.tar \
       | tar -xOf - "./$sample" | sha256sum | awk '{print $1}')
