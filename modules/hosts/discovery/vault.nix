@@ -259,7 +259,10 @@
           template {
             contents = "{{ with secret \"secret/data/home/tools\" }}SEARXNG_SECRET_KEY={{ .Data.data.SEARXNG_SECRET_KEY }}\n{{ end }}"
             destination = "/run/vault-agent/tools.env"
-            perms = "0444"
+            perms = "0440"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tools.env"]
+            }
           }
           template {
             contents = "{{ with secret \"secret/data/home/media\" }}NORDVPN_USER={{ .Data.data.NORDVPN_USER }}\nNORDVPN_PASSWORD={{ .Data.data.NORDVPN_PASSWORD }}\nQBITTORRENT_USER={{ .Data.data.QBITTORRENT_USER }}\nQBITTORRENT_PASSWORD={{ .Data.data.QBITTORRENT_PASSWORD }}\n{{ end }}"

@@ -106,10 +106,11 @@
     },
     {
       "destination": "/run/vault-agent/tools.env",
+      "group": "docker",
       "names": [
         "SEARXNG_SECRET_KEY"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/media.env",
@@ -170,5 +171,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "7a583e3e81ca8df927d5e37d140d3e57fb3cdd7b412a9104bac20f318ee3c42e"
+  "source_sha256": "f351b6e69027ffc88f55ac9d9feea965eefb2830d07229f0caa0d59e152ebfcf"
 }
