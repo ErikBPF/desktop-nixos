@@ -70,6 +70,15 @@ in {
         '';
       };
 
+      secretSpecRuntimeHealthContainers = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {};
+        description = ''
+          Stack-to-container map for targeted post-start health gates on
+          SecretSpec runtime boundaries.
+        '';
+      };
+
       dockerSocket = lib.mkOption {
         type = lib.types.str;
         default = "unix:///run/user/1000/podman/podman.sock";
@@ -110,6 +119,7 @@ in {
       # layered after the sops .env (later --env-file wins for overlapping keys).
       makeService = idx: name: let
         secretSpecProfile = cfg.secretSpecRuntimeProfiles.${name} or null;
+        secretSpecHealthContainer = cfg.secretSpecRuntimeHealthContainers.${name} or null;
         secretSpecEnv =
           if secretSpecProfile == null
           then name
@@ -119,7 +129,6 @@ in {
           lib.concatMapStrings (b: " --env-file /run/vault-agent/${b}.env")
           (lib.filter (b: b != secretSpecProfile) vaultBasenames);
         secretSpecPrefix = lib.optionalString (secretSpecProfile != null) "${pkgs.secretspec}/bin/secretspec run --file ${cfg.composeDir}/secretspec.toml --profile ${secretSpecEnv} --provider dotenv:/run/vault-agent/${secretSpecEnv}.env --reason discovery-${name}-production-runtime -- ";
-        secretSpecWait = lib.optionalString (secretSpecProfile != null) " --wait";
         secretSpecPreflight = pkgs.writeShellScript "secretspec-${name}-preflight" ''
           set -euo pipefail
           ${pkgs.systemd}/bin/systemctl is-active vault-agent.service >/dev/null
@@ -127,6 +136,21 @@ in {
           [ "$(${pkgs.coreutils}/bin/stat -c '%a %U %G' "$render")" = "440 root docker" ]
           ${pkgs.coreutils}/bin/head -c0 "$render"
         '';
+        secretSpecHealthGate =
+          if secretSpecHealthContainer == null
+          then null
+          else
+            pkgs.writeShellScript "secretspec-${name}-health" ''
+              set -euo pipefail
+              health_container="${secretSpecHealthContainer}"
+              for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+                status="$(${pkgs.docker}/bin/docker inspect --format '{{.State.Health.Status}}' "$health_container" 2>/dev/null || true)"
+                [ "$status" = healthy ] && exit 0
+                [ "$status" = unhealthy ] && exit 1
+                ${pkgs.coreutils}/bin/sleep 2
+              done
+              exit 1
+            '';
       in {
         "podman-compose-${name}" = {
           Unit = {
@@ -157,7 +181,8 @@ in {
             # Docker socket — rootless Podman by default, override for rootful Docker.
             Environment = "DOCKER_HOST=${cfg.dockerSocket}";
             ExecStartPre = lib.optional (secretSpecProfile != null) secretSpecPreflight;
-            ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans${secretSpecWait}";
+            ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
+            ExecStartPost = lib.optional (secretSpecHealthContainer != null) secretSpecHealthGate;
             ExecStop = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${cfg.composeDir}/.env${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml stop";
             TimeoutStopSec = 60;
           };

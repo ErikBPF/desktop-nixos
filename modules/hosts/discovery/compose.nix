@@ -19,6 +19,7 @@ _: {
         infra = ["shared-db"];
       };
       secretSpecRuntimeProfiles.tools = "tools";
+      secretSpecRuntimeHealthContainers.tools = "searxng";
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
