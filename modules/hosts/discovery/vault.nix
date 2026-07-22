@@ -290,7 +290,10 @@
           template {
             contents = "{{ with secret \"secret/data/home/ha-harness\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\nHA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
             destination = "/run/vault-agent/ha-harness.env"
-            perms = "0444"
+            perms = "0440"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/ha-harness.env"]
+            }
           }
         ''}";
       };

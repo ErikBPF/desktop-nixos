@@ -2346,6 +2346,27 @@ verify-tools-secret-render:
       echo "tools_render=ready mode=0440 owner=root group=docker fresh=true"
     '
 
+# Prove the DS8 ha-harness render is fresh and least-privilege without printing it.
+verify-ha-harness-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/ha-harness.env)" = "440 root docker"
+      sudo -u erik head -c0 /run/vault-agent/ha-harness.env
+      if sudo -u nobody head -c0 /run/vault-agent/ha-harness.env 2>/dev/null; then
+        echo "nobody unexpectedly read ha-harness render" >&2
+        exit 1
+      fi
+      sudo find /run/vault-agent/ha-harness.env -mmin -15 -print -quit | grep -q .
+      actual="$(sudo cut -d= -f1 /run/vault-agent/ha-harness.env | sort -u)"
+      expected="$(printf "HA_HARNESS_TOKEN\nLITELLM_API_KEY")"
+      test "$actual" = "$expected"
+      echo "ha_harness_render=ready mode=0440 owner=root group=docker fresh=true"
+    '
+
 # Permanently remove the seven disposable AI containers, their seven exact
 # images, and /fast/ai-models. The helper re-inventories and fails closed.
 kepler-retire-ai-serving-user-approved:
