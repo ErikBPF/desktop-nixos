@@ -12,11 +12,13 @@ import re
 
 NAME = re.compile(r"([A-Z][A-Z0-9_]*)=\{\{")
 DESTINATION = re.compile(r'^\s*destination = "([^"]+)"')
+PERMS = re.compile(r'^\s*perms = "([0-7]{4})"')
 
 
 def export(source: pathlib.Path) -> dict[str, object]:
     text = source.read_text()
     pending: list[str] = []
+    current: dict[str, object] | None = None
     renders: list[dict[str, object]] = []
     for line in text.splitlines():
         if "contents = " in line:
@@ -24,14 +26,26 @@ def export(source: pathlib.Path) -> dict[str, object]:
             continue
         match = DESTINATION.match(line)
         if match and pending:
-            renders.append({"destination": match.group(1), "names": sorted(pending)})
+            current = {"destination": match.group(1), "names": sorted(pending)}
             pending = []
+            continue
+        match = PERMS.match(line)
+        if match and current:
+            current["perms"] = match.group(1)
+            renders.append(current)
+            current = None
     names = sorted({name for render in renders for name in render["names"]})
     return {
         "schema_version": 1,
         "owner": "desktop-nixos",
         "source": "modules/hosts/discovery/vault.nix",
         "source_sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "service_identity": {
+            "unit": "vault-agent.service",
+            "user": "root",
+            "group": "root",
+            "runtime_directory": "/run/vault-agent",
+        },
         "names": names,
         "renders": renders,
     }
