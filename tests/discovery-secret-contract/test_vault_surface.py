@@ -66,6 +66,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("sudo -u nobody head -c0 /run/vault-agent/tools.env", justfile)
         self.assertIn("sudo stat -c", justfile)
         self.assertIn("440 root docker", justfile)
+        self.assertGreaterEqual(justfile.count("grep -v '^#'"), 2)
 
     def test_ha_harness_render_has_value_free_live_verification_recipe(self):
         justfile = JUSTFILE.read_text()

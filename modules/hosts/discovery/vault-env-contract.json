@@ -172,5 +172,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "1a93f305afc5555d94cc37cdc2d08b2d304a832252422e59b49eaa67336af1e2"
+  "source_sha256": "8ece31a6673c4c3761c819f643e88c54d3e3063ebff93b9d5fa779df19fc70b8"
 }
