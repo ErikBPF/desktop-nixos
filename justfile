@@ -2346,6 +2346,26 @@ verify-tools-secret-render:
       echo "tools_render=ready mode=0440 owner=root group=docker fresh=true"
     '
 
+# Prove the critical tunneling render is fresh and least-privilege without printing it.
+verify-tunneling-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/tunneling.env)" = "440 root docker"
+      sudo -u erik head -c0 /run/vault-agent/tunneling.env
+      if sudo -u nobody head -c0 /run/vault-agent/tunneling.env 2>/dev/null; then
+        echo "nobody unexpectedly read tunneling render" >&2
+        exit 1
+      fi
+      sudo find /run/vault-agent/tunneling.env -mmin -15 -print -quit | grep -q .
+      actual="$(sudo grep -v '^#' /run/vault-agent/tunneling.env | cut -d= -f1)"
+      test "$actual" = CLOUDFLARE_TUNNEL_TOKEN
+      echo "tunneling_render=ready mode=0440 owner=root group=docker fresh=true"
+    '
+
 # Prove the DS8 ha-harness render is fresh and least-privilege without printing it.
 verify-ha-harness-secret-render:
     #!/usr/bin/env bash
