@@ -154,9 +154,20 @@ class RuntimeProjectionTest(unittest.TestCase):
             'secretSpecRuntimeIgnoredSourceNames."media-server" = ["REDIS_PASSWORD"];',
             source,
         )
+
+    def test_runtime_health_gate_accepts_all_secret_consumers(self):
+        orchestration = ORCHESTRATION.read_text()
+        compose = COMPOSE.read_text()
         self.assertIn(
-            'secretSpecRuntimeHealthContainers."media-server" = "jellystat";',
-            source,
+            "type = lib.types.attrsOf (lib.types.listOf lib.types.str);",
+            orchestration,
+        )
+        self.assertIn("for health_container in", orchestration)
+        self.assertIn("all_healthy=1", orchestration)
+        self.assertIn('secretSpecRuntimeHealthContainers.tools = ["searxng"];', compose)
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];',
+            compose,
         )
 
 

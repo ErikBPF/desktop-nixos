@@ -19,15 +19,15 @@ _: {
         infra = ["shared-db"];
       };
       secretSpecRuntimeProfiles.tools = "tools";
-      secretSpecRuntimeHealthContainers.tools = "searxng";
+      secretSpecRuntimeHealthContainers.tools = ["searxng"];
       secretSpecRuntimeProfiles.ha-harness = "ha-harness";
-      secretSpecRuntimeHealthContainers.ha-harness = "ha-harness";
+      secretSpecRuntimeHealthContainers.ha-harness = ["ha-harness"];
       secretSpecRuntimeProfiles.homepage = "homepage";
       secretSpecRuntimeSourceConfigNames.homepage = ["GRAFANA_ADMIN_USER"];
-      secretSpecRuntimeHealthContainers.homepage = "homepage";
+      secretSpecRuntimeHealthContainers.homepage = ["homepage"];
       secretSpecRuntimeProfiles."media-server" = "media-server";
       secretSpecRuntimeIgnoredSourceNames."media-server" = ["REDIS_PASSWORD"];
-      secretSpecRuntimeHealthContainers."media-server" = "jellystat";
+      secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)
         "infra" # postgres, redis, vault, adguard
