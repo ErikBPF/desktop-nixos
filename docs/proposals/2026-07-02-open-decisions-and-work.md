@@ -12,8 +12,8 @@ quebrar referências históricas.
 
 | RFC | Disposição | Motivo / próximo passo |
 |-----|------------|------------------------|
-| `repo-structure-improvements` | **Graduar: Phase 0 implementada** | Contrato + `structure-check` entregues; refactor amplo recusado. `_flake/` conflita com o skip de segmentos `_` do `import-tree`. |
-| `source-backed-host-improvements` | **Graduar P0/P1; extrair cauda** | Exposição, deploy-rs e inventário entregues. Restam decisões concretas H1–H4 abaixo, não um programa aberto de melhorias. |
+| `repo-structure-improvements` | **Graduado** | Contrato + `structure-check` entregues; refactor amplo recusado. `_flake/` conflita com o skip de segmentos `_` do `import-tree`. |
+| `source-backed-host-improvements` | **Graduado; cauda extraída** | Exposição, deploy-rs e inventário entregues. Restam decisões concretas H1–H4 abaixo, não um programa aberto de melhorias. |
 | `hermes-agentmemory-integration` | **Retirar como plano ativo; preservar como referência de HAI6** | Wiki nativa substituiu agentmemory. Reabrir só se busca semântica provar necessidade. |
 | `hermes-deferred-plans` | **Apagar após corrigir links** | Supersedido integralmente pelo backlog consolidado de Hermes. |
 | `hermes-deferred-improvements` | **Manter** | Dono único da cauda Hermes. |
@@ -21,7 +21,6 @@ quebrar referências históricas.
 | `free-tier-cloud-resources` | **Retirar RFC amplo; extrair C3–C5** | Catálogo mistura oportunidades sem demanda. Só decisões com benefício identificado sobrevivem. |
 | `home-assistant-ai-consolidation` | **Manter** | Shadow stack implementado, capacity/deploy gates ainda abertos. |
 | `tokensave-dataplatform-eval` | **Graduado: avaliado e removido** | Self-benchmark forte, mas sem A/B independente; 81 tools + índices stale falharam o contrato. |
-| `impermanence-ephemeral-root` | **Retirar** | Sem problema concreto, inventário de persistência ou host-canário. Reabrir após H4, não antes. |
 | `observability-continuation` | **Manter** | Dono do cluster O1–O5. |
 | `netbird-selfhosted-overlay` | **Manter** | Parcialmente live; rollout e hardening restantes. |
 | `fleet-container-placement-srp` | **Manter para N3/N4** | Regra proposta; separações ainda precisam decisão explícita. |
@@ -69,7 +68,7 @@ evidência → aprovação → execução.
 | ID | Decisão / trabalho | Dono | Próximo gate |
 |----|--------------------|------|--------------|
 | A4 | ~~**Fases 1–5 do repo-structure**~~ | **Resolvido 2026-07-15:** aceitar árvore atual; graduar Phase 0 | Encerrado. Splits futuros só quando trabalho real expuser boundary. |
-| A5 / H1 | **Apertar sudo nos servers agora?** | [`source-backed-host-improvements`](2026-06-24-source-backed-host-improvements.md) | Auditar comandos realmente usados por deploy-rs/ops; propor regras específicas antes de remover passwordless wheel. |
+| A5 / H1 | **Apertar sudo nos servers agora?** | [`source-backed-host-improvements`](../implemented/2026-06-24-source-backed-host-improvements.md) | Auditar comandos realmente usados por deploy-rs/ops; propor regras específicas antes de remover passwordless wheel. |
 | H2 | **Narrow NFS `no_root_squash` no Kepler** | mesmo doc | Inventariar clientes/CSI paths; separar exports; dry + mount/chown tests. |
 | H3 | **Qual serviço customizado sandboxar primeiro** | mesmo doc | Rank por blast radius; um unit por slice com `systemd-analyze security` antes/depois. |
 | H4 | **Inventário de estado por host** | mesmo doc | Fazer inventário sem mudar mount topology. Só evidência de drift recorrente pode reabrir impermanence. |

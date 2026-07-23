@@ -3,7 +3,7 @@
 **Status:** Reference (as-built)
 **Date:** 2026-07-01 (audit run live via `ss -tulpn` + `docker ps`)
 **Why:** P0 item 4.2 of
-[`2026-06-24-source-backed-host-improvements.md`](../proposals/2026-06-24-source-backed-host-improvements.md)
+[`2026-06-24-source-backed-host-improvements.md`](../implemented/2026-06-24-source-backed-host-improvements.md)
 — rootful Docker publishes ports through its own iptables chain, **bypassing
 the NixOS firewall**, and discovery is the public ingress/DNS/media host. This
 doc records what is intentionally reachable and from where. Re-audit with
