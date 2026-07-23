@@ -1,5 +1,10 @@
-{lib, ...}: {
+{
+  inputs,
+  lib,
+  ...
+}: {
   flake.modules.nixos.kepler-recovery-tooling = {pkgs, ...}: let
+    secretspec = inputs.nixpkgs-secretspec.legacyPackages.${pkgs.stdenv.hostPlatform.system}.secretspec;
     planner = pkgs.writeTextFile {
       name = "kepler-collision-recovery-plan";
       destination = "/bin/kepler-collision-recovery-plan";
@@ -65,13 +70,13 @@
   in {
     assertions = [
       {
-        assertion = lib.getVersion pkgs.secretspec == "0.13.0";
+        assertion = lib.getVersion secretspec == "0.13.0";
         message = "Kepler recovery requires the reviewed SecretSpec 0.13.0 pin";
       }
     ];
 
     environment.systemPackages = [
-      pkgs.secretspec
+      secretspec
       executor
       planner
       postgresEvidence
