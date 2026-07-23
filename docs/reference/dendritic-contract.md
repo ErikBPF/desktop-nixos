@@ -54,7 +54,7 @@ mechanical parts.
 - Large files (>400 lines) are flagged by `structure-check` as candidate domains
   to split — a report, not a failure. Split only when a file hides multiple
   independently-reviewable surfaces (see
-  [`../proposals/2026-06-24-repo-structure-improvements.md`](../proposals/2026-06-24-repo-structure-improvements.md) §10).
+  [`../implemented/2026-06-24-repo-structure-improvements.md`](../implemented/2026-06-24-repo-structure-improvements.md) §10).
 
 ## Verify
 

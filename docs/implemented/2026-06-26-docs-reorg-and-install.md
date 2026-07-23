@@ -26,7 +26,7 @@ This proposal does two things:
    regenerated index.
 
 This is documentation-only. No host behavior changes. It complements, and does
-not replace, [`2026-06-24-repo-structure-improvements.md`](../proposals/2026-06-24-repo-structure-improvements.md)
+not replace, [`2026-06-24-repo-structure-improvements.md`](2026-06-24-repo-structure-improvements.md)
 (that proposal's Phase 6 "Refresh docs" is the seed for this one).
 
 ## 2. Current state (findings)

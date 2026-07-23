@@ -1,8 +1,9 @@
 # Repository Structure Improvement Proposal
 
-**Status:** In progress — **Phase 0 done (2026-06-27):** dendritic contract at
-`docs/reference/dendritic-contract.md` + `just structure-check` (report-only;
-0 hard violations on the current tree, 4 large-file advisories). Phases 1–6 open.
+**Status:** Implemented (graduated 2026-07-23) — Phase 0 delivered the
+dendritic contract and `just structure-check`. Phases 1–6 were intentionally
+closed: the current tree remains the accepted structure, and future splits
+require a concrete boundary rather than a broad refactor.
 **Audience:** Maintainers of `desktop-nixos`
 **Post-read action:** Choose which structural cleanup phases to implement, in order, without changing host behavior accidentally.
 
