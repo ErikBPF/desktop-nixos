@@ -2,6 +2,9 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # Kepler recovery tooling is reviewed against SecretSpec 0.13.0.
+    nixpkgs-secretspec.url = "github:nixos/nixpkgs/e7a3ca8092b61ff85b6a45bf863ea2b2d6a661b3";
+
     # Pinned solely for orca-slicer: 2.3.2 fails GL init ("Unable to init glew
     # library, Missing GL version" -> empty build plate) on Mesa 26.x/Wayland.
     # 2.3.1 from this commit renders correctly. Drop once nixpkgs ships a fix.
