@@ -2831,7 +2831,7 @@ verify-hermes-secret-renders:
     '
 
 openbao-restore-drill:
-    IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl start openbao-restore-drill.service && sudo systemctl status openbao-restore-drill.service --no-pager'
+    IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl start openbao-restore-drill.service && { sudo systemctl status openbao-restore-drill.service --no-pager || true; }'
 
 openbao-restore-drill-diagnose:
     IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl status openbao-restore-drill.service --no-pager -l || true; sudo journalctl -u openbao-restore-drill.service --no-pager -n 100'

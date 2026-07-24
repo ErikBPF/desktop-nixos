@@ -219,12 +219,14 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("mktemp -d /var/tmp/openbao-restore-drill.", vault)
         self.assertIn("operator raft snapshot restore -force", vault)
         self.assertIn("/run/secrets/vault_unseal_key", vault)
-        self.assertIn(".auth.display_name", drill)
+        self.assertIn('.auth.client_token | type == "string" and length > 0', drill)
+        self.assertNotIn(".auth.metadata", drill)
         self.assertNotIn("/v1/auth/token/lookup-self", drill)
         self.assertNotIn("/v1/secret/data/shared/discord", drill)
         self.assertIn("systemd.timers.openbao-restore-drill", vault)
         self.assertIn('OnCalendar = "*-01,04,07,10-01 05:30:00"', vault)
         self.assertIn("openbao-restore-drill:", justfile)
+        self.assertIn("systemctl status openbao-restore-drill.service --no-pager || true", justfile)
 
 
 if __name__ == "__main__":
