@@ -135,6 +135,21 @@ in {
           perms = "0400"
         }
         template {
+          contents = "{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.POSTGRES_DSN }}\n{{ end }}"
+          destination = "/run/vault-agent/netbird-postgres.env"
+          perms = "0400"
+        }
+        template {
+          contents = "{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.AUTH_SECRET }}\n{{ end }}"
+          destination = "/run/vault-agent/netbird-auth.env"
+          perms = "0400"
+        }
+        template {
+          contents = "{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.DATASTORE_ENC_KEY }}\n{{ end }}"
+          destination = "/run/vault-agent/netbird-datastore.key"
+          perms = "0400"
+        }
+        template {
           contents = "{{ with secret \"secret/data/home/infra\" }}MINIO_TFSTATE_ROOT_PASSWORD={{ .Data.data.MINIO_TFSTATE_ROOT_PASSWORD }}\nVAULTWARDEN_ADMIN_TOKEN={{ .Data.data.VAULTWARDEN_ADMIN_TOKEN }}\nVAULT_DEV_ROOT_TOKEN={{ .Data.data.VAULT_DEV_ROOT_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/infra.env"
           perms = "0440"
