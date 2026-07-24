@@ -2,14 +2,9 @@ _: {
   flake.modules.nixos.alloy-containers = {
     lib,
     config,
-    pkgs,
     ...
   }: let
     cfg = config.homelab.alloy;
-    socketPath = lib.removePrefix "unix://" cfg.containerSocket;
-    socketDir = builtins.dirOf socketPath;
-    runtimeDir = builtins.dirOf socketDir;
-    rootlessSocket = lib.hasPrefix "/run/user/" socketPath;
   in {
     options.homelab.alloy.containerSocket = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
@@ -23,24 +18,13 @@ _: {
       '';
     };
 
-    options.homelab.alloy.containerSocketGroup = lib.mkOption {
-      type = lib.types.str;
-      default = "users";
-      description = "Group allowed to read the configured container runtime socket.";
-    };
-
     config = lib.mkIf (cfg.containerSocket != null) {
-      # Grant the alloy service read access to the rootless Podman socket.
-      # The upstream module sets SupplementaryGroups = ["systemd-journal"]; NixOS
-      # merges list-valued serviceConfig entries across module definitions, so this
-      # appends "users" without dropping "systemd-journal". The socket is mode 660
-      # owned by erik:users, and alloy runs DynamicUser=yes — without this group
-      # the cadvisor exporter gets EACCES on /run/user/1000/podman/podman.sock.
+      # cAdvisor inspects runtime sockets, cgroups, and container storage metadata.
+      # A DynamicUser can reach the socket but cannot read rootless Podman storage.
       systemd.services.alloy.serviceConfig = {
-        SupplementaryGroups = [cfg.containerSocketGroup];
-        ExecStartPre = lib.optionals rootlessSocket [
-          "+${pkgs.acl}/bin/setfacl -m g:${cfg.containerSocketGroup}:--x ${runtimeDir} ${socketDir}"
-        ];
+        DynamicUser = lib.mkForce false;
+        User = "root";
+        Group = "root";
       };
 
       # Second Alloy config file in the same /etc/alloy dir. The upstream module

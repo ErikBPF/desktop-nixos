@@ -3184,10 +3184,15 @@ verify-container-metrics:
     response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
       --data-urlencode 'query=container_last_seen{name!=""}')
     for host in discovery kepler orion; do
-      count=$(printf '%s\n' "$response" | jq --arg host '[.data.result[]? | select(.metric.host == $host)] | length')
+      count=$(printf '%s\n' "$response" | jq --arg host "$host" '[.data.result[]? | select(.metric.host == $host)] | length')
       printf '%s named_containers=%s\n' "$host" "$count"
       test "$count" -gt 0
     done
+
+# Inspect the host collector when container metrics verification fails.
+diagnose-container-metrics host:
+    ssh -p 2222 erik@{{host}} \
+      "systemctl status alloy --no-pager -n 20; journalctl -u alloy --since '-10 minutes' --no-pager -n 100"
 
 # Read-only proof that cp-1's timer last reconciled both bootstrap Secrets.
 verify-k3s-bootstrap:
