@@ -105,7 +105,7 @@ evidência → aprovação → execução.
 | ID | Decisão / trabalho | Dono | Próximo gate |
 |----|--------------------|------|--------------|
 | A10 / S1 | **Segundo guardião da unseal key + root break-glass** | [`openbao-root-recovery`](../implemented/2026-06-30-openbao-root-recovery.md) | Definir custódia fora do host antes do próximo incidente. |
-| B11 / S2 | **Cauda servarr→Vault** | [`vault-secrets-platform`](../implemented/2026-06-29-vault-secrets-platform.md) | Reavaliar somente chaves ainda em sops por intenção; registrar exceções. |
+| B11 / S2 | ~~**Cauda servarr→Vault**~~ | [`vault-secrets-platform`](../implemented/2026-06-29-vault-secrets-platform.md) | **Fechado 2026-07-24:** duplicatas Discovery removidas; exceções SOPS inventariadas por intenção; audit sem retirement/review pendente. |
 | S3 | **Provider admission para Terraform stateful** | [`stateful-stack-release-hardening`](2026-07-13-stateful-stack-release-hardening.md) | Nenhum provider ganha ownership sem export/import/plan/recovery proof. |
 
 ---

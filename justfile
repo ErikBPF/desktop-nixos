@@ -2830,6 +2830,9 @@ verify-hermes-secret-renders:
       echo "hermes_render=ready mode=0400 fresh=true files=4 wiki_owner=hermes"
     '
 
+openbao-restore-drill:
+    IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl start openbao-restore-drill.service && sudo systemctl status openbao-restore-drill.service --no-pager'
+
 
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:

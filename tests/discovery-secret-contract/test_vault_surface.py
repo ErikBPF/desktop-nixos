@@ -205,6 +205,19 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn('after = ["network-online.target" "nss-lookup.target" "vault-agent.service"]', wiki)
         self.assertIn('[ -s ${keyPath} ] && [ -r ${keyPath} ]', wiki)
 
+    def test_openbao_restore_drill_is_isolated_and_quarterly(self):
+        vault = SOURCE.read_text()
+        justfile = JUSTFILE.read_text()
+        self.assertIn("systemd.services.openbao-restore-drill", vault)
+        self.assertIn("127.0.0.1:18200", vault)
+        self.assertIn("mktemp -d /var/tmp/openbao-restore-drill.", vault)
+        self.assertIn("operator raft snapshot restore -force", vault)
+        self.assertIn("/run/secrets/vault_unseal_key", vault)
+        self.assertIn("/v1/secret/data/shared/discord", vault)
+        self.assertIn("systemd.timers.openbao-restore-drill", vault)
+        self.assertIn('OnCalendar = "*-01,04,07,10-01 05:30:00"', vault)
+        self.assertIn("openbao-restore-drill:", justfile)
+
 
 if __name__ == "__main__":
     unittest.main()

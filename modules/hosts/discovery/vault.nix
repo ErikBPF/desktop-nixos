@@ -29,6 +29,7 @@ in {
     textfileDir = "/var/lib/node-exporter-textfile";
     bao = "${pkgs.openbao}/bin/bao";
     jq = "${pkgs.jq}/bin/jq";
+    curl = "${pkgs.curl}/bin/curl";
     sopsFile = self + "/secrets/sops/secrets.yaml";
     renderedAt = ''# rendered_at={{ timestamp }}\n'';
   in {
@@ -517,6 +518,104 @@ in {
       timerConfig = {
         OnBootSec = "2m";
         OnUnitActiveSec = "5m";
+      };
+    };
+
+    # Quarterly proof that the latest production snapshot can restore into an
+    # isolated raft node and unlock with the production key. Fixed loopback-only
+    # drill ports keep this path physically separate from :8200 production.
+    systemd.services.openbao-restore-drill = {
+      description = "Verify OpenBao snapshot restore in an isolated raft node";
+      serviceConfig = {
+        Type = "oneshot";
+        PrivateTmp = true;
+        ProtectHome = true;
+        ExecStart = pkgs.writeShellScript "openbao-restore-drill" ''
+          set -euo pipefail
+          test -s ${snapFile}
+          ${pkgs.findutils}/bin/find ${snapFile} -mmin -2880 -print -quit | ${pkgs.gnugrep}/bin/grep -q .
+
+          work="$(${pkgs.coreutils}/bin/mktemp -d /var/tmp/openbao-restore-drill.XXXXXX)"
+          pid=
+          cleanup() {
+            if [ -n "$pid" ]; then
+              ${pkgs.coreutils}/bin/kill "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+            fi
+            ${pkgs.coreutils}/bin/rm -rf -- "$work"
+          }
+          trap cleanup EXIT
+          ${pkgs.coreutils}/bin/install -d -m 0700 "$work/data"
+          ${pkgs.coreutils}/bin/install -m 0600 ${snapFile} "$work/openbao.snap"
+          ${pkgs.coreutils}/bin/cat > "$work/config.hcl" <<EOF
+          disable_mlock = true
+          api_addr = "http://127.0.0.1:18200"
+          cluster_addr = "http://127.0.0.1:18201"
+          listener "tcp" {
+            address = "127.0.0.1:18200"
+            cluster_address = "127.0.0.1:18201"
+            tls_disable = true
+          }
+          storage "raft" {
+            path = "$work/data"
+            node_id = "restore-drill"
+          }
+          EOF
+
+          ${bao} server -config="$work/config.hcl" >"$work/server.log" 2>&1 &
+          pid=$!
+          for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+            ${curl} -sS -m 1 http://127.0.0.1:18200/v1/sys/health >/dev/null 2>&1 && break
+            ${pkgs.coreutils}/bin/sleep 0.25
+          done
+          ${curl} -sS -m 1 http://127.0.0.1:18200/v1/sys/health >/dev/null
+
+          BAO_ADDR=http://127.0.0.1:18200 ${bao} operator init \
+            -key-shares=1 -key-threshold=1 -format=json > "$work/init.json"
+          ${pkgs.coreutils}/bin/chmod 0600 "$work/init.json"
+          BAO_ADDR=http://127.0.0.1:18200 ${bao} operator unseal \
+            "$(${jq} -r '.unseal_keys_b64[0]' "$work/init.json")" >/dev/null
+          BAO_ADDR=http://127.0.0.1:18200 \
+            BAO_TOKEN="$(${jq} -r .root_token "$work/init.json")" \
+            ${bao} operator raft snapshot restore -force "$work/openbao.snap"
+
+          ${jq} -n --rawfile key /run/secrets/vault_unseal_key \
+            '{key: ($key | rtrimstr("\n"))}' \
+            | ${curl} -fsS -m 10 -X PUT --data @- \
+                http://127.0.0.1:18200/v1/sys/unseal >/dev/null
+          ${curl} -fsS -m 10 http://127.0.0.1:18200/v1/sys/seal-status \
+            | ${jq} -e '.initialized == true and .sealed == false' >/dev/null
+
+          ${jq} -n \
+            --rawfile role_id /run/secrets/vault_agent_role_id \
+            --rawfile secret_id /run/secrets/vault_agent_secret_id \
+            '{role_id: ($role_id | rtrimstr("\n")), secret_id: ($secret_id | rtrimstr("\n"))}' \
+            | ${curl} -fsS -m 10 -X POST --data @- \
+                http://127.0.0.1:18200/v1/auth/approle/login \
+            | ${jq} -r .auth.client_token > "$work/token"
+          ${pkgs.coreutils}/bin/chmod 0600 "$work/token"
+          printf 'X-Vault-Token: %s\n' "$(${pkgs.coreutils}/bin/cat "$work/token")" > "$work/header"
+          ${pkgs.coreutils}/bin/chmod 0600 "$work/header"
+          ${curl} -fsS -m 10 --header @"$work/header" \
+            http://127.0.0.1:18200/v1/secret/data/shared/discord \
+            | ${jq} -e '.data.data.incidents | type == "string" and length > 0' >/dev/null
+
+          now="$(${pkgs.coreutils}/bin/date +%s)"
+          metric="$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.openbao_restore_drill.XXXXXX)"
+          printf 'openbao_restore_drill_last_success_seconds %s\n' "$now" > "$metric"
+          ${pkgs.coreutils}/bin/chmod 0644 "$metric"
+          ${pkgs.coreutils}/bin/mv "$metric" ${textfileDir}/openbao_restore_drill.prom
+          echo "openbao_restore_drill=passed snapshot_age_max=48h"
+        '';
+      };
+    };
+
+    systemd.timers.openbao-restore-drill = {
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = "*-01,04,07,10-01 05:30:00";
+        Persistent = true;
+        RandomizedDelaySec = "1h";
       };
     };
 

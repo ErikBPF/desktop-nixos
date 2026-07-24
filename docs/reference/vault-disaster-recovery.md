@@ -1,6 +1,6 @@
 # OpenBao — disaster recovery runbook
 
-**Status:** Reference (as-built; procedure **tested 2026-06-29**)
+**Status:** Reference (as-built; procedure tested 2026-06-29; automated isolated drill added 2026-07-24)
 **Scope:** Recover the platform secrets store (OpenBao on discovery) from loss —
 a single sealed/corrupt node, a rebuilt host, or total destruction.
 
@@ -89,6 +89,24 @@ unseals with the **original** key, not the new one):
 - Consumers re-sync (ESO in lab, vault-agent on home/host) once Bao is unsealed.
 - A fresh backup runs clean (`systemctl start restic-backups-vault`) and the
   Grafana `vault-backup-stale` alert returns to Normal.
+
+## Quarterly isolated drill
+
+`openbao-restore-drill.timer` runs on the first day of January, April, July,
+and October. It restores the latest snapshot into a temporary raft node bound
+only to `127.0.0.1:18200`, unseals it with the production key, authenticates
+through the production AppRole, and proves a known path exists without printing
+its value. Production `:8200` and `/var/lib/openbao` are untouched.
+
+Run it manually through the documented entry point:
+
+```bash
+just openbao-restore-drill
+```
+
+Success updates
+`/var/lib/node-exporter-textfile/openbao_restore_drill.prom`. Re-run after every
+OpenBao upgrade.
 
 ## Notes
 
