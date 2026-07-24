@@ -2369,6 +2369,123 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
+# Read-only filesystem allocation and largest top-level trees on Kepler.
+diagnose-kepler-disk:
+    ssh -p 2222 erik@{{ip_kepler}} 'df -h / /fast; sudo btrfs filesystem usage /; sudo zfs list -o name,mountpoint,used,available,recordsize; systemctl cat microvm@cp-1.service; pgrep -af "openwakeword|ha-train|huggingface|kaggle" || true; sudo du -x -d2 -B1 /nix /var /home 2>/dev/null | sort -nr | head -40; sudo du -x -d2 -B1 /home/erik/.local /home/erik/.cache /home/erik/openwakeword-training /home/erik/ha-train /home/erik/ha-hf /var/lib/microvms 2>/dev/null | sort -nr | head -40'
+
+# Remove reproducible Hugging Face model caches only.
+clean-kepler-model-cache:
+    ssh -p 2222 erik@{{ip_kepler}} 'test "$(hostname)" = kepler; du -sh /home/erik/ha-hf /home/erik/hf-cache 2>/dev/null || true; rm -rf -- /home/erik/ha-hf /home/erik/hf-cache; df -h /'
+
+# Quiesce k3s, create fast-pool datasets, and copy+verify state. Old Btrfs
+# copies remain until finalize-kepler-fast-state passes its post-switch gates.
+prepare-kepler-fast-state:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
+    set -euo pipefail
+    test "$(hostname)" = kepler
+    command -v rsync >/dev/null
+    available=$(sudo zfs get -Hp -o value available fast-pool/data)
+    test "$available" -gt 214748364800
+    if pgrep -u erik -f 'python.*(openwakeword|ha-train)|kaggle' >/dev/null; then
+      echo "active training process; refusing migration" >&2
+      exit 1
+    fi
+
+    sudo systemctl stop microvm@w-2.service microvm@w-1.service
+    sudo systemctl stop microvm@cp-3.service microvm@cp-2.service microvm@cp-1.service
+    test "$(systemctl is-active microvm@cp-{1,2,3}.service microvm@w-{1,2}.service | grep -c '^inactive$')" -eq 5
+
+    create_dataset() {
+      local name=$1 mountpoint=$2 recordsize=$3
+      if ! sudo zfs list -H "$name" >/dev/null 2>&1; then
+        sudo zfs create -o mountpoint="$mountpoint" -o atime=off \
+          -o compression=zstd -o recordsize="$recordsize" "$name"
+      fi
+    }
+    create_dataset fast-pool/ai /fast/ai 1M
+    create_dataset fast-pool/ai/cache /fast/ai/cache 1M
+    create_dataset fast-pool/ai/training /fast/ai/training 1M
+    create_dataset fast-pool/ai/environments /fast/ai/environments 128K
+    create_dataset fast-pool/microvms /fast/microvms 64K
+    sudo install -d -o erik -g users /fast/ai/cache /fast/ai/training /fast/ai/environments
+
+    migrate_user_tree() {
+      local source target old delta
+      source=$1
+      target=$2
+      old="${source}.btrfs-migration-old"
+      if [ -L "$source" ]; then
+        test "$(readlink -f "$source")" = "$target"
+        return
+      fi
+      test ! -e "$old"
+      mkdir -p "$target"
+      if [ -d "$source" ]; then
+        rsync -aHAXS --numeric-ids "$source/" "$target/"
+        delta=$(rsync -aHAXS --numeric-ids --checksum --dry-run --itemize-changes "$source/" "$target/")
+        test -z "$delta"
+        mv "$source" "$old"
+      else
+        mkdir -p "$old"
+      fi
+      ln -s "$target" "$source"
+    }
+    migrate_user_tree /home/erik/openwakeword-training /fast/ai/training/openwakeword
+    migrate_user_tree /home/erik/ha-train /fast/ai/training/ha
+    migrate_user_tree /home/erik/ha-uvenv /fast/ai/environments/ha-uvenv
+    migrate_user_tree /home/erik/.cache /fast/ai/cache/user
+    migrate_user_tree /home/erik/ha-hf /fast/ai/cache/huggingface
+    migrate_user_tree /home/erik/hf-cache /fast/ai/cache/hf-cache
+
+    sudo rsync -aHAXS --numeric-ids /var/lib/microvms/ /fast/microvms/
+    delta=$(sudo rsync -aHAXS --numeric-ids --checksum --dry-run --itemize-changes \
+      /var/lib/microvms/ /fast/microvms/)
+    test -z "$delta"
+    sudo zfs list -o name,mountpoint,used,available,recordsize \
+      fast-pool/ai fast-pool/ai/cache fast-pool/ai/training \
+      fast-pool/ai/environments fast-pool/microvms
+    echo "prepare complete; old Btrfs copies retained"
+    REMOTE
+
+# Remove only source copies after the switched units and cluster prove they use
+# /fast. The user explicitly approved this destructive migration.
+finalize-kepler-fast-state:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
+    set -euo pipefail
+    test "$(hostname)" = kepler
+    state_dir=$(systemctl show microvm@cp-1.service -p WorkingDirectory --value | sed 's,/cp-1$,,' )
+    test "$state_dir" = /fast/microvms
+    systemctl cat microvm@cp-1.service | grep -q 'RequiresMountsFor=/fast/microvms'
+    test "$(systemctl is-active microvm@cp-{1,2,3}.service microvm@w-{1,2}.service | grep -c '^active$')" -eq 5
+    for pair in \
+      /home/erik/openwakeword-training:/fast/ai/training/openwakeword \
+      /home/erik/ha-train:/fast/ai/training/ha \
+      /home/erik/ha-uvenv:/fast/ai/environments/ha-uvenv \
+      /home/erik/.cache:/fast/ai/cache/user \
+      /home/erik/ha-hf:/fast/ai/cache/huggingface \
+      /home/erik/hf-cache:/fast/ai/cache/hf-cache
+    do
+      source=${pair%%:*}
+      target=${pair#*:}
+      test -L "$source"
+      test "$(readlink -f "$source")" = "$target"
+    done
+    sudo rm -rf --one-file-system -- /var/lib/microvms
+    rm -rf -- \
+      /home/erik/openwakeword-training.btrfs-migration-old \
+      /home/erik/ha-train.btrfs-migration-old \
+      /home/erik/ha-uvenv.btrfs-migration-old \
+      /home/erik/.cache.btrfs-migration-old \
+      /home/erik/ha-hf.btrfs-migration-old \
+      /home/erik/hf-cache.btrfs-migration-old
+    df -h / /fast
+    echo "finalize complete; old Btrfs copies removed"
+    REMOTE
+
 # Exercise the deployed authoritative HA harness through its Vault-backed LiteLLM route.
 # The synthetic request is read-only and cannot change HA state.
 verify-ha-harness-model target="discovery":
@@ -2422,7 +2539,7 @@ refresh-vault-agent target:
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip {{target}})"
-    ssh -p 2222 erik@"$IP" 'sudo systemctl restart vault-agent.service; sudo systemctl is-active vault-agent.service; for _ in $(seq 1 100); do sudo test -s /run/vault-agent/ha-harness.env && break; sleep 0.1; done; sudo test -s /run/vault-agent/ha-harness.env; sudo journalctl -u vault-agent.service --no-pager -n20; sudo awk -F= '"'"'$1 == "LITELLM_API_KEY" {print $2}'"'"' /run/vault-agent/ha-harness.env | sha256sum | sed "s/ .*$/  ha-harness LITELLM_API_KEY/"'
+    ssh -p 2222 erik@"$IP" 'sudo systemctl restart vault-agent.service; sudo systemctl is-active vault-agent.service; for _ in $(seq 1 100); do sudo test -s /run/vault-agent/ha-harness.env && break; sleep 0.1; done; sudo test -s /run/vault-agent/ha-harness.env; sudo chgrp docker /run/vault-agent/ha-harness.env; sudo journalctl -u vault-agent.service --no-pager -n20; sudo awk -F= '"'"'$1 == "LITELLM_API_KEY" {print $2}'"'"' /run/vault-agent/ha-harness.env | sha256sum | sed "s/ .*$/  ha-harness LITELLM_API_KEY/"'
 
 # Prove the DS8 tools render is fresh and least-privilege without printing it.
 verify-tools-secret-render:
@@ -2880,6 +2997,88 @@ verify-ha-harness-secret-render:
       echo "ha_harness_render=ready mode=0440 owner=root group=docker fresh=true"
     '
 
+# Seed the Kindle dashboard runtime credentials from the encrypted Servarr
+# source into OpenBao. Secret values travel only over stdin and never print.
+seed-kindle-dash-vault:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    servarr_repo="$(readlink -f references/repos/servarr)"
+    secret_json="$(mktemp)"
+    payload_file="$(mktemp)"
+    trap 'rm -f "$secret_json" "$payload_file"' EXIT
+    chmod 600 "$secret_json" "$payload_file"
+    sops --decrypt --input-type dotenv --output-type json \
+      "$servarr_repo/machines/discovery/.env.sops" > "$secret_json"
+    jq -e '{
+      data: {
+        KINDLE_DASH_CLAUDE_REFRESH_TOKEN: .KINDLE_DASH_CLAUDE_REFRESH_TOKEN,
+        KINDLE_DASH_CODEX_REFRESH_TOKEN: .KINDLE_DASH_CODEX_REFRESH_TOKEN,
+        KINDLE_DASH_HA_TOKEN: .KINDLE_DASH_HA_TOKEN,
+        KINDLE_DASH_OPENCODE_AUTH_COOKIE: .KINDLE_DASH_OPENCODE_AUTH_COOKIE
+      }
+    }
+    | select(
+        (.data | keys | length) == 4
+        and all(.data[]; type == "string" and length > 0)
+      )' "$secret_json" > "$payload_file"
+    token="$(
+      sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
+    )"
+    {
+      printf '%s' "$token" | base64 -w0
+      printf '\n'
+      base64 -w0 "$payload_file"
+      printf '\n'
+    } | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token_b64
+      IFS= read -r payload_b64
+      header="$(mktemp)"
+      body="$(mktemp)"
+      trap "rm -f \"$header\" \"$body\"" EXIT
+      chmod 600 "$header" "$body"
+      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
+      unset token_b64
+      printf "%s" "$payload_b64" | base64 --decode > "$body"
+      unset payload_b64
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$body" \
+        http://127.0.0.1:8200/v1/secret/data/home/kindle-dash >/dev/null
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/kindle-dash \
+        | jq -e "
+          .data.data | keys == [
+            \"KINDLE_DASH_CLAUDE_REFRESH_TOKEN\",
+            \"KINDLE_DASH_CODEX_REFRESH_TOKEN\",
+            \"KINDLE_DASH_HA_TOKEN\",
+            \"KINDLE_DASH_OPENCODE_AUTH_COOKIE\"
+          ]
+        " >/dev/null
+      echo "kindle_dash_vault=seeded keys=4"
+    '
+
+# Prove the Kindle dashboard render is fresh and least-privilege without
+# printing or hashing any secret value.
+verify-kindle-dash-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/kindle-dash.env)" = "440 root docker"
+      sudo -u erik head -c0 /run/vault-agent/kindle-dash.env
+      if sudo -u nobody head -c0 /run/vault-agent/kindle-dash.env 2>/dev/null; then
+        echo "nobody unexpectedly read Kindle dashboard render" >&2
+        exit 1
+      fi
+      sudo find /run/vault-agent/kindle-dash.env -mmin -15 -print -quit | grep -q .
+      actual="$(sudo grep -v '^#' /run/vault-agent/kindle-dash.env | cut -d= -f1 | sort -u)"
+      expected="$(printf "KINDLE_DASH_CLAUDE_REFRESH_TOKEN\nKINDLE_DASH_CODEX_REFRESH_TOKEN\nKINDLE_DASH_HA_TOKEN\nKINDLE_DASH_OPENCODE_AUTH_COOKIE")"
+      test "$actual" = "$expected"
+      echo "kindle_dash_render=ready mode=0440 owner=root group=docker fresh=true keys=4"
+    '
+
 # Permanently remove the seven disposable AI containers, their seven exact
 # images, and /fast/ai-models. The helper re-inventories and fails closed.
 kepler-retire-ai-serving-user-approved:
@@ -2996,7 +3195,7 @@ verify-k3s-bootstrap:
 
 # Read-only startup detail for k3s microVMs and their virtiofs helpers.
 diagnose-k3s-guests:
-    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl list-jobs --no-pager; sudo systemctl status microvms.target k3s-bootstrap-materialize.service microvm@cp-{1,2,3}.service --no-pager -l; sudo journalctl -b -u k3s-bootstrap-materialize.service -u microvm@cp-1.service -u install-microvm-cp-1.service --no-pager -n 120; sudo find -L /run/secrets -maxdepth 2 -printf 'secret-path %P %y\n'; sudo find /run/k3s-bootstrap -maxdepth 1 -type f -printf 'host %f %s bytes\n'; ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 'find /run/k3s-bootstrap -maxdepth 1 -type f -printf \"guest %f %s bytes\\n\"; systemctl status k3s-bootstrap-secrets.service k3s-bootstrap-secrets.timer --no-pager -l; journalctl -b -u k3s-bootstrap-secrets.service --no-pager -n 80'"
+    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl list-jobs --no-pager; sudo systemctl status microvms.target k3s-bootstrap-materialize.service microvm@cp-{1,2,3}.service --no-pager -l; sudo journalctl -b -u k3s-bootstrap-materialize.service -u microvm@cp-1.service -u install-microvm-cp-1.service --no-pager -n 120; sudo find -L /run/secrets -maxdepth 2 -printf 'secret-path %P %y\n'; sudo find /run/k3s-bootstrap -maxdepth 1 -type f -printf 'host %f %s bytes\n'; ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 'find /run/k3s-bootstrap -maxdepth 1 -type f -printf \"guest %f %s bytes\\n\"; systemctl status k3s.service k3s-bootstrap-secrets.service k3s-bootstrap-secrets.timer --no-pager -l; journalctl -b -u k3s.service -u k3s-bootstrap-secrets.service --no-pager -n 120'"
 
 # Retry the exact bootstrap dependency chain after a diagnosed boot failure.
 recover-k3s-bootstrap-guest:
@@ -5101,6 +5300,45 @@ run-kindle-release-agent:
         -p ActiveState -p Result -p ExecMainStatus
     '
 
+# Send non-firing previews of the Discord incident and deploy formats. Webhook
+# values stay on Discovery; output contains only HTTP status codes.
+send-discord-samples:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      send() {
+        local secret=$1 payload=$2
+        webhook=$(sudo -n cat "$secret")
+        status=$(curl -sS -o /dev/null -w "%{http_code}" \
+          -H "Content-Type: application/json" --data "$payload" "$webhook")
+        test "$status" = 204
+        printf "%s: HTTP %s\n" "$(basename "$secret")" "$status"
+      }
+      now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      incident=$(jq -cn --arg now "$now" '{
+        allowed_mentions:{parse:[]},
+        embeds:[{
+          title:"[TEST] FIRING (1) · ArgusMessagePreview",
+          description:"**FIRING · WARNING**\nSample only — no incident occurred.\n**Instance:** `discovery`\n**Job:** `preview`\nShows evidence, ownership, and useful actions.\n**Value:** `probe=1`\n[Dashboard](http://grafana:3000/) · [Rule](http://grafana:3000/alerting/list) · [Silence](http://grafana:3000/alerting/silences/new)",
+          color:16705372,
+          timestamp:$now
+        }]
+      }')
+      deploy=$(jq -cn --arg now "$now" '{
+        allowed_mentions:{parse:[]},
+        embeds:[{
+          title:"[TEST] Kindle release succeeded",
+          description:"Sample only — no deployment occurred.\n**Version:** `v1.2.3`\n**Commit:** [`abcdef0`](https://github.com/ErikBPF/kindle-dash/commit/abcdef0000000000000000000000000000000000)\n**Image:** `sha256:0123456789ab…`",
+          color:5763719,
+          timestamp:$now
+        }]
+      }')
+      send /run/vault-agent/kindle-release-discord-incidents "$incident"
+      send /run/vault-agent/kindle-release-discord-deploys "$deploy"
+    REMOTE
+
 run-kindle-release-agent-drill:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -5134,3 +5372,35 @@ run-kindle-release-agent-reporting-drill:
       sudo -n systemctl start kindle-release-agent.service
       sudo -n jq -c "{version,digest,phase,degradation,rollback}" /var/lib/kindle-release-agent/state.json
     '
+
+# Run both B2 jobs, then stream one file from each repository into cmp. This
+# proves decrypt + restore without writing plaintext restore artifacts remotely.
+verify-b2-backups:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'sudo -n bash -s' <<'REMOTE'
+    set -euo pipefail
+    systemctl start restic-backups-vault-b2.service
+    systemctl start restic-backups-tofu-state-b2.service
+    set -a
+    source /run/secrets/rendered/restic-b2.env
+    set +a
+    restic_bin=$(systemctl show -p ExecStart --value restic-backups-tofu-state-b2.service \
+      | grep -o '/nix/store/[^ ;]*/bin/restic' | head -1)
+    tofu_file=$(find /home/erik/tofu-state-export -type f -print -quit)
+    test -n "$tofu_file"
+    RESTIC_PASSWORD_FILE=/run/secrets/restic_tofu_state_password \
+      "$restic_bin" -r s3:https://s3.us-east-005.backblazeb2.com/homelab-vault/discovery/tofu-state \
+      check --read-data
+    RESTIC_PASSWORD_FILE=/run/secrets/restic_tofu_state_password \
+      "$restic_bin" -r s3:https://s3.us-east-005.backblazeb2.com/homelab-vault/discovery/tofu-state \
+      dump latest "$tofu_file" | cmp - "$tofu_file"
+    RESTIC_PASSWORD_FILE=/run/secrets/vault_restic_password \
+      "$restic_bin" -r s3:https://s3.us-east-005.backblazeb2.com/homelab-vault/discovery/openbao \
+      check --read-data
+    RESTIC_PASSWORD_FILE=/run/secrets/vault_restic_password \
+      "$restic_bin" -r s3:https://s3.us-east-005.backblazeb2.com/homelab-vault/discovery/openbao \
+      dump latest /var/lib/vault-snapshots/openbao.snap | cmp - /var/lib/vault-snapshots/openbao.snap
+    echo "B2 backup + streamed restore verification: OK"
+    REMOTE

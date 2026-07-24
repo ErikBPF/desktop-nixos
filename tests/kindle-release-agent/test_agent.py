@@ -413,7 +413,18 @@ class ExternalReportingContract(unittest.TestCase):
             discord = self.agent.discord_payload(report)
             normalized = report.to_dict()
             self.assertEqual(json.loads(github["output"]["summary"]), normalized)
-            self.assertEqual(json.loads(discord["content"]), normalized)
+            discord_state = {
+                "success": "succeeded",
+                "neutral": "degraded",
+                "failure": "failed",
+            }[conclusion]
+            self.assertEqual(
+                discord["embeds"][0]["title"],
+                f"Kindle release {discord_state}",
+            )
+            self.assertIn(state["version"], discord["embeds"][0]["description"])
+            self.assertIn(state["commit"][:7], discord["embeds"][0]["description"])
+            self.assertNotIn("content", discord)
             self.assertEqual(github["conclusion"], conclusion)
             fixtures.append(normalized)
             with self.assertRaises((AttributeError, dataclasses.FrozenInstanceError)):
@@ -458,8 +469,8 @@ class ExternalReportingContract(unittest.TestCase):
             ("POST", "discord.com"),
         )
         self.assertEqual(
-            json.loads(json.loads(discord.body)["content"]),
-            report.to_dict(),
+            json.loads(discord.body),
+            self.agent.discord_payload(report),
         )
         self.assertEqual(
             secrets.paths,
@@ -2769,6 +2780,37 @@ class EntrypointContract(unittest.TestCase):
             ),
             state,
         )
+
+    def test_execute_once_does_not_report_unchanged_success(self):
+        state = {
+            "schema": 1,
+            "version": "v1.2.3",
+            "digest": "sha256:" + "a" * 64,
+            "commit": "b" * 40,
+            "phase": "succeeded",
+            "previous": None,
+            "failure": None,
+            "degradation": None,
+            "rollback": None,
+            "updated_at": "2026-07-20T10:11:12Z",
+        }
+        snapshot = self.agent.validate_state(state)
+        with (
+            mock.patch.object(self.agent, "SubprocessRunner"),
+            mock.patch.object(self.agent.pwd, "getpwnam") as getpwnam,
+            mock.patch.object(self.agent, "SystemOperations"),
+            mock.patch.object(self.agent, "load_state", return_value=snapshot),
+            mock.patch.object(
+                self.agent,
+                "poll_release",
+                return_value=snapshot,
+            ),
+            mock.patch.object(self.agent, "persist_snapshot"),
+        ):
+            getpwnam.return_value.pw_uid = 1000
+            self.assertEqual(self.agent.execute_once(), 0)
+
+        self.report_terminal.assert_not_called()
 
     def test_execute_once_projects_every_persisted_transition_once(self):
         state = {

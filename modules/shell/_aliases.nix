@@ -13,6 +13,7 @@ _: {
   dc = "docker compose";
   dps = "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'";
   k = "kubectl";
+  k9 = "k9s";
   kct = "kubectx";
   kns = "kubens";
   kubelc = "kubelogin convert-kubeconfig -l azurecli";
@@ -30,6 +31,9 @@ _: {
   # --- General ---
   cl = "clear"; # Clear previous commands
   htop = "btm"; # Bottom
+  j = "just";
+  ld = "lazydocker";
+  lg = "lazygit";
   nf = "fastfetch"; # Fetch
   notify-catch = ''dbus-monitor "interface='org.freedesktop.Notifications'"''; # Catch notificaton info sent by d-bus
 
@@ -40,7 +44,6 @@ _: {
   gck = "cz check"; # Validate commit messages (commitizen)
   gcm = "cz commit"; # Create a new commit (commitizen)
   gin = "cz init"; # Initialize Commitizen configuration (commitizen)
-  gpu = "git push -u origin main"; # Push to main
   grm = "git rm -rf --cached ."; # Remove remote cache recursive force
   gst = "git status"; # Check git repo status
   gvr = "cz version"; # Show version information (commitizen)
@@ -51,10 +54,6 @@ _: {
   hsi = "history | rg -i"; # Grep history ignore case
   hist = "fzf-history-widget";
 
-  # --- Ides ---
-  code = "code"; # Preserve stderr so launch failures remain visible
-
-  nrs = "sudo nixos-rebuild switch";
   urldecode = "python3 -c 'import sys, urllib.parse as ul; print(ul.unquote_plus(sys.stdin.read()))'";
   urlencode = "python3 -c 'import sys, urllib.parse as ul; print(ul.quote_plus(sys.stdin.read()))'";
 
@@ -95,7 +94,6 @@ _: {
 
   # --- View ---
   cat = "bat";
-  cata = "cat * | wl-copy";
 
   # --- Claude / coding ---
   claude = "env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # bare claude ALWAYS dangerous (skip-perms + ⚡). Interactive zsh only; scripts/binary calls unaffected.
@@ -103,9 +101,7 @@ _: {
   cc = "code . ; codex --dangerously-bypass-approvals-and-sandbox"; # editor + dangerous codex
   e = "code ."; # editor in cwd
 
-  # --- Codex / OpenCode (yolo by default, mirroring `c`) ---
-  cx = "codex --dangerously-bypass-approvals-and-sandbox"; # default codex
-  cxc = "code . ; codex --dangerously-bypass-approvals-and-sandbox"; # editor + codex
+  # --- OpenCode (yolo by default, mirroring `c`) ---
   oc = "opencode --auto"; # default opencode (auto-approve)
   occ = "code . ; opencode --auto"; # editor + opencode
   nv = "nvim ."; # neovim in cwd (mirrors `e`)
@@ -119,8 +115,10 @@ _: {
   dcon = "cd ~/Documents/nstech/dataplatform-datacontracts";
 
   # --- Gemini repo jumps (ssh into the orion dev-sandbox at the same dir) ---
+  hal = "herdr agent list";
   hg = "herdr --remote gemini --session code";
   hgs = "ssh -t gemini 'exec herdr session attach code'";
+  hl = "herdr session list";
   snix = "ssh -t gemini 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
   sdp = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
   sspark = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";

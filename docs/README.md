@@ -32,7 +32,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`guides/break-glass.md`](guides/break-glass.md) | Value-free incident decision tree for deploy, Servarr, SecretSpec, Vault Agent, OpenBao, DNS, PID1, and credential recovery. | Guide |
 | [`guides/obsidian.md`](guides/obsidian.md) | Obsidian + sync configuration for the desktop hosts. | Guide |
 | [`guides/install.md`](guides/install.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). | Guide |
-| [`guides/yazi.md`](guides/yazi.md) | Yazi file manager for GUI users: GUI→yazi keymap bridge, cheatsheet popup, Nautilus fallback. | Guide |
+| [`guides/yazi.md`](guides/yazi.md) | Nautilus/Yazi desktop workflow: launch shortcuts, GUI→Yazi keymap bridge, and path persistence. | Guide |
 
 ## Designs and proposals
 

@@ -162,6 +162,10 @@ in {
         DISCORD_ALLOWED_CHANNELS = "${incidentsChannel},${deploysChannel}";
       };
       settings = lib.recursiveUpdate commonSettings {
+        # Channel messages and alert payloads are untrusted input. Hermes has
+        # no command allowlist, so prompt-only "read-only" rules are not a
+        # security boundary.
+        terminal = false;
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
         # Respond without @-mention in the two ops channels. Leave the
         # upstream default bots_require_inline_mention=false so bot/webhook

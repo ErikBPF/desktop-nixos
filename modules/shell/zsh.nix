@@ -129,6 +129,10 @@
           zle -N zle-line-init _zsh_cursor_init
 
           # ---- functions ported from the fish config ----
+          clipfiles() {
+            command cat -- "$@" | wl-copy
+          }
+
           envsource() {
             local line key val
             while IFS= read -r line; do

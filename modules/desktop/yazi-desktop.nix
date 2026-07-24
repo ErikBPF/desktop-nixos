@@ -24,14 +24,25 @@ _: {
       /               Search        (n / N = next / prev match)
       .               Toggle hidden files
       ~               Yazi's own full keymap help
-      q               Quit yazi      (Super+Shift+E opens Nautilus instead)
+      q               Quit yazi      (Super+E opens Nautilus instead)
     '';
     yaziHelp = pkgs.writeShellScriptBin "yazi-help" ''
       exec ${pkgs.rofi}/bin/rofi -dmenu -i -p "yazi" \
         -mesg "GUI → yazi cheatsheet — Esc to close" < ${yaziCheatsheet}
     '';
+    yaziResume = pkgs.writeShellApplication {
+      name = "yazi-resume";
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.yazi
+      ];
+      text = builtins.readFile ./_yazi-resume.sh;
+    };
   in {
-    home.packages = [yaziHelp];
+    home.packages = [
+      yaziHelp
+      yaziResume
+    ];
     programs.yazi = {
       # Put helper binaries on yazi's own PATH (not the whole session).
       # wl-clipboard = wl-copy, needed for yazi's `c` copy-to-clipboard menu on Wayland.
