@@ -16,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "modules/server/_secretspec-runtime-projection.py"
 ORCHESTRATION = ROOT / "modules/server/orchestration.nix"
 VAULT = ROOT / "modules/hosts/discovery/vault.nix"
+VAULT_AGENT = ROOT / "modules/hosts/discovery/_vault-agent.nix"
 COMPOSE = ROOT / "modules/hosts/discovery/compose.nix"
 JUSTFILE = ROOT / "justfile"
 
@@ -235,6 +236,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         compose = COMPOSE.read_text()
         justfile = JUSTFILE.read_text()
         vault = VAULT.read_text()
+        vault_agent = VAULT_AGENT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
         self.assertIn('secretSpecRuntimeProfiles.networking = "networking";', compose)
         self.assertNotIn("secretSpecRuntimeLegacySecretNames.networking", compose)
@@ -246,6 +248,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("seed-adguard-vault:", justfile)
         self.assertIn('ADGUARD_PASSWORD\\nCLOUDFLARE_API_TOKEN', justfile)
         self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/networking.env"]', vault)
+        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/networking.env"]', vault_agent)
         networking = next(row for row in contract["renders"] if row["destination"].endswith("/networking.env"))
         self.assertEqual(networking["perms"], "0440")
 
