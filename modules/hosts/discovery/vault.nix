@@ -598,7 +598,7 @@ in {
           ${pkgs.coreutils}/bin/chmod 0600 "$work/login.json"
           ${jq} -e '
             (.auth.client_token | type == "string" and length > 0) and
-            (.auth.display_name | type == "string" and startswith("approle-"))
+            (.auth.metadata.role_name == "vault-agent")
           ' "$work/login.json" >/dev/null
 
           now="$(${pkgs.coreutils}/bin/date +%s)"

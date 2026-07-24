@@ -219,7 +219,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("mktemp -d /var/tmp/openbao-restore-drill.", vault)
         self.assertIn("operator raft snapshot restore -force", vault)
         self.assertIn("/run/secrets/vault_unseal_key", vault)
-        self.assertIn(".auth.display_name", drill)
+        self.assertIn('.auth.metadata.role_name == "vault-agent"', drill)
         self.assertNotIn("/v1/auth/token/lookup-self", drill)
         self.assertNotIn("/v1/secret/data/shared/discord", drill)
         self.assertIn("systemd.timers.openbao-restore-drill", vault)
