@@ -226,6 +226,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("systemd.timers.openbao-restore-drill", vault)
         self.assertIn('OnCalendar = "*-01,04,07,10-01 05:30:00"', vault)
         self.assertIn("openbao-restore-drill:", justfile)
+        self.assertIn("systemctl status openbao-restore-drill.service --no-pager || true", justfile)
 
 
 if __name__ == "__main__":
