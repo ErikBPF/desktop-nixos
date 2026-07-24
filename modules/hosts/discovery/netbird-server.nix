@@ -15,12 +15,8 @@
 #
 # DISABLED BY DEFAULT (services.netbirdServer.enable = false). Every value below
 # is either a public/non-secret fact (fleet.netbird.*, modules/meta.nix) or a
-# sops-secret PLACEHOLDER key that does not yet exist in secrets/sops/secrets.yaml
-# — minting the real values is Phase S (human-gated, see the implementation
-# plan). Because all of it sits under `lib.mkIf cfg.enable`, none of it
-# evaluates while disabled: `just dry discovery` stays a clean no-op even
-# though the sops keys referenced below don't exist yet, and even though
-# discovery's `default.nix` imports this module.
+# runtime secret rendered by Vault Agent. Because all of it sits under
+# `lib.mkIf cfg.enable`, none of it evaluates while disabled.
 #
 # HONEST CAVEAT (mirrors §8's own "verify against the pin at build time"):
 # NetBird's self-hosted config surface has moved more than once (v0.29 relay,
@@ -31,7 +27,6 @@
 {
   config,
   pkgs,
-  self,
   ...
 }: let
   inherit (config) username;
@@ -46,7 +41,6 @@ in {
     ...
   }: let
     cfg = config.services.netbirdServer;
-    sopsFile = self + "/secrets/sops/secrets.yaml";
     dataDir = "/home/${username}/homelab/apps/netbird"; # mirrors discovery-hermes-oci's hostDataDir convention
 
     # Image tags — current stable as of 2026-07-10 (checked docs.netbird.io,
@@ -84,7 +78,7 @@ in {
     # The ONE value that must NOT be baked into the Nix store is the relay HMAC
     # (`Relay.Secret`): it is left as the literal placeholder `$NB_AUTH_SECRET`
     # and rendered at activation by the netbird-management-config oneshot
-    # (envsubst from the sops secret into /run/netbird-management/management.json,
+    # (envsubst from the Vault Agent render into /run/netbird-management/management.json,
     # which the container mounts). CredentialsTTL raised 24h->168h (§7).
     managementConfig = pkgs.writeText "netbird-management.json.tmpl" (builtins.toJSON {
       StoreConfig.Engine = "postgres";
@@ -215,72 +209,26 @@ in {
       # management/signal/dashboard/relay#1 + their three secrets. Reached only
       # after the PocketID OIDC client and the real secrets exist (RFC §6 step 6).
       (lib.mkIf (!cfg.idpOnly) {
-        # --- Secrets (Phase S mints the real values; placeholders only) --------
-        # Single-purpose dotenv-style secrets, same shape as
-        # discovery-hermes-oci.nix's `hermes_agent/server_env` — sops-nix drops
-        # the decrypted scalar verbatim to `path`; docker's `environmentFiles`
-        # reads it as KEY=VALUE lines.
-        sops.secrets."netbird/postgres_dsn" = {
-          inherit sopsFile;
-          format = "yaml";
-          key = "netbird/postgres_dsn";
-          mode = "0400";
-          path = "/run/secrets/netbird-postgres-dsn";
-          # Q5: reuse discovery's infra Postgres (the `postgres` container on
-          # homelab-net) rather than a dedicated instance. Content is the FULL
-          # DSN line, e.g.:
-          #   NETBIRD_STORE_ENGINE_POSTGRES_DSN=postgresql://netbird:<pw>@postgres:5432/netbird?sslmode=disable
-          # TODO(Phase-O, servarr repo): provision the `netbird` role + database
-          # in discovery's infra Postgres (scripts/provision-db.sql) before this
-          # DSN is real.
-          restartUnits = ["docker-netbird-management.service"];
-        };
-        sops.secrets."netbird/auth_secret" = {
-          inherit sopsFile;
-          format = "yaml";
-          key = "netbird/auth_secret";
-          mode = "0400";
-          path = "/run/secrets/netbird-auth-secret";
-          # Content: `NB_AUTH_SECRET=<openssl rand -base64 32>` (§6b-H7 — must be
-          # IDENTICAL on management and every relay; mismatch fails silently at
-          # the relay, so verify a real peer connection in Phase-O §10-2). Stays
-          # a `NB_AUTH_SECRET=` dotenv line because the netbird-relay container
-          # reads it via environmentFiles; netbird-management-config strips the
-          # prefix before rendering it into management.json's Relay.Secret.
-          restartUnits = ["netbird-management-config.service" "docker-netbird-management.service" "docker-netbird-relay.service"];
-        };
-        sops.secrets."netbird/datastore_enc_key" = {
-          inherit sopsFile;
-          format = "yaml";
-          key = "netbird/datastore_enc_key";
-          mode = "0400";
-          path = "/run/secrets/netbird-datastore-enc-key";
-          # Content: the BARE key value `<openssl rand -base64 32>` (no NB_XXX=
-          # prefix — render-only, read raw by netbird-management-config). Encrypts
-          # netbird's at-rest data store; MUST stay stable: rotating it makes the
-          # existing store unreadable. Provided so management does NOT generate a
-          # key and try to write it back to the read-only management.json.
-          # Rendered into management.json (not env) by netbird-management-config.
-          restartUnits = ["netbird-management-config.service" "docker-netbird-management.service"];
-        };
         # NOTE: no netbird/oidc_client_secret secret — the NetBird OIDC client is
         # public + PKCE (RFC §5 / G4), so PocketID issues no client secret.
 
         # Render management.json at activation, substituting the relay HMAC from
-        # the sops secret into the store template (a real secret must never be
+        # the Vault Agent secret into the store template (a real secret must never be
         # baked into a world-readable /nix/store path). Ordered before — and
         # required by — the management container so it always has a fresh render
         # (/run is tmpfs, cleared each boot). Dir 0700 keeps the rendered secret
         # host-private; file 0444 lets the container read it regardless of its uid.
         systemd.services.netbird-management-config = {
-          description = "Render netbird management.json with the relay HMAC from sops";
+          description = "Render netbird management.json with secrets from Vault Agent";
+          after = ["vault-agent.service"];
+          requires = ["vault-agent.service"];
           before = ["docker-netbird-management.service"];
           requiredBy = ["docker-netbird-management.service"];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
             # If the secrets are still empty after the in-script 30s wait (a
-            # longer sops race), fail and let systemd keep retrying the render so
+            # longer Vault Agent race), fail and let systemd keep retrying the render so
             # management self-heals — instead of the render staying permanently
             # failed and blocking the container (its own Restart= can't re-fire a
             # failed Requires= dependency's start job).
@@ -289,29 +237,30 @@ in {
           };
           script = ''
             install -d -m 0700 /run/netbird-management
-            # DataStoreEncryptionKey is render-only: its sops secret holds the
+            # DataStoreEncryptionKey is render-only: its Vault render holds the
             # BARE value, read straight in. The relay HMAC (Relay.Secret) is
             # shared with the netbird-relay container, which consumes it as a
-            # dotenv env-file, so its sops secret keeps the `NB_AUTH_SECRET=`
+            # dotenv env-file, so its Vault render keeps the `NB_AUTH_SECRET=`
             # line; strip the prefix here with shell param-expansion (no sed —
             # tolerant if the prefix is already absent). Do NOT source the files:
             # a stray line would execute. Wait for BOTH to be present and
             # non-empty before rendering: on an autoUpgrade the secrets can be
-            # mid-re-decryption when their restartUnits fire this oneshot, and
+            # mid-render when this oneshot starts, and
             # rendering an EMPTY DataStoreEncryptionKey makes management
             # self-generate a new key and try to write it back to the :ro config
             # mount -> crash-loop -> start-limit-hit (observed 2026-07-12, mgmt
             # down ~5h). Refusing to render an empty config keeps management from
             # ever seeing one — it waits for a good render instead.
             for _ in $(seq 1 30); do
-              NB_AUTH_SECRET_LINE="$(cat ${config.sops.secrets."netbird/auth_secret".path})"
+              NB_AUTH_SECRET_LINE="$(cat /run/vault-agent/netbird-auth.env 2>/dev/null || true)"
               NB_AUTH_SECRET="''${NB_AUTH_SECRET_LINE#NB_AUTH_SECRET=}"
-              NB_DATASTORE_ENC_KEY="$(cat ${config.sops.secrets."netbird/datastore_enc_key".path})"
-              [ -n "$NB_AUTH_SECRET" ] && [ -n "$NB_DATASTORE_ENC_KEY" ] && break
+              NB_DATASTORE_ENC_KEY="$(cat /run/vault-agent/netbird-datastore.key 2>/dev/null || true)"
+              [ -s /run/vault-agent/netbird-postgres.env ] &&
+                [ -n "$NB_AUTH_SECRET" ] && [ -n "$NB_DATASTORE_ENC_KEY" ] && break
               sleep 1
             done
             if [ -z "$NB_AUTH_SECRET" ] || [ -z "$NB_DATASTORE_ENC_KEY" ]; then
-              echo "netbird-management-config: sops secrets still empty after 30s; refusing to render an empty config" >&2
+              echo "netbird-management-config: Vault Agent secrets still empty after 30s; refusing to render an empty config" >&2
               exit 1
             fi
             export NB_AUTH_SECRET NB_DATASTORE_ENC_KEY
@@ -351,7 +300,7 @@ in {
             # into management.json by the netbird-management-config oneshot, not
             # passed as env here.
             environmentFiles = [
-              config.sops.secrets."netbird/postgres_dsn".path
+              "/run/vault-agent/netbird-postgres.env"
             ];
             # No published host ports: SWAG (servarr) reaches this by container
             # name over homelab-net, same ingress model as discovery-hermes-oci.
@@ -402,10 +351,22 @@ in {
               # self-hosted STUN reflector, ever, on any relay in this design).
             };
             environmentFiles = [
-              config.sops.secrets."netbird/auth_secret".path
+              "/run/vault-agent/netbird-auth.env"
             ];
             networks = ["homelab-net"];
           };
+        };
+
+        systemd.services.docker-netbird-relay = {
+          after = ["vault-agent.service"];
+          requires = ["vault-agent.service"];
+          serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-netbird-auth-env" ''
+            for _ in $(seq 1 100); do
+              [ -s /run/vault-agent/netbird-auth.env ] && exit 0
+              sleep 0.1
+            done
+            exit 1
+          '';
         };
 
         # No host firewall rules here: nothing is published to the host

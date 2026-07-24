@@ -155,6 +155,23 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("seed-netbird-pocketid-vault:", justfile)
         self.assertIn("verify-netbird-pocketid-secret-render:", justfile)
 
+    def test_netbird_controlplane_secrets_come_from_vault_agent(self):
+        vault = SOURCE.read_text()
+        netbird = (ROOT / "modules/hosts/discovery/netbird-server.nix").read_text()
+        for destination in (
+            "/run/vault-agent/netbird-postgres.env",
+            "/run/vault-agent/netbird-auth.env",
+            "/run/vault-agent/netbird-datastore.key",
+        ):
+            self.assertIn(f'destination = "{destination}"', vault)
+            self.assertIn(destination, netbird)
+        for name in ("postgres_dsn", "auth_secret", "datastore_enc_key"):
+            self.assertNotIn(f'sops.secrets."netbird/{name}"', netbird)
+        self.assertEqual(netbird.count("2>/dev/null || true)"), 2)
+        justfile = JUSTFILE.read_text()
+        self.assertIn("seed-netbird-controlplane-vault:", justfile)
+        self.assertIn("verify-netbird-controlplane-secret-render:", justfile)
+
 
 if __name__ == "__main__":
     unittest.main()

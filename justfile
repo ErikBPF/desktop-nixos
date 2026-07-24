@@ -2649,22 +2649,28 @@ verify-ai-serving-secret-render:
       echo "ai_serving_render=ready mode=0440 owner=root group=vault-consumers fresh=true keys=11"
     '
 
-# Merge PocketID's encrypted runtime key into the existing NetBird secret.
-seed-netbird-pocketid-vault:
+# Merge encrypted NetBird runtime values into the existing Vault document.
+seed-netbird-vault:
     #!/usr/bin/env bash
     set -euo pipefail
-    value="$(
-      sops --decrypt --extract '["netbird"]["pocketid_encryption_key"]' \
-        secrets/sops/secrets.yaml
-    )"
-    test -n "$value"
+    pocketid="$(sops --decrypt --extract '["netbird"]["pocketid_encryption_key"]' secrets/sops/secrets.yaml)"
+    postgres="$(sops --decrypt --extract '["netbird"]["postgres_dsn"]' secrets/sops/secrets.yaml)"
+    auth="$(sops --decrypt --extract '["netbird"]["auth_secret"]' secrets/sops/secrets.yaml)"
+    datastore="$(sops --decrypt --extract '["netbird"]["datastore_enc_key"]' secrets/sops/secrets.yaml)"
+    test -n "$pocketid" && test -n "$postgres" && test -n "$auth" && test -n "$datastore"
     token="$(
       sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
     )"
     {
       printf '%s' "$token" | base64 -w0
       printf '\n'
-      jq -cn --arg value "$value" '{POCKETID_ENCRYPTION_KEY:$value}' | base64 -w0
+      jq -cn \
+        --arg pocketid "$pocketid" \
+        --arg postgres "$postgres" \
+        --arg auth "$auth" \
+        --arg datastore "$datastore" \
+        '{POCKETID_ENCRYPTION_KEY:$pocketid,POSTGRES_DSN:$postgres,AUTH_SECRET:$auth,DATASTORE_ENC_KEY:$datastore}' |
+        base64 -w0
       printf '\n'
     } | ssh -p 2222 erik@{{ip_discovery}} '
       set -euo pipefail
@@ -2680,22 +2686,26 @@ seed-netbird-pocketid-vault:
       unset token_b64
       printf "%s" "$value_b64" | base64 --decode > "$incoming"
       unset value_b64
-      status="$(
+      http_status="$(
         curl --header @"$header" --silent --show-error \
           --output "$current" --write-out "%{http_code}" \
           http://127.0.0.1:8200/v1/secret/data/home/netbird
       )"
-      case "$status" in
+      case "$http_status" in
         200) ;;
         404) printf "{\"data\":{\"data\":{}}}" > "$current" ;;
-        *) echo "netbird PocketID Vault read failed: HTTP $status" >&2; exit 1 ;;
+        *) echo "NetBird Vault read failed: HTTP $http_status" >&2; exit 1 ;;
       esac
       jq -s "{data:(.[0].data.data + .[1])}" "$current" "$incoming" > "$payload"
       curl --header @"$header" --silent --show-error --fail --request POST \
         --data-binary @"$payload" \
         http://127.0.0.1:8200/v1/secret/data/home/netbird >/dev/null
-      echo "netbird_pocketid_vault=seeded keys_added=1"
+      echo "netbird_vault=seeded keys_added=4"
     '
+
+seed-netbird-pocketid-vault: seed-netbird-vault
+
+seed-netbird-controlplane-vault: seed-netbird-vault
 
 # Verify metadata and dotenv name without exposing the key.
 verify-netbird-pocketid-secret-render:
@@ -2715,6 +2725,27 @@ verify-netbird-pocketid-secret-render:
       sudo systemctl is-active docker-netbird-pocketid.service ||
         { echo "netbird_pocketid_service=inactive" >&2; exit 1; }
       echo "netbird_pocketid_render=ready mode=0400 owner=root group=vault-consumers fresh=true"
+    '
+
+# Verify control-plane renders and consumers without exposing values.
+verify-netbird-controlplane-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      for file in netbird-postgres.env netbird-auth.env netbird-datastore.key; do
+        test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/$file)" = "400 root vault-consumers"
+        sudo find "/run/vault-agent/$file" -mmin -15 -print -quit | grep -q .
+        sudo test -s "/run/vault-agent/$file"
+      done
+      test "$(sudo cut -d= -f1 /run/vault-agent/netbird-postgres.env)" = NETBIRD_STORE_ENGINE_POSTGRES_DSN
+      test "$(sudo cut -d= -f1 /run/vault-agent/netbird-auth.env)" = NB_AUTH_SECRET
+      sudo systemctl is-active netbird-management-config.service
+      sudo systemctl is-active docker-netbird-management.service
+      sudo systemctl is-active docker-netbird-relay.service
+      echo "netbird_controlplane_render=ready mode=0400 owner=root group=vault-consumers fresh=true files=3"
     '
 
 # Prove the critical infra render is fresh and least-privilege without printing it.
