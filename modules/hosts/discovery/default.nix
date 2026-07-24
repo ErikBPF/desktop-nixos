@@ -25,6 +25,7 @@ in {
       m.nixos.discovery-haos
       m.nixos.first-boot
       m.nixos.alloy
+      m.nixos.alloy-containers
       m.nixos.kepler-nfs
       m.nixos.discovery-containers
       m.nixos.discovery-compose
@@ -58,6 +59,11 @@ in {
       # S/O are human-gated — see the implementation plan).
       m.nixos.discovery-netbird-server
     ];
+
+    homelab.alloy = {
+      containerSocket = "unix:///run/docker.sock";
+      containerSocketGroup = "docker";
+    };
 
     # NetBird IdP bring-up (RFC docs/proposals/2026-07-11-pocketid-idp-for-netbird.md
     # §6 step 3): idpOnly starts ONLY PocketID + its one sops secret — the IdP that
