@@ -84,6 +84,9 @@ in {
           contents = "{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/shared-db.env"
           perms = "0440"
+          exec {
+            command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]
+          }
         }
         template {
           contents = "{{ with secret \"secret/data/home/shared-arr\" }}RADARR_API_KEY={{ .Data.data.RADARR_API_KEY }}\nSONARR_API_KEY={{ .Data.data.SONARR_API_KEY }}\nLIDARR_API_KEY={{ .Data.data.LIDARR_API_KEY }}\n{{ end }}"
