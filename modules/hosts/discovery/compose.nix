@@ -8,7 +8,7 @@ _: {
       # gets a second --env-file /run/vault-agent/<stack>.env (see orchestration.nix).
       vaultEnvStacks = {
         tunneling = ["tunneling"];
-        monitoring = ["monitoring" "shared-grafana"];
+        monitoring = ["monitoring" "shared-grafana" "ai-serving"];
         tools = ["tools"];
         media = ["media" "shared-arr"];
         networking = ["networking"];
@@ -37,6 +37,7 @@ _: {
       secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];
       secretSpecRuntimeProfiles.monitoring = "monitoring";
       secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];
+      secretSpecRuntimeIgnoredSourceNames.monitoring = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT" "LANGFUSE_SECRET_KEY" "LITELLM_SALT_KEY" "MINIO_ROOT_PASSWORD" "OPENCODE_GO_KEY" "OPENCODE_ZEN_KEY" "UI_PASSWORD"];
       secretSpecRuntimeHealthContainers.monitoring = ["grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];
       secretSpecRuntimeProfiles.media = "media";
       secretSpecRuntimeSourceConfigNames.media = ["NORDVPN_USER" "QBITTORRENT_USER"];
