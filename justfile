@@ -2313,6 +2313,7 @@ grafana-alert-diagnostics:
       fi
     }
     diagnose endeavour ampagent-watchdog.service
+    diagnose endeavour nixos-upgrade.service
     diagnose orion nixos-upgrade.service
     diagnose discovery telstar-capture.service
     diagnose discovery homelab-iac-drift.service
@@ -2330,10 +2331,11 @@ grafana-alert-retry target:
     set -euo pipefail
     case "{{target}}" in
       endeavour) host=endeavour; unit=ampagent-watchdog.service; action=start ;;
+      endeavour-upgrade) host=endeavour; unit=nixos-upgrade.service; action=reset ;;
       orion) host=orion; unit=nixos-upgrade.service; action=reset ;;
       discovery-telstar) host=discovery; unit=telstar-capture.service; action=start-no-block ;;
       discovery-drift) host=discovery; unit=homelab-iac-drift.service; action=recover-drift ;;
-      *) echo "target must be endeavour, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
+      *) echo "target must be endeavour, endeavour-upgrade, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
     esac
     command="sudo systemctl reset-failed '$unit'"
     [ "$action" = start ] && command="$command && sudo systemctl start '$unit'"
