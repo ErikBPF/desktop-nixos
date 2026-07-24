@@ -178,6 +178,10 @@ class RuntimeProjectionTest(unittest.TestCase):
             'secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];',
             source,
         )
+        self.assertIn(
+            'secretSpecRuntimeIgnoredSourceNames.monitoring = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT" "LANGFUSE_SECRET_KEY" "LITELLM_SALT_KEY" "MINIO_ROOT_PASSWORD" "OPENCODE_GO_KEY" "OPENCODE_ZEN_KEY" "UI_PASSWORD"];',
+            source,
+        )
 
     def test_remaining_noncritical_profiles_cut_over_as_one_wave(self):
         source = COMPOSE.read_text()
