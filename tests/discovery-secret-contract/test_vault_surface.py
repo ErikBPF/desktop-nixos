@@ -134,6 +134,11 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         justfile = JUSTFILE.read_text()
         self.assertIn("seed-ai-serving-vault:", justfile)
         self.assertIn('echo "ai_serving_vault=seeded keys_added=2"', justfile)
+        self.assertIn("verify-ai-serving-secret-render:", justfile)
+        self.assertIn(
+            'echo "ai_serving_render=ready mode=0440 owner=root group=vault-consumers fresh=true keys=11"',
+            justfile,
+        )
 
 
 if __name__ == "__main__":

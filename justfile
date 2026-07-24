@@ -2619,6 +2619,34 @@ seed-ai-serving-vault:
       echo "ai_serving_vault=seeded keys_added=2"
     '
 
+# Prove the ai-serving render is fresh and contains only the declared names.
+verify-ai-serving-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      metadata="$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/ai-serving.env)"
+      test "$metadata" = "440 root vault-consumers" || {
+        echo "unexpected metadata: $metadata" >&2
+        exit 1
+      }
+      sudo -u erik head -c0 /run/vault-agent/ai-serving.env
+      sudo find /run/vault-agent/ai-serving.env -mmin -15 -print -quit | grep -q . || {
+        echo "render is older than 15 minutes" >&2
+        exit 1
+      }
+      actual="$(sudo grep -v "^#" /run/vault-agent/ai-serving.env | cut -d= -f1 | sort -u)"
+      expected="$(printf "CLICKHOUSE_PASSWORD\nLANGFUSE_INIT_USER_PASSWORD\nLANGFUSE_PUBLIC_KEY\nLANGFUSE_SALT\nLANGFUSE_SECRET_KEY\nLITELLM_MASTER_KEY\nLITELLM_SALT_KEY\nMINIO_ROOT_PASSWORD\nOPENCODE_GO_KEY\nOPENCODE_ZEN_KEY\nUI_PASSWORD")"
+      test "$actual" = "$expected" || {
+        echo "unexpected names:" >&2
+        printf "%s\n" "$actual" >&2
+        exit 1
+      }
+      echo "ai_serving_render=ready mode=0440 owner=root group=vault-consumers fresh=true keys=11"
+    '
+
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:
     #!/usr/bin/env bash
