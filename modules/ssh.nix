@@ -53,8 +53,10 @@ _: {
           User erik
       '';
       onChange = ''
-        cp ~/.ssh/ro_config ~/.ssh/config
-        chmod 0400 ~/.ssh/config
+        config_tmp="$(mktemp ~/.ssh/config.XXXXXX)"
+        trap 'rm -f "$config_tmp"' EXIT
+        install -m 0400 ~/.ssh/ro_config "$config_tmp"
+        mv -f "$config_tmp" ~/.ssh/config
       '';
     };
   };
