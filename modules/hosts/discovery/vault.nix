@@ -594,14 +594,12 @@ in {
             --rawfile secret_id /run/secrets/vault_agent_secret_id \
             '{role_id: ($role_id | rtrimstr("\n")), secret_id: ($secret_id | rtrimstr("\n"))}' \
             | ${curl} -fsS -m 10 -X POST --data @- \
-                http://127.0.0.1:18200/v1/auth/approle/login \
-            | ${jq} -er '.auth.client_token | select(type == "string" and length > 0)' > "$work/token"
-          ${pkgs.coreutils}/bin/chmod 0600 "$work/token"
-          printf 'X-Vault-Token: %s\n' "$(${pkgs.coreutils}/bin/cat "$work/token")" > "$work/header"
-          ${pkgs.coreutils}/bin/chmod 0600 "$work/header"
-          ${curl} -fsS -m 10 --header @"$work/header" -X POST \
-            http://127.0.0.1:18200/v1/auth/token/lookup-self \
-            | ${jq} -e '.data.display_name | startswith("approle-")' >/dev/null
+                http://127.0.0.1:18200/v1/auth/approle/login > "$work/login.json"
+          ${pkgs.coreutils}/bin/chmod 0600 "$work/login.json"
+          ${jq} -e '
+            (.auth.client_token | type == "string" and length > 0) and
+            (.auth.display_name | type == "string" and startswith("approle-"))
+          ' "$work/login.json" >/dev/null
 
           now="$(${pkgs.coreutils}/bin/date +%s)"
           metric="$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.openbao_restore_drill.XXXXXX)"
