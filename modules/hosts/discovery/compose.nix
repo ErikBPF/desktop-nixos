@@ -8,7 +8,7 @@ _: {
       # gets a second --env-file /run/vault-agent/<stack>.env (see orchestration.nix).
       vaultEnvStacks = {
         tunneling = ["tunneling"];
-        monitoring = ["monitoring" "shared-grafana"];
+        monitoring = ["monitoring" "shared-grafana" "ai-serving"];
         tools = ["tools"];
         media = ["media" "shared-arr"];
         networking = ["networking"];

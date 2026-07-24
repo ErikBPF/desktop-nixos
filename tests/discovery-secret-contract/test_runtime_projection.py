@@ -172,6 +172,7 @@ class RuntimeProjectionTest(unittest.TestCase):
 
     def test_monitoring_gates_all_secret_consumers(self):
         source = COMPOSE.read_text()
+        self.assertIn('monitoring = ["monitoring" "shared-grafana" "ai-serving"];', source)
         self.assertIn('secretSpecRuntimeProfiles.monitoring = "monitoring";', source)
         self.assertIn(
             'secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];',
