@@ -62,7 +62,6 @@ in {
 
     homelab.alloy = {
       containerSocket = "unix:///run/docker.sock";
-      containerSocketGroup = "docker";
     };
 
     # NetBird IdP bring-up (RFC docs/proposals/2026-07-11-pocketid-idp-for-netbird.md
