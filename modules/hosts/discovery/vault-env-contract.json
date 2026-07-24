@@ -27,12 +27,14 @@
     "LANGFUSE_SECRET_KEY",
     "LIDARR_API_KEY",
     "LITELLM_API_KEY",
+    "LITELLM_MASTER_KEY",
     "LITELLM_SALT_KEY",
     "MINIO_ROOT_PASSWORD",
     "MINIO_TFSTATE_ROOT_PASSWORD",
     "NORDVPN_PASSWORD",
     "NORDVPN_USER",
     "OPENCODE_GO_KEY",
+    "OPENCODE_ZEN_KEY",
     "POSTGRES_PASSWORD",
     "QBITTORRENT_PASSWORD",
     "QBITTORRENT_USER",
@@ -140,9 +142,11 @@
         "LANGFUSE_PUBLIC_KEY",
         "LANGFUSE_SALT",
         "LANGFUSE_SECRET_KEY",
+        "LITELLM_MASTER_KEY",
         "LITELLM_SALT_KEY",
         "MINIO_ROOT_PASSWORD",
         "OPENCODE_GO_KEY",
+        "OPENCODE_ZEN_KEY",
         "UI_PASSWORD"
       ],
       "perms": "0444"
@@ -205,5 +209,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "802fc365bd1fd54c8a8ff0fd6ac0249641cbe86a9b51e783c9786b393eb8dc6b"
+  "source_sha256": "5b14c8c4515b271303930d7add7866d2aeeaec94922284785fe1159546ffdb65"
 }

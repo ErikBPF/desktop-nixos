@@ -2571,6 +2571,54 @@ seed-infra-vault:
       echo "infra_vault=seeded keys=3"
     '
 
+# Merge the two remaining encrypted ai-serving runtime credentials into OpenBao.
+seed-ai-serving-vault:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    servarr_repo="$(readlink -f references/repos/servarr)"
+    incoming="$(mktemp)"
+    trap 'rm -f "$incoming"' EXIT
+    chmod 600 "$incoming"
+    sops --decrypt --input-type dotenv --output-type json \
+      "$servarr_repo/machines/discovery/.env.sops" |
+      jq -e '{
+        LITELLM_MASTER_KEY,
+        OPENCODE_ZEN_KEY
+      } | select(all(.[]; type == "string" and length > 0))' > "$incoming"
+    token="$(
+      sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
+    )"
+    {
+      printf '%s' "$token" | base64 -w0
+      printf '\n'
+      base64 -w0 "$incoming"
+      printf '\n'
+    } | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token_b64
+      IFS= read -r incoming_b64
+      header="$(mktemp)"
+      current="$(mktemp)"
+      incoming="$(mktemp)"
+      payload="$(mktemp)"
+      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\"" EXIT
+      chmod 600 "$header" "$current" "$incoming" "$payload"
+      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
+      unset token_b64
+      printf "%s" "$incoming_b64" | base64 --decode > "$incoming"
+      unset incoming_b64
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/ai-serving > "$current"
+      jq -s "{data:(.[0].data.data + .[1])}" "$current" "$incoming" > "$payload"
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$payload" \
+        http://127.0.0.1:8200/v1/secret/data/home/ai-serving >/dev/null
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/ai-serving |
+        jq -e ".data.data | has(\"LITELLM_MASTER_KEY\") and has(\"OPENCODE_ZEN_KEY\")" >/dev/null
+      echo "ai_serving_vault=seeded keys_added=2"
+    '
+
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:
     #!/usr/bin/env bash

@@ -54,7 +54,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertEqual(contract["schema_version"], 1)
             self.assertEqual(contract["owner"], "desktop-nixos")
             self.assertEqual(contract["source"], "modules/hosts/discovery/vault.nix")
-            self.assertEqual(len(contract["names"]), 48)
+            self.assertEqual(len(contract["names"]), 50)
             self.assertIn("ADGUARD_PASSWORD", contract["names"])
             self.assertEqual(contract["names"], sorted(contract["names"]))
             self.assertIn("CLOUDFLARE_API_TOKEN", contract["names"])
@@ -122,6 +122,18 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
                 '["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/kindle-dash.env"]',
                 source,
             )
+
+    def test_ai_serving_remaining_runtime_secrets_come_from_vault_agent(self):
+        for relative in (
+            "modules/hosts/discovery/vault.nix",
+            "modules/hosts/discovery/_vault-agent.nix",
+        ):
+            source = (ROOT / relative).read_text()
+            self.assertIn("LITELLM_MASTER_KEY={{ .Data.data.LITELLM_MASTER_KEY }}", source)
+            self.assertIn("OPENCODE_ZEN_KEY={{ .Data.data.OPENCODE_ZEN_KEY }}", source)
+        justfile = JUSTFILE.read_text()
+        self.assertIn("seed-ai-serving-vault:", justfile)
+        self.assertIn('echo "ai_serving_vault=seeded keys_added=2"', justfile)
 
 
 if __name__ == "__main__":
