@@ -315,6 +315,14 @@ in {
               command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/ha-harness.env"]
             }
           }
+          template {
+            contents = "${renderedAt}{{ with secret \"secret/data/home/kindle-dash\" }}KINDLE_DASH_CLAUDE_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CLAUDE_REFRESH_TOKEN }}\nKINDLE_DASH_CODEX_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CODEX_REFRESH_TOKEN }}\nKINDLE_DASH_HA_TOKEN={{ .Data.data.KINDLE_DASH_HA_TOKEN }}\nKINDLE_DASH_OPENCODE_AUTH_COOKIE={{ .Data.data.KINDLE_DASH_OPENCODE_AUTH_COOKIE }}\n{{ end }}"
+            destination = "/run/vault-agent/kindle-dash.env"
+            perms = "0440"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/kindle-dash.env"]
+            }
+          }
         ''}";
       };
     };

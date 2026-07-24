@@ -16,6 +16,10 @@
     "HEALTHCHECKS_SECRET_KEY",
     "HEALTHCHECKS_SUPERUSER_PASSWORD",
     "JELLYSTAT_JWT_SECRET",
+    "KINDLE_DASH_CLAUDE_REFRESH_TOKEN",
+    "KINDLE_DASH_CODEX_REFRESH_TOKEN",
+    "KINDLE_DASH_HA_TOKEN",
+    "KINDLE_DASH_OPENCODE_AUTH_COOKIE",
     "LANGFUSE_INIT_USER_PASSWORD",
     "LANGFUSE_PUBLIC_KEY",
     "LANGFUSE_SALT",
@@ -165,6 +169,17 @@
         "LITELLM_API_KEY"
       ],
       "perms": "0440"
+    },
+    {
+      "destination": "/run/vault-agent/kindle-dash.env",
+      "group": "docker",
+      "names": [
+        "KINDLE_DASH_CLAUDE_REFRESH_TOKEN",
+        "KINDLE_DASH_CODEX_REFRESH_TOKEN",
+        "KINDLE_DASH_HA_TOKEN",
+        "KINDLE_DASH_OPENCODE_AUTH_COOKIE"
+      ],
+      "perms": "0440"
     }
   ],
   "schema_version": 1,
@@ -175,5 +190,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "61f100f824d08b66c8097a3af35b3bfbc89d86cc2c1bb6987268ae49b4f2ce0e"
+  "source_sha256": "7730da8c770746f821c9b1e3c6af2f26876832f4357d06fdef719fcdefa5f7d6"
 }

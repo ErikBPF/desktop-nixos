@@ -16,6 +16,7 @@ _: {
         "media-server" = ["media-server" "shared-db"];
         "ai-serving" = ["ai-serving" "shared-db"];
         "ha-harness" = ["ha-harness"];
+        "kindle-dash" = ["kindle-dash"];
         infra = ["shared-db"];
       };
       secretSpecRuntimeProfiles.tools = "tools";
@@ -50,12 +51,6 @@ _: {
       secretSpecRuntimeLegacySecretNames.plex = ["PLEX_CLAIM"];
       secretSpecRuntimeHealthContainers.plex = ["plex"];
       secretSpecRuntimeProfiles."kindle-dash" = "kindle-dash";
-      secretSpecRuntimeLegacySecretNames."kindle-dash" = [
-        "KINDLE_DASH_CLAUDE_REFRESH_TOKEN"
-        "KINDLE_DASH_CODEX_REFRESH_TOKEN"
-        "KINDLE_DASH_HA_TOKEN"
-        "KINDLE_DASH_OPENCODE_AUTH_COOKIE"
-      ];
       secretSpecRuntimeHealthContainers."kindle-dash" = ["kindle-dash"];
       secretSpecRuntimeProfiles."ai-serving" = "ai-serving";
       secretSpecRuntimeSourceConfigNames."ai-serving" = ["LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT"];

@@ -132,6 +132,17 @@ in {
           contents = "{{ with secret \"secret/data/home/ha-harness-litellm\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\n{{ end }}{{ with secret \"secret/data/home/ha-harness\" }}HA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/ha-harness.env"
           perms = "0440"
+          exec {
+            command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/ha-harness.env"]
+          }
+        }
+        template {
+          contents = "{{ with secret \"secret/data/home/kindle-dash\" }}KINDLE_DASH_CLAUDE_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CLAUDE_REFRESH_TOKEN }}\nKINDLE_DASH_CODEX_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CODEX_REFRESH_TOKEN }}\nKINDLE_DASH_HA_TOKEN={{ .Data.data.KINDLE_DASH_HA_TOKEN }}\nKINDLE_DASH_OPENCODE_AUTH_COOKIE={{ .Data.data.KINDLE_DASH_OPENCODE_AUTH_COOKIE }}\n{{ end }}"
+          destination = "/run/vault-agent/kindle-dash.env"
+          perms = "0440"
+          exec {
+            command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/kindle-dash.env"]
+          }
         }
       ''}";
     };

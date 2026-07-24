@@ -54,7 +54,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertEqual(contract["schema_version"], 1)
             self.assertEqual(contract["owner"], "desktop-nixos")
             self.assertEqual(contract["source"], "modules/hosts/discovery/vault.nix")
-            self.assertEqual(len(contract["names"]), 40)
+            self.assertEqual(len(contract["names"]), 44)
             self.assertEqual(contract["names"], sorted(contract["names"]))
             self.assertIn("CLOUDFLARE_API_TOKEN", contract["names"])
             self.assertIn("HARBOR_ROBOT_SECRET", contract["names"])
@@ -105,6 +105,22 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             source = (ROOT / relative).read_text()
             self.assertIn('secret \\"secret/data/home/ha-harness-litellm\\"', source)
             self.assertIn('secret \\"secret/data/home/ha-harness\\"', source)
+
+    def test_kindle_dash_runtime_secrets_come_from_vault_agent(self):
+        compose = (ROOT / "modules/hosts/discovery/compose.nix").read_text()
+        self.assertIn('"kindle-dash" = ["kindle-dash"];', compose)
+        self.assertNotIn('secretSpecRuntimeLegacySecretNames."kindle-dash"', compose)
+        for relative in (
+            "modules/hosts/discovery/vault.nix",
+            "modules/hosts/discovery/_vault-agent.nix",
+        ):
+            source = (ROOT / relative).read_text()
+            self.assertIn('secret \\"secret/data/home/kindle-dash\\"', source)
+            self.assertIn('destination = "/run/vault-agent/kindle-dash.env"', source)
+            self.assertIn(
+                '["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/kindle-dash.env"]',
+                source,
+            )
 
 
 if __name__ == "__main__":
