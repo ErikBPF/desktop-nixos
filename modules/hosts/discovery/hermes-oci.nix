@@ -97,7 +97,7 @@ in {
         # longer manual host state. git ssh is scoped to this repo via
         # core.sshCommand (set by the clone oneshot, points at /opt/wiki-key).
         "/var/lib/hermes-wiki:/opt/wiki:rw"
-        ''${config.sops.secrets."hermes_wiki/deploy_key".path}:/opt/wiki-key:ro''
+        "/run/vault-agent/hermes-wiki.key:/opt/wiki-key:ro"
       ];
 
       extraEnvironment = {

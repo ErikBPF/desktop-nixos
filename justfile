@@ -2755,7 +2755,8 @@ seed-hermes-vault:
     server="$(sops --decrypt --extract '["hermes_agent"]["server_env"]' secrets/sops/secrets.yaml)"
     daedalus="$(sops --decrypt --extract '["hermes_agents"]["daedalus_env"]' secrets/sops/secrets.yaml)"
     argus="$(sops --decrypt --extract '["hermes_agents"]["argus_env"]' secrets/sops/secrets.yaml)"
-    test -n "$server" && test -n "$daedalus" && test -n "$argus"
+    wiki="$(sops --decrypt --extract '["hermes_wiki"]["deploy_key"]' secrets/sops/secrets.yaml)"
+    test -n "$server" && test -n "$daedalus" && test -n "$argus" && test -n "$wiki"
     token="$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)"
     {
       printf '%s\n' "$(printf '%s' "$token" | base64 -w0)"
@@ -2763,7 +2764,8 @@ seed-hermes-vault:
         --arg server "$server" \
         --arg daedalus "$daedalus" \
         --arg argus "$argus" \
-        '{SERVER_ENV:$server,DAEDALUS_ENV:$daedalus,ARGUS_ENV:$argus}' |
+        --arg wiki "$wiki" \
+        '{SERVER_ENV:$server,DAEDALUS_ENV:$daedalus,ARGUS_ENV:$argus,WIKI_DEPLOY_KEY:$wiki}' |
         base64 -w0
       printf '\n'
     } | ssh -p 2222 erik@{{ip_discovery}} '
@@ -2774,8 +2776,9 @@ seed-hermes-vault:
       current="$(mktemp)"
       incoming="$(mktemp)"
       payload="$(mktemp)"
-      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\"" EXIT
-      chmod 600 "$header" "$current" "$incoming" "$payload"
+      key="$(mktemp)"
+      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\" \"$key\"" EXIT
+      chmod 600 "$header" "$current" "$incoming" "$payload" "$key"
       printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
       unset token_b64
       printf "%s" "$value_b64" | base64 --decode > "$incoming"
@@ -2794,7 +2797,14 @@ seed-hermes-vault:
       curl --header @"$header" --silent --show-error --fail --request POST \
         --data-binary @"$payload" \
         http://127.0.0.1:8200/v1/secret/data/home/hermes >/dev/null
-      echo "hermes_vault=seeded keys_added=3"
+      expected="$(jq -r .WIKI_DEPLOY_KEY "$incoming" | sha256sum | cut -d" " -f1)"
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/hermes > "$current"
+      jq -r .data.data.WIKI_DEPLOY_KEY "$current" > "$key"
+      actual="$(sha256sum "$key" | cut -d" " -f1)"
+      test "$actual" = "$expected"
+      ssh-keygen -y -f "$key" >/dev/null
+      echo "hermes_vault=seeded keys_added=4"
     '
 
 # Verify render metadata and consumers without exposing env contents.
@@ -2810,11 +2820,16 @@ verify-hermes-secret-renders:
         sudo find "/run/vault-agent/$file" -mmin -15 -print -quit | grep -q .
         sudo test -s "/run/vault-agent/$file"
       done
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/hermes-wiki.key)" = "400 hermes hermes"
+      sudo find /run/vault-agent/hermes-wiki.key -mmin -15 -print -quit | grep -q .
+      sudo test -s /run/vault-agent/hermes-wiki.key
       sudo systemctl is-active docker-hermes-agent.service
       sudo systemctl is-active docker-hermes-daedalus.service
       sudo systemctl is-active docker-hermes-argus.service
-      echo "hermes_render=ready mode=0400 owner=root group=vault-consumers fresh=true files=3"
+      sudo systemctl is-active hermes-wiki-clone.service
+      echo "hermes_render=ready mode=0400 fresh=true files=4 wiki_owner=hermes"
     '
+
 
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:

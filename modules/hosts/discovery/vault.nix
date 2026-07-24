@@ -334,6 +334,14 @@ in {
             destination = "/run/vault-agent/hermes-argus.env"
             perms = "0400"
           }
+          template {
+            contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.WIKI_DEPLOY_KEY }}{{ end }}\n"
+            destination = "/run/vault-agent/hermes-wiki.key"
+            perms = "0400"
+            exec {
+              command = ["${pkgs.coreutils}/bin/chown", "hermes:hermes", "/run/vault-agent/hermes-wiki.key"]
+            }
+          }
           # Harbor setup and the fixed mirror recipe run as root. Keep the
           # project-scoped robot beside the admin/database inputs without
           # exposing any of them to rootless Compose.
