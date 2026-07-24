@@ -209,6 +209,10 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         vault = SOURCE.read_text()
         justfile = JUSTFILE.read_text()
         self.assertIn("systemd.services.openbao-restore-drill", vault)
+        drill = vault.split("systemd.services.openbao-restore-drill", 1)[1].split(
+            "systemd.timers.openbao-restore-drill", 1
+        )[0]
+        self.assertIn("path = [pkgs.bash]", drill)
         self.assertIn("127.0.0.1:18200", vault)
         self.assertIn("mktemp -d /var/tmp/openbao-restore-drill.", vault)
         self.assertIn("operator raft snapshot restore -force", vault)
