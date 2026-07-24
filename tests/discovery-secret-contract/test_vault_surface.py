@@ -140,6 +140,21 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             justfile,
         )
 
+    def test_pocketid_runtime_secret_comes_from_vault_agent(self):
+        vault = SOURCE.read_text()
+        netbird = (ROOT / "modules/hosts/discovery/netbird-server.nix").read_text()
+        self.assertIn('destination = "/run/vault-agent/netbird-pocketid.env"', vault)
+        self.assertIn(
+            '"/run/vault-agent/netbird-pocketid.env"',
+            netbird,
+        )
+        self.assertNotIn('sops.secrets."netbird/pocketid_encryption_key"', netbird)
+        self.assertIn('after = ["vault-agent.service"]', netbird)
+        self.assertIn("[ -s /run/vault-agent/netbird-pocketid.env ]", netbird)
+        justfile = JUSTFILE.read_text()
+        self.assertIn("seed-netbird-pocketid-vault:", justfile)
+        self.assertIn("verify-netbird-pocketid-secret-render:", justfile)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -130,6 +130,11 @@ in {
           }
         }
         template {
+          contents = "{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.POCKETID_ENCRYPTION_KEY }}\n{{ end }}"
+          destination = "/run/vault-agent/netbird-pocketid.env"
+          perms = "0400"
+        }
+        template {
           contents = "{{ with secret \"secret/data/home/infra\" }}MINIO_TFSTATE_ROOT_PASSWORD={{ .Data.data.MINIO_TFSTATE_ROOT_PASSWORD }}\nVAULTWARDEN_ADMIN_TOKEN={{ .Data.data.VAULTWARDEN_ADMIN_TOKEN }}\nVAULT_DEV_ROOT_TOKEN={{ .Data.data.VAULT_DEV_ROOT_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/infra.env"
           perms = "0440"

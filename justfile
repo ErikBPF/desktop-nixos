@@ -2649,6 +2649,74 @@ verify-ai-serving-secret-render:
       echo "ai_serving_render=ready mode=0440 owner=root group=vault-consumers fresh=true keys=11"
     '
 
+# Merge PocketID's encrypted runtime key into the existing NetBird secret.
+seed-netbird-pocketid-vault:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    value="$(
+      sops --decrypt --extract '["netbird"]["pocketid_encryption_key"]' \
+        secrets/sops/secrets.yaml
+    )"
+    test -n "$value"
+    token="$(
+      sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
+    )"
+    {
+      printf '%s' "$token" | base64 -w0
+      printf '\n'
+      jq -cn --arg value "$value" '{POCKETID_ENCRYPTION_KEY:$value}' | base64 -w0
+      printf '\n'
+    } | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token_b64
+      IFS= read -r value_b64
+      header="$(mktemp)"
+      current="$(mktemp)"
+      incoming="$(mktemp)"
+      payload="$(mktemp)"
+      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\"" EXIT
+      chmod 600 "$header" "$current" "$incoming" "$payload"
+      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
+      unset token_b64
+      printf "%s" "$value_b64" | base64 --decode > "$incoming"
+      unset value_b64
+      status="$(
+        curl --header @"$header" --silent --show-error \
+          --output "$current" --write-out "%{http_code}" \
+          http://127.0.0.1:8200/v1/secret/data/home/netbird
+      )"
+      case "$status" in
+        200) ;;
+        404) printf "{\"data\":{\"data\":{}}}" > "$current" ;;
+        *) echo "netbird PocketID Vault read failed: HTTP $status" >&2; exit 1 ;;
+      esac
+      jq -s "{data:(.[0].data.data + .[1])}" "$current" "$incoming" > "$payload"
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$payload" \
+        http://127.0.0.1:8200/v1/secret/data/home/netbird >/dev/null
+      echo "netbird_pocketid_vault=seeded keys_added=1"
+    '
+
+# Verify metadata and dotenv name without exposing the key.
+verify-netbird-pocketid-secret-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      metadata="$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/netbird-pocketid.env)"
+      test "$metadata" = "400 root vault-consumers" ||
+        { echo "netbird_pocketid_render=bad_metadata actual=$metadata" >&2; exit 1; }
+      test "$(sudo cut -d= -f1 /run/vault-agent/netbird-pocketid.env)" = ENCRYPTION_KEY ||
+        { echo "netbird_pocketid_render=bad_name" >&2; exit 1; }
+      sudo find /run/vault-agent/netbird-pocketid.env -mmin -15 -print -quit | grep -q . ||
+        { echo "netbird_pocketid_render=stale" >&2; exit 1; }
+      sudo systemctl is-active docker-netbird-pocketid.service ||
+        { echo "netbird_pocketid_service=inactive" >&2; exit 1; }
+      echo "netbird_pocketid_render=ready mode=0400 owner=root group=vault-consumers fresh=true"
+    '
+
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:
     #!/usr/bin/env bash
