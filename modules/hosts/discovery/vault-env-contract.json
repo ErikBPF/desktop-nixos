@@ -1,5 +1,6 @@
 {
   "names": [
+    "ADGUARD_PASSWORD",
     "CLICKHOUSE_PASSWORD",
     "CLOUDFLARE_API_TOKEN",
     "CLOUDFLARE_TUNNEL_TOKEN",
@@ -147,6 +148,7 @@
       "destination": "/run/vault-agent/networking.env",
       "group": "docker",
       "names": [
+        "ADGUARD_PASSWORD",
         "CLOUDFLARE_API_TOKEN"
       ],
       "perms": "0440"
@@ -190,5 +192,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "7730da8c770746f821c9b1e3c6af2f26876832f4357d06fdef719fcdefa5f7d6"
+  "source_sha256": "223506e5681be1cc88b238d78047a5100f9b3f9a698c986ceb6d9609f9d13786"
 }

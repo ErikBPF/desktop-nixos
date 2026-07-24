@@ -24,7 +24,6 @@ _: {
       secretSpecRuntimeProfiles.tunneling = "tunneling";
       secretSpecRuntimeHealthContainers.tunneling = ["cloudflared"];
       secretSpecRuntimeProfiles.networking = "networking";
-      secretSpecRuntimeLegacySecretNames.networking = ["ADGUARD_PASSWORD"];
       secretSpecRuntimeHealthContainers.networking = ["swag" "adguard"];
       secretSpecRuntimeProfiles.infra = "infra";
       secretSpecRuntimeLegacySecretNames.infra = [

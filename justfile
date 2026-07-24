@@ -2476,9 +2476,54 @@ verify-networking-secret-render:
         exit 1
       fi
       sudo find /run/vault-agent/networking.env -mmin -15 -print -quit | grep -q .
-      actual="$(sudo grep -v '^#' /run/vault-agent/networking.env | cut -d= -f1)"
-      test "$actual" = CLOUDFLARE_API_TOKEN
+      actual="$(sudo grep -v '^#' /run/vault-agent/networking.env | cut -d= -f1 | sort -u)"
+      expected="$(printf "ADGUARD_PASSWORD\nCLOUDFLARE_API_TOKEN")"
+      test "$actual" = "$expected"
       echo "networking_render=ready mode=0440 owner=root group=docker fresh=true"
+    '
+
+# Merge the encrypted AdGuard credential into the existing networking secret.
+seed-adguard-vault:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    servarr_repo="$(readlink -f references/repos/servarr)"
+    password="$(
+      sops --decrypt --input-type dotenv --output-type json \
+        "$servarr_repo/machines/discovery/.env.sops" |
+        jq -er '.ADGUARD_PASSWORD | select(type == "string" and length > 0)'
+    )"
+    token="$(
+      sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
+    )"
+    {
+      printf '%s' "$token" | base64 -w0
+      printf '\n'
+      jq -cn --arg value "$password" '{ADGUARD_PASSWORD:$value}' | base64 -w0
+      printf '\n'
+    } | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token_b64
+      IFS= read -r value_b64
+      header="$(mktemp)"
+      current="$(mktemp)"
+      incoming="$(mktemp)"
+      payload="$(mktemp)"
+      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\"" EXIT
+      chmod 600 "$header" "$current" "$incoming" "$payload"
+      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
+      unset token_b64
+      printf "%s" "$value_b64" | base64 --decode > "$incoming"
+      unset value_b64
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/networking > "$current"
+      jq -s '{data:(.[0].data.data + .[1])}' "$current" "$incoming" > "$payload"
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$payload" \
+        http://127.0.0.1:8200/v1/secret/data/home/networking >/dev/null
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/networking |
+        jq -e '.data.data | has("ADGUARD_PASSWORD") and has("CLOUDFLARE_API_TOKEN")' >/dev/null
+      echo "adguard_vault=seeded networking_keys_verified=true"
     '
 
 # Prove the critical infra render is fresh and least-privilege without printing it.

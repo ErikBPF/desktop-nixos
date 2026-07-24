@@ -187,7 +187,6 @@ class RuntimeProjectionTest(unittest.TestCase):
             'secretSpecRuntimeLegacySecretNames.plex = ["PLEX_CLAIM"];',
             'secretSpecRuntimeHealthContainers.plex = ["plex"];',
             'secretSpecRuntimeProfiles."kindle-dash" = "kindle-dash";',
-            'secretSpecRuntimeLegacySecretNames."kindle-dash" = [',
             'secretSpecRuntimeHealthContainers."kindle-dash" = ["kindle-dash"];',
             'secretSpecRuntimeProfiles."ai-serving" = "ai-serving";',
             'secretSpecRuntimeSourceConfigNames."ai-serving" = ["LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT"];',
@@ -238,16 +237,14 @@ class RuntimeProjectionTest(unittest.TestCase):
         vault = VAULT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
         self.assertIn('secretSpecRuntimeProfiles.networking = "networking";', compose)
-        self.assertIn(
-            'secretSpecRuntimeLegacySecretNames.networking = ["ADGUARD_PASSWORD"];',
-            compose,
-        )
+        self.assertNotIn("secretSpecRuntimeLegacySecretNames.networking", compose)
         self.assertIn(
             'secretSpecRuntimeHealthContainers.networking = ["swag" "adguard"];',
             compose,
         )
         self.assertIn("verify-networking-secret-render:", justfile)
-        self.assertIn('test "$actual" = CLOUDFLARE_API_TOKEN', justfile)
+        self.assertIn("seed-adguard-vault:", justfile)
+        self.assertIn('ADGUARD_PASSWORD\\nCLOUDFLARE_API_TOKEN', justfile)
         self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/networking.env"]', vault)
         networking = next(row for row in contract["renders"] if row["destination"].endswith("/networking.env"))
         self.assertEqual(networking["perms"], "0440")

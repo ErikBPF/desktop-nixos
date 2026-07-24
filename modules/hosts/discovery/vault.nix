@@ -292,7 +292,7 @@ in {
             perms = "0444"
           }
           template {
-            contents = "${renderedAt}{{ with secret \"secret/data/home/networking\" }}CLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"
+            contents = "${renderedAt}{{ with secret \"secret/data/home/networking\" }}ADGUARD_PASSWORD={{ .Data.data.ADGUARD_PASSWORD }}\nCLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"
             destination = "/run/vault-agent/networking.env"
             perms = "0440"
             exec {
