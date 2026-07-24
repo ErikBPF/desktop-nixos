@@ -2,9 +2,9 @@
 
 **Status:** Guide
 
-Yazi is the primary file manager on the desktop hosts (Hyprland). It runs in a
-terminal but behaves like a GUI file manager once your fingers adjust — this
-page is the bridge. Nautilus stays installed as a mouse-driven **plan B**.
+Yazi is the terminal file manager on the desktop hosts (Hyprland). Nautilus is
+the default keyboard-launched GUI; Yazi remains the directory MIME handler and
+the faster terminal option.
 
 Config lives in `modules/terminal/yazi.nix` (fleet-wide base) and
 `modules/desktop/yazi-desktop.nix` (desktop-only: theme, plugins, GUI keymaps,
@@ -16,9 +16,9 @@ without relearning anything.
 
 | Shortcut | Opens |
 |----------|-------|
-| `SUPER + E` | **yazi** (in ghostty) — the default |
+| `SUPER + E` | **Nautilus** — a fresh GUI window |
 | double-click a folder | yazi (via mime handler) |
-| `SUPER + SHIFT + E` | **Nautilus** — the GUI fallback when you're stuck |
+| `SUPER + SHIFT + E` | **yazi** (in ghostty), resuming its last folder |
 | `SUPER + /` | **Cheatsheet popup** (rofi) — the same table as below |
 
 Inside yazi, `~` opens yazi's own complete keymap reference.
@@ -58,9 +58,25 @@ There is no `F5` — yazi watches the directory and refreshes itself.
 Archives preview inline (peek inside without extracting); git status shows as a
 column in any repo. Theme is Tokyonight, matching the rest of the desktop.
 
-## Stuck?
+## Nautilus shortcuts
 
-`SUPER + SHIFT + E` gives you Nautilus — full mouse GUI, drag-drop, upload
-dialogs. It's configured too: right-click → **Open in Terminal** launches
-ghostty, and it uses the Tokyonight GTK theme. Use it whenever the TUI fights
-you; there's no penalty for bailing.
+| Key | Action |
+|-----|--------|
+| `Ctrl+L` | Edit the current location |
+| `Ctrl+T` / `Ctrl+W` | Open / close a tab |
+| `Alt+Left` / `Alt+Right` | Back / forward |
+| `Alt+Up` | Parent folder |
+| `Ctrl+D` | Bookmark the current folder |
+| `Ctrl+H` | Toggle hidden files |
+| `F2` | Rename |
+
+Right-click → **Open in Terminal** launches ghostty in that folder.
+
+## Path persistence
+
+`SUPER + SHIFT + E` stores Yazi's final directory under
+`$XDG_STATE_HOME/yazi/last-cwd` (or `~/.local/state/yazi/last-cwd`) and resumes
+there next time. In an existing shell, launch `y`; its `--cwd-file` wrapper
+changes that shell's working directory when Yazi exits. A new terminal cannot
+inherit the directory of a terminated shell, so the desktop launcher uses the
+small state file instead.

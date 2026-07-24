@@ -312,7 +312,38 @@ def github_check_payload(report):
 
 
 def discord_payload(report):
-    return {"content": _report_json(report)}
+    snapshot = terminal_report(report.snapshot).snapshot
+    if snapshot.phase == "failed":
+        state, color = "failed", 0xED4245
+    elif snapshot.degradation is not None:
+        state, color = "degraded", 0xFEE75C
+    else:
+        state, color = "succeeded", 0x57F287
+    details = [
+        f"**Version:** `{snapshot.version}`",
+        (
+            f"**Commit:** [`{snapshot.commit[:7]}`]"
+            f"(https://github.com/ErikBPF/kindle-dash/commit/{snapshot.commit})"
+        ),
+        f"**Image:** `{snapshot.digest[:19]}…`",
+    ]
+    for label, value in (
+        ("Degradation", snapshot.degradation),
+        ("Failure", snapshot.failure),
+        ("Rollback", snapshot.rollback),
+    ):
+        if value is not None:
+            details.append(f"**{label}:** {value}")
+    return {
+        "embeds": [
+            {
+                "title": f"Kindle release {state}",
+                "description": "\n".join(details),
+                "color": color,
+                "timestamp": snapshot.updated_at,
+            }
+        ]
+    }
 
 
 def _json_bytes(value):
@@ -1351,11 +1382,13 @@ def recover_failed_attempt(state, operations, persist, now, after_revalidate):
 def execute_once():
     runner = SubprocessRunner()
     persist = lambda updated: persist_snapshot(STATE_PATH, METRIC_PATH, updated)
+    initial = None
     try:
         state = load_state(STATE_PATH)
     except FileNotFoundError:
         result = adopt_live_baseline(runner, persist, _utc_now)
     else:
+        initial = state
         uid = pwd.getpwnam(DEPLOY_USER).pw_uid
         operations = SystemOperations(runner, uid, HARBOR_ENV)
         reconcile = lambda snapshot: reconcile_metric(METRIC_PATH, snapshot)
@@ -1376,7 +1409,12 @@ def execute_once():
                 _utc_now,
                 after_revalidate=reconcile,
             )
-    result = report_terminal(result, ExternalReporter(), persist, _utc_now)
+    if (
+        initial is None
+        or result != initial
+        or initial["degradation"] == "external-reporting-unavailable"
+    ):
+        result = report_terminal(result, ExternalReporter(), persist, _utc_now)
     return 1 if result["phase"] == "failed" else 0
 
 

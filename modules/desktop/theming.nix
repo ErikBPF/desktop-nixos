@@ -29,7 +29,7 @@ _: {
 
     dconf.settings = {
       "org/gnome/desktop/interface".color-scheme = "prefer-dark";
-      # Nautilus (plan-B GUI file manager): right-click "Open in Terminal" → ghostty.
+      # Nautilus GUI file manager: right-click "Open in Terminal" → ghostty.
       "com/github/stunkymonkey/nautilus-open-any-terminal" = {
         terminal = "ghostty";
         new-tab = false;

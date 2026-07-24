@@ -52,18 +52,12 @@
         {_args = ["CHROMIUM_FLAGS" "--enable-features=UseOzonePlatform --enable-features=WebRTCPipeWireCapturer --ozone-platform=wayland  --gtk-version=4"];}
         {
           _args = [
-            "XDG_DATA_DIRS"
-            (mkLuaInline ''(os.getenv("XDG_DATA_DIRS") or "") .. ":" .. (os.getenv("HOME") or "") .. "/.nix-profile/share:/nix/var/nix/profiles/default/share"'')
-          ];
-        }
-        {
-          _args = [
             "XCOMPOSEFILE"
             (mkLuaInline ''(os.getenv("HOME") or "") .. "/.XCompose"'')
           ];
         }
         {_args = ["BROWSER" "brave"];}
-        {_args = ["FILEMANAGER" "ghostty +new-window -e yazi"];}
+        {_args = ["FILEMANAGER" "nautilus"];}
         # Force dark across toolkits for apps that ignore gsettings/settings.ini:
         #   GTK_THEME → GTK2/3/4 apps (swappy, etc). Points at the EXISTING dark
         #   variant (the earlier white-out was GTK_THEME=Tokyonight-Dark, deleted).
@@ -90,8 +84,8 @@
 
         settings = {
           terminal = {_var = "ghostty +new-window";};
-          fileManager = {_var = "ghostty +new-window -e yazi";};
-          fileManagerGui = {_var = "nautilus";};
+          fileManager = {_var = "nautilus --new-window";};
+          fileManagerTui = {_var = "ghostty +new-window -e yazi-resume";};
           browser = {_var = "brave";};
           teamsApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/teams --no-first-run --no-default-browser-check --app=https://teams.microsoft.com/v2/";};
           whatsappApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/whatsapp --no-first-run --no-default-browser-check --app=https://web.whatsapp.com/";};
@@ -355,7 +349,7 @@
               {_args = ["SUPER + N" (mkLuaInline ''hl.dsp.exec_cmd(terminal .. " -e nvim")'')];}
               {_args = ["SUPER + T" (mkLuaInline "hl.dsp.exec_cmd(terminal)")];}
               {_args = ["SUPER + E" (mkLuaInline "hl.dsp.exec_cmd(fileManager)")];}
-              {_args = ["SUPER + SHIFT + E" (mkLuaInline "hl.dsp.exec_cmd(fileManagerGui)")];}
+              {_args = ["SUPER + SHIFT + E" (mkLuaInline "hl.dsp.exec_cmd(fileManagerTui)")];}
               {_args = ["SUPER + slash" (mkLuaInline ''hl.dsp.exec_cmd("yazi-help")'')];}
               {_args = ["SUPER + D" (mkLuaInline ''hl.dsp.exec_cmd("pkill rofi || rofi -show drun")'')];}
               {_args = ["SUPER + W" (mkLuaInline "hl.dsp.window.close()")];}

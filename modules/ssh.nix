@@ -25,25 +25,9 @@ _: {
           User git
           IdentityFile ~/.ssh/id_rsa
 
-        # Fleet hosts: resolve via tailnet MagicDNS (no LAN HostName override).
+        # NixOS fleet hosts resolve via tailnet MagicDNS (no LAN HostName override).
         # sshd is fleet-wide on port 2222 (modules/networking/openssh.nix).
-        Host orion 192.168.10.220
-          Port 2222
-          User erik
-
-        Host kepler
-          Port 2222
-          User erik
-
-        Host archinaut
-          Port 2222
-          User erik
-
-        Host pathfinder
-          Port 2222
-          User erik
-
-        Host voyager
+        Host archinaut discovery endeavour kepler orion pathfinder telstar vanguard voyager 192.168.10.220
           Port 2222
           User erik
 

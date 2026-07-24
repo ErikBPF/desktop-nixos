@@ -38,6 +38,11 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("restic-backups-vault-b2.onFailure", vault)
         self.assertIn('endpoint = "https://', discovery)
         self.assertIn('bucket = "homelab-vault"', discovery)
+        justfile = JUSTFILE.read_text()
+        self.assertIn("verify-b2-backups:", justfile)
+        self.assertGreaterEqual(justfile.count("check --read-data"), 2)
+        self.assertGreaterEqual(justfile.count("dump latest"), 2)
+        self.assertIn("| cmp", justfile)
 
     def test_committed_artifact_matches_value_free_source_export(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -93,6 +98,9 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
     def test_ha_harness_render_has_value_free_live_verification_recipe(self):
         justfile = JUSTFILE.read_text()
         self.assertIn("verify-ha-harness-secret-render:", justfile)
+        self.assertIn("seed-kindle-dash-vault:", justfile)
+        self.assertIn("verify-kindle-dash-secret-render:", justfile)
+        self.assertIn("sudo chgrp docker /run/vault-agent/ha-harness.env", justfile)
         self.assertIn("sudo -u erik head -c0 /run/vault-agent/ha-harness.env", justfile)
         self.assertIn("sudo -u nobody head -c0 /run/vault-agent/ha-harness.env", justfile)
         self.assertIn('sort -u', justfile)
@@ -106,6 +114,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             source = (ROOT / relative).read_text()
             self.assertIn('secret \\"secret/data/home/ha-harness-litellm\\"', source)
             self.assertIn('secret \\"secret/data/home/ha-harness\\"', source)
+            self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/ha-harness.env"]', source)
 
     def test_kindle_dash_runtime_secrets_come_from_vault_agent(self):
         compose = (ROOT / "modules/hosts/discovery/compose.nix").read_text()
