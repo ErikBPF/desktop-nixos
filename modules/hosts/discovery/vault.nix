@@ -10,7 +10,13 @@
 # StateDirectory=openbao (0700) owns /var/lib/openbao; restartIfChanged=false so
 # a rebuild doesn't reseal it. Initialised 2026-06-29 (unseal key + root +
 # snapshot token in sops).
-{self, ...}: {
+{
+  self,
+  config,
+  ...
+}: let
+  inherit (config) username;
+in {
   flake.modules.nixos.discovery-vault = {
     config,
     pkgs,
@@ -26,6 +32,8 @@
     sopsFile = self + "/secrets/sops/secrets.yaml";
     renderedAt = ''# rendered_at={{ timestamp }}\n'';
   in {
+    imports = [(import ./_vault-agent.nix {inherit username;})];
+
     environment.systemPackages = [pkgs.openbao];
 
     services.openbao = {
@@ -300,7 +308,7 @@
             perms = "0400"
           }
           template {
-            contents = "${renderedAt}{{ with secret \"secret/data/home/ha-harness\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\nHA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
+            contents = "${renderedAt}{{ with secret \"secret/data/home/ha-harness-litellm\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\n{{ end }}{{ with secret \"secret/data/home/ha-harness\" }}HA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
             destination = "/run/vault-agent/ha-harness.env"
             perms = "0440"
             exec {
@@ -335,6 +343,9 @@
       onFailure = ["openbao-unseal-onfail.service"];
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
         # NOT RemainAfterExit: the timer below re-runs this every minute, so any
         # re-seal (crash, rebuild restart, boot race) self-heals within ~60 s.
         # The script is idempotent — a no-op when the store is already unsealed.
@@ -394,6 +405,9 @@
       description = "Discord alert when OpenBao auto-unseal fails (store stuck sealed)";
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
         ExecStart = pkgs.writeShellScript "openbao-unseal-onfail" ''
           stamp=/run/openbao-unseal-alert.stamp
           now=$(${pkgs.coreutils}/bin/date +%s)
@@ -419,6 +433,9 @@
       description = "Export OpenBao seal status as a node_exporter textfile metric";
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
         ExecStart = pkgs.writeShellScript "openbao-seal-probe" ''
           set -eu
           sealed=$(${pkgs.curl}/bin/curl -fsS -m 10 ${addr}/v1/sys/seal-status \
@@ -451,7 +468,7 @@
     # immediate follow-up (kepler can't decrypt discovery's sops, so a snapshot
     # there is safe).
     services.restic.backups.vault = {
-      repository = "/home/erik/vault/restic/openbao";
+      repository = "/home/${username}/vault/restic/openbao";
       passwordFile = "/run/secrets/vault_restic_password";
       initialize = true;
       paths = [snapFile];
@@ -517,6 +534,35 @@
       };
     };
 
+    services.restic.backups.vault-b2 = {
+      repository = "s3:${config.services.resticTofuState.b2.endpoint}/${config.services.resticTofuState.b2.bucket}/discovery/openbao";
+      environmentFile = config.sops.templates."restic-b2.env".path;
+      passwordFile = "/run/secrets/vault_restic_password";
+      initialize = true;
+      paths = [snapFile];
+      timerConfig = {
+        OnCalendar = "*-*-* 04:00:00";
+        Persistent = true;
+        RandomizedDelaySec = "10m";
+      };
+      pruneOpts = [
+        "--keep-daily 7"
+        "--keep-weekly 4"
+        "--keep-monthly 3"
+      ];
+    };
+    systemd.services.restic-backups-vault-b2.onFailure = ["vault-offsite-backup-onfail.service"];
+    systemd.services.restic-backups-vault-b2.serviceConfig.ExecStartPost = [
+      (pkgs.writeShellScript "vault-b2-backup-liveness" ''
+        set -eu
+        t=$(${pkgs.coreutils}/bin/date +%s)
+        tmp=$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.vault_b2_backup.XXXXXX)
+        echo "vault_b2_backup_last_success_seconds $t" > "$tmp"
+        ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+        ${pkgs.coreutils}/bin/mv "$tmp" ${textfileDir}/vault_b2_backup.prom
+      '')
+    ];
+
     # Liveness for the off-premise copy: Grafana alerts when it goes stale.
     systemd.services.restic-backups-vault-rest.serviceConfig.ExecStartPost = [
       (pkgs.writeShellScript "vault-rest-backup-liveness" ''
@@ -558,6 +604,9 @@
       description = "Discord alert when the OpenBao snapshot backup fails";
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
         ExecStart = pkgs.writeShellScript "vault-backup-onfail" ''
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
             --data "$(${jq} -nc --arg c "🔴 **OpenBao snapshot backup FAILED** on discovery — check: journalctl -u restic-backups-vault" '{content:$c}')" \
@@ -591,6 +640,9 @@
       description = "Discord alert when the OpenBao off-site snapshot backup fails";
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
         ExecStart = pkgs.writeShellScript "vault-offsite-backup-onfail" ''
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
             --data "$(${jq} -nc --arg c "🔴 **OpenBao off-site backup FAILED** on discovery — SFTP to kepler failed; check: journalctl -u restic-backups-vault-offsite" '{content:$c}')" \

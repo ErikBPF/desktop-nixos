@@ -30,11 +30,6 @@ in {
     ];
 
     # Rollback guard: offsite backups need SSH, Tailscale, and the receiver stack.
-    modules.upgradeHealthCheck.criticalUnits = [
-      "sshd.service"
-      "tailscaled.service"
-    ];
-
     system.stateVersion = "25.11";
     # Oracle Always-Free x86 shape (VM.Standard.E2.1.Micro, 1 GB).
     # A1 (aarch64) capacity is scarce in sa-saopaulo-1, so voyager runs on the

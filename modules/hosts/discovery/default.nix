@@ -103,6 +103,10 @@ in {
       discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
       offsiteRepository = "sftp:restic-kepler:/bulk/backups/restic-offsite/tofu-state";
       restRepository = true;
+      b2 = {
+        endpoint = "https://s3.us-east-005.backblazeb2.com";
+        bucket = "homelab-vault";
+      };
     };
 
     # Drift detection for the homelab-iac repo (UniFi/Tailscale/Cloudflare/
@@ -122,9 +126,7 @@ in {
     };
 
     # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.
-    modules.upgradeHealthCheck.criticalUnits = [
-      "sshd.service"
-      "tailscaled.service"
+    modules.upgradeHealthCheck.extraCriticalUnits = [
       "docker.service"
       "libvirtd.service"
     ];

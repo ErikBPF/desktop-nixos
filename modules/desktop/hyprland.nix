@@ -675,6 +675,7 @@
         };
       };
       services.hyprpolkitagent.enable = true;
+      systemd.user.services.hyprpolkitagent.Install.WantedBy = lib.mkForce [];
     };
   };
 }

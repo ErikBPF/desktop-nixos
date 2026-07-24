@@ -34,7 +34,7 @@
     # Host-local policy (opencode-flake RFC D3): provider routing and this
     # fleet's extra guardrails stay out of the reusable profile. Ported
     # verbatim from the hand-managed opencode.json (2026-07-02). Keys come
-    # from sops via laptop-opencode-client (the zsh snippet above sources
+    # from sops via opencode-client (the zsh snippet above sources
     # /run/secrets/opencode/*).
     programs.opencode.settings = {
       instructions = ["AGENTS.md"];

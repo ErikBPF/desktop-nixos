@@ -36,9 +36,7 @@ in {
     ];
 
     # Rollback guard: the print stack must come back after an unattended upgrade.
-    modules.upgradeHealthCheck.criticalUnits = [
-      "sshd.service"
-      "tailscaled.service"
+    modules.upgradeHealthCheck.extraCriticalUnits = [
       "klipper.service"
       "moonraker.service"
     ];

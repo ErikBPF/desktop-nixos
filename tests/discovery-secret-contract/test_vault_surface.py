@@ -15,9 +15,30 @@ SOURCE = ROOT / "modules/hosts/discovery/vault.nix"
 EXPORTER = ROOT / "scripts/export-discovery-vault-contract.py"
 ARTIFACT = ROOT / "modules/hosts/discovery/vault-env-contract.json"
 JUSTFILE = ROOT / "justfile"
+TOFU_BACKUP = ROOT / "modules/services/restic-tofu-state.nix"
+DISCOVERY = ROOT / "modules/hosts/discovery/default.nix"
 
 
 class DiscoveryVaultSurfaceTest(unittest.TestCase):
+    def test_backblaze_b2_backup_contract(self):
+        tofu = TOFU_BACKUP.read_text()
+        vault = SOURCE.read_text()
+        discovery = DISCOVERY.read_text()
+
+        self.assertIn('sops.templates."restic-b2.env"', tofu)
+        self.assertIn("AWS_ACCESS_KEY_ID=", tofu)
+        self.assertIn("AWS_SECRET_ACCESS_KEY=", tofu)
+        self.assertIn("services.restic.backups.tofu-state-b2", tofu)
+        self.assertIn("services.restic.backups.vault-b2", vault)
+        self.assertIn("environmentFile =", tofu)
+        self.assertIn("environmentFile =", vault)
+        self.assertIn("restic_tofu_state_b2_last_success_seconds", tofu)
+        self.assertIn("vault_b2_backup_last_success_seconds", vault)
+        self.assertIn("restic-backups-tofu-state-b2.onFailure", tofu)
+        self.assertIn("restic-backups-vault-b2.onFailure", vault)
+        self.assertIn('endpoint = "https://', discovery)
+        self.assertIn('bucket = "homelab-vault"', discovery)
+
     def test_committed_artifact_matches_value_free_source_export(self):
         with tempfile.TemporaryDirectory() as directory:
             generated = pathlib.Path(directory) / "contract.json"
@@ -75,6 +96,15 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("sudo -u nobody head -c0 /run/vault-agent/ha-harness.env", justfile)
         self.assertIn('sort -u', justfile)
         self.assertIn('HA_HARNESS_TOKEN\\nLITELLM_API_KEY', justfile)
+
+    def test_ha_harness_uses_dedicated_litellm_secret(self):
+        for relative in (
+            "modules/hosts/discovery/vault.nix",
+            "modules/hosts/discovery/_vault-agent.nix",
+        ):
+            source = (ROOT / relative).read_text()
+            self.assertIn('secret \\"secret/data/home/ha-harness-litellm\\"', source)
+            self.assertIn('secret \\"secret/data/home/ha-harness\\"', source)
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ _: {
   gvr = "cz version"; # Show version information (commitizen)
 
   # --- History ---
-  h = "fzf-history-widget"; # Interactive history search
+  h = "herdr session attach code";
   hs = "history | rg"; # Ripgrep history
   hsi = "history | rg -i"; # Grep history ignore case
   hist = "fzf-history-widget";
@@ -99,8 +99,8 @@ _: {
 
   # --- Claude / coding ---
   claude = "env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # bare claude ALWAYS dangerous (skip-perms + ⚡). Interactive zsh only; scripts/binary calls unaffected.
-  c = "env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # claude shorthand — also dangerous + ⚡
-  cc = "code . ; env CLAUDE_YOLO=1 claude --dangerously-skip-permissions"; # editor + dangerous claude
+  c = "codex --dangerously-bypass-approvals-and-sandbox"; # codex shorthand — dangerous
+  cc = "code . ; codex --dangerously-bypass-approvals-and-sandbox"; # editor + dangerous codex
   e = "code ."; # editor in cwd
 
   # --- Codex / OpenCode (yolo by default, mirroring `c`) ---
@@ -111,6 +111,7 @@ _: {
   nv = "nvim ."; # neovim in cwd (mirrors `e`)
 
   # --- Repo jumps ---
+  lab = "cd ~/Documents/erik/homelab";
   dnix = "cd ~/Documents/erik/desktop-nixos";
   ddp = "cd ~/Documents/nstech/dataplatform";
   dspark = "cd ~/Documents/nstech/dataplatform-spark";
@@ -118,6 +119,8 @@ _: {
   dcon = "cd ~/Documents/nstech/dataplatform-datacontracts";
 
   # --- Gemini repo jumps (ssh into the orion dev-sandbox at the same dir) ---
+  hg = "herdr --remote gemini --session code";
+  hgs = "ssh -t gemini 'exec herdr session attach code'";
   snix = "ssh -t gemini 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
   sdp = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
   sspark = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";

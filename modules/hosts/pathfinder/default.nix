@@ -5,38 +5,6 @@
 }: let
   m = config.flake.modules;
 in {
-  monitors = [
-    {
-      name = "DP-1";
-      resolution = "1920x1080";
-      refreshRate = 60;
-      position = "0x0";
-    }
-  ];
-  workspaces = [
-    {
-      id = 1;
-      monitor = "DP-1";
-      default = true;
-    }
-    {
-      id = 2;
-      monitor = "DP-1";
-    }
-    {
-      id = 3;
-      monitor = "DP-1";
-    }
-    {
-      id = 4;
-      monitor = "DP-1";
-    }
-    {
-      id = 5;
-      monitor = "DP-1";
-    }
-  ];
-
   configurations.nixos.pathfinder.module = {
     pkgs,
     modulesPath,
@@ -62,6 +30,7 @@ in {
       imports = [
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
+        m.home.monitor-layout-pathfinder
         m.home.pathfinder-ssh
       ];
       inherit (config) colorScheme;

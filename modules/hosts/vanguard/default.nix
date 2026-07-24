@@ -32,18 +32,13 @@ in {
       m.nixos.pg-replica # R3 (NetBird DB read-replica)
       m.nixos.vault-witness # R4 — see the heavy warning in that file
       # NetBird relay#2 (R3/R5): reuse the SAME deferredModule voyager uses
-      # (modules/hosts/voyager/netbird-relay.nix) — only the option values
+      # (modules/services/netbird-relay.nix) — only the option values
       # below differ per host. Registers services.netbirdRelay but stays
       # disabled here too (services.netbirdRelay.enable defaults false).
       m.nixos.netbird-relay
     ];
 
     # Rollback guard: a public-facing host must keep SSH + Tailscale up.
-    modules.upgradeHealthCheck.criticalUnits = [
-      "sshd.service"
-      "tailscaled.service"
-    ];
-
     system.stateVersion = "25.11";
     # Oracle Always-Free x86 shape (VM.Standard.E2.1.Micro, 1 GB) — the second
     # AMD micro, sibling of voyager. A1 (aarch64) capacity is scarce in

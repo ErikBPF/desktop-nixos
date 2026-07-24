@@ -3,7 +3,7 @@
   self,
   ...
 }: {
-  flake.modules.nixos.laptop-hermes-client = {
+  flake.modules.nixos.hermes-client = {
     config,
     inputs,
     ...

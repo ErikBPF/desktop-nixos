@@ -89,7 +89,7 @@ to an **independent Discord webhook** (its own, not the in-home one). This is th
 current blind spot — nothing today alerts when the *whole home* is dark. Tiny RAM.
 
 **R3 — NetBird relay#2 + Postgres read-replica.** Reuse the existing
-`modules/hosts/voyager/netbird-relay.nix` (`enableDdclient = true` for the ephemeral
+`modules/services/netbird-relay.nix` (`enableDdclient = true` for the ephemeral
 IP); advertise `relay2.<zone>`. Add a **Postgres streaming read-replica** of
 discovery's NetBird DB so DR promotion is minutes, not a snapshot-restore (NetBird
 RFC §7). Replica is the main RAM consumer — tune `shared_buffers` small.

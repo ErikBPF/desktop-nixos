@@ -274,6 +274,8 @@ in {
       description = "Provision ${ctName} tailscale authkey + hermes API key";
       wantedBy = ["container@${ctName}.service"];
       before = ["container@${ctName}.service"];
+      after = ["sops-nix.service"];
+      requires = ["sops-nix.service"];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

@@ -3,7 +3,7 @@
   self,
   ...
 }: {
-  flake.modules.nixos.laptop-opencode-client = {
+  flake.modules.nixos.opencode-client = {
     config,
     inputs,
     ...

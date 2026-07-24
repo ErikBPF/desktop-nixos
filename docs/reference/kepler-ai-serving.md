@@ -6,10 +6,8 @@ removed. The seven runtime containers/images and `/fast/ai-models` were also
 removed and verified absent after reboot. Reintroducing any model service
 requires a new declarative Servarr stack and consumer-route review.
 
-The HA tool-caller does not revive this stack. Its proposed replacement is the
-isolated, shadow-only runtime in
-[`../proposals/2026-07-16-ha-shadow-runtime.md`](../proposals/2026-07-16-ha-shadow-runtime.md).
-Everything below remains historical and must not be used as a deploy runbook.
+The HA tool-caller does not revive this stack. Everything below remains
+historical and must not be used as a deploy runbook.
 
 GPU-backed audio + embedding services running on Kepler's RTX 3070 (8 GB
 VRAM), optimized for Brazilian Portuguese. All endpoints are reached through
