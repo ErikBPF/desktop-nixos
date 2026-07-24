@@ -2526,6 +2526,51 @@ seed-adguard-vault:
       echo "adguard_vault=seeded networking_keys_verified=true"
     '
 
+# Seed the three encrypted infra runtime credentials into OpenBao.
+seed-infra-vault:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    servarr_repo="$(readlink -f references/repos/servarr)"
+    payload="$(mktemp)"
+    trap 'rm -f "$payload"' EXIT
+    chmod 600 "$payload"
+    sops --decrypt --input-type dotenv --output-type json \
+      "$servarr_repo/machines/discovery/.env.sops" |
+      jq -e '{
+        data: {
+          MINIO_TFSTATE_ROOT_PASSWORD,
+          VAULTWARDEN_ADMIN_TOKEN,
+          VAULT_DEV_ROOT_TOKEN
+        }
+      } | select(all(.data[]; type == "string" and length > 0))' > "$payload"
+    token="$(
+      sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
+    )"
+    {
+      printf '%s' "$token" | base64 -w0
+      printf '\n'
+      base64 -w0 "$payload"
+      printf '\n'
+    } | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token_b64
+      IFS= read -r payload_b64
+      header="$(mktemp)"
+      body="$(mktemp)"
+      trap "rm -f \"$header\" \"$body\"" EXIT
+      chmod 600 "$header" "$body"
+      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
+      unset token_b64
+      printf "%s" "$payload_b64" | base64 --decode > "$body"
+      unset payload_b64
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$body" http://127.0.0.1:8200/v1/secret/data/home/infra >/dev/null
+      curl --header @"$header" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/secret/data/home/infra |
+        jq -e ".data.data | keys == [\"MINIO_TFSTATE_ROOT_PASSWORD\",\"VAULTWARDEN_ADMIN_TOKEN\",\"VAULT_DEV_ROOT_TOKEN\"]" >/dev/null
+      echo "infra_vault=seeded keys=3"
+    '
+
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:
     #!/usr/bin/env bash
@@ -2534,17 +2579,18 @@ verify-infra-secret-render:
     ssh -p 2222 erik@"$IP" '
       set -euo pipefail
       sudo systemctl is-active vault-agent.service
-      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/shared-db.env)" = "440 root docker"
-      sudo -u erik head -c0 /run/vault-agent/shared-db.env
-      if sudo -u nobody head -c0 /run/vault-agent/shared-db.env 2>/dev/null; then
-        echo "nobody unexpectedly read infra render" >&2
-        exit 1
-      fi
-      sudo find /run/vault-agent/shared-db.env -mmin -15 -print -quit | grep -q .
-      actual="$(sudo grep -v '^#' /run/vault-agent/shared-db.env | cut -d= -f1 | sort -u)"
-      expected="$(printf "POSTGRES_PASSWORD\nREDIS_PASSWORD")"
-      test "$actual" = "$expected"
-      echo "infra_render=ready mode=0440 owner=root group=docker fresh=true"
+      for file in shared-db infra; do
+        test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/$file.env)" = "440 root docker"
+        sudo -u erik head -c0 "/run/vault-agent/$file.env"
+        ! sudo -u nobody head -c0 "/run/vault-agent/$file.env" 2>/dev/null
+        sudo find "/run/vault-agent/$file.env" -mmin -15 -print -quit | grep -q .
+      done
+      shared="$(sudo grep -v '^#' /run/vault-agent/shared-db.env | cut -d= -f1 | sort -u)"
+      infra="$(sudo grep -v '^#' /run/vault-agent/infra.env | cut -d= -f1 | sort -u)"
+      printf "shared_keys=%s\ninfra_keys=%s\n" "$shared" "$infra"
+      test "$shared" = "$(printf "POSTGRES_PASSWORD\nREDIS_PASSWORD")"
+      test "$infra" = "$(printf "MINIO_TFSTATE_ROOT_PASSWORD\nVAULT_DEV_ROOT_TOKEN\nVAULTWARDEN_ADMIN_TOKEN")"
+      echo "infra_render=ready files=2 mode=0440 owner=root group=docker fresh=true"
     '
 
 # Prove the DS8 ha-harness render is fresh and least-privilege without printing it.

@@ -256,22 +256,26 @@ class RuntimeProjectionTest(unittest.TestCase):
         compose = COMPOSE.read_text()
         justfile = JUSTFILE.read_text()
         vault = VAULT.read_text()
+        vault_agent = VAULT_AGENT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
         self.assertIn('secretSpecRuntimeProfiles.infra = "infra";', compose)
-        self.assertIn(
-            'secretSpecRuntimeLegacySecretNames.infra = [\n        "MINIO_TFSTATE_ROOT_PASSWORD"\n        "VAULTWARDEN_ADMIN_TOKEN"\n        "VAULT_DEV_ROOT_TOKEN"\n      ];',
-            compose,
-        )
+        self.assertNotIn("secretSpecRuntimeLegacySecretNames.infra", compose)
+        self.assertIn('infra = ["shared-db" "infra"];', compose)
+        self.assertIn("seed-infra-vault:", justfile)
         self.assertIn(
             'secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "minio-tfstate"];',
             compose,
         )
         self.assertIn("verify-infra-secret-render:", justfile)
-        self.assertIn('expected="$(printf "POSTGRES_PASSWORD\\nREDIS_PASSWORD")"', justfile)
+        self.assertIn('test "$shared" = "$(printf "POSTGRES_PASSWORD\\nREDIS_PASSWORD")"', justfile)
+        self.assertIn('VAULT_DEV_ROOT_TOKEN\\nVAULTWARDEN_ADMIN_TOKEN', justfile)
         self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]', vault)
+        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]', vault_agent)
         shared_db = next(row for row in contract["renders"] if row["destination"].endswith("/shared-db.env"))
         self.assertEqual(shared_db["perms"], "0440")
         self.assertEqual(shared_db["group"], "docker")
+        infra = next(row for row in contract["renders"] if row["destination"].endswith("/infra.env"))
+        self.assertEqual(infra["group"], "docker")
 
 
 if __name__ == "__main__":
