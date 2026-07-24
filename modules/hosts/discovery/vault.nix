@@ -531,6 +531,8 @@ in {
         Type = "oneshot";
         PrivateTmp = true;
         ProtectHome = true;
+        RuntimeDirectory = "openbao-restore-drill";
+        Environment = "HOME=/run/openbao-restore-drill";
         ExecStart = pkgs.writeShellScript "openbao-restore-drill" ''
           set -euo pipefail
           test -s ${snapFile}

@@ -213,6 +213,8 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             "systemd.timers.openbao-restore-drill", 1
         )[0]
         self.assertIn("path = [pkgs.bash]", drill)
+        self.assertIn('RuntimeDirectory = "openbao-restore-drill"', drill)
+        self.assertIn('Environment = "HOME=/run/openbao-restore-drill"', drill)
         self.assertIn("127.0.0.1:18200", vault)
         self.assertIn("mktemp -d /var/tmp/openbao-restore-drill.", vault)
         self.assertIn("operator raft snapshot restore -force", vault)
