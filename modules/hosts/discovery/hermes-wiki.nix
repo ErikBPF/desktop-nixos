@@ -1,6 +1,6 @@
-{self, ...}: {
+_: {
   # Declarative bootstrap for the native hermes LLM wiki: materialize the
-  # vault.git-scoped deploy key from sops, clone vault.git @ `hermes` branch, and
+  # vault.git-scoped deploy key from Vault Agent, clone vault.git @ `hermes` branch, and
   # seed the daily `wiki-consolidate` cron job — so the whole wiki survives a
   # reprovision / state wipe (previously all manual host state). See
   # docs/hermes-llm-wiki.md.
@@ -11,7 +11,7 @@
     ...
   }: let
     wikiDir = "/var/lib/hermes-wiki";
-    keyPath = config.sops.secrets."hermes_wiki/deploy_key".path;
+    keyPath = "/run/vault-agent/hermes-wiki.key";
 
     cronPrompt = ''
       Daily wiki consolidation. Your cwd is /opt/wiki — the LLM wiki (git checkout on the `hermes` branch); schema/ops in ./AGENTS.md.
@@ -58,24 +58,16 @@
       '';
     };
   in {
-    # Host user matching the container's internal uid/gid so sops can own the
+    # Host user matching the container's internal uid/gid so Vault Agent can own the
     # key and the clone, and the clone oneshot can run as it.
     users.groups.hermes.gid = lib.mkDefault 10000;
     users.users.hermes = {
       isSystemUser = true;
       group = "hermes";
+      extraGroups = ["vault-consumers"];
       uid = lib.mkDefault 10000;
       home = wikiDir;
       createHome = false;
-    };
-
-    sops.secrets."hermes_wiki/deploy_key" = {
-      sopsFile = self + "/secrets/sops/secrets.yaml";
-      key = "hermes_wiki/deploy_key";
-      owner = "hermes";
-      group = "hermes";
-      mode = "0400";
-      restartUnits = ["hermes-wiki-clone.service"];
     };
 
     systemd.tmpfiles.rules = [
@@ -90,7 +82,8 @@
       # nss-lookup.target for DNS; but network-online.target still fires before
       # the default route is actually usable on this host (seen at boot:
       # "ssh: connect to github.com port 22: Network is unreachable"), so retry.
-      after = ["network-online.target" "nss-lookup.target" "sops-nix.service"];
+      after = ["network-online.target" "nss-lookup.target" "vault-agent.service"];
+      requires = ["vault-agent.service"];
       wants = ["network-online.target" "nss-lookup.target"];
       path = [pkgs.git pkgs.openssh pkgs.coreutils];
       # Boot network race: the github clone runs before routing is up on a cold
@@ -105,6 +98,13 @@
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "15s";
+        ExecStartPre = pkgs.writeShellScript "wait-for-hermes-wiki-key" ''
+          for _ in $(seq 1 100); do
+            [ -s ${keyPath} ] && [ -r ${keyPath} ] && exit 0
+            sleep 0.1
+          done
+          exit 1
+        '';
       };
       script = ''
         set -euo pipefail

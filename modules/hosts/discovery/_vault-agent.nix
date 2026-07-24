@@ -165,6 +165,14 @@ in {
           perms = "0400"
         }
         template {
+          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.WIKI_DEPLOY_KEY }}{{ end }}\n"
+          destination = "/run/vault-agent/hermes-wiki.key"
+          perms = "0400"
+          exec {
+            command = ["${pkgs.coreutils}/bin/chown", "hermes:hermes", "/run/vault-agent/hermes-wiki.key"]
+          }
+        }
+        template {
           contents = "{{ with secret \"secret/data/home/infra\" }}MINIO_TFSTATE_ROOT_PASSWORD={{ .Data.data.MINIO_TFSTATE_ROOT_PASSWORD }}\nVAULTWARDEN_ADMIN_TOKEN={{ .Data.data.VAULTWARDEN_ADMIN_TOKEN }}\nVAULT_DEV_ROOT_TOKEN={{ .Data.data.VAULT_DEV_ROOT_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/infra.env"
           perms = "0440"

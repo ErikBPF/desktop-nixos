@@ -192,6 +192,19 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("seed-hermes-vault:", justfile)
         self.assertIn("verify-hermes-secret-renders:", justfile)
 
+    def test_hermes_wiki_deploy_key_comes_from_vault_agent(self):
+        vault = SOURCE.read_text()
+        wiki = (ROOT / "modules/hosts/discovery/hermes-wiki.nix").read_text()
+        primary = (ROOT / "modules/hosts/discovery/hermes-oci.nix").read_text()
+        self.assertIn('destination = "/run/vault-agent/hermes-wiki.key"', vault)
+        self.assertIn('.Data.data.WIKI_DEPLOY_KEY }}{{ end }}\\n"', vault)
+        self.assertIn('"/run/vault-agent/hermes-wiki.key:/opt/wiki-key:ro"', primary)
+        self.assertIn('keyPath = "/run/vault-agent/hermes-wiki.key"', wiki)
+        self.assertIn('extraGroups = ["vault-consumers"]', wiki)
+        self.assertNotIn('sops.secrets."hermes_wiki/deploy_key"', wiki)
+        self.assertIn('after = ["network-online.target" "nss-lookup.target" "vault-agent.service"]', wiki)
+        self.assertIn('[ -s ${keyPath} ] && [ -r ${keyPath} ]', wiki)
+
 
 if __name__ == "__main__":
     unittest.main()
