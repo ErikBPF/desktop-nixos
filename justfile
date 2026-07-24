@@ -2748,6 +2748,74 @@ verify-netbird-controlplane-secret-render:
       echo "netbird_controlplane_render=ready mode=0400 owner=root group=vault-consumers fresh=true files=3"
     '
 
+# Merge encrypted Hermes runtime envs into their Vault document.
+seed-hermes-vault:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    server="$(sops --decrypt --extract '["hermes_agent"]["server_env"]' secrets/sops/secrets.yaml)"
+    daedalus="$(sops --decrypt --extract '["hermes_agents"]["daedalus_env"]' secrets/sops/secrets.yaml)"
+    argus="$(sops --decrypt --extract '["hermes_agents"]["argus_env"]' secrets/sops/secrets.yaml)"
+    test -n "$server" && test -n "$daedalus" && test -n "$argus"
+    token="$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)"
+    {
+      printf '%s\n' "$(printf '%s' "$token" | base64 -w0)"
+      jq -cn \
+        --arg server "$server" \
+        --arg daedalus "$daedalus" \
+        --arg argus "$argus" \
+        '{SERVER_ENV:$server,DAEDALUS_ENV:$daedalus,ARGUS_ENV:$argus}' |
+        base64 -w0
+      printf '\n'
+    } | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token_b64
+      IFS= read -r value_b64
+      header="$(mktemp)"
+      current="$(mktemp)"
+      incoming="$(mktemp)"
+      payload="$(mktemp)"
+      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\"" EXIT
+      chmod 600 "$header" "$current" "$incoming" "$payload"
+      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
+      unset token_b64
+      printf "%s" "$value_b64" | base64 --decode > "$incoming"
+      unset value_b64
+      http_status="$(
+        curl --header @"$header" --silent --show-error \
+          --output "$current" --write-out "%{http_code}" \
+          http://127.0.0.1:8200/v1/secret/data/home/hermes
+      )"
+      case "$http_status" in
+        200) ;;
+        404) printf "{\"data\":{\"data\":{}}}" > "$current" ;;
+        *) echo "Hermes Vault read failed: HTTP $http_status" >&2; exit 1 ;;
+      esac
+      jq -s "{data:(.[0].data.data + .[1])}" "$current" "$incoming" > "$payload"
+      curl --header @"$header" --silent --show-error --fail --request POST \
+        --data-binary @"$payload" \
+        http://127.0.0.1:8200/v1/secret/data/home/hermes >/dev/null
+      echo "hermes_vault=seeded keys_added=3"
+    '
+
+# Verify render metadata and consumers without exposing env contents.
+verify-hermes-secret-renders:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl is-active vault-agent.service
+      for file in hermes-agent.env hermes-daedalus.env hermes-argus.env; do
+        test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/$file)" = "400 root vault-consumers"
+        sudo find "/run/vault-agent/$file" -mmin -15 -print -quit | grep -q .
+        sudo test -s "/run/vault-agent/$file"
+      done
+      sudo systemctl is-active docker-hermes-agent.service
+      sudo systemctl is-active docker-hermes-daedalus.service
+      sudo systemctl is-active docker-hermes-argus.service
+      echo "hermes_render=ready mode=0400 owner=root group=vault-consumers fresh=true files=3"
+    '
+
 # Prove the critical infra render is fresh and least-privilege without printing it.
 verify-infra-secret-render:
     #!/usr/bin/env bash

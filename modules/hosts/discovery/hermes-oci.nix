@@ -1,7 +1,6 @@
 {
   config,
   inputs,
-  self,
   ...
 }: let
   inherit (config) username; # flake-parts top-level options (meta.nix)
@@ -46,22 +45,13 @@ in {
       }
     ];
 
-    # sops dotenv with UPSTREAM-BARE names (no HERMES_ bridge on the OCI path):
+    # Vault-rendered dotenv with UPSTREAM-BARE names (no HERMES_ bridge on the OCI path):
     # OPENAI_API_KEY, API_SERVER_KEY, TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN,
     # EXA_API_KEY. Read by the docker daemon (root) at container start.
     # NOTE (cutover pre-step): the existing secret carries the namespaced
     # HERMES_TELEGRAM_BOT_TOKEN / HERMES_DISCORD_BOT_TOKEN (the compose remapped
     # them); add the bare TELEGRAM_BOT_TOKEN / DISCORD_BOT_TOKEN before switch or
     # Telegram/Discord stay silent. See the cutover runbook.
-    sops.secrets."hermes_agent/server_env" = {
-      sopsFile = self + "/secrets/sops/secrets.yaml";
-      format = "yaml";
-      key = "hermes_agent/server_env";
-      mode = "0400";
-      path = "/run/secrets/hermes-agent";
-      restartUnits = ["docker-hermes-agent.service"];
-    };
-
     services.hermes-agent-oci = {
       enable = true;
       enableHealthcheck = false;
@@ -73,7 +63,7 @@ in {
       # Reuse the existing live state dir (restic-backed btrfs subvol):
       # memories, sessions, skills, lazy venv survive the Docker→OCI swap.
       hostDataDir = "/home/${username}/homelab/apps/hermes-agent";
-      environmentFile = config.sops.secrets."hermes_agent/server_env".path;
+      environmentFile = "/run/vault-agent/hermes-agent.env";
 
       # Container binds 0.0.0.0 (API_SERVER_HOST) so SWAG + litellm reach it
       # over homelab-net by name — but do NOT publish to the host (publishPorts
@@ -224,6 +214,18 @@ in {
           };
         };
       };
+    };
+
+    systemd.services.docker-hermes-agent = {
+      after = ["vault-agent.service"];
+      requires = ["vault-agent.service"];
+      serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-hermes-agent-env" ''
+        for _ in $(seq 1 100); do
+          [ -s /run/vault-agent/hermes-agent.env ] && exit 0
+          sleep 0.1
+        done
+        exit 1
+      '';
     };
 
     # No host firewall rules here: ports aren't published to the host

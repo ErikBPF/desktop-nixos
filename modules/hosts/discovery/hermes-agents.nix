@@ -1,7 +1,6 @@
 {
   config,
   inputs,
-  self,
   ...
 }: let
   inherit (config) username;
@@ -9,6 +8,7 @@ in {
   flake.modules.nixos.discovery-hermes-agents = {
     config,
     lib,
+    pkgs,
     ...
   }: let
     litellmUrl = "http://litellm:4000/v1";
@@ -83,27 +83,12 @@ in {
       }
     ];
 
-    sops.secrets."hermes_agents/daedalus_env" = {
-      sopsFile = self + "/secrets/sops/secrets.yaml";
-      key = "hermes_agents/daedalus_env";
-      mode = "0400";
-      path = "/run/secrets/hermes-daedalus";
-      restartUnits = ["docker-hermes-daedalus.service"];
-    };
-    sops.secrets."hermes_agents/argus_env" = {
-      sopsFile = self + "/secrets/sops/secrets.yaml";
-      key = "hermes_agents/argus_env";
-      mode = "0400";
-      path = "/run/secrets/hermes-argus";
-      restartUnits = ["docker-hermes-argus.service"];
-    };
-
     services.hermes-agent-oci-daedalus = {
       enable = true;
       enableHealthcheck = false;
       image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-daedalus";
-      environmentFile = config.sops.secrets."hermes_agents/daedalus_env".path;
+      environmentFile = "/run/vault-agent/hermes-daedalus.env";
       openBindAddress = "0.0.0.0";
       publishPorts = false;
       openaiBaseUrl = litellmUrl;
@@ -154,7 +139,7 @@ in {
       enableHealthcheck = false;
       image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-argus";
-      environmentFile = config.sops.secrets."hermes_agents/argus_env".path;
+      environmentFile = "/run/vault-agent/hermes-argus.env";
       openBindAddress = "0.0.0.0";
       publishPorts = false;
       openaiBaseUrl = litellmUrl;
@@ -203,6 +188,30 @@ in {
           '';
         };
       };
+    };
+
+    systemd.services.docker-hermes-daedalus = {
+      after = ["vault-agent.service"];
+      requires = ["vault-agent.service"];
+      serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-hermes-daedalus-env" ''
+        for _ in $(seq 1 100); do
+          [ -s /run/vault-agent/hermes-daedalus.env ] && exit 0
+          sleep 0.1
+        done
+        exit 1
+      '';
+    };
+
+    systemd.services.docker-hermes-argus = {
+      after = ["vault-agent.service"];
+      requires = ["vault-agent.service"];
+      serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-hermes-argus-env" ''
+        for _ in $(seq 1 100); do
+          [ -s /run/vault-agent/hermes-argus.env ] && exit 0
+          sleep 0.1
+        done
+        exit 1
+      '';
     };
   };
 }
