@@ -319,6 +319,21 @@ in {
             destination = "/run/vault-agent/netbird-datastore.key"
             perms = "0400"
           }
+          template {
+            contents = "${renderedAt}{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.SERVER_ENV }}\n{{ end }}"
+            destination = "/run/vault-agent/hermes-agent.env"
+            perms = "0400"
+          }
+          template {
+            contents = "${renderedAt}{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.DAEDALUS_ENV }}\n{{ end }}"
+            destination = "/run/vault-agent/hermes-daedalus.env"
+            perms = "0400"
+          }
+          template {
+            contents = "${renderedAt}{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.ARGUS_ENV }}\n{{ end }}"
+            destination = "/run/vault-agent/hermes-argus.env"
+            perms = "0400"
+          }
           # Harbor setup and the fixed mirror recipe run as root. Keep the
           # project-scoped robot beside the admin/database inputs without
           # exposing any of them to rootless Compose.

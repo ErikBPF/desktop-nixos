@@ -172,6 +172,26 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("seed-netbird-controlplane-vault:", justfile)
         self.assertIn("verify-netbird-controlplane-secret-render:", justfile)
 
+    def test_hermes_runtime_envs_come_from_vault_agent(self):
+        vault = SOURCE.read_text()
+        primary = (ROOT / "modules/hosts/discovery/hermes-oci.nix").read_text()
+        agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+        for destination in (
+            "/run/vault-agent/hermes-agent.env",
+            "/run/vault-agent/hermes-daedalus.env",
+            "/run/vault-agent/hermes-argus.env",
+        ):
+            self.assertIn(f'destination = "{destination}"', vault)
+        self.assertIn('environmentFile = "/run/vault-agent/hermes-agent.env"', primary)
+        self.assertIn('environmentFile = "/run/vault-agent/hermes-daedalus.env"', agents)
+        self.assertIn('environmentFile = "/run/vault-agent/hermes-argus.env"', agents)
+        self.assertNotIn('sops.secrets."hermes_agent/server_env"', primary)
+        self.assertNotIn('sops.secrets."hermes_agents/daedalus_env"', agents)
+        self.assertNotIn('sops.secrets."hermes_agents/argus_env"', agents)
+        justfile = JUSTFILE.read_text()
+        self.assertIn("seed-hermes-vault:", justfile)
+        self.assertIn("verify-hermes-secret-renders:", justfile)
+
 
 if __name__ == "__main__":
     unittest.main()
