@@ -28,12 +28,19 @@
     # Allow erik to manage VMs without sudo
     users.users.erik.extraGroups = ["libvirtd" "kvm"];
 
-    # qemu-libvirtd (uid 301) needs kvm group to read the qcow2 disk image
-    # at /home/erik/vault/vms/ which is owned erik:kvm.
+    # qemu-libvirtd (uid 301) needs kvm group to read the qcow2 disk image.
     users.users.qemu-libvirtd.extraGroups = ["kvm"];
 
+    # Present the existing vault-backed VM directory outside the user home.
+    # QEMU reaches /srv/vms directly, so /home/erik can remain private (0700).
+    fileSystems."/srv/vms" = {
+      device = "/home/erik/vault/vms";
+      fsType = "none";
+      options = ["bind" "x-systemd.requires-mounts-for=/home/erik/vault"];
+    };
+
     # --- HAOS VM definition ---
-    # QCOW2:  /home/erik/vault/vms/haos_ova-17.1.qcow2  (official KVM image, on vault HDD)
+    # QCOW2:  /srv/vms/haos_ova-17.1.qcow2  (bind-mounted from the vault HDD)
     # NVRAM:  /var/lib/libvirt/qemu/nvram/haos_VARS.fd   (EFI vars, persisted across rebuilds)
     # USB:    Silicon Labs CP210x (0x10c4:0xea60) — Zigbee/Z-Wave stick, passed through
     # MAC:    52:54:00:d6:a5:ce — DHCP reservation 192.168.10.115 on router
@@ -45,50 +52,6 @@
       group = "root";
     };
 
-    # /home/erik needs world-execute so libvirt-qemu (uid qemu-libvirtd) can
-    # traverse the path to /home/erik/vault/vms/haos_ova-17.1.qcow2.
-    # home-manager resets /home/erik to 0700 on every activation, so tmpfiles
-    # alone cannot maintain this. The haos-vm service fixes it on first start,
-    # and the haos-perms-fix.path watcher below re-fixes after any later reset
-    # (home-manager activation, manual chmod, VM destroy+start mid-uptime).
-    systemd.tmpfiles.rules = [
-      "Z /home/erik/vault/vms - erik kvm - -"
-    ];
-
-    # Re-apply traversal perms whenever /home/erik mode changes. Without this,
-    # a home-manager activation after boot leaves /home/erik at 0700 and any
-    # subsequent VM cold start (virsh destroy + start) fails with
-    # "Cannot access storage file ... Permission denied".
-    systemd.paths.haos-perms-fix = {
-      description = "Watch /home/erik and re-fix traversal perms for HAOS qcow2";
-      wantedBy = ["multi-user.target"];
-      pathConfig = {
-        # PathModified (IN_ATTRIB) — chmod-only events are NOT captured by
-        # PathChanged (IN_CLOSE_WRITE/IN_CREATE/IN_MOVED_TO). home-manager
-        # activation resets /home/erik to 0700 via a bare chmod, which would
-        # never trigger PathChanged.
-        PathModified = "/home/erik";
-        Unit = "haos-perms-fix.service";
-      };
-    };
-
-    systemd.services.haos-perms-fix = {
-      description = "Re-apply traversal perms for qemu-libvirtd on /home/erik";
-      # StartLimitIntervalSec=0 disables the default 5×10s start-rate limit.
-      # A transient unavailability of /home/erik/vault (slow nofail mount on
-      # boot, vault subvol briefly missing) would otherwise burn through the
-      # 5-retry budget and permanently silence the path watcher for the
-      # session — the next legitimate home-manager chmod would not recover.
-      startLimitIntervalSec = 0;
-      serviceConfig = {
-        Type = "oneshot";
-      };
-      script = ''
-        ${pkgs.coreutils}/bin/chmod 711 /home/erik
-        ${pkgs.coreutils}/bin/chmod 711 /home/erik/vault
-      '';
-    };
-
     # Declarative VM lifecycle: define + autostart on every boot.
     # - Idempotent: virsh define is a no-op if XML is unchanged.
     # - virsh autostart enables libvirt's own start-on-boot mechanism.
@@ -97,8 +60,8 @@
     systemd.services.haos-vm = {
       description = "Define and autostart Home Assistant OS VM";
       wantedBy = ["multi-user.target"];
-      after = ["libvirtd.service" "home-erik-vault.mount"];
-      requires = ["libvirtd.service"];
+      after = ["libvirtd.service" "srv-vms.mount"];
+      requires = ["libvirtd.service" "srv-vms.mount"];
 
       serviceConfig = {
         Type = "oneshot";
@@ -110,18 +73,13 @@
 
       script = ''
         VIRSH="${pkgs.libvirt}/bin/virsh"
-        DISK="/home/erik/vault/vms/haos_ova-17.1.qcow2"
+        DISK="/srv/vms/haos_ova-17.1.qcow2"
 
         if [ ! -f "$DISK" ]; then
           echo "HAOS disk not found at $DISK — retrying in 30s"
           exit 1
         fi
 
-        # Fix path traversal: home-manager resets /home/erik to 0700 on every
-        # activation, blocking qemu-libvirtd from reaching the qcow2.
-        chmod 711 /home/erik
-        chmod 711 /home/erik/vault
-        chmod 750 /home/erik/vault/vms
         # Ensure the qcow2 is group-readable by kvm (qemu-libvirtd is in kvm).
         chmod 660 "$DISK"
         chown erik:kvm "$DISK"

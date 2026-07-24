@@ -256,6 +256,24 @@ structure-check:
             echo "FAIL: $f registers into flake.modules but is _-prefixed"; fail=1
         fi
     done < <(find modules -name '_*.nix')
+    echo ":: reusable names under host directories"
+    while IFS= read -r f; do
+        host=$(basename "$(dirname "$f")")
+        while IFS= read -r reg; do
+            name=${reg##*.}
+            case "$name" in
+                "$host"-*) ;;
+                *) echo "FAIL: $f registers reusable-looking $name under host $host"; fail=1 ;;
+            esac
+        done < <(grep -hoE 'flake\.modules\.(nixos|home)\.[A-Za-z0-9_-]+' "$f" || true)
+    done < <(find modules/hosts -mindepth 2 -maxdepth 2 -name '*.nix' ! -name '_*')
+    echo ":: host-prefixed leaves in profiles"
+    for host_dir in modules/hosts/*; do
+        host=$(basename "$host_dir")
+        if grep -nE "m\.(nixos|home)\.${host}-" modules/profiles/*.nix; then
+            echo "FAIL: profile imports host-prefixed leaves for $host"; fail=1
+        fi
+    done
     echo ":: large files (>400 lines) — candidate domains to split (advisory)"
     find modules -name '*.nix' -exec wc -l {} + \
         | awk '$2!="total" && $1>400 {printf "  WARN: %s (%d lines)\n", $2, $1}'
@@ -389,6 +407,15 @@ discovery-apparmor-diagnostic:
 
 switch-orion:
     just deploy-rs orion
+
+recache-orion:
+    ssh -p 2222 erik@{{ip_orion}} 'sudo systemctl start nix-cache-builder.service'
+
+stop-recache-orion:
+    ssh -p 2222 erik@{{ip_orion}} 'sudo systemctl stop nix-cache-builder.service'
+
+reboot-orion:
+    ssh -p 2222 erik@{{ip_orion}} 'sudo systemctl reboot'
 
 switch-pathfinder:
     just deploy-rs pathfinder
@@ -1398,6 +1425,74 @@ recover-orion-nfs:
 
 diagnose-orion-nfs:
     ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status mnt-nfs-fast.mount mnt-nfs-bulk.mount mnt-nfs-fast.automount mnt-nfs-bulk.automount --no-pager -l; sudo journalctl -b -u mnt-nfs-fast.mount -u mnt-nfs-bulk.mount --no-pager -n 100; echo ':: tailscale peers'; tailscale status; echo ':: tailscale dns'; tailscale dns status; echo ':: resolve kepler'; getent ahosts kepler || true; resolvectl query kepler || true; echo ':: nfs filesystems'; grep nfs /proc/filesystems || true; echo ':: modules'; lsmod | grep -E '(^nfs|sunrpc|lockd)' || true"
+
+diagnose-gateway-reachability target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    addr="$(jq -r --arg host "{{target}}" '.hosts[$host].tailscaleIp // empty' fleet.json)"
+    [ -n "$addr" ] || addr="$(getent ahostsv4 "{{target}}" | awk 'NR == 1 {print $1}')"
+    check() {
+      cat <<'REMOTE'
+      export PATH=/run/current-system/sw/bin
+      gw=192.168.10.1
+      echo ":: policy route"
+      ip route get "$gw"
+      ip rule
+      ip route show table 52 2>/dev/null || true
+      echo ":: Tailscale routing prefs"
+      tailscale version | head -1
+      tailscale debug prefs | grep -E '"RouteAll"|"AdvertiseTags"|"AdvertiseRoutes"'
+      echo ":: gateway TCP/443"
+      timeout 2 bash -c "exec 3<>/dev/tcp/$gw/443" && echo "reachable" || echo "unreachable"
+    REMOTE
+    }
+    if [ "{{target}}" = gemini ]; then
+      check | ssh -p 2222 erik@{{ip_orion}} 'sudo systemd-run --machine=gemini --pipe --wait /run/current-system/sw/bin/bash -s'
+    else
+      check | ssh -p 2222 erik@"$addr" 'bash -s'
+    fi
+
+recover-orion-tailscale-routes:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      sudo tailscale set --accept-routes=false
+      gw=192.168.10.1
+      for _ in $(seq 1 10); do
+        route="$(ip route get "$gw")"
+        [[ "$route" == *"dev enp4s0"* ]] && break
+        sleep 1
+      done
+      [[ "$route" == *"dev enp4s0"* ]] || {
+        echo "gateway still routed through Tailscale: $route" >&2
+        exit 1
+      }
+      timeout 2 bash -c "exec 3<>/dev/tcp/$gw/443"
+      echo "gateway_route=physical gateway_tcp_443=reachable"
+    REMOTE
+
+diagnose-orion-upgrade:
+    #!/usr/bin/env bash
+    ssh -p 2222 erik@{{ip_orion}} 'bash -s' <<'REMOTE'
+      echo ":: routes"
+      ip route
+      gw="$(ip route show default | awk '/default/{print $3; exit}')"
+      echo ":: gateway TCP/443"
+      timeout 2 bash -c "exec 3<>/dev/tcp/$gw/443" && echo "reachable" || echo "unreachable"
+      echo ":: NetworkManager"
+      systemctl status NetworkManager --no-pager -l || true
+      nmcli general status
+      nmcli device status
+      echo ":: failed units"
+      systemctl --failed --no-pager || true
+      echo ":: upgrade"
+      systemctl status nixos-upgrade.service --no-pager -l || true
+      journalctl -u nixos-upgrade.service -n 120 --no-pager || true
+      echo ":: generations"
+      sudo nix-env --profile /nix/var/nix/profiles/system --list-generations
+      readlink -f /run/current-system
+    REMOTE
 
 diagnose-tailscale ip:
     ssh -p 2222 erik@{{ip}} "echo ':: peers'; tailscale status; echo ':: dns'; tailscale dns status"
@@ -4105,6 +4200,63 @@ discovery-docker-mirror-seed:
         "$source_bytes" "$status" "$(date --iso-8601=seconds)"
     REMOTE
     echo ":: PASS: online Docker mirror seed complete; final stopped sync still required"
+
+# Read-only Orion capacity/path gate before creating the isolated restore.
+discovery-docker-scratch-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo du -xsb /home/erik/vault/migration/discovery-docker-root | cut -f1")
+    ssh -p 2222 erik@{{ip_orion}} "SOURCE_BYTES=$source_bytes bash -s" <<'REMOTE'
+      set -euo pipefail
+      scratch=/projects/recovery/discovery-esp/docker-root
+      test ! -e "$scratch"
+      available=$(findmnt -bnro AVAIL -T /projects)
+      required=$((SOURCE_BYTES * 6 / 5))
+      test "$available" -ge "$required" || {
+        printf ':: BLOCKED: /projects free=%s required=%s\n' "$available" "$required" >&2
+        exit 1
+      }
+      printf 'source_bytes=%s available=%s required=%s scratch=%s\n' \
+        "$SOURCE_BYTES" "$available" "$required" "$scratch"
+    REMOTE
+    echo ":: PASS: Orion /projects scratch target is absent and has capacity"
+
+# Pull the static vault mirror into Orion using root rsync at both endpoints.
+# SSH still runs as erik, reusing the Nix-managed host key without forwarding it.
+discovery-docker-scratch-restore:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-docker-scratch-preflight
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 \
+      | grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      scratch=/projects/recovery/discovery-esp/docker-root
+      pending=$scratch.pending
+      known_hosts=$(mktemp)
+      trap 'rm -f "$known_hosts"' EXIT
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      test ! -e "$scratch"
+      sudo install -d -m 0700 -o root -g root "$(dirname "$scratch")" "$pending"
+      sudo rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' \
+        -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/migration/discovery-docker-root/ "$pending/"
+      drift=$(sudo rsync -aHAXxni --numeric-ids --delete \
+        --rsync-path='sudo rsync' \
+        -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/migration/discovery-docker-root/ "$pending/")
+      test -z "$drift" || { printf '%s\n' "$drift" >&2; exit 1; }
+      sudo mv "$pending" "$scratch"
+      sudo du -xsb "$scratch"
+    REMOTE
+    echo ":: PASS: Discovery Docker mirror restored exactly to Orion scratch"
 
 # Maintenance-window finalization. This recipe never stops Docker itself: the
 # caller must quiesce dependent writers in the reviewed order first. It refuses

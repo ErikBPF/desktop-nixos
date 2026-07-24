@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.orion-networking = _: {
+  flake.modules.nixos.orion-networking = {lib, ...}: {
     networking = {
       hostName = "orion";
       networkmanager.enable = true;
@@ -17,5 +17,9 @@ _: {
         allowedUDPPorts = [21027];
       };
     };
+
+    # Orion is permanently on the LAN; accepting Discovery's LAN /32 routes
+    # diverts gateway traffic into Tailscale where the server ACL rejects it.
+    services.tailscale.extraSetFlags = lib.mkForce ["--accept-dns=true" "--accept-routes=false"];
   };
 }

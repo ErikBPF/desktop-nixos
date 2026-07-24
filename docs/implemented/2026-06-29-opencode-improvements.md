@@ -407,18 +407,18 @@ Locked post-implementation, retroactive ADR entries:
 
 **Decision:** opencode provider keys go in `secrets/sops/secrets.yaml` and
 decrypt to `/run/secrets/opencode/<key>` on every desktop host via a new
-NixOS module `laptop-opencode-client` (imported in `profile-desktop.nix`,
-same posture as `laptop-hermes-client`).
+NixOS module `opencode-client` (imported in `profile-desktop.nix`,
+same posture as `hermes-client`).
 
 **Implemented:**
 - `secrets/sops/secrets.yaml` += `opencode.litellm_key` +
   `opencode.zen_key` (sops-set by `mint-litellm-keys.sh` consumer rotation,
   values encrypted via the primary+orion+archinaut age key group).
-- `modules/hosts/laptop/opencode-client.nix` (new): sops-nix consumer
+- `modules/services/opencode-client.nix` (new): sops-nix consumer
   mirroring `hermes-agent/client_api_key`. `owner = erik`, mode `0400`,
   `path = /run/secrets/opencode/<key>`.
-- `modules/profiles/desktop.nix` += `m.nixos.laptop-opencode-client`
-  next to `m.nixos.laptop-hermes-client` (all desktop hosts can run
+- `modules/profiles/desktop.nix` += `m.nixos.opencode-client`
+  next to `m.nixos.hermes-client` (all desktop hosts can run
   opencode; the sops keys decrypt where opencode might run).
 - `~/.config/fish/conf.d/zz-opencode-secrets.fish` (user-scope, ships in
   dotfiles later): prefer `/run/secrets/opencode/<key>` over the

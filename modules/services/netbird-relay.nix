@@ -1,4 +1,4 @@
-# NetBird native relay on voyager — WP3 of the NetBird implementation plan.
+# NetBird native relay — WP3 of the NetBird implementation plan.
 # Reusable deferredModule: the SAME module also covers the Track-1 2nd VM
 # (§4a) once it's provisioned; only the option *values* differ per host.
 #

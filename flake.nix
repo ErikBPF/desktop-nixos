@@ -114,7 +114,7 @@
     # hermes). Third-party Rust flake — pinned to a release tag, and left on
     # its own nixpkgs (no `follows`) so the Rust toolchain it builds against
     # stays the one upstream tested. See modules/dev/herdr.nix.
-    herdr.url = "github:ogulcancelik/herdr/v0.7.1";
+    herdr.url = "github:ogulcancelik/herdr/v0.7.5";
 
     # k3s test cluster on kepler runs each node as a NixOS MicroVM.
     # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.

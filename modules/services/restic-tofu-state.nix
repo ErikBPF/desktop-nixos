@@ -50,11 +50,37 @@
         repositoryFile so it never lands in the nix store. Append-only means this job never prunes — a
         compromised sender cannot delete history (retention is server-side /
         manual). Distinct failure domain from the SFTP peer copy'';
+
+      b2 = {
+        endpoint = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Backblaze B2 S3 endpoint; empty disables B2 backups.";
+        };
+        bucket = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Backblaze B2 bucket.";
+        };
+      };
     };
 
     config = lib.mkIf cfg.enable {
       sops.secrets."restic_tofu_state_password" = {
         sopsFile = self + "/secrets/sops/secrets.yaml";
+      };
+      sops.secrets."restic_b2_key_id" = lib.mkIf (cfg.b2.endpoint != "") {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+      };
+      sops.secrets."restic_b2_application_key" = lib.mkIf (cfg.b2.endpoint != "") {
+        sopsFile = self + "/secrets/sops/secrets.yaml";
+      };
+      sops.templates."restic-b2.env" = lib.mkIf (cfg.b2.endpoint != "") {
+        mode = "0400";
+        content = ''
+          AWS_ACCESS_KEY_ID=${config.sops.placeholder."restic_b2_key_id"}
+          AWS_SECRET_ACCESS_KEY=${config.sops.placeholder."restic_b2_application_key"}
+        '';
       };
 
       # A failed backup (full disk, locked/corrupt repo) is otherwise silent —
@@ -184,6 +210,37 @@
           RandomizedDelaySec = "10m";
         };
       };
+
+      services.restic.backups.tofu-state-b2 = lib.mkIf (cfg.b2.endpoint != "") {
+        repository = "s3:${cfg.b2.endpoint}/${cfg.b2.bucket}/discovery/tofu-state";
+        environmentFile = config.sops.templates."restic-b2.env".path;
+        passwordFile = config.sops.secrets."restic_tofu_state_password".path;
+        paths = [sourceDir];
+        initialize = true;
+        timerConfig = {
+          OnCalendar = "*-*-* 08:00:00";
+          Persistent = true;
+          RandomizedDelaySec = "10m";
+        };
+        pruneOpts = [
+          "--keep-daily 7"
+          "--keep-weekly 4"
+          "--keep-monthly 3"
+        ];
+      };
+      systemd.services.restic-backups-tofu-state-b2.onFailure =
+        lib.mkIf (cfg.b2.endpoint != "" && cfg.discordWebhookFile != "") ["restic-tofu-state-onfail.service"];
+      systemd.services.restic-backups-tofu-state-b2.serviceConfig.ExecStartPost = lib.mkIf (cfg.b2.endpoint != "" && cfg.healthcheck) [
+        (pkgs.writeShellScript "restic-tofu-state-b2-liveness" ''
+          set -eu
+          d=/var/lib/node-exporter-textfile
+          t=$(${pkgs.coreutils}/bin/date +%s)
+          tmp=$(${pkgs.coreutils}/bin/mktemp "$d/.restic_tofu_state_b2.XXXXXX")
+          echo "restic_tofu_state_b2_last_success_seconds $t" > "$tmp"
+          ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+          ${pkgs.coreutils}/bin/mv "$tmp" "$d/restic_tofu_state_b2.prom"
+        '')
+      ];
 
       # Monitoring parity with the local + SFTP jobs: the off-PREMISE copy is the
       # one that matters most, so it must not fail silently. Discord on failure +

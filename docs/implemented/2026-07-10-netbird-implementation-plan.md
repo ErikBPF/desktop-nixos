@@ -59,7 +59,7 @@ hostname. Gated behind an `enable` flag default false. SWAG proxy-conf + Tailsca
 ACL note as TODO comments (Phase O). Verify: eval + `just dry discovery` clean
 no-op with flag off.
 
-**WP3 — Relay module (voyager + 2nd VM).** `modules/hosts/voyager/netbird-relay.nix`
+**WP3 — Relay module (voyager + 2nd VM).** `modules/services/netbird-relay.nix`
 as a reusable deferredModule: rootless-podman `netbirdio/relay`, publishes **:443
 only** (WSS+QUIC), `NB_ENABLE_STUN` unset, built-in LE (Q3), metrics/health bound
 to `tailscale0`, cgroup caps (§6b-H5), `NB_AUTH_SECRET` from host-specific-key sops

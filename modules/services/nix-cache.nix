@@ -25,7 +25,8 @@
       secretKeyFile = config.sops.secrets.nix_cache_signing_key.path;
     };
 
-    networking.firewall.allowedTCPPorts = [5000];
+    networking.firewall.interfaces.enp4s0.allowedTCPPorts = [5000];
+    networking.firewall.interfaces.tailscale0.allowedTCPPorts = [5000];
 
     # Daily closure builder — keeps the cache warm by building all host closures.
     # Runs at 03:00, requires the flake repo to be checked out at the path below.
@@ -39,11 +40,17 @@
       serviceConfig = {
         Type = "oneshot";
         User = "root";
-        WorkingDirectory = "/var/lib/nix-cache-builder/repo";
+        StateDirectory = "nix-cache-builder";
+        WorkingDirectory = "/var/lib/nix-cache-builder";
       };
       path = [pkgs.git pkgs.nix];
       script = ''
         set -euo pipefail
+        if [ ! -d repo/.git ]; then
+          git clone --branch main --single-branch \
+            https://github.com/ErikBPF/desktop-nixos.git repo
+        fi
+        cd repo
         echo ":: Syncing repo to origin/main..."
         git fetch --prune origin
         git reset --hard origin/main

@@ -12,8 +12,8 @@ in {
       m.nixos.containers
       m.nixos.file-systems
 
-      m.nixos.laptop-hermes-client
-      m.nixos.laptop-opencode-client
+      m.nixos.hermes-client
+      m.nixos.opencode-client
       m.nixos.stylix
       m.nixos.nix-index
       m.nixos.hyprland

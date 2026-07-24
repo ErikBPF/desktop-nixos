@@ -206,7 +206,7 @@ owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 
 | Concern | Owner (SSOT) |
 |---------|--------------|
-| Network: VLAN/WLAN/**DHCP reservations**/static DNS/Tailscale ACL/Cloudflare tokens | `homelab-iac` |
+| Terraform-managed infrastructure/control planes: network, edge, GitHub, LiteLLM API resources | `homelab-iac` |
 | Host OS + fleet system config; **hosts/roles/addressing** (`fleet.json`) + **domains** (`fleet.ingress`/`fleet.services`) | `desktop-nixos` |
 | Cluster substrate (k3s microvms, NFS) | `desktop-nixos` (Nix-native, D6) |
 | Home / always-on household workloads (compose) | `servarr` |
@@ -296,11 +296,7 @@ not absorbed.
 - PR flow: push branches, **do not auto-merge** — wait for the user's
   explicit "merge" (see `memory/feedback_ha_pr_flow.md`).
 - The former general Kepler voice/AI-serving stack was retired 2026-07-14.
-  `docs/reference/kepler-ai-serving.md` is historical. Current tool-caller work
-  is an act-nothing shadow proposal: HA keeps its incumbent response path,
-  mirrors bounded transcripts to an isolated Kepler runtime, and reaches the
-  candidate through a dedicated Discovery LiteLLM alias. See
-  `docs/proposals/2026-07-16-ha-shadow-runtime.md`.
+  `docs/reference/kepler-ai-serving.md` is historical.
 
 ### `klipper-biqu` — BIQU B1 printer config (Klipper + OrcaSlicer)
 
@@ -418,10 +414,8 @@ not absorbed.
 - Lives at `~/Documents/erik/ha-agent`. Reachable via `references/repos/ha-agent`.
 - Owns the **PT-BR tool-calling** model, grammar, safety harness, shadow worker,
   and evidence contracts for HA commands. The selected Qwen3-4B candidate is
-  not yet an authoritative responder: next milestone is an isolated,
-  act-nothing Kepler shadow runtime behind a dedicated Discovery LiteLLM alias.
-  Do not revive the retired general AI-serving stack; see
-  `docs/proposals/2026-07-16-ha-shadow-runtime.md`.
+  not yet an authoritative responder. Do not revive the retired general
+  AI-serving stack.
 - **Local-only, never pushed public:** the corpus embeds real home `entity_id`s.
   Secrets (LiteLLM/Kaggle keys) stay in a gitignored `.env`, not committed.
 - **Config/data + model/runtime-source repo — no flake input, no NixOS module**
@@ -459,11 +453,10 @@ desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
 ├── deploys / hosts     → discovery hosts HAOS; home-assistant-config owns HA app config
 ├── archinaut host      → klipper-biqu owns /var/lib/klipper config (git source-of-truth)
 ├── kindle-dash         → standalone OSS image (GHCR+Harbor); servarr references it
-├── ha-agent            → PT-BR HA tool-caller + safety harness; proposed act-nothing
-│                         shadow on kepler through Discovery LiteLLM (local-only)
+├── ha-agent            → PT-BR HA tool-caller + safety harness (local-only)
 └── discovery firmware  ← cosmo-notes device firmware; edge/IaC owned by homelab-iac
 
-homelab-iac (infrastructure control plane) ← network/edge resources for the above:
+homelab-iac (infrastructure/control-plane IaC) ← declarative API resources for the above:
   DHCP reservations pin every host's IP; static DNS pins service hostnames —
   both VENDOR desktop-nixos's fleet.json (D9 publish-and-pin), re-synced on a
   deliberate bump. desktop-nixos owns the hosts; homelab-iac owns the network.

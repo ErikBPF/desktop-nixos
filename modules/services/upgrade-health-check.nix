@@ -5,14 +5,18 @@ _: {
     lib,
     ...
   }: {
-    options.modules.upgradeHealthCheck.criticalUnits = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = ["sshd.service" "tailscaled.service"];
-      description = ''
-        Units that must be active after an unattended upgrade; otherwise the
-        previous generation is re-activated. A host definition replaces the
-        default — re-list the default units when overriding.
-      '';
+    options.modules.upgradeHealthCheck = {
+      criticalUnits = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        readOnly = true;
+        default = ["sshd.service" "tailscaled.service"] ++ config.modules.upgradeHealthCheck.extraCriticalUnits;
+        description = "Units that must be active after an unattended upgrade.";
+      };
+      extraCriticalUnits = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        description = "Host-specific units appended to the immutable SSH and Tailscale checks.";
+      };
     };
 
     # After nixos-rebuild switch completes, verify the critical units are

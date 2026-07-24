@@ -29,6 +29,8 @@ mechanical parts.
 - **Host-only** leaves are prefixed with the host: `<host>-<capability>`
   (`kepler-k3s-cluster`, `discovery-compose`). Known hosts: `pathfinder`,
   `discovery`, `laptop`, `orion`, `kepler`, `archinaut`.
+- Leaves stored under `modules/hosts/<host>/` must use that host prefix, and
+  profiles must not import host-prefixed leaves.
 - **Reusable** leaves use `<domain>-<capability>` or a bare capability
   (`home-manager-base`, `packages-shared`, `alloy`, `firewall`).
 - **Profiles** use `profile-<role>`.
