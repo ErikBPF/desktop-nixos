@@ -54,7 +54,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertEqual(contract["schema_version"], 1)
             self.assertEqual(contract["owner"], "desktop-nixos")
             self.assertEqual(contract["source"], "modules/hosts/discovery/vault.nix")
-            self.assertEqual(len(contract["names"]), 45)
+            self.assertEqual(len(contract["names"]), 48)
             self.assertIn("ADGUARD_PASSWORD", contract["names"])
             self.assertEqual(contract["names"], sorted(contract["names"]))
             self.assertIn("CLOUDFLARE_API_TOKEN", contract["names"])

@@ -29,6 +29,7 @@
     "LITELLM_API_KEY",
     "LITELLM_SALT_KEY",
     "MINIO_ROOT_PASSWORD",
+    "MINIO_TFSTATE_ROOT_PASSWORD",
     "NORDVPN_PASSWORD",
     "NORDVPN_USER",
     "OPENCODE_GO_KEY",
@@ -44,6 +45,8 @@
     "SONARR_API_KEY",
     "TELEGRAM_BOT_TOKEN",
     "UI_PASSWORD",
+    "VAULTWARDEN_ADMIN_TOKEN",
+    "VAULT_DEV_ROOT_TOKEN",
     "WEBHOOK_GRAFANA_ALERTS_SECRET"
   ],
   "owner": "desktop-nixos",
@@ -154,6 +157,16 @@
       "perms": "0440"
     },
     {
+      "destination": "/run/vault-agent/infra.env",
+      "group": "docker",
+      "names": [
+        "MINIO_TFSTATE_ROOT_PASSWORD",
+        "VAULTWARDEN_ADMIN_TOKEN",
+        "VAULT_DEV_ROOT_TOKEN"
+      ],
+      "perms": "0440"
+    },
+    {
       "destination": "/run/vault-agent/harbor.env",
       "names": [
         "HARBOR_ADMIN_PASSWORD",
@@ -192,5 +205,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "223506e5681be1cc88b238d78047a5100f9b3f9a698c986ceb6d9609f9d13786"
+  "source_sha256": "802fc365bd1fd54c8a8ff0fd6ac0249641cbe86a9b51e783c9786b393eb8dc6b"
 }

@@ -127,6 +127,14 @@ in {
           }
         }
         template {
+          contents = "{{ with secret \"secret/data/home/infra\" }}MINIO_TFSTATE_ROOT_PASSWORD={{ .Data.data.MINIO_TFSTATE_ROOT_PASSWORD }}\nVAULTWARDEN_ADMIN_TOKEN={{ .Data.data.VAULTWARDEN_ADMIN_TOKEN }}\nVAULT_DEV_ROOT_TOKEN={{ .Data.data.VAULT_DEV_ROOT_TOKEN }}\n{{ end }}"
+          destination = "/run/vault-agent/infra.env"
+          perms = "0440"
+          exec {
+            command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/infra.env"]
+          }
+        }
+        template {
           contents = "{{ with secret \"secret/data/home/harbor\" }}HARBOR_ADMIN_PASSWORD={{ .Data.data.HARBOR_ADMIN_PASSWORD }}\nHARBOR_DB_PASSWORD={{ .Data.data.HARBOR_DB_PASSWORD }}\nHARBOR_ROBOT_USER={{ .Data.data.HARBOR_ROBOT_USER }}\nHARBOR_ROBOT_SECRET={{ .Data.data.HARBOR_ROBOT_SECRET }}\n{{ end }}"
           destination = "/run/vault-agent/harbor.env"
           perms = "0400"
