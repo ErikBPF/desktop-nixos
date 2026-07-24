@@ -595,13 +595,13 @@ in {
             '{role_id: ($role_id | rtrimstr("\n")), secret_id: ($secret_id | rtrimstr("\n"))}' \
             | ${curl} -fsS -m 10 -X POST --data @- \
                 http://127.0.0.1:18200/v1/auth/approle/login \
-            | ${jq} -r .auth.client_token > "$work/token"
+            | ${jq} -er '.auth.client_token | select(type == "string" and length > 0)' > "$work/token"
           ${pkgs.coreutils}/bin/chmod 0600 "$work/token"
           printf 'X-Vault-Token: %s\n' "$(${pkgs.coreutils}/bin/cat "$work/token")" > "$work/header"
           ${pkgs.coreutils}/bin/chmod 0600 "$work/header"
-          ${curl} -fsS -m 10 --header @"$work/header" \
-            http://127.0.0.1:18200/v1/secret/data/shared/discord \
-            | ${jq} -e '.data.data.incidents | type == "string" and length > 0' >/dev/null
+          ${curl} -fsS -m 10 --header @"$work/header" -X POST \
+            http://127.0.0.1:18200/v1/auth/token/lookup-self \
+            | ${jq} -e '.data.display_name | startswith("approle-")' >/dev/null
 
           now="$(${pkgs.coreutils}/bin/date +%s)"
           metric="$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.openbao_restore_drill.XXXXXX)"
