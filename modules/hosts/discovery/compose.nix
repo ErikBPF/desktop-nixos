@@ -48,7 +48,6 @@ _: {
       secretSpecRuntimeHealthContainers."kindle-dash" = ["kindle-dash"];
       secretSpecRuntimeProfiles."ai-serving" = "ai-serving";
       secretSpecRuntimeSourceConfigNames."ai-serving" = ["LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT"];
-      secretSpecRuntimeLegacySecretNames."ai-serving" = ["LITELLM_MASTER_KEY" "OPENCODE_ZEN_KEY"];
       secretSpecRuntimeHealthContainers."ai-serving" = ["litellm" "langfuse-clickhouse" "langfuse-web" "langfuse-worker"];
       stacks = [
         # shared.yml has no services on discovery (alloy/syncthing/etc run natively)

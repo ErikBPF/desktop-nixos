@@ -117,7 +117,7 @@ in {
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/ai-serving\" }}LITELLM_SALT_KEY={{ .Data.data.LITELLM_SALT_KEY }}\nLANGFUSE_PUBLIC_KEY={{ .Data.data.LANGFUSE_PUBLIC_KEY }}\nLANGFUSE_SECRET_KEY={{ .Data.data.LANGFUSE_SECRET_KEY }}\nLANGFUSE_SALT={{ .Data.data.LANGFUSE_SALT }}\nLANGFUSE_INIT_USER_PASSWORD={{ .Data.data.LANGFUSE_INIT_USER_PASSWORD }}\nOPENCODE_GO_KEY={{ .Data.data.OPENCODE_GO_KEY }}\nUI_PASSWORD={{ .Data.data.UI_PASSWORD }}\nMINIO_ROOT_PASSWORD={{ .Data.data.MINIO_ROOT_PASSWORD }}\nCLICKHOUSE_PASSWORD={{ .Data.data.CLICKHOUSE_PASSWORD }}\n{{ end }}"
+          contents = "{{ with secret \"secret/data/home/ai-serving\" }}LITELLM_MASTER_KEY={{ .Data.data.LITELLM_MASTER_KEY }}\nLITELLM_SALT_KEY={{ .Data.data.LITELLM_SALT_KEY }}\nLANGFUSE_PUBLIC_KEY={{ .Data.data.LANGFUSE_PUBLIC_KEY }}\nLANGFUSE_SECRET_KEY={{ .Data.data.LANGFUSE_SECRET_KEY }}\nLANGFUSE_SALT={{ .Data.data.LANGFUSE_SALT }}\nLANGFUSE_INIT_USER_PASSWORD={{ .Data.data.LANGFUSE_INIT_USER_PASSWORD }}\nOPENCODE_GO_KEY={{ .Data.data.OPENCODE_GO_KEY }}\nOPENCODE_ZEN_KEY={{ .Data.data.OPENCODE_ZEN_KEY }}\nUI_PASSWORD={{ .Data.data.UI_PASSWORD }}\nMINIO_ROOT_PASSWORD={{ .Data.data.MINIO_ROOT_PASSWORD }}\nCLICKHOUSE_PASSWORD={{ .Data.data.CLICKHOUSE_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/ai-serving.env"
           perms = "0440"
         }
