@@ -299,6 +299,11 @@ in {
               command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/networking.env"]
             }
           }
+          template {
+            contents = "${renderedAt}{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.POCKETID_ENCRYPTION_KEY }}\n{{ end }}"
+            destination = "/run/vault-agent/netbird-pocketid.env"
+            perms = "0400"
+          }
           # Harbor setup and the fixed mirror recipe run as root. Keep the
           # project-scoped robot beside the admin/database inputs without
           # exposing any of them to rootless Compose.

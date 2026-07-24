@@ -30,6 +30,7 @@
 # logs an auth error), not silently insecure.
 {
   config,
+  pkgs,
   self,
   ...
 }: let
@@ -184,15 +185,6 @@ in {
         # label was a misnomer (not a JWT key) — renamed to
         # `netbird/pocketid_encryption_key`. Content, Phase-S human-minted:
         # `ENCRYPTION_KEY=<openssl rand -base64 32>`.
-        sops.secrets."netbird/pocketid_encryption_key" = {
-          inherit sopsFile;
-          format = "yaml";
-          key = "netbird/pocketid_encryption_key";
-          mode = "0400";
-          path = "/run/secrets/netbird-pocketid-encryption-key";
-          restartUnits = ["docker-netbird-pocketid.service"];
-        };
-
         virtualisation.oci-containers.containers.netbird-pocketid = {
           image = "ghcr.io/pocket-id/pocket-id:${pocketIdTag}";
           volumes = ["${dataDir}/pocket-id:/app/data"];
@@ -201,9 +193,21 @@ in {
             TRUST_PROXY = "true"; # behind SWAG (§5 — tailnet/LAN-only ingress)
           };
           environmentFiles = [
-            config.sops.secrets."netbird/pocketid_encryption_key".path
+            "/run/vault-agent/netbird-pocketid.env"
           ];
           networks = ["homelab-net"];
+        };
+
+        systemd.services.docker-netbird-pocketid = {
+          after = ["vault-agent.service"];
+          requires = ["vault-agent.service"];
+          serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-netbird-pocketid-env" ''
+            for _ in $(seq 1 100); do
+              [ -s /run/vault-agent/netbird-pocketid.env ] && exit 0
+              sleep 0.1
+            done
+            exit 1
+          '';
         };
       }
 
