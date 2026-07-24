@@ -3177,6 +3177,18 @@ verify-k3s-observability:
     printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
     test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
 
+# Prove every compose host exports cAdvisor series with container names.
+verify-container-metrics:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
+      --data-urlencode 'query=container_last_seen{name!=""}')
+    for host in discovery kepler orion; do
+      count=$(printf '%s\n' "$response" | jq --arg host '[.data.result[]? | select(.metric.host == $host)] | length')
+      printf '%s named_containers=%s\n' "$host" "$count"
+      test "$count" -gt 0
+    done
+
 # Read-only proof that cp-1's timer last reconciled both bootstrap Secrets.
 verify-k3s-bootstrap:
     #!/usr/bin/env bash
