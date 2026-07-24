@@ -2587,8 +2587,9 @@ verify-infra-secret-render:
       done
       shared="$(sudo grep -v '^#' /run/vault-agent/shared-db.env | cut -d= -f1 | sort -u)"
       infra="$(sudo grep -v '^#' /run/vault-agent/infra.env | cut -d= -f1 | sort -u)"
+      printf "shared_keys=%s\ninfra_keys=%s\n" "$shared" "$infra"
       test "$shared" = "$(printf "POSTGRES_PASSWORD\nREDIS_PASSWORD")"
-      test "$infra" = "$(printf "MINIO_TFSTATE_ROOT_PASSWORD\nVAULTWARDEN_ADMIN_TOKEN\nVAULT_DEV_ROOT_TOKEN")"
+      test "$infra" = "$(printf "MINIO_TFSTATE_ROOT_PASSWORD\nVAULT_DEV_ROOT_TOKEN\nVAULTWARDEN_ADMIN_TOKEN")"
       echo "infra_render=ready files=2 mode=0440 owner=root group=docker fresh=true"
     '
 

@@ -268,7 +268,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         )
         self.assertIn("verify-infra-secret-render:", justfile)
         self.assertIn('test "$shared" = "$(printf "POSTGRES_PASSWORD\\nREDIS_PASSWORD")"', justfile)
-        self.assertIn('VAULTWARDEN_ADMIN_TOKEN\\nVAULT_DEV_ROOT_TOKEN', justfile)
+        self.assertIn('VAULT_DEV_ROOT_TOKEN\\nVAULTWARDEN_ADMIN_TOKEN', justfile)
         self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]', vault)
         self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/shared-db.env"]', vault_agent)
         shared_db = next(row for row in contract["renders"] if row["destination"].endswith("/shared-db.env"))
