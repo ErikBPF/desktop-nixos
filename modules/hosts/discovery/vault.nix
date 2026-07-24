@@ -526,6 +526,7 @@ in {
     # drill ports keep this path physically separate from :8200 production.
     systemd.services.openbao-restore-drill = {
       description = "Verify OpenBao snapshot restore in an isolated raft node";
+      path = [pkgs.bash];
       serviceConfig = {
         Type = "oneshot";
         PrivateTmp = true;
