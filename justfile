@@ -2516,13 +2516,13 @@ seed-adguard-vault:
       unset value_b64
       curl --header @"$header" --silent --show-error --fail \
         http://127.0.0.1:8200/v1/secret/data/home/networking > "$current"
-      jq -s '{data:(.[0].data.data + .[1])}' "$current" "$incoming" > "$payload"
+      jq -s "{data:(.[0].data.data + .[1])}" "$current" "$incoming" > "$payload"
       curl --header @"$header" --silent --show-error --fail --request POST \
         --data-binary @"$payload" \
         http://127.0.0.1:8200/v1/secret/data/home/networking >/dev/null
       curl --header @"$header" --silent --show-error --fail \
         http://127.0.0.1:8200/v1/secret/data/home/networking |
-        jq -e '.data.data | has("ADGUARD_PASSWORD") and has("CLOUDFLARE_API_TOKEN")' >/dev/null
+        jq -e ".data.data | has(\"ADGUARD_PASSWORD\") and has(\"CLOUDFLARE_API_TOKEN\")" >/dev/null
       echo "adguard_vault=seeded networking_keys_verified=true"
     '
 
