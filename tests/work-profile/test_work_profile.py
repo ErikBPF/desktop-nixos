@@ -25,6 +25,12 @@ def test_endeavour_imports_only_work_profile():
     assert "m.nixos.endeavour-trend" not in endeavour
 
 
+def test_laptop_imports_work_profile():
+    laptop = read("modules/hosts/laptop/default.nix")
+
+    assert "m.nixos.work" in laptop
+
+
 def test_trend_waits_for_runtime_libraries_before_starting():
     trend = read("modules/services/trend-agent.nix")
 
