@@ -28,7 +28,7 @@ def test_container_name_labels_have_a_live_verification_recipe():
     recipe = JUSTFILE.read_text()
 
     assert "verify-container-metrics:" in recipe
-    assert 'container_last_seen{name!=""}' in recipe
+    assert 'container_last_seen{name!=""} or podman_container_info{name!=""}' in recipe
     assert "jq --arg host \"$host\"" in recipe
     for host in ("discovery", "kepler", "orion"):
         assert host in recipe
