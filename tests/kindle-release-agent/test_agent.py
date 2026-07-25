@@ -1068,8 +1068,9 @@ class ObservationContract(unittest.TestCase):
                 self.target + "\n",
                 "",
                 self.target + "\n",
-                self.agent.COMPOSE_PATH + "\n",
+                self.compose.replace("v1.2.3", "v1.2.2"),
                 self.compose,
+                self.agent.COMPOSE_PATH + "\n",
             ]
         )
         candidate = self.agent.observe_candidate(runner, self.previous)
@@ -1110,16 +1111,21 @@ class ObservationContract(unittest.TestCase):
                 ],
                 [
                     *git,
-                    "diff-tree",
-                    "--no-commit-id",
-                    "--name-only",
-                    "-r",
-                    self.target,
+                    "show",
+                    f"{self.previous}:{self.agent.COMPOSE_PATH}",
                 ],
                 [
                     *git,
                     "show",
                     f"{self.target}:{self.agent.COMPOSE_PATH}",
+                ],
+                [
+                    *git,
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "-r",
+                    self.target,
                 ],
             ],
         )
@@ -1132,8 +1138,9 @@ class ObservationContract(unittest.TestCase):
                 self.target,
                 "",
                 self.target,
-                self.agent.COMPOSE_PATH + "\nother.yml\n",
+                self.compose.replace("v1.2.3", "v1.2.2"),
                 self.compose,
+                self.agent.COMPOSE_PATH + "\nother.yml\n",
             ]
         )
         with self.assertRaises(ValueError):
@@ -1141,6 +1148,13 @@ class ObservationContract(unittest.TestCase):
 
     def test_observation_ignores_advances_without_compose_change(self):
         runner = self.Runner(["", self.target, "", ""])
+        self.assertIsNone(self.agent.observe_candidate(runner, self.previous))
+
+    def test_observation_ignores_non_release_compose_change(self):
+        runner = self.Runner(
+            ["", self.target, "", self.target, self.compose, self.compose]
+        )
+
         self.assertIsNone(self.agent.observe_candidate(runner, self.previous))
 
     def test_observation_returns_none_when_main_has_not_advanced(self):
