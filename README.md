@@ -11,18 +11,19 @@ top-level module, options replace `specialArgs`, no aggregator boilerplate.
 | Host | Role | CPU | RAM | GPU | Storage | IP |
 |------|------|-----|-----|-----|---------|-----|
 | **pathfinder** | Desktop | i7-8750H | 32 GB | GTX 1060 Max-Q + UHD 630 (PRIME sync) | SATA · LUKS+btrfs | 192.168.10.125 |
-| **laptop** | Laptop | Intel (mobile) | — | Intel Iris Xe | NVMe · LUKS+btrfs · FIDO2 | Tailscale (roaming) |
-| **orion** | HTPC · build server · dev sandbox | Ryzen 9 5950X | 96 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SATA SSD btrfs | 192.168.10.220 |
+| **endeavour** | Laptop · primary workstation | Core Ultra 7 155H | 32 GB | Intel Arc | NVMe · LUKS+btrfs · FIDO2 | Tailscale (roaming) |
+| **orion** | HTPC · build server · dev sandbox | Ryzen 9 5950X | 128 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SATA SSD btrfs | 192.168.10.220 |
 | **discovery** | Home server | i5-4670 | 32 GB | Quadro P2000 | 2×SSD btrfs RAID1 · 3.6TB HDD | 192.168.10.210 |
-| **kepler** | NAS / AI inference | Ryzen 5 3600 | 64 GB | RTX 3070 LHR | M.2 btrfs · ZFS RAIDZ1 | 192.168.10.230 |
+| **kepler** | NAS / lab cluster | Ryzen 5 3600 | 96 GB | RTX 3070 LHR | M.2 btrfs · ZFS RAIDZ1 | 192.168.10.230 |
 | **archinaut** | 3D-printer host (Klipper) | RPi 3B+ | 1 GB | — | microSD | 192.168.10.225 (WiFi) |
-| **voyager** | Offsite backup receiver | Oracle VM (x86) | 1 GB | — | 46 GB boot · btrfs | 147.15.7.254 (ephemeral) / Tailscale |
+| **homeassistant** | HAOS appliance (VM) | — | — | — | discovery-hosted | 192.168.10.115 |
+| **vanguard** | Offsite resilience node | Oracle VM (x86), 2 vCPU | 1 GB | — | 50 GB boot | 163.176.206.86 (ephemeral) / Tailscale |
+| **voyager** | Offsite backup receiver | Oracle VM (x86), 2 vCPU | 1 GB | — | 50 GB boot | 147.15.7.254 (ephemeral) / Tailscale |
+| **telstar** | Public-project host (staged, not provisioned) | Ampere A1, 2 OCPU | 12 GB | — | 50 GB boot | — |
 
-SSH runs on **port 2222** fleet-wide. Two more Oracle Always-Free nodes are
-expanding the offsite tier — **vanguard** (2nd x86 micro, resilience roles) and
-**telstar** (Ampere A1 aarch64, public projects) — both provisioning. orion also
-hosts **`gemini`**, a NixOS-container dev sandbox (`ssh gemini`, VS Code Remote-SSH)
-that shares its CPU/RAM.
+SSH runs on **port 2222** on NixOS hosts. Vanguard is live; Telstar remains
+blocked on Oracle A1 capacity. Orion also hosts **`gemini`**, a NixOS-container
+dev sandbox (`ssh gemini`, VS Code Remote-SSH) that shares its CPU/RAM.
 
 Host addressing is a **single source of truth**: `modules/meta.nix` `fleet.hosts`
 (ip/mac/role), published as the `flake.fleet` output and pinned to `fleet.json`
