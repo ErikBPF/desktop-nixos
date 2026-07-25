@@ -2231,6 +2231,36 @@ backup-servarr-db target:
       printf ":: verified LiteLLM DB backup: %s/litellm.sql.gz\n" "$latest"
     '
 
+# Seed Kepler's compose-restic repositories and textfile gauges with real
+# successful backups. Safe to rerun: restic deduplicates, gauges update only
+# after each backup succeeds, and no credential values leave the containers.
+seed-kepler-backup-metrics:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      podman exec postgres sh -ceu \
+        'pg_dumpall -U "$POSTGRES_USER" > /backup/postgres.sql.tmp && mv /backup/postgres.sql.tmp /backup/postgres.sql'
+      podman exec restic sh -ceu '
+        if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+        restic backup /postgres/postgres.sql --tag postgres
+        printf "restic_kepler_postgres_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_postgres.prom.tmp
+        mv /metrics/restic_kepler_postgres.prom.tmp /metrics/restic_kepler_postgres.prom
+        restic backup /config --tag configs
+        printf "restic_kepler_configs_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_configs.prom.tmp
+        mv /metrics/restic_kepler_configs.prom.tmp /metrics/restic_kepler_configs.prom
+      '
+      podman exec restic-offsite sh -ceu '
+        if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+        restic backup /config --tag configs
+        printf "restic_kepler_offsite_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_offsite.prom.tmp
+        mv /metrics/restic_kepler_offsite.prom.tmp /metrics/restic_kepler_offsite.prom
+      '
+      test "$(find /var/lib/node-exporter-textfile -maxdepth 1 -name 'restic_kepler_*.prom' -type f | wc -l)" -eq 3
+      echo ":: Kepler backup seeds and three success gauges verified"
+    REMOTE
+
 # Read-only post-deploy proof for the Nix-owned Hermes service. Prints only a
 # credential fingerprint, never the credential itself.
 verify-hermes-cutoff target="discovery":
