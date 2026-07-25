@@ -1,4 +1,6 @@
-_: {
+{config, ...}: let
+  m = config.flake.modules;
+in {
   flake.modules.nixos.packages-desktop = {pkgs, ...}: let
     bottlesForFusion = pkgs.bottles.override {
       removeWarningPopup = true;
@@ -15,9 +17,7 @@ _: {
       };
     };
   in {
-    # Auto-start Cloudflare WARP daemon (warp-svc.service ships with the package).
-    systemd.packages = [pkgs.cloudflare-warp];
-    systemd.services.warp-svc.wantedBy = ["multi-user.target"];
+    imports = [m.nixos.cloudflare-warp];
 
     environment.systemPackages = with pkgs; [
       # --- Hyprland Desktop ---
@@ -134,7 +134,6 @@ _: {
       teams-for-linux
       whatsapp-electron
       tailscale-systray
-      cloudflare-warp
     ];
   };
 }

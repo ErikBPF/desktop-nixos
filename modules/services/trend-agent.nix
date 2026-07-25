@@ -1,5 +1,5 @@
 {self, ...}: {
-  flake.modules.nixos.endeavour-trend = {
+  flake.modules.nixos.trend-agent = {
     config,
     pkgs,
     ...
@@ -28,7 +28,8 @@
     '';
 
     systemctl = pkgs.writeShellScriptBin "systemctl" ''
-      if [[ "$1" =~ ^(enable|start)$ && "$*" =~ (tmxbc|ds_agent) ]]; then
+      if [[ "$1" == enable && "$*" =~ (tmxbc|ds_agent) ]] ||
+        [[ "$1" == start && "$*" == *tmxbc* ]]; then
         exit 0
       fi
       exec ${pkgs.systemd}/bin/systemctl "$@"
@@ -137,7 +138,7 @@
     systemd.paths.ds_agent = {
       wantedBy = ["multi-user.target"];
       pathConfig = {
-        PathExists = "/opt/ds_agent/ds_agent";
+        PathExists = "/opt/ds_agent/lib/dsa_core.so";
         Unit = "ds_agent.service";
       };
     };
