@@ -91,6 +91,7 @@ _: {
       prometheus.scrape "alloy_self" {
         targets = [{
           __address__ = "127.0.0.1:12345",
+          instance    = "${config.networking.hostName}",
         }]
         metrics_path    = "/metrics"
         forward_to      = [prometheus.remote_write.prometheus.receiver]
