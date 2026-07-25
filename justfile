@@ -3243,9 +3243,10 @@ resize-kepler-k3s-disks:
           echo "refusing to shrink $name: $current > $wanted" >&2
           exit 1
         }
-        (( current == wanted )) && continue
-        truncate -s "$wanted" "$image"
-        e2fsck -f "$image" || [ "$?" -eq 1 ]
+        if (( current < wanted )); then
+          truncate -s "$wanted" "$image"
+        fi
+        e2fsck -fp "$image" || [ "$?" -eq 1 ]
         resize2fs "$image"
       done
       trap - EXIT
