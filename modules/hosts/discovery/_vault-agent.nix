@@ -4,6 +4,7 @@
   ...
 }: let
   addr = "http://127.0.0.1:8200";
+  renderedAt = ''# rendered_at={{ timestamp }}\n'';
 in {
   users.groups.vault-consumers = {};
   users.users.${username}.extraGroups = ["vault-consumers"];
@@ -24,6 +25,9 @@ in {
       ExecStart = "${pkgs.openbao}/bin/bao agent -config=${pkgs.writeText "vault-agent.hcl" ''
         pid_file = "/run/vault-agent/pid"
         vault { address = "${addr}" }
+        template_config {
+          static_secret_render_interval = "5m"
+        }
         auto_auth {
           method "approle" {
             mount_path = "auth/approle"
@@ -71,17 +75,17 @@ in {
           perms = "0440"
         }
         template {
-          contents = "CLOUDFLARE_TUNNEL_TOKEN={{ with secret \"secret/data/home/tunneling\" }}{{ .Data.data.CLOUDFLARE_TUNNEL_TOKEN }}{{ end }}\n"
+          contents = "${renderedAt}CLOUDFLARE_TUNNEL_TOKEN={{ with secret \"secret/data/home/tunneling\" }}{{ .Data.data.CLOUDFLARE_TUNNEL_TOKEN }}{{ end }}\n"
           destination = "/run/vault-agent/tunneling.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/monitoring\" }}GRAFANA_SECRET_KEY={{ .Data.data.GRAFANA_SECRET_KEY }}\nHEALTHCHECKS_SECRET_KEY={{ .Data.data.HEALTHCHECKS_SECRET_KEY }}\nHEALTHCHECKS_SUPERUSER_PASSWORD={{ .Data.data.HEALTHCHECKS_SUPERUSER_PASSWORD }}\nSCRUTINY_INFLUXDB_PASSWORD={{ .Data.data.SCRUTINY_INFLUXDB_PASSWORD }}\nSCRUTINY_INFLUXDB_TOKEN={{ .Data.data.SCRUTINY_INFLUXDB_TOKEN }}\nTELEGRAM_BOT_TOKEN={{ .Data.data.TELEGRAM_BOT_TOKEN }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/monitoring\" }}GRAFANA_SECRET_KEY={{ .Data.data.GRAFANA_SECRET_KEY }}\nHEALTHCHECKS_SECRET_KEY={{ .Data.data.HEALTHCHECKS_SECRET_KEY }}\nHEALTHCHECKS_SUPERUSER_PASSWORD={{ .Data.data.HEALTHCHECKS_SUPERUSER_PASSWORD }}\nSCRUTINY_INFLUXDB_PASSWORD={{ .Data.data.SCRUTINY_INFLUXDB_PASSWORD }}\nSCRUTINY_INFLUXDB_TOKEN={{ .Data.data.SCRUTINY_INFLUXDB_TOKEN }}\nTELEGRAM_BOT_TOKEN={{ .Data.data.TELEGRAM_BOT_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/monitoring.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/shared-db.env"
           perms = "0440"
           exec {
@@ -89,22 +93,22 @@ in {
           }
         }
         template {
-          contents = "{{ with secret \"secret/data/home/shared-arr\" }}RADARR_API_KEY={{ .Data.data.RADARR_API_KEY }}\nSONARR_API_KEY={{ .Data.data.SONARR_API_KEY }}\nLIDARR_API_KEY={{ .Data.data.LIDARR_API_KEY }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/shared-arr\" }}RADARR_API_KEY={{ .Data.data.RADARR_API_KEY }}\nSONARR_API_KEY={{ .Data.data.SONARR_API_KEY }}\nLIDARR_API_KEY={{ .Data.data.LIDARR_API_KEY }}\n{{ end }}"
           destination = "/run/vault-agent/shared-arr.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/shared-grafana\" }}GRAFANA_ADMIN_USER={{ .Data.data.GRAFANA_ADMIN_USER }}\nGRAFANA_ADMIN_PASSWORD={{ .Data.data.GRAFANA_ADMIN_PASSWORD }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/shared-grafana\" }}GRAFANA_ADMIN_USER={{ .Data.data.GRAFANA_ADMIN_USER }}\nGRAFANA_ADMIN_PASSWORD={{ .Data.data.GRAFANA_ADMIN_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/shared-grafana.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/media-server\" }}JELLYSTAT_JWT_SECRET={{ .Data.data.JELLYSTAT_JWT_SECRET }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/media-server\" }}JELLYSTAT_JWT_SECRET={{ .Data.data.JELLYSTAT_JWT_SECRET }}\n{{ end }}"
           destination = "/run/vault-agent/media-server.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/tools\" }}SEARXNG_SECRET_KEY={{ .Data.data.SEARXNG_SECRET_KEY }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/tools\" }}SEARXNG_SECRET_KEY={{ .Data.data.SEARXNG_SECRET_KEY }}\n{{ end }}"
           destination = "/run/vault-agent/tools.env"
           perms = "0440"
           exec {
@@ -112,17 +116,17 @@ in {
           }
         }
         template {
-          contents = "{{ with secret \"secret/data/home/media\" }}NORDVPN_USER={{ .Data.data.NORDVPN_USER }}\nNORDVPN_PASSWORD={{ .Data.data.NORDVPN_PASSWORD }}\nQBITTORRENT_USER={{ .Data.data.QBITTORRENT_USER }}\nQBITTORRENT_PASSWORD={{ .Data.data.QBITTORRENT_PASSWORD }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/media\" }}NORDVPN_USER={{ .Data.data.NORDVPN_USER }}\nNORDVPN_PASSWORD={{ .Data.data.NORDVPN_PASSWORD }}\nQBITTORRENT_USER={{ .Data.data.QBITTORRENT_USER }}\nQBITTORRENT_PASSWORD={{ .Data.data.QBITTORRENT_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/media.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/ai-serving\" }}LITELLM_MASTER_KEY={{ .Data.data.LITELLM_MASTER_KEY }}\nLITELLM_SALT_KEY={{ .Data.data.LITELLM_SALT_KEY }}\nLANGFUSE_PUBLIC_KEY={{ .Data.data.LANGFUSE_PUBLIC_KEY }}\nLANGFUSE_SECRET_KEY={{ .Data.data.LANGFUSE_SECRET_KEY }}\nLANGFUSE_SALT={{ .Data.data.LANGFUSE_SALT }}\nLANGFUSE_INIT_USER_PASSWORD={{ .Data.data.LANGFUSE_INIT_USER_PASSWORD }}\nOPENCODE_GO_KEY={{ .Data.data.OPENCODE_GO_KEY }}\nOPENCODE_ZEN_KEY={{ .Data.data.OPENCODE_ZEN_KEY }}\nUI_PASSWORD={{ .Data.data.UI_PASSWORD }}\nMINIO_ROOT_PASSWORD={{ .Data.data.MINIO_ROOT_PASSWORD }}\nCLICKHOUSE_PASSWORD={{ .Data.data.CLICKHOUSE_PASSWORD }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/ai-serving\" }}LITELLM_MASTER_KEY={{ .Data.data.LITELLM_MASTER_KEY }}\nLITELLM_SALT_KEY={{ .Data.data.LITELLM_SALT_KEY }}\nLANGFUSE_PUBLIC_KEY={{ .Data.data.LANGFUSE_PUBLIC_KEY }}\nLANGFUSE_SECRET_KEY={{ .Data.data.LANGFUSE_SECRET_KEY }}\nLANGFUSE_SALT={{ .Data.data.LANGFUSE_SALT }}\nLANGFUSE_INIT_USER_PASSWORD={{ .Data.data.LANGFUSE_INIT_USER_PASSWORD }}\nOPENCODE_GO_KEY={{ .Data.data.OPENCODE_GO_KEY }}\nOPENCODE_ZEN_KEY={{ .Data.data.OPENCODE_ZEN_KEY }}\nUI_PASSWORD={{ .Data.data.UI_PASSWORD }}\nMINIO_ROOT_PASSWORD={{ .Data.data.MINIO_ROOT_PASSWORD }}\nCLICKHOUSE_PASSWORD={{ .Data.data.CLICKHOUSE_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/ai-serving.env"
           perms = "0440"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/networking\" }}ADGUARD_PASSWORD={{ .Data.data.ADGUARD_PASSWORD }}\nCLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/networking\" }}ADGUARD_PASSWORD={{ .Data.data.ADGUARD_PASSWORD }}\nCLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/networking.env"
           perms = "0440"
           exec {
@@ -173,7 +177,7 @@ in {
           }
         }
         template {
-          contents = "{{ with secret \"secret/data/home/infra\" }}MINIO_TFSTATE_ROOT_PASSWORD={{ .Data.data.MINIO_TFSTATE_ROOT_PASSWORD }}\nVAULTWARDEN_ADMIN_TOKEN={{ .Data.data.VAULTWARDEN_ADMIN_TOKEN }}\nVAULT_DEV_ROOT_TOKEN={{ .Data.data.VAULT_DEV_ROOT_TOKEN }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/infra\" }}MINIO_TFSTATE_ROOT_PASSWORD={{ .Data.data.MINIO_TFSTATE_ROOT_PASSWORD }}\nVAULTWARDEN_ADMIN_TOKEN={{ .Data.data.VAULTWARDEN_ADMIN_TOKEN }}\nVAULT_DEV_ROOT_TOKEN={{ .Data.data.VAULT_DEV_ROOT_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/infra.env"
           perms = "0440"
           exec {
@@ -186,7 +190,7 @@ in {
           perms = "0400"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/ha-harness-litellm\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\n{{ end }}{{ with secret \"secret/data/home/ha-harness\" }}HA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/ha-harness-litellm\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\n{{ end }}{{ with secret \"secret/data/home/ha-harness\" }}HA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/ha-harness.env"
           perms = "0440"
           exec {
@@ -194,7 +198,7 @@ in {
           }
         }
         template {
-          contents = "{{ with secret \"secret/data/home/kindle-dash\" }}KINDLE_DASH_CLAUDE_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CLAUDE_REFRESH_TOKEN }}\nKINDLE_DASH_CODEX_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CODEX_REFRESH_TOKEN }}\nKINDLE_DASH_HA_TOKEN={{ .Data.data.KINDLE_DASH_HA_TOKEN }}\nKINDLE_DASH_OPENCODE_AUTH_COOKIE={{ .Data.data.KINDLE_DASH_OPENCODE_AUTH_COOKIE }}\n{{ end }}"
+          contents = "${renderedAt}{{ with secret \"secret/data/home/kindle-dash\" }}KINDLE_DASH_CLAUDE_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CLAUDE_REFRESH_TOKEN }}\nKINDLE_DASH_CODEX_REFRESH_TOKEN={{ .Data.data.KINDLE_DASH_CODEX_REFRESH_TOKEN }}\nKINDLE_DASH_HA_TOKEN={{ .Data.data.KINDLE_DASH_HA_TOKEN }}\nKINDLE_DASH_OPENCODE_AUTH_COOKIE={{ .Data.data.KINDLE_DASH_OPENCODE_AUTH_COOKIE }}\n{{ end }}"
           destination = "/run/vault-agent/kindle-dash.env"
           perms = "0440"
           exec {
