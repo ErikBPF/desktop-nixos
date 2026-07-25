@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/hosts/kepler/k3s-cluster.nix"
+HARDWARE = ROOT / "modules/hosts/kepler/hardware.nix"
 JUSTFILE = ROOT / "justfile"
 
 
@@ -19,8 +20,10 @@ def test_microvms_use_fast_pool_with_mount_ordering():
 
 def test_disk_resize_is_grow_only_and_offline():
     justfile = JUSTFILE.read_text()
+    hardware = HARDWARE.read_text()
 
     recipe = justfile.split("resize-kepler-k3s-disks:", 1)[1]
+    assert "e2fsprogs" in hardware
     assert "systemctl stop microvms.target" in recipe
     assert "truncate -s" in recipe
     assert "e2fsck -f" in recipe
