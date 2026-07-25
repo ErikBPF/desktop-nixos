@@ -714,12 +714,18 @@ def observe_candidate(runner, previous_commit):
     ).splitlines()
     if not candidates:
         return None
-    candidate = candidates[0]
-    changed_paths = runner.run(
-        git + ["diff-tree", "--no-commit-id", "--name-only", "-r", candidate]
-    ).splitlines()
-    compose_text = runner.run(git + ["show", f"{candidate}:{COMPOSE_PATH}"])
-    return validate_candidate(candidate, changed_paths, compose_text)
+    previous_pin = parse_pin(
+        runner.run(git + ["show", f"{previous_commit}:{COMPOSE_PATH}"])
+    )
+    for candidate in candidates:
+        compose_text = runner.run(git + ["show", f"{candidate}:{COMPOSE_PATH}"])
+        if parse_pin(compose_text) == previous_pin:
+            continue
+        changed_paths = runner.run(
+            git + ["diff-tree", "--no-commit-id", "--name-only", "-r", candidate]
+        ).splitlines()
+        return validate_candidate(candidate, changed_paths, compose_text)
+    return None
 
 
 def observe_live_release(runner):
