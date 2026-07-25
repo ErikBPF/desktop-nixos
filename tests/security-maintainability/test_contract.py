@@ -39,6 +39,18 @@ def test_nix_cache_firewall_is_interface_scoped():
     assert "networking.firewall.interfaces.tailscale0.allowedTCPPorts" in module
 
 
+def test_nix_cache_warmer_uses_current_fleet_targets():
+    module = read("modules/services/nix-cache.nix")
+    assert "for host in orion pathfinder laptop discovery kepler" not in module
+    assert "nixosConfigurations.endeavour" not in module
+    assert "nixosConfigurations.laptop" not in module
+
+
+def test_substituter_list_replaces_duplicate_nixos_default():
+    common = read("modules/common.nix")
+    assert "substituters = lib.mkForce [" in common
+
+
 def test_upgrade_health_units_extend_immutable_base():
     module = read("modules/services/upgrade-health-check.nix")
     assert "extraCriticalUnits" in module

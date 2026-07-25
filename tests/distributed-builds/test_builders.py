@@ -34,6 +34,14 @@ def test_laptop_uses_primary_and_spillover_builders():
     assert "nixos-test" not in machines[1]["supportedFeatures"]
 
 
+def test_endeavour_uses_primary_and_spillover_builders():
+    machines = nix_eval("nixosConfigurations.endeavour.config.nix.buildMachines")
+    assert [machine["hostName"] for machine in machines] == [
+        "192.168.10.220",
+        "192.168.10.230",
+    ]
+
+
 def test_kepler_never_uses_itself_as_a_remote_builder():
     machines = nix_eval("nixosConfigurations.kepler.config.nix.buildMachines")
     assert all(machine["hostName"] != "192.168.10.230" for machine in machines)

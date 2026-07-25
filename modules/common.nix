@@ -1,5 +1,5 @@
 {config, ...}: {
-  flake.modules.nixos.common = _: {
+  flake.modules.nixos.common = {lib, ...}: {
     time.timeZone = "America/Sao_Paulo";
 
     nixpkgs = {
@@ -29,7 +29,7 @@
         # Allow build machines to fetch from substituters directly
         builders-use-substitutes = true;
         connect-timeout = 5;
-        substituters = [
+        substituters = lib.mkForce [
           "https://cache.nixos.org?priority=10"
           "http://orion:5000?priority=5"
           "https://nix-community.cachix.org"
