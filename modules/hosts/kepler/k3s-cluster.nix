@@ -146,7 +146,7 @@ in {
         # (grill §3). 4G/2vcpu gives etcd+apiserver headroom. 3×4G+2×16G on 62G.
         vcpu = 2;
         mem = 4096;
-        disk = 8192;
+        disk = 32768;
       }
       else let
         i = workerIndex name;
@@ -161,7 +161,7 @@ in {
         mac = "02:00:00:00:fb:0${toString i}";
         vcpu = cfg.workerVcpu;
         mem = cfg.workerMem;
-        disk = 20480;
+        disk = 131072;
       };
 
     mkGuest = name: let
@@ -578,12 +578,19 @@ in {
           "microvm@" = {
             unitConfig.RequiresMountsFor = "/fast/microvms";
           };
+          "microvm-set-booted@" = {
+            unitConfig.RequiresMountsFor = "/fast/microvms";
+          };
           "microvm@cp-1" = {
             overrideStrategy = "asDropin";
             after = ["k3s-bootstrap-materialize.service"];
             requires = ["k3s-bootstrap-materialize.service"];
           };
         }
+        // lib.genAttrs' allNames (name:
+          lib.nameValuePair "install-microvm-${name}" {
+            unitConfig.RequiresMountsFor = "/fast/microvms";
+          })
         # Stagger cold boot to cut the simultaneous-boot vsock-notify contention:
         # cp-1 first (clusterInit), then cp-2 → cp-3 serially (clean sequential etcd
         # join), workers after cp-1 (apiserver is up so they join immediately).
