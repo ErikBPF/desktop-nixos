@@ -3219,6 +3219,39 @@ verify-k3s-observability:
     printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
     test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
 
+# Grow existing k3s root images to the sizes declared in k3s-cluster.nix.
+# Offline + grow-only: shrinking or an unexpected filesystem aborts.
+resize-kepler-k3s-disks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'sudo bash -s' <<'REMOTE'
+      set -euo pipefail
+      declare -A sizes=(
+        [cp-1]=32768 [cp-2]=32768 [cp-3]=32768
+        [w-1]=131072 [w-2]=131072
+      )
+      names=(cp-1 cp-2 cp-3 w-1 w-2)
+      systemctl stop microvms.target "${names[@]/#/microvm@}"
+      trap 'systemctl start microvms.target' EXIT
+      for name in "${names[@]}"; do
+        image="/fast/microvms/$name/root.img"
+        test -f "$image"
+        file -s "$image" | grep -q 'ext4 filesystem'
+        current=$(stat -c %s "$image")
+        wanted=$((sizes[$name] * 1024 * 1024))
+        (( current > wanted )) && {
+          echo "refusing to shrink $name: $current > $wanted" >&2
+          exit 1
+        }
+        (( current == wanted )) && continue
+        truncate -s "$wanted" "$image"
+        e2fsck -f "$image" || [ "$?" -eq 1 ]
+        resize2fs "$image"
+      done
+      trap - EXIT
+      systemctl start microvms.target
+    REMOTE
+
 # Prove every compose host exports container identity through its native
 # collector: cAdvisor on Docker, podman-exporter on rootless Podman.
 verify-container-metrics:
