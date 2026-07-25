@@ -42,7 +42,7 @@ in {
       if [ "$failures" -eq ${toString cfg.failureThreshold} ]; then
         webhook=$(cat "${webhookPath}")
         ${pkgs.curl}/bin/curl --silent --max-time 10 -X POST -H 'Content-Type: application/json' \
-          --data "{\"content\": \"vanguard dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — the home fleet may be dark.\"}" \
+          --data "{\"content\": \"${config.networking.hostName} dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — Discovery or home ingress may be down.\"}" \
           "$webhook" || true
       fi
     '';
