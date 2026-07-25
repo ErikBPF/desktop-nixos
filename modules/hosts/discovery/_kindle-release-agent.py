@@ -856,10 +856,10 @@ def verify_active_commit(runner, commit):
     if not COMMIT_RE.fullmatch(commit):
         raise ValueError("invalid active commit")
     git = ["runuser", "-u", "erik", "--", "git", "-C", str(SERVARR_REPO)]
-    expected = runner.run(git + ["rev-parse", f"{commit}:{COMPOSE_PATH}"]).strip()
-    actual = runner.run(git + ["hash-object", str(SERVARR_REPO / COMPOSE_PATH)]).strip()
+    expected = parse_pin(runner.run(git + ["show", f"{commit}:{COMPOSE_PATH}"]))
+    actual = parse_pin(runner.run(["cat", str(SERVARR_REPO / COMPOSE_PATH)]))
     if actual != expected:
-        raise ValueError("active Kindle compose mismatch for recorded commit")
+        raise ValueError("active Kindle image mismatch for recorded commit")
 
 
 def recreate_kindle(runner, uid):
