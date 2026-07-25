@@ -182,22 +182,22 @@ dry target=profile:
 # run concurrently and shared derivations are built once. Does not create links.
 build-all:
     nix build --no-link \
+        .#nixosConfigurations.archinaut.config.system.build.toplevel \
         .#nixosConfigurations.pathfinder.config.system.build.toplevel \
         .#nixosConfigurations.discovery.config.system.build.toplevel \
-        .#nixosConfigurations.endeavour.config.system.build.toplevel \
         .#nixosConfigurations.orion.config.system.build.toplevel \
         .#nixosConfigurations.kepler.config.system.build.toplevel \
+        .#nixosConfigurations.telstar.config.system.build.toplevel \
+        .#nixosConfigurations.vanguard.config.system.build.toplevel \
         .#nixosConfigurations.voyager.config.system.build.toplevel \
         --builders '{{orion_builder}} ; {{kepler_builder}}' \
-        --builders-use-substitutes --max-jobs 0 --show-trace
+        --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
+    nix build --no-link \
+        .#nixosConfigurations.endeavour.config.system.build.toplevel \
+        --builders '' --show-trace
 
 dry-all:
-    sudo nixos-rebuild dry-build --flake .#pathfinder --show-trace
-    sudo nixos-rebuild dry-build --flake .#discovery --show-trace
-    sudo nixos-rebuild dry-build --flake .#endeavour --show-trace
-    sudo nixos-rebuild dry-build --flake .#orion --show-trace
-    sudo nixos-rebuild dry-build --flake .#kepler --show-trace
-    sudo nixos-rebuild dry-build --flake .#voyager --show-trace
+    just build-all
 
 lint:
     statix check . -c .statix.toml -i '.direnv/*'

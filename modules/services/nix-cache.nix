@@ -60,18 +60,15 @@
         # remaining hosts were built). Attempt every host, fail
         # the unit at the end so the failure still surfaces.
         echo ":: Building host closures..."
-        failed=""
-        for host in orion pathfinder laptop discovery kepler; do
-          if ! nix build ".#nixosConfigurations.$host.config.system.build.toplevel" --no-link; then
-            echo ":: WARNING: $host closure failed" >&2
-            failed="$failed $host"
-          fi
-        done
-
-        if [ -n "$failed" ]; then
-          echo ":: Cache builder finished with failures:$failed" >&2
-          exit 1
-        fi
+        nix build --no-link --keep-going \
+          .#nixosConfigurations.archinaut.config.system.build.toplevel \
+          .#nixosConfigurations.discovery.config.system.build.toplevel \
+          .#nixosConfigurations.kepler.config.system.build.toplevel \
+          .#nixosConfigurations.orion.config.system.build.toplevel \
+          .#nixosConfigurations.pathfinder.config.system.build.toplevel \
+          .#nixosConfigurations.telstar.config.system.build.toplevel \
+          .#nixosConfigurations.vanguard.config.system.build.toplevel \
+          .#nixosConfigurations.voyager.config.system.build.toplevel
         echo ":: Cache builder complete"
       '';
     };

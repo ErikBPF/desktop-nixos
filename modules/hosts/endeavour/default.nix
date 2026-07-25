@@ -21,6 +21,7 @@ in {
       m.nixos.laptop-syncthing
       m.nixos.laptop-appimage
       m.nixos.endeavour-ampagent
+      m.nixos.endeavour-trend
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.kepler-nfs
@@ -59,6 +60,8 @@ in {
       };
     };
     services.btrfs.autoScrub.enable = true;
+    nix.distributedBuildsOrion.enable = true;
+    nix.distributedBuildsKepler.enable = true;
     programs.sccacheClient.enable = true;
     zramSwap = {
       enable = true;

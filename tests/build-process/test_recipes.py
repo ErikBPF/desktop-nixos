@@ -37,3 +37,9 @@ def test_builder_preflight_is_explicit_and_target_aware():
     assert 'sudo ./scripts/builder-preflight.sh "$BUILDERS"' in body
     assert "builder-preflight" not in recipe("build")
     assert "builder-preflight" not in recipe("switch")
+
+
+def test_dry_all_builds_fleet_in_one_scheduler_invocation():
+    body = recipe("dry-all")
+    assert "just build-all" in body
+    assert "nixos-rebuild" not in body
