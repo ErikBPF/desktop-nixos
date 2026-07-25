@@ -2243,7 +2243,13 @@ seed-kepler-backup-metrics:
       podman exec postgres sh -ceu \
         'pg_dumpall -U "$POSTGRES_USER" > /backup/postgres.sql.tmp && mv /backup/postgres.sql.tmp /backup/postgres.sql'
       podman exec restic sh -ceu '
-        if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+        if ! restic snapshots 2>/tmp/restic-error; then
+          grep -q "repository does not exist" /tmp/restic-error || {
+            cat /tmp/restic-error >&2
+            exit 1
+          }
+          restic init
+        fi
         restic backup /postgres/postgres.sql --tag postgres
         printf "restic_kepler_postgres_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_postgres.prom.tmp
         mv /metrics/restic_kepler_postgres.prom.tmp /metrics/restic_kepler_postgres.prom
@@ -2252,7 +2258,13 @@ seed-kepler-backup-metrics:
         mv /metrics/restic_kepler_configs.prom.tmp /metrics/restic_kepler_configs.prom
       '
       podman exec restic-offsite sh -ceu '
-        if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+        if ! restic snapshots 2>/tmp/restic-error; then
+          grep -q "repository does not exist" /tmp/restic-error || {
+            cat /tmp/restic-error >&2
+            exit 1
+          }
+          restic init
+        fi
         restic backup /config --tag configs
         printf "restic_kepler_offsite_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_offsite.prom.tmp
         mv /metrics/restic_kepler_offsite.prom.tmp /metrics/restic_kepler_offsite.prom
