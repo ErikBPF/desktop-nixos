@@ -42,6 +42,8 @@ Thumbs.db
 !.env.example
 # Local handoff for B2/Modal credentials; populate, migrate to sops, then delete.
 /provider-credentials.local.json
+# Local handoff for Discord webhook secrets; populate, distribute, then delete.
+/discord-webhooks.local.json
 # One-off plaintext credential handoff (Homelab Zen key) — never commit; delete after wiring.
 zen.md
 node_modules/
