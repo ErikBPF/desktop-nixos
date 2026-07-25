@@ -26,9 +26,10 @@ def test_disk_resize_is_grow_only_and_offline():
     assert "e2fsprogs" in hardware
     assert "systemctl stop microvms.target" in recipe
     assert "truncate -s" in recipe
-    assert "e2fsck -f" in recipe
+    assert "e2fsck -fp" in recipe
     assert "resize2fs" in recipe
     assert "current > wanted" in recipe
+    assert "current == wanted" not in recipe
 
 
 def test_migration_is_copy_verify_switch_finalize():
