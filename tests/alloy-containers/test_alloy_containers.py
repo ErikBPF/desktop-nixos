@@ -13,9 +13,11 @@ def test_container_metrics_cover_rootless_podman_and_docker():
 
     assert "DynamicUser = lib.mkForce false" in module
     assert 'User = "root"' in module
+    assert "containerd_host" in module
     assert 'target_label = "host"' in module
     assert "m.nixos.alloy-containers" in discovery
     assert 'containerSocket = "unix:///run/docker.sock"' in discovery
+    assert 'containerdSocket = "/run/docker/containerd/containerd.sock"' in discovery
 
 
 def test_container_name_labels_have_a_live_verification_recipe():
