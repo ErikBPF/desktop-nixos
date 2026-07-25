@@ -21,6 +21,7 @@ in {
       m.nixos.containers
       m.nixos.voyager-compose
       m.nixos.node-exporter
+      m.nixos.vector-logs
       m.nixos.first-boot
       # NetBird native relay (WP3, docs/proposals/2026-07-10-
       # netbird-selfhosted-overlay.md §4a/§6b). Registers services.netbirdRelay
