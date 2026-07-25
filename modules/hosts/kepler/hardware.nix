@@ -145,6 +145,7 @@ _: {
     };
 
     environment.systemPackages = with pkgs; [
+      e2fsprogs
       nvtopPackages.nvidia
       zfs
     ];
