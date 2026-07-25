@@ -18,6 +18,12 @@ _: {
       '';
     };
 
+    options.homelab.alloy.containerdSocket = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Containerd endpoint used by Docker's overlayfs storage driver.";
+    };
+
     config = lib.mkIf (cfg.containerSocket != null) {
       # cAdvisor inspects runtime sockets, cgroups, and container storage metadata.
       # A DynamicUser can reach the socket but cannot read rootless Podman storage.
@@ -39,6 +45,7 @@ _: {
         // modules/services/alloy-containers.nix). Replaces a cAdvisor sidecar.
         prometheus.exporter.cadvisor "containers" {
           docker_host            = "${cfg.containerSocket}"
+          ${lib.optionalString (cfg.containerdSocket != null) ''containerd_host        = "${cfg.containerdSocket}"''}
           store_container_labels = true
         }
 
