@@ -16,7 +16,7 @@ without relearning anything.
 
 | Shortcut | Opens |
 |----------|-------|
-| `SUPER + E` | **Nautilus** — a fresh GUI window |
+| `SUPER + E` | **Nautilus** — opens or focuses the existing window |
 | double-click a folder | yazi (via mime handler) |
 | `SUPER + SHIFT + E` | **yazi** (in ghostty), resuming its last folder |
 | `SUPER + /` | **Cheatsheet popup** (rofi) — the same table as below |
