@@ -148,19 +148,20 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("lib.optionals (vaultBasenames != [])", source)
 
     def test_vault_dotenv_renders_publish_a_freshness_witness(self):
-        source = VAULT.read_text()
+        source = VAULT_AGENT.read_text()
         self.assertIn('static_secret_render_interval = "5m"', source)
         self.assertIn("renderedAt = ''# rendered_at={{ timestamp }}\\n'';", source)
-        dotenv_templates = [
-            block
-            for block in source.split("template {")[1:]
-            if 'destination = "/run/vault-agent/' in block
-            and '.env"' in block.split("template {", 1)[0]
-        ]
-        self.assertGreaterEqual(len(dotenv_templates), 12)
-        for block in dotenv_templates:
-            template = block.split("template {", 1)[0]
-            self.assertIn('contents = "${renderedAt}', template)
+        for basename in (
+            "ai-serving", "ha-harness", "infra", "kindle-dash", "media",
+            "media-server", "monitoring", "networking", "shared-arr",
+            "shared-db", "shared-grafana", "tools", "tunneling",
+        ):
+            block = next(
+                block
+                for block in source.split("template {")[1:]
+                if f'destination = "/run/vault-agent/{basename}.env"' in block
+            )
+            self.assertIn('contents = "${renderedAt}', block)
 
     def test_media_server_uses_exact_profile_boundary(self):
         source = COMPOSE.read_text()
