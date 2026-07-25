@@ -64,10 +64,8 @@ in {
     # throughput once training runs are done.
     orionGpu.profile = "training";
 
-    # Per-container metrics via the cAdvisor exporter in the host Alloy. Rootless
-    # Podman socket (orchestration default, matches orion-compose). Feeds the
-    # fleet container-down / crash-loop alerts on discovery.
-    homelab.alloy.containerSocket = "unix:///run/user/1000/podman/podman.sock";
+    # Per-container metrics from the loopback prometheus-podman-exporter stack.
+    homelab.alloy.podmanExporter = true;
 
     # Rollback guard: orion is the fleet binary cache + build offload target.
     modules.upgradeHealthCheck.extraCriticalUnits = [

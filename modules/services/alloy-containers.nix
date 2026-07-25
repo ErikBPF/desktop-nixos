@@ -24,45 +24,57 @@ _: {
       description = "Containerd endpoint used by Docker's overlayfs storage driver.";
     };
 
-    config = lib.mkIf (cfg.containerSocket != null) {
-      # cAdvisor inspects runtime sockets, cgroups, and container storage metadata.
-      # A DynamicUser can reach the socket but cannot read rootless Podman storage.
-      systemd.services.alloy.serviceConfig = {
-        DynamicUser = lib.mkForce false;
-        User = "root";
-        Group = "root";
-      };
-
-      # Second Alloy config file in the same /etc/alloy dir. The upstream module
-      # loads every *.alloy file in configPath (default /etc/alloy) and merges
-      # them into one config graph, so this references the base config's
-      # prometheus.remote_write.prometheus receiver directly. It also lands in
-      # the service's reloadTriggers, so a switch reloads (no restart) on change.
-      # Component names (cadvisor "containers", scrape "container_metrics") must
-      # not collide with the base config — they don't.
-      environment.etc."alloy/containers.alloy".text = ''
-        // Container metrics via cAdvisor exporter (host add-on; see
-        // modules/services/alloy-containers.nix). Replaces a cAdvisor sidecar.
-        prometheus.exporter.cadvisor "containers" {
-          docker_host            = "${cfg.containerSocket}"
-          ${lib.optionalString (cfg.containerdSocket != null) ''containerd_host        = "${cfg.containerdSocket}"''}
-          store_container_labels = true
-        }
-
-        prometheus.scrape "container_metrics" {
-          targets         = prometheus.exporter.cadvisor.containers.targets
-          forward_to      = [prometheus.relabel.container_host.receiver]
-          scrape_interval = "30s"
-        }
-
-        prometheus.relabel "container_host" {
-          rule {
-            target_label = "host"
-            replacement  = "${config.networking.hostName}"
-          }
-          forward_to = [prometheus.remote_write.prometheus.receiver]
-        }
-      '';
+    options.homelab.alloy.podmanExporter = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Scrape prometheus-podman-exporter on loopback.";
     };
+
+    config = lib.mkMerge [
+      (lib.mkIf (cfg.containerSocket != null) {
+        # cAdvisor inspects runtime sockets, cgroups, and container storage metadata.
+        systemd.services.alloy.serviceConfig = {
+          DynamicUser = lib.mkForce false;
+          User = "root";
+          Group = "root";
+        };
+
+        environment.etc."alloy/containers.alloy".text = ''
+          prometheus.exporter.cadvisor "containers" {
+            docker_host            = "${cfg.containerSocket}"
+            ${lib.optionalString (cfg.containerdSocket != null) ''containerd_host        = "${cfg.containerdSocket}"''}
+            store_container_labels = true
+          }
+
+          prometheus.scrape "container_metrics" {
+            targets         = prometheus.exporter.cadvisor.containers.targets
+            forward_to      = [prometheus.relabel.container_host.receiver]
+            scrape_interval = "30s"
+          }
+
+          prometheus.relabel "container_host" {
+            rule {
+              target_label = "host"
+              replacement  = "${config.networking.hostName}"
+            }
+            forward_to = [prometheus.remote_write.prometheus.receiver]
+          }
+        '';
+      })
+
+      (lib.mkIf cfg.podmanExporter {
+        environment.etc."alloy/podman.alloy".text = ''
+          prometheus.scrape "podman" {
+            targets = [{
+              "__address__" = "127.0.0.1:9882",
+              "job"         = "podman",
+              "host"        = "${config.networking.hostName}",
+            }]
+            forward_to      = [prometheus.remote_write.prometheus.receiver]
+            scrape_interval = "30s"
+          }
+        '';
+      })
+    ];
   };
 }

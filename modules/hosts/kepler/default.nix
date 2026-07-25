@@ -35,10 +35,8 @@ in {
       m.nixos.fleet-dns
     ];
 
-    # Per-container metrics via the cAdvisor exporter in the host Alloy. Rootless
-    # Podman socket (matches kepler-compose's dockerSocket). Feeds the fleet
-    # container-down / crash-loop alerts on discovery.
-    homelab.alloy.containerSocket = "unix:///run/user/1000/podman/podman.sock";
+    # Per-container metrics from the loopback prometheus-podman-exporter stack.
+    homelab.alloy.podmanExporter = true;
 
     # Off-site target for discovery's tofu-state restic backup (dedicated,
     # sftp-only user; repo on the bulk pool). Pairs with discovery's
