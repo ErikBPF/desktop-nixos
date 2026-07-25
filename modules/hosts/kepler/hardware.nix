@@ -101,6 +101,9 @@ _: {
       fsType = "zfs";
       options = ["zfsutil" "X-mount.mkdir" "nofail"];
     };
+    # These datasets are mounted above; `zfs mount -a` races their generated
+    # mount units and leaves zfs-mount.service failed despite healthy mounts.
+    systemd.services.zfs-mount.enable = false;
 
     # --- RTX 3070 LHR (GA104): headless CUDA, no display ---
     services.xserver.videoDrivers = ["nvidia"];
