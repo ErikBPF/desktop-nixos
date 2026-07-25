@@ -35,3 +35,19 @@ def test_trend_waits_for_runtime_libraries_before_starting():
     trend = read("modules/services/trend-agent.nix")
 
     assert 'PathExists = "/opt/ds_agent/lib/dsa_core.so";' in trend
+
+
+def test_trend_installer_can_start_basecamp():
+    trend = read("modules/services/trend-agent.nix")
+
+    assert '[[ "$1" == start' not in trend
+    assert trend.count('Environment = "LD_LIBRARY_PATH=${agentLibraryPath}";') == 3
+
+
+def test_trend_installer_retries_until_fully_complete():
+    trend = read("modules/services/trend-agent.nix")
+
+    assert "touch /var/lib/trend-install-complete" in trend
+    assert 'ConditionPathExists = "!/var/lib/trend-install-complete";' in trend
+    assert "dsa_query -c GetAgentStatus" in trend
+    assert "AgentStatus.agentState: green" in trend

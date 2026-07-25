@@ -28,8 +28,7 @@
     '';
 
     systemctl = pkgs.writeShellScriptBin "systemctl" ''
-      if [[ "$1" == enable && "$*" =~ (tmxbc|ds_agent) ]] ||
-        [[ "$1" == start && "$*" == *tmxbc* ]]; then
+      if [[ "$1" == enable && "$*" =~ (tmxbc|ds_agent) ]]; then
         exit 0
       fi
       exec ${pkgs.systemd}/bin/systemctl "$@"
@@ -68,11 +67,21 @@
     installTrend = pkgs.writeShellScript "install-trend" ''
       set -euo pipefail
       installer=/run/trend-installer.sh
-      trap 'rm -f "$installer"' EXIT
+      log=/run/trend-installer.log
+      trap 'rm -f "$installer" "$log"' EXIT
       tr -d '\r' < ${config.sops.secrets.trend-installer.path} |
         sed 's#/usr/bin/id#id#' > "$installer"
       chmod 0700 "$installer"
-      bash "$installer"
+      set +e
+      bash "$installer" 2>&1 | tee "$log"
+      status=''${PIPESTATUS[0]}
+      set -e
+      if ((status != 0)) &&
+        ! /opt/ds_agent/dsa_query -c GetAgentStatus |
+          grep -q "AgentStatus.agentState: green"; then
+        exit "$status"
+      fi
+      touch /var/lib/trend-install-complete
     '';
   in {
     sops.secrets.trend-installer = {
@@ -160,10 +169,11 @@
         systemctl
         gnutar
       ];
-      unitConfig.ConditionPathExists = "!/opt/TrendMicro/EndpointBasecamp/etc/.identity";
+      unitConfig.ConditionPathExists = "!/var/lib/trend-install-complete";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = installTrend;
+        Environment = "LD_LIBRARY_PATH=${agentLibraryPath}";
         BindReadOnlyPaths = "${ubuntuOsRelease}:/etc/os-release";
         TimeoutStartSec = "25min";
         RemainAfterExit = true;
