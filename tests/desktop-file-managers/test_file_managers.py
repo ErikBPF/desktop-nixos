@@ -13,7 +13,7 @@ def test_desktop_shortcuts_and_environment():
     hyprland = HYPRLAND.read_text()
 
     assert '"XDG_DATA_DIRS"' not in hyprland
-    assert 'fileManager = {_var = "nautilus --new-window";};' in hyprland
+    assert 'fileManager = {_var = "nautilus";};' in hyprland
     assert (
         'fileManagerTui = {_var = "ghostty +new-window -e yazi-resume";};'
         in hyprland

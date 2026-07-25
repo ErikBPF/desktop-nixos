@@ -84,7 +84,7 @@
 
         settings = {
           terminal = {_var = "ghostty +new-window";};
-          fileManager = {_var = "nautilus --new-window";};
+          fileManager = {_var = "nautilus";};
           fileManagerTui = {_var = "ghostty +new-window -e yazi-resume";};
           browser = {_var = "brave";};
           teamsApp = {_var = "brave --user-data-dir=$HOME/.local/share/brave-webapps/teams --no-first-run --no-default-browser-check --app=https://teams.microsoft.com/v2/";};
