@@ -47,6 +47,8 @@ def test_openbao_d4_backup_refreshes_every_existing_tier():
         assert unit in recipe
     assert "openbao-restore-drill.service" in recipe
     assert "sha256sum /var/lib/vault-snapshots/openbao.snap" in recipe
+    assert "journalctl -u" in recipe
+    assert "snapshot=" in recipe
     assert recipe.index(units[0]) < recipe.index(units[1]) < recipe.index(units[2])
 
 

@@ -3013,9 +3013,13 @@ backup-discovery-openbao-d4:
       )
       for unit in "${units[@]}"; do
         sudo systemctl start "$unit"
-        sudo systemctl show "$unit" \
-          --property=Id,ExecMainStatus,ActiveEnterTimestamp --value |
-          paste -sd ' ' -
+        snapshot=$(sudo journalctl -u "$unit" -n 200 --no-pager -o cat |
+          sed -n \
+            -e 's/.*snapshot \([0-9a-f]\{8,\}\) saved.*/\1/p' \
+            -e 's/.*"snapshot_id":"\([0-9a-f]\{8,\}\)".*/\1/p' |
+          tail -1)
+        test -n "$snapshot"
+        printf 'unit=%s snapshot=%s\n' "$unit" "$snapshot"
       done
       sudo sha256sum /var/lib/vault-snapshots/openbao.snap
       sudo systemctl start openbao-restore-drill.service
