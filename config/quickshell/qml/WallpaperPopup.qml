@@ -62,7 +62,7 @@ Item {
 
                 MouseArea {
                     id: wpMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                    onClicked: Quickshell.execDetached(["swww", "img", modelData, "--transition-type", "fade", "--transition-duration", "1"])
+                    onClicked: Quickshell.execDetached(["awww", "img", modelData, "--transition-type", "fade", "--transition-duration", "1"])
                 }
             }
         }

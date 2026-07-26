@@ -24,6 +24,7 @@ in {
     services = {
       xserver.enable = true;
       displayManager = {
+        defaultSession = "hyprland-uwsm";
         sddm = {
           wayland.enable = true;
           enable = true;
@@ -33,7 +34,7 @@ in {
           extraPackages = [sddm-astronaut-with-wallpaper];
         };
         autoLogin = {
-          enable = false;
+          enable = true;
           user = "erik";
         };
       };

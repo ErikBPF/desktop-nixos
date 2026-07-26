@@ -316,7 +316,6 @@
                 "hyprland.start"
                 (mkLuaInline ''
                   function()
-                    hl.exec_cmd("systemctl --user restart quickshell")
                     hl.exec_cmd("hyprsunset")
                     hl.exec_cmd("systemctl --user start hyprpolkitagent")
                     hl.exec_cmd("systemctl --user start xdg-desktop-portal-gtk")
@@ -330,13 +329,13 @@
                     -- ghostty instance instead of forking a fresh cold GTK4/GPU
                     -- process each time (~1.8s). Plain `ghostty -e cmd` does NOT
                     -- honour gtk-single-instance; the action does. Same for yazi.
-                    hl.exec_cmd("ghostty +new-window -e btop",            { workspace = 11 })
-                    hl.exec_cmd("sleep 3; obsidian",          { workspace = 11 })
-                    hl.exec_cmd("sleep 3; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
-                    hl.exec_cmd(teamsApp, { workspace = 10 })
-                    hl.exec_cmd("sleep 3; discord", { workspace = 10 })
-                    hl.exec_cmd("sleep 3; " .. whatsappApp, { workspace = 10 })
-                    hl.exec_cmd("sleep 3; " .. browser .. " --restore-last-session", { workspace = 1 })
+                    hl.exec_cmd(browser .. " --restore-last-session", { workspace = 1 })
+                    hl.exec_cmd("sleep 2; " .. teamsApp, { workspace = 10 })
+                    hl.exec_cmd("sleep 2; discord", { workspace = 10 })
+                    hl.exec_cmd("sleep 2; " .. whatsappApp, { workspace = 10 })
+                    hl.exec_cmd("sleep 4; ghostty +new-window -e btop", { workspace = 11 })
+                    hl.exec_cmd("sleep 4; obsidian", { workspace = 11 })
+                    hl.exec_cmd("sleep 6; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
                   end
                 '')
               ];
