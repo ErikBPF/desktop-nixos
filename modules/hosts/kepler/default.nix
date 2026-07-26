@@ -30,6 +30,7 @@ in {
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.alloy-containers
+      m.nixos.dead-mans-switch
       m.nixos.power-desktop
       m.nixos.restic-offsite-target
       m.nixos.fleet-dns
@@ -37,6 +38,15 @@ in {
 
     # Per-container metrics from the loopback prometheus-podman-exporter stack.
     homelab.alloy.podmanExporter = true;
+
+    # Discovery hosts Grafana and the primary alert path. Probe a public
+    # Discovery endpoint from Kepler and post through the independent
+    # SOPS-managed webhook after 15 minutes of silence.
+    services.deadMansSwitch = {
+      enable = true;
+      checkUrl = "https://id.${config.flake.fleet.ingress.homelab.zone}";
+      failureThreshold = 3;
+    };
 
     # Off-site target for discovery's tofu-state restic backup (dedicated,
     # sftp-only user; repo on the bulk pool). Pairs with discovery's

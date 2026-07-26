@@ -13,8 +13,8 @@ _: {
         # the legacy TrueNAS deployment.
         "infra"
         "monitoring"
+        "sync"
         "whisper-gpu"
-        "docs-search"
         "qwen4b-gpu"
       ];
     };

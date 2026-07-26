@@ -21,6 +21,7 @@ in {
       m.nixos.vanguard-networking
       m.nixos.containers
       m.nixos.node-exporter
+      m.nixos.vector-logs
       m.nixos.first-boot
       # Role modules (docs/proposals/2026-07-10-vanguard-second-oracle-node.md).
       # ALL opt-in/disabled by default — importing only registers the options,

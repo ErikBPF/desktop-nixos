@@ -18,8 +18,10 @@ _: {
     # success (e.g. `<job>_last_success_seconds <epoch>`), the unix exporter
     # surfaces it, and Grafana alerts on staleness — a declarative dead-man's
     # switch in the metrics pipeline (replaces self-hosted Healthchecks for
-    # host-systemd jobs). 0755 so the alloy user can read what root-run jobs write.
-    systemd.tmpfiles.rules = ["d /var/lib/node-exporter-textfile 0755 root root - -"];
+    # host-systemd jobs). Rootless compose runs as the fleet user; ownership
+    # lets rootless compose (fleet user `erik`) atomically publish gauges while
+    # Alloy retains read access.
+    systemd.tmpfiles.rules = ["d /var/lib/node-exporter-textfile 0755 erik users - -"];
 
     environment.etc."alloy/config.alloy".text = ''
       // Grafana Alloy configuration — fleet-wide NixOS module
@@ -89,6 +91,7 @@ _: {
       prometheus.scrape "alloy_self" {
         targets = [{
           __address__ = "127.0.0.1:12345",
+          instance    = "${config.networking.hostName}",
         }]
         metrics_path    = "/metrics"
         forward_to      = [prometheus.remote_write.prometheus.receiver]

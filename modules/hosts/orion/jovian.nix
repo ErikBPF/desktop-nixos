@@ -11,6 +11,10 @@
     jovian.steam.desktopSession = "hyprland";
     jovian.hardware.has.amd.gpu = true;
 
+    # Jovian's bundled SteamOS cmdline disables kernel auditing. Keep its
+    # desktop-GPU tuning explicitly so auditd can collect security evidence.
+    jovian.steamos.enableDefaultCmdlineConfig = false;
+
     # --- AMD GPU environment ---
     environment.variables.AMD_VULKAN_ICD = "RADV";
 
@@ -160,7 +164,14 @@
     };
 
     # --- Silent boot ---
+    # ponytail: first six mirror Jovian boot.nix; remove when upstream exposes an audit toggle.
     boot.kernelParams = lib.mkAfter [
+      "log_buf_len=4M"
+      "amd_iommu=off"
+      "amdgpu.lockup_timeout=5000,10000,10000,5000"
+      "ttm.pages_min=2097152"
+      "amdgpu.sched_hw_submission=4"
+      "amdgpu.dcdebugmask=0x20000"
       "quiet"
       "splash"
       "rd.systemd.show_status=false"

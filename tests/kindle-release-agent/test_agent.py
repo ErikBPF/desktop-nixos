@@ -98,21 +98,27 @@ class PinContract(unittest.TestCase):
                 f"    image: {self.pin}\n",
             )
 
-    def test_active_revision_allows_unrelated_repository_advances(self):
+    def test_active_revision_allows_unrelated_compose_changes(self):
         runner = mock.Mock()
-        runner.run.side_effect = ["expected-blob\n", "expected-blob\n"]
+        expected = f"services:\n  kindle:\n    image: {self.pin}\n"
+        actual = f"services:\n  kindle:\n    image: {self.pin}\n    logging:\n      driver: journald\n"
+        runner.run.side_effect = [expected, actual]
         commit = "b" * 40
         self.agent.verify_active_commit(runner, commit)
         commands = runner.run.call_args_list
         self.assertEqual(len(commands), 2)
         self.assertIn(f"{commit}:{self.agent.COMPOSE_PATH}", commands[0].args[0])
-        self.assertIn("hash-object", commands[1].args[0])
+        self.assertIn("show", commands[0].args[0])
+        self.assertIn("cat", commands[1].args[0])
         self.assertNotIn("HEAD", commands[0].args[0] + commands[1].args[0])
 
-    def test_active_revision_rejects_compose_drift(self):
+    def test_active_revision_rejects_image_drift(self):
         runner = mock.Mock()
-        runner.run.side_effect = ["expected-blob\n", "different-blob\n"]
-        with self.assertRaisesRegex(ValueError, "active Kindle compose mismatch"):
+        runner.run.side_effect = [
+            f"image: {self.pin}\n",
+            f"image: {self.agent.HARBOR_IMAGE}:v9.9.9@sha256:{'b' * 64}\n",
+        ]
+        with self.assertRaisesRegex(ValueError, "active Kindle image mismatch"):
             self.agent.verify_active_commit(runner, "b" * 40)
 
 
@@ -1062,8 +1068,9 @@ class ObservationContract(unittest.TestCase):
                 self.target + "\n",
                 "",
                 self.target + "\n",
-                self.agent.COMPOSE_PATH + "\n",
+                self.compose.replace("v1.2.3", "v1.2.2"),
                 self.compose,
+                self.agent.COMPOSE_PATH + "\n",
             ]
         )
         candidate = self.agent.observe_candidate(runner, self.previous)
@@ -1104,16 +1111,21 @@ class ObservationContract(unittest.TestCase):
                 ],
                 [
                     *git,
-                    "diff-tree",
-                    "--no-commit-id",
-                    "--name-only",
-                    "-r",
-                    self.target,
+                    "show",
+                    f"{self.previous}:{self.agent.COMPOSE_PATH}",
                 ],
                 [
                     *git,
                     "show",
                     f"{self.target}:{self.agent.COMPOSE_PATH}",
+                ],
+                [
+                    *git,
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "-r",
+                    self.target,
                 ],
             ],
         )
@@ -1126,8 +1138,9 @@ class ObservationContract(unittest.TestCase):
                 self.target,
                 "",
                 self.target,
-                self.agent.COMPOSE_PATH + "\nother.yml\n",
+                self.compose.replace("v1.2.3", "v1.2.2"),
                 self.compose,
+                self.agent.COMPOSE_PATH + "\nother.yml\n",
             ]
         )
         with self.assertRaises(ValueError):
@@ -1135,6 +1148,13 @@ class ObservationContract(unittest.TestCase):
 
     def test_observation_ignores_advances_without_compose_change(self):
         runner = self.Runner(["", self.target, "", ""])
+        self.assertIsNone(self.agent.observe_candidate(runner, self.previous))
+
+    def test_observation_ignores_non_release_compose_change(self):
+        runner = self.Runner(
+            ["", self.target, "", self.target, self.compose, self.compose]
+        )
+
         self.assertIsNone(self.agent.observe_candidate(runner, self.previous))
 
     def test_observation_returns_none_when_main_has_not_advanced(self):
@@ -1689,8 +1709,8 @@ class BootstrapContract(unittest.TestCase):
             "",
             self.digest + "\n",
             self.digest + "\n",
-            "compose-blob\n",
-            "compose-blob\n",
+            self.compose,
+            self.compose,
             json.dumps([self.container]),
             json.dumps([self.image]),
         ]

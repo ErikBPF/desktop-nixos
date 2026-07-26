@@ -98,7 +98,6 @@ in {
       kdePackages.polkit-kde-agent-1
       qt6.qtbase
       qt6.qtwayland
-      papirus-icon-theme
       bibata-cursors
       vimix-cursors
       vimix-icon-theme

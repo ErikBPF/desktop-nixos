@@ -2231,6 +2231,48 @@ backup-servarr-db target:
       printf ":: verified LiteLLM DB backup: %s/litellm.sql.gz\n" "$latest"
     '
 
+# Seed Kepler's compose-restic repositories and textfile gauges with real
+# successful backups. Safe to rerun: restic deduplicates, gauges update only
+# after each backup succeeds, and no credential values leave the containers.
+seed-kepler-backup-metrics:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      podman exec postgres sh -ceu \
+        'pg_dumpall -U "$POSTGRES_USER" > /backup/postgres.sql.tmp && mv /backup/postgres.sql.tmp /backup/postgres.sql'
+      podman exec restic sh -ceu '
+        if ! restic snapshots 2>/tmp/restic-error; then
+          grep -q "repository does not exist" /tmp/restic-error || {
+            cat /tmp/restic-error >&2
+            exit 1
+          }
+          restic init
+        fi
+        restic backup /postgres/postgres.sql --tag postgres
+        printf "restic_kepler_postgres_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_postgres.prom.tmp
+        mv /metrics/restic_kepler_postgres.prom.tmp /metrics/restic_kepler_postgres.prom
+        restic backup /config --tag configs
+        printf "restic_kepler_configs_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_configs.prom.tmp
+        mv /metrics/restic_kepler_configs.prom.tmp /metrics/restic_kepler_configs.prom
+      '
+      podman exec restic-offsite sh -ceu '
+        if ! restic snapshots 2>/tmp/restic-error; then
+          grep -q "repository does not exist" /tmp/restic-error || {
+            cat /tmp/restic-error >&2
+            exit 1
+          }
+          restic init
+        fi
+        restic backup /config --tag configs
+        printf "restic_kepler_offsite_last_success_seconds %s\n" "$(date +%s)" > /metrics/restic_kepler_offsite.prom.tmp
+        mv /metrics/restic_kepler_offsite.prom.tmp /metrics/restic_kepler_offsite.prom
+      '
+      test "$(find /var/lib/node-exporter-textfile -maxdepth 1 -name 'restic_kepler_*.prom' -type f | wc -l)" -eq 3
+      echo ":: Kepler backup seeds and three success gauges verified"
+    REMOTE
+
 # Read-only post-deploy proof for the Nix-owned Hermes service. Prints only a
 # credential fingerprint, never the credential itself.
 verify-hermes-cutoff target="discovery":
@@ -3177,12 +3219,47 @@ verify-k3s-observability:
     printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
     test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
 
-# Prove every compose host exports cAdvisor series with container names.
+# Grow existing k3s root images to the sizes declared in k3s-cluster.nix.
+# Offline + grow-only: shrinking or an unexpected filesystem aborts.
+resize-kepler-k3s-disks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'sudo bash -s' <<'REMOTE'
+      set -euo pipefail
+      declare -A sizes=(
+        [cp-1]=32768 [cp-2]=32768 [cp-3]=32768
+        [w-1]=131072 [w-2]=131072
+      )
+      names=(cp-1 cp-2 cp-3 w-1 w-2)
+      systemctl stop microvms.target "${names[@]/#/microvm@}"
+      trap 'systemctl start microvms.target' EXIT
+      for name in "${names[@]}"; do
+        image="/fast/microvms/$name/root.img"
+        test -f "$image"
+        file -s "$image" | grep -q 'ext4 filesystem'
+        current=$(stat -c %s "$image")
+        wanted=$((sizes[$name] * 1024 * 1024))
+        (( current > wanted )) && {
+          echo "refusing to shrink $name: $current > $wanted" >&2
+          exit 1
+        }
+        if (( current < wanted )); then
+          truncate -s "$wanted" "$image"
+        fi
+        e2fsck -fp "$image" || [ "$?" -eq 1 ]
+        resize2fs "$image"
+      done
+      trap - EXIT
+      systemctl start microvms.target
+    REMOTE
+
+# Prove every compose host exports container identity through its native
+# collector: cAdvisor on Docker, podman-exporter on rootless Podman.
 verify-container-metrics:
     #!/usr/bin/env bash
     set -euo pipefail
     response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
-      --data-urlencode 'query=container_last_seen{name!=""}')
+      --data-urlencode 'query=container_last_seen{name!=""} or podman_container_info{name!=""}')
     for host in discovery kepler orion; do
       count=$(printf '%s\n' "$response" | jq --arg host "$host" '[.data.result[]? | select(.metric.host == $host)] | length')
       printf '%s named_containers=%s\n' "$host" "$count"
@@ -4719,16 +4796,21 @@ discovery-esp-live-preflight:
     ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
       set -euo pipefail
       primary=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105)
+      primary_boot=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105-part1)
+      primary_root=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105-part2)
       mirror=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098)
+      mirror_part=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098-part1)
       vault=$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M)
-      test "$primary" = /dev/sda
-      test "$mirror" = /dev/sdc
-      test "$vault" = /dev/sdb
-      test "$(findmnt -nro SOURCE /boot)" = /dev/sda1
-      test "$(findmnt -nro SOURCE /)" = "/dev/sda2[/root]"
+      vault_part=$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M-part1)
+      test "$primary" != "$mirror"
+      test "$primary" != "$vault"
+      test "$mirror" != "$vault"
+      test "$(findmnt -nro SOURCE /boot)" = "$primary_boot"
+      test "$(findmnt -nro SOURCE / | sed 's/\[.*//')" = "$primary_root"
+      test "$(findmnt -nro SOURCE /home/erik/vault)" = "$vault_part"
       test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
       test "$(sudo docker info --format '{{"{{"}}.DockerRootDir{{"}}"}}')" = /var/lib/docker
-      test "$(findmnt -nro SOURCE -T /var/lib/docker)" = "/dev/sda2[/root]"
+      test "$(findmnt -nro SOURCE -T /var/lib/docker | sed 's/\[.*//')" = "$primary_root"
       sudo btrfs filesystem usage -b / | grep -Eq '^Data,RAID1:'
       sudo btrfs filesystem usage -b / | grep -Eq '^Metadata,RAID1:'
       printf "primary=%s mirror=%s vault=%s\n" "$primary" "$mirror" "$vault"
@@ -4830,6 +4912,243 @@ discovery-docker-scratch-restore:
       sudo du -xsb "$scratch"
     REMOTE
     echo ":: PASS: Discovery Docker mirror restored exactly to Orion scratch"
+
+# Refresh a previously proven scratch tree. Unpublish it while rsync applies the
+# delta, then republish only after the second dry-run reports zero changes.
+discovery-docker-scratch-refresh:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 \
+      | grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      scratch=/projects/recovery/discovery-esp/docker-root
+      pending=$scratch.pending
+      known_hosts=$(mktemp)
+      trap 'rm -f "$known_hosts"' EXIT
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      if sudo test -e "$scratch"; then
+        sudo test ! -e "$pending"
+        sudo mv "$scratch" "$pending"
+      else
+        sudo test -d "$pending"
+      fi
+      available=$(findmnt -bnro AVAIL -T /projects)
+      test "$available" -ge 21474836480 || {
+        printf ':: BLOCKED: /projects free=%s minimum=21474836480\n' "$available" >&2
+        exit 1
+      }
+      sudo rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' \
+        -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/migration/discovery-docker-root/ "$pending/"
+      drift=$(sudo rsync -aHAXxni --numeric-ids --delete \
+        --rsync-path='sudo rsync' \
+        -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/migration/discovery-docker-root/ "$pending/")
+      test -z "$drift" || { printf '%s\n' "$drift" >&2; exit 1; }
+      sudo mv "$pending" "$scratch"
+      sudo du -xsb "$scratch"
+    REMOTE
+    echo ":: PASS: Orion scratch refreshed exactly from current Discovery mirror"
+
+# Preserve container metadata, then make only the disposable scratch tree safe
+# to open: no restart policies and no container marked running.
+discovery-docker-scratch-quiesce:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      data=/projects/recovery/discovery-esp/docker-root
+      archive_dir=/projects/recovery/discovery-esp/metadata-backups
+      archive=$archive_dir/docker-container-metadata-$(date -u +%Y%m%dT%H%M%SZ).tar
+      sudo test -d "$data/containers"
+      sudo install -d -m 0700 -o root -g root "$archive_dir"
+      sudo env DATA="$data" ARCHIVE="$archive" bash -s <<'ROOT'
+        set -euo pipefail
+        cd "$DATA"
+        mapfile -d '' configs < <(find containers -mindepth 2 -maxdepth 2 -name config.v2.json -print0 | sort -z)
+        mapfile -d '' hosts < <(find containers -mindepth 2 -maxdepth 2 -name hostconfig.json -print0 | sort -z)
+        config_count=${#configs[@]}
+        host_count=${#hosts[@]}
+        test "$config_count" -gt 0
+        test "$config_count" = "$host_count"
+        tar -cf "$ARCHIVE" "${configs[@]}" "${hosts[@]}"
+        for file in "${hosts[@]}"; do
+          tmp=$(mktemp --tmpdir="$(dirname "$file")" .hostconfig.XXXXXX)
+          jq '.RestartPolicy = {"Name":"no","MaximumRetryCount":0}' "$file" >"$tmp"
+          chown --reference="$file" "$tmp"
+          chmod --reference="$file" "$tmp"
+          mv "$tmp" "$file"
+        done
+        for file in "${configs[@]}"; do
+          tmp=$(mktemp --tmpdir="$(dirname "$file")" .config.XXXXXX)
+          jq '.State.Running = false
+            | .State.Paused = false
+            | .State.Restarting = false
+            | .State.Pid = 0
+            | .HasBeenManuallyStopped = true' "$file" >"$tmp"
+          chown --reference="$file" "$tmp"
+          chmod --reference="$file" "$tmp"
+          mv "$tmp" "$file"
+        done
+        printf 'configs=%s hosts=%s\n' "$config_count" "$host_count"
+        sha256sum "$ARCHIVE"
+    ROOT
+    REMOTE
+    echo ":: PASS: scratch container metadata archived and restart-disabled"
+
+# Open the restored tree with a short-lived Docker daemon inside a networkless
+# systemd namespace. Never expose its socket or start containers manually.
+discovery-docker-scratch-verify:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-docker-scratch-quiesce
+    dockerd=$(nix eval --raw \
+      .#nixosConfigurations.orion.config.virtualisation.docker.package.outPath)/bin/dockerd
+    ssh -p 2222 erik@{{ip_orion}} "DOCKERD=$dockerd bash -s" <<'REMOTE'
+      set -euo pipefail
+      unit=discovery-docker-scratch.service
+      data=/projects/recovery/discovery-esp/docker-root
+      runtime=/run/discovery-docker-scratch
+      socket=$runtime/docker.sock
+      sudo test -d "$data"
+      sudo systemctl stop "$unit" >/dev/null 2>&1 || true
+      sudo install -d -m 0700 -o root -g root "$runtime"
+      trap 'sudo systemctl stop "$unit" >/dev/null 2>&1 || true' EXIT
+      sudo systemd-run --unit="${unit%.service}" --collect --service-type=exec \
+        --property=PrivateNetwork=yes \
+        --property=IPAddressDeny=any \
+        "$DOCKERD" \
+        --data-root="$data" \
+        --exec-root="$runtime/exec" \
+        --pidfile="$runtime/docker.pid" \
+        --host="unix://$socket" \
+        --bridge=none \
+        --iptables=false \
+        --ip-forward=false \
+        --ip-masq=false \
+        --userland-proxy=false
+      api() {
+        sudo curl --fail --silent --show-error --max-time 3 \
+          --unix-socket "$socket" "http://localhost$1"
+      }
+      ready=false
+      for _ in $(seq 1 60); do
+        if test "$(api /_ping 2>/dev/null || true)" = OK; then
+          ready=true
+          break
+        fi
+        sleep 1
+      done
+      if ! "$ready"; then
+        sudo systemctl status "$unit" --no-pager -l || true
+        sudo journalctl -u "$unit" -n 80 --no-pager
+        exit 1
+      fi
+      containers_json=$(api '/containers/json?all=1')
+      images_json=$(api /images/json)
+      volumes_json=$(api /volumes)
+      containers=$(jq length <<<"$containers_json")
+      images=$(jq length <<<"$images_json")
+      volumes=$(jq '.Volumes | length' <<<"$volumes_json")
+      test "$containers" -gt 0
+      test "$images" -gt 0
+      test "$volumes" -gt 0
+      printf 'containers=%s images=%s volumes=%s\n' "$containers" "$images" "$volumes"
+      jq -r '.[] | [.Names[0], .State, .Status] | @tsv' \
+        <<<"$containers_json" | sort | head -20
+      sudo systemctl stop "$unit"
+      trap - EXIT
+      test "$(systemctl is-active "$unit" 2>/dev/null || true)" = inactive
+    REMOTE
+    echo ":: PASS: isolated Orion daemon opened restored Docker metadata"
+
+# Stream a fresh full-cluster dump to Orion, restore it into a networkless
+# disposable PostgreSQL container, and print metadata counts only.
+discovery-postgres-restore-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      image='postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a'
+      stamp=$(date +%Y-%m-%d_%H%M%S)
+      evidence="/projects/recovery/discovery-esp/postgres/$stamp"
+      dump="$evidence/postgres-all.sql.gz"
+      name="discovery-postgres-drill-$stamp"
+      known_hosts=$(mktemp)
+      started=$(date +%s)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      sudo install -d -m 0700 -o root -g root "$evidence"
+      trap 'rm -f "$known_hosts"; sudo docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+      ssh -n -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes \
+        -o UserKnownHostsFile="$known_hosts" erik@{{ip_discovery}} '
+        set -euo pipefail
+        cd /home/erik/servarr/machines/discovery
+        user=$(sed -n "s/^POSTGRES_USER=//p" .env | tail -1)
+        test -n "$user"
+        sudo docker exec postgres pg_dumpall -U "$user"
+      ' | gzip | sudo tee "$dump" >/dev/null
+      sudo test -s "$dump"
+      sudo gzip -t "$dump"
+      sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image"
+      sudo docker run -d --network none --name "$name" \
+        -e POSTGRES_PASSWORD=drill-only "$image" >/dev/null
+      ready=false
+      for _ in $(seq 1 60); do
+        if sudo docker exec "$name" pg_isready -U postgres >/dev/null 2>&1; then
+          ready=true
+          break
+        fi
+        sleep 1
+      done
+      "$ready"
+      sudo gzip -dc "$dump" |
+        sudo docker exec -i "$name" psql -v ON_ERROR_STOP=1 -U postgres postgres >/dev/null
+      roles=$(sudo docker exec "$name" psql -AtU postgres postgres \
+        -c 'SELECT count(*) FROM pg_roles')
+      databases=$(sudo docker exec "$name" psql -AtU postgres postgres \
+        -c "SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate ORDER BY 1")
+      test -n "$databases"
+      {
+        printf 'roles=%s\n' "$roles"
+        while IFS= read -r database; do
+          extensions=$(sudo docker exec "$name" psql -AtU postgres "$database" \
+            -c 'SELECT count(*) FROM pg_extension')
+          tables=$(sudo docker exec "$name" psql -AtU postgres "$database" \
+            -c "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')")
+          rows=$(sudo docker exec "$name" psql -AtU postgres "$database" \
+            -c 'SELECT coalesce(sum(n_live_tup),0)::bigint FROM pg_stat_user_tables')
+          printf 'database=%s extensions=%s tables=%s representative_rows=%s\n' \
+            "$database" "$extensions" "$tables" "$rows"
+        done <<<"$databases"
+        sudo sha256sum "$dump"
+        printf 'dump=%s duration_seconds=%s\n' "$dump" "$(( $(date +%s) - started ))"
+      } | sudo tee "$evidence/result.txt"
+      sudo chmod 0600 "$evidence/result.txt"
+    REMOTE
+    echo ":: PASS: full PostgreSQL dump restored and inspected on isolated Orion"
+
+# Print the newest value-free PostgreSQL drill report.
+discovery-postgres-restore-drill-result:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} '
+      latest=$(sudo find /projects/recovery/discovery-esp/postgres -mindepth 2 -maxdepth 2 -name result.txt -printf "%T@ %p\n" | sort -nr | head -1 | cut -d" " -f2-)
+      test -n "$latest"
+      sudo cat "$latest"
+    '
 
 # Maintenance-window finalization. This recipe never stops Docker itself: the
 # caller must quiesce dependent writers in the reviewed order first. It refuses

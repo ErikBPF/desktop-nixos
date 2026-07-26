@@ -34,6 +34,8 @@ _: {
       };
     };
 
+    networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187];
+
     # Tailscale client — no subnet routing needed (not the gateway host)
     services.tailscale = {
       useRoutingFeatures = lib.mkForce "client";
