@@ -85,7 +85,7 @@
           tailscaleIp = "100.94.239.46";
         };
         pathfinder = {
-          ip = "192.168.10.125";
+          ip = "192.168.10.215";
           mac = "54:bf:64:28:cb:2e";
           role = "workstation";
           tailscaleIp = "100.102.248.13";

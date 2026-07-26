@@ -150,6 +150,7 @@ in {
           isNormalUser = true;
           uid = 1000; # match orion's erik so the forwarded nix-daemon trusts it
           extraGroups = ["wheel"];
+          linger = true; # keep persistent Herdr sessions alive without SSH login
           shell = pkgs.zsh;
           openssh.authorizedKeys.keys = [laptopKey nixBuilderKey];
         };
@@ -196,6 +197,7 @@ in {
               m.home.nvim
               m.home.hermes-agent
               m.home.herdr
+              m.home.herdr-gemini
               m.home.grafatui
               m.home.tmux
             ];
@@ -213,7 +215,6 @@ in {
             programs.home-manager.enable = true;
           };
         };
-
         # Own the synced folder roots as erik BEFORE syncthing starts. The
         # string-path fleet folders (Documents/Downloads) aren't auto-created by
         # the syncthing module (only ensureDir attrset folders are), so without

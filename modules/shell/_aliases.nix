@@ -124,6 +124,9 @@ _: {
   hg = "herdr --remote gemini --session code";
   hgs = "ssh -t gemini 'exec herdr session attach code'";
   hl = "herdr session list";
+  hlab = "herdr --remote gemini --session homelab";
+  hdap = "herdr --remote gemini --session dataplatform";
+  hr = "herdr-repo";
   snix = "ssh -t gemini 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
   sdp = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
   sspark = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";

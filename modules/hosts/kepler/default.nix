@@ -60,6 +60,7 @@ in {
     services.fleetDns = {
       enable = true;
       interface = "enp5s0";
+      listenAddress = config.flake.fleet.hosts.kepler.ip;
       queryLog = false;
       upstream = ["192.168.10.210" "1.1.1.1" "9.9.9.9"];
       sequentialUpstream = true;

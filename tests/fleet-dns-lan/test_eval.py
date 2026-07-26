@@ -13,7 +13,8 @@ class FleetDnsEvalTest(unittest.TestCase):
 
     def test_generated_corefiles(self):
         kepler=self.value("kepler","services.coredns.config",True)
-        self.assertIn("bind enp5s0",kepler);self.assertIn("template IN AAAA",kepler)
+        self.assertIn("bind 192.168.10.230",kepler);self.assertIn("template IN AAAA",kepler)
+        self.assertNotIn("bind enp5s0",kepler)
         self.assertIn("forward . 192.168.10.210 1.1.1.1 9.9.9.9",kepler)
         self.assertIn("policy sequential",kepler);self.assertNotIn("\n  log\n",kepler)
         vanguard=self.value("vanguard","services.coredns.config",True)
