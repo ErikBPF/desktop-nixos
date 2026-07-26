@@ -6312,9 +6312,10 @@ discovery-docker-mirror-finalize:
         echo ":: BLOCKED: Docker must already be inactive" >&2
         exit 1
       }
-      test "$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105)" = /dev/sda
-      test "$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098)" = /dev/sdc
-      test "$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M)" = /dev/sdb
+      primary_root=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105-part2)
+      vault_part=$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M-part1)
+      test "$(findmnt -nro SOURCE -T "$source" | sed "s/\\[.*//")" = "$primary_root"
+      test "$(findmnt -nro SOURCE -T "$destination")" = "$vault_part"
       test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
       test -d "$destination"
       sudo rsync -aHAXx --numeric-ids --delete "$source/" "$destination/"

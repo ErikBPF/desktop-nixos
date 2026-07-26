@@ -17,6 +17,20 @@ def test_live_preflight_does_not_pin_volatile_device_names():
     assert "/dev/sdc" not in recipe
 
 
+def test_docker_finalize_does_not_pin_volatile_device_names():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("discovery-docker-mirror-finalize:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "ata-KINGSTON_SA400S37480G_AA000000000000000105-part2" in recipe
+    assert "ata-ST4000DM004-2CV104_ZTT25R4M-part1" in recipe
+    assert 'findmnt -nro SOURCE -T "$source"' in recipe
+    assert "/dev/sda" not in recipe
+    assert "/dev/sdb" not in recipe
+    assert "/dev/sdc" not in recipe
+
+
 def test_scratch_restore_preflight_is_read_only_and_targets_orion_projects():
     justfile = (Path(__file__).parents[2] / "justfile").read_text()
     recipe = justfile.split("discovery-docker-scratch-preflight:", 1)[1].split(
