@@ -1,4 +1,6 @@
-_: {
+{config, ...}: let
+  discoveryTs = config.fleet.hosts.discovery.tailscaleIp;
+in {
   flake.modules.nixos.alloy = {config, ...}: {
     services.alloy = {
       enable = true;
@@ -43,7 +45,7 @@ _: {
 
       loki.write "loki" {
         endpoint {
-          url = "http://discovery:3100/loki/api/v1/push"
+          url = "http://${discoveryTs}:3100/loki/api/v1/push"
         }
       }
 
@@ -137,7 +139,7 @@ _: {
       // ============================================================================
       prometheus.remote_write "prometheus" {
         endpoint {
-          url = "http://discovery:9090/api/v1/write"
+          url = "http://${discoveryTs}:9090/api/v1/write"
         }
       }
     '';

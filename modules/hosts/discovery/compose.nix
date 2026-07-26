@@ -1,5 +1,12 @@
-_: {
-  flake.modules.nixos.discovery-compose = _: {
+{config, ...}: {
+  flake.modules.nixos.discovery-compose = {
+    lib,
+    pkgs,
+    ...
+  }: {
+    home-manager.users.${config.username}.systemd.user.services."podman-compose-monitoring".Service.ExecStartPre =
+      lib.mkBefore ["${pkgs.util-linux}/bin/mountpoint --quiet /home/erik/vault"];
+
     homelab.compose = {
       composeDir = "/home/erik/servarr/machines/discovery";
       # Rootful Docker — socket owned by root, accessible via docker group.
@@ -38,7 +45,7 @@ _: {
       secretSpecRuntimeProfiles.monitoring = "monitoring";
       secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];
       secretSpecRuntimeIgnoredSourceNames.monitoring = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT" "LANGFUSE_SECRET_KEY" "LITELLM_SALT_KEY" "MINIO_ROOT_PASSWORD" "OPENCODE_GO_KEY" "OPENCODE_ZEN_KEY" "UI_PASSWORD"];
-      secretSpecRuntimeHealthContainers.monitoring = ["grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];
+      secretSpecRuntimeHealthContainers.monitoring = ["prometheus" "grafana" "loki" "healthchecks" "scrutiny-influxdb" "scrutiny"];
       secretSpecRuntimeProfiles.media = "media";
       secretSpecRuntimeSourceConfigNames.media = ["NORDVPN_USER" "QBITTORRENT_USER"];
       secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr"];
