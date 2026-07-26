@@ -11,8 +11,8 @@ _: {
     # merges in.)
     gtk = {
       iconTheme = {
-        package = pkgs.papirus-icon-theme;
-        name = "Papirus-Dark";
+        package = pkgs.adwaita-icon-theme;
+        name = "Adwaita";
       };
       # Stylix picks the light-named `adw-gtk3` + relies on prefer-dark. Apps
       # that read only the theme *name* (swappy, wxWidgets/OrcaSlicer, ...)
