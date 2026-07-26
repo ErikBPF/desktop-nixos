@@ -75,6 +75,7 @@
           enable = true; # fuzzy finder
           extensions.fzf-native.enable = true; # faster sorting
         };
+        harpoon.enable = true; # small, persistent document shortlist
 
         # Completion, VSCode-style.
         cmp = {
@@ -177,6 +178,42 @@
           key = "<leader>fg";
           action = "<cmd>Telescope live_grep<cr>";
           options.desc = "Search in files";
+        }
+        {
+          mode = "n";
+          key = "<leader>ha";
+          action.__raw = "function() require('harpoon'):list():add() end";
+          options.desc = "Harpoon add document";
+        }
+        {
+          mode = "n";
+          key = "<leader>hh";
+          action.__raw = "function() require('harpoon').ui:toggle_quick_menu(require('harpoon'):list()) end";
+          options.desc = "Harpoon documents";
+        }
+        {
+          mode = "n";
+          key = "<leader>h1";
+          action.__raw = "function() require('harpoon'):list():select(1) end";
+          options.desc = "Harpoon document 1";
+        }
+        {
+          mode = "n";
+          key = "<leader>h2";
+          action.__raw = "function() require('harpoon'):list():select(2) end";
+          options.desc = "Harpoon document 2";
+        }
+        {
+          mode = "n";
+          key = "<leader>h3";
+          action.__raw = "function() require('harpoon'):list():select(3) end";
+          options.desc = "Harpoon document 3";
+        }
+        {
+          mode = "n";
+          key = "<leader>h4";
+          action.__raw = "function() require('harpoon'):list():select(4) end";
+          options.desc = "Harpoon document 4";
         }
         {
           mode = "n";

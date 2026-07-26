@@ -106,6 +106,11 @@ _: {
   occ = "code . ; opencode --auto"; # editor + opencode
   nv = "nvim ."; # neovim in cwd (mirrors `e`)
 
+  # --- Tmux repo sessions ---
+  t = "tmux-repo";
+  tlab = "tmux-repo ~/Documents/erik/homelab";
+  tdap = "tmux-repo ~/Documents/nstech/dataplatform";
+
   # --- Repo jumps ---
   lab = "cd ~/Documents/erik/homelab";
   dnix = "cd ~/Documents/erik/desktop-nixos";
