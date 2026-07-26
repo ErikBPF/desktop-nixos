@@ -1596,6 +1596,15 @@ p3-dns-verify:
     '
     echo ":: P3 direct secondary OK — Kepler UDP/TCP fleet/external DNS healthy"
 
+# Read-only Kepler secondary-DNS failure detail.
+diagnose-kepler-dns:
+    ssh -p 2222 erik@{{ip_kepler}} 'sudo systemctl status coredns.service --no-pager -l; sudo systemctl show coredns.service -p ActiveState -p SubState -p Result -p NRestarts; sudo ss -H -lntup "sport = :53"; sudo journalctl -u coredns.service -b --no-pager -n 80'
+
+# Recover the existing listener after DHCP has assigned Kepler's LAN address.
+recover-kepler-dns:
+    ssh -p 2222 erik@{{ip_kepler}} 'sudo systemctl restart coredns.service'
+    just p3-dns-verify
+
 # P3 generic non-overlay client proof. Creates a temporary macvlan/netns on the
 # explicitly wired parent, acquires a real DHCP lease, verifies option 6 and
 # both resolvers, then proves the parent network is byte-for-byte unchanged.
@@ -5077,8 +5086,11 @@ discovery-postgres-restore-drill:
     scan=$(mktemp)
     trap 'rm -f "$scan"' EXIT
     ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
-    ssh-keygen -lf "$scan" -E sha256 |
-      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    if ! ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'; then
+      ssh-keygen -lf "$scan" -E sha256
+      exit 1
+    fi
     hostkeys=$(base64 -w0 "$scan")
     ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
       set -euo pipefail
@@ -5149,6 +5161,1141 @@ discovery-postgres-restore-drill-result:
       test -n "$latest"
       sudo cat "$latest"
     '
+
+# Prove the declared Redis cache layer starts empty without restored state.
+discovery-redis-cold-start-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      image='redis:8.8.0-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005'
+      name="discovery-redis-drill-$(date +%s)"
+      trap 'sudo docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+      sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image"
+      sudo docker run -d --network none --name "$name" "$image" \
+        redis-server --requirepass drill-only >/dev/null
+      ready=false
+      for _ in $(seq 1 30); do
+        if sudo docker exec "$name" redis-cli -a drill-only PING 2>/dev/null |
+          grep -qx PONG; then
+          ready=true
+          break
+        fi
+        sleep 1
+      done
+      "$ready"
+      sudo docker inspect "$name" |
+        jq -e '.[0].HostConfig.NetworkMode == "none"' >/dev/null
+      for database in 0 1 2 3 4; do
+        keys=$(sudo docker exec "$name" redis-cli -a drill-only -n "$database" DBSIZE 2>/dev/null)
+        test "$keys" = 0
+        printf 'database=%s keys=%s\n' "$database" "$keys"
+      done
+    REMOTE
+    echo ":: PASS: isolated Redis cold-started empty; no production state restored"
+
+# Read-only state/schema gate before the isolated NetBird/PocketID rehearsal.
+discovery-netbird-state-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sqlite3=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.sqlite.outPath)/bin/sqlite3
+    ssh -p 2222 erik@{{ip_discovery}} "SQLITE3=$sqlite3 bash -s" <<'REMOTE'
+      set -euo pipefail
+      state=/home/erik/homelab/apps/netbird/pocket-id
+      test -d "$state"
+      test -x "$SQLITE3"
+      mapfile -t databases < <(find "$state" -maxdepth 1 -type f -name '*.db' -print)
+      test "${#databases[@]}" = 1
+      find "$state" -maxdepth 2 -type f -printf 'file=%P bytes=%s mode=%m uid=%U gid=%G\n' | sort
+      integrity=$("$SQLITE3" -readonly "${databases[0]}" 'PRAGMA integrity_check')
+      test "$integrity" = ok
+      printf 'integrity=%s\n' "$integrity"
+      "$SQLITE3" -readonly "${databases[0]}" \
+        "SELECT 'table=' || name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+      for container in netbird-pocketid netbird-management; do
+        unit="docker-$container.service"
+        state=$(systemctl is-active "$unit" 2>/dev/null || true)
+        printf 'unit=%s state=%s\n' "$unit" "$state"
+        if test "$state" != active; then
+          pgrep -af 'pocket-id' || true
+          sudo fuser -v "${databases[0]}" "${databases[0]}-wal" 2>&1 || true
+          sudo docker ps -a --format json |
+            jq -r 'select((.Image // "") | test("pocket-id|netbird")) | [.Names, .State, .Image] | @tsv' || true
+          sudo systemctl status "$unit" --no-pager -l -n 30 || true
+          sudo journalctl -u "$unit" --no-pager -n 50
+          exit 1
+        fi
+      done
+    REMOTE
+    echo ":: PASS: PocketID SQLite opens read-only and NetBird consumers exist"
+
+# Retry PocketID only after proving no live instance/file holder and a healthy DB.
+repair-netbird-pocketid:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sqlite3=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.sqlite.outPath)/bin/sqlite3
+    ssh -p 2222 erik@{{ip_discovery}} "SQLITE3=$sqlite3 bash -s" <<'REMOTE'
+      set -euo pipefail
+      database=/home/erik/homelab/apps/netbird/pocket-id/pocket-id.db
+      test -f "$database"
+      test "$("$SQLITE3" -readonly "$database" 'PRAGMA integrity_check')" = ok
+      if test "$(systemctl is-active docker-netbird-pocketid.service 2>/dev/null || true)" != active; then
+        if pgrep -af '/app/pocket-id'; then
+          echo ":: BLOCKED: PocketID process already exists" >&2
+          exit 1
+        fi
+        if sudo fuser "$database" "$database-wal" >/dev/null 2>&1; then
+          echo ":: BLOCKED: PocketID database has a live file holder" >&2
+          exit 1
+        fi
+        sudo systemctl reset-failed docker-netbird-pocketid.service
+        sudo systemctl start docker-netbird-pocketid.service
+      fi
+      systemctl is-active docker-netbird-pocketid.service
+      healthy=false
+      for _ in $(seq 1 30); do
+        if curl --fail --silent --max-time 5 \
+          https://id.homelab.pastelariadev.com/.well-known/openid-configuration >/dev/null; then
+          healthy=true
+          break
+        fi
+        sleep 1
+      done
+      "$healthy"
+    REMOTE
+    echo ":: PASS: PocketID recovered without database mutation"
+
+# Restore a consistent PocketID SQLite backup into a networkless Orion instance.
+discovery-pocketid-restore-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sqlite3=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.sqlite.outPath)/bin/sqlite3
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} \
+      "HOSTKEYS=$hostkeys SQLITE3=$sqlite3 DISCOVERY_SQLITE3=$sqlite3 bash -s" <<'REMOTE'
+      set -euo pipefail
+      image=ghcr.io/pocket-id/pocket-id:v2.10.0
+      stamp=$(date +%Y-%m-%d_%H%M%S)
+      evidence="/projects/recovery/discovery-esp/pocketid/$stamp"
+      data="$evidence/data"
+      environment="$evidence/pocketid.env"
+      name="discovery-pocketid-drill-$stamp"
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      options=(-p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+      sudo install -d -m 0700 -o root -g root "$evidence"
+      sudo install -d -m 0700 -o root -g root "$data"
+      sudo chown 1000:1000 "$data"
+      trap 'rm -f "$known_hosts"; sudo docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+      ssh -n "${options[@]}" erik@{{ip_discovery}} \
+        "tmp=\$(mktemp /tmp/pocketid.XXXXXX.db); trap 'rm -f \"\$tmp\"' EXIT; $DISCOVERY_SQLITE3 /home/erik/homelab/apps/netbird/pocket-id/pocket-id.db \".backup \$tmp\"; gzip -c \"\$tmp\"" |
+        sudo gzip -dc | sudo tee "$data/pocket-id.db" >/dev/null
+      ssh -n "${options[@]}" erik@{{ip_discovery}} \
+        'sudo cat /run/vault-agent/netbird-pocketid.env' |
+        sudo tee "$environment" >/dev/null
+      sudo chmod 0600 "$environment"
+      sudo chown 1000:1000 "$data/pocket-id.db"
+      test "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'PRAGMA integrity_check')" = ok
+      actor_leases=$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
+        "SELECT count(*) FROM kv WHERE key='application_lock'")
+      sudo "$SQLITE3" "$data/pocket-id.db" "DELETE FROM kv WHERE key='application_lock'"
+      test "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
+        "SELECT count(*) FROM kv WHERE key='application_lock'")" = 0
+      view_cleanup=$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
+        "SELECT 'DROP VIEW IF EXISTS \"' || replace(name, '\"', '\"\"') || '\";' FROM sqlite_master WHERE type='view' AND name LIKE 'francis_%'")
+      table_cleanup=$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
+        "SELECT 'DROP TABLE IF EXISTS \"' || replace(name, '\"', '\"\"') || '\";' FROM sqlite_master WHERE type='table' AND name LIKE 'francis_%'")
+      test -n "$table_cleanup"
+      actor_cleanup="$view_cleanup"$'\n'"$table_cleanup"
+      sudo "$SQLITE3" "$data/pocket-id.db" \
+        "PRAGMA foreign_keys=OFF; BEGIN; $actor_cleanup COMMIT;"
+      actor_tables=$(wc -l <<<"$table_cleanup")
+      sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image"
+      sudo docker run -d --network none --name "$name" \
+        --env-file "$environment" \
+        -e APP_URL=https://id.homelab.pastelariadev.com \
+        -e TRUST_PROXY=true \
+        -v "$data:/app/data" "$image" >/dev/null
+      healthy=false
+      for _ in $(seq 1 60); do
+        if sudo docker exec "$name" /app/pocket-id healthcheck >/dev/null 2>&1; then
+          healthy=true
+          break
+        fi
+        sleep 1
+      done
+      if ! "$healthy"; then
+        sudo docker logs "$name"
+        exit 1
+      fi
+      {
+        printf 'integrity=ok app_locks_removed=%s actor_tables_reset=%s users=%s groups=%s oidc_clients=%s\n' \
+          "$actor_leases" "$actor_tables" \
+          "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'SELECT count(*) FROM users')" \
+          "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'SELECT count(*) FROM user_groups')" \
+          "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'SELECT count(*) FROM oidc_clients')"
+        sudo sha256sum "$data/pocket-id.db"
+      } | sudo tee "$evidence/result.txt"
+      sudo chmod 0600 "$evidence/result.txt"
+    REMOTE
+    echo ":: PASS: PocketID restored and healthy on networkless Orion"
+
+# Start restored NetBird management + PostgreSQL on an Orion-internal network.
+discovery-netbird-management-restore-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      postgres_image='postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a'
+      management_image=netbirdio/management:0.74.3
+      stamp=$(date +%Y-%m-%d_%H%M%S)
+      evidence="/projects/recovery/discovery-esp/netbird/$stamp"
+      config="$evidence/management.json"
+      environment="$evidence/postgres.env"
+      network="discovery-netbird-drill-$stamp"
+      postgres="discovery-netbird-postgres-$stamp"
+      management="discovery-netbird-management-$stamp"
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      options=(-p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+      dump=$(sudo find /projects/recovery/discovery-esp/postgres -mindepth 2 -maxdepth 2 \
+        -name postgres-all.sql.gz -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)
+      sudo test -s "$dump"
+      sudo install -d -m 0700 -o root -g root "$evidence"
+      trap 'rm -f "$known_hosts"; sudo docker rm -f "$management" "$postgres" >/dev/null 2>&1 || true; sudo docker network rm "$network" >/dev/null 2>&1 || true' EXIT
+      ssh -n "${options[@]}" erik@{{ip_discovery}} \
+        'sudo cat /run/netbird-management/management.json' |
+        sudo tee "$config" >/dev/null
+      ssh -n "${options[@]}" erik@{{ip_discovery}} \
+        'sudo cat /run/vault-agent/netbird-postgres.env' |
+        sudo tee "$environment" >/dev/null
+      sudo sed -Ei 's#(@)[^/:]+(:[0-9]+)?/#\1postgres:5432/#' "$environment"
+      sudo grep -q '^NETBIRD_STORE_ENGINE_POSTGRES_DSN=' "$environment"
+      sudo chmod 0600 "$config" "$environment"
+      sudo docker image inspect "$postgres_image" >/dev/null 2>&1 ||
+        sudo docker pull "$postgres_image"
+      sudo docker image inspect "$management_image" >/dev/null 2>&1 ||
+        sudo docker pull "$management_image"
+      sudo docker network create --internal "$network" >/dev/null
+      sudo docker run -d --network "$network" --network-alias postgres \
+        --name "$postgres" -e POSTGRES_PASSWORD=drill-only "$postgres_image" >/dev/null
+      ready=false
+      for _ in $(seq 1 60); do
+        if sudo docker exec "$postgres" pg_isready -U postgres >/dev/null 2>&1; then
+          ready=true
+          break
+        fi
+        sleep 1
+      done
+      "$ready"
+      sudo gzip -dc "$dump" |
+        sudo docker exec -i "$postgres" psql -v ON_ERROR_STOP=1 -U postgres postgres >/dev/null
+      sudo docker run -d --network "$network" --name "$management" \
+        --env-file "$environment" \
+        -e NETBIRD_STORE_ENGINE=postgres \
+        -v "$config:/etc/netbird/management.json:ro" \
+        "$management_image" \
+        --port 443 --log-file console --log-level info \
+        --disable-anonymous-metrics=true --dns-domain=netbird.selfhosted >/dev/null
+      sleep 10
+      sudo docker inspect "$management" | jq -e '.[0].State.Running' >/dev/null
+      test -z "$(sudo docker port "$management")"
+      {
+        for table in peers groups users; do
+          count=$(sudo docker exec "$postgres" psql -AtU postgres netbird \
+            -c "SELECT count(*) FROM $table")
+          printf '%s=%s\n' "$table" "$count"
+        done
+        printf 'network=internal published_ports=0 management=running\n'
+        sudo sha256sum "$dump"
+      } | sudo tee "$evidence/result.txt"
+      sudo chmod 0600 "$evidence/result.txt"
+    REMOTE
+    echo ":: PASS: NetBird management read restored PostgreSQL on internal Orion network"
+
+# Copy SWAG state and validate nginx/certificates on networkless Orion.
+discovery-swag-restore-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    openssl=$(nix eval --raw .#nixosConfigurations.orion.pkgs.openssl.outPath)/bin/openssl
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    if ! ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'; then
+      ssh-keygen -lf "$scan" -E sha256
+      exit 1
+    fi
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys OPENSSL=$openssl bash -s" <<'REMOTE'
+      set -euo pipefail
+      image='lscr.io/linuxserver/swag:5.6.0-ls467@sha256:ce148c3794d2dfcb63eaeed55c516324e800349f8cd57e49ec0eb312fe75f01d'
+      stamp=$(date +%Y-%m-%d_%H%M%S)
+      evidence="/projects/recovery/discovery-esp/swag/$stamp"
+      config="$evidence/config"
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      trap 'rm -f "$known_hosts"' EXIT
+      echo ":: prepare"
+      sudo install -d -m 0700 -o root -g root "$config"
+      echo ":: rsync"
+      set +e
+      sudo rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/config/swag/ "$config/"
+      status=$?
+      set -e
+      case "$status" in 0|24) ;; *) exit "$status" ;; esac
+      printf 'rsync_status=%s\n' "$status"
+      for route in harbor netbird pocket-id grafana; do
+        printf 'route=%s\n' "$route"
+        sudo test -s "$config/nginx/proxy-confs/$route.subdomain.conf"
+      done
+      mapfile -t fullchains < <(sudo find -L "$config/etc/letsencrypt/live" \
+        -type f -name fullchain.pem -print)
+      printf 'fullchains=%s\n' "${#fullchains[@]}"
+      if test "${#fullchains[@]}" = 0; then
+        sudo find "$config" -maxdepth 6 \( -name fullchain.pem -o -name privkey.pem \) -print
+      fi
+      test "${#fullchains[@]}" -gt 0
+      for fullchain in "${fullchains[@]}"; do
+        privkey="$(dirname "$fullchain")/privkey.pem"
+        sudo test -s "$privkey"
+        sudo "$OPENSSL" x509 -checkend 604800 -noout -in "$fullchain"
+        cert_key=$(sudo "$OPENSSL" x509 -in "$fullchain" -pubkey -noout |
+          "$OPENSSL" pkey -pubin -outform DER | sha256sum | cut -d' ' -f1)
+        private_key=$(sudo "$OPENSSL" pkey -in "$privkey" -pubout -outform DER |
+          sha256sum | cut -d' ' -f1)
+        test "$cert_key" = "$private_key"
+      done
+      sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image"
+      echo ":: nginx -t"
+      sudo docker run --rm --network none --entrypoint /usr/sbin/nginx \
+        -v "$config:/config" "$image" \
+        -t -c /config/nginx/nginx.conf
+      proxy_count=$(sudo find "$config/nginx/proxy-confs" -type f \
+        -name '*.subdomain.conf' | wc -l)
+      manifest=$(sudo find "$config" -xdev -printf '%P\t%y\t%s\t%m\t%U\t%G\n' |
+        LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+      printf 'nginx=valid certificates=%s key_match=true proxy_configs=%s manifest_sha256=%s\n' \
+        "${#fullchains[@]}" "$proxy_count" "$manifest" | sudo tee "$evidence/result.txt"
+      sudo chmod 0600 "$evidence/result.txt"
+    REMOTE
+    echo ":: PASS: copied SWAG config and certificate validate on networkless Orion"
+
+# Read-only Harbor state/identity/capacity gate before copying vault data.
+discovery-harbor-restore-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      state=/home/erik/vault/harbor
+      installer=/home/erik/servarr/machines/discovery/.harbor-installer/harbor
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      sudo test -d "$state"
+      test -d "$installer"
+      systemctl is-active --quiet harbor.service
+      bytes=$(sudo du -xsb "$state" | cut -f1)
+      printf 'state_bytes=%s\n' "$bytes" >&2
+      du -sb "$installer" | awk '{print "installer_bytes=" $1}' >&2
+      sudo docker ps -a --format json |
+        jq -r 'select((.Names // "") | test("harbor|registry")) | [.Names, .State, .Image] | @tsv' >&2
+      printf '%s\n' "$bytes"
+    REMOTE
+    )
+    [[ "$source_bytes" =~ ^[0-9]+$ ]]
+    ssh -p 2222 erik@{{ip_orion}} "SOURCE_BYTES=$source_bytes bash -s" <<'REMOTE'
+      set -euo pipefail
+      target=/projects/recovery/discovery-esp/harbor
+      available=$(findmnt -bnro AVAIL -T /projects)
+      required=$((SOURCE_BYTES * 6 / 5))
+      test "$available" -ge "$required"
+      printf 'source_bytes=%s available=%s required=%s target=%s\n' \
+        "$SOURCE_BYTES" "$available" "$required" "$target"
+    REMOTE
+    echo ":: PASS: Harbor vault state identified and Orion has restore capacity"
+
+# Seed Harbor vault state + generated installer onto Orion while Harbor runs.
+discovery-harbor-restore-seed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-harbor-restore-preflight
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      root=/projects/recovery/discovery-esp/harbor
+      state=$root/state
+      installer=$root/installer
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      trap 'rm -f "$known_hosts"' EXIT
+      sudo test ! -e "$state"
+      sudo test ! -e "$installer"
+      sudo install -d -m 0700 -o root -g root "$state" "$installer"
+      set +e
+      sudo rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/harbor/ "$state/"
+      state_status=$?
+      sudo rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/harbor/ "$installer/"
+      installer_status=$?
+      set -e
+      case "$state_status" in 0|24) ;; *) exit "$state_status" ;; esac
+      case "$installer_status" in 0|24) ;; *) exit "$installer_status" ;; esac
+      sudo du -xsb "$state" | awk '{print "state_bytes=" $1}'
+      sudo du -xsb "$installer" | awk '{print "installer_bytes=" $1}'
+      printf 'state_rsync_status=%s installer_rsync_status=%s\n' \
+        "$state_status" "$installer_status"
+    REMOTE
+    echo ":: PASS: online Harbor restore seed complete; stopped final sync required"
+
+# Briefly stop only Harbor, take the final exact delta, then always restart it.
+discovery-harbor-restore-finalize:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      state=/projects/recovery/discovery-esp/harbor/state
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      options=(-p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+      remote_shell="sudo -H -u erik ssh ${options[*]}"
+      sudo test -d "$state"
+      resume() {
+        ssh -n "${options[@]}" erik@{{ip_discovery}} \
+          'sudo systemctl start harbor.service' >/dev/null 2>&1 || true
+        rm -f "$known_hosts"
+      }
+      trap resume EXIT
+      ssh -n "${options[@]}" erik@{{ip_discovery}} '
+        set -euo pipefail
+        test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+        systemctl is-active --quiet harbor.service
+        sudo systemctl stop harbor.service
+        test "$(systemctl is-active harbor.service 2>/dev/null || true)" = inactive
+      '
+      started=$(date +%s)
+      sudo rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/harbor/ "$state/"
+      drift=$(sudo rsync -aHAXxni --numeric-ids --delete \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/vault/harbor/ "$state/")
+      test -z "$drift" || { printf '%s\n' "$drift" >&2; exit 1; }
+      ssh -n "${options[@]}" erik@{{ip_discovery}} 'sudo systemctl start harbor.service'
+      ssh -n "${options[@]}" erik@{{ip_discovery}} '
+        set -euo pipefail
+        healthy=false
+        for _ in $(seq 1 60); do
+          if curl --fail --silent --max-time 3 http://127.0.0.1:8085/api/v2.0/health |
+            jq -e ".status == \"healthy\"" >/dev/null 2>&1; then
+            healthy=true
+            break
+          fi
+          sleep 1
+        done
+        "$healthy"
+        systemctl is-active harbor.service
+      '
+      trap - EXIT
+      rm -f "$known_hosts"
+      printf 'final_sync_seconds=%s drift=zero\n' "$(( $(date +%s) - started ))"
+    REMOTE
+    echo ":: PASS: Harbor final copy is exact and production API recovered"
+
+# Print only generated Harbor topology needed to design an isolated boot.
+discovery-harbor-restore-inspect:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      installer=/projects/recovery/discovery-esp/harbor/installer
+      sudo test -f "$installer/docker-compose.yml"
+      sudo docker compose -f "$installer/docker-compose.yml" config --format json |
+        jq -c '
+          .services | to_entries[] |
+          {
+            service: .key,
+            image: .value.image,
+            mounts: [.value.volumes[]? | {type, source, target}],
+            ports: [.value.ports[]? | {target, published, protocol}],
+            networks: (.value.networks // {})
+          }'
+    REMOTE
+
+# Rebuild copied Harbor state on loopback, then pull, push, and delete a scratch tag.
+discovery-harbor-restore-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'sudo bash -s' <<'REMOTE'
+      set -euo pipefail
+      root=/projects/recovery/discovery-esp/harbor
+      source_installer=$root/installer
+      installer=$root/drill-installer
+      state=$root/state
+      tag="discovery-esp-drill-$(date +%s)"
+      export COMPOSE_PROJECT_NAME=discovery-harbor-drill
+      cleanup() {
+        test -z "${authfile:-}" || rm -f "$authfile"
+        cd "$installer" 2>/dev/null &&
+          sudo -E docker compose down --remove-orphans >/dev/null 2>&1 || true
+      }
+      trap cleanup EXIT
+      sudo test -d "$state"
+      sudo test -x "$source_installer/prepare"
+      sudo rm -rf "$installer"
+      sudo cp -a "$source_installer" "$installer"
+      sudo chown -R erik:users "$installer"
+      cd "$installer"
+      sed -i \
+        -e 's|^hostname:.*|hostname: harbor-drill.invalid|' \
+        -e 's|^  port: 8085$|  port: 18085|' \
+        -e "s|^data_volume:.*|data_volume: $state|" \
+        -e "s|^    location:.*|    location: $root/log|" \
+        harbor.yml
+      if grep -q '^external_url:' harbor.yml; then
+        sed -i 's|^external_url:.*|external_url: http://127.0.0.1:18085|' harbor.yml
+      fi
+      sudo install -d -m 0700 "$root/log"
+      bash ./prepare
+      awk '
+        /^    logging:$/ { skip=1; next }
+        skip && (/^[^ ]/ || /^  [^ ]/ || /^    [[:alnum:]_-]+:/) { skip=0 }
+        !skip
+      ' docker-compose.yml >docker-compose.yml.tmp
+      mv docker-compose.yml.tmp docker-compose.yml
+      sed -i \
+        -e 's|18085:8080|127.0.0.1:18085:8080|' \
+        docker-compose.yml
+      sudo -E docker compose up -d
+      healthy=false
+      for _ in $(seq 1 120); do
+        if curl --fail --silent --max-time 3 \
+          http://127.0.0.1:18085/api/v2.0/health |
+          jq -e '.status == "healthy"' >/dev/null 2>&1; then
+          healthy=true
+          break
+        fi
+        sleep 1
+      done
+      "$healthy"
+      password=$(sed -n 's/^harbor_admin_password:[[:space:]]*//p' harbor.yml)
+      test -n "$password"
+      auth="admin:$password"
+      image=library/kindle-dash
+      source="docker://127.0.0.1:18085/$image:v0.3.4"
+      target="docker://127.0.0.1:18085/$image:$tag"
+      authfile=$(mktemp)
+      rm -f "$authfile"
+      printf '%s' "$password" |
+        podman login --authfile "$authfile" --tls-verify=false \
+          -u admin --password-stdin 127.0.0.1:18085 >/dev/null
+      source=${source#docker://}
+      target=${target#docker://}
+      podman pull --authfile "$authfile" --tls-verify=false "$source" >/dev/null
+      podman tag "$source" "$target"
+      podman push --authfile "$authfile" --tls-verify=false "$target" >/dev/null
+      podman rmi "$target" >/dev/null
+      podman pull --authfile "$authfile" --tls-verify=false "$target" >/dev/null
+      curl --fail --silent -o /dev/null -u "$auth" \
+        http://127.0.0.1:18085/api/v2.0/system/gc/schedule
+      curl --fail --silent -u "$auth" -X DELETE \
+        "http://127.0.0.1:18085/api/v2.0/projects/library/repositories/kindle-dash/artifacts/$tag"
+      rm -f "$authfile"
+      status=$(sudo -E docker compose ps)
+      printf '%s\n' "$status"
+      ! grep -Fq '0.0.0.0:18085' <<<"$status"
+    REMOTE
+    echo ":: PASS: isolated Harbor restored; auth, pull, push, delete, and GC metadata passed"
+
+# Read-only identity/capacity/tooling gate before cloning the HAOS disk.
+discovery-haos-restore-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    qemu=$(nix eval --raw .#nixosConfigurations.orion.pkgs.qemu.outPath)
+    source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      printf 'vault_uuid=%s vm_state=%s qemu_img=%s\n' \
+        "$(findmnt -nro UUID /home/erik/vault)" \
+        "$(sudo virsh domstate haos 2>/dev/null || true)" \
+        "$(command -v qemu-img || true)" >&2
+      sudo virsh domblklist haos --details >&2
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test "$(sudo virsh domstate haos)" = running
+      disk=$(sudo virsh domblklist haos --details |
+        awk '$1 == "file" && $2 == "disk" { print $4 }')
+      test -n "$disk"
+      sudo test -f "$disk"
+      bytes=$(sudo stat -c %s "$disk")
+      printf 'disk=%s virtual=%s bytes=%s\n' \
+        "$disk" "$(sudo qemu-img info --force-share --output json "$disk" | jq -r '."virtual-size"')" "$bytes" >&2
+      printf '%s\n' "$bytes"
+    REMOTE
+    )
+    [[ "$source_bytes" =~ ^[0-9]+$ ]]
+    ssh -p 2222 erik@{{ip_orion}} \
+      "SOURCE_BYTES=$source_bytes QEMU_IMG=$qemu/bin/qemu-img QEMU_SYSTEM=$qemu/bin/qemu-system-x86_64 bash -s" <<'REMOTE'
+      set -euo pipefail
+      printf 'qemu_img=%s qemu_system=%s projects_avail=%s\n' \
+        "$([[ -x "$QEMU_IMG" ]] && echo yes || echo no)" \
+        "$([[ -x "$QEMU_SYSTEM" ]] && echo yes || echo no)" \
+        "$(findmnt -bnro AVAIL -T /projects 2>/dev/null || true)" >&2
+      test -x "$QEMU_IMG"
+      test -x "$QEMU_SYSTEM"
+      available=$(findmnt -bnro AVAIL -T /projects)
+      required=$((SOURCE_BYTES * 6 / 5))
+      test "$available" -ge "$required"
+      printf 'source_bytes=%s available=%s required=%s\n' \
+        "$SOURCE_BYTES" "$available" "$required"
+    REMOTE
+    echo ":: PASS: HAOS disk identified and Orion has clone/boot capacity"
+
+# Seed the HAOS QCOW2 onto Orion while the production VM remains online.
+discovery-haos-restore-seed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-haos-restore-preflight
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      root=/projects/recovery/discovery-esp/haos
+      target=$root/haos_ova-17.1.qcow2
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      trap 'rm -f "$known_hosts"' EXIT
+      sudo test ! -e "$target"
+      sudo install -d -m 0700 -o root -g root "$root"
+      sudo rsync -aHAXS --numeric-ids --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/srv/vms/haos_ova-17.1.qcow2 "$target"
+      sudo stat -c 'bytes=%s blocks=%b mode=%a uid=%U gid=%G' "$target"
+    REMOTE
+    echo ":: PASS: online HAOS clone seed complete; stopped final sync required"
+
+# Gracefully stop HAOS, finalize its exact clone, always restart, then check clone.
+discovery-haos-restore-finalize:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    qemu=$(nix eval --raw .#nixosConfigurations.orion.pkgs.qemu.outPath)
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} \
+      "HOSTKEYS=$hostkeys QEMU_IMG=$qemu/bin/qemu-img bash -s" <<'REMOTE'
+      set -euo pipefail
+      target=/projects/recovery/discovery-esp/haos/haos_ova-17.1.qcow2
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      options=(-p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+      remote_shell="sudo -H -u erik ssh ${options[*]}"
+      printf 'clone=' >&2
+      sudo stat -c 'bytes=%s mode=%a' "$target" >&2 || true
+      printf 'remote_vm_state=' >&2
+      ssh -n "${options[@]}" erik@{{ip_discovery}} \
+        'sudo virsh domstate haos 2>/dev/null || true' >&2
+      sudo test -f "$target"
+      resume() {
+        ssh -n "${options[@]}" erik@{{ip_discovery}} \
+          'sudo virsh start haos >/dev/null 2>&1 || true'
+        rm -f "$known_hosts"
+      }
+      trap resume EXIT
+      ssh -n "${options[@]}" erik@{{ip_discovery}} '
+        set -euo pipefail
+        test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+        test "$(sudo virsh domstate haos)" = running
+        sudo virsh shutdown haos
+        stopped=false
+        for _ in $(seq 1 300); do
+          if test "$(sudo virsh domstate haos 2>/dev/null || true)" = "shut off"; then
+            stopped=true
+            break
+          fi
+          sleep 1
+        done
+        "$stopped"
+      '
+      started=$(date +%s)
+      sudo rsync -aHAXS --inplace --numeric-ids --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/srv/vms/haos_ova-17.1.qcow2 "$target"
+      drift=$(sudo rsync -aHAXSni --inplace --numeric-ids \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/srv/vms/haos_ova-17.1.qcow2 "$target")
+      test -z "$drift" || { printf '%s\n' "$drift" >&2; exit 1; }
+      ssh -n "${options[@]}" erik@{{ip_discovery}} 'sudo virsh start haos'
+      ssh -n "${options[@]}" erik@{{ip_discovery}} '
+        set -euo pipefail
+        healthy=false
+        for _ in $(seq 1 180); do
+          if curl --fail --silent --max-time 3 \
+            http://192.168.10.115:8123/ >/dev/null 2>&1; then
+            healthy=true
+            break
+          fi
+          sleep 1
+        done
+        "$healthy"
+        test "$(sudo virsh domstate haos)" = running
+      '
+      trap - EXIT
+      rm -f "$known_hosts"
+      sudo "$QEMU_IMG" check "$target"
+      printf 'final_sync_seconds=%s drift=zero\n' "$(( $(date +%s) - started ))"
+    REMOTE
+    echo ":: PASS: HAOS exact clone is healthy and production VM recovered"
+
+# Read-only completion gate after final sync/restart; never starts or stops HAOS.
+discovery-haos-restore-result:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    qemu=$(nix eval --raw .#nixosConfigurations.orion.pkgs.qemu.outPath)
+    ssh -p 2222 erik@{{ip_orion}} "QEMU_IMG=$qemu/bin/qemu-img bash -s" <<'REMOTE'
+      set -euo pipefail
+      target=/projects/recovery/discovery-esp/haos/haos_ova-17.1.qcow2
+      sudo "$QEMU_IMG" check "$target"
+    REMOTE
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      test "$(sudo virsh domstate haos)" = running
+      healthy=false
+      for _ in $(seq 1 600); do
+        if curl --fail --silent --max-time 3 \
+          http://192.168.10.115:8123/ >/dev/null 2>&1; then
+          healthy=true
+          break
+        fi
+        sleep 1
+      done
+      "$healthy"
+    REMOTE
+    echo ":: PASS: HAOS clone integrity and production health recovered"
+
+# Boot the copied HAOS disk read-only on Orion with no network device.
+discovery-haos-boot-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    qemu=$(nix eval --raw .#nixosConfigurations.orion.pkgs.qemu.outPath)
+    ssh -p 2222 erik@{{ip_orion}} \
+      "sudo QEMU=$qemu/bin/qemu-system-x86_64 FIRMWARE=$qemu/share/qemu bash -s" <<'REMOTE'
+      set -euo pipefail
+      disk=/projects/recovery/discovery-esp/haos/haos_ova-17.1.qcow2
+      work=$(mktemp -d /projects/recovery/discovery-esp/haos/boot.XXXXXX)
+      pidfile=$work/qemu.pid
+      log=$work/console.log
+      cleanup() {
+        test ! -s "$pidfile" || kill "$(cat "$pidfile")" >/dev/null 2>&1 || true
+      }
+      trap cleanup EXIT
+      test -x "$QEMU"
+      test -f "$FIRMWARE/edk2-x86_64-code.fd"
+      test -f "$FIRMWARE/edk2-i386-vars.fd"
+      test -f "$disk"
+      cp "$FIRMWARE/edk2-i386-vars.fd" "$work/OVMF_VARS.fd"
+      "$QEMU" \
+        -name discovery-haos-restore-drill \
+        -machine pc,accel=kvm \
+        -cpu host -m 4096 -smp 2 \
+        -drive if=pflash,format=raw,readonly=on,file="$FIRMWARE/edk2-x86_64-code.fd" \
+        -drive if=pflash,format=raw,file="$work/OVMF_VARS.fd" \
+        -device virtio-scsi-pci,id=scsi0 \
+        -drive file="$disk",format=qcow2,if=none,id=disk0 \
+        -device scsi-hd,drive=disk0,bus=scsi0.0 \
+        -nic none -snapshot -display none -monitor none \
+        -serial file:"$log" -daemonize -pidfile "$pidfile"
+      booted=false
+      for _ in $(seq 1 300); do
+        if grep -Eq 'Home Assistant Operating System|Welcome to Home Assistant|ha >' "$log"; then
+          booted=true
+          break
+        fi
+        test -s "$pidfile" && kill -0 "$(cat "$pidfile")"
+        sleep 1
+      done
+      "$booted"
+      grep -E 'Home Assistant Operating System|Welcome to Home Assistant|ha >' "$log" | tail -5
+      kill "$(cat "$pidfile")"
+      wait "$(cat "$pidfile")" 2>/dev/null || true
+      trap - EXIT
+      printf 'network=none disk=snapshot boot=passed\n'
+    REMOTE
+    echo ":: PASS: copied HAOS reached console boundary with no network"
+
+# Read-only sample/capacity inventory before encrypted mutable-state backup.
+discovery-home-restore-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      fixed=(
+        /home/erik/.config/sops/age/keys.txt
+        /etc/ssh/ssh_host_ed25519_key
+      )
+      for path in "${fixed[@]}" \
+        /home/erik/servarr \
+        /home/erik/servarr/machines/discovery/config/swag \
+        /home/erik/homelab/apps/netbird/pocket-id; do
+        if sudo test -e "$path"; then
+          printf 'exists=%s\n' "$path" >&2
+        else
+          printf 'missing=%s\n' "$path" >&2
+        fi
+      done
+      for path in "${fixed[@]}"; do sudo test -s "$path"; done
+      for root in \
+        /home/erik/servarr \
+        /home/erik/servarr/machines/discovery/config/swag \
+        /home/erik/homelab/apps/netbird/pocket-id; do
+        sudo test -d "$root"
+        sudo find "$root" -xdev -type f -size +0c -printf '%s %p\n' |
+          sort -nr | sed -n '1p' >&2
+      done
+      sudo find /home/erik/servarr/machines/discovery/config/swag \
+        -type f -name '*.pem' -printf 'pem=%p\n' | sort | tail -10 >&2
+      sudo find /home/erik/Documents -xdev -type f -size +0c \
+        -printf '%s %p\n' | sort -nr | sed -n '1p' >&2
+      sudo find /home/erik -xdev -type f -size +1G \
+        -printf '%s %p\n' | sort -nr | sed -n '1p' >&2
+      bytes=$(sudo du -xsb /home/erik /etc/ssh | awk '{sum += $1} END {print sum}')
+      printf 'source_bytes=%s\n' "$bytes" >&2
+      printf '%s\n' "$bytes"
+    REMOTE
+    )
+    [[ "$source_bytes" =~ ^[0-9]+$ ]]
+    ssh -p 2222 erik@{{ip_kepler}} "SOURCE_BYTES=$source_bytes bash -s" <<'REMOTE'
+      set -euo pipefail
+      available=$(findmnt -bnro AVAIL -T /bulk)
+      test "$available" -ge "$SOURCE_BYTES"
+      printf 'source_bytes=%s available=%s target=/bulk/backups/discovery-esp-home\n' \
+        "$SOURCE_BYTES" "$available"
+    REMOTE
+    echo ":: PASS: mutable-state restore classes exist and Kepler has capacity"
+
+# Encrypt Discovery home/SSH state to Kepler and hash-verify seven restore classes.
+backup-discovery-home-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-home-restore-preflight
+    DISCOVERY="{{ip_discovery}}"
+    KEPLER="{{ip_kepler}}"
+    samples=(
+      "home/erik/.config/sops/age/keys.txt"
+      "etc/ssh/ssh_host_ed25519_key"
+      "home/erik/servarr/machines/discovery/.env.sops"
+      "home/erik/servarr/machines/discovery/config/swag/nginx/proxy-confs/harbor.subdomain.conf"
+      "home/erik/servarr/machines/discovery/config/swag/etc/letsencrypt/live/homelab.pastelariadev.com/priv-fullchain-bundle.pem"
+      "home/erik/homelab/apps/netbird/pocket-id/pocket-id.db"
+      "home/erik/servarr/README.md"
+      "home/erik/backup/Documents/erik/ha-agent/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
+    )
+    password_file=$(mktemp)
+    hashes=$(mktemp)
+    restore=$(mktemp -d)
+    cleanup() {
+      rm -f "$password_file" "$hashes"
+      rm -rf "$restore"
+    }
+    trap cleanup EXIT
+    ssh -p 2222 erik@"$DISCOVERY" \
+      'sudo cat /run/secrets/vault_restic_password' >"$password_file"
+    chmod 0600 "$password_file"
+    export RESTIC_PASSWORD_FILE="$password_file"
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/discovery-esp-home"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$DISCOVERY" \
+        "sudo stat -c 'sample=%n bytes=%s' '/$sample' 2>/dev/null || echo 'missing=/$sample'" >&2
+      ssh -p 2222 erik@"$DISCOVERY" "sudo test -s '/$sample'"
+      ssh -p 2222 erik@"$DISCOVERY" "sudo sha256sum '/$sample'" >>"$hashes"
+    done
+    if ! restic snapshots >/dev/null 2>&1; then restic init; fi
+    ssh -p 2222 erik@"$DISCOVERY" \
+      'sudo tar --one-file-system -C / -cpf - home/erik etc/ssh' |
+      restic backup --stdin --stdin-filename discovery-mutable-state.tar \
+        --tag discovery-esp
+    snapshot=$(restic snapshots --tag discovery-esp --latest 1 --json |
+      jq -r 'max_by(.time).short_id')
+    test -n "$snapshot" -a "$snapshot" != null
+    restic dump "$snapshot" discovery-mutable-state.tar |
+      tar -xpf - -C "$restore" "${samples[@]}"
+    while read -r expected path; do
+      relative=${path#/}
+      actual=$(sha256sum "$restore/$relative" | awk '{print $1}')
+      test "$actual" = "$expected" || {
+        echo ":: BLOCKED: restore mismatch: $relative" >&2
+        exit 1
+      }
+      printf 'verified=%s sha256=%s\n' "$relative" "$actual"
+    done <"$hashes"
+    printf 'snapshot=%s verified_at=%s\n' "$snapshot" "$(date --iso-8601=seconds)"
+    echo ":: PASS: encrypted Discovery mutable-state snapshot and selective restore verified"
+
+# Read-only live AdGuard identity/mount/capacity gate for isolated restore.
+discovery-adguard-restore-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      expected='adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927'
+      inspect=$(sudo docker inspect adguard)
+      jq -c '.[0] | {
+        status: .State.Status,
+        image: .Config.Image,
+        mounts: [.Mounts[] | {type: .Type, name: .Name, source: .Source, destination: .Destination}]
+      }' <<<"$inspect" >&2
+      test "$(jq -r '.[0].State.Status' <<<"$inspect")" = running
+      test "$(jq -r '.[0].Config.Image' <<<"$inspect")" = "$expected"
+      work=$(jq -r '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/work") | .Source' <<<"$inspect")
+      config=$(jq -r '.[0].Mounts[] | select(.Destination == "/opt/adguardhome/conf") | .Source' <<<"$inspect")
+      sudo test -d "$work"
+      sudo test -d "$config"
+      work_bytes=$(sudo du -xsb "$work" | cut -f1)
+      config_bytes=$(sudo du -xsb "$config" | cut -f1)
+      printf 'work=%s bytes=%s config=%s bytes=%s\n' \
+        "$work" "$work_bytes" "$config" "$config_bytes" >&2
+      jq -c '.[0] | {
+        image: .Config.Image,
+        mounts: [.Mounts[] | {type: .Type, source: .Source, destination: .Destination}],
+        ports: .NetworkSettings.Ports
+      }' <<<"$inspect" >&2
+      printf '%s\n' "$((work_bytes + config_bytes))"
+    REMOTE
+    )
+    [[ "$source_bytes" =~ ^[0-9]+$ ]]
+    ssh -p 2222 erik@{{ip_orion}} "SOURCE_BYTES=$source_bytes bash -s" <<'REMOTE'
+      set -euo pipefail
+      available=$(findmnt -bnro AVAIL -T /projects)
+      required=$((SOURCE_BYTES * 2))
+      test "$available" -ge "$required"
+      printf 'source_bytes=%s available=%s required=%s\n' \
+        "$SOURCE_BYTES" "$available" "$required"
+    REMOTE
+    echo ":: PASS: live AdGuard state identified and Orion has restore capacity"
+
+# Seed live AdGuard volume/config state onto Orion; stopped final sync follows.
+discovery-adguard-restore-seed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just discovery-adguard-restore-preflight
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    ssh -p 2222 erik@{{ip_orion}} "sudo HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      root=/projects/recovery/discovery-esp/adguard
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      chmod 0644 "$known_hosts"
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      trap 'rm -f "$known_hosts"' EXIT
+      install -d -m 0700 "$root/work" "$root/conf"
+      rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/var/lib/docker/volumes/discovery-adguard-work/_data/ "$root/work/"
+      rsync -aHAXx --numeric-ids --delete --stats \
+        --rsync-path='sudo rsync' -e "$remote_shell" \
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/runtime/adguard/ "$root/conf/"
+      du -xsb "$root/work" "$root/conf"
+    REMOTE
+    echo ":: PASS: online AdGuard restore seed complete; stopped final sync required"
+
+# Stop only AdGuard and its exporter for the final delta, then restore both.
+discovery-adguard-restore-finalize:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    discovery={{ip_discovery}}
+    kepler={{ip_kepler}}
+    evidence=.gsd/evidence/p3-dns/runs/20260715T235959Z-d5cf3b5979d8/result.json
+    jq -e '.status == "passed"' "$evidence" >/dev/null
+    for transport in +notcp +tcp; do
+      test "$(dig "$transport" +short +time=3 +tries=1 @"$kepler" \
+        discovery.homelab.pastelariadev.com A)" = "$discovery"
+      test -n "$(dig "$transport" +short +time=3 +tries=1 @"$kepler" example.com A)"
+    done
+    inspect=$(ssh -p 2222 erik@"$discovery" \
+      'sudo docker inspect adguard adguard-exporter')
+    adguard_id=$(jq -r '.[] | select(.Name == "/adguard") | .Id' <<<"$inspect")
+    exporter_id=$(jq -r '.[] | select(.Name == "/adguard-exporter") | .Id' <<<"$inspect")
+    [[ "$adguard_id" =~ ^[0-9a-f]{64}$ && "$exporter_id" =~ ^[0-9a-f]{64}$ ]]
+    test "$(jq -r '[.[].State.Running] | all' <<<"$inspect")" = true
+    scan=$(mktemp)
+    trap 'rm -f "$scan"' EXIT
+    ssh-keyscan -p 2222 "$discovery" >"$scan" 2>/dev/null
+    ssh-keygen -lf "$scan" -E sha256 |
+      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    hostkeys=$(base64 -w0 "$scan")
+    stopped=1
+    restart() {
+      if test "$stopped" = 1; then
+        ssh -p 2222 erik@"$discovery" \
+          sudo docker start "$adguard_id" "$exporter_id" >/dev/null
+        stopped=0
+      fi
+    }
+    trap restart EXIT INT TERM
+    started=$(date +%s)
+    ssh -p 2222 erik@"$discovery" \
+      sudo docker stop --time 120 "$exporter_id" "$adguard_id" >/dev/null
+    ssh -p 2222 erik@{{ip_orion}} "sudo HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
+      set -euo pipefail
+      root=/projects/recovery/discovery-esp/adguard
+      test -d "$root/work" -a -d "$root/conf"
+      known_hosts=$(mktemp)
+      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
+      chmod 0644 "$known_hosts"
+      trap 'rm -f "$known_hosts"' EXIT
+      remote_shell="sudo -H -u erik ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+      sync() {
+        rsync -aHAXx --numeric-ids --delete "$@" \
+          --rsync-path='sudo rsync' -e "$remote_shell"
+      }
+      sync erik@{{ip_discovery}}:/var/lib/docker/volumes/discovery-adguard-work/_data/ "$root/work/"
+      sync erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/runtime/adguard/ "$root/conf/"
+      work_drift=$(sync --dry-run --itemize-changes \
+        erik@{{ip_discovery}}:/var/lib/docker/volumes/discovery-adguard-work/_data/ "$root/work/")
+      conf_drift=$(sync --dry-run --itemize-changes \
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/runtime/adguard/ "$root/conf/")
+      test -z "$work_drift$conf_drift"
+      du -xsb "$root/work" "$root/conf"
+    REMOTE
+    restart
+    trap - EXIT INT TERM
+    dns_ready=false
+    for _ in $(seq 1 60); do
+      running=$(ssh -p 2222 erik@"$discovery" \
+        "sudo docker inspect '$adguard_id' '$exporter_id'" |
+        jq -r '[.[].State.Running] | all')
+      if test "$running" = true; then
+        dns_ready=true
+        for transport in +notcp +tcp; do
+          test "$(dig "$transport" +short +time=3 +tries=1 @"$discovery" \
+            discovery.homelab.pastelariadev.com A)" = "$discovery" ||
+            dns_ready=false
+          test -n "$(dig "$transport" +short +time=3 +tries=1 \
+            @"$discovery" example.com A)" ||
+            dns_ready=false
+        done
+        test "$dns_ready" = true && break
+      fi
+      sleep 1
+    done
+    test "$dns_ready" = true
+    echo ":: PASS: stopped AdGuard final sync complete; downtime=$(( $(date +%s) - started ))s"
+
+# Boot a disposable copy of AdGuard on Orion loopback and prove DNS behavior.
+discovery-adguard-restore-drill:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'sudo bash -s' <<'REMOTE'
+      set -euo pipefail
+      image='adguard/adguardhome:v0.108.0-b.83@sha256:8399ec9bdcb76d5ef4f217ed2d0272dc9f3fb283eb2613744610988232d91927'
+      root=/projects/recovery/discovery-esp/adguard
+      source_work=/projects/recovery/discovery-esp/adguard/work
+      source_conf=/projects/recovery/discovery-esp/adguard/conf
+      run=$root/runs/$(date -u +%Y%m%dT%H%M%SZ)
+      work=$run/work
+      conf=$run/conf
+      name=discovery-adguard-restore-drill
+      command -v dig >/dev/null
+      test -d "$source_work" -a -d "$source_conf"
+      ! docker inspect "$name" >/dev/null 2>&1
+      ! ss -H -lntu | grep -Eq '127\.0\.0\.1:(15353|18090)[[:space:]]'
+      install -d -m 0700 "$work" "$conf"
+      cp -a --reflink=auto "$source_work/." "$work/"
+      cp -a --reflink=auto "$source_conf/." "$conf/"
+      docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image"
+      created=false
+      cleanup() {
+        if "$created"; then
+          docker stop --time 30 "$name" >/dev/null 2>&1 || true
+        fi
+      }
+      trap cleanup EXIT INT TERM
+      docker run --detach --rm --name "$name" \
+        -p 127.0.0.1:15353:53/tcp \
+        -p 127.0.0.1:15353:53/udp \
+        -p 127.0.0.1:18090:80/tcp \
+        -v "$work:/opt/adguardhome/work" \
+        -v "$conf:/opt/adguardhome/conf" \
+        "$image" >/dev/null
+      created=true
+      dns_ready=false
+      for _ in $(seq 1 60); do
+        if test "$(dig +notcp +short +time=2 +tries=1 -p 15353 \
+          @127.0.0.1 restore-drill.homelab.pastelariadev.com A)" = \
+          192.168.10.210; then
+          dns_ready=true
+          break
+        fi
+        sleep 1
+      done
+      test "$dns_ready" = true
+      for transport in +notcp +tcp; do
+        test "$(dig "$transport" +short +time=3 +tries=1 -p 15353 \
+          @127.0.0.1 restore-drill.homelab.pastelariadev.com A)" = \
+          192.168.10.210
+        test -n "$(dig "$transport" +short +time=3 +tries=1 -p 15353 \
+          @127.0.0.1 example.com A)"
+        test "$(dig "$transport" +short +time=3 +tries=1 -p 15353 \
+          @127.0.0.1 restore-drill.doubleclick.net A)" = 0.0.0.0
+        dig "$transport" +dnssec +time=3 +tries=1 -p 15353 \
+          @127.0.0.1 cloudflare.com A |
+          grep -Eq 'flags:.* ad[;[:space:]]'
+      done
+      curl --fail --silent --show-error --max-time 3 \
+        -o /dev/null http://127.0.0.1:18090/
+      docker inspect "$name" |
+        jq -c '.[0] | {
+          image: .Image,
+          running: .State.Running,
+          ports: .NetworkSettings.Ports,
+          mounts: [.Mounts[] | {source: .Source, destination: .Destination}]
+        }' | tee "$run/result.json"
+      test "$(jq -r .running "$run/result.json")" = true
+      echo ":: PASS: isolated AdGuard restore resolves fleet/external/filter/DNSSEC over UDP+TCP"
+    REMOTE
 
 # Maintenance-window finalization. This recipe never stops Docker itself: the
 # caller must quiesce dependent writers in the reviewed order first. It refuses
