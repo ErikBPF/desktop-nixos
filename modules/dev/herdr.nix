@@ -15,8 +15,26 @@
   flake.modules.home.herdr = {pkgs, ...}: let
     system = pkgs.stdenv.hostPlatform.system;
     tomlFormat = pkgs.formats.toml {};
+    herdr = inputs.herdr.packages.${system}.default;
+    repoLauncher = pkgs.writeShellApplication {
+      name = "herdr-repo";
+      runtimeInputs = [pkgs.git pkgs.openssh herdr];
+      text = ''
+        repo=$(git -C "''${1:-.}" rev-parse --show-toplevel)
+        session=''${repo##*/}
+        [[ $session =~ ^[A-Za-z0-9_.-]+$ ]] || {
+          echo "unsupported session name: $session" >&2
+          exit 2
+        }
+        remote_repo="''${repo/#$HOME/~}"
+        printf -v remote_command "herdr-repo-bootstrap %q %q" "$session" "$remote_repo"
+        # shellcheck disable=SC2029 # arguments are intentionally quoted client-side
+        ssh gemini "$remote_command"
+        exec herdr --remote gemini --session "$session"
+      '';
+    };
   in {
-    home.packages = [inputs.herdr.packages.${system}.default];
+    home.packages = [herdr repoLauncher];
 
     # Declarative, read-only config. herdr re-reads it on
     # `herdr server reload-config`; onboarding is disabled so it never tries
@@ -84,6 +102,18 @@
           type = "pane";
           command = "hermes";
           description = "launch Hermes Agent (local CLI → Discovery API)";
+        }
+        {
+          key = "prefix+t";
+          type = "plugin_action";
+          command = "herdr-navigator.open";
+          description = "jump to workspace, project, session, or agent";
+        }
+        {
+          key = "prefix+shift+p";
+          type = "plugin_action";
+          command = "cloudmanic.herdr-plus.projects";
+          description = "open project template";
         }
       ];
     };
