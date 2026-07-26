@@ -1,5 +1,5 @@
 {self, ...}: {
-  flake.modules.nixos.endeavour-ampagent = {
+  flake.modules.nixos.kace-agent = {
     config,
     pkgs,
     lib,
