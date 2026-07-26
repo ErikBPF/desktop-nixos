@@ -52,6 +52,20 @@ def test_openbao_d4_backup_refreshes_every_existing_tier():
     assert recipe.index(units[0]) < recipe.index(units[1]) < recipe.index(units[2])
 
 
+def test_identity_backup_covers_tailscale_ssh_and_sops():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("backup-discovery-identity-kepler:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "var/lib/tailscale/tailscaled.state" in recipe
+    assert "etc/ssh/ssh_host_ed25519_key" in recipe
+    assert "home/erik/.config/sops/age/keys.txt" in recipe
+    assert "--tag discovery-esp-identity" in recipe
+    assert "restic dump" in recipe
+    assert "sha256sum" in recipe
+
+
 def test_scratch_restore_preflight_is_read_only_and_targets_orion_projects():
     justfile = (Path(__file__).parents[2] / "justfile").read_text()
     recipe = justfile.split("discovery-docker-scratch-preflight:", 1)[1].split(

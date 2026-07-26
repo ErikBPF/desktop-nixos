@@ -6035,6 +6035,52 @@ discovery-home-restore-preflight:
     REMOTE
     echo ":: PASS: mutable-state restore classes exist and Kepler has capacity"
 
+# Encrypt Discovery's host identities to Kepler and verify the restored hashes.
+backup-discovery-identity-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DISCOVERY="{{ip_discovery}}"
+    KEPLER="{{ip_kepler}}"
+    samples=(
+      var/lib/tailscale/tailscaled.state
+      etc/ssh/ssh_host_ed25519_key
+      home/erik/.config/sops/age/keys.txt
+    )
+    password_file=$(mktemp)
+    hashes=$(mktemp)
+    restore=$(mktemp -d)
+    trap 'rm -f "$password_file" "$hashes"; rm -rf "$restore"' EXIT
+    ssh -p 2222 erik@"$DISCOVERY" \
+      'sudo cat /run/secrets/vault_restic_password' >"$password_file"
+    chmod 0600 "$password_file"
+    export RESTIC_PASSWORD_FILE="$password_file"
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/discovery-esp-home"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    restic unlock
+    for sample in "${samples[@]}"; do
+      ssh -p 2222 erik@"$DISCOVERY" "sudo sha256sum '/$sample'" >>"$hashes"
+    done
+    ssh -p 2222 erik@"$DISCOVERY" \
+      "sudo tar -C / -cpf - ${samples[*]}" |
+      restic backup --stdin --stdin-filename discovery-host-identity.tar \
+        --tag discovery-esp-identity
+    snapshot=$(restic snapshots --tag discovery-esp-identity --latest 1 --json |
+      jq -r 'max_by(.time).short_id')
+    restic dump "$snapshot" discovery-host-identity.tar |
+      tar -xpf - -C "$restore"
+    while read -r expected path; do
+      actual=$(sha256sum "$restore/${path#/}" | awk '{print $1}')
+      test "$actual" = "$expected"
+    done <"$hashes"
+    printf 'snapshot=%s tailscale_sha256=%s verified_at=%s\n' \
+      "$snapshot" "$(awk '$2 == "/var/lib/tailscale/tailscaled.state" {print $1}' "$hashes")" \
+      "$(date --iso-8601=seconds)"
+    echo ":: PASS: encrypted Discovery host identities restored and hash-verified"
+
 # Encrypt Discovery home/SSH state to Kepler and hash-verify seven restore classes.
 backup-discovery-home-kepler:
     #!/usr/bin/env bash
