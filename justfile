@@ -2998,6 +2998,31 @@ verify-hermes-secret-renders:
       echo "hermes_render=ready mode=0400 fresh=true files=4 wiki_owner=hermes"
     '
 
+# Refresh the OpenBao snapshot across every declared tier, then prove restore.
+backup-discovery-openbao-d4:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      units=(
+        restic-backups-vault.service
+        restic-backups-vault-offsite.service
+        restic-backups-vault-rest.service
+        restic-backups-vault-b2.service
+      )
+      for unit in "${units[@]}"; do
+        sudo systemctl start "$unit"
+        sudo systemctl show "$unit" \
+          --property=Id,ExecMainStatus,ActiveEnterTimestamp --value |
+          paste -sd ' ' -
+      done
+      sudo sha256sum /var/lib/vault-snapshots/openbao.snap
+      sudo systemctl start openbao-restore-drill.service
+      test "$(systemctl show openbao-restore-drill.service --property=Result --value)" = success
+    REMOTE
+    echo ":: PASS: fresh OpenBao snapshot copied to every tier and restored"
+
 openbao-restore-drill:
     IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl start openbao-restore-drill.service && { sudo systemctl status openbao-restore-drill.service --no-pager || true; }'
 

@@ -31,6 +31,25 @@ def test_docker_finalize_does_not_pin_volatile_device_names():
     assert "/dev/sdc" not in recipe
 
 
+def test_openbao_d4_backup_refreshes_every_existing_tier():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("backup-discovery-openbao-d4:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    units = [
+        "restic-backups-vault.service",
+        "restic-backups-vault-offsite.service",
+        "restic-backups-vault-rest.service",
+        "restic-backups-vault-b2.service",
+    ]
+    for unit in units:
+        assert unit in recipe
+    assert "openbao-restore-drill.service" in recipe
+    assert "sha256sum /var/lib/vault-snapshots/openbao.snap" in recipe
+    assert recipe.index(units[0]) < recipe.index(units[1]) < recipe.index(units[2])
+
+
 def test_scratch_restore_preflight_is_read_only_and_targets_orion_projects():
     justfile = (Path(__file__).parents[2] / "justfile").read_text()
     recipe = justfile.split("discovery-docker-scratch-preflight:", 1)[1].split(
