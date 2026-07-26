@@ -8,9 +8,14 @@ VANGUARD=(ROOT/"modules/hosts/vanguard/default.nix").read_text()
 class FleetDnsLanTest(unittest.TestCase):
     def test_interface_option_defaults_to_vanguard_tailnet(self):
         self.assertRegex(MODULE,r'interface\s*=\s*lib\.mkOption\s*\{[^}]*default\s*=\s*"tailscale0";')
-        self.assertIn('bind ${cfg.interface}',MODULE)
+        self.assertIn('bind ${bindTarget}',MODULE)
         self.assertRegex(MODULE,r'networking\.firewall\.interfaces\.\$\{cfg\.interface\}\s*=\s*\{[^}]*allowedTCPPorts\s*=\s*\[53\];[^}]*allowedUDPPorts\s*=\s*\[53\];')
         self.assertNotRegex(MODULE,r'networking\.firewall\.allowed(?:TCP|UDP)Ports\s*=')
+
+    def test_kepler_binds_stable_address_instead_of_racing_dhcp(self):
+        self.assertIn('listenAddress = lib.mkOption',MODULE)
+        self.assertIn('bindTarget =',MODULE)
+        self.assertIn('listenAddress = config.flake.fleet.hosts.kepler.ip;',KEPLER)
 
     def test_sequential_forward_is_opt_in_and_kepler_orders_adguard_first(self):
         self.assertRegex(MODULE,r'sequentialUpstream\s*=\s*lib\.mkEnableOption')
@@ -18,7 +23,7 @@ class FleetDnsLanTest(unittest.TestCase):
         self.assertIn('lib.optionalString cfg.sequentialUpstream',MODULE)
         self.assertIn('policy sequential',MODULE)
         self.assertIn('m.nixos.fleet-dns',KEPLER)
-        self.assertRegex(KEPLER,r'services\.fleetDns\s*=\s*\{[^}]*enable\s*=\s*true;[^}]*interface\s*=\s*"enp5s0";[^}]*upstream\s*=\s*\["192\.168\.10\.210"\s+"1\.1\.1\.1"\s+"9\.9\.9\.9"\];[^}]*sequentialUpstream\s*=\s*true;')
+        self.assertRegex(KEPLER,r'services\.fleetDns\s*=\s*\{[^}]*enable\s*=\s*true;[^}]*interface\s*=\s*"enp5s0";[^}]*listenAddress\s*=\s*config\.flake\.fleet\.hosts\.kepler\.ip;[^}]*upstream\s*=\s*\["192\.168\.10\.210"\s+"1\.1\.1\.1"\s+"9\.9\.9\.9"\];[^}]*sequentialUpstream\s*=\s*true;')
 
     def test_vanguard_keeps_default_tailnet_behavior(self):
         self.assertIn('services.fleetDns.enable = true;',VANGUARD)

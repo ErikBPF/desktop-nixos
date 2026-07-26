@@ -29,7 +29,7 @@ def normalize_routes(value):
 
 class ParentSnapshot(unittest.TestCase):
     def test_lifetime_and_route_expiry_changes_are_ignored(self):
-        address = [{"ifname": "eno1", "address": "00:11:22:33:44:55", "mtu": 1500, "flags": ["UP", "LOWER_UP"], "addr_info": [{"family": "inet", "local": "192.168.10.125", "prefixlen": 24, "scope": "global", "label": "eno1", "valid_life_time": 100, "preferred_life_time": 50}]}]
+        address = [{"ifname": "eno1", "address": "00:11:22:33:44:55", "mtu": 1500, "flags": ["UP", "LOWER_UP"], "addr_info": [{"family": "inet", "local": "192.168.10.215", "prefixlen": 24, "scope": "global", "label": "eno1", "valid_life_time": 100, "preferred_life_time": 50}]}]
         route = [{"dst": "default", "gateway": "192.168.10.1", "dev": "eno1", "protocol": "dhcp", "expires": 100, "cache": ["x"], "used": 4, "lastuse": 3}]
         changed_address = copy.deepcopy(address); changed_address[0]["addr_info"][0]["valid_life_time"] = 99
         changed_route = copy.deepcopy(route); changed_route[0].update(expires=99, used=5, lastuse=4)
@@ -37,7 +37,7 @@ class ParentSnapshot(unittest.TestCase):
         self.assertEqual(normalize_routes(route), normalize_routes(changed_route))
 
     def test_stable_address_and_route_drift_is_rejected(self):
-        address = [{"ifname": "eno1", "address": "00:11:22:33:44:55", "mtu": 1500, "flags": ["UP"], "addr_info": [{"family": "inet", "local": "192.168.10.125", "prefixlen": 24, "scope": "global", "label": "eno1"}]}]
+        address = [{"ifname": "eno1", "address": "00:11:22:33:44:55", "mtu": 1500, "flags": ["UP"], "addr_info": [{"family": "inet", "local": "192.168.10.215", "prefixlen": 24, "scope": "global", "label": "eno1"}]}]
         changed_address = copy.deepcopy(address); changed_address[0]["addr_info"][0]["prefixlen"] = 25
         route = [{"dst": "default", "gateway": "192.168.10.1", "dev": "eno1", "protocol": "dhcp"}]
         changed_route = copy.deepcopy(route); changed_route[0]["gateway"] = "192.168.10.254"

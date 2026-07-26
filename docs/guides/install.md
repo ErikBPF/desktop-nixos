@@ -4,7 +4,7 @@
 
 | Host       | Type    | Hardware                                     | IP             |
 | ---------- | ------- | -------------------------------------------- | -------------- |
-| pathfinder | Desktop | Intel i7 + Nvidia GTX 1080, LUKS+btrfs       | 192.168.10.125 |
+| pathfinder | Desktop | Intel i7 + Nvidia GTX 1080, LUKS+btrfs       | 192.168.10.215 |
 | discovery  | Server  | Intel + Nvidia Quadro P2000, RAID1 SSD + HDD | 192.168.10.210 |
 | laptop     | Laptop  | Intel i7-1165G7 + Iris Xe, NVMe LUKS+btrfs   | DHCP           |
 | orion      | HTPC    | AMD Ryzen + RX 9070XT, Jovian Steam UI        | 192.168.10.220 |
@@ -55,7 +55,7 @@ Single command, fully automated after LUKS unlock:
 ```bash
 just nixos-anywhere <target> <ip> <luks-pass> <iso-user>
 # Example:
-just nixos-anywhere pathfinder 192.168.10.125 mypassword nixos
+just nixos-anywhere pathfinder 192.168.10.215 mypassword nixos
 ```
 
 **What happens:**
@@ -91,7 +91,7 @@ just bootstrap laptop
 ```bash
 just verify <target> <ip> <ssh-port>
 # Example:
-just verify pathfinder 192.168.10.125 2222
+just verify pathfinder 192.168.10.215 2222
 ```
 
 Checks: failed units, tailscale status, syncthing, home-manager, sops key presence.
@@ -101,7 +101,7 @@ Checks: failed units, tailscale status, syncthing, home-manager, sops key presen
 ```bash
 just deploy <target> <ip> <port>
 # Example:
-just deploy pathfinder 192.168.10.125 2222
+just deploy pathfinder 192.168.10.215 2222
 ```
 
 ### Fleet auto-update

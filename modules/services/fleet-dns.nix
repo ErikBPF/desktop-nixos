@@ -18,6 +18,10 @@ in {
     ...
   }: let
     cfg = config.services.fleetDns;
+    bindTarget =
+      if cfg.listenAddress == null
+      then cfg.interface
+      else cfg.listenAddress;
 
     # One CoreDNS server block per fleet.ingress zone: `template` answers every
     # A query CoreDNS routes here (i.e. anything matching `<zone>` or
@@ -26,7 +30,7 @@ in {
     # so it works even when that host's own resolver is down.
     zoneBlock = zone: hostIp: ''
       ${zone} {
-        bind ${cfg.interface}
+        bind ${bindTarget}
         template IN A {
           answer "{{ .Name }} 300 IN A ${hostIp}"
         }
@@ -43,6 +47,12 @@ in {
         type = lib.types.enum ["tailscale0" "enp5s0"];
         default = "tailscale0";
         description = "Interface on which CoreDNS listens and the firewall permits DNS.";
+      };
+
+      listenAddress = lib.mkOption {
+        type = lib.types.nullOr lib.types.singleLineStr;
+        default = null;
+        description = "Stable address for CoreDNS to bind; defaults to the selected interface.";
       };
 
       upstream = lib.mkOption {
@@ -86,7 +96,7 @@ in {
           )
           + ''
             . {
-              bind ${cfg.interface}
+              bind ${bindTarget}
               ${lib.optionalString (!cfg.sequentialUpstream) "forward . ${lib.concatStringsSep " " cfg.upstream}"}
               ${lib.optionalString cfg.sequentialUpstream ''
               forward . ${lib.concatStringsSep " " cfg.upstream} {
