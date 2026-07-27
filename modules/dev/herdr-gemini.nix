@@ -159,7 +159,7 @@
       '';
     };
   in {
-    home.packages = [plus navigator repoBootstrap];
+    home.packages = [repoBootstrap pkgs.jq];
 
     xdg.configFile = {
       "herdr/plugins/config/cloudmanic.herdr-plus/projects/homelab.toml".source = toml.generate "herdr-plus-homelab.toml" (project {
