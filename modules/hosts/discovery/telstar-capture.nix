@@ -38,7 +38,7 @@ _: {
         Type = "simple";
         User = user;
         Group = "users";
-        WorkingDirectory = "${home}/homelab-iac";
+        WorkingDirectory = home;
         Restart = "on-failure";
         RestartSec = "300";
       };
@@ -47,6 +47,11 @@ _: {
       script = ''
         set -uo pipefail
         export PATH="/run/current-system/sw/bin:${home}/.nix-profile/bin:$PATH"
+        if ! test -d "${home}/homelab-iac/.git"; then
+          test ! -e "${home}/homelab-iac"
+          ${pkgs.git}/bin/git clone --branch main --single-branch \
+            git@github_erikbpf:ErikBPF/homelab-iac.git "${home}/homelab-iac"
+        fi
         cd "${home}/homelab-iac"
         ${pkgs.git}/bin/git pull --ff-only 2>/dev/null || true
         exec ${pkgs.bash}/bin/bash oracle/bin/telstar-get-retry.sh

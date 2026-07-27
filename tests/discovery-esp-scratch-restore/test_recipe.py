@@ -66,6 +66,238 @@ def test_identity_backup_covers_tailscale_ssh_and_sops():
     assert "sha256sum" in recipe
 
 
+def test_identity_restore_is_pinned_and_verified_before_service_restart():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("restore-discovery-identity-kepler:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "868abf42" in recipe
+    assert "c6a64318c4b5685b513056d22be3d91c25ae810d6d793c7a9fe400a22ff97c93" in recipe
+    assert "SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE" in recipe
+    assert "restic dump" in recipe
+    assert "systemctl stop tailscaled-autoconnect.service tailscaled.service" in recipe
+    assert recipe.index("sha256sum") < recipe.index("systemctl restart sshd.service")
+    assert "tailscale status --json" in recipe
+
+
+def test_postinstall_storage_check_binds_raid_esp_and_vault():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("verify-discovery-postinstall-storage:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "ata-KINGSTON_SA400S37480G_AA000000000000000105-part1" in recipe
+    assert "ata-KINGSTON_SA400S37480G_AA000000000000000098-part1" in recipe
+    assert "d026033d-158d-49ca-9ff9-dd2d5c8a21dc" in recipe
+    assert "Data,RAID1:" in recipe
+    assert "Metadata,RAID1:" in recipe
+    assert "for mount in /boot /home/erik/vault" in recipe
+
+
+def test_home_restore_is_pinned_quiesced_and_runs_home_manager():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("restore-discovery-home-kepler:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "6943b508" in recipe
+    assert "discovery-mutable-state.tar" in recipe
+    assert "d026033d-158d-49ca-9ff9-dd2d5c8a21dc" in recipe
+    assert "systemctl stop haos-vm.service docker.service docker.socket" in recipe
+    assert "systemctl is-active docker.service" in recipe
+    assert "restic dump" in recipe
+    assert "home-manager-erik.service" in recipe
+    assert "SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE" in recipe
+
+
+def test_restore_quiesce_runtime_masks_stateful_substrates():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("quiesce-discovery-restore:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "systemctl mask --runtime --now" in recipe
+    for unit in [
+        "docker.service",
+        "docker.socket",
+        "libvirtd.service",
+        "haos-vm.service",
+        "openbao.service",
+        "vault-agent.service",
+    ]:
+        assert unit in recipe
+    assert 'systemctl stop "${units[@]}"' in recipe
+
+
+def test_openbao_restore_pins_snapshot_hash_and_verifies_metadata():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("restore-discovery-openbao:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "315ed0ea" in recipe
+    assert "8407ae773697c8511a6d2f2a24f0152dd547a91e7115148c8ecebea4f989ba29" in recipe
+    assert "operator init" in recipe
+    assert "operator raft snapshot restore -force" in recipe
+    assert "/run/secrets/vault_unseal_key" in recipe
+    assert "secret/shared/discord" in recipe
+    assert "systemctl start vault-agent.service" in recipe
+    assert "rm -rf" not in recipe
+    assert "pkgs.restic.outPath" in recipe
+    assert "journalctl -u openbao.service" in recipe
+    assert "ip link add name br-openbao type bridge" in recipe
+    assert "172.31.82.1/29" in recipe
+    assert 'chown -R erik:users "$work"' in recipe
+
+
+def test_openbao_restore_resumes_after_snapshot_import_without_reading_root_secrets_as_erik():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("restore-discovery-openbao:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert 'initialized=$(curl -fsS -m 10 http://127.0.0.1:8200/v1/sys/seal-status' in recipe
+    assert 'if test "$initialized" = false; then' in recipe
+    assert 'sealed=$(curl -fsS -m 10 http://127.0.0.1:8200/v1/sys/seal-status' in recipe
+    assert 'if test "$sealed" = true; then' in recipe
+    assert "unseal_key=$(sudo cat /run/secrets/vault_unseal_key)" in recipe
+    assert "role_id=$(sudo cat /run/secrets/vault_agent_role_id)" in recipe
+    assert "secret_id=$(sudo cat /run/secrets/vault_agent_secret_id)" in recipe
+    assert "--rawfile key /run/secrets/vault_unseal_key" not in recipe
+    assert "--rawfile role_id /run/secrets/vault_agent_role_id" not in recipe
+    for stage in ["seal-status", "approle-login", "kv-proof", "vault-agent"]:
+        assert f"stage={stage}" in recipe
+    assert "for _ in $(seq 1 100); do" in recipe
+    assert 'sudo test -s "$path" && break' in recipe
+
+
+def test_openbao_throwaway_reset_is_guarded_recoverable_and_non_deleting():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("quarantine-discovery-openbao-throwaway:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "du -sb /var/lib/private/openbao" in recipe
+    assert "67108864" in recipe
+    assert "mv /var/lib/private/openbao" in recipe
+    assert "openbao-d5-throwaway" in recipe
+    assert "rm " not in recipe
+
+
+def test_docker_restore_retains_fresh_root_and_proves_exact_cold_mirror():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("restore-discovery-docker:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "d026033d-158d-49ca-9ff9-dd2d5c8a21dc" in recipe
+    assert "discovery-docker-root.final" in recipe
+    assert ".gsd/evidence/discovery-esp/manifest.json" in recipe
+    assert "a654304de8d8a29b1986b8ba9f2b3c19a87d58b58768b60c766d4e621ead42b5" in recipe
+    assert 'scratch_restore == "passed"' in recipe
+    assert "docker-d5-fresh" in recipe
+    assert "1073741824" in recipe
+    assert "10737418240" in recipe
+    assert "config.v2.json" in recipe
+    assert 'sudo mv "$destination" "$retained"' in recipe
+    assert "systemctl mask --runtime --now" in recipe
+    assert 'systemctl mask --runtime --now "${docker_units[@]}" || true' in recipe
+    assert "docker-recover.timer" in recipe
+    assert 'systemctl stop "${docker_units[@]}"' in recipe
+    assert "ConditionPathExists=/run/discovery-docker-restore-start-allowed" in recipe
+    assert "systemctl daemon-reload" in recipe
+    assert 'test "$(systemctl is-active docker.service' in recipe
+    assert "discovery-docker-restore-hold" in recipe
+    assert "sudo rsync -aHAXx --numeric-ids --delete --stats" in recipe
+    assert "sudo rsync -aHAXxni --numeric-ids --delete" in recipe
+    assert 'test -z "$drift"' in recipe
+    assert 'test "$source_manifest" = "$expected_manifest"' in recipe
+    assert 'test "$destination_manifest" = "$expected_manifest"' in recipe
+    assert recipe.count("! -type d -printf") == 2
+    assert "systemctl unmask --runtime docker.service docker.socket" in recipe
+    assert "systemctl start docker.service" in recipe
+    assert "systemctl start docker.service || true" in recipe
+    assert "for _ in $(seq 1 300); do" in recipe
+    assert "systemctl is-active --quiet docker.service && break" in recipe
+    assert "systemctl status docker.service docker.socket" in recipe
+    assert "journalctl -u docker.service" in recipe
+    assert "DockerRootDir" in recipe
+    assert "rm -rf" not in recipe
+    for stage in ["preflight", "retain", "rsync", "manifest", "start"]:
+        assert f"stage={stage}" in recipe
+    assert "vault_uuid=%s marker=%s source=%s docker=%s socket=%s" in recipe
+
+
+def test_postrestore_resume_starts_declarative_owners_and_proves_harbor_haos():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("resume-discovery-postrestore-substrates:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    for unit in [
+        "docker-recover.timer",
+        "openbao-unseal.timer",
+        "libvirtd.service",
+        "haos-vm.service",
+        "harbor.service",
+    ]:
+        assert unit in recipe
+    assert "systemctl unmask --runtime" in recipe
+    assert "systemctl start docker-recover.timer openbao-unseal.timer" in recipe
+    assert "systemctl restart harbor.service" in recipe
+    assert "systemctl start haos-vm.service" in recipe
+    assert "http://127.0.0.1:8085/api/v2.0/health" in recipe
+    assert 'virsh domstate haos | grep -Fx running' in recipe
+    assert "rm " not in recipe
+
+
+def test_final_gate_checks_openbao_unseal_oneshot_via_timer_and_result():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("verify-discovery-esp:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "openbao-unseal.timer" in recipe
+    assert "systemctl show -p Result --value openbao-unseal.service" in recipe
+    assert "openbao openbao-unseal vault-agent" not in recipe
+    assert "@{{ip_discovery}}" in recipe
+    assert "@127.0.0.1" not in recipe
+    for stage in ["openbao", "dns", "grafana", "haos", "failed-units"]:
+        assert f"stage={stage}" in recipe
+
+
+def test_netbird_resume_renders_config_before_restarting_all_controlplane_units():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("resume-discovery-netbird:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "systemctl restart netbird-management-config.service" in recipe
+    for unit in [
+        "docker-netbird-pocketid.service",
+        "docker-netbird-management.service",
+        "docker-netbird-signal.service",
+        "docker-netbird-dashboard.service",
+        "docker-netbird-relay.service",
+    ]:
+        assert unit in recipe
+    assert ".well-known/openid-configuration" in recipe
+    assert "rm " not in recipe
+
+
+def test_kindle_mirror_passes_pinned_skopeo_and_cosign_path_to_remote_script():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("mirror-kindle version digest:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "pkgs.skopeo.outPath" in recipe
+    assert "pkgs.cosign.outPath" in recipe
+    assert "TOOLS_PATH=" in recipe
+    assert 'export PATH="$TOOLS_PATH:$PATH"' in recipe
+
+
 def test_scratch_restore_preflight_is_read_only_and_targets_orion_projects():
     justfile = (Path(__file__).parents[2] / "justfile").read_text()
     recipe = justfile.split("discovery-docker-scratch-preflight:", 1)[1].split(
@@ -534,3 +766,87 @@ def test_adguard_drill_uses_copied_state_and_loopback_dns_only():
     assert "--network host" not in recipe
     assert "192.168.10.210:53" not in recipe
     assert "docker volume" not in recipe
+
+
+def test_discovery_gpu_diagnostic_is_read_only_and_boot_scoped():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("diagnose-discovery-gpu:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "lspci -nnk" in recipe
+    assert "nvidia-smi" in recipe
+    assert "lsmod" in recipe
+    assert "/dev/nvidia" in recipe
+    assert "journalctl -b -k" in recipe
+    assert "nvidia-persistenced.service" in recipe
+    assert "nvidia-container-toolkit-cdi-generator.service" in recipe
+    assert "pkgs.pciutils.outPath" in recipe
+    assert "TOOLS_PATH=" in recipe
+    assert "systemctl start" not in recipe
+    assert "systemctl restart" not in recipe
+    assert "systemctl reset-failed" not in recipe
+
+
+def test_telstar_capture_bootstraps_its_mutable_iac_clone():
+    module = (
+        Path(__file__).parents[2]
+        / "modules/hosts/discovery/telstar-capture.nix"
+    ).read_text()
+
+    assert 'WorkingDirectory = home;' in module
+    assert 'test -d "${home}/homelab-iac/.git"' in module
+    assert "${pkgs.git}/bin/git clone" in module
+    assert "git@github_erikbpf:ErikBPF/homelab-iac.git" in module
+    assert 'cd "${home}/homelab-iac"' in module
+
+
+def test_telstar_pause_stops_only_the_retry_unit():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("pause-discovery-telstar:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "systemctl stop telstar-capture.service" in recipe
+    assert "systemctl reset-failed telstar-capture.service" in recipe
+    assert "systemctl disable" not in recipe
+    assert "rm " not in recipe
+
+
+def test_hermes_wiki_diagnostic_is_read_only():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("diagnose-hermes-wiki:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "systemctl status hermes-wiki-clone.service" in recipe
+    assert "journalctl -u hermes-wiki-clone.service" in recipe
+    assert "systemctl start" not in recipe
+    assert "systemctl reset-failed" not in recipe
+
+
+def test_hermes_wiki_keeps_host_keys_outside_the_checkout():
+    module = (
+        Path(__file__).parents[2]
+        / "modules/hosts/discovery/hermes-wiki.nix"
+    ).read_text()
+
+    assert 'StateDirectory = "hermes-wiki-ssh";' in module
+    assert "UserKnownHostsFile=/var/lib/hermes-wiki-ssh/known_hosts" in module
+    host_git = module.split('export GIT_SSH_COMMAND=', 1)[1].split("\n", 1)[0]
+    assert "${wikiDir}/.known_hosts" not in host_git
+
+
+def test_telstar_state_inventory_is_value_free_and_read_only():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("discovery-telstar-state-inventory:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "tofu-state-export/oracle/compute-telstar/terraform.tfstate" in recipe
+    assert "tofu-state-backup/oracle/compute-telstar/terraform.tfstate" in recipe
+    assert "stat -c" in recipe
+    assert "sha256sum" in recipe
+    assert "cat " not in recipe
+    assert "cp " not in recipe
+    assert "rm " not in recipe

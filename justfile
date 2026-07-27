@@ -2158,9 +2158,14 @@ mirror-kindle version digest:
       echo "invalid digest: {{digest}}" >&2
       exit 1
     }
+    skopeo="$(nix eval --raw .#nixosConfigurations.discovery.pkgs.skopeo.outPath)"
+    cosign="$(nix eval --raw .#nixosConfigurations.discovery.pkgs.cosign.outPath)"
+    tools_path="$skopeo/bin:$cosign/bin"
     IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" sudo bash -s -- "{{version}}" "{{digest}}" <<'REMOTE'
+    ssh -p 2222 erik@"$IP" sudo env "TOOLS_PATH=$tools_path" \
+      bash -s -- "{{version}}" "{{digest}}" <<'REMOTE'
       set -euo pipefail
+      export PATH="$TOOLS_PATH:$PATH"
       env_file=/run/vault-agent/harbor.env
       export HARBOR_ROBOT_USER="$(sed -n 's/^HARBOR_ROBOT_USER=//p' "$env_file")"
       export HARBOR_ROBOT_SECRET="$(sed -n 's/^HARBOR_ROBOT_SECRET=//p' "$env_file")"
@@ -2401,6 +2406,23 @@ grafana-alert-retry target:
       [ -n "$ip" ] || ip="$(just _host-ip "$host")"
       ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" "$command"
     fi
+
+# Pause the Discovery Telstar capacity retry while its remote state is repaired.
+pause-discovery-telstar:
+    ssh -p 2222 erik@{{ip_discovery}} 'sudo systemctl stop telstar-capture.service; sudo systemctl reset-failed telstar-capture.service'
+
+# Compare encrypted Telstar state copies without printing state content.
+discovery-telstar-state-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    inspect() {
+      local host=$1 ip=$2 path=$3
+      printf 'host=%s ' "$host"
+      ssh -p 2222 erik@"$ip" "if test -f '$path'; then stat -c 'bytes=%s mtime=%y' '$path'; sha256sum '$path'; else echo state=missing; fi"
+    }
+    inspect discovery {{ip_discovery}} /home/erik/tofu-state-export/oracle/compute-telstar/terraform.tfstate
+    inspect orion {{ip_orion}} /home/erik/tofu-state-backup/oracle/compute-telstar/terraform.tfstate
+    inspect kepler {{ip_kepler}} /home/erik/tofu-state-backup/oracle/compute-telstar/terraform.tfstate
 
 # After pulling, kick the compose stack on the remote host:
 #   just kick-stack kepler ai-serving
@@ -2997,6 +3019,10 @@ verify-hermes-secret-renders:
       sudo systemctl is-active hermes-wiki-clone.service
       echo "hermes_render=ready mode=0400 fresh=true files=4 wiki_owner=hermes"
     '
+
+# Read-only failure detail for the declarative Hermes wiki checkout.
+diagnose-hermes-wiki:
+    IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl status hermes-wiki-clone.service --no-pager -l || true; sudo journalctl -u hermes-wiki-clone.service -b --no-pager -n 100'
 
 # Refresh the OpenBao snapshot across every declared tier, then prove restore.
 backup-discovery-openbao-d4:
@@ -6081,6 +6107,463 @@ backup-discovery-identity-kepler:
       "$(date --iso-8601=seconds)"
     echo ":: PASS: encrypted Discovery host identities restored and hash-verified"
 
+# Restore the pinned D5 host-identity snapshot before stateful services resume.
+restore-discovery-identity-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DISCOVERY="{{ip_discovery}}"
+    KEPLER="{{ip_kepler}}"
+    snapshot=868abf42
+    tailscale_sha256=c6a64318c4b5685b513056d22be3d91c25ae810d6d793c7a9fe400a22ff97c93
+    ssh_fingerprint='SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+    password_file=$(mktemp)
+    restore=$(mktemp -d)
+    trap 'rm -f "$password_file"; rm -rf "$restore"' EXIT
+    ssh -p 2222 erik@"$DISCOVERY" \
+      'sudo cat /run/secrets/vault_restic_password' >"$password_file"
+    chmod 0600 "$password_file"
+    export RESTIC_PASSWORD_FILE="$password_file"
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/discovery-esp-home"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    restic dump "$snapshot" discovery-host-identity.tar | tar -xpf - -C "$restore"
+    test "$(sha256sum "$restore/var/lib/tailscale/tailscaled.state" | awk '{print $1}')" = "$tailscale_sha256"
+    test "$(ssh-keygen -yf "$restore/etc/ssh/ssh_host_ed25519_key" |
+      ssh-keygen -lf - -E sha256 | awk '{print $2}')" = "$ssh_fingerprint"
+    ssh -p 2222 erik@"$DISCOVERY" '
+      sudo systemctl stop tailscaled-autoconnect.service tailscaled.service || true
+      sudo systemctl stop haos-vm.service docker.service docker.socket \
+        libvirtd.service openbao.service vault-agent.service || true
+    '
+    tar -C "$restore" -cpf - etc/ssh var/lib/tailscale home/erik/.config/sops |
+      ssh -p 2222 erik@"$DISCOVERY" 'sudo tar -C / -xpf -'
+    ssh -p 2222 erik@"$DISCOVERY" "TAILSCALE_SHA256=$tailscale_sha256 SSH_FINGERPRINT=$ssh_fingerprint bash -s" <<'REMOTE'
+      set -euo pipefail
+      sudo chmod 0600 /etc/ssh/ssh_host_ed25519_key /var/lib/tailscale/tailscaled.state
+      sudo chown -R erik:users /home/erik/.config/sops
+      sudo chmod 0600 /home/erik/.config/sops/age/keys.txt
+      sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key |
+        sudo tee /etc/ssh/ssh_host_ed25519_key.pub >/dev/null
+      sudo chmod 0644 /etc/ssh/ssh_host_ed25519_key.pub
+      test "$(sudo sha256sum /var/lib/tailscale/tailscaled.state | awk '{print $1}')" = "$TAILSCALE_SHA256"
+      test "$(sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256 | awk '{print $2}')" = "$SSH_FINGERPRINT"
+      sudo /run/current-system/activate
+      sudo systemctl restart tailscaled.service
+      sudo systemctl restart sshd.service
+      test "$(tailscale status --json | jq -r .BackendState)" = Running
+    REMOTE
+    echo ":: PASS: Discovery SSH, Tailscale, and sops identities restored"
+
+# Verify the new boot storage and preserved vault before state restoration.
+verify-discovery-postinstall-storage:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      esp=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105-part1)
+      primary=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000105-part2)
+      mirror=$(readlink -f /dev/disk/by-id/ata-KINGSTON_SA400S37480G_AA000000000000000098-part1)
+      vault=$(readlink -f /dev/disk/by-id/ata-ST4000DM004-2CV104_ZTT25R4M-part1)
+      for mount in /boot /home/erik/vault; do
+        findmnt -nro TARGET,SOURCE,FSTYPE,UUID "$mount"
+      done
+      sudo btrfs filesystem show /
+      sudo btrfs filesystem usage -b /
+      systemctl is-active docker.service libvirtd.service openbao.service || true
+      test "$(findmnt -nro SOURCE /boot)" = "$esp"
+      test "$(findmnt -bnro SIZE /boot)" -ge 2000000000
+      test "$(findmnt -nro FSTYPE /boot)" = vfat
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test "$(findmnt -nro SOURCE /home/erik/vault)" = "$vault"
+      devices=$(sudo btrfs filesystem show /)
+      grep -Fq "path $primary" <<<"$devices"
+      grep -Fq "path $mirror" <<<"$devices"
+      sudo btrfs filesystem usage -b / | grep -Eq "^Data,RAID1:"
+      sudo btrfs filesystem usage -b / | grep -Eq "^Metadata,RAID1:"
+      test "$(systemctl is-active docker.service 2>/dev/null || true)" = inactive
+      test "$(systemctl is-active libvirtd.service 2>/dev/null || true)" = inactive
+      test "$(systemctl is-active openbao.service 2>/dev/null || true)" = inactive
+    REMOTE
+    echo ":: PASS: Discovery ESP, Btrfs RAID1, and vault identities verified"
+
+# Restore the pinned D5 mutable-state archive, then re-apply Home Manager.
+restore-discovery-home-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DISCOVERY="{{ip_discovery}}"
+    KEPLER="{{ip_kepler}}"
+    snapshot=6943b508
+    password_file=$(mktemp)
+    trap 'rm -f "$password_file"' EXIT
+    ssh -p 2222 erik@"$DISCOVERY" 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      sudo systemctl stop haos-vm.service docker.service docker.socket \
+        libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket \
+        openbao.service vault-agent.service || true
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      test "$(systemctl is-active docker.service 2>/dev/null || true)" = inactive
+      test "$(systemctl is-active libvirtd.service 2>/dev/null || true)" = inactive
+      test "$(systemctl is-active openbao.service 2>/dev/null || true)" = inactive
+    REMOTE
+    ssh -p 2222 erik@"$DISCOVERY" \
+      'sudo cat /run/secrets/vault_restic_password' >"$password_file"
+    chmod 0600 "$password_file"
+    export RESTIC_PASSWORD_FILE="$password_file"
+    export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/discovery-esp-home"
+    sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+    }
+    restic snapshots "$snapshot" >/dev/null
+    restic dump "$snapshot" discovery-mutable-state.tar |
+      ssh -p 2222 erik@"$DISCOVERY" 'sudo tar -C / -xpf -'
+    ssh -p 2222 erik@"$DISCOVERY" 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      for path in \
+        /home/erik/.config/sops/age/keys.txt \
+        /home/erik/servarr/machines/discovery/.env.sops \
+        /home/erik/servarr/machines/discovery/config/swag/nginx/proxy-confs/harbor.subdomain.conf \
+        /home/erik/homelab/apps/netbird/pocket-id/pocket-id.db \
+        /home/erik/servarr/README.md; do
+        sudo test -s "$path"
+      done
+      test "$(sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256 | awk '{print $2}')" = \
+        'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
+      sudo systemctl restart home-manager-erik.service
+      systemctl is-active --quiet home-manager-erik.service
+    REMOTE
+    echo ":: PASS: Discovery mutable home and SSH state restored from 6943b508"
+
+# Hold stateful substrates down across dependency-triggered restarts.
+quiesce-discovery-restore:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      units=(
+        haos-vm.service
+        docker.service docker.socket docker-recover.service docker-recover.timer
+        libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket
+        openbao.service openbao-unseal.service openbao-unseal.timer
+        vault-agent.service
+      )
+      sudo systemctl mask --runtime --now "${units[@]}"
+      sudo systemctl stop "${units[@]}" || true
+      sudo systemctl reset-failed "${units[@]}" || true
+      for unit in docker.service libvirtd.service openbao.service vault-agent.service; do
+        test "$(systemctl is-active "$unit" 2>/dev/null || true)" = inactive
+      done
+    REMOTE
+    echo ":: PASS: Discovery stateful substrates runtime-masked for restore"
+
+# Retain a failed fresh-cluster init before retrying the pinned snapshot restore.
+quarantine-discovery-openbao-throwaway:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      source=/var/lib/private/openbao
+      retained=/var/lib/private/openbao-d5-throwaway
+      if sudo test -d "$source" && sudo test ! -e "$retained"; then
+        bytes=$(sudo du -sb /var/lib/private/openbao | awk '{print $1}')
+        printf 'throwaway_bytes=%s state=%s\n' "$bytes" "$(systemctl is-active openbao.service 2>/dev/null || true)"
+        test "$bytes" -lt 67108864
+        export BAO_ADDR=http://127.0.0.1:8200
+        ! BAO_TOKEN=$(sudo cat /run/secrets/vault_snapshot_token) \
+          bao kv metadata get secret/shared/discord >/dev/null 2>&1
+        sudo systemctl mask --runtime --now openbao.service
+        sudo systemctl stop openbao.service || true
+        sudo mv /var/lib/private/openbao "$retained"
+      else
+        sudo test -d "$retained"
+        sudo test ! -e "$source"
+        bytes=$(sudo du -sb "$retained" | awk '{print $1}')
+      fi
+      sudo install -d -m 0700 -o root -g root "$source"
+      printf 'retained=%s bytes=%s\n' "$retained" "$bytes"
+    REMOTE
+    echo ":: PASS: failed throwaway OpenBao cluster retained; fresh state ready"
+
+# Restore the pinned D4 OpenBao snapshot into a fresh node and prove metadata.
+restore-discovery-openbao:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    RESTIC="$(nix eval --raw .#nixosConfigurations.discovery.pkgs.restic.outPath)/bin/restic"
+    ssh -p 2222 erik@{{ip_discovery}} "RESTIC=$RESTIC bash -s" <<'REMOTE'
+      set -euo pipefail
+      snapshot=315ed0ea
+      expected_sha256=8407ae773697c8511a6d2f2a24f0152dd547a91e7115148c8ecebea4f989ba29
+      repository=/home/erik/vault/restic/openbao
+      work=/var/lib/vault-snapshots/d5-restore-315ed0ea-v2
+      sudo install -d -m 0700 -o root -g root "$work"
+      test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      snap="$work/var/lib/vault-snapshots/openbao.snap"
+      if ! sudo test -s "$snap"; then
+        sudo env RESTIC_PASSWORD_FILE=/run/secrets/vault_restic_password \
+          "$RESTIC" -r "$repository" restore "$snapshot" --target "$work"
+      fi
+      test "$(sudo sha256sum "$snap" | awk '{print $1}')" = "$expected_sha256"
+      sudo chown -R erik:users "$work"
+      chmod 0700 "$work"
+      chmod 0600 "$snap"
+
+      if ! ip link show br-openbao >/dev/null 2>&1; then
+        sudo ip link add name br-openbao type bridge
+      fi
+      if ! ip -4 address show dev br-openbao | grep -Fq '172.31.82.1/29'; then
+        sudo ip address add 172.31.82.1/29 dev br-openbao
+      fi
+      sudo ip link set br-openbao up
+      sudo systemctl unmask --runtime openbao.service
+      sudo systemctl reset-failed openbao.service
+      if ! sudo systemctl start openbao.service; then
+        sudo systemctl status openbao.service --no-pager -l || true
+        sudo journalctl -u openbao.service -b --no-pager -n 100
+        exit 1
+      fi
+      for _ in $(seq 1 60); do
+        curl -sS -m 1 http://127.0.0.1:8200/v1/sys/health >/dev/null 2>&1 && break
+        sleep 0.5
+      done
+      export BAO_ADDR=http://127.0.0.1:8200
+      initialized=$(curl -fsS -m 10 http://127.0.0.1:8200/v1/sys/seal-status |
+        jq -r '.initialized')
+      if test "$initialized" = false; then
+        init_json=$(bao operator init -key-shares=1 -key-threshold=1 -format=json)
+        throwaway_key=$(jq -r '.unseal_keys_b64[0]' <<<"$init_json")
+        throwaway_token=$(jq -r '.root_token' <<<"$init_json")
+        unset init_json
+        bao operator unseal "$throwaway_key" >/dev/null
+        BAO_TOKEN="$throwaway_token" bao operator raft snapshot restore -force "$snap"
+        unset throwaway_key throwaway_token
+      fi
+
+      echo stage=seal-status
+      sealed=$(curl -fsS -m 10 http://127.0.0.1:8200/v1/sys/seal-status |
+        jq -r '.sealed')
+      if test "$sealed" = true; then
+        unseal_key=$(sudo cat /run/secrets/vault_unseal_key)
+        jq -n --arg key "$unseal_key" '{key: $key}' |
+          curl -fsS -m 10 -X PUT --data @- http://127.0.0.1:8200/v1/sys/unseal >/dev/null
+        unset unseal_key
+      fi
+      curl -fsS -m 10 http://127.0.0.1:8200/v1/sys/seal-status |
+        jq -e '.initialized == true and .sealed == false' >/dev/null
+      echo stage=approle-login
+      role_id=$(sudo cat /run/secrets/vault_agent_role_id)
+      secret_id=$(sudo cat /run/secrets/vault_agent_secret_id)
+      login_json=$(jq -n --arg role_id "$role_id" --arg secret_id "$secret_id" \
+        '{role_id: $role_id, secret_id: $secret_id}' |
+        curl -fsS -m 10 -X POST --data @- http://127.0.0.1:8200/v1/auth/approle/login)
+      unset role_id secret_id
+      client_token=$(jq -er '.auth.client_token' <<<"$login_json")
+      unset login_json
+      echo stage=kv-proof
+      BAO_TOKEN="$client_token" bao kv get -format=json secret/shared/discord |
+        jq -e '.data.data | length > 0' >/dev/null
+      unset client_token
+
+      sudo systemctl unmask --runtime openbao-unseal.service openbao-unseal.timer vault-agent.service
+      sudo systemctl start openbao-unseal.timer
+      echo stage=vault-agent
+      sudo systemctl start vault-agent.service
+      for path in \
+        /run/vault-agent/discord_webhook_incidents \
+        /run/vault-agent/networking.env \
+        /run/vault-agent/shared-db.env; do
+        for _ in $(seq 1 100); do
+          sudo test -s "$path" && break
+          sleep 0.1
+        done
+        sudo test -s "$path"
+      done
+    REMOTE
+    echo ":: PASS: OpenBao snapshot 315ed0ea restored, unsealed, and rendered"
+
+# Restore the stopped Docker mirror, retaining the reinstall's fresh root.
+restore-discovery-docker:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    evidence=.gsd/evidence/discovery-esp/manifest.json
+    jq -e '
+      .approval_ready == true
+      and .backups.docker.cold_mirror == "/home/erik/vault/migration/discovery-docker-root"
+      and .backups.docker.scratch_restore == "passed"
+      and .backups.docker.metadata_sha256 == "a654304de8d8a29b1986b8ba9f2b3c19a87d58b58768b60c766d4e621ead42b5"
+    ' "$evidence" >/dev/null
+    evidence_sha=$(sha256sum "$evidence" | cut -d' ' -f1)
+    ssh -p 2222 erik@{{ip_discovery}} "EVIDENCE_SHA=$evidence_sha bash -s" <<'REMOTE'
+      set -euo pipefail
+      source=/home/erik/vault/migration/discovery-docker-root
+      marker=/home/erik/vault/migration/discovery-docker-root.final
+      destination=/var/lib/docker
+      retained=/var/lib/docker-d5-fresh
+      echo stage=preflight
+      vault_uuid=$(findmnt -nro UUID /home/erik/vault)
+      marker_state=$(sudo test -s "$marker" && echo present || echo absent)
+      source_state=$(sudo test -d "$source" && echo present || echo absent)
+      printf 'vault_uuid=%s marker=%s source=%s docker=%s socket=%s\n' \
+        "$vault_uuid" "$marker_state" "$source_state" \
+        "$(systemctl is-active docker.service 2>/dev/null || true)" \
+        "$(systemctl is-active docker.socket 2>/dev/null || true)"
+      [[ "$EVIDENCE_SHA" =~ ^[0-9a-f]{64}$ ]]
+      test "$vault_uuid" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
+      sudo test -d "$source"
+      source_bytes=$(sudo du -xsb "$source" | awk '{print $1}')
+      test "$source_bytes" -gt 10737418240
+      test "$(sudo find "$source/containers" -name config.v2.json -print -quit)" != ""
+      docker_units=(
+        docker.service docker.socket docker-recover.service docker-recover.timer
+      )
+      hold_units=(docker.service docker.socket)
+      for unit in "${hold_units[@]}"; do
+        sudo install -d -m 0755 "/run/systemd/system/$unit.d"
+        printf '%s\n' \
+          '[Unit]' \
+          'ConditionPathExists=/run/discovery-docker-restore-start-allowed' |
+          sudo tee "/run/systemd/system/$unit.d/d5-restore.conf" >/dev/null
+      done
+      sudo systemctl daemon-reload
+      sudo systemctl mask --runtime --now "${docker_units[@]}" || true
+      sudo systemctl stop "${docker_units[@]}" || true
+      sudo systemctl reset-failed "${docker_units[@]}" || true
+      test "$(systemctl is-active docker.service 2>/dev/null || true)" = inactive
+      test "$(systemctl is-active docker.socket 2>/dev/null || true)" = inactive
+      echo stage=retain
+      if sudo test ! -e "$retained"; then
+        fresh_bytes=$(sudo du -xsb "$destination" | awk '{print $1}')
+        test "$fresh_bytes" -lt 1073741824
+        sudo mv "$destination" "$retained"
+      else
+        sudo test -d "$retained"
+      fi
+      sudo install -d -m 0710 -o root -g docker "$destination"
+      echo stage=rsync
+      sudo rsync -aHAXx --numeric-ids --delete --stats "$source/" "$destination/"
+      test "$(systemctl is-active docker.service 2>/dev/null || true)" = inactive
+      test "$(systemctl is-active docker.socket 2>/dev/null || true)" = inactive
+      drift=$(sudo rsync -aHAXxni --numeric-ids --delete "$source/" "$destination/")
+      test -z "$drift" || { printf '%s\n' "$drift" >&2; exit 1; }
+      echo stage=manifest
+      source_manifest=$(sudo find "$source" -xdev ! -type d -printf '%P\t%y\t%s\t%m\t%U\t%G\n' |
+        LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+      destination_manifest=$(sudo find "$destination" -xdev ! -type d -printf '%P\t%y\t%s\t%m\t%U\t%G\n' |
+        LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+      expected_manifest=$source_manifest
+      test "$source_manifest" = "$expected_manifest"
+      test "$destination_manifest" = "$expected_manifest"
+      echo stage=start
+      retained_hold=/run/discovery-docker-restore-hold
+      sudo install -d -m 0700 "$retained_hold"
+      for unit in "${hold_units[@]}"; do
+        sudo mv "/run/systemd/system/$unit.d/d5-restore.conf" \
+          "$retained_hold/$unit.$$.conf"
+      done
+      sudo systemctl daemon-reload
+      sudo systemctl unmask --runtime docker.service docker.socket
+      sudo systemctl reset-failed docker.service docker.socket
+      sudo systemctl start docker.service || true
+      for _ in $(seq 1 300); do
+        systemctl is-active --quiet docker.service && break
+        sleep 1
+      done
+      if ! systemctl is-active --quiet docker.service; then
+        sudo systemctl status docker.service docker.socket --no-pager -l || true
+        sudo journalctl -u docker.service -b --no-pager -n 100
+        exit 1
+      fi
+      test "$(sudo docker info --format '{{"{{"}}.DockerRootDir{{"}}"}}')" = /var/lib/docker
+      printf 'containers=%s images=%s manifest_sha256=%s\n' \
+        "$(sudo docker ps -aq | wc -l)" "$(sudo docker images -q | sort -u | wc -l)" \
+        "$destination_manifest"
+    REMOTE
+    echo ":: PASS: Docker cold mirror restored exactly; fresh root retained"
+
+# Resume Nix-owned stateful services after OpenBao and Docker restoration.
+resume-discovery-postrestore-substrates:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      units=(
+        docker-recover.service docker-recover.timer
+        openbao-unseal.service openbao-unseal.timer
+        libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket
+        haos-vm.service
+      )
+      sudo systemctl unmask --runtime "${units[@]}"
+      sudo systemctl reset-failed "${units[@]}" harbor.service
+      sudo systemctl start docker-recover.timer openbao-unseal.timer
+      sudo systemctl start docker-recover.service
+      sudo systemctl start libvirtd.service
+      sudo systemctl restart harbor.service
+      harbor_healthy=false
+      for _ in $(seq 1 180); do
+        if curl -fsS -m 3 http://127.0.0.1:8085/api/v2.0/health |
+          jq -e '.status == "healthy"' >/dev/null 2>&1; then
+          harbor_healthy=true
+          break
+        fi
+        sleep 1
+      done
+      "$harbor_healthy"
+      sudo systemctl start haos-vm.service
+      haos_running=false
+      for _ in $(seq 1 120); do
+        if sudo virsh domstate haos | grep -Fx running >/dev/null 2>&1; then
+          haos_running=true
+          break
+        fi
+        sleep 1
+      done
+      "$haos_running"
+      systemctl is-active docker.service libvirtd.service openbao.service \
+        vault-agent.service harbor.service
+      BAO_ADDR=http://127.0.0.1:8200 bao status | grep -Eq '^Sealed[[:space:]]+false$'
+      sudo virsh domstate haos | grep -Fx running
+    REMOTE
+    echo ":: PASS: Docker recovery, unseal, Harbor, libvirt, and HAOS resumed"
+
+# Re-run NetBird's render-first boot ordering after Docker restoration.
+resume-discovery-netbird:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+      set -euo pipefail
+      units=(
+        netbird-management-config.service
+        docker-netbird-pocketid.service
+        docker-netbird-management.service
+        docker-netbird-signal.service
+        docker-netbird-dashboard.service
+        docker-netbird-relay.service
+      )
+      sudo systemctl reset-failed "${units[@]}"
+      sudo systemctl restart netbird-management-config.service
+      sudo systemctl restart docker-netbird-pocketid.service
+      sudo systemctl restart docker-netbird-management.service
+      sudo systemctl restart docker-netbird-signal.service
+      sudo systemctl restart docker-netbird-dashboard.service
+      sudo systemctl restart docker-netbird-relay.service
+      systemctl is-active "${units[@]}"
+      oidc_ready=false
+      for _ in $(seq 1 60); do
+        if curl -fsS -m 5 \
+          https://id.homelab.pastelariadev.com/.well-known/openid-configuration \
+          >/dev/null; then
+          oidc_ready=true
+          break
+        fi
+        sleep 1
+      done
+      "$oidc_ready"
+    REMOTE
+    echo ":: PASS: NetBird control plane resumed from fresh Vault renders"
+
 # Encrypt Discovery home/SSH state to Kepler and hash-verify seven restore classes.
 backup-discovery-home-kepler:
     #!/usr/bin/env bash
@@ -6411,6 +6894,32 @@ discovery-docker-mirror-finalize:
 
 # Read-only post-install acceptance gate. Run only after dependency-ordered
 # restoration has completed; it does not start or repair any service.
+diagnose-discovery-gpu:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pciutils="$(nix eval --raw .#nixosConfigurations.discovery.pkgs.pciutils.outPath)"
+    ssh -p 2222 erik@{{ip_discovery}} "TOOLS_PATH=$pciutils/bin bash -s" <<'REMOTE'
+      export PATH="$TOOLS_PATH:$PATH"
+      echo ":: pci"
+      lspci -nnk | grep -A3 -Ei 'VGA|3D|NVIDIA' || true
+      echo ":: modules"
+      lsmod | grep -E '^nvidia' || true
+      echo ":: devices"
+      for device in /dev/nvidia*; do
+        test ! -e "$device" || stat -c '%n %a %U:%G' "$device"
+      done
+      echo ":: nvidia-smi"
+      nvidia-smi || true
+      echo ":: units"
+      systemctl status nvidia-persistenced.service \
+        nvidia-container-toolkit-cdi-generator.service --no-pager -l || true
+      echo ":: kernel"
+      journalctl -b -k --no-pager |
+        grep -Ei 'nvidia|nouveau|NVRM|BAR|IOMMU|firmware' | tail -120 || true
+    REMOTE
+
+# Read-only post-install acceptance gate. Run only after dependency-ordered
+# restoration has completed; it does not start or repair any service.
 verify-discovery-esp:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -6423,11 +6932,17 @@ verify-discovery-esp:
       test "$(sudo docker info --format '{{"{{"}}.DockerRootDir{{"}}"}}')" = /var/lib/docker
       sudo btrfs filesystem usage -b / | grep -Eq '^Data,RAID1:'
       sudo btrfs filesystem usage -b / | grep -Eq '^Metadata,RAID1:'
-      sudo systemctl is-active sshd tailscaled docker libvirtd openbao openbao-unseal vault-agent
+      sudo systemctl is-active sshd tailscaled docker libvirtd openbao vault-agent openbao-unseal.timer
+      test "$(systemctl show -p Result --value openbao-unseal.service)" = success
+      echo stage=openbao
       BAO_ADDR=http://127.0.0.1:8200 bao status | grep -Eq '^Sealed[[:space:]]+false$'
-      dig +short +time=3 +tries=1 @127.0.0.1 discovery.homelab.pastelariadev.com A | grep -Eq '^[0-9]+(\.[0-9]+){3}$'
+      echo stage=dns
+      dig +short +time=3 +tries=1 @{{ip_discovery}} discovery.homelab.pastelariadev.com A | grep -Eq '^[0-9]+(\.[0-9]+){3}$'
+      echo stage=grafana
       curl -kfsS -o /dev/null https://grafana.homelab.pastelariadev.com/
+      echo stage=haos
       sudo virsh domstate haos | grep -Fx running
+      echo stage=failed-units
       failed=$(systemctl --failed --no-legend | awk 'NF')
       printf '%s' "$failed"
       test -z "$failed"
