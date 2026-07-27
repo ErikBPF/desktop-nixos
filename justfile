@@ -6918,6 +6918,110 @@ diagnose-discovery-gpu:
         grep -Ei 'nvidia|nouveau|NVRM|BAR|IOMMU|firmware' | tail -120 || true
     REMOTE
 
+# Run one bounded 4K60 NVENC load and sample fan/thermal telemetry.
+test-discovery-gpu-load duration="60":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    duration={{duration}}
+    test "$duration" -ge 5
+    test "$duration" -le 900
+    ssh -p 2222 erik@{{ip_discovery}} "DURATION=$duration bash -s" <<'REMOTE'
+      set -euo pipefail
+      duration=$DURATION
+      query() {
+        nvidia-smi --query-gpu=timestamp,fan.speed,temperature.gpu,power.draw,utilization.gpu,utilization.encoder \
+          --format=csv,noheader
+      }
+      image=lscr.io/linuxserver/jellyfin:10.11.11@sha256:bb8d372e35d5c4a6cb61d830a06f5b5846528315b97cf5d38b80eea1e430efa7
+      sudo docker inspect -f '{{"{{"}}.State.Health.Status{{"}}"}}' jellyfin | grep -Fx healthy
+      sudo docker image inspect "$image" >/dev/null
+      query
+      timeout "$((duration + 20))" sudo docker run --rm --pull never \
+        --network none --device nvidia.com/gpu=all \
+        --entrypoint /usr/lib/jellyfin-ffmpeg/ffmpeg "$image" \
+        -hide_banner -loglevel error -re \
+        -f lavfi -i testsrc2=size=3840x2160:rate=60 -t "$duration" \
+        -c:v h264_nvenc -preset p1 -f null - &
+      load_pid=$!
+      for _ in $(seq 1 "$((duration / 2 + 2))"); do
+        query
+        kill -0 "$load_pid" 2>/dev/null || break
+        sleep 2
+      done
+      wait "$load_pid"
+      query
+    REMOTE
+
+# Temporarily request a fixed GPU fan speed through a private headless X server.
+test-discovery-gpu-fan percent="80" duration="10":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    percent={{percent}}
+    duration={{duration}}
+    test "$percent" -ge 30
+    test "$percent" -le 100
+    test "$duration" -ge 5
+    test "$duration" -le 30
+    xorg=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.xorg.xorgserver.outPath)
+    settings=$(nix eval --raw .#nixosConfigurations.discovery.config.hardware.nvidia.package.settings.outPath)
+    driver=$(nix eval --raw .#nixosConfigurations.discovery.config.hardware.nvidia.package.bin.outPath)
+    nix-store --realise "$xorg" "$settings" "$driver" >/dev/null
+    nix copy --to ssh-ng://erik@{{ip_discovery}}:2222 "$xorg" "$settings" "$driver"
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo bash -s -- $xorg $settings $driver $percent $duration" <<'REMOTE'
+      set -euo pipefail
+      xorg=$1
+      settings=$2
+      driver=$3
+      percent=$4
+      duration=$5
+      work=$(mktemp -d /run/discovery-gpu-fan-test.XXXXXX)
+      printf '%s\n' \
+        'Section "Files"' \
+        "  ModulePath \"$driver/lib/xorg/modules\"" \
+        "  ModulePath \"$xorg/lib/xorg/modules\"" \
+        'EndSection' \
+        'Section "Device"' \
+        '  Identifier "GPU0"' \
+        '  Driver "nvidia"' \
+        '  BusID "PCI:1:0:0"' \
+        '  Option "Coolbits" "4"' \
+        '  Option "AllowEmptyInitialConfiguration" "True"' \
+        'EndSection' \
+        'Section "Screen"' \
+        '  Identifier "Screen0"' \
+        '  Device "GPU0"' \
+        'EndSection' >"$work/xorg.conf"
+      "$xorg/bin/Xorg" :99 -config "$work/xorg.conf" -noreset -nolisten tcp \
+        -logfile "$work/Xorg.log" >"$work/stdout.log" 2>&1 &
+      xpid=$!
+      cleanup() {
+        "$settings/bin/nvidia-settings" -c :99 \
+          -a '[gpu:0]/GPUFanControlState=0' || true
+        kill "$xpid" 2>/dev/null || true
+        wait "$xpid" 2>/dev/null || true
+      }
+      trap cleanup EXIT
+      for _ in $(seq 1 10); do
+        "$settings/bin/nvidia-settings" -c :99 -q gpus >/dev/null 2>&1 && break
+        kill -0 "$xpid" 2>/dev/null || {
+          cat "$work/Xorg.log"
+          exit 1
+        }
+        sleep 1
+      done
+      "$settings/bin/nvidia-settings" -c :99 -q gpus >/dev/null
+      nvidia-smi --query-gpu=fan.speed,temperature.gpu,power.draw --format=csv,noheader
+      "$settings/bin/nvidia-settings" -c :99 \
+        -a '[gpu:0]/GPUFanControlState=1' \
+        -a "[fan:0]/GPUTargetFanSpeed=$percent"
+      sleep "$duration"
+      "$settings/bin/nvidia-settings" -c :99 \
+        -q '[fan:0]/GPUCurrentFanSpeed' \
+        -q '[fan:0]/GPUTargetFanSpeed'
+      nvidia-smi --query-gpu=fan.speed,temperature.gpu,power.draw --format=csv,noheader
+    REMOTE
+
 # Read-only post-install acceptance gate. Run only after dependency-ordered
 # restoration has completed; it does not start or repair any service.
 verify-discovery-esp:
