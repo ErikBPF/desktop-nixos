@@ -850,3 +850,44 @@ def test_telstar_state_inventory_is_value_free_and_read_only():
     assert "cat " not in recipe
     assert "cp " not in recipe
     assert "rm " not in recipe
+
+
+def test_discovery_gpu_load_is_bounded_and_reports_telemetry():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("test-discovery-gpu-load duration=", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert '"$duration" -ge 5' in recipe
+    assert '"$duration" -le 900' in recipe
+    assert "timeout" in recipe
+    assert "testsrc2=size=3840x2160:rate=60" in recipe
+    assert "h264_nvenc" in recipe
+    assert "--device nvidia.com/gpu=all" in recipe
+    assert "--network none" in recipe
+    assert "--pull never" in recipe
+    assert "utilization.encoder" in recipe
+    assert "fan.speed" in recipe
+    assert "temperature.gpu" in recipe
+    assert "docker volume rm" not in recipe
+
+
+def test_discovery_gpu_fan_test_is_bounded_and_restores_auto_control():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    recipe = justfile.split("test-discovery-gpu-fan percent=", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert '"$percent" -ge 30' in recipe
+    assert '"$percent" -le 100' in recipe
+    assert '"$duration" -le 30' in recipe
+    assert 'Option "Coolbits" "4"' in recipe
+    assert 'Option "AllowEmptyInitialConfiguration" "True"' in recipe
+    assert "GPUFanControlState=1" in recipe
+    assert "GPUTargetFanSpeed=$percent" in recipe
+    assert "GPUFanControlState=0" in recipe
+    assert "trap cleanup EXIT" in recipe
+    assert "-nolisten tcp" in recipe
+    assert "printf '%s\\n'" in recipe
+    assert "/etc/" not in recipe
+    assert "rm " not in recipe
