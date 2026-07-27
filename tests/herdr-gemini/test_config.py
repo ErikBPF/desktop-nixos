@@ -38,6 +38,15 @@ def test_navigation_uses_plus_projects_and_one_global_picker():
     assert 'dataplatform = "~/Documents/nstech/dataplatform"' in source
 
 
+def test_herdr_has_direct_directional_pane_navigation():
+    herdr = (ROOT / "modules/dev/herdr.nix").read_text()
+
+    assert 'focus_pane_left = ["prefix+h" "alt+left"];' in herdr
+    assert 'focus_pane_right = ["prefix+l" "alt+right"];' in herdr
+    assert 'focus_pane_up = ["prefix+k" "alt+up"];' in herdr
+    assert 'focus_pane_down = ["prefix+j" "alt+down"];' in herdr
+
+
 def test_gemini_imports_remote_session_profile_with_linger():
     gemini = (ROOT / "modules/hosts/orion/gemini.nix").read_text()
 

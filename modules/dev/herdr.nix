@@ -78,44 +78,51 @@
 
       # One launcher per agent. `type = "pane"` spawns the CLI in a fresh
       # pane; herdr's process-name + output heuristics then track its state.
-      keys.command = [
-        {
-          key = "prefix+alt+c";
-          type = "pane";
-          command = "claude";
-          description = "launch Claude Code";
-        }
-        {
-          key = "prefix+alt+x";
-          type = "pane";
-          command = "codex";
-          description = "launch Codex";
-        }
-        {
-          key = "prefix+alt+o";
-          type = "pane";
-          command = "opencode";
-          description = "launch opencode";
-        }
-        {
-          key = "prefix+alt+h";
-          type = "pane";
-          command = "hermes";
-          description = "launch Hermes Agent (local CLI → Discovery API)";
-        }
-        {
-          key = "prefix+t";
-          type = "plugin_action";
-          command = "herdr-navigator.open";
-          description = "jump to workspace, project, session, or agent";
-        }
-        {
-          key = "prefix+shift+p";
-          type = "plugin_action";
-          command = "cloudmanic.herdr-plus.projects";
-          description = "open project template";
-        }
-      ];
+      keys = {
+        focus_pane_left = ["prefix+h" "alt+left"];
+        focus_pane_right = ["prefix+l" "alt+right"];
+        focus_pane_up = ["prefix+k" "alt+up"];
+        focus_pane_down = ["prefix+j" "alt+down"];
+
+        command = [
+          {
+            key = "prefix+alt+c";
+            type = "pane";
+            command = "claude";
+            description = "launch Claude Code";
+          }
+          {
+            key = "prefix+alt+x";
+            type = "pane";
+            command = "codex";
+            description = "launch Codex";
+          }
+          {
+            key = "prefix+alt+o";
+            type = "pane";
+            command = "opencode";
+            description = "launch opencode";
+          }
+          {
+            key = "prefix+alt+h";
+            type = "pane";
+            command = "hermes";
+            description = "launch Hermes Agent (local CLI → Discovery API)";
+          }
+          {
+            key = "prefix+t";
+            type = "plugin_action";
+            command = "herdr-navigator.open";
+            description = "jump to workspace, project, session, or agent";
+          }
+          {
+            key = "prefix+shift+p";
+            type = "plugin_action";
+            command = "cloudmanic.herdr-plus.projects";
+            description = "open project template";
+          }
+        ];
+      };
     };
   };
 }
