@@ -125,6 +125,7 @@ _: {
 
         serviceConfig = {
           Type = "oneshot";
+          SuccessExitStatus = [2];
           User = cfg.user;
           WorkingDirectory = cfg.repoPath;
           # Load the repo's secrets into the environment, then plan all units.
