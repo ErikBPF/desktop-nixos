@@ -98,6 +98,8 @@ _: {
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "15s";
+        StateDirectory = "hermes-wiki-ssh";
+        StateDirectoryMode = "0700";
         ExecStartPre = pkgs.writeShellScript "wait-for-hermes-wiki-key" ''
           for _ in $(seq 1 100); do
             [ -s ${keyPath} ] && [ -r ${keyPath} ] && exit 0
@@ -108,11 +110,15 @@ _: {
       };
       script = ''
         set -euo pipefail
-        export GIT_SSH_COMMAND="ssh -i ${keyPath} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${wikiDir}/.known_hosts"
+        export GIT_SSH_COMMAND="ssh -i ${keyPath} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/var/lib/hermes-wiki-ssh/known_hosts"
         if [ ! -d ${wikiDir}/.git ]; then
           git clone --branch hermes git@github.com:ErikBPF/vault.git ${wikiDir}
         else
           git -C ${wikiDir} fetch origin hermes
+          if [ "$(git -C ${wikiDir} status --porcelain -- .known_hosts)" = "?? .known_hosts" ]; then
+            test ! -e /var/lib/hermes-wiki-ssh/known_hosts.pre-worktree
+            mv ${wikiDir}/.known_hosts /var/lib/hermes-wiki-ssh/known_hosts.pre-worktree
+          fi
           git -C ${wikiDir} checkout hermes
           git -C ${wikiDir} reset --hard origin/hermes
         fi
