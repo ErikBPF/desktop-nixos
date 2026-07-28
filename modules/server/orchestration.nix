@@ -369,7 +369,8 @@ in {
                         ${pkgs.git}/bin/git -C "$REPO" fetch --prune origin "$BRANCH"
                         ${pkgs.git}/bin/git -C "$REPO" reset --hard "origin/$BRANCH"
                       fi
-                      # Decrypt .env.sops → .env if stale or missing.
+                      # Always decrypt .env.sops after syncing the repository.
+                      # Git mtimes do not reliably indicate content freshness.
                       # --input-type/--output-type dotenv is required: sops
                       # uses file-extension auto-detection, and a `.env.sops`
                       # filename is read as JSON by default, which fails with
@@ -377,7 +378,7 @@ in {
                       # because the encrypted file is dotenv-format (KEY=ENC).
                       # Without the explicit type, the redirect truncates .env
                       # to zero bytes and every compose stack loses its vars.
-                      if [ -f "$MACHINE_DIR/.env.sops" ] && { [ ! -f "$MACHINE_DIR/.env" ] || [ "$MACHINE_DIR/.env.sops" -nt "$MACHINE_DIR/.env" ]; }; then
+                      if [ -f "$MACHINE_DIR/.env.sops" ]; then
                         ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt "$MACHINE_DIR/.env.sops" > "$MACHINE_DIR/.env.new" \
                           && mv "$MACHINE_DIR/.env.new" "$MACHINE_DIR/.env"
                       fi
