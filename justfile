@@ -2442,6 +2442,26 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
+# Read-only live proof for the Kepler UniFi CEF receiver.
+verify-wazuh-siem:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      test "$(hostname)" = kepler
+      echo ":: Wazuh containers"
+      podman ps --filter name=wazuh
+      echo ":: UniFi UDP destination=192.168.10.230:5514"
+      ss -lun | grep -E '(^|:)5514[[:space:]]'
+      echo ":: Protect CEF decoder"
+      printf '%s\n' 'CEF:0|Ubiquiti|UniFi Protect|7.1.87|smartDetectZone|smartDetectZone|3|src=192.0.2.10 dst=192.0.2.20 suser=synthetic act=detected UNIFIdeviceIp=192.0.2.1 UNIFIdeviceMac=00:00:5e:00:53:01 UNIFIcategory=security reason=motion msg=synthetic' |
+        podman exec -i wazuh-manager /var/ossec/bin/wazuh-logtest
+      echo ":: Ofelia scheduler"
+      podman logs --tail 30 ofelia
+      echo ":: Last-event metric"
+      sudo grep '^wazuh_unifi_last_event_seconds [0-9][0-9]*$' /var/lib/node-exporter-textfile/wazuh_unifi_last_event.prom
+    REMOTE
+
 # Read-only filesystem allocation and largest top-level trees on Kepler.
 diagnose-kepler-disk:
     ssh -p 2222 erik@{{ip_kepler}} 'df -h / /fast; sudo btrfs filesystem usage /; sudo zfs list -o name,mountpoint,used,available,recordsize; systemctl cat microvm@cp-1.service; pgrep -af "openwakeword|ha-train|huggingface|kaggle" || true; sudo du -x -d2 -B1 /nix /var /home 2>/dev/null | sort -nr | head -40; sudo du -x -d2 -B1 /home/erik/.local /home/erik/.cache /home/erik/openwakeword-training /home/erik/ha-train /home/erik/ha-hf /var/lib/microvms 2>/dev/null | sort -nr | head -40'
