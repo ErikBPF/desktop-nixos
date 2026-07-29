@@ -27,6 +27,7 @@ in {
       m.nixos.kepler-recovery-tooling
       m.nixos.kepler-k1-inventory-tooling
       m.nixos.kepler-k3s-cluster
+      m.nixos.netbird-client
       m.nixos.first-boot
       m.nixos.alloy
       m.nixos.alloy-containers
@@ -69,6 +70,7 @@ in {
     # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).
     # ⚠ Brings up systemd-networkd — deploy supervised (see the module header).
     kepler.k3s.enable = true;
+    modules.networking.netbird-client.enable = true;
 
     home-manager.users.${config.username}.imports = [
       m.home.kepler-ssh

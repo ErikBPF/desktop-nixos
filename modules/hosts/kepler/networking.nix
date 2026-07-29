@@ -35,6 +35,7 @@ _: {
     };
 
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187];
+    networking.firewall.interfaces.wt0.allowedTCPPorts = [3000];
 
     # Tailscale client — no subnet routing needed (not the gateway host)
     services.tailscale = {
