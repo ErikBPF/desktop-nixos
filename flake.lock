@@ -117,6 +117,32 @@
         "type": "github"
       }
     },
+    "buzz-flake": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785278862,
+        "narHash": "sha256-YzLne2TGv4jcfDSsp47LYXxjTwOeM9CJh4eqexyIMIs=",
+        "owner": "ErikBPF",
+        "repo": "buzz-flake",
+        "rev": "0fa2b21b07853fcb3fdb3e27c90fb0d0758d2659",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ErikBPF",
+        "repo": "buzz-flake",
+        "type": "github"
+      }
+    },
     "claude-code-nix": {
       "inputs": {
         "flake-utils": "flake-utils",
@@ -1296,6 +1322,7 @@
     },
     "root": {
       "inputs": {
+        "buzz-flake": "buzz-flake",
         "claude-code-nix": "claude-code-nix",
         "codex-flake": "codex-flake",
         "deploy-rs": "deploy-rs",
