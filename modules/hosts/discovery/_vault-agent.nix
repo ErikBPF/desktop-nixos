@@ -70,6 +70,11 @@ in {
           perms = "0600"
         }
         template {
+          contents = "{{ with secret \"secret/data/home/github-app-management\" }}KINDLE_RELEASE_CLIENT_ID={{ .Data.data.KINDLE_RELEASE_CLIENT_ID }}\nKINDLE_RELEASE_CLIENT_SECRET={{ .Data.data.KINDLE_RELEASE_CLIENT_SECRET }}\nGITHUB_APP_MANAGEMENT_REFRESH_TOKEN={{ .Data.data.GITHUB_APP_MANAGEMENT_REFRESH_TOKEN }}\n{{ end }}"
+          destination = "/run/vault-agent/github-app-management.env"
+          perms = "0440"
+        }
+        template {
           contents = "DISCORD_WEBHOOK_INCIDENTS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.incidents }}{{ end }}\nDISCORD_WEBHOOK_DEPLOYS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.deploys }}{{ end }}\nSCRUTINY_NOTIFY_URLS={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.scrutiny }}{{ end }}\nWEBHOOK_GRAFANA_ALERTS_SECRET={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.argus_webhook_hmac }}{{ end }}\n"
           destination = "/run/vault-agent/discord.env"
           perms = "0440"
