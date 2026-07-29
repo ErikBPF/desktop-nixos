@@ -40,6 +40,12 @@ _: {
         description = "Path to a file holding the Discord webhook URL for drift alerts (read at runtime; empty = log only).";
       };
 
+      githubAppManagementEnvFile = lib.mkOption {
+        type = lib.types.str;
+        default = "/run/vault-agent/github-app-management.env";
+        description = "Vault-rendered OAuth client and refresh token used to obtain an ephemeral GitHub App management token.";
+      };
+
       sopsAgeKeyFile = lib.mkOption {
         type = lib.types.str;
         default = "/home/${cfg.user}/.config/sops/age/keys.txt";
@@ -89,6 +95,7 @@ _: {
         after = [
           "network-online.target"
           "tailscaled.service"
+          "vault-agent.service"
         ];
         wants = ["network-online.target"];
 
@@ -102,6 +109,7 @@ _: {
           git
           openssh
           docker
+          openbao
           gnugrep
           gnused
           coreutils
@@ -171,7 +179,13 @@ _: {
               value="''${value%\'}"
               value="''${value#\'}"
               export "$key=$value"
-            done < <(${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops)
+            done < <(
+              ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops
+              cat ${lib.escapeShellArg cfg.githubAppManagementEnvFile}
+            )
+            export BAO_ADDR=http://127.0.0.1:8200
+            export BAO_TOKEN="$(cat /run/vault-agent/token)"
+            export GITHUB_APP_MANAGEMENT_TOKEN="$(bin/refresh-github-app-token.sh)"
             exec bash bin/drift-check.sh
           '';
         };
