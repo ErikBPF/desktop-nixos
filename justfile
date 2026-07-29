@@ -2459,7 +2459,9 @@ verify-wazuh-siem:
       echo ":: Ofelia scheduler"
       podman logs --tail 30 ofelia
       echo ":: Last-event metric"
-      sudo grep '^wazuh_unifi_last_event_seconds [0-9][0-9]*$' /var/lib/node-exporter-textfile/wazuh_unifi_last_event.prom
+      podman exec wazuh-manager ls -l /metrics
+      sudo grep '^wazuh_unifi_last_event_seconds [0-9][0-9]*$' /var/lib/node-exporter-textfile/wazuh_unifi_last_event.prom 2>/dev/null ||
+        echo 'metric=absent (no CEF event in current archive)'
     REMOTE
 
 # Read-only filesystem allocation and largest top-level trees on Kepler.

@@ -11,4 +11,5 @@ def test_live_wazuh_verifier_is_bounded_and_value_safe():
     assert "UniFi Protect" in recipe
     assert "podman ps" in recipe
     assert "wazuh_unifi_last_event_seconds" in recipe
+    assert "metric=absent" in recipe
     assert "192.168.10.230:5514" in recipe
