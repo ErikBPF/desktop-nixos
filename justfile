@@ -3421,6 +3421,23 @@ vault-approle-inventory:
       done
     '
 
+# List OpenBao audit devices and safe transport options only.
+openbao-audit-status:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    printf '%s\n' "$token" | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token
+      cfg=$(mktemp)
+      trap "rm -f $cfg" EXIT
+      printf "X-Vault-Token: %s\\n" "$token" > "$cfg"
+      unset token
+      chmod 600 "$cfg"
+      curl --header @"$cfg" --silent --show-error --fail http://127.0.0.1:8200/v1/sys/audit |
+        jq -c ".data | to_entries | map({path:.key,type:.value.type,options:(.value.options | {file_path,log_raw,hmac_accessor})})"
+    '
+
 # Rotate ESO's dedicated AppRole secret ID and capture both k3s bootstrap
 # credentials directly into sops. Secret values never enter argv or stdout.
 capture-k3s-bootstrap-secrets:
