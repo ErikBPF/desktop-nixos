@@ -12,6 +12,7 @@ _: {
         # (knowledge, photos, cicd) remain manual until migrated off
         # the legacy TrueNAS deployment.
         "infra"
+        "buzz"
         "monitoring"
         "sync"
         "security"

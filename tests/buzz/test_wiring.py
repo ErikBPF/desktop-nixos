@@ -21,7 +21,9 @@ def test_buzz_is_enabled_for_desktops():
 def test_kepler_exposes_buzz_only_on_netbird():
     host = (ROOT / "modules/hosts/kepler/default.nix").read_text()
     networking = (ROOT / "modules/hosts/kepler/networking.nix").read_text()
+    compose = (ROOT / "modules/hosts/kepler/compose.nix").read_text()
 
     assert "m.nixos.netbird-client" in host
     assert "modules.networking.netbird-client.enable = true" in host
     assert "networking.firewall.interfaces.wt0.allowedTCPPorts = [3000];" in networking
+    assert '"buzz"' in compose
