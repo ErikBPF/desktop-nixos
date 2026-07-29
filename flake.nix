@@ -98,6 +98,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    buzz-flake = {
+      url = "github:ErikBPF/buzz-flake";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.home-manager.follows = "home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     opencode-flake = {
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
       inputs.flake-parts.follows = "flake-parts";
