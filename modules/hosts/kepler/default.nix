@@ -19,6 +19,7 @@ in {
       m.nixos.systemd-boot-counting
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
+      m.nixos.kepler-monitoring
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas
       m.nixos.containers
