@@ -9,11 +9,12 @@ _: {
       stacks = [
         # Order matters: each unit waits for the previous via After=.
         # Qdrant in infra must precede docs-search. Other heavier stacks
-        # (knowledge, photos, cicd, security) remain manual until migrated off
+        # (knowledge, photos, cicd) remain manual until migrated off
         # the legacy TrueNAS deployment.
         "infra"
         "monitoring"
         "sync"
+        "security"
         "whisper-gpu"
         "qwen4b-gpu"
       ];
