@@ -210,6 +210,11 @@ in {
             command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/kindle-dash.env"]
           }
         }
+        template {
+          contents = "{{ with secret \"secret/data/home/buzz\" }}{{ .Data.data.OWNER_PRIVATE_KEY }}{{ end }}\n"
+          destination = "/run/vault-agent/buzz-owner.key"
+          perms = "0440"
+        }
       ''}";
     };
   };

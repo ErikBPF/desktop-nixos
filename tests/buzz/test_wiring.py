@@ -27,3 +27,25 @@ def test_kepler_exposes_buzz_only_on_netbird():
     assert "modules.networking.netbird-client.enable = true" in host
     assert "networking.firewall.interfaces.wt0.allowedTCPPorts = [3000];" in networking
     assert '"buzz"' in compose
+
+
+def test_kepler_scrapes_buzz_metrics_locally():
+    host = (ROOT / "modules/hosts/kepler/default.nix").read_text()
+    monitoring = (ROOT / "modules/hosts/kepler/monitoring.nix").read_text()
+
+    assert "m.nixos.kepler-monitoring" in host
+    assert 'prometheus.scrape "buzz_relay"' in monitoring
+    assert '"__address__" = "127.0.0.1:9102"' in monitoring
+    assert '"job"         = "buzz-relay"' in monitoring
+    assert '"host"        = "kepler"' in monitoring
+
+
+def test_buzz_owner_key_moves_to_openbao_runtime_projection():
+    agent = (ROOT / "modules/hosts/discovery/_vault-agent.nix").read_text()
+    recipes = (ROOT / "justfile").read_text()
+
+    assert 'secret/data/home/buzz' in agent
+    assert 'destination = "/run/vault-agent/buzz-owner.key"' in agent
+    assert "seed-buzz-vault:" in recipes
+    assert '["BUZZ_OWNER_PRIVATE_KEY"]' in recipes
+    assert "secret/data/home/buzz" in recipes
