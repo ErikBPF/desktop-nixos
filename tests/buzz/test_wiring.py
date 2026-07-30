@@ -16,6 +16,7 @@ def test_buzz_is_enabled_for_desktops():
     assert "m.home.buzz" in profile
     assert "inputs.buzz-flake.homeManagerModules.withPackage" in module
     assert "programs.buzz.enable = true" in module
+    assert 'BUZZ_RELAY_URL = "http://kepler.netbird.internal:3000";' in module
 
 
 def test_kepler_exposes_buzz_only_on_netbird():
@@ -40,12 +41,11 @@ def test_kepler_scrapes_buzz_metrics_locally():
     assert '"host"        = "kepler"' in monitoring
 
 
-def test_buzz_owner_key_moves_to_openbao_runtime_projection():
+def test_buzz_owner_key_uses_openbao_runtime_projection():
     agent = (ROOT / "modules/hosts/discovery/_vault-agent.nix").read_text()
     recipes = (ROOT / "justfile").read_text()
 
     assert 'secret/data/home/buzz' in agent
     assert 'destination = "/run/vault-agent/buzz-owner.key"' in agent
-    assert "seed-buzz-vault:" in recipes
-    assert '["BUZZ_OWNER_PRIVATE_KEY"]' in recipes
-    assert "secret/data/home/buzz" in recipes
+    assert "seed-buzz-vault" not in recipes
+    assert "BUZZ_OWNER_PRIVATE_KEY" not in recipes

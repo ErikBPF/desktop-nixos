@@ -2145,6 +2145,28 @@ pull-servarr target branch="main":
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status servarr-pull.service --no-pager -n15'
     echo ":: {{target}} now on origin/{{branch}}. Recreate changed stacks: just kick-stack {{target}} <stack>"
 
+# Repair only the Git checkout surface; leave untracked container runtime state alone.
+repair-servarr-checkout target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" 'sudo -n bash -s' <<'REMOTE'
+    set -euo pipefail
+    repo=/home/erik/servarr
+    test -d "$repo/.git"
+    while IFS= read -r -d '' relative; do
+      path="$repo/$relative"
+      test ! -e "$path" || chown --no-dereference erik:users "$path"
+      parent=$(dirname "$path")
+      while test "$parent" != "$repo"; do
+        chown --no-dereference erik:users "$parent"
+        parent=$(dirname "$parent")
+      done
+    done < <(git -c safe.directory="$repo" -C "$repo" ls-files -z)
+    chown -R erik:users "$repo/.git"
+    echo "servarr_checkout=ownership_repaired"
+    REMOTE
+
 # Verify a signed kindle-dash release and mirror its exact digest into the
 # project-scoped Harbor library using the root-only Vault Agent render.
 mirror-kindle version digest:
@@ -2918,25 +2940,6 @@ seed-netbird-vault:
 seed-netbird-pocketid-vault: seed-netbird-vault
 
 seed-netbird-controlplane-vault: seed-netbird-vault
-
-# Move the Buzz owner identity from Kepler's bootstrap SOPS file into OpenBao.
-# The value is streamed through stdin and never printed or placed in argv.
-seed-buzz-vault source="../servarr/machines/kepler/.env.sops":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    owner="$(sops --decrypt --input-type dotenv --output-type json \
-      --extract '["BUZZ_OWNER_PRIVATE_KEY"]' \
-      "{{source}}")"
-    token="$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)"
-    jq -nc --arg owner "$owner" '{data:{OWNER_PRIVATE_KEY:$owner}}' |
-      ssh -p 2222 erik@{{ip_discovery}} \
-        "curl -fsS -o /dev/null -X POST \
-          -H 'X-Vault-Token: $token' \
-          -H 'Content-Type: application/json' \
-          --data-binary @- \
-          http://127.0.0.1:8200/v1/secret/data/home/buzz"
-    unset owner token
-    echo "buzz_vault=seeded"
 
 # Verify metadata and dotenv name without exposing the key.
 verify-netbird-pocketid-secret-render:
