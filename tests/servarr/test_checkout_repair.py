@@ -10,5 +10,6 @@ def test_checkout_repair_excludes_untracked_runtime_state():
     block = recipes[start : recipes.index("\n\n", start)]
 
     assert "git -c safe.directory=\"$repo\" -C \"$repo\" ls-files -z" in block
+    assert '[[ -e "$path" || -L "$path" ]]' in block
     assert 'chown -R erik:users "$repo/.git"' in block
     assert 'chown -R erik:users "$repo"' not in block

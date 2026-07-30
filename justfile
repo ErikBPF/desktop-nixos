@@ -2156,7 +2156,7 @@ repair-servarr-checkout target:
     test -d "$repo/.git"
     while IFS= read -r -d '' relative; do
       path="$repo/$relative"
-      test ! -e "$path" || chown --no-dereference erik:users "$path"
+      [[ -e "$path" || -L "$path" ]] && chown --no-dereference erik:users "$path"
       parent=$(dirname "$path")
       while test "$parent" != "$repo"; do
         chown --no-dereference erik:users "$parent"
