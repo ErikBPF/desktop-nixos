@@ -2919,25 +2919,6 @@ seed-netbird-pocketid-vault: seed-netbird-vault
 
 seed-netbird-controlplane-vault: seed-netbird-vault
 
-# Move the Buzz owner identity from Kepler's bootstrap SOPS file into OpenBao.
-# The value is streamed through stdin and never printed or placed in argv.
-seed-buzz-vault source="../servarr/machines/kepler/.env.sops":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    owner="$(sops --decrypt --input-type dotenv --output-type json \
-      --extract '["BUZZ_OWNER_PRIVATE_KEY"]' \
-      "{{source}}")"
-    token="$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)"
-    jq -nc --arg owner "$owner" '{data:{OWNER_PRIVATE_KEY:$owner}}' |
-      ssh -p 2222 erik@{{ip_discovery}} \
-        "curl -fsS -o /dev/null -X POST \
-          -H 'X-Vault-Token: $token' \
-          -H 'Content-Type: application/json' \
-          --data-binary @- \
-          http://127.0.0.1:8200/v1/secret/data/home/buzz"
-    unset owner token
-    echo "buzz_vault=seeded"
-
 # Verify metadata and dotenv name without exposing the key.
 verify-netbird-pocketid-secret-render:
     #!/usr/bin/env bash
