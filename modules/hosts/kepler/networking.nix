@@ -30,6 +30,7 @@ _: {
           111 # rpcbind UDP
           4000 # statd UDP
           4001 # lockd UDP
+          5514 # UniFi SIEM syslog
         ];
       };
     };
