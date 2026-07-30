@@ -2145,6 +2145,28 @@ pull-servarr target branch="main":
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status servarr-pull.service --no-pager -n15'
     echo ":: {{target}} now on origin/{{branch}}. Recreate changed stacks: just kick-stack {{target}} <stack>"
 
+# Repair only the Git checkout surface; leave untracked container runtime state alone.
+repair-servarr-checkout target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip {{target}})"
+    ssh -p 2222 erik@"$IP" 'sudo -n bash -s' <<'REMOTE'
+    set -euo pipefail
+    repo=/home/erik/servarr
+    test -d "$repo/.git"
+    while IFS= read -r -d '' relative; do
+      path="$repo/$relative"
+      test ! -e "$path" || chown --no-dereference erik:users "$path"
+      parent=$(dirname "$path")
+      while test "$parent" != "$repo"; do
+        chown --no-dereference erik:users "$parent"
+        parent=$(dirname "$parent")
+      done
+    done < <(git -c safe.directory="$repo" -C "$repo" ls-files -z)
+    chown -R erik:users "$repo/.git"
+    echo "servarr_checkout=ownership_repaired"
+    REMOTE
+
 # Verify a signed kindle-dash release and mirror its exact digest into the
 # project-scoped Harbor library using the root-only Vault Agent render.
 mirror-kindle version digest:
