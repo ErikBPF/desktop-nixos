@@ -91,8 +91,8 @@ in {
       # activation, so changing the route takes effect on switch. extraUpFlags
       # only runs at first connect, so it wouldn't update an already-up node.
       extraSetFlags = [
-        # selfIp (.210) from fleet SSOT; .1 = UDM, .2 = swOS switch (not fleet hosts).
-        "--advertise-routes=${selfIp}/32,192.168.10.1/32,192.168.10.2/32"
+        # selfIp (.210) from fleet SSOT; .1 = UDM, .2 = swOS, .157 = NanoKVM.
+        "--advertise-routes=${selfIp}/32,192.168.10.1/32,192.168.10.2/32,192.168.10.4/32"
       ];
     };
   };
