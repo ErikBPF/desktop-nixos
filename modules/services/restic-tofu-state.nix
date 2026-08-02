@@ -11,6 +11,7 @@
     ...
   }: let
     cfg = config.services.resticTofuState;
+    cleytinId = "1532710143517659356";
     sourceDir = "/home/erik/tofu-state-export";
     repository = "/home/erik/vault/restic/tofu-state"; # vault = sdb, independent of the source disk
   in {
@@ -96,7 +97,7 @@
           Type = "oneshot";
           ExecStart = pkgs.writeShellScript "restic-tofu-state-onfail" ''
             ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
-              --data "$(${pkgs.jq}/bin/jq -nc --arg c "🔴 **restic tofu-state backup FAILED** on ${config.networking.hostName} — check disk/repo: \`journalctl -u restic-backups-tofu-state\`" '{content:$c}')" \
+              --data "$(${pkgs.jq}/bin/jq -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "🔴 **restic tofu-state backup FAILED** on ${config.networking.hostName} — check disk/repo: \`journalctl -u restic-backups-tofu-state\`" '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
               "$(cat ${lib.escapeShellArg cfg.discordWebhookFile})" >/dev/null || true
           '';
         };

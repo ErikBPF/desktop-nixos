@@ -30,6 +30,7 @@ in {
     bao = "${pkgs.openbao}/bin/bao";
     jq = "${pkgs.jq}/bin/jq";
     curl = "${pkgs.curl}/bin/curl";
+    cleytinId = "1532710143517659356";
     sopsFile = self + "/secrets/sops/secrets.yaml";
     renderedAt = ''# rendered_at={{ timestamp }}\n'';
   in {
@@ -476,7 +477,7 @@ in {
           fi
           echo "$now" > "$stamp"
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
-            --data "$(${jq} -nc --arg c "🔴 **OpenBao auto-unseal FAILED** on discovery — the store is sealed and did not self-heal. Every vault-agent consumer (LAN DNS/AdGuard, compose stacks) is down. Check: journalctl -u openbao-unseal" '{content:$c}')" \
+            --data "$(${jq} -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "🔴 **OpenBao auto-unseal FAILED** on discovery — the store is sealed and did not self-heal. Every vault-agent consumer (LAN DNS/AdGuard, compose stacks) is down. Check: journalctl -u openbao-unseal" '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
             "$(${pkgs.coreutils}/bin/cat /run/secrets/discord_webhook_incidents)" >/dev/null || true
         '';
       };
@@ -766,7 +767,7 @@ in {
         ProtectHome = true;
         ExecStart = pkgs.writeShellScript "vault-backup-onfail" ''
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
-            --data "$(${jq} -nc --arg c "🔴 **OpenBao snapshot backup FAILED** on discovery — check: journalctl -u restic-backups-vault" '{content:$c}')" \
+            --data "$(${jq} -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "🔴 **OpenBao snapshot backup FAILED** on discovery — check: journalctl -u restic-backups-vault" '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
             "$(cat /run/vault-agent/discord_webhook_incidents)" >/dev/null || true
         '';
       };
@@ -802,7 +803,7 @@ in {
         ProtectHome = true;
         ExecStart = pkgs.writeShellScript "vault-offsite-backup-onfail" ''
           ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
-            --data "$(${jq} -nc --arg c "🔴 **OpenBao off-site backup FAILED** on discovery — SFTP to kepler failed; check: journalctl -u restic-backups-vault-offsite" '{content:$c}')" \
+            --data "$(${jq} -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "🔴 **OpenBao off-site backup FAILED** on discovery — SFTP to kepler failed; check: journalctl -u restic-backups-vault-offsite" '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
             "$(cat /run/vault-agent/discord_webhook_incidents)" >/dev/null || true
         '';
       };
