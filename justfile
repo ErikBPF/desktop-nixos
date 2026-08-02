@@ -2486,6 +2486,55 @@ verify-wazuh-siem:
         echo 'metric=absent (no CEF event in current archive)'
     REMOTE
 
+# Capture packet metadata only; no CEF payload bytes.
+capture-unifi-siem:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      archive=/var/ossec/logs/archives/archives.json
+      before=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
+      nix shell nixpkgs#tcpdump --command sudo timeout 60 tcpdump -nn -i any -c 10 \
+        'udp dst port 5514 or udp dst port 514'
+      after=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
+      cef=$(podman exec wazuh-manager grep -c CEF: /var/ossec/logs/archives/archives.json || true)
+      printf "archive_before=%s archive_after=%s archive_delta=%s cef_lines=%s\n" \
+        "$before" "$after" "$((after - before))" "$cef"
+      podman port wazuh-manager 514/udp
+      podman inspect wazuh-manager |
+        jq -c '.[0].NetworkSettings.Networks | to_entries[] | {network:.key,ip:.value.IPAddress,gateway:.value.Gateway}'
+      if ((after > before)); then
+        podman exec wazuh-manager tail -n 1 "$archive" |
+          jq -c '{timestamp,location,decoder:(.decoder.name // null),hostname:(.predecoder.hostname // null),program:(.predecoder.program_name // null)}'
+      else
+        echo event_metadata=none
+      fi
+    REMOTE
+
+# Inject one harmless synthetic event per hop to isolate ingestion failures.
+probe-unifi-siem:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      archive=/var/ossec/logs/archives/archives.json
+      probe='CEF:0|Ubiquiti|UniFi OS|0|synthetic|synthetic|1|msg=synthetic'
+      before=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
+      printf '%s\n' "$probe" >/dev/udp/127.0.0.1/5514
+      sleep 2
+      host_after=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
+      printf "host_delta=%s\n" "$((host_after - before))"
+      if ((host_after > before)); then
+        echo container_delta=skipped
+        exit
+      fi
+      podman exec -e PROBE="$probe" wazuh-manager bash -c \
+        'printf "%s\n" "$PROBE" >/dev/udp/127.0.0.1/514'
+      sleep 2
+      container_after=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
+      printf "container_delta=%s\n" "$((container_after - host_after))"
+    REMOTE
+
 # Read-only filesystem allocation and largest top-level trees on Kepler.
 diagnose-kepler-disk:
     ssh -p 2222 erik@{{ip_kepler}} 'df -h / /fast; sudo btrfs filesystem usage /; sudo zfs list -o name,mountpoint,used,available,recordsize; systemctl cat microvm@cp-1.service; pgrep -af "openwakeword|ha-train|huggingface|kaggle" || true; sudo du -x -d2 -B1 /nix /var /home 2>/dev/null | sort -nr | head -40; sudo du -x -d2 -B1 /home/erik/.local /home/erik/.cache /home/erik/openwakeword-training /home/erik/ha-train /home/erik/ha-hf /var/lib/microvms 2>/dev/null | sort -nr | head -40'
