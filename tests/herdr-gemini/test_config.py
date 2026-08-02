@@ -47,6 +47,22 @@ def test_herdr_has_direct_directional_pane_navigation():
     assert 'focus_pane_down = ["prefix+j" "alt+down"];' in herdr
 
 
+def test_vim_and_herdr_share_ctrl_directional_navigation():
+    herdr = (ROOT / "modules/dev/herdr.nix").read_text()
+
+    assert 'rev = "53e318c772c4d3b7fbd904ac43bcf3e5b5d8b244"' in herdr
+    assert "plugin link ${vimHerdrNavigation}" in herdr
+    assert '"nvim/after/plugin/herdr_nav.lua"' in herdr
+    for direction, key in [
+        ("left", "h"),
+        ("down", "j"),
+        ("up", "k"),
+        ("right", "l"),
+    ]:
+        assert f'key = "ctrl+{key}"' in herdr
+        assert f'command = "vim-herdr-navigation.{direction}"' in herdr
+
+
 def test_gemini_imports_remote_session_profile_with_linger():
     gemini = (ROOT / "modules/hosts/orion/gemini.nix").read_text()
 
