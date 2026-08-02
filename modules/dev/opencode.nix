@@ -42,7 +42,7 @@
         "./plugins/rtk.ts"
         "${inputs.ponytail}/.opencode/plugins/ponytail.mjs"
       ];
-      model = "litellm/glm-5";
+      model = "litellm/deepseek-v4-flash";
 
       provider = {
         litellm = {
@@ -53,6 +53,17 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
+            deepseek-v4-flash = {
+              name = "DeepSeek V4 Flash (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.00000014;
+                output = 0.00000028;
+              };
+              limit = {
+                context = 1000000;
+                output = 384000;
+              };
+            };
             glm-5 = {
               name = "GLM-5.2 (LiteLLM → OpenCode Go)";
               cost = {
@@ -213,12 +224,10 @@
         };
       };
 
-      # Per-agent model routing (spicyphus per-slice loop): the architect
-      # pins high-reason GLM for RFC/grill/test-contract/seed-integrity
-      # review; the executor subagents pin MiMo coder for red tests + green
-      # impl + read-only exploration. `plan` mirrors `architect`; `build`
-      # inherits session-wide model (no override). Spec + active model list
-      # discoverable via `opencode models litellm`.
+      # Per-agent model routing (spicyphus per-slice loop): DeepSeek is the
+      # session default; architect/plan stay on GLM and executor subagents on
+      # MiMo. `build` inherits the session-wide model (no override). Spec +
+      # active model list discoverable via `opencode models litellm`.
       agent = {
         plan = {
           model = "litellm/glm-5";
