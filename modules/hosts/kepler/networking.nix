@@ -22,6 +22,8 @@ _: {
           4001 # lockd (pinned)
           4002 # rpc.mountd (pinned)
           445 # Samba SMB (NetBIOS disabled — port 445 only)
+          1514 # Wazuh agent events
+          1515 # Wazuh agent enrollment
           8765 # authenticated docs-search MCP (Daedalus via tailnet/LAN)
           9000 # faster-whisper OpenAI API (LiteLLM on discovery)
         ];
