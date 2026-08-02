@@ -22,6 +22,7 @@ in {
     ...
   }: let
     cfg = config.services.deadMansSwitch;
+    cleytinId = "1532710143517659356";
     sopsFile = self + "/secrets/sops/secrets.yaml";
     webhookPath = config.sops.secrets."dead-mans-switch/discord_webhook".path;
 
@@ -42,7 +43,7 @@ in {
       if [ "$failures" -eq ${toString cfg.failureThreshold} ]; then
         webhook=$(cat "${webhookPath}")
         ${pkgs.curl}/bin/curl --silent --max-time 10 -X POST -H 'Content-Type: application/json' \
-          --data "{\"content\": \"${config.networking.hostName} dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — Discovery or home ingress may be down.\"}" \
+          --data "$(${pkgs.jq}/bin/jq -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "${config.networking.hostName} dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — Discovery or home ingress may be down." '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
           "$webhook" || true
       fi
     '';

@@ -58,6 +58,7 @@ DISCORD_INCIDENTS_WEBHOOK = pathlib.Path(
 GITHUB_API_HOST = "api.github.com"
 GITHUB_REPOSITORY_OWNER = "ErikBPF"
 GITHUB_REPOSITORY = "servarr"
+CLEYTIN_USER_ID = "1532710143517659356"
 GITHUB_USER_AGENT = "kindle-release-agent/1"
 FAIL_AFTER_RECREATE = False
 DISCORD_HOST = "discord.com"
@@ -334,7 +335,7 @@ def discord_payload(report):
     ):
         if value is not None:
             details.append(f"**{label}:** {value}")
-    return {
+    payload = {
         "embeds": [
             {
                 "title": f"Kindle release {state}",
@@ -344,6 +345,10 @@ def discord_payload(report):
             }
         ]
     }
+    if state != "succeeded":
+        payload["content"] = f"<@{CLEYTIN_USER_ID}>"
+        payload["allowed_mentions"] = {"users": [CLEYTIN_USER_ID]}
+    return payload
 
 
 def _json_bytes(value):
