@@ -13,9 +13,11 @@ in {
   }: let
     litellmUrl = "http://litellm:4000/v1";
     # Discord "Homelab" guild (1487679732215578774) ops channels watched by
-    # Argus as N0 first-line responder. IDs are not secret.
+    # Cleytin (stable runtime ID: argus) as N0 first-line responder. IDs are
+    # not secret.
     incidentsChannel = "1521191614846865568"; # #incidents
     deploysChannel = "1521191597566332938"; # #deploys
+    securityChannel = "1530261608419299428"; # #security
     commonSettings = {
       model = {
         provider = "custom";
@@ -160,11 +162,14 @@ in {
       extraEnvironment = {
         # N0 channel scoping. Deliberately NO DISCORD_ALLOWED_USERS: with a
         # user allowlist set, the adapter denies webhook/bot authors (Grafana,
-        # Scrutiny, cron posters) and Argus goes blind to the very alerts it
+        # Scrutiny, cron posters) and Cleytin goes blind to the very alerts it
         # watches — channel-scoped auth only applies when no user/role
         # allowlist exists (upstream adapter._is_user_allowed). DMs are
-        # therefore denied; talk to Argus inside the two channels.
-        DISCORD_ALLOWED_CHANNELS = "${incidentsChannel},${deploysChannel}";
+        # therefore denied; talk to Cleytin inside the alert channels.
+        DISCORD_ALLOWED_CHANNELS = "${incidentsChannel},${deploysChannel},${securityChannel}";
+        # Alert publishers mention Cleytin explicitly. Accept only mentioned
+        # bot/webhook posts so unrelated automation cannot trigger the agent.
+        DISCORD_ALLOW_BOTS = "mentions";
       };
       settings = lib.recursiveUpdate commonSettings {
         # Channel messages and alert payloads are untrusted input. Hermes has
@@ -172,23 +177,11 @@ in {
         # security boundary.
         terminal = false;
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
-        # Respond without @-mention in the two ops channels. Leave the
-        # upstream default bots_require_inline_mention=false so bot/webhook
-        # posts (Grafana alerts) wake the agent; Argus itself never posts as
-        # a trigger for other bots, so no ping-pong loop exists here.
-        discord.free_response_channels = "${incidentsChannel},${deploysChannel}";
-        # Structured Grafana ingest (staged). deliver_only=true stores the
-        # signed payload without triggering the agent — Discord listening is
-        # the trigger for now, so alerts don't double-fire. Flip to false when
-        # the webhook becomes the primary trigger and Discord the human
-        # mirror. Requires WEBHOOK_GRAFANA_ALERTS_SECRET in argus_env AND the
-        # same value in OpenBao secret/shared/discord.argus_webhook_hmac
-        # (Grafana signs body-only HMAC-SHA256, hex, into X-Webhook-Signature
-        # — the upstream generic V1 scheme; Grafana's timestamped mode signs
-        # "ts:body" which hermes V2 ("ts.body") rejects, so keep body-only).
+        # Structured Grafana ingest. The secret is expanded from the runtime
+        # environment and authenticates the route before it triggers Cleytin.
+        # It must match OpenBao secret/shared/discord.argus_webhook_hmac.
         platforms.webhook.extra.routes.grafana-alerts = {
-          hmac_secret_env = "WEBHOOK_GRAFANA_ALERTS_SECRET";
-          deliver_only = true;
+          secret = "\${WEBHOOK_GRAFANA_ALERTS_SECRET}";
           prompt = ''
             Grafana alert webhook ({{ payload.status }}) via {{ payload.receiver }}:
             {% for a in payload.alerts %}
