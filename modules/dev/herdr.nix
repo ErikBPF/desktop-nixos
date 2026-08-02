@@ -12,10 +12,20 @@
   # The local `hermes` CLI (modules/dev/hermes-agent.nix) is likewise just
   # another launcher here; herdr recognises "Hermes Agent" natively for
   # session restore.
-  flake.modules.home.herdr = {pkgs, ...}: let
+  flake.modules.home.herdr = {
+    lib,
+    pkgs,
+    ...
+  }: let
     system = pkgs.stdenv.hostPlatform.system;
     tomlFormat = pkgs.formats.toml {};
     herdr = inputs.herdr.packages.${system}.default;
+    vimHerdrNavigation = pkgs.fetchFromGitHub {
+      owner = "paulbkim-dev";
+      repo = "vim-herdr-navigation";
+      rev = "53e318c772c4d3b7fbd904ac43bcf3e5b5d8b244";
+      hash = "sha256-vUUt46jiK6ZsPH8D13/+IIlqT3KbFliPJkNplsVqiQo=";
+    };
     repoLauncher = pkgs.writeShellApplication {
       name = "herdr-repo";
       runtimeInputs = [pkgs.git pkgs.openssh herdr];
@@ -34,7 +44,13 @@
       '';
     };
   in {
-    home.packages = [herdr repoLauncher];
+    home.packages = [herdr repoLauncher pkgs.jq];
+
+    xdg.configFile."nvim/after/plugin/herdr_nav.lua".source = "${vimHerdrNavigation}/editor/nvim.lua";
+
+    home.activation.linkVimHerdrNavigation = lib.hm.dag.entryAfter ["installPackages"] ''
+      $DRY_RUN_CMD ${herdr}/bin/herdr plugin link ${vimHerdrNavigation}
+    '';
 
     # Declarative, read-only config. herdr re-reads it on
     # `herdr server reload-config`; onboarding is disabled so it never tries
@@ -120,6 +136,30 @@
             type = "plugin_action";
             command = "cloudmanic.herdr-plus.projects";
             description = "open project template";
+          }
+          {
+            key = "ctrl+h";
+            type = "plugin_action";
+            command = "vim-herdr-navigation.left";
+            description = "navigate left (vim/herdr)";
+          }
+          {
+            key = "ctrl+j";
+            type = "plugin_action";
+            command = "vim-herdr-navigation.down";
+            description = "navigate down (vim/herdr)";
+          }
+          {
+            key = "ctrl+k";
+            type = "plugin_action";
+            command = "vim-herdr-navigation.up";
+            description = "navigate up (vim/herdr)";
+          }
+          {
+            key = "ctrl+l";
+            type = "plugin_action";
+            command = "vim-herdr-navigation.right";
+            description = "navigate right (vim/herdr)";
           }
         ];
       };

@@ -357,7 +357,6 @@
               {_args = ["SUPER + F" (mkLuaInline "hl.dsp.window.fullscreen()")];}
               {_args = ["SUPER + M" (mkLuaInline ''hl.dsp.window.fullscreen({ mode = "maximized" })'')];}
               {_args = ["SUPER + SHIFT + F" (mkLuaInline "hl.dsp.window.pseudo()")];}
-              {_args = ["SUPER + J" (mkLuaInline ''hl.dsp.layout("togglesplit")'')];}
               {_args = ["SUPER + P" (mkLuaInline "hl.dsp.window.pseudo()")];}
               {_args = ["CTRL + SHIFT + L" (mkLuaInline ''hl.dsp.exec_cmd("hyprlock")'')];}
               {_args = ["CTRL + SHIFT + J" (mkLuaInline ''hl.dsp.layout("togglesplit")'')];}
@@ -374,10 +373,10 @@
               {_args = ["SUPER + I" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle network")'')];}
               {_args = ["SUPER + Y" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle wallpaper")'')];}
               {_args = ["SUPER + U" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle monitors")'')];}
-              {_args = ["SUPER + left" (mkLuaInline ''hl.dsp.focus({ direction = "l" })'')];}
-              {_args = ["SUPER + right" (mkLuaInline ''hl.dsp.focus({ direction = "r" })'')];}
-              {_args = ["SUPER + up" (mkLuaInline ''hl.dsp.focus({ direction = "u" })'')];}
-              {_args = ["SUPER + down" (mkLuaInline ''hl.dsp.focus({ direction = "d" })'')];}
+              {_args = ["SUPER + h" (mkLuaInline ''hl.dsp.focus({ direction = "l" })'')];}
+              {_args = ["SUPER + l" (mkLuaInline ''hl.dsp.focus({ direction = "r" })'')];}
+              {_args = ["SUPER + k" (mkLuaInline ''hl.dsp.focus({ direction = "u" })'')];}
+              {_args = ["SUPER + j" (mkLuaInline ''hl.dsp.focus({ direction = "d" })'')];}
               {_args = ["SUPER + SHIFT + h" (mkLuaInline ''hl.dsp.window.move({ direction = "l" })'')];}
               {_args = ["SUPER + SHIFT + l" (mkLuaInline ''hl.dsp.window.move({ direction = "r" })'')];}
               {_args = ["SUPER + SHIFT + k" (mkLuaInline ''hl.dsp.window.move({ direction = "u" })'')];}
@@ -397,10 +396,6 @@
               {_args = ["SUPER + SHIFT + a" (mkLuaInline "hl.dsp.window.move({ workspace = 10 })")];}
               {_args = ["SUPER + SHIFT + z" (mkLuaInline "hl.dsp.window.move({ workspace = 11 })")];}
               {_args = ["SUPER + SHIFT + x" (mkLuaInline "hl.dsp.window.move({ workspace = 12 })")];}
-              {_args = ["SUPER + SHIFT + left" (mkLuaInline ''hl.dsp.window.swap({ direction = "l" })'')];}
-              {_args = ["SUPER + SHIFT + right" (mkLuaInline ''hl.dsp.window.swap({ direction = "r" })'')];}
-              {_args = ["SUPER + SHIFT + up" (mkLuaInline ''hl.dsp.window.swap({ direction = "u" })'')];}
-              {_args = ["SUPER + SHIFT + down" (mkLuaInline ''hl.dsp.window.swap({ direction = "d" })'')];}
               {_args = ["SUPER + minus" (mkLuaInline "hl.dsp.window.resize({ x = -100, y = 0, relative = true })")];}
               {_args = ["SUPER + equal" (mkLuaInline "hl.dsp.window.resize({ x = 100, y = 0, relative = true })")];}
               {_args = ["SUPER + SHIFT + minus" (mkLuaInline "hl.dsp.window.resize({ x = 0, y = -100, relative = true })")];}

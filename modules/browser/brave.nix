@@ -17,14 +17,6 @@ _: {
     programs.chromium = {
       enable = true;
       package = pkgs.brave;
-      commandLineArgs = [
-        "--enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,UseOzonePlatform"
-        "--disable-features=UseChromeOSDirectVideoDecoder,WebRtcAllowInputVolumeAdjustment,MediaRouter"
-        "--ignore-gpu-blocklist"
-        "--ozone-platform=wayland"
-        "--use-gl=angle"
-        "--use-angle=gl"
-      ];
       inherit extensions;
     };
 
