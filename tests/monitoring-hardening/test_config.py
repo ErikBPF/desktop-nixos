@@ -29,7 +29,9 @@ def test_vector_pushes_to_discovery_tailnet_ip():
 def test_monitoring_health_gate_includes_metrics_and_logs_backends():
     config = (ROOT / "modules/hosts/discovery/compose.nix").read_text()
 
+    assert "http://${config.fleet.hosts.discovery.tailscaleIp}:3100/ready" in config
+    assert "--retry-all-errors" in config
     assert (
         'secretSpecRuntimeHealthContainers.monitoring = '
-        '["prometheus" "grafana" "loki" "healthchecks" "scrutiny-influxdb" "scrutiny"];'
+        '["prometheus" "grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];'
     ) in config
