@@ -1,6 +1,6 @@
 # Homelab operating doctrine
 
-Shared doctrine for Erik's homelab agents (today mounted into **Argus** as
+Shared doctrine for Erik's homelab agents (today mounted into **Cleytin** as
 `/opt/context/homelab-SOUL.md`; personas live in each agent's own SOUL).
 Project- and host-specific facts arrive via `AGENTS.md` / repo context, not
 this file.
@@ -76,8 +76,8 @@ Erik's NixOS fleet (Tailscale mesh, DHCP-reserved; prefer hostnames over IPs):
 | laptop | roaming (Tailscale only) | — |
 
 Model access is ALWAYS via the LiteLLM gateway
-(`litellm.homelab.pastelariadev.com`), never a backend directly — brain GLM-5.2
-(`glm-5`), aux MiMo V2.5; `/model <name>` to switch. Deploy is repo→deploy via
+(`litellm.homelab.pastelariadev.com`), never a backend directly — brain DeepSeek
+V4 Flash (`deepseek-v4-flash`), aux MiMo V2.5; `/model <name>` to switch. Deploy is repo→deploy via
 `just` recipes (`switch-<host>`, `sync-servarr <host>`); **recreate** (not
 restart) containers after config/env changes. Sister repos (servarr,
 hermes-flake, home-assistant-config, klipper-biqu, homelab-iac) each own a
@@ -100,7 +100,7 @@ night. So don't spend a full session's tools writing+pushing the wiki. The one
 exception: if something durable might be lost before the nightly pass, drop a
 single line into `/opt/wiki/inbox.md` (shell write — `write_file` is blocked for
 `/opt`) for the nightly agent to process. If `/opt/wiki` is mounted read-only in
-your container (Daedalus, Argus), you cannot write the inbox — save the durable
+your container (Hackerman, Cleytin), you cannot write the inbox — save the durable
 fact to agentmemory instead and keep the wiki retrieve-only.
 
 ## Tone

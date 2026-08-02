@@ -3936,7 +3936,38 @@ hermes-agents-health:
     #!/usr/bin/env bash
     set -euo pipefail
     IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" 'for name in hermes-agent hermes-daedalus hermes-argus; do state=$(docker inspect --format="{{"{{"}}.State.Status{{"}}"}}" "$name"); health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name"); printf ":: %s state=%s health=%s\n" "$name" "$state" "$health"; test "$state" = running; done; docker exec hermes-daedalus hermes mcp list'
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      for name in hermes-agent hermes-daedalus hermes-argus; do
+        state=$(docker inspect --format="{{"{{"}}.State.Status{{"}}"}}" "$name")
+        health=$(docker inspect --format="{{"{{"}}if .State.Health{{"}}"}}{{"{{"}}.State.Health.Status{{"}}"}}{{"{{"}}else{{"}}"}}none{{"{{"}}end{{"}}"}}" "$name")
+        printf ":: %s state=%s health=%s\n" "$name" "$state" "$health"
+        test "$state" = running
+      done
+      require_env() {
+        if ! docker exec "$1" env | grep -qE "^$2=.+"; then
+          printf ":: %s %s=missing\n" "$1" "$2" >&2
+          return 1
+        fi
+        printf ":: %s %s=set\n" "$1" "$2"
+      }
+      require_env hermes-argus WEBHOOK_GRAFANA_ALERTS_SECRET
+      docker exec hermes-argus cat /opt/data/config.yaml | grep -q '"'"'grafana-alerts:'"'"'
+      for attempt in {1..20}; do
+        if docker exec hermes-argus python3 -c "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8644/health\", timeout=2).read()" >/dev/null 2>&1; then
+          break
+        fi
+        test "$attempt" -lt 20 || exit 1
+        sleep 1
+      done
+      printf ":: hermes-argus route=grafana-alerts health=ready\n"
+      for name in hermes-daedalus hermes-argus; do
+        docker exec "$name" python3 -c "import json, os, urllib.request, yaml; u=os.environ[\"OPENAI_BASE_URL\"].rstrip(\"/\")+\"/models\"; q=urllib.request.Request(u, headers={\"Authorization\":\"Bearer \"+os.environ[\"OPENAI_API_KEY\"]}); d=json.load(urllib.request.urlopen(q, timeout=10)); default=yaml.safe_load(open(\"/opt/data/config.yaml\"))[\"model\"][\"default\"]; assert default in {m[\"id\"] for m in d[\"data\"]}" >/dev/null
+        printf ":: %s litellm=authenticated model_default=authorized\n" "$name"
+      done
+      docker exec hermes-daedalus hermes mcp list
+      require_env hermes-argus DISCORD_BOT_TOKEN
+    '
 
 verify-port target ip port:
     @nc -z -w 2 {{ip}} {{port}} && echo ":: {{target}}:{{port}} ✅" || echo ":: {{target}}:{{port}} ❌"
