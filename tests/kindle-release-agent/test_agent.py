@@ -430,7 +430,15 @@ class ExternalReportingContract(unittest.TestCase):
             )
             self.assertIn(state["version"], discord["embeds"][0]["description"])
             self.assertIn(state["commit"][:7], discord["embeds"][0]["description"])
-            self.assertNotIn("content", discord)
+            if conclusion == "success":
+                self.assertNotIn("content", discord)
+            else:
+                self.assertIn("content", discord)
+                self.assertEqual(discord["content"], "<@1532710143517659356>")
+                self.assertEqual(
+                    discord["allowed_mentions"],
+                    {"users": ["1532710143517659356"]},
+                )
             self.assertEqual(github["conclusion"], conclusion)
             fixtures.append(normalized)
             with self.assertRaises((AttributeError, dataclasses.FrozenInstanceError)):

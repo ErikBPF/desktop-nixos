@@ -24,6 +24,7 @@ _: {
     ...
   }: let
     cfg = config.services.swagCertMonitor;
+    cleytinId = "1532710143517659356";
   in {
     options.services.swagCertMonitor = {
       enable = lib.mkEnableOption "daily SWAG cert/ingress liveness probe with Discord alert";
@@ -77,7 +78,7 @@ _: {
               echo "$1"
               [ -n "$WEBHOOK_FILE" ] && [ -r "$WEBHOOK_FILE" ] || return 0
               ${pkgs.curl}/bin/curl -fsS -m 10 -H "Content-Type: application/json" \
-                --data "$(${pkgs.jq}/bin/jq -nc --arg c "$1" '{content:$c}')" \
+                --data "$(${pkgs.jq}/bin/jq -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "$1" '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
                 "$(cat "$WEBHOOK_FILE")" >/dev/null || true
             }
 
