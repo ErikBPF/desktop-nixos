@@ -4,8 +4,10 @@
     pkgs,
     ...
   }: {
-    home-manager.users.${config.username}.systemd.user.services."podman-compose-monitoring".Service.ExecStartPre =
-      lib.mkBefore ["${pkgs.util-linux}/bin/mountpoint --quiet /home/erik/vault"];
+    home-manager.users.${config.username}.systemd.user.services."podman-compose-monitoring".Service = {
+      ExecStartPre = lib.mkBefore ["${pkgs.util-linux}/bin/mountpoint --quiet /home/erik/vault"];
+      ExecStartPost = lib.mkBefore ["${pkgs.curl}/bin/curl --fail --silent --retry 18 --retry-all-errors --retry-delay 5 --max-time 5 http://${config.fleet.hosts.discovery.tailscaleIp}:3100/ready"];
+    };
 
     homelab.compose = {
       composeDir = "/home/erik/servarr/machines/discovery";
@@ -45,7 +47,7 @@
       secretSpecRuntimeProfiles.monitoring = "monitoring";
       secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];
       secretSpecRuntimeIgnoredSourceNames.monitoring = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT" "LANGFUSE_SECRET_KEY" "LITELLM_SALT_KEY" "MINIO_ROOT_PASSWORD" "OPENCODE_GO_KEY" "OPENCODE_ZEN_KEY" "UI_PASSWORD"];
-      secretSpecRuntimeHealthContainers.monitoring = ["prometheus" "grafana" "loki" "healthchecks" "scrutiny-influxdb" "scrutiny"];
+      secretSpecRuntimeHealthContainers.monitoring = ["prometheus" "grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];
       secretSpecRuntimeProfiles.media = "media";
       secretSpecRuntimeSourceConfigNames.media = ["NORDVPN_USER" "QBITTORRENT_USER"];
       secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr"];
