@@ -59,7 +59,7 @@
       wantedBy = ["multi-user.target"];
       after = ["sshd.service"];
       requires = ["sshd.service"];
-      unitConfig.ConditionPathExists = "!/run/secrets/tailscale_authkey";
+      unitConfig.ConditionPathExists = "!/var/lib/sops-first-boot-complete";
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -67,7 +67,8 @@
         ExecStartPost = let
           restartSecretConsumers = pkgs.writeShellScript "restart-first-boot-secret-consumers" ''
             systemctl restart tailscaled-autoconnect.service || true
-            systemctl restart netbird-login.service || true
+            systemctl restart --no-block netbird-login.service || true
+            touch /var/lib/sops-first-boot-complete
           '';
         in "${restartSecretConsumers}";
       };
