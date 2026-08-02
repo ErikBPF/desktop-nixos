@@ -141,7 +141,7 @@ Six moorings, one per slice. Loops per slice, never skips gates.
      sections; flagged at step 2.
    - **Never let an agent originate this file's body.** Seed is human-only.
 
-2. **Grounded grill** — main agent (GLM) before any refine:
+2. **Grounded grill** — main agent (DeepSeek) before any refine:
    - Read `behavior.md`. Infer which existing artifacts the seed implicitly
      touches (prior RFCs/ADRs, recent `lessons.md`, related code). Read them.
    - Emit `Q-1..Q-N` each citing a specific seed phrase AND a specific
@@ -186,13 +186,14 @@ Six moorings, one per slice. Loops per slice, never skips gates.
 
 **Multi-model routing (canonical; override per repo CLAUDE.md when needed):**
 
+- **DeepSeek V4 Flash** — session default, orchestration, grounded grill.
 - **GLM** (high-reason) — RFC, ADR, grill, test-contract, seed-integrity
   review. Binds to `architect` subagent + `plan` primary via the HM-managed
   `agent` block.
 - **MiMo** (coder) — red tests, green impl, exploration. Binds to `general`
   + `explore` subagents.
-- Benchmark: GLM thinks; MiMo writes. Architect (GLM) vets what General
-  (MiMo) ships.
+- Benchmark: DeepSeek leads; GLM plans/reviews; MiMo writes. Architect (GLM)
+  vets what General (MiMo) ships.
 
 ## Canonical vs dormant workflows
 

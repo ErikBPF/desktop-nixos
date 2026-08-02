@@ -19,7 +19,7 @@ in {
     commonSettings = {
       model = {
         provider = "custom";
-        default = "glm-5";
+        default = "deepseek-v4-flash";
         base_url = litellmUrl;
         api_key = "\${OPENAI_API_KEY}";
       };
@@ -44,6 +44,11 @@ in {
       approvals.mode = "off";
       platforms.telegram.enabled = false;
       model_aliases = {
+        deepseek = {
+          model = "deepseek-v4-flash";
+          provider = "custom";
+          base_url = litellmUrl;
+        };
         glm = {
           model = "glm-5";
           provider = "custom";

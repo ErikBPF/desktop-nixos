@@ -59,7 +59,7 @@ Drop if the task is a single-file edit, a hotfix, or routine drafting
 
 ## Multi-agent dispatch (opencode)
 
-- Step 2 grill: main thread inline (GLM primary)
+- Step 2 grill: main thread inline (DeepSeek primary)
 - Step 3 test-contract: `@architect` (GLM)
 - Step 4 red tests: `@general` (mimo)
 - Step 5 green impl: spawn multiple `@general` (mimo) in ONE message via
