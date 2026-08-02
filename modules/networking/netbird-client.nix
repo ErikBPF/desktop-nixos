@@ -63,6 +63,8 @@ in {
         # it. Do NOT add `["sops-nix.service"]` back: it made the unit
         # unstartable ("Unit sops-nix.service not found").
       };
+
+      systemd.services.netbird-login.serviceConfig.TimeoutStartSec = "30s";
     };
   };
 }
