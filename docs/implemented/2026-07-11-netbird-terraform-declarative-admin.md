@@ -188,10 +188,9 @@ before a fix is designed.
   off-LAN peer and confirm `netbird up` + relay traversal work through the LAN-IP
   floor.
 
-- **E4 — sops recipients for future relay/DR peers.** `secrets.yaml` recipients =
-  `&primary/&orion/&archinaut`; `&voyager/&telstar` are placeholders. Enabling
-  `netbird-client` on voyager (relay) would fail to decrypt `netbird/setup_key`.
-  Probe: mint real host age keys before enrolling those peers.
+- **E4 — sops recipients for future relay/DR peers.** Voyager now has a distinct
+  recipient and can decrypt `secrets.yaml`; `&telstar` remains a placeholder. Mint
+  Telstar's host age key before enrolling that peer.
 
 - **E5 — routes stay deferred** (already scaffolded empty, `netbird/routes/`): needs
   a LAN routing peer + an explicit expose-the-subnet decision before any route is
