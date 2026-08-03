@@ -17,10 +17,14 @@ class ArgusSecurityContract(unittest.TestCase):
         healthcheck = source.split(
             "systemd.services.hermes-argus-healthcheck", 1
         )[1]
-        self.assertIn('agent.disabled_toolsets = ["terminal"];', argus)
+        self.assertIn('agent.disabled_toolsets = ["terminal" "kanban"];', argus)
+        self.assertIn("discord = [];", argus)
+        self.assertIn("webhook = [];", argus)
         self.assertNotIn("terminal = false;", argus)
         self.assertIn("/opt/hermes/.venv/bin/python", healthcheck)
         self.assertIn('"terminal" in cfg["agent"]["disabled_toolsets"]', healthcheck)
+        self.assertIn('not _get_platform_tools(cfg,"discord")', healthcheck)
+        self.assertIn('not _get_platform_tools(cfg,"webhook")', healthcheck)
 
     def test_homelab_agent_identity_is_cleytin(self):
         soul = (ROOT / "modules/hosts/discovery/argus-SOUL.md").read_text()
@@ -45,6 +49,7 @@ class ArgusSecurityContract(unittest.TestCase):
             'DISCORD_ALLOWED_CHANNELS = "${incidentsChannel},${deploysChannel},${securityChannel}";',
             argus,
         )
+        self.assertIn('DISCORD_HOME_CHANNEL = incidentsChannel;', argus)
         self.assertIn("`#incidents`, `#deploys`, and `#security`", soul)
 
     def test_development_agent_identity_is_hackerman(self):

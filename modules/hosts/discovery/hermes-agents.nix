@@ -167,6 +167,7 @@ in {
         # allowlist exists (upstream adapter._is_user_allowed). DMs are
         # therefore denied; talk to Cleytin inside the alert channels.
         DISCORD_ALLOWED_CHANNELS = "${incidentsChannel},${deploysChannel},${securityChannel}";
+        DISCORD_HOME_CHANNEL = incidentsChannel;
         # Alert publishers mention Cleytin explicitly. Accept only mentioned
         # bot/webhook posts so unrelated automation cannot trigger the agent.
         DISCORD_ALLOW_BOTS = "mentions";
@@ -175,7 +176,11 @@ in {
         # Channel messages and alert payloads are untrusted input. Hermes has
         # no command allowlist, so prompt-only "read-only" rules are not a
         # security boundary.
-        agent.disabled_toolsets = ["terminal"];
+        agent.disabled_toolsets = ["terminal" "kanban"];
+        platform_toolsets = {
+          discord = [];
+          webhook = [];
+        };
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
         # Structured Grafana ingest. Hermes authenticates every route with its
         # native WEBHOOK_SECRET rendered by Vault Agent at runtime.
@@ -222,7 +227,7 @@ in {
 
     systemd.services.hermes-argus-healthcheck.serviceConfig.ExecStart = lib.mkForce (pkgs.writeShellScript "hermes-argus-healthcheck" ''
       for attempt in $(${pkgs.coreutils}/bin/seq 1 30); do
-        if output="$(${pkgs.docker}/bin/docker exec hermes-argus /opt/hermes/.venv/bin/python -c 'import json,time,yaml; cfg=yaml.safe_load(open("/opt/data/config.yaml")); assert "terminal" in cfg["agent"]["disabled_toolsets"]; state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
+        if output="$(${pkgs.docker}/bin/docker exec hermes-argus /opt/hermes/.venv/bin/python -c 'import json,time,yaml; from hermes_cli.tools_config import _get_platform_tools; cfg=yaml.safe_load(open("/opt/data/config.yaml")); assert "terminal" in cfg["agent"]["disabled_toolsets"]; assert "kanban" in cfg["agent"]["disabled_toolsets"]; assert not _get_platform_tools(cfg,"discord"); assert not _get_platform_tools(cfg,"webhook"); state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
           exit 0
         fi
         if [ "$attempt" -eq 30 ]; then
