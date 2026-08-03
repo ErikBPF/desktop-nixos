@@ -70,8 +70,8 @@ cloudflare, §4a). `enable` default false. Verify: eval + `just dry voyager` no-
 pinned in `.terraform.lock.hcl`): `groups`, `policies` (default-deny), `setup-keys`,
 `posture-checks` units — scaffold + a committed default-deny policy export (§8).
 `oracle/modules/instance`: reserved-IP resource + SL rules (443/tcp+udp, close 22,
-2222 hardened) **written but not applied**. `cloudflare/dns`: `relay.<zone>` +
-`relay2.<zone>` DNS-only records **written not applied**. `tailscale/acl`: add the
+2222 hardened). `cloudflare/dns`: `relay.<zone>` + `relay2.<zone>` DNS-only records.
+Both were initially written without apply and are now live. `tailscale/acl`: add the
 control-plane admin-only rule (§6). Verify: `terragrunt hclfmt`, `tofu validate`
 (NO plan/apply — needs creds + is a live-network change).
 
@@ -112,11 +112,10 @@ RFC [`2026-07-11-pocketid-idp-for-netbird.md`](../implemented/2026-07-11-pocketi
 (the authoritative Track-B record; Implemented per the README index). Only the human
 dashboard-passkey login + first `netbird up` enrolment remain.
 
-**WP3 relay#2 — LIVE on vanguard.** Public `relay2.<zone>:443` (WSS/QUIC) with a real
-Let's-Encrypt cert; `:443` opened on the shared Oracle security list; static-TF DNS at
-the ephemeral IP. voyager's public relay#1 (`relay.<zone>`) is **not stood up** — its
-Cloudflare record is still a placeholder and its `services.netbirdRelay` is off (needs
-voyager's reserved-IP wiring first).
+**WP3 relay pair — LIVE.** Public `relay.<zone>:443` on voyager and
+`relay2.<zone>:443` on vanguard serve WSS/QUIC with valid Let's-Encrypt certificates.
+Voyager owns a reserved Oracle public IP and a host-specific Sops age key; both DNS
+records and Oracle/Cloudflare state are managed by homelab-iac.
 
-**Remaining:** voyager relay#1 (its own reserved-IP + `services.netbirdRelay`), client
-enrolment (WP1 `netbird up` per host), and the human passkey/OIDC dashboard bootstrap.
+**Remaining:** client enrolment (WP1 `netbird up` per host) and the human passkey/OIDC
+dashboard bootstrap.

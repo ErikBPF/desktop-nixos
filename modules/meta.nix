@@ -99,7 +99,7 @@
         };
         voyager = {
           # Public Oracle Cloud VM (ephemeral public IP, changes on recreate).
-          ip = "147.15.7.254";
+          ip = "163.176.78.19";
           role = "server";
           tailscaleIp = "100.105.38.10";
         };

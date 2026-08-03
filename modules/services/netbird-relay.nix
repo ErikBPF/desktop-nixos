@@ -13,11 +13,8 @@
 # below), H4 (metrics/health tailnet-only), H5 (cgroup caps), H6 (egress
 # watchdog, WP4/monitoring, not here), H7 (secret hygiene).
 #
-# DISABLED BY DEFAULT (services.netbirdRelay.enable = false). Everything below
-# sits under `lib.mkIf cfg.enable`, so `just dry voyager` stays a clean no-op
-# even though this module is imported by voyager/default.nix and its sops
-# secret is a placeholder that doesn't exist in secrets/sops/secrets.yaml yet
-# (Phase S, human-gated — see the implementation plan).
+# Disabled by default; each relay host opts in explicitly. Everything below
+# sits under `lib.mkIf cfg.enable`.
 {
   config,
   self,
@@ -128,14 +125,8 @@ in {
       # relay (mismatch fails silently) — same secret WP2 already declares on
       # discovery (modules/hosts/discovery/netbird-server.nix). One value in
       # secrets/sops/secrets.yaml, read by both hosts.
-      # TODO(Phase-S, RFC §11-Q4/§14): today `secrets/sops/secrets.yaml` is
-      # only encrypted to the shared `primary`/orion/archinaut age keys —
-      # voyager's `.sops.yaml` anchor is still a placeholder
-      # (age1PLACEHOLDER_REPLACE_ME_voyager_phase_s). Before this can
-      # actually decrypt anything, a human must: generate voyager's own
-      # age key on-host, replace the placeholder, add it to this file's
-      # key_groups, and re-encrypt — never copy the shared `primary` private
-      # key onto this internet-facing box (that's the whole point of Q4).
+      # Voyager decrypts this with its host-specific age key; the shared
+      # `primary` private key is not present on the internet-facing host.
       sops.secrets."netbird/auth_secret" = {
         inherit sopsFile;
         format = "yaml";
@@ -200,7 +191,7 @@ in {
       # TLS/QUIC handshake, so a handshake flood still burns the single core
       # first — that's what these rules would mitigate. The PRIMARY L3 gate
       # is the Oracle security-list (WP4/homelab-iac `oracle/modules/instance`
-      # — 443/tcp+udp only, written but not applied — RFC §6b-H2); nftables
+      # — 443/tcp+udp only — RFC §6b-H2); nftables
       # here is defense-in-depth on top of it. Skipped now because a correct
       # rate-limit ruleset needs tuning against real traffic (nothing to
       # tune against pre-deploy); revisit once this relay is actually live
