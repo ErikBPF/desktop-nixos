@@ -185,6 +185,7 @@ _: {
             )
             export BAO_ADDR=http://127.0.0.1:8200
             export BAO_TOKEN="$(cat /run/vault-agent/token)"
+            export GITHUB_APP_MANAGEMENT_REFRESH_TOKEN="$(${pkgs.openbao}/bin/bao kv get -field=GITHUB_APP_MANAGEMENT_REFRESH_TOKEN -mount=secret home/github-app-management)"
             export GITHUB_APP_MANAGEMENT_TOKEN="$(bash bin/refresh-github-app-token.sh)"
             exec bash bin/drift-check.sh
           '';

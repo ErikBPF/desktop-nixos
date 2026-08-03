@@ -16,4 +16,6 @@ def test_github_app_token_is_refreshed_at_runtime():
 
     assert "githubAppManagementEnvFile" in module
     assert "refresh-github-app-token.sh" in module
+    assert "GITHUB_APP_MANAGEMENT_REFRESH_TOKEN=" in module
+    assert "bao kv get -field=GITHUB_APP_MANAGEMENT_REFRESH_TOKEN" in module
     assert 'GITHUB_APP_MANAGEMENT_TOKEN="$(bash bin/refresh-github-app-token.sh)"' in module
