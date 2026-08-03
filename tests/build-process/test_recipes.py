@@ -43,3 +43,10 @@ def test_dry_all_builds_fleet_in_one_scheduler_invocation():
     body = recipe("dry-all")
     assert "just build-all" in body
     assert "nixos-rebuild" not in body
+
+
+def test_ampagent_store_seed_survives_garbage_collection():
+    body = recipe("add-ampagent")
+    assert "XDG_STATE_HOME" in body
+    assert "store_path=$(nix-store --add-fixed" in body
+    assert 'nix-store --realise "$store_path" --add-root "$gcroot"' in body

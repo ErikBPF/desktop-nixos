@@ -7361,8 +7361,11 @@ add-ampagent:
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
     cp "$deb" "$tmp/ampagent-15.0.54.deb"
-    nix-store --add-fixed sha256 "$tmp/ampagent-15.0.54.deb" >/dev/null
-    echo ":: Added .deb to nix store"
+    store_path=$(nix-store --add-fixed sha256 "$tmp/ampagent-15.0.54.deb")
+    gcroot="${XDG_STATE_HOME:-$HOME/.local/state}/nix/gcroots/ampagent-15.0.54.deb"
+    mkdir -p "$(dirname "$gcroot")"
+    nix-store --realise "$store_path" --add-root "$gcroot" >/dev/null
+    echo ":: Added .deb to nix store and GC-rooted it"
 
     # Upsert kace_token in sops secrets
     nix run nixpkgs#sops -- set secrets/sops/secrets.yaml '["kace_token"]' "\"$token\""
