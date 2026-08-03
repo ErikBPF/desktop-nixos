@@ -189,7 +189,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         expected = [
             'secretSpecRuntimeProfiles.media = "media";',
             'secretSpecRuntimeSourceConfigNames.media = ["NORDVPN_USER" "QBITTORRENT_USER"];',
-            'secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr"];',
+            'secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr" "listenarr" "lidarr"];',
             'secretSpecRuntimeProfiles.plex = "plex";',
             'secretSpecRuntimeLegacySecretNames.plex = ["PLEX_CLAIM"];',
             'secretSpecRuntimeHealthContainers.plex = ["plex"];',
@@ -216,9 +216,16 @@ class RuntimeProjectionTest(unittest.TestCase):
         )
         self.assertIn("for health_container in", orchestration)
         self.assertIn("all_healthy=1", orchestration)
-        self.assertIn('secretSpecRuntimeHealthContainers.tools = ["searxng"];', compose)
         self.assertIn(
-            'secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];',
+            'secretSpecRuntimeHealthContainers.tools = ["searxng" "cyberchef"];',
+            compose,
+        )
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr" "listenarr" "lidarr"];',
+            compose,
+        )
+        self.assertIn(
+            'secretSpecRuntimeHealthContainers."media-server" = ["jellystat" "jellyfin"];',
             compose,
         )
 
