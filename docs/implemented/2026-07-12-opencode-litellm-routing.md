@@ -1,7 +1,7 @@
 # OpenCode routing through LiteLLM
 
-**Status:** Implemented — DeepSeek default staged 2026-08-01; live Home Manager
-verification pending.
+**Status:** Implemented — DeepSeek default live on Endeavour and Discovery as
+of 2026-08-02; Pathfinder activation is pending while the host is offline.
 
 ## Decision
 
@@ -31,7 +31,9 @@ No response or semantic cache for coding agents. Use upstream prompt-prefix cach
 - LiteLLM traces attribute calls to the OpenCode consumer.
 - Direct-provider fallback is selectable but never default.
 
-The 2026-08-01 source update changes the default to
-`litellm/deepseek-v4-flash`; architect and plan remain `litellm/glm-5`, general
+The 2026-08-02 rollout applied the Terraform-owned route, preserved the
+consumer keys while adding the route to their allowlists, and verified real
+default completions from OpenCode and Hermes. All three Discovery Hermes roles
+render `deepseek-v4-flash`. Architect and plan remain `litellm/glm-5`, general
 and explore remain `litellm/mimo`, and direct routes remain non-default
-fallbacks. Live verification is pending deployment.
+fallbacks. Pathfinder's source-ready generation remains pending while offline.
