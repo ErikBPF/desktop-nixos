@@ -6,12 +6,11 @@ in {
     networking = {
       hostName = "discovery";
 
-      # AdGuard (local container on .210) is the primary resolver. fallbackDns
-      # (services.resolved below) keeps DNS alive at boot / whenever AdGuard is
-      # briefly down, so the container DNS race that took hermes down can't
-      # recur. Tailscale keeps accept-dns ON → *.taild71d3.ts.net still routes
-      # to MagicDNS (split-DNS preserved).
-      nameservers = ["192.168.10.210"];
+      # Kepler CoreDNS is independent of this host's local AdGuard container and
+      # synthesizes fleet zones itself. Keep AdGuard second for normal filtering;
+      # FallbackDNS below remains the final public emergency path. Tailscale keeps
+      # accept-dns ON, preserving MagicDNS split routing.
+      nameservers = [config.fleet.hosts.kepler.ip selfIp];
 
       # Headless server — use systemd-networkd style config, not NetworkManager.
       # NetworkManager is disabled to avoid fighting with the declarative bridge.
