@@ -32,6 +32,9 @@ class FleetDnsEvalTest(unittest.TestCase):
     def test_discovery_prefers_nonself_kepler_dns(self):
         self.assertEqual(self.value("discovery","networking.nameservers"),["192.168.10.230","192.168.10.210"])
 
+    def test_kepler_keeps_lan_replies_off_tailscale(self):
+        self.assertEqual(self.value("kepler","services.tailscale.extraSetFlags"),["--accept-dns=true","--accept-routes=false"])
+
     def rejected(self,module):
         expression='''let f=builtins.getFlake (toString ./.); c=f.nixosConfigurations.kepler.extendModules { modules=[({lib,...}: { %s })]; }; in c.config.system.build.toplevel.drvPath'''%module
         result=nix("eval","--impure","--expr",expression,check=False)
