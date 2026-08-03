@@ -43,6 +43,7 @@ _: {
     # Tailscale client — no subnet routing needed (not the gateway host)
     services.tailscale = {
       useRoutingFeatures = lib.mkForce "client";
+      extraSetFlags = lib.mkForce ["--accept-dns=true" "--accept-routes=false"];
     };
   };
 }
