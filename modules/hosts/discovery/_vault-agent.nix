@@ -169,7 +169,7 @@ in {
           perms = "0400"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.ARGUS_ENV }}\n{{ end }}"
+          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.ARGUS_ENV }}\n{{ end }}WEBHOOK_SECRET={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.argus_webhook_hmac }}{{ end }}\n"
           destination = "/run/vault-agent/hermes-argus.env"
           perms = "0400"
         }
