@@ -175,7 +175,7 @@ in {
         # Channel messages and alert payloads are untrusted input. Hermes has
         # no command allowlist, so prompt-only "read-only" rules are not a
         # security boundary.
-        terminal = false;
+        agent.disabled_toolsets = ["terminal"];
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
         # Structured Grafana ingest. Hermes authenticates every route with its
         # native WEBHOOK_SECRET rendered by Vault Agent at runtime.
@@ -222,7 +222,7 @@ in {
 
     systemd.services.hermes-argus-healthcheck.serviceConfig.ExecStart = lib.mkForce (pkgs.writeShellScript "hermes-argus-healthcheck" ''
       for attempt in $(${pkgs.coreutils}/bin/seq 1 30); do
-        if output="$(${pkgs.docker}/bin/docker exec hermes-argus python3 -c 'import json,time; state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
+        if output="$(${pkgs.docker}/bin/docker exec hermes-argus /opt/hermes/.venv/bin/python -c 'import json,time,yaml; cfg=yaml.safe_load(open("/opt/data/config.yaml")); assert "terminal" in cfg["agent"]["disabled_toolsets"]; state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
           exit 0
         fi
         if [ "$attempt" -eq 30 ]; then

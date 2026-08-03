@@ -14,7 +14,13 @@ class ArgusSecurityContract(unittest.TestCase):
         argus = source.split(
             "services.hermes-agent-oci-argus = {", 1
         )[1]
-        self.assertIn("terminal = false;", argus)
+        healthcheck = source.split(
+            "systemd.services.hermes-argus-healthcheck", 1
+        )[1]
+        self.assertIn('agent.disabled_toolsets = ["terminal"];', argus)
+        self.assertNotIn("terminal = false;", argus)
+        self.assertIn("/opt/hermes/.venv/bin/python", healthcheck)
+        self.assertIn('"terminal" in cfg["agent"]["disabled_toolsets"]', healthcheck)
 
     def test_homelab_agent_identity_is_cleytin(self):
         soul = (ROOT / "modules/hosts/discovery/argus-SOUL.md").read_text()
