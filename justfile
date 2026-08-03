@@ -3932,6 +3932,47 @@ index-spark-docs version="4.0.1" max_pages="500":
 
 # Verify all Hermes role containers and Daedalus MCP registration without
 # exposing API keys or decrypted secret contents.
+sync-cleytin-grafana-hmac:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    token="$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)"
+    printf '%s\n' "$(printf '%s' "$token" | base64 -w0)" | ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      IFS= read -r token_b64
+      secret="$(sudo sed -n "s/^WEBHOOK_GRAFANA_ALERTS_SECRET=//p" /run/vault-agent/hermes-argus.env)"
+      test -n "$secret"
+      export BAO_ADDR=http://127.0.0.1:8200
+      export BAO_TOKEN="$(printf "%s" "$token_b64" | base64 --decode)"
+      unset token_b64
+      jq -cn --arg secret "$secret" "{argus_webhook_hmac:\$secret}" |
+        bao kv patch -mount=secret shared/discord @/dev/stdin >/dev/null
+      unset BAO_TOKEN
+      sudo systemctl restart vault-agent.service
+      for attempt in {1..20}; do
+        rendered="$(sudo sed -n "s/^WEBHOOK_GRAFANA_ALERTS_SECRET=//p" /run/vault-agent/discord.env)"
+        if [ "$rendered" = "$secret" ]; then
+          echo ":: Cleytin/Grafana hmac=matched"
+          exit 0
+        fi
+        sleep 1
+      done
+      echo ":: Cleytin/Grafana HMAC render did not converge" >&2
+      exit 1
+    '
+
+test-cleytin-grafana-route:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    sudo test -s /run/vault-agent/hermes-argus.env
+    status="$(docker exec hermes-argus python3 -c 'import hashlib,hmac,json,os,time,urllib.request; assert os.environ["WEBHOOK_SECRET"] == os.environ["WEBHOOK_GRAFANA_ALERTS_SECRET"]; payload={"receiver":"Cleytin canary","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"CleytinGrafanaRouteCanary","instance":"discovery","severity":"warning"},"annotations":{"summary":"Synthetic route canary; no incident. Reply with a one-line TEST verdict."}}]}; body=json.dumps(payload,separators=(",",":")).encode(); signature=hmac.new(os.environ["WEBHOOK_GRAFANA_ALERTS_SECRET"].encode(),body,hashlib.sha256).hexdigest(); request=urllib.request.Request("http://127.0.0.1:8644/webhooks/grafana-alerts",data=body,headers={"Content-Type":"application/json","X-Webhook-Signature":signature,"X-Request-ID":f"cleytin-grafana-canary-{int(time.time())}"}); print(urllib.request.urlopen(request,timeout=10).status)')"
+    test "$status" = 202
+    echo ":: Cleytin Grafana route canary accepted HTTP $status"
+    REMOTE
+
 hermes-agents-health:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -3952,7 +3993,10 @@ hermes-agents-health:
         printf ":: %s %s=set\n" "$1" "$2"
       }
       require_env hermes-argus WEBHOOK_GRAFANA_ALERTS_SECRET
+      require_env hermes-argus WEBHOOK_SECRET
       docker exec hermes-argus cat /opt/data/config.yaml | grep -q '"'"'grafana-alerts:'"'"'
+      sudo systemctl start hermes-argus-healthcheck.service
+      printf ":: hermes-argus gateway=running discord=connected heartbeat=fresh\n"
       for attempt in {1..20}; do
         if docker exec hermes-argus python3 -c "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8644/health\", timeout=2).read()" >/dev/null 2>&1; then
           break

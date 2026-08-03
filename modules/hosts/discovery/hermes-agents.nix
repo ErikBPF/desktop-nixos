@@ -143,7 +143,7 @@ in {
 
     services.hermes-agent-oci-argus = {
       enable = true;
-      enableHealthcheck = false;
+      enableHealthcheck = true;
       image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
       hostDataDir = "/home/${username}/homelab/apps/hermes-argus";
       environmentFile = "/run/vault-agent/hermes-argus.env";
@@ -177,16 +177,20 @@ in {
         # security boundary.
         terminal = false;
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
-        # Structured Grafana ingest. The secret is expanded from the runtime
-        # environment and authenticates the route before it triggers Cleytin.
-        # It must match OpenBao secret/shared/discord.argus_webhook_hmac.
+        # Structured Grafana ingest. Hermes authenticates every route with its
+        # native WEBHOOK_SECRET rendered by Vault Agent at runtime.
         platforms.webhook.extra.routes.grafana-alerts = {
-          secret = "\${WEBHOOK_GRAFANA_ALERTS_SECRET}";
+          deliver = "discord";
+          deliver_extra.chat_id = incidentsChannel;
+          filters = [
+            {
+              field = "payload.status";
+              equals = "firing";
+            }
+          ];
           prompt = ''
-            Grafana alert webhook ({{ payload.status }}) via {{ payload.receiver }}:
-            {% for a in payload.alerts %}
-            - [{{ a.status }}] {{ a.labels.alertname }} host={{ a.labels.instance }} — {{ a.annotations.summary }}
-            {% endfor %}
+            Grafana alert webhook ({status}) via {receiver}:
+            {__raw__}
           '';
         };
       };
@@ -215,5 +219,18 @@ in {
         exit 1
       '';
     };
+
+    systemd.services.hermes-argus-healthcheck.serviceConfig.ExecStart = lib.mkForce (pkgs.writeShellScript "hermes-argus-healthcheck" ''
+      for attempt in $(${pkgs.coreutils}/bin/seq 1 30); do
+        if output="$(${pkgs.docker}/bin/docker exec hermes-argus python3 -c 'import json,time; state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
+          exit 0
+        fi
+        if [ "$attempt" -eq 30 ]; then
+          printf '%s\n' "$output" >&2
+          exit 1
+        fi
+        ${pkgs.coreutils}/bin/sleep 1
+      done
+    '');
   };
 }
