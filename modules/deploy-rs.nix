@@ -7,9 +7,9 @@
 #
 # Design (per the reviewed RFC 2026-06-30-deploy-rs-as-deploy-standard.md):
 #
-#   * Addressing is read from the fleet SSOT (`config.flake.fleet.hosts.<host>.ip`,
-#     the same option fleet.json is generated from) — never hardcoded. voyager's
-#     IP is volatile (ephemeral OCI) and flows through from there.
+#   * Addressing is read from the fleet SSOT — never hardcoded. Public OCI
+#     guests deploy over their stable Tailscale addresses; LAN hosts keep their
+#     primary addresses.
 #
 #   * Per-host activation is selected from the host's OWN system:
 #     `deploy-rs.lib.${system}.activate.nixos`, with `system` taken from the built
@@ -30,10 +30,9 @@
 #     on failure) is set per node by its REACH PATH, because the connectivity
 #     re-check races slow first-boot units (sops-nix decrypts during activation;
 #     Tailscale/compose come up after):
-#       - PUBLIC-IP sshd path  → magicRollback = true. sshd is independent of sops,
-#         so the re-check succeeds as soon as the new generation's sshd is up; a
-#         genuine network/firewall break is what we WANT to roll back.
-#       - tailnet-only reach   → magicRollback = false. The re-check would run
+#       - primary-IP sshd path → magicRollback = true. sshd is independent of sops,
+#         so the re-check succeeds as soon as the new generation's sshd is up.
+#       - tailnet-only reach   → magicRollback = false. The re-check can run
 #         before tailscaled (post-activation, sops-gated) is back, false-reverting
 #         a good deploy. autoRollback (activation-failure-only) still applies.
 #     Timeouts are bounded generously to tolerate a slow activation without the
@@ -59,16 +58,24 @@
   # One deploy node. `hostname` comes from the fleet SSOT. ssh as erik@2222,
   # activate as root (sudo) — matches today's `--sudo` / port-2222 model.
   #
-  #   magicRollback:      true for public-IP/sshd reach, false for tailnet-only.
+  #   magicRollback:      true for primary-IP reach, false for tailnet-only.
   #   activationTimeout:  seconds to wait for activation to finish.
   #   confirmTimeout:     seconds the post-activation reachability re-check waits.
   mkNode = {
     host,
     magicRollback,
+    tailnetOnly ? false,
     activationTimeout ? 300,
     confirmTimeout ? 60,
   }: {
-    hostname = fleet.hosts.${host}.ip;
+    hostname =
+      fleet.hosts.${
+        host
+      }.${
+        if tailnetOnly
+        then "tailscaleIp"
+        else "ip"
+      };
     sshUser = "erik";
     user = "root";
     sshOpts = ["-p" "2222"];
@@ -79,35 +86,32 @@ in {
   # Remote fleet only. laptop (roaming/local) and homeassistant (HAOS, not NixOS)
   # are intentionally OUT — deploy-rs switches an already-running NixOS host.
   flake.deploy.nodes = {
-    # Canary. Public Oracle micro reached on its public IP via sshd → magic
-    # rollback is safe and is the whole point here (a bad networking/sshd switch
-    # auto-reverts instead of bricking the box). Generous activationTimeout: the
-    # 1 GB micro activates slowly.
+    # Public Oracle guests are reachable only through Tailscale. Generous
+    # activationTimeout: the 1 GB micro activates slowly.
     voyager = mkNode {
       host = "voyager";
-      magicRollback = true;
+      tailnetOnly = true;
+      magicRollback = false;
       activationTimeout = 600;
       confirmTimeout = 60;
     };
 
-    # telstar: public projects host (Oracle A1, aarch64). Reached on its public
-    # IP via sshd → magic rollback safe, same as voyager. The clean A1 host is
-    # the practical canary once provisioned (hostname is null until the
-    # capacity-retry cron lands it + meta.nix gets the IP).
+    # telstar: public projects host (Oracle A1, aarch64). Its tailnet address is
+    # null until the capacity-retry provisioner lands and enrolls it.
     telstar = mkNode {
       host = "telstar";
-      magicRollback = true;
+      tailnetOnly = true;
+      magicRollback = false;
       activationTimeout = 600;
     };
 
     # vanguard: 2nd Oracle Always-Free AMD micro, multi-role offsite node
     # (docs/proposals/2026-07-10-vanguard-second-oracle-node.md). Sibling of
-    # voyager; reached on its public IP via sshd once provisioned → magic
-    # rollback safe, same reasoning as voyager/telstar. hostname is null until
-    # Terraform lands it + meta.nix gets the IP (fleet.hosts.vanguard.ip).
+    # voyager; reached through its stable tailnet address.
     vanguard = mkNode {
       host = "vanguard";
-      magicRollback = true;
+      tailnetOnly = true;
+      magicRollback = false;
       activationTimeout = 600;
     };
 
