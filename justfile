@@ -12,6 +12,8 @@ ip_archinaut := `jq -r '.hosts.archinaut.ip' fleet.json`
 ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
 ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
 ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
+tailscale_voyager := `jq -r '.hosts.voyager.tailscaleIp' fleet.json`
+tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
 orion_builder := "ssh-ng://erik@" + ip_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,kvm,nixos-test"
@@ -1165,7 +1167,7 @@ switch-kepler:
 switch-voyager user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
-    IP="{{ip_voyager}}"
+    if [[ "{{user}}:{{port}}" == "root:22" ]]; then IP="{{ip_voyager}}"; else IP="{{tailscale_voyager}}"; fi
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
     ssh -p {{port}} {{user}}@"$IP" \
@@ -1206,7 +1208,7 @@ switch-telstar user="erik" port="2222":
 switch-vanguard user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
-    IP="{{ip_vanguard}}"
+    if [[ "{{user}}:{{port}}" == "root:22" ]]; then IP="{{ip_vanguard}}"; else IP="{{tailscale_vanguard}}"; fi
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
     ssh -p {{port}} {{user}}@"$IP" \
@@ -1332,9 +1334,9 @@ deploy target ip port="2222" user="erik":
 # target). Node config (hostname from fleet SSOT, erik@2222, per-host magic
 # rollback) lives in modules/deploy-rs.nix.
 #
-# Rollout is canary-first: voyager is the canary (public IP, free, recreatable —
-# a bad switch auto-reverts instead of bricking it). Once proven there, the same
-# recipe deploys discovery/orion/pathfinder/kepler/archinaut. The legacy
+# Rollout is canary-first: voyager is the free, recreatable canary. Its
+# tailnet-only path uses activation-failure rollback because a post-activation
+# Tailscale race would make magic rollback revert a good deployment. The legacy
 # switch-<host>/deploy recipes stay as the escape hatch — deploy-rs adds an
 # output + a recipe, it changes no host config, so reverting is "use switch-X".
 #
@@ -7440,9 +7442,9 @@ escrow-age-key-push:
     set -euo pipefail
     blob="secrets/escrow/age-key.age"
     test -f "$blob" || { echo ":: run 'just escrow-age-key' first" >&2; exit 1; }
-    ssh -p 2222 erik@{{ip_voyager}} 'mkdir -p ~/escrow && chmod 700 ~/escrow'
-    scp -P 2222 "$blob" erik@{{ip_voyager}}:~/escrow/age-key.age
-    ssh -p 2222 erik@{{ip_voyager}} 'chmod 600 ~/escrow/age-key.age && ls -l ~/escrow/age-key.age'
+    ssh -p 2222 erik@{{tailscale_voyager}} 'mkdir -p ~/escrow && chmod 700 ~/escrow'
+    scp -P 2222 "$blob" erik@{{tailscale_voyager}}:~/escrow/age-key.age
+    ssh -p 2222 erik@{{tailscale_voyager}} 'chmod 600 ~/escrow/age-key.age && ls -l ~/escrow/age-key.age'
     echo ":: escrow copied off-premise → voyager:~/escrow/age-key.age"
 
 # DR drill (run quarterly): prove the escrow blob still decrypts with the
@@ -7465,7 +7467,7 @@ escrow-age-key-verify:
     fi
 
 # Break-glass reachability (RFC 4a/4d recovery): passphrase-seal the admin SSH
-# private key so a re-imaged laptop can reach voyager's PUBLIC-IP SSH and pull
+# private key so a re-imaged laptop can join the tailnet and reach Voyager to pull
 # the off-premise restic repos — without it, recovery is circular (voyager's
 # tailnet REST/ssh are ACL-gated to existing admin devices, and the SSH key that
 # would let you in lived on the lost laptop). INTERACTIVE (age -p needs a TTY).
@@ -7488,8 +7490,8 @@ escrow-ssh-key key="~/.ssh/id_ed25519":
     cmp -s "$tmp" "$src" && echo ":: OK — $blob decrypts back to the key." || { echo ":: MISMATCH — do not trust it." >&2; exit 1; }
     ls -l "$blob"
     echo ":: NEXT: store $blob in your password manager (cold-reachable), then:"
-    echo "     scp -P 2222 $blob erik@{{ip_voyager}}:~/escrow/ssh-key.age   # secondary copy"
-    echo "   Recover: age -d ssh-key.age > id; chmod 600 id; ssh -i id erik@<voyager-public-ip>"
+    echo "     scp -P 2222 $blob erik@{{tailscale_voyager}}:~/escrow/ssh-key.age   # secondary copy"
+    echo "   Recover: age -d ssh-key.age > id; chmod 600 id; ssh -i id erik@voyager"
 
 # GitHub-independent off-premise copy of every encrypted secret file (RFC 4c).
 # Tars all sops-encrypted files across this repo + the sister repos and scps the
@@ -7522,9 +7524,9 @@ escrow-secrets:
       n=$((n+1)); echo "   + $f"
     done
     tar -C "$tmp" -czf "$tmp/sops-config.tar.gz" sops-config
-    ssh -p 2222 erik@{{ip_voyager}} 'mkdir -p ~/escrow && chmod 700 ~/escrow'
-    scp -P 2222 "$tmp/sops-config.tar.gz" erik@{{ip_voyager}}:~/escrow/sops-config.tar.gz
-    ssh -p 2222 erik@{{ip_voyager}} 'chmod 600 ~/escrow/sops-config.tar.gz && ls -l ~/escrow/sops-config.tar.gz'
+    ssh -p 2222 erik@{{tailscale_voyager}} 'mkdir -p ~/escrow && chmod 700 ~/escrow'
+    scp -P 2222 "$tmp/sops-config.tar.gz" erik@{{tailscale_voyager}}:~/escrow/sops-config.tar.gz
+    ssh -p 2222 erik@{{tailscale_voyager}} 'chmod 600 ~/escrow/sops-config.tar.gz && ls -l ~/escrow/sops-config.tar.gz'
     echo ":: $n encrypted secret files bundled → voyager:~/escrow/sops-config.tar.gz"
 
 # Kindle release-agent operator entry points. Remote access stays fixed to

@@ -12,6 +12,12 @@ _: {
   }: {
     imports = [(modulesPath + "/profiles/qemu-guest.nix")];
 
+    # Public cloud guests are administered through the tailnet only. Keep
+    # OpenSSH itself available during Tailscale outages/recovery, but never
+    # publish its port on the public NIC.
+    services.openssh.openFirewall = lib.mkForce false;
+    networking.firewall.interfaces.tailscale0.allowedTCPPorts = [2222];
+
     # OCI disk + NIC are virtio; without these initrd modules the guest can't
     # find its root disk or network (a confirmed boot-deaf failure on voyager).
     boot.initrd.availableKernelModules = ["xhci_pci" "virtio_pci" "virtio_scsi" "virtio_blk" "virtio_net" "sd_mod"];
