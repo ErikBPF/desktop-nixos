@@ -29,6 +29,9 @@ class FleetDnsEvalTest(unittest.TestCase):
         self.assertIn(53,self.value("vanguard","networking.firewall.interfaces.tailscale0.allowedUDPPorts"))
         self.assertIn("tailscaled.service",self.value("vanguard","systemd.services.coredns.after"))
 
+    def test_discovery_prefers_nonself_kepler_dns(self):
+        self.assertEqual(self.value("discovery","networking.nameservers"),["192.168.10.230","192.168.10.210"])
+
     def rejected(self,module):
         expression='''let f=builtins.getFlake (toString ./.); c=f.nixosConfigurations.kepler.extendModules { modules=[({lib,...}: { %s })]; }; in c.config.system.build.toplevel.drvPath'''%module
         result=nix("eval","--impure","--expr",expression,check=False)
