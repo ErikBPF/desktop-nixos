@@ -1,9 +1,9 @@
 ---
 title: Discovery resilience — persistent fixes from the SWAG cert incident
-status: Implemented (core, 2026-06-29)
+status: Implemented (2026-08-03)
 date: 2026-06-29
 audience: Maintainers of desktop-nixos + servarr
-post-read-action: P1-1 (compose drift) remains. P2-1 root-caused + fixed 2026-07-06 (e1000e TX hang). Tracked below.
+post-read-action: P1-1 (compose drift) remains. P1-2 DNS and P2-1 e1000e instability are resolved and deployed.
 ---
 
 # Discovery resilience — persistent fixes
@@ -12,7 +12,7 @@ post-read-action: P1-1 (compose drift) remains. P2-1 root-caused + fixed 2026-07
 > ntfy on expiry/health) + SWAG cert-gate comment + Terraform swag-dns01 token;
 > **P0-2** `just pull-servarr` (git fetch + **reset --hard origin/main**,
 > retires the rsync overlap) + `just kick-stack`; **P1-2** AdGuard `mem_limit`
-> 512m→1.5g (the OOM that took LAN DNS down). **P2-1 (instability root-cause)**
+> 512m→1.5g plus non-self host DNS through Kepler. **P2-1 (instability root-cause)**
 > resolved 2026-07-06: e1000e TX Hardware Unit Hang → TSO/GSO disabled on eno1.
 > **Still open:** P1-1 (compose project-name drift / orphan cleanup).
 
@@ -39,21 +39,13 @@ Three compounding causes, only one of which we'd been chasing:
    working temp token.
 
 **Persistent fixes:**
-- **Cert/SWAG monitoring** — add a Grafana alert (same pattern as the disk-fill
-  rule) on **SWAG container health** + **cert expiry** (probe the leaf cert's
-  `notAfter`, or scrape `swag`/blackbox). Today a dead cert is silent until
-  something hits a subdomain. `TODO(erik)`: blackbox-exporter probe vs a small
-  cert-expiry script → ntfy.
-- **Post-bump cert gate** — any SWAG image bump must verify the cert re-mints
-  before it's considered done (a SWAG bump can re-break token DNS-01). Add to the
-  image-update runbook / renovate post-merge check.
-- **Least-scope token** — finish the Terraform `swag-dns01` token (the
-  `cloudflare-token-terraform-migration` RFC). Now unblocked-ish: SWAG is up, so
-  the iac state backend (MinIO behind SWAG) is reachable again; still gated on the
-  iac token genuinely getting `API Tokens:Edit`. ~~**Revoke the temp token**
-  (`cfut_9tU2…`, pasted in chat) once swag-dns01 lands.~~ **Done** — revoked
-  2026-06-29 (migration RFC Ph1+2); API-verified 2026-07-01: the account holds
-  only `Homelab IAC` (bootstrap) + `swag-dns01`, no strays (Ph4 sweep clean).
+- **Cert/SWAG monitoring** — implemented by `swag-cert-monitor`: daily `:443`
+  TLS probe plus ntfy alert on handshake failure or less than 14 days remaining.
+- **Post-bump cert gate** — the SWAG image pin now requires a successful cert
+  re-mint check before a bump is complete.
+- **Least-scope token** — implemented through Terraform `swag-dns01`; the
+  temporary token was revoked 2026-06-29. API verification on 2026-07-01 found
+  only `Homelab IAC` (bootstrap) plus `swag-dns01`, with no strays.
 
 ### P0-2. Deploy pipeline conflict (rsync vs git-pull)
 
@@ -63,14 +55,9 @@ the working tree, so `servarr-pull`'s `git pull --ff-only origin main || true`
 **silently fails** (the `|| true` swallows it) → the host never gets new commits.
 We worked around it with surgical `git checkout origin/main -- <file>`.
 
-**Persistent fix (`TODO(erik)` — pick one, recommend both):**
-- (a) **Make `servarr-pull` authoritative**: replace `git pull --ff-only … ||
-  true` with `git fetch origin main && git reset --hard origin/main` so the host
-  tree always matches git, regardless of local drift. Drop the silent `|| true`.
-- (b) **Stop rsync-into-the-clone**: retire `sync-servarr`'s overlap — either
-  point it at a non-git path, or remove it in favour of git-only delivery
-  (`servarr-pull`). **One** host-delivery mechanism, not two writing one dir.
-- Net: git is the single source→host path; rsync no longer fights it.
+**Implemented:** `servarr-pull` now uses `git fetch origin main && git reset
+--hard origin/main`; the overlapping `sync-servarr` / `sync-stack` rsync path is
+retired. Git is the single source→host delivery path.
 
 ### P1-1. Compose project-name drift / duplicate containers
 
@@ -90,7 +77,7 @@ about this.
 - `TODO(erik)`: is `k8s-apiserver` in the networking stack still wanted? It's
   been a recurring conflict.
 
-### P1-2. DNS self-dependency
+### P1-2. DNS self-dependency — **resolved 2026-08-03**
 
 `servarr-pull` failed earlier on `Could not resolve github.com`. Discovery's
 primary nameserver is its **own** AdGuard container (`192.168.10.210`); when
@@ -98,11 +85,22 @@ AdGuard/discovery flaps, host system DNS dies → git pulls, image pulls, and
 certbot all fail. `resolved` has `FallbackDNS` (UDM + public) but it clearly
 isn't catching every window.
 
-**Persistent fix:** give the **host's own system resolution** a non-self path
-(don't route discovery's *system* DNS solely through the container it hosts) —
-e.g. resolved with the UDM/public as primary for the host, AdGuard for LAN
-clients; or verify `FallbackDNS` actually engages promptly on AdGuard downtime.
-`TODO(erik)`: confirm the desired split (host vs client DNS).
+**Root cause and fix:** Discovery now declares Kepler CoreDNS (`192.168.10.230`)
+before its local AdGuard (`192.168.10.210`), with the UDM/public resolvers kept
+as fallbacks ([desktop-nixos#164](https://github.com/ErikBPF/desktop-nixos/pull/164)).
+The first live probe exposed a second asymmetry: Kepler accepted Discovery's
+advertised `/32` from Tailscale and sent LAN DNS replies through `tailscale0`.
+Kepler now keeps accepted routes disabled while retaining tailnet DNS
+([desktop-nixos#166](https://github.com/ErikBPF/desktop-nixos/pull/166)).
+
+**Deployed proof:** Discovery closure
+`jbbbqk5p8iaxpdzs7dcglwijxsc4iazb` and Kepler closure
+`4g4i9hlrphkwgxwg2dksi1jbskd4h08p` booted kernel 6.18.41 with zero failed
+units. Discovery reached Kepler over the LAN for fleet and public DNS on UDP
+and TCP, and `git ls-remote` succeeded. A real Discovery cold boot provided the
+final gate: `systemd-resolved` started at 13:08:47, the Hermes wiki fetched from
+GitHub successfully at 13:09:12, and local AdGuard did not start until 13:09:19.
+Host boot and pulls therefore no longer depend on the container they start.
 
 ### P2-1. Discovery instability (the root symptom) — **root-caused 2026-07-06**
 
@@ -143,19 +141,21 @@ explicitly *not* recommended.
 1. **P0** — SWAG re-pin (**done**) · deploy-pipeline reconciliation (P0-2,
    **done** — `servarr-pull` now `fetch + reset --hard`, rsync recipes
    `sync-servarr`/`sync-stack` retired for git-only `prep-servarr` →
-   `pull-servarr` → `kick-stack`; staged, not yet deployed) · cert/SWAG
+   `pull-servarr` → `kick-stack`; deployed) · cert/SWAG
    monitoring (P0-1, **done** — `swag-cert-monitor` module: daily :443 TLS
    probe → ntfy on dead handshake or <14d expiry; cert gate comment added to
-   the SWAG image pin; staged, not yet deployed).
+   the SWAG image pin; deployed).
 2. **P1** — compose project-name hygiene + orphan cleanup (P1-1) · host DNS
-   split (P1-2).
-3. **P2** — instability root-cause from diagnostics data (P2-1) · renovate-driven
-   image updates + swag-dns01 least-scope token + **revoke the temp token**.
+   split (P1-2, **done**).
+3. **P2** — instability root-cause from diagnostics data (P2-1, **done**) ·
+   renovate-driven image updates (P2-2).
 
 ## Verify (per fix)
 
 - Pipeline: edit a servarr file → push → `servarr-pull` → host tree matches
   origin with no manual checkout.
+- DNS: reboot with AdGuard absent → Kepler answers fleet/public UDP+TCP and a
+  GitHub fetch succeeds before AdGuard starts.
 - Compose: `systemctl --user restart podman-compose-networking.service` exits 0
   (no name conflict).
 - SWAG monitoring: expire-soon test fires an ntfy alert.
