@@ -29,7 +29,7 @@
         infra = ["shared-db" "infra"];
       };
       secretSpecRuntimeProfiles.tools = "tools";
-      secretSpecRuntimeHealthContainers.tools = ["searxng"];
+      secretSpecRuntimeHealthContainers.tools = ["searxng" "cyberchef"];
       secretSpecRuntimeProfiles.tunneling = "tunneling";
       secretSpecRuntimeHealthContainers.tunneling = ["cloudflared"];
       secretSpecRuntimeProfiles.networking = "networking";
@@ -43,14 +43,14 @@
       secretSpecRuntimeHealthContainers.homepage = ["homepage"];
       secretSpecRuntimeProfiles."media-server" = "media-server";
       secretSpecRuntimeIgnoredSourceNames."media-server" = ["REDIS_PASSWORD"];
-      secretSpecRuntimeHealthContainers."media-server" = ["jellystat"];
+      secretSpecRuntimeHealthContainers."media-server" = ["jellystat" "jellyfin"];
       secretSpecRuntimeProfiles.monitoring = "monitoring";
       secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];
       secretSpecRuntimeIgnoredSourceNames.monitoring = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT" "LANGFUSE_SECRET_KEY" "LITELLM_SALT_KEY" "MINIO_ROOT_PASSWORD" "OPENCODE_GO_KEY" "OPENCODE_ZEN_KEY" "UI_PASSWORD"];
       secretSpecRuntimeHealthContainers.monitoring = ["prometheus" "grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];
       secretSpecRuntimeProfiles.media = "media";
       secretSpecRuntimeSourceConfigNames.media = ["NORDVPN_USER" "QBITTORRENT_USER"];
-      secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr"];
+      secretSpecRuntimeHealthContainers.media = ["gluetun" "unpackerr" "decluttarr" "listenarr" "lidarr"];
       secretSpecRuntimeProfiles.plex = "plex";
       secretSpecRuntimeLegacySecretNames.plex = ["PLEX_CLAIM"];
       secretSpecRuntimeHealthContainers.plex = ["plex"];
