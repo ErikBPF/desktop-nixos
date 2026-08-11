@@ -38,7 +38,7 @@
           chmod 600 "$TARGET"
         fi
       '';
-      deps = ["users"];
+      deps = ["specialfs"];
     };
     system.activationScripts.setupSecrets.deps = lib.mkAfter ["distributeSopsKey"];
     system.activationScripts.setupSecretsForUsers.deps = lib.mkAfter ["distributeSopsKey"];
