@@ -73,9 +73,7 @@ in {
     config = lib.mkIf cfg.enable {
       # TODO(before enable): this key does not exist in secrets/sops/secrets.yaml
       # yet — add an INDEPENDENT Discord webhook (its own channel, not the
-      # in-home `discord_webhook_incidents`) before flipping this role on, same
-      # placeholder pattern as netbird/auth_secret (modules/hosts/voyager/
-      # netbird-relay.nix).
+      # in-home `discord_webhook_incidents`) before flipping this role on.
       sops.secrets."dead-mans-switch/discord_webhook" = {
         inherit sopsFile;
         format = "yaml";

@@ -20,10 +20,8 @@ def test_monitor_layouts_are_home_modules():
 
 
 def test_reusable_modules_do_not_live_under_hosts():
-    assert (ROOT / "modules/services/netbird-relay.nix").exists()
     assert (ROOT / "modules/services/hermes-client.nix").exists()
     assert (ROOT / "modules/services/opencode-client.nix").exists()
-    assert not (ROOT / "modules/hosts/voyager/netbird-relay.nix").exists()
     assert not (ROOT / "modules/hosts/laptop/hermes-client.nix").exists()
     assert not (ROOT / "modules/hosts/laptop/opencode-client.nix").exists()
 

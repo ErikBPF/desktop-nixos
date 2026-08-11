@@ -1203,7 +1203,7 @@ switch-telstar user="erik" port="2222":
 # `just boot-vanguard` sets the flake gen as the next boot, then reboot into it —
 # do NOT reboot into infect's networkless base config first (it comes up dark).
 # Once up on erik@2222, steady state is `just switch-vanguard`. Stages the sops
-# age key. Roles (fleet-dns, dead-mans-switch, netbird relay2, pg-replica) are
+# age key. Roles (fleet-dns, dead-mans-switch, vault-witness) are
 # opt-in — enable per the vanguard proposal after provisioning.
 switch-vanguard user="erik" port="2222":
     #!/usr/bin/env bash
@@ -2932,105 +2932,6 @@ verify-ai-serving-secret-render:
         exit 1
       }
       echo "ai_serving_render=ready mode=0440 owner=root group=vault-consumers fresh=true keys=11"
-    '
-
-# Merge encrypted NetBird runtime values into the existing Vault document.
-seed-netbird-vault:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    pocketid="$(sops --decrypt --extract '["netbird"]["pocketid_encryption_key"]' secrets/sops/secrets.yaml)"
-    postgres="$(sops --decrypt --extract '["netbird"]["postgres_dsn"]' secrets/sops/secrets.yaml)"
-    auth="$(sops --decrypt --extract '["netbird"]["auth_secret"]' secrets/sops/secrets.yaml)"
-    datastore="$(sops --decrypt --extract '["netbird"]["datastore_enc_key"]' secrets/sops/secrets.yaml)"
-    test -n "$pocketid" && test -n "$postgres" && test -n "$auth" && test -n "$datastore"
-    token="$(
-      sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
-    )"
-    {
-      printf '%s' "$token" | base64 -w0
-      printf '\n'
-      jq -cn \
-        --arg pocketid "$pocketid" \
-        --arg postgres "$postgres" \
-        --arg auth "$auth" \
-        --arg datastore "$datastore" \
-        '{POCKETID_ENCRYPTION_KEY:$pocketid,POSTGRES_DSN:$postgres,AUTH_SECRET:$auth,DATASTORE_ENC_KEY:$datastore}' |
-        base64 -w0
-      printf '\n'
-    } | ssh -p 2222 erik@{{ip_discovery}} '
-      set -euo pipefail
-      IFS= read -r token_b64
-      IFS= read -r value_b64
-      header="$(mktemp)"
-      current="$(mktemp)"
-      incoming="$(mktemp)"
-      payload="$(mktemp)"
-      trap "rm -f \"$header\" \"$current\" \"$incoming\" \"$payload\"" EXIT
-      chmod 600 "$header" "$current" "$incoming" "$payload"
-      printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
-      unset token_b64
-      printf "%s" "$value_b64" | base64 --decode > "$incoming"
-      unset value_b64
-      http_status="$(
-        curl --header @"$header" --silent --show-error \
-          --output "$current" --write-out "%{http_code}" \
-          http://127.0.0.1:8200/v1/secret/data/home/netbird
-      )"
-      case "$http_status" in
-        200) ;;
-        404) printf "{\"data\":{\"data\":{}}}" > "$current" ;;
-        *) echo "NetBird Vault read failed: HTTP $http_status" >&2; exit 1 ;;
-      esac
-      jq -s "{data:(.[0].data.data + .[1])}" "$current" "$incoming" > "$payload"
-      curl --header @"$header" --silent --show-error --fail --request POST \
-        --data-binary @"$payload" \
-        http://127.0.0.1:8200/v1/secret/data/home/netbird >/dev/null
-      echo "netbird_vault=seeded keys_added=4"
-    '
-
-seed-netbird-pocketid-vault: seed-netbird-vault
-
-seed-netbird-controlplane-vault: seed-netbird-vault
-
-# Verify metadata and dotenv name without exposing the key.
-verify-netbird-pocketid-secret-render:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" '
-      set -euo pipefail
-      sudo systemctl is-active vault-agent.service
-      metadata="$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/netbird-pocketid.env)"
-      test "$metadata" = "400 root vault-consumers" ||
-        { echo "netbird_pocketid_render=bad_metadata actual=$metadata" >&2; exit 1; }
-      test "$(sudo cut -d= -f1 /run/vault-agent/netbird-pocketid.env)" = ENCRYPTION_KEY ||
-        { echo "netbird_pocketid_render=bad_name" >&2; exit 1; }
-      sudo find /run/vault-agent/netbird-pocketid.env -mmin -15 -print -quit | grep -q . ||
-        { echo "netbird_pocketid_render=stale" >&2; exit 1; }
-      sudo systemctl is-active docker-netbird-pocketid.service ||
-        { echo "netbird_pocketid_service=inactive" >&2; exit 1; }
-      echo "netbird_pocketid_render=ready mode=0400 owner=root group=vault-consumers fresh=true"
-    '
-
-# Verify control-plane renders and consumers without exposing values.
-verify-netbird-controlplane-secret-render:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" '
-      set -euo pipefail
-      sudo systemctl is-active vault-agent.service
-      for file in netbird-postgres.env netbird-auth.env netbird-datastore.key; do
-        test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/$file)" = "400 root vault-consumers"
-        sudo find "/run/vault-agent/$file" -mmin -15 -print -quit | grep -q .
-        sudo test -s "/run/vault-agent/$file"
-      done
-      test "$(sudo cut -d= -f1 /run/vault-agent/netbird-postgres.env)" = NETBIRD_STORE_ENGINE_POSTGRES_DSN
-      test "$(sudo cut -d= -f1 /run/vault-agent/netbird-auth.env)" = NB_AUTH_SECRET
-      sudo systemctl is-active netbird-management-config.service
-      sudo systemctl is-active docker-netbird-management.service
-      sudo systemctl is-active docker-netbird-relay.service
-      echo "netbird_controlplane_render=ready mode=0400 owner=root group=vault-consumers fresh=true files=3"
     '
 
 # Merge encrypted Hermes runtime envs into their Vault document.
@@ -5436,236 +5337,6 @@ discovery-redis-cold-start-drill:
     REMOTE
     echo ":: PASS: isolated Redis cold-started empty; no production state restored"
 
-# Read-only state/schema gate before the isolated NetBird/PocketID rehearsal.
-discovery-netbird-state-preflight:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    sqlite3=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.sqlite.outPath)/bin/sqlite3
-    ssh -p 2222 erik@{{ip_discovery}} "SQLITE3=$sqlite3 bash -s" <<'REMOTE'
-      set -euo pipefail
-      state=/home/erik/homelab/apps/netbird/pocket-id
-      test -d "$state"
-      test -x "$SQLITE3"
-      mapfile -t databases < <(find "$state" -maxdepth 1 -type f -name '*.db' -print)
-      test "${#databases[@]}" = 1
-      find "$state" -maxdepth 2 -type f -printf 'file=%P bytes=%s mode=%m uid=%U gid=%G\n' | sort
-      integrity=$("$SQLITE3" -readonly "${databases[0]}" 'PRAGMA integrity_check')
-      test "$integrity" = ok
-      printf 'integrity=%s\n' "$integrity"
-      "$SQLITE3" -readonly "${databases[0]}" \
-        "SELECT 'table=' || name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-      for container in netbird-pocketid netbird-management; do
-        unit="docker-$container.service"
-        state=$(systemctl is-active "$unit" 2>/dev/null || true)
-        printf 'unit=%s state=%s\n' "$unit" "$state"
-        if test "$state" != active; then
-          pgrep -af 'pocket-id' || true
-          sudo fuser -v "${databases[0]}" "${databases[0]}-wal" 2>&1 || true
-          sudo docker ps -a --format json |
-            jq -r 'select((.Image // "") | test("pocket-id|netbird")) | [.Names, .State, .Image] | @tsv' || true
-          sudo systemctl status "$unit" --no-pager -l -n 30 || true
-          sudo journalctl -u "$unit" --no-pager -n 50
-          exit 1
-        fi
-      done
-    REMOTE
-    echo ":: PASS: PocketID SQLite opens read-only and NetBird consumers exist"
-
-# Retry PocketID only after proving no live instance/file holder and a healthy DB.
-repair-netbird-pocketid:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    sqlite3=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.sqlite.outPath)/bin/sqlite3
-    ssh -p 2222 erik@{{ip_discovery}} "SQLITE3=$sqlite3 bash -s" <<'REMOTE'
-      set -euo pipefail
-      database=/home/erik/homelab/apps/netbird/pocket-id/pocket-id.db
-      test -f "$database"
-      test "$("$SQLITE3" -readonly "$database" 'PRAGMA integrity_check')" = ok
-      if test "$(systemctl is-active docker-netbird-pocketid.service 2>/dev/null || true)" != active; then
-        if pgrep -af '/app/pocket-id'; then
-          echo ":: BLOCKED: PocketID process already exists" >&2
-          exit 1
-        fi
-        if sudo fuser "$database" "$database-wal" >/dev/null 2>&1; then
-          echo ":: BLOCKED: PocketID database has a live file holder" >&2
-          exit 1
-        fi
-        sudo systemctl reset-failed docker-netbird-pocketid.service
-        sudo systemctl start docker-netbird-pocketid.service
-      fi
-      systemctl is-active docker-netbird-pocketid.service
-      healthy=false
-      for _ in $(seq 1 30); do
-        if curl --fail --silent --max-time 5 \
-          https://id.homelab.pastelariadev.com/.well-known/openid-configuration >/dev/null; then
-          healthy=true
-          break
-        fi
-        sleep 1
-      done
-      "$healthy"
-    REMOTE
-    echo ":: PASS: PocketID recovered without database mutation"
-
-# Restore a consistent PocketID SQLite backup into a networkless Orion instance.
-discovery-pocketid-restore-drill:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    sqlite3=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.sqlite.outPath)/bin/sqlite3
-    scan=$(mktemp)
-    trap 'rm -f "$scan"' EXIT
-    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
-    ssh-keygen -lf "$scan" -E sha256 |
-      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
-    hostkeys=$(base64 -w0 "$scan")
-    ssh -p 2222 erik@{{ip_orion}} \
-      "HOSTKEYS=$hostkeys SQLITE3=$sqlite3 DISCOVERY_SQLITE3=$sqlite3 bash -s" <<'REMOTE'
-      set -euo pipefail
-      image=ghcr.io/pocket-id/pocket-id:v2.10.0
-      stamp=$(date +%Y-%m-%d_%H%M%S)
-      evidence="/projects/recovery/discovery-esp/pocketid/$stamp"
-      data="$evidence/data"
-      environment="$evidence/pocketid.env"
-      name="discovery-pocketid-drill-$stamp"
-      known_hosts=$(mktemp)
-      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
-      options=(-p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
-      sudo install -d -m 0700 -o root -g root "$evidence"
-      sudo install -d -m 0700 -o root -g root "$data"
-      sudo chown 1000:1000 "$data"
-      trap 'rm -f "$known_hosts"; sudo docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
-      ssh -n "${options[@]}" erik@{{ip_discovery}} \
-        "tmp=\$(mktemp /tmp/pocketid.XXXXXX.db); trap 'rm -f \"\$tmp\"' EXIT; $DISCOVERY_SQLITE3 /home/erik/homelab/apps/netbird/pocket-id/pocket-id.db \".backup \$tmp\"; gzip -c \"\$tmp\"" |
-        sudo gzip -dc | sudo tee "$data/pocket-id.db" >/dev/null
-      ssh -n "${options[@]}" erik@{{ip_discovery}} \
-        'sudo cat /run/vault-agent/netbird-pocketid.env' |
-        sudo tee "$environment" >/dev/null
-      sudo chmod 0600 "$environment"
-      sudo chown 1000:1000 "$data/pocket-id.db"
-      test "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'PRAGMA integrity_check')" = ok
-      actor_leases=$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
-        "SELECT count(*) FROM kv WHERE key='application_lock'")
-      sudo "$SQLITE3" "$data/pocket-id.db" "DELETE FROM kv WHERE key='application_lock'"
-      test "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
-        "SELECT count(*) FROM kv WHERE key='application_lock'")" = 0
-      view_cleanup=$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
-        "SELECT 'DROP VIEW IF EXISTS \"' || replace(name, '\"', '\"\"') || '\";' FROM sqlite_master WHERE type='view' AND name LIKE 'francis_%'")
-      table_cleanup=$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" \
-        "SELECT 'DROP TABLE IF EXISTS \"' || replace(name, '\"', '\"\"') || '\";' FROM sqlite_master WHERE type='table' AND name LIKE 'francis_%'")
-      test -n "$table_cleanup"
-      actor_cleanup="$view_cleanup"$'\n'"$table_cleanup"
-      sudo "$SQLITE3" "$data/pocket-id.db" \
-        "PRAGMA foreign_keys=OFF; BEGIN; $actor_cleanup COMMIT;"
-      actor_tables=$(wc -l <<<"$table_cleanup")
-      sudo docker image inspect "$image" >/dev/null 2>&1 || sudo docker pull "$image"
-      sudo docker run -d --network none --name "$name" \
-        --env-file "$environment" \
-        -e APP_URL=https://id.homelab.pastelariadev.com \
-        -e TRUST_PROXY=true \
-        -v "$data:/app/data" "$image" >/dev/null
-      healthy=false
-      for _ in $(seq 1 60); do
-        if sudo docker exec "$name" /app/pocket-id healthcheck >/dev/null 2>&1; then
-          healthy=true
-          break
-        fi
-        sleep 1
-      done
-      if ! "$healthy"; then
-        sudo docker logs "$name"
-        exit 1
-      fi
-      {
-        printf 'integrity=ok app_locks_removed=%s actor_tables_reset=%s users=%s groups=%s oidc_clients=%s\n' \
-          "$actor_leases" "$actor_tables" \
-          "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'SELECT count(*) FROM users')" \
-          "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'SELECT count(*) FROM user_groups')" \
-          "$(sudo "$SQLITE3" -readonly "$data/pocket-id.db" 'SELECT count(*) FROM oidc_clients')"
-        sudo sha256sum "$data/pocket-id.db"
-      } | sudo tee "$evidence/result.txt"
-      sudo chmod 0600 "$evidence/result.txt"
-    REMOTE
-    echo ":: PASS: PocketID restored and healthy on networkless Orion"
-
-# Start restored NetBird management + PostgreSQL on an Orion-internal network.
-discovery-netbird-management-restore-drill:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    scan=$(mktemp)
-    trap 'rm -f "$scan"' EXIT
-    ssh-keyscan -p 2222 {{ip_discovery}} >"$scan" 2>/dev/null
-    ssh-keygen -lf "$scan" -E sha256 |
-      grep -Fq 'SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE'
-    hostkeys=$(base64 -w0 "$scan")
-    ssh -p 2222 erik@{{ip_orion}} "HOSTKEYS=$hostkeys bash -s" <<'REMOTE'
-      set -euo pipefail
-      postgres_image='postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a'
-      management_image=netbirdio/management:0.74.3
-      stamp=$(date +%Y-%m-%d_%H%M%S)
-      evidence="/projects/recovery/discovery-esp/netbird/$stamp"
-      config="$evidence/management.json"
-      environment="$evidence/postgres.env"
-      network="discovery-netbird-drill-$stamp"
-      postgres="discovery-netbird-postgres-$stamp"
-      management="discovery-netbird-management-$stamp"
-      known_hosts=$(mktemp)
-      printf '%s' "$HOSTKEYS" | base64 -d >"$known_hosts"
-      options=(-p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
-      dump=$(sudo find /projects/recovery/discovery-esp/postgres -mindepth 2 -maxdepth 2 \
-        -name postgres-all.sql.gz -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)
-      sudo test -s "$dump"
-      sudo install -d -m 0700 -o root -g root "$evidence"
-      trap 'rm -f "$known_hosts"; sudo docker rm -f "$management" "$postgres" >/dev/null 2>&1 || true; sudo docker network rm "$network" >/dev/null 2>&1 || true' EXIT
-      ssh -n "${options[@]}" erik@{{ip_discovery}} \
-        'sudo cat /run/netbird-management/management.json' |
-        sudo tee "$config" >/dev/null
-      ssh -n "${options[@]}" erik@{{ip_discovery}} \
-        'sudo cat /run/vault-agent/netbird-postgres.env' |
-        sudo tee "$environment" >/dev/null
-      sudo sed -Ei 's#(@)[^/:]+(:[0-9]+)?/#\1postgres:5432/#' "$environment"
-      sudo grep -q '^NETBIRD_STORE_ENGINE_POSTGRES_DSN=' "$environment"
-      sudo chmod 0600 "$config" "$environment"
-      sudo docker image inspect "$postgres_image" >/dev/null 2>&1 ||
-        sudo docker pull "$postgres_image"
-      sudo docker image inspect "$management_image" >/dev/null 2>&1 ||
-        sudo docker pull "$management_image"
-      sudo docker network create --internal "$network" >/dev/null
-      sudo docker run -d --network "$network" --network-alias postgres \
-        --name "$postgres" -e POSTGRES_PASSWORD=drill-only "$postgres_image" >/dev/null
-      ready=false
-      for _ in $(seq 1 60); do
-        if sudo docker exec "$postgres" pg_isready -U postgres >/dev/null 2>&1; then
-          ready=true
-          break
-        fi
-        sleep 1
-      done
-      "$ready"
-      sudo gzip -dc "$dump" |
-        sudo docker exec -i "$postgres" psql -v ON_ERROR_STOP=1 -U postgres postgres >/dev/null
-      sudo docker run -d --network "$network" --name "$management" \
-        --env-file "$environment" \
-        -e NETBIRD_STORE_ENGINE=postgres \
-        -v "$config:/etc/netbird/management.json:ro" \
-        "$management_image" \
-        --port 443 --log-file console --log-level info \
-        --disable-anonymous-metrics=true --dns-domain=netbird.selfhosted >/dev/null
-      sleep 10
-      sudo docker inspect "$management" | jq -e '.[0].State.Running' >/dev/null
-      test -z "$(sudo docker port "$management")"
-      {
-        for table in peers groups users; do
-          count=$(sudo docker exec "$postgres" psql -AtU postgres netbird \
-            -c "SELECT count(*) FROM $table")
-          printf '%s=%s\n' "$table" "$count"
-        done
-        printf 'network=internal published_ports=0 management=running\n'
-        sudo sha256sum "$dump"
-      } | sudo tee "$evidence/result.txt"
-      sudo chmod 0600 "$evidence/result.txt"
-    REMOTE
-    echo ":: PASS: NetBird management read restored PostgreSQL on internal Orion network"
-
 # Copy SWAG state and validate nginx/certificates on networkless Orion.
 discovery-swag-restore-drill:
     #!/usr/bin/env bash
@@ -5701,7 +5372,7 @@ discovery-swag-restore-drill:
       set -e
       case "$status" in 0|24) ;; *) exit "$status" ;; esac
       printf 'rsync_status=%s\n' "$status"
-      for route in harbor netbird pocket-id grafana; do
+      for route in harbor grafana; do
         printf 'route=%s\n' "$route"
         sudo test -s "$config/nginx/proxy-confs/$route.subdomain.conf"
       done
@@ -6210,8 +5881,7 @@ discovery-home-restore-preflight:
       )
       for path in "${fixed[@]}" \
         /home/erik/servarr \
-        /home/erik/servarr/machines/discovery/config/swag \
-        /home/erik/homelab/apps/netbird/pocket-id; do
+        /home/erik/servarr/machines/discovery/config/swag; do
         if sudo test -e "$path"; then
           printf 'exists=%s\n' "$path" >&2
         else
@@ -6221,8 +5891,7 @@ discovery-home-restore-preflight:
       for path in "${fixed[@]}"; do sudo test -s "$path"; done
       for root in \
         /home/erik/servarr \
-        /home/erik/servarr/machines/discovery/config/swag \
-        /home/erik/homelab/apps/netbird/pocket-id; do
+        /home/erik/servarr/machines/discovery/config/swag; do
         sudo test -d "$root"
         sudo find "$root" -xdev -type f -size +0c -printf '%s %p\n' |
           sort -nr | sed -n '1p' >&2
@@ -6414,7 +6083,6 @@ restore-discovery-home-kepler:
         /home/erik/.config/sops/age/keys.txt \
         /home/erik/servarr/machines/discovery/.env.sops \
         /home/erik/servarr/machines/discovery/config/swag/nginx/proxy-confs/harbor.subdomain.conf \
-        /home/erik/homelab/apps/netbird/pocket-id/pocket-id.db \
         /home/erik/servarr/README.md; do
         sudo test -s "$path"
       done
@@ -6715,42 +6383,6 @@ resume-discovery-postrestore-substrates:
     REMOTE
     echo ":: PASS: Docker recovery, unseal, Harbor, libvirt, and HAOS resumed"
 
-# Re-run NetBird's render-first boot ordering after Docker restoration.
-resume-discovery-netbird:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
-      set -euo pipefail
-      units=(
-        netbird-management-config.service
-        docker-netbird-pocketid.service
-        docker-netbird-management.service
-        docker-netbird-signal.service
-        docker-netbird-dashboard.service
-        docker-netbird-relay.service
-      )
-      sudo systemctl reset-failed "${units[@]}"
-      sudo systemctl restart netbird-management-config.service
-      sudo systemctl restart docker-netbird-pocketid.service
-      sudo systemctl restart docker-netbird-management.service
-      sudo systemctl restart docker-netbird-signal.service
-      sudo systemctl restart docker-netbird-dashboard.service
-      sudo systemctl restart docker-netbird-relay.service
-      systemctl is-active "${units[@]}"
-      oidc_ready=false
-      for _ in $(seq 1 60); do
-        if curl -fsS -m 5 \
-          https://id.homelab.pastelariadev.com/.well-known/openid-configuration \
-          >/dev/null; then
-          oidc_ready=true
-          break
-        fi
-        sleep 1
-      done
-      "$oidc_ready"
-    REMOTE
-    echo ":: PASS: NetBird control plane resumed from fresh Vault renders"
-
 # Encrypt Discovery home/SSH state to Kepler and hash-verify seven restore classes.
 backup-discovery-home-kepler:
     #!/usr/bin/env bash
@@ -6764,7 +6396,6 @@ backup-discovery-home-kepler:
       "home/erik/servarr/machines/discovery/.env.sops"
       "home/erik/servarr/machines/discovery/config/swag/nginx/proxy-confs/harbor.subdomain.conf"
       "home/erik/servarr/machines/discovery/config/swag/etc/letsencrypt/live/homelab.pastelariadev.com/priv-fullchain-bundle.pem"
-      "home/erik/homelab/apps/netbird/pocket-id/pocket-id.db"
       "home/erik/servarr/README.md"
       "home/erik/backup/Documents/erik/ha-agent/kaggle/out-qwen9b/gguf/model.safetensors-00002-of-00004.safetensors"
     )

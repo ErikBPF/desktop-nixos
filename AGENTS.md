@@ -334,7 +334,7 @@ not absorbed.
   `references/repos/homelab-iac`. Remote:
   `git@github.com:ErikBPF/homelab-iac.git`.
 - Source of truth for the **network the fleet lives on**: UniFi VLANs/WLANs/
-  DHCP/static DNS, Tailscale, Cloudflare, AdGuard policy, and NetBird/PocketID.
+  DHCP/static DNS, Tailscale, Cloudflare, and AdGuard policy.
   It also owns selected infrastructure API resources such as GitHub repo
   settings and LiteLLM model/credential registration. Components are isolated
   under top-level Terragrunt directories; consult that repo's README before

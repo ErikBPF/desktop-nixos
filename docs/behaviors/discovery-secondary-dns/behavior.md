@@ -84,7 +84,7 @@ IP without DNS.
 
 The drill must:
 
-1. Use a generic LAN client with no Tailscale or NetBird dependency.
+1. Use a generic LAN client with no Tailscale dependency.
 2. Confirm its renewed lease contains exactly the primary and secondary in the
    declared order.
 3. Confirm both resolvers answer before the outage.

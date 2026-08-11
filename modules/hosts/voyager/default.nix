@@ -23,9 +23,6 @@ in {
       m.nixos.node-exporter
       m.nixos.vector-logs
       m.nixos.first-boot
-      # NetBird native relay (WP3, docs/proposals/2026-07-10-
-      # netbird-selfhosted-overlay.md §4a/§6b).
-      m.nixos.netbird-relay
     ];
 
     # Rollback guard: offsite backups need SSH, Tailscale, and the receiver stack.
@@ -45,8 +42,6 @@ in {
     # Oracle block volumes don't support SMART; smartd exits non-zero and
     # marks the system degraded. Disable it on this guest.
     services.smartd.enable = lib.mkForce false;
-
-    services.netbirdRelay.enable = true;
 
     virtualisation.vmVariant = {
       # Force legacy eth0 naming so the static config below lands on the real

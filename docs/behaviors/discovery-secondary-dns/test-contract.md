@@ -89,7 +89,7 @@ remote-state mutation. Unrelated drift halts. Apply is wired-only.
 Offline state-machine fixtures cover:
 
 1. Lease lacks secondary: no outage action.
-2. Client has Tailscale/NetBird: not valid generic-client evidence.
+2. Client has Tailscale: not valid generic-client evidence.
 3. Missing/ambiguous RA evidence, more than one RDNSS server, resolver-order
    drift, or an observed RDNSS path that differs from the approved
    fleet/external/NXDOMAIN/filtering contract over UDP or TCP: halt. An exact

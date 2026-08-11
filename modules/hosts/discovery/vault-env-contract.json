@@ -209,5 +209,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "3b9781cbfec623b142e457c972be87c387c0ffd766fbea6e32c086f325144004"
+  "source_sha256": "23b9a3cc325473f4ad8f91cf62ccae28d5e1eb4ded5cfcfb5b6ff48da2d234a8"
 }

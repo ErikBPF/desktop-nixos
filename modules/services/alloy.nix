@@ -73,8 +73,8 @@ in {
         // above.
         // `systemd` emits node_systemd_unit_state for the failed-unit alert
         // (servarr grafana rule host-systemd-unit-failed) — fleet upgrade
-        // hardening RFC P2 (2026-07-12): netbird-management crash-looped ~8h and
-        // LACT was failed ~20m with zero alerts. Default unit filters (the alert
+        // hardening RFC P2 (2026-07-12): critical units previously sat failed
+        // for hours with zero alerts. Default unit filters (the alert
         // excludes systemd-networkd-wait-online, not the collector). Reads unit
         // state over the system D-Bus, no root needed. Small non-Alloy hosts
         // (voyager/archinaut) get the same metric via node-exporter.nix.
