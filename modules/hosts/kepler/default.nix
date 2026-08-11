@@ -29,6 +29,7 @@ in {
       m.nixos.kepler-k1-inventory-tooling
       m.nixos.kepler-k3s-cluster
       m.nixos.first-boot
+      m.nixos.runtime-secret-health
       m.nixos.alloy
       m.nixos.alloy-containers
       m.nixos.dead-mans-switch
