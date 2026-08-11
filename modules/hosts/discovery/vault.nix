@@ -302,26 +302,6 @@ in {
             }
           }
           template {
-            contents = "${renderedAt}{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.POCKETID_ENCRYPTION_KEY }}\n{{ end }}"
-            destination = "/run/vault-agent/netbird-pocketid.env"
-            perms = "0400"
-          }
-          template {
-            contents = "${renderedAt}{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.POSTGRES_DSN }}\n{{ end }}"
-            destination = "/run/vault-agent/netbird-postgres.env"
-            perms = "0400"
-          }
-          template {
-            contents = "${renderedAt}{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.AUTH_SECRET }}\n{{ end }}"
-            destination = "/run/vault-agent/netbird-auth.env"
-            perms = "0400"
-          }
-          template {
-            contents = "${renderedAt}{{ with secret \"secret/data/home/netbird\" }}{{ .Data.data.DATASTORE_ENC_KEY }}\n{{ end }}"
-            destination = "/run/vault-agent/netbird-datastore.key"
-            perms = "0400"
-          }
-          template {
             contents = "${renderedAt}{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.SERVER_ENV }}\n{{ end }}"
             destination = "/run/vault-agent/hermes-agent.env"
             perms = "0400"

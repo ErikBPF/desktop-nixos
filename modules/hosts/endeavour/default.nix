@@ -27,7 +27,6 @@ in {
       m.nixos.btrfs-snapshots
       m.nixos.endeavour-home-backup
       m.nixos.sccache-client
-      m.nixos.netbird-client
     ];
 
     home-manager.users.${config.username} = {
@@ -68,7 +67,6 @@ in {
       memoryPercent = 25;
     };
     modules.security.tor-monitor.enable = true;
-    modules.networking.netbird-client.enable = true;
     system.autoUpgrade = {
       enable = true;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#endeavour";

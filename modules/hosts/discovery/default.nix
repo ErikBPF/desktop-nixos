@@ -53,27 +53,11 @@ in {
       m.nixos.restic-tofu-state
       m.nixos.swag-cert-monitor
       m.nixos.discovery-vault
-      # NetBird self-hosted control plane (WP2, docs/proposals/2026-07-10-
-      # netbird-selfhosted-overlay.md). Registers services.netbirdServer but
-      # stays off: enable defaults to false and is not flipped on here (Phase
-      # S/O are human-gated — see the implementation plan).
-      m.nixos.discovery-netbird-server
     ];
 
     homelab.alloy = {
       containerSocket = "unix:///run/docker.sock";
       containerdSocket = "/run/docker/containerd/containerd.sock";
-    };
-
-    # NetBird IdP bring-up (RFC docs/proposals/2026-07-11-pocketid-idp-for-netbird.md
-    # §6 step 3): idpOnly starts ONLY PocketID + its one sops secret — the IdP that
-    # must exist before the OIDC client and the full control plane. This is the
-    # landmine-free first switch (no unminted management/relay secrets). Flip
-    # idpOnly=false to add management/signal/dashboard/relay once the OIDC client
-    # and their secrets exist (§6 step 6).
-    services.netbirdServer = {
-      enable = true;
-      idpOnly = false;
     };
 
     services.kindleReleaseAgent = {

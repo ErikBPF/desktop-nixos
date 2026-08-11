@@ -16,17 +16,16 @@ def test_buzz_is_enabled_for_desktops():
     assert "m.home.buzz" in profile
     assert "inputs.buzz-flake.homeManagerModules.withPackage" in module
     assert "programs.buzz.enable = true" in module
-    assert 'BUZZ_RELAY_URL = "http://kepler.netbird.internal:3000";' in module
+    assert 'BUZZ_RELAY_URL = "http://kepler:3000";' in module
 
 
-def test_kepler_exposes_buzz_only_on_netbird():
+def test_kepler_exposes_buzz_only_on_tailscale():
     host = (ROOT / "modules/hosts/kepler/default.nix").read_text()
     networking = (ROOT / "modules/hosts/kepler/networking.nix").read_text()
     compose = (ROOT / "modules/hosts/kepler/compose.nix").read_text()
 
-    assert "m.nixos.netbird-client" in host
-    assert "modules.networking.netbird-client.enable = true" in host
-    assert "networking.firewall.interfaces.wt0.allowedTCPPorts = [3000];" in networking
+    assert "networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187 3000];" in networking
+    assert "interfaces.wt0" not in networking
     assert '"buzz"' in compose
 
 

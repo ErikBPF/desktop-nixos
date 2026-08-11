@@ -267,25 +267,6 @@ def test_final_gate_checks_openbao_unseal_oneshot_via_timer_and_result():
         assert f"stage={stage}" in recipe
 
 
-def test_netbird_resume_renders_config_before_restarting_all_controlplane_units():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("resume-discovery-netbird:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "systemctl restart netbird-management-config.service" in recipe
-    for unit in [
-        "docker-netbird-pocketid.service",
-        "docker-netbird-management.service",
-        "docker-netbird-signal.service",
-        "docker-netbird-dashboard.service",
-        "docker-netbird-relay.service",
-    ]:
-        assert unit in recipe
-    assert ".well-known/openid-configuration" in recipe
-    assert "rm " not in recipe
-
-
 def test_kindle_mirror_passes_pinned_skopeo_and_cosign_path_to_remote_script():
     justfile = (Path(__file__).parents[2] / "justfile").read_text()
     recipe = justfile.split("mirror-kindle version digest:", 1)[1].split(
@@ -420,75 +401,6 @@ def test_redis_drill_proves_empty_networkless_cold_start():
     assert "redis-cli" in recipe
 
 
-def test_netbird_preflight_reads_pocketid_sqlite_without_values():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-netbird-state-preflight:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert '"$SQLITE3" -readonly' in recipe
-    assert "PRAGMA integrity_check" in recipe
-    assert "sqlite_master" in recipe
-    assert "SELECT *" not in recipe
-    assert "python3" not in recipe
-    assert "netbird-management" in recipe
-    assert "netbird-pocketid" in recipe
-
-
-def test_pocketid_repair_refuses_live_process_or_bad_database():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("repair-netbird-pocketid:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "pgrep" in recipe
-    assert "fuser" in recipe
-    assert "PRAGMA integrity_check" in recipe
-    assert "systemctl reset-failed" in recipe
-    assert "systemctl start docker-netbird-pocketid.service" in recipe
-    assert ".well-known/openid-configuration" in recipe
-    assert "DELETE FROM" not in recipe
-
-
-def test_pocketid_drill_uses_native_backup_and_network_isolation():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-pocketid-restore-drill:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert ".backup" in recipe
-    assert "ssh -n" in recipe
-    assert "--network none" in recipe
-    assert "--env-file" in recipe
-    assert "/app/pocket-id healthcheck" in recipe
-    assert 'sudo docker logs "$name"' in recipe
-    assert "DELETE FROM kv WHERE key='application_lock'" in recipe
-    assert "name LIKE 'francis_%'" in recipe
-    assert "PRAGMA foreign_keys=OFF" in recipe
-    assert "DROP VIEW IF EXISTS" in recipe
-    assert "DROP TABLE IF EXISTS" in recipe
-    assert "SELECT count(*) FROM users" in recipe
-    assert "SELECT *" not in recipe
-
-
-def test_netbird_management_drill_uses_internal_network_and_restored_db():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-netbird-management-restore-drill:", 1)[
-        1
-    ].split("\n# ", 1)[0]
-
-    assert "docker network create --internal" in recipe
-    assert "postgres-all.sql.gz" in recipe
-    assert "netbirdio/management:0.74.3" in recipe
-    assert "--network-alias postgres" in recipe
-    assert "/run/netbird-management/management.json" in recipe
-    assert "NETBIRD_STORE_ENGINE_POSTGRES_DSN" in recipe
-    assert "docker port" in recipe
-    assert "for table in peers groups users" in recipe
-    assert "SELECT count(*) FROM $table" in recipe
-    assert "SELECT *" not in recipe
-
-
 def test_swag_drill_copies_config_and_validates_without_network_or_ports():
     justfile = (Path(__file__).parents[2] / "justfile").read_text()
     recipe = justfile.split("discovery-swag-restore-drill:", 1)[1].split(
@@ -501,7 +413,7 @@ def test_swag_drill_copies_config_and_validates_without_network_or_ports():
     assert "nginx -t" in recipe
     assert "x509 -checkend" in recipe
     assert "pkey -in" in recipe
-    assert "for route in harbor netbird pocket-id grafana" in recipe
+    assert "for route in harbor grafana" in recipe
     assert "docker port" not in recipe
 
 
@@ -663,7 +575,6 @@ def test_home_preflight_finds_required_restore_classes_and_capacity():
     assert "/etc/ssh/ssh_host_ed25519_key" in recipe
     assert "servarr" in recipe
     assert "swag" in recipe
-    assert "pocket-id" in recipe
     assert "-size +1G" in recipe
     assert "findmnt -bnro AVAIL -T /bulk" in recipe
     assert "restic" not in recipe
@@ -683,7 +594,6 @@ def test_home_backup_is_encrypted_and_selectively_verified():
     assert "etc/ssh/ssh_host_ed25519_key" in recipe
     assert ".env.sops" in recipe
     assert "priv-fullchain-bundle.pem" in recipe
-    assert "pocket-id.db" in recipe
     assert "model.safetensors" in recipe
     assert "restic dump" in recipe
     assert "sha256sum" in recipe

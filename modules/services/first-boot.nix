@@ -67,7 +67,6 @@
         ExecStartPost = let
           restartSecretConsumers = pkgs.writeShellScript "restart-first-boot-secret-consumers" ''
             systemctl restart tailscaled-autoconnect.service || true
-            systemctl restart --no-block netbird-login.service || true
             touch /var/lib/sops-first-boot-complete
           '';
         in "${restartSecretConsumers}";

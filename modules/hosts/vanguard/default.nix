@@ -4,7 +4,6 @@
   ...
 }: let
   m = config.flake.modules;
-  nb = config.flake.fleet.netbird; # relayHosts[1] = relay2.<zone>, this host's relay
 in {
   configurations.nixos.vanguard.module = {
     lib,
@@ -30,13 +29,7 @@ in {
       # its extra prerequisites are met).
       m.nixos.fleet-dns # R1
       m.nixos.dead-mans-switch # R2
-      m.nixos.pg-replica # R3 (NetBird DB read-replica)
       m.nixos.vault-witness # R4 — see the heavy warning in that file
-      # NetBird relay#2 (R3/R5): reuse the SAME deferredModule voyager uses
-      # (modules/services/netbird-relay.nix) — only the option values
-      # below differ per host. Registers services.netbirdRelay but stays
-      # disabled here too (services.netbirdRelay.enable defaults false).
-      m.nixos.netbird-relay
     ];
 
     # Rollback guard: a public-facing host must keep SSH + Tailscale up.
@@ -66,11 +59,8 @@ in {
     # until later phases.
     services.fleetDns.enable = true;
     services.deadMansSwitch.enable = true;
-    # The role's default checkUrl is the ingress apex, which SWAG has no cert
-    # for (curl --fail would fail every probe → false alarms). Probe PocketID
-    # instead: SWAG-fronted on discovery (the ingress host), public, always-on,
-    # returns 200 — the closest single "home ingress reachable" signal.
-    services.deadMansSwitch.checkUrl = "https://id.${config.flake.fleet.ingress.homelab.zone}";
+    # Probe the public HA endpoint; the internal ingress apex has no certificate.
+    services.deadMansSwitch.checkUrl = "https://${config.flake.fleet.services.ha.fqdn}";
 
     # EFI boot: keep profile-oci-guest's removable-fallback path
     # (efiInstallAsRemovable=true / canTouchEfiVariables=false), the
@@ -94,27 +84,5 @@ in {
       terminal_input console serial
       terminal_output console serial
     '';
-
-    # Relay#2 (R3a — enabled): vanguard advertises itself as relayHosts[1]
-    # (relay2.<zone>), a distinct public relay from voyager's relay.<zone>. Its
-    # public :443 (WSS/QUIC) is opened on the shared Oracle security list
-    # (homelab-iac oracle/compute relay_public_surface=true); the relay's
-    # built-in Let's-Encrypt client obtains the cert for relay2.<zone>.
-    # NB_AUTH_SECRET (sops netbird/auth_secret) is byte-identical to discovery's
-    # management (§6b-H7) — decryptable here via the shared primary age key.
-    services.netbirdRelay.enable = true;
-    services.netbirdRelay.relayHostname = builtins.elemAt nb.relayHosts 1;
-    # DNS: relay2.<zone> is a STATIC A record at vanguard's ephemeral IP, managed
-    # in homelab-iac (cloudflare/dns), bumped on reprovision — so no on-host
-    # ddclient/Cloudflare-token is needed. Keep the module's ddclient path off.
-    services.netbirdRelay.enableDdclient = false;
-
-    # R3b: Postgres streaming DR replica of discovery's shared cluster
-    # (services.pgReplica, pinned to postgresql_18 to match the primary).
-    # primaryHost defaults to discovery's tailnet IP; discovery publishes
-    # :5432 on its tailnet IP (servarr infra stack), ACL-gated to vanguard.
-    # Seeding is manual/one-time (pg_basebackup + standby.signal + .pgpass from
-    # sops pg-replica/replication_password) — see modules/services/pg-replica.nix.
-    services.pgReplica.enable = true;
   };
 }
