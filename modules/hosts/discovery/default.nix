@@ -24,6 +24,7 @@ in {
       m.nixos.discovery-syncthing
       m.nixos.discovery-haos
       m.nixos.first-boot
+      m.nixos.runtime-secret-health
       m.nixos.alloy
       m.nixos.alloy-containers
       m.nixos.kepler-nfs
@@ -53,6 +54,7 @@ in {
       m.nixos.restic-tofu-state
       m.nixos.swag-cert-monitor
       m.nixos.discovery-vault
+      m.nixos.discovery-runtime-health
     ];
 
     homelab.alloy = {
