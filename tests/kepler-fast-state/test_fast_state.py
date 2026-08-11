@@ -18,6 +18,14 @@ def test_microvms_use_fast_pool_with_mount_ordering():
     assert '"install-microvm-${name}"' in module
 
 
+def test_existing_etcd_members_start_in_parallel():
+    module = MODULE.read_text()
+
+    assert '"cp-2" = "cp-1"' not in module
+    assert '"cp-3" = "cp-2"' not in module
+    assert 'lib.genAttrs workerNames (_: "cp-1")' in module
+
+
 def test_disk_resize_is_grow_only_and_offline():
     justfile = JUSTFILE.read_text()
     hardware = HARDWARE.read_text()

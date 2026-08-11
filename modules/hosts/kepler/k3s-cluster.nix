@@ -591,20 +591,13 @@ in {
           lib.nameValuePair "install-microvm-${name}" {
             unitConfig.RequiresMountsFor = "/fast/microvms";
           })
-        # Stagger cold boot to cut the simultaneous-boot vsock-notify contention:
-        # cp-1 first (clusterInit), then cp-2 → cp-3 serially (clean sequential etcd
-        # join), workers after cp-1 (apiserver is up so they join immediately).
-        # Drop-ins on the template instances; After= is ordering-only (no failure
-        # cascade if a predecessor dies).
+        # Existing etcd members must start in parallel to form quorum after a
+        # reboot. Workers still wait for cp-1's apiserver.
         // lib.mapAttrs' (name: pred:
           lib.nameValuePair "microvm@${name}" {
             overrideStrategy = "asDropin";
             after = ["microvm@${pred}.service"];
-          }) ({
-            "cp-2" = "cp-1";
-            "cp-3" = "cp-2";
-          }
-          // lib.genAttrs workerNames (_: "cp-1"));
+          }) (lib.genAttrs workerNames (_: "cp-1"));
     };
   };
 }
