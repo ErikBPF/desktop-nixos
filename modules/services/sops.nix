@@ -5,7 +5,7 @@
 }: {
   flake.modules = {
     nixos.sops = _: {
-      sops.age.keyFile = "/home/${config.username}/.config/sops/age/keys.txt";
+      sops.age.keyFile = "/var/lib/sops-nix/key.txt";
     };
 
     home.sops = {config, ...}: {
