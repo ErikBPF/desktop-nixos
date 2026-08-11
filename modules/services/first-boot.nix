@@ -12,14 +12,25 @@
       text = ''
         STAGING="/var/lib/sops-staging/age-keys.txt"
         TARGET="${homeDir}/.config/sops/age/keys.txt"
+        SYSTEM_TARGET="/var/lib/sops-nix/key.txt"
+        install -d -m 0700 "$(dirname "$SYSTEM_TARGET")"
+        if [ -s "$STAGING" ]; then
+          install -m 0600 "$STAGING" "$SYSTEM_TARGET"
+        elif [ ! -s "$SYSTEM_TARGET" ] && [ -s "$TARGET" ]; then
+          install -m 0600 "$TARGET" "$SYSTEM_TARGET"
+        fi
         # Copy from staging if target doesn't exist yet
         if [ -f "$STAGING" ] && [ ! -f "$TARGET" ]; then
           mkdir -p "$(dirname "$TARGET")"
           cp "$STAGING" "$TARGET"
         fi
         # Clean up staging after copy
-        if [ -f "$STAGING" ] && [ -f "$TARGET" ]; then
+        if [ -f "$STAGING" ] && [ -f "$TARGET" ] && [ -f "$SYSTEM_TARGET" ]; then
           rm "$STAGING"
+        fi
+        if [ -f "$SYSTEM_TARGET" ]; then
+          chown root:root "$SYSTEM_TARGET"
+          chmod 600 "$SYSTEM_TARGET"
         fi
         # Always fix ownership (handles nixos-install leaving root-owned files)
         if [ -f "$TARGET" ]; then
@@ -29,6 +40,8 @@
       '';
       deps = ["users"];
     };
+    system.activationScripts.setupSecrets.deps = lib.mkAfter ["distributeSopsKey"];
+    system.activationScripts.setupSecretsForUsers.deps = lib.mkAfter ["distributeSopsKey"];
 
     # Fix home directory ownership (extra-files leaves root-owned dirs)
     system.activationScripts.fixHomePermissions = {
