@@ -3,7 +3,7 @@ _: {
     probe = pkgs.writeShellScript "runtime-secret-health" ''
       set -eu
       ready=0
-      if [ -d /run/secrets ] && [ -n "$(${pkgs.findutils}/bin/find /run/secrets -mindepth 1 -maxdepth 1 -type f -print -quit)" ]; then
+      if [ -d /run/secrets ] && [ -n "$(${pkgs.findutils}/bin/find -L /run/secrets -mindepth 1 -maxdepth 1 -type f -print -quit)" ]; then
         ready=1
       fi
       output=/var/lib/node-exporter-textfile/sops-runtime-secrets.prom

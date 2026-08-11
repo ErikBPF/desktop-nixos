@@ -16,6 +16,7 @@ def test_discovery_and_kepler_report_sops_runtime_secret_readiness():
         config = source(f"modules/hosts/{host}/default.nix")
         assert "m.nixos.runtime-secret-health" in config
     assert "sops_runtime_secrets_ready" in module
+    assert "find -L /run/secrets" in module
     assert 'ConditionPathExists = "/var/lib/node-exporter-textfile"' in module
 
 
