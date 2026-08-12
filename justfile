@@ -150,6 +150,21 @@ boot target=profile:
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 0
 
+deploy-ubuntu-work-profile:
+    ./scripts/deploy-ubuntu-work-profile.sh
+
+sync-ubuntu-work-brave-settings:
+    ./scripts/sync-ubuntu-work-brave-settings.sh
+
+ubuntu-work-warp-connect:
+    ssh -o BatchMode=yes -o ConnectTimeout=10 erik@192.168.122.74 'warp-cli --accept-tos connect'
+
+ubuntu-work-define:
+    virsh --connect qemu:///system define modules/hosts/endeavour/ubuntu-work-domain.xml
+
+ubuntu-work-view:
+    virt-viewer --connect qemu:///system --reconnect --auto-resize=always --attach ubuntu-work
+
 update:
     nix flake update
 

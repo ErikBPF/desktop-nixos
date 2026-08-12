@@ -18,8 +18,8 @@ in {
       m.nixos.profile-desktop
       m.nixos.endeavour-hardware
       m.nixos.endeavour-networking
+      m.nixos.endeavour-ubuntu-work
       m.nixos.laptop-syncthing
-      m.nixos.work
       m.nixos.first-boot
       m.nixos.pangolin-newt
       m.nixos.alloy
@@ -70,6 +70,7 @@ in {
       memoryPercent = 25;
     };
     modules.security.tor-monitor.enable = true;
+    modules.services.cloudflare-warp.enable = false;
     system.autoUpgrade = {
       enable = true;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#endeavour";
