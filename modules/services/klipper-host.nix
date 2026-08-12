@@ -282,6 +282,7 @@ in {
       };
 
       services.mainsail.enable = true;
+      services.nginx.clientMaxBodySize = "1024m";
 
       # Webcam — single Logitech C270 (replaces crowsnest), MJPEG on :8080;
       # registered declaratively above (services.moonraker.settings."webcam C270").

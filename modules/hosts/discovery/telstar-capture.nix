@@ -25,6 +25,10 @@ _: {
       wantedBy = ["multi-user.target"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
+      # This long retry loop is already running the current IaC checkout. A
+      # switch must not restart it while the local S3/proxy stack is cycling.
+      restartIfChanged = false;
+      stopIfChanged = false;
       path = with pkgs; [git openssh sops coreutils gnugrep gnutar bash];
       environment = {
         OCI_SSH_PUBKEY_FILE = "${telstarPubkey}";
