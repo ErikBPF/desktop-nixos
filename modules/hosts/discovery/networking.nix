@@ -11,6 +11,9 @@ in {
       # FallbackDNS below remains the final public emergency path. Tailscale keeps
       # accept-dns ON, preserving MagicDNS split routing.
       nameservers = [config.fleet.hosts.kepler.ip selfIp];
+      # DHCP DNS is ignored because the router advertises an ISP IPv6 resolver
+      # that cannot answer homelab zones.
+      dhcpcd.extraConfig = "nohook resolv.conf";
 
       # Headless server — use systemd-networkd style config, not NetworkManager.
       # NetworkManager is disabled to avoid fighting with the declarative bridge.
@@ -75,6 +78,9 @@ in {
     # Resolution survives AdGuard being down (boot window / outage): resolved
     # falls back to the UDM + public DNS rather than hard-failing.
     services.resolved.settings.Resolve.FallbackDNS = "192.168.10.1 1.1.1.1 9.9.9.9";
+    # More specific than Tailscale's `~.` route, keeping the private zone on
+    # fleet DNS while preserving MagicDNS for tailnet names.
+    services.resolved.settings.Resolve.Domains = "~homelab.pastelariadev.com";
 
     # Tailscale subnet router (override client default from profile-base).
     # Advertises /32s for the LAN-only hosts tailnet devices need to reach (the

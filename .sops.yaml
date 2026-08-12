@@ -3,6 +3,7 @@ keys:
   - &orion age10tgzh4gyr2myps4y3zj63ppj8cmfmyyusvma9g6suzyn2tjz5gxqekmtls
   - &archinaut age1rnmn0c3sezwc2y90n66t740se98huva8w4hehyc2xlv32f8pnfssqkqsqj
   - &voyager age12g3sullwtjugy3f02cc4v5m6yt45qz9vt2muck2dnu9pqrfdmurs8jtu5s
+  - &endeavour age1aul3rcn828ahxzg7rasah5pda4plx66v2q76arfdj6cujul8lahsnvtets
   # TODO(netbird Phase-S): same as above, once telstar provisions.
   - &telstar age1PLACEHOLDER_REPLACE_ME_telstar_phase_s
 creation_rules:
@@ -12,6 +13,7 @@ creation_rules:
           - *primary
           - *orion
           - *archinaut
+          - *endeavour
   - path_regex: secrets/sops/secrets.yaml$
     key_groups:
       - age:
@@ -19,3 +21,4 @@ creation_rules:
           - *orion
           - *archinaut
           - *voyager
+          - *endeavour

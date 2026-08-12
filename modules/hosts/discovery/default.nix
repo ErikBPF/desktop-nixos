@@ -55,11 +55,17 @@ in {
       m.nixos.swag-cert-monitor
       m.nixos.discovery-vault
       m.nixos.discovery-runtime-health
+      m.nixos.pangolin-newt
     ];
 
     homelab.alloy = {
       containerSocket = "unix:///run/docker.sock";
       containerdSocket = "/run/docker/containerd/containerd.sock";
+    };
+
+    services.pangolinNewt = {
+      enable = true;
+      siteName = "home-discovery";
     };
 
     services.kindleReleaseAgent = {

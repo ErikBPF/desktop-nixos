@@ -21,6 +21,7 @@ in {
       m.nixos.laptop-syncthing
       m.nixos.work
       m.nixos.first-boot
+      m.nixos.pangolin-newt
       m.nixos.alloy
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots

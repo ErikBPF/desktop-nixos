@@ -37,6 +37,7 @@ in {
       m.nixos.bluetooth
       m.nixos.xdg-portal
       m.nixos.fonts
+      m.nixos.pangolin-newt
       m.nixos.alloy
       m.nixos.alloy-containers
       m.nixos.nix-cache
