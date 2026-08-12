@@ -13,7 +13,11 @@ _: {
   # deploy (NIXOS_INSTALL_BOOTLOADER=1). deploy-rs / plain `switch` do NOT set
   # that flag, so the first migration fails with "Could not find any previously
   # installed systemd-boot" until it is run once with the flag.
-  flake.modules.nixos.systemd-boot-counting = {lib, ...}: {
+  flake.modules.nixos.systemd-boot-counting = {
+    lib,
+    pkgs,
+    ...
+  }: {
     boot.loader.grub.enable = lib.mkForce false;
     boot.loader.systemd-boot = {
       enable = true;
@@ -21,6 +25,15 @@ _: {
         enable = true;
         tries = 3;
       };
+    };
+
+    # A live switch rewrites the current loader entry without a boot counter.
+    # Let the next real boot bless it; restarting this unit during activation
+    # fails with "Can't find boot counter source file" and rejects the switch.
+    systemd.services.systemd-bless-boot = {
+      restartIfChanged = false;
+      stopIfChanged = false;
+      serviceConfig.ExecCondition = "${pkgs.systemd}/lib/systemd/systemd-bless-boot status";
     };
 
     # Boot-counting decrements its try counter only when a failed boot actually
