@@ -1,10 +1,9 @@
 # Endeavour Trend Micro test contract
 
-**Status:** Active
+**Status:** Migrated
 
-- Endeavour evaluates with a host-scoped Trend Micro module.
-- Installer credentials never enter the Nix store or Git plaintext.
-- Installer runs once, only while Endpoint Basecamp identity is absent.
-- Ubuntu compatibility spoof is limited to installer execution.
-- Deployment is healthy only when `ds_agent` is active and Endpoint Basecamp
-  has registered.
+- Endeavour and Pathfinder contain no NixOS WARP, KACE, or Trend Micro units.
+- NixOS does not open Trend Micro manager port `4118`.
+- The Ubuntu work VM owns the vendor packages through apt/dpkg.
+- Guest deployment is healthy only when WARP, KACE, Deep Security Agent, and
+  Endpoint Basecamp services are active.

@@ -10,16 +10,10 @@ def test_endeavour_moves_work_posture_into_the_vm():
     endeavour = read("modules/hosts/endeavour/default.nix")
 
     assert "m.nixos.work" not in endeavour
-    assert "modules.services.cloudflare-warp.enable = false;" in endeavour
+    assert "m.nixos.endeavour-ubuntu-work" in endeavour
+    assert "cloudflare-warp" not in endeavour
     assert "boot.kernelPackages = pkgs.linuxPackages_zen;" in endeavour
     assert 'environment.etc."brave/policies/managed/cloudflare-access.json"' not in endeavour
-
-
-def test_cloudflare_warp_can_be_disabled_per_host():
-    warp = read("modules/services/cloudflare-warp.nix")
-
-    assert "lib.mkIf cfg.enable" in warp
-    assert "lib.mkEnableOption" in warp
 
 
 def test_endeavour_owns_the_ubuntu_work_vm_definition():
@@ -61,6 +55,7 @@ def test_ubuntu_work_vm_is_sized_as_an_always_available_browser():
     assert "<vcpu placement='static'>4</vcpu>" in domain
     assert "<on_poweroff>restart</on_poweroff>" in domain
     assert "<on_crash>restart</on_crash>" in domain
+    assert "<watchdog model='itco' action='reset'/>" in domain
     assert "<suspend-to-mem enabled='no'/>" in domain
     assert "<suspend-to-disk enabled='no'/>" in domain
 

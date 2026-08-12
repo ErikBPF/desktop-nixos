@@ -70,7 +70,6 @@ in {
       memoryPercent = 25;
     };
     modules.security.tor-monitor.enable = true;
-    modules.services.cloudflare-warp.enable = false;
     system.autoUpgrade = {
       enable = true;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#endeavour";

@@ -35,4 +35,10 @@ ssh "${ssh_options[@]}" "$target" '
   "$HOME/.nix-profile/bin/work-browser" --version
   "$HOME/.nix-profile/bin/ssh" -V
   "$HOME/.nix-profile/bin/tmux" -V
+  for package in cloudflare-warp ampagent ds-agent; do
+    dpkg-query -W "$package" >/dev/null
+  done
+  for service in warp-svc.service konea.service ds_agent.service tmxbc.service; do
+    systemctl is-active --quiet "$service"
+  done
 '
