@@ -2510,8 +2510,11 @@ verify-wazuh-siem:
       echo ":: UniFi UDP destination=192.168.10.230:5514"
       ss -lun | grep -E '(^|:)5514[[:space:]]'
       echo ":: Protect CEF decoder"
-      printf '%s\n' 'CEF:0|Ubiquiti|UniFi Protect|7.1.87|smartDetectZone|smartDetectZone|3|src=192.0.2.10 dst=192.0.2.20 suser=synthetic act=detected UNIFIdeviceIp=192.0.2.1 UNIFIdeviceMac=00:00:5e:00:53:01 UNIFIcategory=security reason=motion msg=synthetic' |
-        podman exec -i wazuh-manager /var/ossec/bin/wazuh-logtest
+      result=$(printf '%s\n' 'Aug  3 10:00:00 gateway CEF:0|Ubiquiti|UniFi Protect|7.1.87|smartDetectZone|smartDetectZone|3|src=192.0.2.10 dst=192.0.2.20 suser=synthetic act=detected UNIFIdeviceIp=192.0.2.1 UNIFIdeviceMac=00:00:5e:00:53:01 UNIFIcategory=security reason=motion msg=synthetic' |
+        podman exec -i wazuh-manager /var/ossec/bin/wazuh-logtest 2>&1)
+      printf '%s\n' "$result"
+      grep -F "name: 'unifi-cef'" <<<"$result" >/dev/null
+      grep -F "id: '100100'" <<<"$result" >/dev/null
       echo ":: Ofelia scheduler"
       podman logs --tail 30 ofelia
       echo ":: Last-event metric"
