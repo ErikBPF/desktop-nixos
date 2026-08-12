@@ -16,7 +16,7 @@ def test_buzz_is_enabled_for_desktops():
     assert "m.home.buzz" in profile
     assert "inputs.buzz-flake.homeManagerModules.withPackage" in module
     assert "programs.buzz.enable = true" in module
-    assert 'BUZZ_RELAY_URL = "http://kepler:3000";' in module
+    assert 'BUZZ_RELAY_URL = "wss://buzz.homelab.pastelariadev.com";' in module
 
 
 def test_kepler_exposes_buzz_only_on_tailscale():
