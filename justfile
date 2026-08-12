@@ -150,6 +150,21 @@ boot target=profile:
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 0
 
+deploy-ubuntu-work-profile:
+    ./scripts/deploy-ubuntu-work-profile.sh
+
+sync-ubuntu-work-brave-settings:
+    ./scripts/sync-ubuntu-work-brave-settings.sh
+
+ubuntu-work-warp-connect:
+    ssh -o BatchMode=yes -o ConnectTimeout=10 erik@192.168.122.74 'warp-cli --accept-tos connect'
+
+ubuntu-work-define:
+    virsh --connect qemu:///system define modules/hosts/endeavour/ubuntu-work-domain.xml
+
+ubuntu-work-view:
+    virt-viewer --connect qemu:///system --reconnect --auto-resize=always --attach ubuntu-work
+
 update:
     nix flake update
 
@@ -7002,42 +7017,6 @@ age-public:
 
 sops:
     nix run nixpkgs#sops -- secrets/sops/secrets.yaml
-
-add-ampagent:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    deb=$(find . -maxdepth 1 -name 'ampagent-*kace.nstech.com.br*.deb' ! -name '* copy*' -print -quit)
-    if [ -z "$deb" ]; then
-        echo "ERROR: No ampagent .deb found in project root"
-        echo "  Drop the original .deb (with token in filename) here and retry"
-        exit 1
-    fi
-    echo ":: Found token-bearing KACE package"
-
-    # Extract enrollment token from filename (part after '+' before '.deb')
-    token=$(basename "$deb" | sed -n 's/.*\.com\.br+\(.*\)\.deb/\1/p')
-    if [ -z "$token" ]; then
-        echo "ERROR: Could not extract token from filename"
-        exit 1
-    fi
-    echo ":: Extracted enrollment token"
-
-    # Add a clean-named temporary copy to the Nix store. Never print the
-    # original token-bearing filename and always remove the temporary copy.
-    tmp=$(mktemp -d)
-    trap 'rm -rf "$tmp"' EXIT
-    cp "$deb" "$tmp/ampagent-15.0.54.deb"
-    store_path=$(nix-store --add-fixed sha256 "$tmp/ampagent-15.0.54.deb")
-    gcroot="${XDG_STATE_HOME:-$HOME/.local/state}/nix/gcroots/ampagent-15.0.54.deb"
-    mkdir -p "$(dirname "$gcroot")"
-    nix-store --realise "$store_path" --add-root "$gcroot" >/dev/null
-    echo ":: Added .deb to nix store and GC-rooted it"
-
-    # Upsert kace_token in sops secrets
-    nix run nixpkgs#sops -- set secrets/sops/secrets.yaml '["kace_token"]' "\"$token\""
-    echo ":: Updated kace_token in sops"
-
-    echo ":: Done. Original token-bearing package remains gitignored at repo root"
 
 rsync-sops ip port="22" user="erik":
     rsync -azv \

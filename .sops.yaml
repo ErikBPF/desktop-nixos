@@ -7,13 +7,6 @@ keys:
   # TODO(netbird Phase-S): same as above, once telstar provisions.
   - &telstar age1PLACEHOLDER_REPLACE_ME_telstar_phase_s
 creation_rules:
-  - path_regex: secrets/sops/trend-installer\.sh$
-    key_groups:
-      - age:
-          - *primary
-          - *orion
-          - *archinaut
-          - *endeavour
   - path_regex: secrets/sops/secrets.yaml$
     key_groups:
       - age:

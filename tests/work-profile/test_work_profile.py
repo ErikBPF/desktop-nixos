@@ -8,46 +8,40 @@ def read(path: str) -> str:
     return (ROOT / path).read_text()
 
 
-def test_work_profile_composes_portable_agents():
-    work = read("modules/profiles/work.nix")
+def test_work_agents_exist_only_in_the_ubuntu_guest():
+    retired = [
+        "modules/profiles/work.nix",
+        "modules/services/cloudflare-warp.nix",
+        "modules/services/kace-agent.nix",
+        "modules/services/trend-agent.nix",
+        "modules/hosts/endeavour/trend.nix",
+    ]
 
-    assert "flake.modules.nixos.work" in work
-    assert "m.nixos.kace-agent" in work
-    assert "m.nixos.trend-agent" in work
-    assert "m.nixos.cloudflare-warp" in work
-
-
-def test_endeavour_imports_only_work_profile():
-    endeavour = read("modules/hosts/endeavour/default.nix")
-
-    assert "m.nixos.work" in endeavour
-    assert "m.nixos.endeavour-ampagent" not in endeavour
-    assert "m.nixos.endeavour-trend" not in endeavour
+    assert all(not (ROOT / path).exists() for path in retired)
+    assert "m.nixos.cloudflare-warp" not in read("modules/packages/desktop.nix")
+    assert "m.nixos.work" not in read("modules/hosts/endeavour/default.nix")
 
 
-def test_laptop_imports_work_profile():
-    laptop = read("modules/hosts/laptop/default.nix")
+def test_work_agent_ports_are_not_opened_by_nixos():
+    nix = "\n".join(path.read_text() for path in (ROOT / "modules").rglob("*.nix"))
 
-    assert "m.nixos.work" in laptop
-
-
-def test_trend_waits_for_runtime_libraries_before_starting():
-    trend = read("modules/services/trend-agent.nix")
-
-    assert 'PathExists = "/opt/ds_agent/lib/dsa_core.so";' in trend
+    assert "allowedTCPPorts = [4118]" not in nix
 
 
-def test_trend_installer_can_start_basecamp():
-    trend = read("modules/services/trend-agent.nix")
+def test_ubuntu_guest_deploy_verifies_apt_owned_agents():
+    deploy = read("scripts/deploy-ubuntu-work-profile.sh")
 
-    assert '[[ "$1" == start' not in trend
-    assert trend.count('Environment = "LD_LIBRARY_PATH=${agentLibraryPath}";') == 3
+    for package in ["cloudflare-warp", "ampagent", "ds-agent"]:
+        assert package in deploy
+    for service in ["warp-svc.service", "konea.service", "ds_agent.service", "tmxbc.service"]:
+        assert service in deploy
+    assert "apt-get install -y cloudflare-warp" not in deploy
+    assert "apt-get install -y ampagent" not in deploy
+    assert "apt-get install -y ds-agent" not in deploy
 
 
-def test_trend_installer_retries_until_fully_complete():
-    trend = read("modules/services/trend-agent.nix")
-
-    assert "touch /var/lib/trend-install-complete" in trend
-    assert 'ConditionPathExists = "!/var/lib/trend-install-complete";' in trend
-    assert "dsa_query -c GetAgentStatus" in trend
-    assert "AgentStatus.agentState: green" in trend
+def test_nixos_has_no_work_agent_bootstrap_or_secrets():
+    assert "add-ampagent:" not in read("justfile")
+    assert "trend-installer" not in read(".sops.yaml")
+    assert not (ROOT / "secrets/sops/trend-installer.sh").exists()
+    assert "kace_token:" not in read("secrets/sops/secrets.yaml")

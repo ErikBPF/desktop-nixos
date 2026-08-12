@@ -1,6 +1,4 @@
-{config, ...}: let
-  m = config.flake.modules;
-in {
+_: {
   flake.modules.nixos.packages-desktop = {pkgs, ...}: let
     bottlesForFusion = pkgs.bottles.override {
       removeWarningPopup = true;
@@ -17,8 +15,6 @@ in {
       };
     };
   in {
-    imports = [m.nixos.cloudflare-warp];
-
     environment.systemPackages = with pkgs; [
       # --- Hyprland Desktop ---
       hyprland

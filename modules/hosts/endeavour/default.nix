@@ -18,8 +18,8 @@ in {
       m.nixos.profile-desktop
       m.nixos.endeavour-hardware
       m.nixos.endeavour-networking
+      m.nixos.endeavour-ubuntu-work
       m.nixos.laptop-syncthing
-      m.nixos.work
       m.nixos.first-boot
       m.nixos.pangolin-newt
       m.nixos.alloy

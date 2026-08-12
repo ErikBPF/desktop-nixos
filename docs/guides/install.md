@@ -230,7 +230,7 @@ or deploying. A few install-time specifics:
 - **Local junk is gitignored and safe to delete** — it regenerates on demand:
   `.direnv/`, `.ruff_cache/`, `result`/`result-*` symlinks, and agent runtime
   state (`.ralph/`, `.bg-shell/`, `_bmad-output/`, `logs/`).
-- **`ampagent-*.deb` at the repo root is Endeavour-only and token-bearing** —
-  `just add-ampagent` imports it into Endeavour's Nix store. Never commit it or
-  copy it to shared builders. Validate that host with the Endeavour-specific
-  remote check; fleet checks on Orion/Kepler deliberately exclude it.
+- **Work agents belong only to the Ubuntu work VM.** Cloudflare WARP, KACE, and
+  Trend Micro are apt/dpkg-owned inside that guest; NixOS hosts do not package
+  them or open their service ports. Run `just deploy-ubuntu-work-profile` to
+  refresh the guest's Nix tools and verify the vendor packages and services.
