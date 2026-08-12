@@ -12,6 +12,7 @@
       package.enable = true;
       rtk.enable = true;
       style.enable = true;
+      agents.extraText = builtins.readFile ./agent-policy.md;
     };
 
     home.activation.installCodexPonytail = lib.hm.dag.entryAfter ["installPackages"] ''
