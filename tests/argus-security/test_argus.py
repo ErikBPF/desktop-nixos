@@ -52,6 +52,11 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn('DISCORD_HOME_CHANNEL = incidentsChannel;', argus)
         self.assertIn("`#incidents`, `#deploys`, and `#security`", soul)
 
+    def test_cleytin_correlates_ssh_alerts_across_hosts(self):
+        soul = (ROOT / "modules/hosts/discovery/argus-SOUL.md").read_text()
+
+        self.assertIn("alertname/source_ip/key fingerprint across hosts", soul)
+
     def test_development_agent_identity_is_hackerman(self):
         soul = (ROOT / "modules/hosts/discovery/daedalus-SOUL.md").read_text()
 

@@ -1359,7 +1359,7 @@ deploy-rs target:
 # reboot deliberately. Follow with: ssh -p 2222 erik@<ip> sudo systemctl reboot
 deploy-rs-boot target:
     BUILDERS="$(just _builders {{target}})"; \
-    nix run .#deploy-rs -- --skip-checks --boot .#{{target}} \
+    nix run .#deploy-rs -- --skip-checks --boot --fast-connection true .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 0
@@ -1378,6 +1378,38 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS age key:' && test -f ~/.config/sops/age/keys.txt && echo 'present' || echo 'MISSING'"
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
+
+verify-pangolin-newt target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ip="$(just _host-ip {{target}})"
+    destination="$(just _host-ip discovery)"
+    zone="$(jq -r '.ingress.homelab.zone' fleet.json)"
+    [[ "$destination" =~ ^[0-9.]+$ && "$zone" =~ ^[a-z0-9.-]+$ ]]
+    ssh -p 2222 erik@"$ip" bash -s -- "$destination" "$zone" <<'REMOTE'
+      set -euo pipefail
+      destination="$1"
+      zone="$2"
+      config=/var/lib/pangolin-newt/config.json
+      health=/run/pangolin-newt/healthy
+      systemctl is-active pangolin-newt.service
+      sudo test -s "$config"
+      sudo test -s "$health"
+      test "$(sudo stat -c '%a %U %G' /var/lib/pangolin-newt)" = "700 root root"
+      test "$(sudo stat -c '%a %U %G' "$config")" = "600 root root"
+      sudo jq -e '
+        (.id | type == "string" and length > 0) and
+        (.secret | type == "string" and length > 0) and
+        ((.provisioningKey? // "") == "")
+      ' "$config" >/dev/null
+      curl --fail --silent --show-error http://127.0.0.1:2112/metrics |
+        grep '^# HELP ' >/dev/null
+      fqdn="grafana.$zone"
+      curl --fail --silent --show-error --max-time 10 \
+        --resolve "$fqdn:443:$destination" "https://$fqdn/api/health" |
+        jq -e '.database == "ok"' >/dev/null
+      echo "pangolin_newt=ready credentials=persisted health=connected metrics=ready backend=ready"
+    REMOTE
 
 # Trust a regenerated SSH host key after an explicitly authorized clean install.
 trust-host-key target ip fingerprint port="2222":
@@ -2478,8 +2510,11 @@ verify-wazuh-siem:
       echo ":: UniFi UDP destination=192.168.10.230:5514"
       ss -lun | grep -E '(^|:)5514[[:space:]]'
       echo ":: Protect CEF decoder"
-      printf '%s\n' 'CEF:0|Ubiquiti|UniFi Protect|7.1.87|smartDetectZone|smartDetectZone|3|src=192.0.2.10 dst=192.0.2.20 suser=synthetic act=detected UNIFIdeviceIp=192.0.2.1 UNIFIdeviceMac=00:00:5e:00:53:01 UNIFIcategory=security reason=motion msg=synthetic' |
-        podman exec -i wazuh-manager /var/ossec/bin/wazuh-logtest
+      result=$(printf '%s\n' 'Aug  3 10:00:00 gateway CEF:0|Ubiquiti|UniFi Protect|7.1.87|smartDetectZone|smartDetectZone|3|src=192.0.2.10 dst=192.0.2.20 suser=synthetic act=detected UNIFIdeviceIp=192.0.2.1 UNIFIdeviceMac=00:00:5e:00:53:01 UNIFIcategory=security reason=motion msg=synthetic' |
+        podman exec -i wazuh-manager /var/ossec/bin/wazuh-logtest 2>&1)
+      printf '%s\n' "$result"
+      grep -F "name: 'unifi-cef'" <<<"$result" >/dev/null
+      grep -F "id: '100100'" <<<"$result" >/dev/null
       echo ":: Ofelia scheduler"
       podman logs --tail 30 ofelia
       echo ":: Last-event metric"

@@ -16,24 +16,6 @@ def nix_eval(attribute):
     return json.loads(result.stdout)
 
 
-def test_laptop_uses_primary_and_spillover_builders():
-    machines = nix_eval("nixosConfigurations.laptop.config.nix.buildMachines")
-    actual = [
-        {
-            "hostName": machine["hostName"],
-            "maxJobs": machine["maxJobs"],
-            "speedFactor": machine["speedFactor"],
-            "systems": machine["systems"],
-        }
-        for machine in machines
-    ]
-    expected = json.loads((Path(__file__).parent / "expected-laptop.json").read_text())
-    assert actual == expected
-    assert "kvm" in machines[0]["supportedFeatures"]
-    assert "kvm" not in machines[1]["supportedFeatures"]
-    assert "nixos-test" not in machines[1]["supportedFeatures"]
-
-
 def test_endeavour_uses_primary_and_spillover_builders():
     machines = nix_eval("nixosConfigurations.endeavour.config.nix.buildMachines")
     assert [machine["hostName"] for machine in machines] == [
@@ -55,7 +37,7 @@ def test_kepler_authorizes_the_dedicated_builder_key():
 
 
 def test_recipe_builders_use_explicit_hardened_ssh_ports():
-    for target in ("kepler", "orion", "laptop"):
+    for target in ("kepler", "orion", "endeavour"):
         result = subprocess.run(
             ["just", "_builders", target],
             cwd=ROOT,
@@ -68,5 +50,6 @@ def test_recipe_builders_use_explicit_hardened_ssh_ports():
 
 
 def test_builder_hosts_bootstrap_keys_once_then_reject_changes():
-    extra_config = nix_eval("nixosConfigurations.laptop.config.programs.ssh.extraConfig")
-    assert extra_config.count("StrictHostKeyChecking accept-new") == 2
+    extra_config = nix_eval("nixosConfigurations.endeavour.config.programs.ssh.extraConfig")
+    assert "Host 192.168.10.220\n  Port 2222\n  StrictHostKeyChecking accept-new" in extra_config
+    assert "Host 192.168.10.230\n  Port 2222\n  StrictHostKeyChecking accept-new" in extra_config

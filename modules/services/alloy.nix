@@ -1,7 +1,11 @@
 {config, ...}: let
   discoveryTs = config.fleet.hosts.discovery.tailscaleIp;
 in {
-  flake.modules.nixos.alloy = {config, ...}: {
+  flake.modules.nixos.alloy = {
+    config,
+    lib,
+    ...
+  }: {
     services.alloy = {
       enable = true;
       # Bind the Alloy HTTP UI/API to localhost only — it contains pipeline
@@ -99,6 +103,20 @@ in {
         forward_to      = [prometheus.remote_write.prometheus.receiver]
         scrape_interval = "30s"
       }
+
+      ${lib.optionalString config.services.pangolinNewt.enable ''
+        // Pangolin Newt connector health and traffic; bound to loopback only.
+        prometheus.scrape "pangolin_newt" {
+          targets = [{
+            __address__ = "127.0.0.1:2112",
+            instance    = "${config.networking.hostName}",
+            job         = "pangolin-newt",
+          }]
+          metrics_path    = "/metrics"
+          forward_to      = [prometheus.remote_write.prometheus.receiver]
+          scrape_interval = "30s"
+        }
+      ''}
 
       // ============================================================================
       // Tailscale client metrics — tailscaled serves Prometheus metrics on the

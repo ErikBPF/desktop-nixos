@@ -21,6 +21,7 @@ in {
       m.nixos.pathfinder-networking
       m.nixos.pathfinder-syncthing
       m.nixos.first-boot
+      m.nixos.pangolin-newt
       m.nixos.alloy
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots

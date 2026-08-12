@@ -83,8 +83,7 @@
     profiles.system.path = activate host;
   };
 in {
-  # Remote fleet only. laptop (roaming/local) and homeassistant (HAOS, not NixOS)
-  # are intentionally OUT — deploy-rs switches an already-running NixOS host.
+  # Remote NixOS fleet only. The Ubuntu laptop and Home Assistant OS are out.
   flake.deploy.nodes = {
     # Public Oracle guests are reachable only through Tailscale. Generous
     # activationTimeout: the 1 GB micro activates slowly.

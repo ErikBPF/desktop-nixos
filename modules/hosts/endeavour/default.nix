@@ -19,9 +19,9 @@ in {
       m.nixos.endeavour-hardware
       m.nixos.endeavour-networking
       m.nixos.laptop-syncthing
-      m.nixos.laptop-appimage
       m.nixos.work
       m.nixos.first-boot
+      m.nixos.pangolin-newt
       m.nixos.alloy
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots
@@ -34,7 +34,6 @@ in {
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
         m.home.monitor-layout-docked
-        m.home.laptop-ssh
       ];
       inherit (config) colorScheme;
     };
@@ -60,6 +59,10 @@ in {
     services.btrfs.autoScrub.enable = true;
     nix.distributedBuildsOrion.enable = true;
     nix.distributedBuildsKepler.enable = true;
+    programs.appimage = {
+      enable = true;
+      binfmt = true;
+    };
     programs.sccacheClient.enable = true;
     zramSwap = {
       enable = true;

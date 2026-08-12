@@ -18,5 +18,14 @@ def test_live_wazuh_verifier_is_bounded_and_value_safe():
     assert "192.168.10.230:5514" in recipe
 
 
+def test_live_wazuh_verifier_fails_when_the_decoder_or_rule_does_not_match():
+    recipe = JUSTFILE.split("verify-wazuh-siem:", 1)[1].split("\n\n", 1)[0]
+
+    assert "gateway CEF:0|Ubiquiti|UniFi Protect" in recipe
+    assert "wazuh-logtest 2>&1)" in recipe
+    assert 'grep -F "name: \'unifi-cef\'" <<<"$result" >/dev/null' in recipe
+    assert 'grep -F "id: \'100100\'" <<<"$result" >/dev/null' in recipe
+
+
 def test_kepler_firewall_accepts_unifi_syslog():
     assert "5514 # UniFi SIEM syslog" in KEPLER_NETWORKING
