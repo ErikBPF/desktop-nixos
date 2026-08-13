@@ -9,14 +9,29 @@
     workBrowser = pkgs.writeShellScriptBin "work-browser" ''
       exec /usr/bin/brave-browser-stable "$@"
     '';
+    workXvfb = pkgs.writeShellScriptBin "work-Xvfb" ''
+      exec /usr/bin/Xvfb "$@"
+    '';
+    workPulseaudio = pkgs.writeShellScriptBin "work-pulseaudio" ''
+      socket="/run/user/$UID/xpra/''${DISPLAY#:}/pulse/native"
+      # Xpra 6.4 classifies Pulse devices using "input" in their names.
+      exec ${pkgs.pulseaudio}/bin/pulseaudio --start -n \
+        --daemonize=false --system=false --exit-idle-time=-1 \
+        --load=module-suspend-on-idle \
+        "--load=module-null-sink sink_name=Xpra-Microphone sink_properties=device.description=Xpra-Microphone" \
+        "--load=module-null-sink sink_name=Xpra-Speaker sink_properties=device.description=Xpra-Speaker" \
+        "--load=module-remap-source source_name=Xpra-Mic-Input source_properties=device.description=Xpra-Mic-Input master=Xpra-Microphone.monitor channels=1" \
+        "--load=module-native-protocol-unix socket=$socket auth-cookie=\$PULSE_COOKIE auth-cookie-enabled=1" \
+        --log-level=2 --log-target=stderr
+    '';
     workBrowserXpra = pkgs.writeShellScriptBin "work-browser-xpra" ''
-      umask 077
-      display_file="$XDG_RUNTIME_DIR/ubuntu-work-xpra-display"
-      printf '%s\n' "$DISPLAY" > "$display_file"
-      trap 'rm -f "$display_file"' EXIT
-      GTK_THEME=Yaru:dark /usr/bin/brave-browser-stable \
+      PULSE_SINK=Xpra-Speaker \
+        PULSE_SOURCE=Xpra-Mic-Input \
+        GTK_THEME=Yaru:dark \
+        exec /usr/bin/brave-browser-stable \
         --user-data-dir=$HOME/.config/BraveSoftware/Brave-Browser-Xpra \
         --ozone-platform=x11 \
+        --window-size=1920,1080 \
         --force-dark-mode \
         --restore-last-session
     '';
@@ -50,10 +65,11 @@
           sqlite
           netcat-openbsd
           xpra
-          xclip
         ]
         ++ [
           workBrowser
+          workXvfb
+          workPulseaudio
           workBrowserXpra
           workBrowserDesktop
           sshdPolicy

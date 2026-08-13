@@ -23,6 +23,9 @@ def test_endeavour_owns_its_appimage_configuration():
 def test_monitor_layouts_are_home_modules():
     layouts = read("modules/desktop/monitor-layouts.nix")
     assert "flake.modules.home.monitor-layout-docked" in layouts
+    assert 'output = "eDP-1";' in layouts
+    assert 'position = "1400x1680";' in layouts
+    assert "scale = 1.25;" not in layouts
     assert "flake.modules.home.monitor-layout-pathfinder" in layouts
     assert "m.home.monitor-layout-docked" in read("modules/hosts/endeavour/default.nix")
     assert "m.home.monitor-layout-pathfinder" in read(
