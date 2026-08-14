@@ -374,7 +374,7 @@ in {
 
           k3s kubectl -n argocd create secret generic homelab-gitops-repo \
             --from-literal=type=git \
-            --from-literal=url=git@github.com:ErikBPF/homelab-gitops.git \
+            --from-literal=url=ssh://git@ssh.github.com:443/ErikBPF/homelab-gitops.git \
             --from-literal=name=homelab-gitops \
             --from-file=sshPrivateKey="$repo_key" \
             --dry-run=client -o yaml \
