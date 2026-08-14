@@ -7,7 +7,7 @@
   }: let
     herdr = inputs.herdr.packages.${pkgs.stdenv.hostPlatform.system}.default;
     plusVersion = "0.1.20";
-    navigatorVersion = "0.3.3";
+    navigatorVersion = "0.3.6";
 
     plusSource = pkgs.fetchurl {
       url = "https://github.com/cloudmanic/herdr-plus/archive/refs/tags/v${plusVersion}.tar.gz";
@@ -30,7 +30,7 @@
 
     navigatorArchive = pkgs.fetchurl {
       url = "https://github.com/thanhdat77/herdr-navigator/releases/download/v${navigatorVersion}/herdr-navigator-linux-x86_64.tar.gz";
-      hash = "sha256-KdLB8PYXckXLksHLZfzmESxMd/nBNZi9n4CosYCFPgI=";
+      hash = "sha256-rjw3YhzYtfd3gGeAsbH5MSxffPo8bjQ98jsmjEZAlDA=";
     };
     navigator =
       pkgs.runCommand "herdr-navigator-${navigatorVersion}" {

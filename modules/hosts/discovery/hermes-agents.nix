@@ -93,7 +93,7 @@ in {
     services.hermes-agent-oci-daedalus = {
       enable = true;
       enableHealthcheck = false;
-      image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
+      image = "nousresearch/hermes-agent@sha256:68e15ae2a6d894d0ccbd9f8aacbbe13d4d28fa5dc9b6a303970b67bb2499b1a6";
       hostDataDir = "/home/${username}/homelab/apps/hermes-daedalus";
       environmentFile = "/run/vault-agent/hermes-daedalus.env";
       openBindAddress = "0.0.0.0";
@@ -144,7 +144,7 @@ in {
     services.hermes-agent-oci-argus = {
       enable = true;
       enableHealthcheck = true;
-      image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
+      image = "nousresearch/hermes-agent@sha256:68e15ae2a6d894d0ccbd9f8aacbbe13d4d28fa5dc9b6a303970b67bb2499b1a6";
       hostDataDir = "/home/${username}/homelab/apps/hermes-argus";
       environmentFile = "/run/vault-agent/hermes-argus.env";
       openBindAddress = "0.0.0.0";

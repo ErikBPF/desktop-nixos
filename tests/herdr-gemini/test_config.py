@@ -9,7 +9,7 @@ def test_gemini_owns_pinned_plugins_and_default_sessions():
     source = MODULE.read_text()
 
     assert 'plusVersion = "0.1.20"' in source
-    assert 'navigatorVersion = "0.3.3"' in source
+    assert 'navigatorVersion = "0.3.6"' in source
     assert '"homelab" "dataplatform"' in source
     assert 'ExecStart = "${herdr}/bin/herdr --session %i server"' in source
 
@@ -50,7 +50,7 @@ def test_herdr_has_direct_directional_pane_navigation():
 def test_vim_and_herdr_share_ctrl_directional_navigation():
     herdr = (ROOT / "modules/dev/herdr.nix").read_text()
 
-    assert 'rev = "53e318c772c4d3b7fbd904ac43bcf3e5b5d8b244"' in herdr
+    assert 'rev = "820d48f5d9c9a7dece6a4bebfa3982ec30bbfbb7"' in herdr
     assert "plugin link ${vimHerdrNavigation}" in herdr
     assert '"nvim/after/plugin/herdr_nav.lua"' in herdr
     for direction, key in [

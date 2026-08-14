@@ -52,7 +52,7 @@ def test_gemini_herdr_entrypoints_and_version():
     assert 'h = "herdr session attach code";' in aliases
     assert 'hg = "herdr --remote gemini --session code";' in aliases
     assert "hgs = \"ssh -t gemini 'exec herdr session attach code'\";" in aliases
-    assert 'herdr.url = "github:ogulcancelik/herdr/v0.7.5";' in FLAKE.read_text()
+    assert 'herdr.url = "github:herdrdev/herdr/v0.8.0";' in FLAKE.read_text()
 
 
 def test_high_value_shortcuts_without_unsafe_duplicates():

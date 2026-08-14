@@ -20,10 +20,10 @@ in {
     # github.com/rtk-ai/rtk releases (checksums.txt → x86_64 musl).
     rtk = pkgs.stdenvNoCC.mkDerivation rec {
       pname = "rtk";
-      version = "0.42.4";
+      version = "0.45.0";
       src = pkgs.fetchurl {
         url = "https://github.com/rtk-ai/rtk/releases/download/v${version}/rtk-x86_64-unknown-linux-musl.tar.gz";
-        hash = "sha256-NJdRFtoR4J5QJQHa91gUPgsi7TpCoQ62f7aTpicNnjY=";
+        hash = "sha256-xMA2+/GB/FXvMpeGyMF+DUJ5crBTuCWUTZaKaq/vG6Q=";
       };
       sourceRoot = ".";
       dontConfigure = true;
@@ -59,7 +59,7 @@ in {
       # Keep the container name + ports so SWAG (hermes.* → hermes-agent:8642)
       # and the tailnet/host clients keep working unchanged across the cutover.
       containerName = "hermes-agent";
-      image = "nousresearch/hermes-agent@sha256:229429fe176efa05ca4e542a7e11348482b40c36f903191498c7016f1dfc1019";
+      image = "nousresearch/hermes-agent@sha256:68e15ae2a6d894d0ccbd9f8aacbbe13d4d28fa5dc9b6a303970b67bb2499b1a6";
       # Reuse the existing live state dir (restic-backed btrfs subvol):
       # memories, sessions, skills, lazy venv survive the Docker→OCI swap.
       hostDataDir = "/home/${username}/homelab/apps/hermes-agent";

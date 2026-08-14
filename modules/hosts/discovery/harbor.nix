@@ -15,10 +15,10 @@
 in {
   flake.modules.nixos.discovery-harbor = {pkgs, ...}: let
     # Keep in sync with HARBOR_VERSION in scripts/harbor-setup.sh.
-    harborVersion = "v2.14.4";
+    harborVersion = "v2.15.2";
     harborInstaller = pkgs.fetchurl {
       url = "https://github.com/goharbor/harbor/releases/download/${harborVersion}/harbor-online-installer-${harborVersion}.tgz";
-      sha256 = "1hc77c6ad25xipncppjy80ljw9gi3840499b8yr569vf45zs4ddz";
+      sha256 = "sha256-iPanQ2sxiQ6ORylyp0M9NrfWo23preuGM3/cn+f7X6M=";
     };
     setup = "/home/${username}/servarr/machines/discovery/scripts/harbor-setup.sh";
     # Idempotent: creates the docker-hub registry endpoint + the PUBLIC `dockerhub`

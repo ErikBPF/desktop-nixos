@@ -27,8 +27,8 @@ in {
     tmcAutotuneSrc = pkgs.fetchFromGitHub {
       owner = "andrewmcgr";
       repo = "klipper_tmc_autotune";
-      rev = "aa26fc04f444997bd64b30a37414d678107cc04c";
-      hash = "sha256-v+8VFkG9iJ43wbXVNpXzdA5sUnRQxhcJIxHPbNoBUp4=";
+      rev = "b6c7cfa98c2ef880812d5279a9117cbe67d6d4d5";
+      hash = "sha256-DwkYWcMs5q1u0O4IYe6r95Ksdtt5/pnYfIs1FUdPLus=";
     };
 
     # shell_command.cfg needs the G-Code Shell Command extra ([gcode_shell_command])

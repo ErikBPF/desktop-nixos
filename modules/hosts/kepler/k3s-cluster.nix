@@ -198,8 +198,8 @@ in {
             alloy = {
               name = "alloy";
               repo = "https://grafana.github.io/helm-charts";
-              version = "1.10.0";
-              hash = "sha256-q8ceioRgZbSPD5g73De4nEZWkPF5fD3zFN7kxQGdtdU=";
+              version = "1.11.1";
+              hash = "sha256-zEzUiohcBw/ospKZcVUoUjdcEektlfxjN9DD+id6xXU=";
               targetNamespace = "monitoring";
               createNamespace = true;
               values = {
