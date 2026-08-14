@@ -9,33 +9,33 @@
   # To bump a plugin: update `version`, then run `just build` — error will print expected hash.
   pluginSpecs = {
     obsidian-llm-wiki = {
-      version = "1.10.2";
+      version = "1.26.3";
       owner = "green-dalii";
       repo = "obsidian-llm-wiki";
       hashes = {
-        "main.js" = "sha256-ys0VJu86kXURpxaszeWRO2hp/8UFSQpWuoswpQ7ek60=";
-        "manifest.json" = "sha256-UBAUAGtChn5BqUhNQHXai5py9r6pzYQi92+rD7b9MAE=";
-        "styles.css" = "sha256-ITYivo/lHSzfnriG8s9mILz69U+G+Bcis/i8KK8gqsI=";
+        "main.js" = "sha256-BN1cl4L183bQ31MxopEuMsFWsI2HaHy6aZWqeO+UOGo=";
+        "manifest.json" = "sha256-hNbOcuj4jr/tEfaW8cd2wbnb49qvjwFOtEtPTWSDyhQ=";
+        "styles.css" = "sha256-XAjJfm9S4uNfeSRrBVsdo7Ff9Xr/4MLQPBd4kM/wwDE=";
       };
     };
     smart-connections = {
-      version = "4.5.0";
+      version = "4.7.2";
       owner = "brianpetro";
       repo = "obsidian-smart-connections";
       hashes = {
-        "main.js" = "sha256-VjRItzwwcQD5Wwrq0xerXwqpblDqEpAFYxLrB17yVHo=";
-        "manifest.json" = "sha256-kxYPrIVhGhy6h8C7A8xYw5GfKwT83ubLQ3O8G6cRsxY=";
-        "styles.css" = "sha256-G+afasCSrObA/coLkiV/aOSqCNWv5ivYEV/kq1mW3sI=";
+        "main.js" = "sha256-9bHgRelCent//EPNRrp+C5IjrcyFYDfU4Fcdx6nAgIM=";
+        "manifest.json" = "sha256-eBUGV1vAJvlJI3ibA3chSQiInkrhMok5HQ6UxYcn+jI=";
+        "styles.css" = "sha256-WJL1iRVrKQeGQlE65W7R5RPrmwS2zk/Yn7rN05W/ZYA=";
       };
     };
     quickadd = {
-      version = "2.12.1";
+      version = "2.22.0";
       owner = "chhoumann";
       repo = "quickadd";
       hashes = {
-        "main.js" = "sha256-l++Fq4eEs/HISTq1NauhbmXz58WptxNG14NJ6qu5ztg=";
-        "manifest.json" = "sha256-YYqptQOu0i6/V1wtNw6jhWSUXt+c4c6O38Dah59Oc70=";
-        "styles.css" = "sha256-+0+f1mOTQF1OdlUIUJB6NcSwCDIju27J7BMQ97cuvzg=";
+        "main.js" = "sha256-NlpcIMgzb4F0O8GAvdKmF82uo7ltqy8gvl93+RJp4SU=";
+        "manifest.json" = "sha256-wOYD9M3CEb5HdISmaeBUbG5IIavml0hZRm7hH5n6W0U=";
+        "styles.css" = "sha256-cp2DYvxsUYYzwSyq4ce7UFGp6+mq9iz+OfuJUAL+BLc=";
       };
     };
     periodic-notes = {
@@ -49,21 +49,21 @@
       };
     };
     obsidian-advanced-uri = {
-      version = "1.46.1";
+      version = "2.0.0";
       owner = "Vinzent03";
       repo = "obsidian-advanced-uri";
       hashes = {
-        "main.js" = "sha256-0QMA+2Z+uek0F0J/w+oBD0bbAgiF0pxd7MeHNcFKsWI=";
-        "manifest.json" = "sha256-+hLVSIvx1huCknKxXecv6ifR8tashU+X7JemzCeEwvE=";
+        "main.js" = "sha256-QoFnWlxWI2LYJ78zD3r32SgnYVFxSunt4YzxLXBVb68=";
+        "manifest.json" = "sha256-Dz07v/rHGSiM60RuDkC54OzzhZuaSpYQbXLvbthqzG8=";
       };
     };
     recent-files-obsidian = {
-      version = "1.7.9";
+      version = "1.7.10";
       owner = "tgrosinger";
       repo = "recent-files-obsidian";
       hashes = {
-        "main.js" = "sha256-gXvD5i/jATDs0UYtJGzNenJDQ3A8yGR/84BlYFQFTuQ=";
-        "manifest.json" = "sha256-tmrW8N1WHzL8g1/cHyYh8Q0pAKaRnRnSfKhJ1XZrsvo=";
+        "main.js" = "sha256-moXSKjQta8jPy/6JqO0Ezf20RMNwoiCwCORCPx/Tfcg=";
+        "manifest.json" = "sha256-bb+jFKS13z9/goP9Qbxk0Um+88ESjhW1qU3GkLVfsNc=";
         "styles.css" = "sha256-LuSckqsLuEgiGglib3umdrvoU3LEyAZe53kLCDLLPds=";
       };
     };
@@ -86,42 +86,42 @@
       };
     };
     copilot = {
-      version = "3.3.3";
+      version = "4.0.0";
       owner = "logancyang";
       repo = "obsidian-copilot";
       hashes = {
-        "main.js" = "sha256-QBihMZXmU8soIpM6VOlJrlHnphIHAKONzycl171C4e4=";
-        "manifest.json" = "sha256-8htX39WmRMYd72NNFItaoT7Z3e+aaqwunB6o6hOcbEw=";
-        "styles.css" = "sha256-c8Jzi9+vN7dVqO71m937SqV63Z4hwVvSuJZxk5OoxpI=";
+        "main.js" = "sha256-x3PxKsn9eGdY5uAwSajNbCY+f6I5jyhV0GHZz3F65OM=";
+        "manifest.json" = "sha256-FvAKbeYavAKxwkbQBmhvPDnkQ/TypJyweCgWVBatFCc=";
+        "styles.css" = "sha256-/mP3i3ENePFR/46QyWhZdkTtSE6AgA1o4mtDTXEMYIM=";
       };
     };
     dataview = {
-      version = "0.5.68";
+      version = "0.5.70";
       owner = "blacksmithgu";
       repo = "obsidian-dataview";
       hashes = {
-        "main.js" = "sha256-eU6ert5zkgu41UsO2k9d4hgtaYzGOHdFAPJPFLzU2gs=";
+        "main.js" = "sha256-a7HPcBCvrYMOc1dfyg4r+9MnnFYuPZ0k8tL0UWHrfQA=";
         "manifest.json" = "sha256-kjXbRxEtqBuFWRx57LmuJXTl5yIHBW6XZHL5BhYoYYU=";
         "styles.css" = "sha256-MwbdkDLgD5ibpyM6N/0lW8TT9DQM7mYXYulS8/aqHek=";
       };
     };
     obsidian-excalidraw-plugin = {
-      version = "2.23.3";
+      version = "2.26.4";
       owner = "zsviczian";
       repo = "obsidian-excalidraw-plugin";
       hashes = {
-        "main.js" = "sha256-q0A/yNq7i2Y9JrZs3MjWgSe3bATucN+FlUlitvu+c5Q=";
-        "manifest.json" = "sha256-tWUVC2VyxaHRxsZ0z22bXk0aKdTa8yBuVP5Z2CMbEEw=";
-        "styles.css" = "sha256-DNHQPpMXathUaWTUxzQcMArMEu4lGqPzaZ4OE1vB1wo=";
+        "main.js" = "sha256-sm8/yM+jnP7+jBHILkP4Cv3GQtjKTU7OO92Bf3LUz1o=";
+        "manifest.json" = "sha256-9rgX2uovohBmcaYtcjbNyNgG9SRl8f86tTQyMcAgtwM=";
+        "styles.css" = "sha256-YVtWDFGTsspO8/8YRNKAeRO8UcQDM8ef3QioQLDEJzU=";
       };
     };
     obsidian-git = {
-      version = "2.38.3";
+      version = "2.39.0";
       owner = "Vinzent03";
       repo = "obsidian-git";
       hashes = {
-        "main.js" = "sha256-l/zQtjQlXEpntKnyF9iXZLxr0pIz3lNrgCfGPiWkIvU=";
-        "manifest.json" = "sha256-JvDvaEkCfuMVmJ9TmoRqQr06iBEvAlzu5uMD/y9kvoU=";
+        "main.js" = "sha256-1adANs8XwaApV8HzP1nkfPOvg1JWQcQ3TKH6CdlfPrQ=";
+        "manifest.json" = "sha256-JwQQ7dbmT1HZdDQ8binsg5lQL24FeuXWJk0lmxBPYlw=";
         "styles.css" = "sha256-9auT9NW03RvR5XeGTFx5CH9639RIrDRuBInlhHzmki0=";
       };
     };
@@ -136,13 +136,13 @@
       };
     };
     obsidian-linter = {
-      version = "1.31.2";
+      version = "1.32.0";
       owner = "platers";
       repo = "obsidian-linter";
       hashes = {
-        "main.js" = "sha256-MRfAV1JgbV0mVZ4R/AwtjhLvb1py8Fw2SVCRkRdLh1A=";
-        "manifest.json" = "sha256-TTMc3t4azAMoyobqX2f7ZU0XVwFQ5VmPftmbBkRX5xI=";
-        "styles.css" = "sha256-DM9QiwWpRF3HxDOxrPyun0Cy2OIY1T/f/q3XTUE8Its=";
+        "main.js" = "sha256-G09Ev5KQJM943V5gplX3z/33/0n49VaVoBWR+PaeNBY=";
+        "manifest.json" = "sha256-6+LaIzlCiXWOEwIP4pMuL5MKyyC85l9h/CM5At5uyDk=";
+        "styles.css" = "sha256-5kEX6ZnqBZT8mEDwCjtvgTO13xI0DLVkEkt3k0tCQmk=";
       };
     };
     obsidian-style-settings = {
@@ -156,33 +156,33 @@
       };
     };
     obsidian-tasks-plugin = {
-      version = "8.0.0";
+      version = "8.3.0";
       owner = "obsidian-tasks-group";
       repo = "obsidian-tasks";
       hashes = {
-        "main.js" = "sha256-ekfMkVdtKniTL5JQc6hojPywa8H9+hlWUEP4q5l5q1Y=";
-        "manifest.json" = "sha256-FQzsEV39g/L5XE7dUV33JU4RAsEWAyvQmY3JDWcThzc=";
-        "styles.css" = "sha256-YoZeAfuvhBhjXA7qzCfU9zUskPB+gbG+OWrNGh9+q7w=";
+        "main.js" = "sha256-FwrAr0FggS/mxUErlhsiIql8VCOtl4pTgQnG0zIfD1I=";
+        "manifest.json" = "sha256-y0LVY7vNX+VRABesA11wEwX8YGjK/YU4JX5UehZ/ljc=";
+        "styles.css" = "sha256-2thMf5im6Q2Aruu1xlvnSb4xLwOEK1Ho9qAx6yLsnOI=";
       };
     };
     omnisearch = {
-      version = "1.29.2";
+      version = "1.30.1";
       owner = "scambier";
       repo = "obsidian-omnisearch";
       hashes = {
-        "main.js" = "sha256-ht5hCEGn1I+3KGp6ufVXvSz1HKbIS6WYdGQiGfOfYzI=";
-        "manifest.json" = "sha256-2n4letsH5Akpbm24C05v9SyAxl65oYZc8hXsOfhuMVY=";
-        "styles.css" = "sha256-gY5rNh5CarOoaKRSSiDfWmQWv2FIdrYe3jQND3jJ68g=";
+        "main.js" = "sha256-y7s8X6uCfof0DDgmcjibjl4RURv2k2Ec94n0M01/xt0=";
+        "manifest.json" = "sha256-TwCIIqMlq62f9vu9uwWnOj+kosnsA01j+HwQpa7xkG4=";
+        "styles.css" = "sha256-xqVrGhj/hn8S67s6E5BgoklwQoHhtEkAP/SHlpYhouY=";
       };
     };
     templater-obsidian = {
-      version = "2.20.5";
+      version = "2.25.0";
       owner = "SilentVoid13";
       repo = "Templater";
       hashes = {
-        "main.js" = "sha256-gcjQuyEsnBJpkC7O7kuqIcg7qF1tjfo0ioBBa8csXuw=";
-        "manifest.json" = "sha256-XfFFHinKveykRd3zRuUfrAqT8Ae/D40QCSTTXXo6A9g=";
-        "styles.css" = "sha256-fYW80Snp84qJMkVb3wXJYpzkZqsSNtyTO3t66lU1DAQ=";
+        "main.js" = "sha256-ail5DorTuz3lvMc4FYjyAJOy2+zB/yfYpdftP867304=";
+        "manifest.json" = "sha256-dZhRiPrItRjuu3kTcKJNrhokdszjkS3kcJd4294BceQ=";
+        "styles.css" = "sha256-65QGO+YCZ585fj41/Lf2pLAn2oLhfCE7tEomfGtF2N4=";
       };
     };
   };
