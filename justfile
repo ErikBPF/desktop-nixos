@@ -2268,19 +2268,14 @@ mirror-kindle version digest:
       echo "invalid digest: {{digest}}" >&2
       exit 1
     }
-    skopeo="$(nix eval --raw .#nixosConfigurations.discovery.pkgs.skopeo.outPath)"
-    cosign="$(nix eval --raw .#nixosConfigurations.discovery.pkgs.cosign.outPath)"
-    tools_path="$skopeo/bin:$cosign/bin"
     IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" sudo env "TOOLS_PATH=$tools_path" \
-      bash -s -- "{{version}}" "{{digest}}" <<'REMOTE'
+    ssh -p 2222 erik@"$IP" sudo bash -s -- "{{version}}" "{{digest}}" <<'REMOTE'
       set -euo pipefail
-      export PATH="$TOOLS_PATH:$PATH"
       env_file=/run/vault-agent/harbor.env
       export HARBOR_ROBOT_USER="$(sed -n 's/^HARBOR_ROBOT_USER=//p' "$env_file")"
       export HARBOR_ROBOT_SECRET="$(sed -n 's/^HARBOR_ROBOT_SECRET=//p' "$env_file")"
       [[ -n "$HARBOR_ROBOT_USER" && -n "$HARBOR_ROBOT_SECRET" ]]
-      exec /home/erik/servarr/machines/discovery/scripts/harbor-mirror.sh "$1" "$2"
+      exec /run/current-system/sw/bin/harbor-mirror "$1" "$2"
     REMOTE
 
 # Delegate Harbor robot provisioning to Servarr; token stays in the pipe.

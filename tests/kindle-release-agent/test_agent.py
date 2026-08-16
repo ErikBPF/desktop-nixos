@@ -3,6 +3,7 @@ import dataclasses
 import datetime
 import errno
 import fcntl
+import hashlib
 import importlib.util
 import inspect
 import io
@@ -62,6 +63,40 @@ class PinContract(unittest.TestCase):
             self.agent.KINDLE_UNIT,
             "podman-compose-kindle-dash.service",
         )
+
+    def test_harbor_runtime_callers_share_one_pinned_servarr_input(self):
+        revision = "8307056b8e5943d517672deba28fe6d254ccdf48"
+        harbor = (ROOT / "modules/hosts/discovery/harbor.nix").read_text()
+        justfile = JUSTFILE_PATH.read_text()
+        snapshot = ROOT / "modules/hosts/discovery/servarr-harbor"
+        expected = {
+            "scripts/harbor-setup.sh": "73ac84f90a05e628f8656d9bcfda262c482ccd9b8264959520562cdda432ed72",
+            "scripts/harbor-proxycache.sh": "beee26a5dc9b056be078081b9aa19c38c76c4e004462ea958c3ea63112e9d874",
+            "scripts/harbor-mirror.sh": "86bf611d68cd1f3944c25a6f275b5361de47c43f243ebe9d8f2c84253222af3c",
+            "config/harbor/harbor.yml.tmpl": "494fd282c3ebaca8858e69754f093a824f5af2f248b506d30cc72a3422f47b7f",
+        }
+
+        self.assertIn(revision, harbor)
+        for relative, digest in expected.items():
+            self.assertEqual(
+                hashlib.sha256((snapshot / relative).read_bytes()).hexdigest(), digest
+            )
+        self.assertIn("${./servarr-harbor/scripts/harbor-setup.sh}", harbor)
+        self.assertIn(
+            "${./servarr-harbor/scripts/harbor-proxycache.sh}",
+            harbor,
+        )
+        self.assertIn("${./servarr-harbor/scripts/harbor-mirror.sh}", harbor)
+        self.assertIn('HARBOR_RUNTIME_DIR = "/home/${username}/servarr/machines/discovery";', harbor)
+        self.assertEqual(
+            self.agent.HARBOR_MIRROR_SCRIPT,
+            pathlib.Path("/run/current-system/sw/bin/harbor-mirror"),
+        )
+        mirror_recipe = justfile.split("mirror-kindle version digest:", 1)[1]
+        mirror_recipe = mirror_recipe.split("\n# ", 1)[0]
+        self.assertIn("/run/current-system/sw/bin/harbor-mirror", mirror_recipe)
+        self.assertNotIn("/home/erik/servarr", mirror_recipe)
+        self.assertNotIn("TOOLS_PATH", mirror_recipe)
 
     def test_candidate_allows_only_the_fixed_compose_path(self):
         candidate = self.agent.validate_candidate(

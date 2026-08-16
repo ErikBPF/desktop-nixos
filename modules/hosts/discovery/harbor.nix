@@ -8,8 +8,9 @@
 #   • harbor.yml is rendered from the host .env (servarr .env.sops);
 #   • a systemd oneshot runs prepare + compose-up on every switch/boot,
 #     reconciling Harbor to the committed inputs.
-# The setup logic lives in the servarr repo (scripts/harbor-setup.sh, pulled by
-# servarr-pull) so a Harbor config change is a servarr commit, not a host edit.
+# The setup logic remains Servarr-owned. This module vendors the four required
+# files from exact Servarr revision 8307056b8e5943d517672deba28fe6d254ccdf48
+# because the private repository cannot be fetched by public desktop CI.
 {config, ...}: let
   inherit (config) username;
 in {
@@ -20,7 +21,7 @@ in {
       url = "https://github.com/goharbor/harbor/releases/download/${harborVersion}/harbor-online-installer-${harborVersion}.tgz";
       sha256 = "sha256-iPanQ2sxiQ6ORylyp0M9NrfWo23preuGM3/cn+f7X6M=";
     };
-    setup = "/home/${username}/servarr/machines/discovery/scripts/harbor-setup.sh";
+    setup = "${./servarr-harbor/scripts/harbor-setup.sh}";
     # Idempotent: creates the docker-hub registry endpoint + the PUBLIC `dockerhub`
     # proxy-cache project (anonymous pull → no creds in the k3s registries.yaml).
     # Folded in as a non-fatal ExecStartPost so the proxy-cache survives a Harbor
@@ -28,8 +29,17 @@ in {
     # instead of a manual one-shot. Best-effort: a `-` prefix means a transient
     # Harbor-not-ready failure never flaps the harbor unit (the script also retries
     # the API for ~90s internally; next switch reconciles).
-    proxycache = "/home/${username}/servarr/machines/discovery/scripts/harbor-proxycache.sh";
+    proxycache = "${./servarr-harbor/scripts/harbor-proxycache.sh}";
+    harborMirror = pkgs.writeShellApplication {
+      name = "harbor-mirror";
+      runtimeInputs = with pkgs; [cosign skopeo];
+      text = ''
+        exec ${pkgs.bash}/bin/bash ${./servarr-harbor/scripts/harbor-mirror.sh} "$@"
+      '';
+    };
   in {
+    environment.systemPackages = [harborMirror];
+
     systemd.services.harbor = {
       description = "Harbor registry — declarative prepare + compose up (pinned installer)";
       # Needs docker up and egress (prepare/compose pull images on a fresh host).
@@ -62,6 +72,7 @@ in {
       # the script's HARBOR_VERSION default is only the bare manual-run fallback).
       environment = {
         HARBOR_INSTALLER_TGZ = harborInstaller;
+        HARBOR_RUNTIME_DIR = "/home/${username}/servarr/machines/discovery";
         HARBOR_VERSION = harborVersion;
       };
       serviceConfig = {
