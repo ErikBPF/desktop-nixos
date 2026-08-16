@@ -2244,6 +2244,15 @@ mirror-kindle version digest:
       exec /home/erik/servarr/machines/discovery/scripts/harbor-mirror.sh "$1" "$2"
     REMOTE
 
+# Delegate Harbor robot provisioning to Servarr; token stays in the pipe.
+provision-airflow-harbor-pull-robot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    printf '%s\n' "$token" | ssh -p 2222 erik@{{ip_discovery}} \
+      'cd /home/erik/servarr && just provision-airflow-harbor-pull-robot'
+    unset token
+
 # Verify the fixed Kindle deployment gates without accepting arbitrary
 # container, volume, endpoint, or owner inputs.
 verify-kindle digest:
@@ -2462,15 +2471,12 @@ grafana-alert-retry target:
       endeavour-upgrade) host=endeavour; unit=nixos-upgrade.service; action=reset ;;
       orion) host=orion; unit=nixos-upgrade.service; action=reset ;;
       discovery-telstar) host=discovery; unit=telstar-capture.service; action=start-no-block ;;
-      discovery-drift) host=discovery; unit=homelab-iac-drift.service; action=recover-drift ;;
+      discovery-drift) host=discovery; unit=homelab-iac-drift.service; action=start ;;
       *) echo "target must be endeavour, endeavour-upgrade, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
     esac
     command="sudo systemctl reset-failed '$unit'"
     [ "$action" = start ] && command="$command && sudo systemctl start '$unit'"
     [ "$action" = start-no-block ] && command="$command && sudo systemctl start --no-block '$unit'"
-    if [ "$action" = recover-drift ]; then
-      command="cd /home/erik/homelab-iac && checkout_state=\$(git status --porcelain); unexpected=\$(printf '%s\n' \"\$checkout_state\" | grep -vE '^\?\? .*/\.terraform\.lock\.hcl$' || true); if [ -n \"\$unexpected\" ]; then echo 'refusing recovery: unexpected checkout changes' >&2; exit 1; elif [ -n \"\$checkout_state\" ]; then git stash push --include-untracked -m grafana-alert-recovery -- ':(glob)**/.terraform.lock.hcl'; fi; $command && sudo systemctl start '$unit'"
-    fi
     if [ "$(hostname)" = "$host" ]; then
       bash -c "$command"
     else
@@ -2482,6 +2488,19 @@ grafana-alert-retry target:
 # Pause the Discovery Telstar capacity retry while its remote state is repaired.
 pause-discovery-telstar:
     ssh -p 2222 erik@{{ip_discovery}} 'sudo systemctl stop telstar-capture.service; sudo systemctl reset-failed telstar-capture.service'
+
+# Recover one confirmed stale Telstar state lock, then resume capacity retries.
+# Destructive: pass the exact lock UUID from the failed plan output.
+recover-discovery-telstar-lock lock_id:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "{{lock_id}}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || { echo "lock_id must be an exact UUID" >&2; exit 2; }
+    just pause-discovery-telstar
+    ssh -p 2222 erik@{{ip_discovery}} 'set -euo pipefail
+      cd /var/lib/telstar-capture/source
+      oracle/bin/telstar-lock-recover.sh "{{lock_id}}"
+      sudo systemctl reset-failed telstar-capture.service
+      sudo systemctl start telstar-capture.service'
 
 # Compare encrypted Telstar state copies without printing state content.
 discovery-telstar-state-inventory:
@@ -3447,6 +3466,27 @@ vault-approle-inventory:
         id=$(curl --header @"$cfg" --silent --show-error --fail "http://127.0.0.1:8200/v1/auth/approle/role/$role/role-id" | jq -r .data.role_id)
         printf "%s\\t%s\\n" "$role" "$id"
       done
+    '
+
+# Show the value-free ESO policy/AppRole contract before importing it into IaC.
+openbao-eso-contract:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    printf '%s\n' "$token" | ssh -p 2222 erik@{{ip_discovery}} '
+      set -euo pipefail
+      IFS= read -r token
+      cfg=$(mktemp)
+      trap "rm -f $cfg" EXIT
+      printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+      unset token
+      chmod 600 "$cfg"
+      curl --header @"$cfg" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/auth/approle/role/eso \
+        | jq ".data | {bind_secret_id,token_policies,token_ttl,token_max_ttl,token_type}"
+      curl --header @"$cfg" --silent --show-error --fail \
+        http://127.0.0.1:8200/v1/sys/policies/acl/eso \
+        | jq -r .data.policy
     '
 
 # List OpenBao audit devices and safe transport options only.

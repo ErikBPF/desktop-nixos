@@ -698,17 +698,21 @@ def test_discovery_gpu_diagnostic_is_read_only_and_boot_scoped():
     assert "systemctl reset-failed" not in recipe
 
 
-def test_telstar_capture_bootstraps_its_mutable_iac_clone():
+def test_telstar_capture_executes_the_pinned_iac_artifact_without_git():
     module = (
         Path(__file__).parents[2]
         / "modules/hosts/discovery/telstar-capture.nix"
     ).read_text()
 
-    assert 'WorkingDirectory = home;' in module
-    assert 'test -d "${home}/homelab-iac/.git"' in module
-    assert "${pkgs.git}/bin/git clone" in module
-    assert "git@github_erikbpf:ErikBPF/homelab-iac.git" in module
-    assert 'cd "${home}/homelab-iac"' in module
+    assert "inputs.homelab-iac" in module
+    assert 'StateDirectory = "telstar-capture";' in module
+    assert 'StateDirectoryMode = "0700";' in module
+    assert 'cd "$STATE_DIRECTORY/source"' in module
+    assert "cp -R --no-preserve=mode" in module
+    assert 'export REPO="$STATE_DIRECTORY/source"' in module
+    assert "set -euo pipefail" in module
+    assert "git clone" not in module
+    assert "git pull" not in module
 
 
 def test_telstar_pause_stops_only_the_retry_unit():

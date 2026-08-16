@@ -498,6 +498,23 @@
         "type": "github"
       }
     },
+    "homelab-iac": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786915116,
+        "narHash": "sha256-QvkV8aJhabClNTDzEZHsxfeM5bEzB4lEbnVn7Qg0yyg=",
+        "owner": "ErikBPF",
+        "repo": "homelab-iac",
+        "rev": "f1c4441bce15c58f175851e8f20544d0881215a9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ErikBPF",
+        "repo": "homelab-iac",
+        "rev": "f1c4441bce15c58f175851e8f20544d0881215a9",
+        "type": "github"
+      }
+    },
     "hyprcursor": {
       "inputs": {
         "hyprlang": [
@@ -1314,6 +1331,7 @@
         "herdr": "herdr",
         "hermes-flake": "hermes-flake",
         "home-manager": "home-manager",
+        "homelab-iac": "homelab-iac",
         "hyprland": "hyprland",
         "import-tree": "import-tree",
         "jovian": "jovian",

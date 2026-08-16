@@ -1,11 +1,11 @@
 # Scheduled Terraform/OpenTofu drift detection for the `homelab-iac` repo
 # (UniFi + Tailscale + Cloudflare + AdGuard). Opt-in per host: the host must
-# have the repo checked out and the sops age key for `.env.sops`. Providers
-# need LAN/tailnet reach to the controllers, so enable this on a fleet host on
-# the LAN (e.g. the laptop or discovery), not a cloud runner.
+# has the sops age key for the pinned artifact's `.env.sops`. Providers need
+# LAN/tailnet reach to the controllers, so enable this on a fleet host on the
+# LAN (e.g. the laptop or discovery), not a cloud runner.
 #
 # Plans every Terragrunt unit (`bin/drift-check.sh`); alerts via ntfy on drift.
-_: {
+{inputs, ...}: {
   flake.modules.nixos.homelab-iac-drift = {
     config,
     lib,
@@ -16,12 +16,6 @@ _: {
   in {
     options.services.homelabIacDrift = {
       enable = lib.mkEnableOption "homelab-iac Terraform drift detection";
-
-      repoPath = lib.mkOption {
-        type = lib.types.str;
-        example = "/home/erik/Documents/erik/homelab-iac";
-        description = "Path to the homelab-iac checkout on this host.";
-      };
 
       user = lib.mkOption {
         type = lib.types.str;
@@ -85,11 +79,6 @@ _: {
     };
 
     config = lib.mkIf cfg.enable {
-      systemd.tmpfiles.rules = [
-        "d ${cfg.repoPath}/.terraform.d 0755 ${cfg.user} users - -"
-        "d ${cfg.repoPath}/.terraform.d/plugin-cache 0755 ${cfg.user} users - -"
-      ];
-
       systemd.services.homelab-iac-drift = {
         description = "homelab-iac Terraform drift check";
         after = [
@@ -106,7 +95,6 @@ _: {
           age
           curl
           jq
-          git
           openssh
           docker
           openbao
@@ -122,7 +110,7 @@ _: {
             SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
             # Without a shared plugin cache, `run --all` re-downloads every
             # provider (4 × tens of MB) for all 9 units on every scheduled run.
-            TF_PLUGIN_CACHE_DIR = "${cfg.repoPath}/.terraform.d/plugin-cache";
+            TF_PLUGIN_CACHE_DIR = "/var/lib/homelab-iac-drift/plugin-cache";
           }
           // lib.optionalAttrs (cfg.ociSshPubKeyFile != "") {
             OCI_SSH_PUBKEY_FILE = cfg.ociSshPubKeyFile;
@@ -135,17 +123,20 @@ _: {
           Type = "oneshot";
           SuccessExitStatus = [2];
           User = cfg.user;
-          WorkingDirectory = cfg.repoPath;
+          StateDirectory = "homelab-iac-drift";
+          StateDirectoryMode = "0700";
+          WorkingDirectory = "/var/lib/homelab-iac-drift";
           # Load the repo's secrets into the environment, then plan all units.
           # `sops exec-env` can't be used: it has no --input-type flag and
           # defaults to JSON-parsing the dotenv-format .env.sops (fails). So
           # decrypt with the explicit dotenv types (same as servarr-pull) and
           # export via `set -a`. Plaintext stays in a pipe — never on disk.
           ExecStart = pkgs.writeShellScript "homelab-iac-drift" ''
-            cd ${lib.escapeShellArg cfg.repoPath}
-            # Refresh first so newly encrypted credentials are available to
-            # this invocation instead of only the next scheduled run.
-            ${pkgs.git}/bin/git pull --ff-only
+            set -euo pipefail
+            rm -rf "$STATE_DIRECTORY/source"
+            cp -R --no-preserve=mode ${inputs.homelab-iac} "$STATE_DIRECTORY/source"
+            mkdir -p "$TF_PLUGIN_CACHE_DIR"
+            cd "$STATE_DIRECTORY/source"
             # Read the Discord webhook from its secret file (kept out of the Nix
             # store / process env baked at eval). drift-check.sh alerts if set.
             ${lib.optionalString (cfg.discordWebhookFile != "") ''

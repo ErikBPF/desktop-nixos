@@ -117,6 +117,12 @@
       flake = false;
     };
 
+    # Runtime jobs execute this reviewed source revision, never a mutable checkout.
+    homelab-iac = {
+      url = "github:ErikBPF/homelab-iac/f1c4441bce15c58f175851e8f20544d0881215a9";
+      flake = false;
+    };
+
     # Terminal multiplexer for AI coding agents (claude-code/codex/opencode/
     # hermes). Third-party Rust flake — pinned to a release tag, and left on
     # its own nixpkgs (no `follows`) so the Rust toolchain it builds against

@@ -48,10 +48,15 @@ _: {
       runtimeInputs = [pkgs.docker pkgs.coreutils];
       text = ''
         set -euo pipefail
+        ready=0
         for _ in $(seq 1 30); do
-          if docker exec hermes-agent test -d /opt/hermes 2>/dev/null; then break; fi
+          if docker exec hermes-agent test -d /opt/hermes 2>/dev/null; then
+            ready=1
+            break
+          fi
           sleep 4
         done
+        [ "$ready" -eq 1 ]
         docker cp ${seedPy} hermes-agent:/tmp/wiki-cron-seed.py
         docker exec -u 10000 -e HOME=/opt/data hermes-agent python3 /tmp/wiki-cron-seed.py
         docker exec hermes-agent rm -f /tmp/wiki-cron-seed.py
@@ -134,9 +139,13 @@ _: {
       wantedBy = ["multi-user.target"];
       after = ["docker-hermes-agent.service"];
       requires = ["docker-hermes-agent.service"];
+      startLimitIntervalSec = 300;
+      startLimitBurst = 5;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        Restart = "on-failure";
+        RestartSec = "30s";
         ExecStart = "${seedScript}/bin/hermes-wiki-cron-seed";
       };
     };

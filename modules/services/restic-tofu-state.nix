@@ -189,6 +189,15 @@
         ];
       };
 
+      systemd.services.restic-backups-tofu-state-offsite = lib.mkIf (cfg.offsiteRepository != "") {
+        startLimitIntervalSec = 600;
+        startLimitBurst = 3;
+        serviceConfig = {
+          Restart = "on-failure";
+          RestartSec = "60s";
+        };
+      };
+
       # Off-premise copy to voyager's append-only restic REST server (Oracle).
       # The only tier outside the house — survives losing the whole building.
       # The full URL (incl. basic-auth password) lives in sops and is read via

@@ -112,7 +112,6 @@ in {
     # reach to every provider and hosts the MinIO state backend it plans against.
     services.homelabIacDrift = {
       enable = true;
-      repoPath = "/home/${config.username}/homelab-iac";
       user = config.username;
       discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
       # The oracle/compute* units cat this at plan time; without it they fall
