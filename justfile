@@ -2441,6 +2441,7 @@ grafana-alert-diagnostics:
     }
     diagnose endeavour ampagent-watchdog.service
     diagnose endeavour nixos-upgrade.service
+    diagnose orion nix-cache-builder.service
     diagnose orion nixos-upgrade.service
     diagnose discovery telstar-capture.service
     diagnose discovery homelab-iac-drift.service
@@ -3369,17 +3370,20 @@ verify-container-metrics:
     #!/usr/bin/env bash
     set -euo pipefail
     response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
-      --data-urlencode 'query=container_last_seen{name!=""} or podman_container_info{name!=""}')
+      --data-urlencode 'query=container_last_seen or podman_container_info')
+    failed=0
     for host in discovery kepler orion; do
-      count=$(printf '%s\n' "$response" | jq --arg host "$host" '[.data.result[]? | select(.metric.host == $host)] | length')
-      printf '%s named_containers=%s\n' "$host" "$count"
-      test "$count" -gt 0
+      raw_count=$(printf '%s\n' "$response" | jq --arg host "$host" '[.data.result[]? | select(.metric.host == $host)] | length')
+      named_count=$(printf '%s\n' "$response" | jq --arg host "$host" '[.data.result[]? | select(.metric.host == $host and (.metric.name // "") != "")] | length')
+      printf '%s raw_containers=%s named_containers=%s\n' "$host" "$raw_count" "$named_count"
+      [ "$named_count" -gt 0 ] || failed=1
     done
+    exit "$failed"
 
 # Inspect the host collector when container metrics verification fails.
 diagnose-container-metrics host:
     ssh -p 2222 erik@{{host}} \
-      "systemctl status alloy --no-pager -n 20; journalctl -u alloy --since '-10 minutes' --no-pager -n 100"
+      "systemctl show alloy docker --property=Id,ActiveState,SubState,Result,ActiveEnterTimestamp --no-pager; journalctl -b -u alloy --no-pager -n 300 | grep -Ei 'cadvisor|containerd|docker|factory' || true"
 
 # Read-only proof that cp-1's timer last reconciled both bootstrap Secrets.
 verify-k3s-bootstrap:
