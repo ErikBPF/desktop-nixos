@@ -41,7 +41,7 @@ _: {
               name = "cryptroot";
               passwordFile = "/tmp/luks-password.txt";
               extraOpenArgs = ["--allow-discards" "--perf-no_read_workqueue" "--perf-no_write_workqueue"];
-              settings.crypttabExtraOpts = ["fido2-device=auto" "token-timeout=10"];
+              settings.crypttabExtraOpts = ["tpm2-device=auto"];
               content = {
                 type = "btrfs";
                 extraArgs = ["-L" "nixos" "-f"];

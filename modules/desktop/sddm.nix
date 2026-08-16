@@ -33,10 +33,6 @@ in {
           theme = "sddm-astronaut-theme";
           extraPackages = [sddm-astronaut-with-wallpaper];
         };
-        autoLogin = {
-          enable = true;
-          user = "erik";
-        };
       };
     };
   };
