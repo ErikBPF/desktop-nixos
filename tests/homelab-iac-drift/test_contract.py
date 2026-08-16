@@ -43,3 +43,14 @@ def test_drift_path_keeps_git_for_terragrunt_repo_root():
     ).read_text()
 
     assert "\n          git\n" in module
+
+
+def test_pinned_source_gets_local_git_metadata_for_terragrunt():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    init = 'git -c init.defaultBranch=main init --quiet "$STATE_DIRECTORY/source"'
+    assert init in module
+    assert module.index("cp -R --no-preserve=mode") < module.index(init)
+    assert module.index(init) < module.index('cd "$STATE_DIRECTORY/source"')
