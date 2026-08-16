@@ -139,6 +139,7 @@ in {
 
     config = let
       cfg = config.homelab.compose;
+      machine = builtins.baseNameOf cfg.composeDir;
       declaredStacks = cfg.stacks;
       servarrExactRevision = pkgs.writeShellApplication {
         name = "servarr-exact-revision";
@@ -336,19 +337,27 @@ in {
                       # leaving the host silently stale.
                       if [ -e "$REPO/.deploy-commit" ]; then
                         [ -f "$REPO/.deploy-commit" ] || { echo "servarr-pull: exact revision pin is not a regular file" >&2; exit 1; }
-                        ${pkgs.jq}/bin/jq -e '
+                        ${pkgs.jq}/bin/jq -e --arg machine "${machine}" '
                           (keys | sort) == ["pin", "pin_sha256"] and
-                          (.pin | keys | sort) == ["commit", "render_sha256", "selection", "tree", "version"] and
-                          .pin.version == 1 and
                           (.pin.commit | test("^[0-9a-f]{40}$")) and
                           (.pin.tree | test("^[0-9a-f]{40}$")) and
-                          (.pin.render_sha256 | test("^[0-9a-f]{64}$")) and
-                          (.pin.selection == "forward" or .pin.selection == "rollback") and
-                          (.pin_sha256 | test("^[0-9a-f]{64}$"))
+                          (.pin_sha256 | test("^[0-9a-f]{64}$")) and
+                          (
+                            ((.pin | keys | sort) == ["commit", "render_sha256", "selection", "tree", "version"] and
+                             .pin.version == 1 and
+                             $machine == "discovery" and
+                             (.pin.render_sha256 | test("^[0-9a-f]{64}$")) and
+                             (.pin.selection == "forward" or .pin.selection == "rollback")) or
+                            ((.pin | keys | sort) == ["commit", "machine", "tree", "version"] and
+                             .pin.version == 2 and .pin.machine == $machine)
+                          )
                         ' "$REPO/.deploy-commit" >/dev/null || { echo "servarr-pull: malformed exact revision pin" >&2; exit 1; }
+                        PIN_VERSION="$(${pkgs.jq}/bin/jq -r .pin.version "$REPO/.deploy-commit")"
                         PINNED_COMMIT="$(${pkgs.jq}/bin/jq -r .pin.commit "$REPO/.deploy-commit")"
                         PINNED_TREE="$(${pkgs.jq}/bin/jq -r .pin.tree "$REPO/.deploy-commit")"
-                        PINNED_RENDER="$(${pkgs.jq}/bin/jq -r .pin.render_sha256 "$REPO/.deploy-commit")"
+                        if [ "$PIN_VERSION" -eq 1 ]; then
+                          PINNED_RENDER="$(${pkgs.jq}/bin/jq -r .pin.render_sha256 "$REPO/.deploy-commit")"
+                        fi
                         PINNED_SHA="$(${pkgs.jq}/bin/jq -r .pin_sha256 "$REPO/.deploy-commit")"
                         ACTUAL_PIN_SHA="$(${pkgs.jq}/bin/jq -jcS .pin "$REPO/.deploy-commit" | ${pkgs.coreutils}/bin/sha256sum | cut -d' ' -f1)"
                         [ "$ACTUAL_PIN_SHA" = "$PINNED_SHA" ] || { echo "servarr-pull: exact revision pin hash differs" >&2; exit 1; }
@@ -382,7 +391,7 @@ in {
                         ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt "$MACHINE_DIR/.env.sops" > "$MACHINE_DIR/.env.new" \
                           && mv "$MACHINE_DIR/.env.new" "$MACHINE_DIR/.env"
                       fi
-                      if [ "$EXACT_PIN_ACTIVE" -eq 1 ]; then
+                      if [ "$EXACT_PIN_ACTIVE" -eq 1 ] && [ "$PIN_VERSION" -eq 1 ]; then
                         ACTUAL_RENDER="$(${pkgs.docker-compose}/bin/docker-compose \
                           --project-name networking --project-directory "$MACHINE_DIR" \
                           --env-file "$MACHINE_DIR/.env" --env-file /run/vault-agent/networking.env \

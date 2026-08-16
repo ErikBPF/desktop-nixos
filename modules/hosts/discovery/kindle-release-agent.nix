@@ -81,6 +81,7 @@ _: {
         ReadWritePaths = [
           "/home/erik/servarr"
           "/run/kindle-release-agent"
+          "/run/lock/servarr-repository.lock"
           "/run/user/1000"
           "/var/lib/kindle-release-agent"
           "/var/lib/node-exporter-textfile"

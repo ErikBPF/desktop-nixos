@@ -2184,15 +2184,54 @@ prep-servarr:
 pull-servarr target branch="main":
     #!/usr/bin/env bash
     set -euo pipefail
-    IP="$(just _host-ip {{target}})"
-    echo ":: Pointing {{target}} servarr clone at origin/{{branch}} and pulling..."
-    ssh -p 2222 erik@"$IP" "printf '%s\n' {{branch}} > /home/erik/servarr/.deploy-branch"
+    target={{ quote(target) }}
+    branch={{ quote(branch) }}
+    [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "BLOCKED: invalid branch" >&2; exit 2; }
+    git check-ref-format --branch "$branch" >/dev/null || { echo "BLOCKED: invalid branch" >&2; exit 2; }
+    IP="$(just _host-ip "$target")"
+    echo ":: Pointing $target servarr clone at origin/$branch and pulling..."
+    ssh -p 2222 erik@"$IP" bash -s -- "$branch" <<'REMOTE'
+    set -euo pipefail
+    branch="$1"
+    repo=/home/erik/servarr
+    test ! -e "$repo/.deploy-commit" || { echo 'BLOCKED: exact Servarr revision pin exists' >&2; exit 2; }
+    printf '%s\n' "$branch" > "$repo/.deploy-branch"
+    REMOTE
     # daemon-reload picks up a freshly-deployed unit; restart (not start) is
     # required because servarr-pull is RemainAfterExit — `start` no-ops once it
     # has run, so the reset --hard would never re-fire.
     ssh -p 2222 erik@"$IP" 'uid=$(id -u); sudo systemctl start user-runtime-dir@$uid.service user@$uid.service; export XDG_RUNTIME_DIR=/run/user/$uid; systemctl --user daemon-reload && systemctl --user restart servarr-pull.service'
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status servarr-pull.service --no-pager -n15'
-    echo ":: {{target}} now on origin/{{branch}}. Recreate changed stacks: just kick-stack {{target}} <stack>"
+    echo ":: $target now on origin/$branch. Recreate changed stacks: just kick-stack $target <stack>"
+
+# Pin one host to an exact Servarr commit already published on origin/main.
+pin-servarr target commit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{ quote(target) }}
+    commit={{ quote(commit) }}
+    [[ "$target" =~ ^[a-z0-9-]+$ ]] || { echo "BLOCKED: invalid host" >&2; exit 2; }
+    [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "BLOCKED: commit must be a full SHA-1" >&2; exit 2; }
+    IP="$(just _host-ip "$target")"
+    ssh -p 2222 erik@"$IP" bash -s -- "$commit" "$target" <<'REMOTE'
+    set -euo pipefail
+    commit="$1"
+    target="$2"
+    repo=/home/erik/servarr
+    flock -x /run/lock/servarr-repository.lock git -C "$repo" fetch --prune origin refs/heads/main:refs/remotes/origin/main
+    helper=$(readlink -f "$(command -v servarr-exact-revision)")
+    case "$helper" in
+      /nix/store/*/bin/servarr-exact-revision) ;;
+      *) echo "BLOCKED: declarative servarr-exact-revision helper unavailable" >&2; exit 2 ;;
+    esac
+    "$helper" pin-v2 "$commit" "$target"
+    uid=$(id -u)
+    sudo -n /run/current-system/sw/bin/systemctl start "user-runtime-dir@$uid.service" "user@$uid.service"
+    export XDG_RUNTIME_DIR="/run/user/$uid"
+    systemctl --user daemon-reload
+    systemctl --user restart servarr-pull.service
+    systemctl --user status servarr-pull.service --no-pager -n15
+    REMOTE
 
 # Repair only the Git checkout surface; leave untracked container runtime state alone.
 repair-servarr-checkout target:
@@ -4835,9 +4874,9 @@ discovery-adguard-recover-superseded manifest_sha256:
     /run/current-system/sw/bin/chmod 0755 "$root"
     /run/current-system/sw/bin/chmod 0755 "$base"
     /run/current-system/sw/bin/chmod 0755 "$evidence"
-    /run/wrappers/bin/sudo -u erik -- "$helper" activate rollback --prefetch "$prefetch" --authorization "$evidence/revision-rollback-authorization.json" --output "$rollback_output"
-    /run/wrappers/bin/sudo -u erik -- "$compose" --project-name networking --project-directory /home/erik/servarr/machines/discovery --env-file /home/erik/servarr/machines/discovery/.env --env-file /run/vault-agent/networking.env -f /home/erik/servarr/machines/discovery/networking.yml up -d --no-deps --force-recreate adguard adguard-exporter
-    /run/wrappers/bin/sudo -u erik -- "$helper" activate forward --prefetch "$prefetch" --authorization "$evidence/revision-forward-authorization.json" --output "$forward_output"
+    /run/wrappers/bin/sudo -n -u erik -- "$helper" activate rollback --prefetch "$prefetch" --authorization "$evidence/revision-rollback-authorization.json" --output "$rollback_output"
+    /run/wrappers/bin/sudo -n -u erik -- "$compose" --project-name networking --project-directory /home/erik/servarr/machines/discovery --env-file /home/erik/servarr/machines/discovery/.env --env-file /run/vault-agent/networking.env -f /home/erik/servarr/machines/discovery/networking.yml up -d --no-deps --force-recreate adguard adguard-exporter
+    /run/wrappers/bin/sudo -n -u erik -- "$helper" activate forward --prefetch "$prefetch" --authorization "$evidence/revision-forward-authorization.json" --output "$forward_output"
     /run/current-system/sw/bin/install -m 0400 "$rollback_output" "$evidence/manual-rollback-revision.json"
     /run/current-system/sw/bin/install -m 0400 "$forward_output" "$evidence/manual-forward-revision.json"
     REMOTE
@@ -4920,7 +4959,7 @@ discovery-adguard-runtime-split servarr_commit:
     sudo -n test ! -L "$runtime"
     test "$(sudo -n stat -c %a "$runtime")" = 600
     if ! $runtime_preexisting; then
-      sudo -n cmp -s "$helper_source" "$runtime"
+      sudo -n /run/current-system/sw/bin/cmp -s "$helper_source" "$runtime"
     fi
     if ! git diff --quiet -- . ':(exclude)machines/discovery/config/adguard/AdGuardHome.yaml'; then
       approved_tree=false

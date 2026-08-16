@@ -215,7 +215,9 @@ class ExactRevisionTest(unittest.TestCase):
 
     def test_decrypt_prepare_failure_leaves_head_pin_and_environment_unchanged(self):
         prefetch = self.prefetch(); auth = self.authorization(prefetch, "rollback")
-        pin = self.fx.work / ".deploy-commit"; pin.write_text(self.fx.forward + "\n")
+        pin = self.fx.work / ".deploy-commit"
+        pin.write_text(json.dumps(self.m._pin_envelope(
+            prefetch["contract"]["forward"], "forward")))
         env = self.fx.work / "machines/discovery/.env"; env.write_text("old-runtime\n")
         class Failure:
             def prepare(self, repo, commit): raise RuntimeError("injected")
@@ -233,7 +235,9 @@ class ExactRevisionTest(unittest.TestCase):
 
     def test_install_and_pin_failures_restore_head_tree_pin_and_environment(self):
         prefetch = self.prefetch(); auth = self.authorization(prefetch, "rollback")
-        pin = self.fx.work / ".deploy-commit"; pin.write_text(self.fx.forward + "\n")
+        pin = self.fx.work / ".deploy-commit"
+        pin.write_text(json.dumps(self.m._pin_envelope(
+            prefetch["contract"]["forward"], "forward")))
         env = self.fx.work / "machines/discovery/.env"; env.write_bytes(b"prior-runtime\n")
         env.chmod(0o640)
         before = (git(self.fx.work, "rev-parse", "HEAD"),
@@ -354,6 +358,117 @@ class ExactRevisionTest(unittest.TestCase):
             "unpin_supported": False,
             "version": 1,
         })
+
+    def test_v2_pins_any_published_commit_and_machine_without_render_digest(self):
+        machine = self.fx.source / "machines/orion"
+        machine.mkdir()
+        (machine / "compose.yml").write_text("services: {}\n")
+        git(self.fx.source, "add", ".")
+        git(self.fx.source, "commit", "-m", "orion")
+        commit = git(self.fx.source, "rev-parse", "HEAD")
+        git(self.fx.source, "push", "origin", "main")
+        git(self.fx.work, "fetch", "origin", "main")
+
+        envelope = self.m.pin_v2(self.fx.work, commit, "orion")
+
+        self.assertEqual(json.loads((self.fx.work / ".deploy-commit").read_text()), envelope)
+        self.assertEqual(envelope["pin"], {
+            "commit": commit,
+            "machine": "orion",
+            "tree": git(self.fx.work, "show", "-s", "--format=%T", commit),
+            "version": 2,
+        })
+        self.assertEqual(envelope["pin_sha256"], digest(envelope["pin"]))
+        self.assertNotIn("render_sha256", json.dumps(envelope))
+
+    def test_v2_refuses_to_replace_active_v1_migration_pin(self):
+        prefetch = self.prefetch()
+        pin = self.fx.work / ".deploy-commit"
+        legacy = self.m._pin_envelope(prefetch["contract"]["forward"], "forward")
+        pin.write_text(json.dumps(legacy))
+        before = pin.read_bytes()
+
+        with self.assertRaisesRegex(self.m.ContractError, "retired"):
+            self.m.pin_v2(self.fx.work, self.fx.forward, "discovery")
+
+        self.assertEqual(pin.read_bytes(), before)
+
+    def test_v1_activate_refuses_to_replace_active_v2_pin_before_reset(self):
+        prefetch = self.prefetch()
+        auth = self.authorization(prefetch)
+        pin = self.fx.work / ".deploy-commit"
+        self.m.pin_v2(self.fx.work, self.fx.forward, "discovery")
+        git(self.fx.work, "reset", "--hard", self.fx.rollback)
+        before = (git(self.fx.work, "rev-parse", "HEAD"), pin.read_bytes())
+        calls = []
+        runner = self.m.GitRunner(observer=lambda argv: calls.append(tuple(argv)))
+
+        with self.assertRaisesRegex(self.m.ContractError, "retired"):
+            self.m.activate(self.fx.work, "forward", prefetch, auth,
+                            prefetch_path=self.prefetch_path, runner=runner)
+
+        self.assertEqual((git(self.fx.work, "rev-parse", "HEAD"), pin.read_bytes()), before)
+        self.assertFalse(any("reset" in argv for argv in calls))
+
+    def test_v1_activate_rejects_every_invalid_existing_pin_before_reset(self):
+        prefetch = self.prefetch()
+        auth = self.authorization(prefetch)
+        pin = self.fx.work / ".deploy-commit"
+        valid = self.m._pin_envelope(prefetch["contract"]["forward"], "forward")
+        bad_hash = json.loads(json.dumps(valid))
+        bad_hash["pin_sha256"] = "0" * 64
+        future = json.loads(json.dumps(valid))
+        future["pin"]["version"] = 3
+        future["pin_sha256"] = digest(future["pin"])
+        cases = {
+            "malformed-json": b"not-json\n",
+            "malformed-schema": b'{"pin":{"version":1}}\n',
+            "hash-drift": json.dumps(bad_hash).encode() + b"\n",
+            "future-version": json.dumps(future).encode() + b"\n",
+        }
+        git(self.fx.work, "reset", "--hard", self.fx.rollback)
+
+        for name, contents in cases.items():
+            with self.subTest(name=name):
+                pin.write_bytes(contents)
+                before = (git(self.fx.work, "rev-parse", "HEAD"), pin.read_bytes())
+                calls = []
+                runner = self.m.GitRunner(observer=lambda argv: calls.append(tuple(argv)))
+                with self.assertRaisesRegex(self.m.ContractError, "valid v1"):
+                    self.m.activate(self.fx.work, "forward", prefetch, auth,
+                                    prefetch_path=self.prefetch_path, runner=runner)
+                self.assertEqual(
+                    (git(self.fx.work, "rev-parse", "HEAD"), pin.read_bytes()), before)
+                self.assertFalse(any("reset" in argv for argv in calls))
+
+    def test_v2_rejects_invalid_unpublished_or_machine_mismatched_targets_without_mutation(self):
+        pin = self.fx.work / ".deploy-commit"
+        tree = git(self.fx.work, "show", "-s", "--format=%T", self.fx.forward)
+        for commit, machine in (("f" * 39, "discovery"), (tree, "discovery"),
+                                (self.fx.forward, "missing"), (self.fx.forward, "../discovery")):
+            with self.assertRaises(self.m.ContractError):
+                self.m.pin_v2(self.fx.work, commit, machine)
+            self.assertFalse(pin.exists())
+
+        git(self.fx.work, "config", "user.name", "fixture")
+        git(self.fx.work, "config", "user.email", "fixture@example.invalid")
+        (self.fx.work / "unpublished").write_text("x\n")
+        git(self.fx.work, "add", "unpublished")
+        git(self.fx.work, "commit", "-m", "unpublished")
+        unpublished = git(self.fx.work, "rev-parse", "HEAD")
+        with self.assertRaises(self.m.ContractError):
+            self.m.pin_v2(self.fx.work, unpublished, "discovery")
+        self.assertFalse(pin.exists())
+
+    def test_v2_rejects_malformed_existing_pin_without_mutation(self):
+        pin = self.fx.work / ".deploy-commit"
+        pin.write_bytes(b"existing-pin\n")
+        before = pin.read_bytes()
+
+        with self.assertRaisesRegex(self.m.ContractError, "malformed"):
+            self.m.pin_v2(self.fx.work, self.fx.forward, "discovery")
+
+        self.assertEqual(pin.read_bytes(), before)
 
     def test_source_has_no_shell_eval_or_secret_output_surface(self):
         source = HELPER.read_text().lower()

@@ -1302,22 +1302,34 @@ class ActivationContract(unittest.TestCase):
         self.agent = load_agent()
         self.commit = "b" * 40
 
-    def test_activation_uses_exact_published_commit(self):
+    def test_activation_uses_v2_pin_and_locked_pull_path(self):
         runner = self.Runner()
-        self.agent.activate_revision(runner, self.commit)
-        git = ["runuser", "-u", "erik", "--", "git", "-C", str(self.agent.SERVARR_REPO)]
+        self.agent.activate_revision(runner, 1000, self.commit)
         self.assertEqual(
             runner.calls,
             [
-                git + ["cat-file", "-e", f"{self.commit}^{{commit}}"],
-                git
-                + [
-                    "merge-base",
-                    "--is-ancestor",
+                [
+                    "runuser",
+                    "-u",
+                    "erik",
+                    "--",
+                    "/run/current-system/sw/bin/servarr-exact-revision",
+                    "pin-v2",
                     self.commit,
-                    "refs/remotes/origin/main",
+                    "discovery",
                 ],
-                git + ["reset", "--hard", self.commit],
+                [
+                    "runuser",
+                    "-u",
+                    "erik",
+                    "--",
+                    "env",
+                    "XDG_RUNTIME_DIR=/run/user/1000",
+                    "systemctl",
+                    "--user",
+                    "restart",
+                    "servarr-pull.service",
+                ],
             ],
         )
 
@@ -1345,7 +1357,13 @@ class ActivationContract(unittest.TestCase):
     def test_malformed_commit_halts_before_command(self):
         runner = self.Runner()
         with self.assertRaises(ValueError):
-            self.agent.activate_revision(runner, "main")
+            self.agent.activate_revision(runner, 1000, "main")
+        self.assertEqual(runner.calls, [])
+
+    def test_invalid_uid_halts_before_command(self):
+        runner = self.Runner()
+        with self.assertRaises(ValueError):
+            self.agent.activate_revision(runner, 0, self.commit)
         self.assertEqual(runner.calls, [])
 
 
@@ -1570,7 +1588,7 @@ class SystemOperationsContract(unittest.TestCase):
             self.operations.execute("recreated", self.state)
             self.operations.execute("validated", self.state)
             self.operations.execute("succeeded", self.state)
-        activate.assert_called_once_with(self.runner, self.state["commit"])
+        activate.assert_called_once_with(self.runner, 1000, self.state["commit"])
         recreate.assert_called_once_with(self.runner, 1000)
         validate.assert_called_once_with(self.runner, self.state["digest"])
 
@@ -1591,6 +1609,7 @@ class SystemOperationsContract(unittest.TestCase):
             self.operations.execute("failed", self.state)
         activate.assert_called_once_with(
             self.runner,
+            1000,
             self.state["previous"]["commit"],
         )
         recreate.assert_called_once_with(self.runner, 1000)
@@ -3043,6 +3062,7 @@ class NixModuleContract(unittest.TestCase):
             "ReadWritePaths",
             "RuntimeDirectory = \"kindle-release-agent\"",
             "/run/kindle-release-agent",
+            "/run/lock/servarr-repository.lock",
             "/var/lib/kindle-release-agent",
             "/var/lib/node-exporter-textfile",
             "/home/erik/servarr",
