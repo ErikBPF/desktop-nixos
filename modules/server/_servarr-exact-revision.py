@@ -322,6 +322,53 @@ def _validate_pin(envelope, target, selection):
         raise ContractError("exact revision pin drift")
 
 
+def _pin_envelope_v2(target, machine):
+    pin = {"commit": target["commit"], "machine": machine,
+           "tree": target["tree"], "version": 2}
+    return {"pin": pin, "pin_sha256": _digest(pin)}
+
+
+def _validate_pin_v2(envelope, target, machine):
+    _exact(envelope, {"pin", "pin_sha256"}, "v2 revision pin envelope")
+    _exact(envelope["pin"], {"version", "commit", "machine", "tree"}, "v2 revision pin")
+    if envelope != _pin_envelope_v2(target, machine):
+        raise ContractError("v2 exact revision pin drift")
+
+
+def pin_v2(repo, commit, machine, output=None, runner=None, lock_path=None):
+    """Atomically pin one locally present, published commit for one machine."""
+    if (not isinstance(machine, str) or not machine or len(machine) > 63
+            or machine[0] == "-" or machine[-1] == "-"
+            or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-"
+                   for character in machine)):
+        raise ContractError("invalid machine")
+    runner = runner or GitRunner()
+    lock_path = Path(lock_path or LOCK_PATH)
+    pin_path = Path(output or Path(repo) / ".deploy-commit")
+    with lock_path.open("a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if pin_path.exists():
+            try:
+                existing = _read(pin_path)
+            except (OSError, ValueError) as error:
+                raise ContractError("existing exact revision pin is malformed") from error
+            existing_pin = existing.get("pin") if isinstance(existing, dict) else None
+            if not isinstance(existing_pin, dict) or existing_pin.get("version") != 2:
+                raise ContractError("existing non-v2 revision pin must be retired first")
+        target = _object(runner, repo, commit)
+        machine_tree = runner.run(repo, "cat-file", "-t", f"{commit}:machines/{machine}",
+                                  check=False)
+        if machine_tree.returncode or machine_tree.stdout.strip() != "tree":
+            raise ContractError("machine absent from target")
+        if runner.run(repo, "merge-base", "--is-ancestor", commit,
+                      "refs/remotes/origin/main", check=False).returncode:
+            raise ContractError("target is not published on origin/main")
+        envelope = _pin_envelope_v2(target, machine)
+        _validate_pin_v2(envelope, target, machine)
+        _atomic_json(pin_path, envelope)
+    return envelope
+
+
 def activate(repo, selection, prefetch_envelope, authorization, prefetch_path,
              output=None, runner=None, decryptor=None, lock_path=None):
     """Atomically select a prefetched revision. Never performs network I/O."""
@@ -329,14 +376,28 @@ def activate(repo, selection, prefetch_envelope, authorization, prefetch_path,
     lock_path = Path(lock_path or LOCK_PATH)
     with lock_path.open("a+") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        pin_path = Path(repo) / ".deploy-commit"
         validate_prefetch(prefetch_envelope)
         target = _target(prefetch_envelope, selection)
+        if pin_path.exists():
+            try:
+                existing = _read(pin_path)
+            except (OSError, ValueError) as error:
+                raise ContractError("existing exact revision pin is not valid v1") from error
+            existing_pin = existing.get("pin") if isinstance(existing, dict) else None
+            if isinstance(existing_pin, dict) and existing_pin.get("version") == 2:
+                raise ContractError("existing v2 revision pin must be retired first")
+            try:
+                existing_selection = existing_pin["selection"]
+                _validate_pin(existing, _target(prefetch_envelope, existing_selection),
+                              existing_selection)
+            except (ContractError, KeyError, TypeError) as error:
+                raise ContractError("existing exact revision pin is not valid v1") from error
         _validate_authorization(authorization, prefetch_envelope, selection, prefetch_path)
         _validate_prefetch_file(prefetch_path, prefetch_envelope, authorization)
         _recheck_local_bindings(runner, repo, prefetch_envelope)
         before = _git(runner, repo, "rev-parse", "HEAD")
         environment_path = Path(repo) / "machines/discovery/.env"
-        pin_path = Path(repo) / ".deploy-commit"
         environment_snapshot = _snapshot_path(environment_path)
         pin_snapshot = _snapshot_path(pin_path)
         current_blob = _blob(runner, repo, before)
@@ -463,6 +524,9 @@ def main():
     verify_parser.add_argument("selection", choices=("forward", "rollback"))
     verify_parser.add_argument("--prefetch", required=True)
     verify_parser.add_argument("--output", required=True)
+    pin_v2_parser = subparsers.add_parser("pin-v2")
+    pin_v2_parser.add_argument("commit")
+    pin_v2_parser.add_argument("machine")
     arguments = parser.parse_args()
     if arguments.command == "prefetch":
         prefetch(output=arguments.output)
@@ -471,8 +535,11 @@ def main():
         activate(REPOSITORY, arguments.selection, _read(arguments.prefetch),
                  _read(arguments.authorization), arguments.prefetch,
                  output=arguments.output, decryptor=EnvironmentDecryptor())
-    else:
+    elif arguments.command == "verify":
         verify(REPOSITORY, arguments.selection, _read(arguments.prefetch), output=arguments.output)
+    else:
+        _require_repository_owner()
+        pin_v2(REPOSITORY, arguments.commit, arguments.machine)
 
 
 if __name__ == "__main__":

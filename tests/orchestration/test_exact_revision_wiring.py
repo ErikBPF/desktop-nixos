@@ -1,5 +1,7 @@
+import os
 import pathlib
 import re
+import subprocess
 import tempfile
 import unittest
 
@@ -21,11 +23,92 @@ class ExactRevisionWiringTest(unittest.TestCase):
             1,
         )
         self.assertIn(".pin.version == 1", exact)
+        self.assertIn('$machine == "discovery"', exact)
         self.assertIn('show -s --format=%T "$PINNED_COMMIT"', exact)
         self.assertIn('cat-file -e "$PINNED_COMMIT^{commit}"', exact)
         self.assertIn('reset --hard "$PINNED_COMMIT"', exact)
         self.assertNotIn(" fetch ", exact)
         self.assertIn('fetch --prune origin "$BRANCH"', branch)
+
+    def test_generic_v2_pin_is_machine_bound_and_skips_migration_render(self):
+        exact = self.source.split('if [ -e "$REPO/.deploy-commit" ]; then', 1)[1]
+        exact = exact.split("else\n                        EXACT_PIN_ACTIVE=0", 1)[0]
+        self.assertIn(".pin.version == 2", exact)
+        self.assertIn('.pin.machine == $machine', exact)
+        self.assertIn('PIN_VERSION="$(' , exact)
+        self.assertIn(
+            'if [ "$EXACT_PIN_ACTIVE" -eq 1 ] && [ "$PIN_VERSION" -eq 1 ]; then',
+            self.source,
+        )
+
+    def test_generic_v2_operator_prefetches_published_commit_then_pins_host(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split("pin-servarr target commit:", 1)[1]
+        recipe = recipe.split("\n# ", 1)[0]
+        self.assertIn("target={{ quote(target) }}", recipe)
+        self.assertIn("commit={{ quote(commit) }}", recipe)
+        self.assertIn('[[ "$commit" =~ ^[0-9a-f]{40}$ ]]', recipe)
+        self.assertIn('[[ "$target" =~ ^[a-z0-9-]+$ ]]', recipe)
+        self.assertIn('IP="$(just _host-ip "$target")"', recipe)
+        fetch = (
+            'git -C "$repo" fetch --prune origin '
+            'refs/heads/main:refs/remotes/origin/main'
+        )
+        pin = '"$helper" pin-v2 "$commit" "$target"'
+        self.assertIn(fetch, recipe)
+        self.assertIn(
+            'flock -x /run/lock/servarr-repository.lock git -C "$repo" fetch',
+            recipe,
+        )
+        self.assertIn(pin, recipe)
+        self.assertLess(recipe.index(fetch), recipe.index(pin))
+        self.assertIn('systemctl --user restart servarr-pull.service', recipe)
+        self.assertIn(
+            'sudo -n /run/current-system/sw/bin/systemctl start', recipe
+        )
+        self.assertNotIn("sudo systemctl", recipe)
+        self.assertNotIn('sudo -n "$helper"', recipe)
+
+    def test_branch_pull_refuses_to_overwrite_policy_while_exact_pin_exists(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split('pull-servarr target branch="main":', 1)[1]
+        recipe = recipe.split("\n# ", 1)[0]
+        guard = 'test ! -e "$repo/.deploy-commit"'
+        write = '> "$repo/.deploy-branch"'
+        self.assertIn(guard, recipe)
+        self.assertIn("BLOCKED: exact Servarr revision pin exists", recipe)
+        self.assertLess(recipe.index(guard), recipe.index(write))
+
+    def test_branch_pull_validates_ref_and_passes_it_as_remote_argument(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split('pull-servarr target branch="main":', 1)[1]
+        recipe = recipe.split("\n# ", 1)[0]
+        self.assertIn("branch={{ quote(branch) }}", recipe)
+        self.assertIn('git check-ref-format --branch "$branch"', recipe)
+        self.assertIn('bash -s -- "$branch" <<\'REMOTE\'', recipe)
+        self.assertIn('branch="$1"', recipe)
+        self.assertIn('printf \'%s\\n\' "$branch"', recipe)
+        self.assertNotIn("{{branch}}", recipe)
+
+    def test_branch_pull_rejects_remote_shell_metacharacters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fake_ssh = pathlib.Path(directory) / "ssh"
+            fake_ssh.write_text("#!/bin/sh\nexit 99\n")
+            fake_ssh.chmod(0o755)
+            env = os.environ.copy()
+            env["PATH"] = f"{directory}:{env['PATH']}"
+            for branch in ("feature;x", "feature/$(id)", "feature/`id`"):
+                with self.subTest(branch=branch):
+                    result = subprocess.run(
+                        ["just", "pull-servarr", "discovery", branch],
+                        cwd=ROOT,
+                        env=env,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("BLOCKED: invalid branch", result.stderr)
 
     def test_malformed_or_missing_exact_object_fails_closed(self):
         for message in (

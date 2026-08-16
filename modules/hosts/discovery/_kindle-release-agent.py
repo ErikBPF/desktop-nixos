@@ -643,7 +643,7 @@ class SystemOperations:
                 load_harbor_robot(self.harbor_env),
             )
         elif phase == "activated":
-            activate_revision(self.runner, state["commit"])
+            activate_revision(self.runner, self.uid, state["commit"])
         elif phase == "recreated":
             recreate_kindle(self.runner, self.uid)
         elif phase == "validated":
@@ -651,7 +651,7 @@ class SystemOperations:
                 raise RuntimeError("controlled post-recreate failure")
             validate_runtime(self.runner, state["digest"])
         elif phase == "rollback-activated":
-            activate_revision(self.runner, state["previous"]["commit"])
+            activate_revision(self.runner, self.uid, state["previous"]["commit"])
         elif phase == "rollback-recreated":
             recreate_kindle(self.runner, self.uid)
         elif phase == "rollback-validated":
@@ -846,21 +846,37 @@ def verify_harbor(runner, digest):
         raise ValueError(f"Harbor digest mismatch: expected {digest}, got {actual}")
 
 
-def activate_revision(runner, commit):
+def activate_revision(runner, uid, commit):
     if not COMMIT_RE.fullmatch(commit):
         raise ValueError("invalid activation commit")
-    git = ["runuser", "-u", "erik", "--", "git", "-C", str(SERVARR_REPO)]
-    runner.run(git + ["cat-file", "-e", f"{commit}^{{commit}}"])
+    if not isinstance(uid, int) or uid <= 0:
+        raise ValueError("invalid deploy user uid")
     runner.run(
-        git
-        + [
-            "merge-base",
-            "--is-ancestor",
+        [
+            "runuser",
+            "-u",
+            DEPLOY_USER,
+            "--",
+            "/run/current-system/sw/bin/servarr-exact-revision",
+            "pin-v2",
             commit,
-            f"refs/remotes/origin/{SERVARR_BRANCH}",
+            "discovery",
         ]
     )
-    runner.run(git + ["reset", "--hard", commit])
+    runner.run(
+        [
+            "runuser",
+            "-u",
+            DEPLOY_USER,
+            "--",
+            "env",
+            f"XDG_RUNTIME_DIR=/run/user/{uid}",
+            "systemctl",
+            "--user",
+            "restart",
+            "servarr-pull.service",
+        ]
+    )
 
 
 def verify_active_commit(runner, commit):
