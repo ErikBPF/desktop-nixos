@@ -42,7 +42,7 @@ def test_telstar_lock_recovery_is_exact_and_guarded():
     )[0]
 
     assert "pause-discovery-telstar" in recipe
-    assert "oracle/bin/telstar-lock-recover.sh" in recipe
+    assert "bash oracle/bin/telstar-lock-recover.sh" in recipe
     assert "{{lock_id}}" in recipe
     assert "systemctl start telstar-capture.service" in recipe
 
