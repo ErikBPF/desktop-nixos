@@ -136,6 +136,7 @@
             set -euo pipefail
             rm -rf "$STATE_DIRECTORY/source"
             cp -R --no-preserve=mode ${inputs.homelab-iac} "$STATE_DIRECTORY/source"
+            git -c init.defaultBranch=main init --quiet "$STATE_DIRECTORY/source"
             mkdir -p "$TF_PLUGIN_CACHE_DIR"
             cd "$STATE_DIRECTORY/source"
             # Read the Discord webhook from its secret file (kept out of the Nix
