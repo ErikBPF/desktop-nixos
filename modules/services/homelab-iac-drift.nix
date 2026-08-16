@@ -95,6 +95,7 @@
           age
           curl
           jq
+          git
           openssh
           docker
           openbao

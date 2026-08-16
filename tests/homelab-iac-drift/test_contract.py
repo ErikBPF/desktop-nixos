@@ -35,3 +35,11 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
     assert "git pull" not in module
     assert "repoPath" not in module
     assert "/home/erik/homelab-iac" not in (Path(__file__).parents[2] / "justfile").read_text()
+
+
+def test_drift_path_keeps_git_for_terragrunt_repo_root():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    assert "\n          git\n" in module
