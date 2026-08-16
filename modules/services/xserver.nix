@@ -1,5 +1,6 @@
 {config, ...}: {
   flake.modules.nixos.xserver = _: {
+    console.useXkbConfig = true;
     services.xserver.xkb = {
       layout = "qwerty-fr";
       variant = "qwerty-fr";

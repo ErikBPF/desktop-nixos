@@ -20,6 +20,8 @@ ssh "${ssh_options[@]}" "$target" '
 
 rsync --archive --delete -e "ssh -o BatchMode=yes -o ConnectTimeout=10" \
   "$source_dir/" "$target:.config/ubuntu-work-profile/"
+rsync --archive -e "ssh -o BatchMode=yes -o ConnectTimeout=10" \
+  "$repo_root/config/keyboard/us_qwerty-fr" "$target:.config/ubuntu-work-profile/qwerty-fr"
 
 ssh "${ssh_options[@]}" "$target" '
   set -e
@@ -29,6 +31,7 @@ ssh "${ssh_options[@]}" "$target" '
   nix build --profile "$HOME/.nix-profile" .#default
   install -d -m 0700 "$HOME/.config/autostart"
   rm -f "$HOME/.config/autostart/brave-browser.desktop"
+  sudo install -m 0644 "$HOME/.config/ubuntu-work-profile/qwerty-fr" /usr/share/X11/xkb/symbols/qwerty-fr
   sudo install -m 0644 "$HOME/.nix-profile/share/ubuntu-work/sshd_config" /etc/ssh/sshd_config.d/90-nix-work.conf
   sudo /usr/sbin/sshd -t
   sudo systemctl reload ssh

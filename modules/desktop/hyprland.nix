@@ -79,6 +79,7 @@
     in {
       wayland.windowManager.hyprland = {
         enable = true;
+        systemd.enable = false;
         xwayland.enable = true;
         configType = "lua";
 
@@ -482,6 +483,22 @@
             {
               match.class = ".*";
               suppress_event = "maximize";
+            }
+            {
+              match = {
+                class = "^(virt-viewer)$";
+                title = "^ubuntu-work.*$";
+              };
+              workspace = "8 silent";
+            }
+            {
+              match = {
+                class = "^(Brave-browser)$";
+                title = ".* on 192\\.168\\.122\\.74$";
+              };
+              workspace = "9 silent";
+              float = true;
+              size = "1920 1080";
             }
             {
               match.class = "^(chromium)$";

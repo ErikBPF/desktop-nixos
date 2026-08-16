@@ -13,3 +13,7 @@ def test_default_apps_are_batched_by_monitor():
     assert '"sleep 4; ghostty +new-window -e btop", { workspace = 11 }' in HYPRLAND
     assert '"sleep 4; obsidian", { workspace = 11 }' in HYPRLAND
     assert '"sleep 6; ghostty --gtk-single-instance=false' in HYPRLAND
+
+
+def test_uwsm_is_the_only_hyprland_session_manager():
+    assert "systemd.enable = false;" in HYPRLAND

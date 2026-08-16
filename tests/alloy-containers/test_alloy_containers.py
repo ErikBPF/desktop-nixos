@@ -24,14 +24,34 @@ def test_container_metrics_cover_rootless_podman_and_docker():
     assert 'containerdSocket = "/run/docker/containerd/containerd.sock"' in discovery
 
 
+def test_docker_container_metrics_wait_for_docker_without_requiring_it():
+    module = MODULE.read_text()
+
+    assert 'after = ["docker.service"]' in module
+    assert 'wants = ["docker.service"]' in module
+    assert 'requires = ["docker.service"]' not in module
+
+
 def test_container_name_labels_have_a_live_verification_recipe():
     recipe = JUSTFILE.read_text()
 
     assert "verify-container-metrics:" in recipe
-    assert 'container_last_seen{name!=""} or podman_container_info{name!=""}' in recipe
+    assert "query=container_last_seen or podman_container_info" in recipe
+    assert "raw_containers=%s named_containers=%s" in recipe
+    assert "failed=1" in recipe
+    assert 'exit "$failed"' in recipe
     assert "jq --arg host \"$host\"" in recipe
     for host in ("discovery", "kepler", "orion"):
         assert host in recipe
+
+
+def test_container_and_cache_diagnostics_preserve_startup_evidence():
+    recipe = JUSTFILE.read_text()
+
+    assert "systemctl show alloy docker" in recipe
+    assert "ActiveState,SubState,Result,ActiveEnterTimestamp" in recipe
+    assert "journalctl -b -u alloy" in recipe
+    assert "diagnose orion nix-cache-builder.service" in recipe
 
 
 def test_podman_hosts_scrape_the_dedicated_exporter_without_privileged_cadvisor():

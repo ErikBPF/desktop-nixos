@@ -18,6 +18,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`reference/2026-08-10-endeavour-password-lockout.md`](reference/2026-08-10-endeavour-password-lockout.md) | Endeavour declarative-password lockout, recovery, root cause, and guardrails. | Resolved (verified 2026-08-16) |
 | [`reference/discovery-stateful-inventory.md`](reference/discovery-stateful-inventory.md) | Time-bounded P0 owner/image/mount/volume/backup inventory for discovery state migrations. | Audit evidence (2026-07-13) |
 | [`reference/dendritic-contract.md`](reference/dendritic-contract.md) | The rules a `modules/` file must follow (registration, naming, `_` helpers). Enforced by `just structure-check`. | Reference |
 | [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. | Reference |

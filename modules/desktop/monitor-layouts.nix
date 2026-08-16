@@ -11,8 +11,8 @@
         {
           output = "eDP-1";
           mode = "preferred";
-          position = "1592x1680";
-          scale = 1.25;
+          position = "1400x1680";
+          scale = 1;
         }
         {
           output = "desc:Samsung Electric Company QBQ90 0x01000E00";

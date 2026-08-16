@@ -18,6 +18,9 @@ _: {
           $VIRSH --connect qemu:///system start ubuntu-work
         fi
 
+        ssh -o BatchMode=yes erik@${address} \
+          /home/erik/.nix-profile/bin/xpra _audio_query >/dev/null
+
         XPRA_SOCKET_TIMEOUT=30 \
           XPRA_SSH_AGENT_AUTH=0 \
           exec xpra seamless ssh://erik@${address}/ \
@@ -26,31 +29,21 @@ _: {
           --start-child=/home/erik/.nix-profile/bin/work-browser-xpra \
           --exit-with-children=yes \
           --exit-with-client=yes \
-          --resize-display=yes \
-          --clipboard=no \
+        --resize-display=off:6640x1920 \
+          --desktop-scaling=no \
+          --clipboard=yes \
+          --clipboard-direction=both \
+          --keyboard-layout=qwerty-fr \
+          --keyboard-variant=qwerty-fr \
+          --xvfb=/home/erik/.nix-profile/bin/work-Xvfb \
           --speaker=on \
-          --microphone=on
-      '';
-    };
-    clipboardPush = pkgs.writeShellApplication {
-      name = "ubuntu-work-clipboard-push";
-      runtimeInputs = [pkgs.openssh];
-      text = ''
-        ssh -o BatchMode=yes -o ConnectTimeout=5 erik@${address} '
-          set -e
-          display_file="$XDG_RUNTIME_DIR/ubuntu-work-xpra-display"
-          [[ -s "$display_file" ]] || exit 0
-          display="$(cat "$display_file")"
-          clipboard="$XDG_RUNTIME_DIR/ubuntu-work-clipboard"
-          install -m 0600 /dev/stdin "$clipboard"
-          systemctl --user stop ubuntu-work-clipboard-value.service 2>/dev/null || true
-          systemd-run --user --unit=ubuntu-work-clipboard-value --collect \
-            --property=Type=forking \
-            --setenv=DISPLAY="$display" \
-            --setenv=XAUTHORITY="$HOME/.Xauthority" \
-            "$HOME/.nix-profile/bin/xclip" -selection clipboard -in "$clipboard"
-          rm -f "$clipboard"
-        ' || true
+          --speaker-codec=opus \
+          --microphone=on \
+          --microphone-codec=opus \
+          --pulseaudio-command=/home/erik/.nix-profile/bin/work-pulseaudio \
+          --printing=no \
+          --webcam=no \
+          --splash=no
       '';
     };
     browserDesktop = pkgs.makeDesktopItem {
@@ -77,17 +70,6 @@ _: {
       "z /var/lib/libvirt/images/nstech-tools.iso 0600 root root - -"
     ];
 
-    systemd.user.services.ubuntu-work-clipboard = {
-      description = "Forward the Wayland clipboard to the Ubuntu work browser";
-      wantedBy = ["graphical-session.target"];
-      after = ["graphical-session.target"];
-      serviceConfig = {
-        ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${clipboardPush}/bin/ubuntu-work-clipboard-push";
-        Restart = "on-failure";
-        RestartSec = 2;
-      };
-    };
-
     # Define persistent state without interrupting a running work VM.
     systemd.services.ubuntu-work-vm = {
       description = "Define Ubuntu work VM";
@@ -106,10 +88,7 @@ _: {
           $VIRSH net-update default add-last ip-dhcp-host "$DHCP_HOST" --live --config
         fi
         $VIRSH define /etc/libvirt/qemu/ubuntu-work.xml
-        $VIRSH autostart ubuntu-work
-        if [[ "$($VIRSH domstate ubuntu-work 2>/dev/null || true)" != "running" ]]; then
-          $VIRSH start ubuntu-work
-        fi
+        $VIRSH autostart --disable ubuntu-work
       '';
     };
   };

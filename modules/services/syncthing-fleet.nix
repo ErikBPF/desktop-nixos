@@ -127,8 +127,8 @@
     gemini = {
       devices = ["laptop"];
       folderPaths = {
-        # Full Documents + Downloads mirror from the laptop (repos incl .git —
-        # see the stignore note). dev-workspace kept for scratch.
+        # Full Documents + Downloads working-tree mirror from the laptop;
+        # repository .git directories stay local. dev-workspace remains scratch.
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/Documents/";
         "dev-workspace" = {

@@ -23,6 +23,9 @@ def test_endeavour_owns_its_appimage_configuration():
 def test_monitor_layouts_are_home_modules():
     layouts = read("modules/desktop/monitor-layouts.nix")
     assert "flake.modules.home.monitor-layout-docked" in layouts
+    assert 'output = "eDP-1";' in layouts
+    assert 'position = "1400x1680";' in layouts
+    assert "scale = 1.25;" not in layouts
     assert "flake.modules.home.monitor-layout-pathfinder" in layouts
     assert "m.home.monitor-layout-docked" in read("modules/hosts/endeavour/default.nix")
     assert "m.home.monitor-layout-pathfinder" in read(
@@ -49,3 +52,10 @@ def test_structure_check_guards_semantic_placement():
     recipe = read("justfile")
     assert ":: reusable names under host directories" in recipe
     assert ":: host-prefixed leaves in profiles" in recipe
+
+
+def test_syncthing_does_not_sync_git_internal_state():
+    ignore = read("modules/common/stignore")
+
+    assert "**/.git" in ignore.splitlines()
+    assert ".git is intentionally NOT ignored" not in ignore

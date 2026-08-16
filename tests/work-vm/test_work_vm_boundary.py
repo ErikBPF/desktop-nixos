@@ -12,7 +12,7 @@ def test_endeavour_moves_work_posture_into_the_vm():
     assert "m.nixos.work" not in endeavour
     assert "m.nixos.endeavour-ubuntu-work" in endeavour
     assert "cloudflare-warp" not in endeavour
-    assert "boot.kernelPackages = pkgs.linuxPackages_zen;" in endeavour
+    assert "boot.kernelPackages = pkgs.linuxPackages_latest;" in endeavour
     assert 'environment.etc."brave/policies/managed/cloudflare-access.json"' not in endeavour
 
 
@@ -24,9 +24,8 @@ def test_endeavour_owns_the_ubuntu_work_vm_definition():
     assert "flake.modules.nixos.endeavour-ubuntu-work" in module
     assert 'environment.etc."libvirt/qemu/ubuntu-work.xml"' in module
     assert "$VIRSH define /etc/libvirt/qemu/ubuntu-work.xml" in module
-    assert "$VIRSH autostart ubuntu-work" in module
-    assert "$VIRSH autostart --disable ubuntu-work" not in module
-    assert "$VIRSH start ubuntu-work" in module.split("systemd.services.ubuntu-work-vm", 1)[1]
+    assert "$VIRSH autostart --disable ubuntu-work" in module
+    assert "$VIRSH start ubuntu-work" not in module.split("systemd.services.ubuntu-work-vm", 1)[1]
     assert "$VIRSH destroy ubuntu-work" not in module
     assert "nstech-tools.iso 0600 root root" in module
 
@@ -70,17 +69,18 @@ def test_ubuntu_work_vm_has_stable_ssh_and_viewer_entrypoints():
     assert "HostName 192.168.122.74" in module
     assert "ubuntu-work-view" in module
     assert "--reconnect --auto-resize=always --attach ubuntu-work" in module
-    assert "$VIRSH start ubuntu-work" in module.split("systemd.services.ubuntu-work-vm", 1)[1]
+    assert "$VIRSH start ubuntu-work" not in module.split("systemd.services.ubuntu-work-vm", 1)[1]
 
 
 def test_ubuntu_work_browser_opens_from_endeavour():
     module = read("modules/hosts/endeavour/ubuntu-work.nix")
+    hyprland = read("modules/desktop/hyprland.nix")
 
     assert 'name = "ubuntu-work-browser";' in module
     assert "start ubuntu-work" in module
     assert "erik@${address}" in module
     assert "pkgs.xpra" in module
-    assert "exec xpra seamless ssh://erik@${address}/" in module
+    assert "xpra seamless ssh://erik@${address}/" in module
     assert "--ssh=paramiko:agent=no" in module
     assert "XPRA_SOCKET_TIMEOUT=30" in module
     assert "XPRA_SSH_AGENT_AUTH=0" in module
@@ -88,21 +88,37 @@ def test_ubuntu_work_browser_opens_from_endeavour():
     assert "--start-child=/home/erik/.nix-profile/bin/work-browser-xpra" in module
     assert "--exit-with-children=yes" in module
     assert "--exit-with-client=yes" in module
-    assert "--resize-display=yes" in module
+    assert "--resize-display=off:6640x1920" in module
+    assert "--desktop-scaling=no" in module
     assert "xpra seamless :100" not in module
     assert "ssh://erik@${address}/100" not in module
     assert "xpra attach" not in module
     assert "xpra list" not in module
     assert "XPRA_CLIPBOARD_CLASS" not in module
     assert "XPRA_CLIPBOARD_CONVERT_TIMEOUT" not in module
-    assert "--clipboard=no" in module
-    assert "--clipboard-direction" not in module
-    assert "wl-paste --type text --watch" in module
-    assert "ubuntu-work-clipboard-push" in module
-    assert "ubuntu-work-clipboard-value" in module
-    assert "XAUTHORITY=\"$HOME/.Xauthority\"" in module
+    assert "--clipboard=yes" in module
+    assert "--clipboard-direction=both" in module
+    assert "--keyboard-layout=qwerty-fr" in module
+    assert "--keyboard-variant=qwerty-fr" in module
+    assert "--xvfb=/home/erik/.nix-profile/bin/work-Xvfb" in module
+    assert "xpra _audio_query >/dev/null" in module
+    assert "--speaker-codec=opus" in module
+    assert "--microphone-codec=opus" in module
+    assert "--pulseaudio-command=/home/erik/.nix-profile/bin/work-pulseaudio" in module
+    assert "--printing=no" in module
+    assert "--webcam=no" in module
+    assert "--splash=no" in module
+    assert "ubuntu-work-clipboard-push" not in module
+    assert "systemd.user.services.ubuntu-work-clipboard" not in module
     assert "exec virt-viewer" not in module.split('name = "ubuntu-work-browser";', 1)[1].split("browserDesktop", 1)[0]
     assert 'desktopName = "Work Browser";' in module
+    assert 'class = "^(virt-viewer)$";' in hyprland
+    assert r'title = ".* on 192\\.168\\.122\\.74$";' in hyprland
+    assert 'workspace = "8 silent";' in hyprland
+    assert 'workspace = "9 silent";' in hyprland
+    remote_browser_rule = hyprland.split('class = "^(Brave-browser)$";', 1)[1].split('class = "^(chromium)$";', 1)[0]
+    assert "float = true;" in remote_browser_rule
+    assert 'size = "1920 1080";' in remote_browser_rule
 
 
 def test_ubuntu_work_spice_carries_audio_mic_and_recovery_channel():
@@ -114,12 +130,12 @@ def test_ubuntu_work_spice_carries_audio_mic_and_recovery_channel():
     assert "name='org.qemu.guest_agent.0'" in domain
 
 
-def test_ubuntu_work_owns_the_logitech_conference_webcam():
+def test_ubuntu_work_has_no_physical_webcam_passthrough():
     domain = read("modules/hosts/endeavour/ubuntu-work-domain.xml")
 
-    assert "<hostdev mode='subsystem' type='usb' managed='yes'>" in domain
-    assert "<vendor id='0x046d'/>" in domain
-    assert "<product id='0x085b'/>" in domain
+    assert "<hostdev mode='subsystem' type='usb' managed='yes'>" not in domain
+    assert "<vendor id='0x046d'/>" not in domain
+    assert "<product id='0x085b'/>" not in domain
 
 
 def test_ubuntu_work_guest_uses_a_locked_nix_package_profile():
@@ -133,8 +149,9 @@ def test_ubuntu_work_guest_uses_a_locked_nix_package_profile():
     lock = json.loads(lock_path.read_text())
 
     assert "pkgs.buildEnv" in profile
-    for package in ["openssh", "tmux", "git", "curl", "jq", "ripgrep", "rsync", "sqlite", "netcat-openbsd", "xpra", "xclip"]:
+    for package in ["openssh", "tmux", "git", "curl", "jq", "ripgrep", "rsync", "sqlite", "netcat-openbsd", "xpra"]:
         assert package in profile
+    assert "xclip" not in profile
     assert 'exec /usr/bin/brave-browser-stable "$@"' in profile
     assert 'writeShellScriptBin "work-browser-xpra"' in profile
     assert "pkill -TERM" not in profile
@@ -142,7 +159,20 @@ def test_ubuntu_work_guest_uses_a_locked_nix_package_profile():
     assert "--user-data-dir=$HOME/.config/BraveSoftware/Brave-Browser-Xpra" in profile
     assert "GTK_THEME=Yaru:dark" in profile
     assert "--force-dark-mode" in profile
-    assert '"$XDG_RUNTIME_DIR/ubuntu-work-xpra-display"' in profile
+    assert "ubuntu-work-xpra-display" not in profile
+    assert 'writeShellScriptBin "work-Xvfb"' in profile
+    assert 'exec /usr/bin/Xvfb "$@"' in profile
+    assert 'writeShellScriptBin "work-pulseaudio"' in profile
+    assert "module-null-sink sink_name=Xpra-Microphone" in profile
+    assert "module-null-sink sink_name=Xpra-Speaker" in profile
+    assert "module-remap-source source_name=Xpra-Mic-Input" in profile
+    assert profile.index('# Xpra 6.4 classifies Pulse devices using "input"') < profile.index(
+        "exec ${pkgs.pulseaudio}"
+    )
+    assert 'socket="/run/user/$UID/xpra/\'\'${DISPLAY#:}/pulse/native"' in profile
+    assert "PULSE_SINK=Xpra-Speaker" in profile
+    assert "PULSE_SOURCE=Xpra-Mic-Input" in profile
+    assert "--window-size=1920,1080" in profile
     assert "${pkgs.brave}" not in profile
     for apt_owned in ["microsoft-edge", "cloudflare-warp", "ampagent", "ds-agent"]:
         assert apt_owned not in profile
@@ -182,6 +212,8 @@ def test_ubuntu_work_guest_profile_has_one_deploy_entrypoint():
     assert "rsync" in deploy
     assert 'build --profile "$HOME/.nix-profile" .#default' in deploy
     assert 'rm -f "$HOME/.config/autostart/brave-browser.desktop"' in deploy
+    assert '"$repo_root/config/keyboard/us_qwerty-fr"' in deploy
+    assert "/usr/share/X11/xkb/symbols/qwerty-fr" in deploy
     assert '/etc/ssh/sshd_config.d/90-nix-work.conf' in deploy
     assert "/usr/sbin/sshd -t" in deploy
     assert "systemctl reload ssh" in deploy

@@ -33,10 +33,14 @@ _: {
     config = lib.mkMerge [
       (lib.mkIf (cfg.containerSocket != null) {
         # cAdvisor inspects runtime sockets, cgroups, and container storage metadata.
-        systemd.services.alloy.serviceConfig = {
-          DynamicUser = lib.mkForce false;
-          User = "root";
-          Group = "root";
+        systemd.services.alloy = {
+          after = ["docker.service"];
+          wants = ["docker.service"];
+          serviceConfig = {
+            DynamicUser = lib.mkForce false;
+            User = "root";
+            Group = "root";
+          };
         };
 
         environment.etc."alloy/containers.alloy".text = ''
