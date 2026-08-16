@@ -88,10 +88,7 @@ _: {
           $VIRSH net-update default add-last ip-dhcp-host "$DHCP_HOST" --live --config
         fi
         $VIRSH define /etc/libvirt/qemu/ubuntu-work.xml
-        $VIRSH autostart ubuntu-work
-        if [[ "$($VIRSH domstate ubuntu-work 2>/dev/null || true)" != "running" ]]; then
-          $VIRSH start ubuntu-work
-        fi
+        $VIRSH autostart --disable ubuntu-work
       '';
     };
   };

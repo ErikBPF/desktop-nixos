@@ -72,12 +72,6 @@
     <redirdev bus='usb' type='spicevmc'/>
     <redirdev bus='usb' type='spicevmc'/>
     <watchdog model='itco' action='reset'/>
-    <hostdev mode='subsystem' type='usb' managed='yes'>
-      <source>
-        <vendor id='0x046d'/>
-        <product id='0x085b'/>
-      </source>
-    </hostdev>
     <memballoon model='virtio'/>
     <rng model='virtio'>
       <backend model='random'>/dev/urandom</backend>

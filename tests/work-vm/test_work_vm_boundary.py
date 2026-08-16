@@ -24,9 +24,8 @@ def test_endeavour_owns_the_ubuntu_work_vm_definition():
     assert "flake.modules.nixos.endeavour-ubuntu-work" in module
     assert 'environment.etc."libvirt/qemu/ubuntu-work.xml"' in module
     assert "$VIRSH define /etc/libvirt/qemu/ubuntu-work.xml" in module
-    assert "$VIRSH autostart ubuntu-work" in module
-    assert "$VIRSH autostart --disable ubuntu-work" not in module
-    assert "$VIRSH start ubuntu-work" in module.split("systemd.services.ubuntu-work-vm", 1)[1]
+    assert "$VIRSH autostart --disable ubuntu-work" in module
+    assert "$VIRSH start ubuntu-work" not in module.split("systemd.services.ubuntu-work-vm", 1)[1]
     assert "$VIRSH destroy ubuntu-work" not in module
     assert "nstech-tools.iso 0600 root root" in module
 
@@ -70,7 +69,7 @@ def test_ubuntu_work_vm_has_stable_ssh_and_viewer_entrypoints():
     assert "HostName 192.168.122.74" in module
     assert "ubuntu-work-view" in module
     assert "--reconnect --auto-resize=always --attach ubuntu-work" in module
-    assert "$VIRSH start ubuntu-work" in module.split("systemd.services.ubuntu-work-vm", 1)[1]
+    assert "$VIRSH start ubuntu-work" not in module.split("systemd.services.ubuntu-work-vm", 1)[1]
 
 
 def test_ubuntu_work_browser_opens_from_endeavour():
@@ -131,12 +130,12 @@ def test_ubuntu_work_spice_carries_audio_mic_and_recovery_channel():
     assert "name='org.qemu.guest_agent.0'" in domain
 
 
-def test_ubuntu_work_owns_the_logitech_conference_webcam():
+def test_ubuntu_work_has_no_physical_webcam_passthrough():
     domain = read("modules/hosts/endeavour/ubuntu-work-domain.xml")
 
-    assert "<hostdev mode='subsystem' type='usb' managed='yes'>" in domain
-    assert "<vendor id='0x046d'/>" in domain
-    assert "<product id='0x085b'/>" in domain
+    assert "<hostdev mode='subsystem' type='usb' managed='yes'>" not in domain
+    assert "<vendor id='0x046d'/>" not in domain
+    assert "<product id='0x085b'/>" not in domain
 
 
 def test_ubuntu_work_guest_uses_a_locked_nix_package_profile():
