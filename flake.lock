@@ -501,17 +501,17 @@
     "homelab-iac": {
       "flake": false,
       "locked": {
-        "lastModified": 1786918656,
-        "narHash": "sha256-EoKFM5fKnixafvvA7J/GOmRzC3jZ5aS8PwhWqrX1Og0=",
+        "lastModified": 1786922450,
+        "narHash": "sha256-FRKTI+4TLDkPrvBEkshA1L0500V4qTYv+/v4QXnSyUY=",
         "owner": "ErikBPF",
         "repo": "homelab-iac",
-        "rev": "608770d1fffd921ca35398d07a66d5f3193df831",
+        "rev": "5de040bd3999fb16f6f14f81ab857fcc1b29f46b",
         "type": "github"
       },
       "original": {
         "owner": "ErikBPF",
         "repo": "homelab-iac",
-        "rev": "608770d1fffd921ca35398d07a66d5f3193df831",
+        "rev": "5de040bd3999fb16f6f14f81ab857fcc1b29f46b",
         "type": "github"
       }
     },
