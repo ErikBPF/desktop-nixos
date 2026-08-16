@@ -1,13 +1,12 @@
-_: {
+{inputs, ...}: {
   # Persistent retry that creates the Oracle Always-Free A1 `telstar` instance
   # the moment free-tier capacity frees ("Out of host capacity" is intermittent
   # in sa-saopaulo-1). Runs on discovery (always-on). Declarative replacement for
   # the earlier hand-placed `systemd-run --user` job.
   #
-  # Reuses the retry script from the homelab-iac clone — SSOT for the oracle
-  # stack and the OCI creds in `.env.sops`, which discovery (a sops recipient)
-  # decrypts at runtime, the same runtime-git pattern as servarr-pull. A system
-  # service with User=erik survives reboots without linger. See
+  # Reuses the retry script from the pinned homelab-iac input — SSOT for the
+  # oracle stack and the encrypted OCI creds, which discovery decrypts at
+  # runtime. A system service with User=erik survives reboots without linger. See
   # homelab-iac/oracle/telstar-capture-status.md.
   flake.modules.nixos.discovery-telstar-capture = {pkgs, ...}: let
     # Fleet username (meta.nix `username`, readOnly "erik"); referenced directly
@@ -25,14 +24,15 @@ _: {
       wantedBy = ["multi-user.target"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
-      # This long retry loop is already running the current IaC checkout. A
+      # This long retry loop is already running the pinned IaC revision. A
       # switch must not restart it while the local S3/proxy stack is cycling.
       restartIfChanged = false;
       stopIfChanged = false;
-      path = with pkgs; [git openssh sops coreutils gnugrep gnutar bash];
+      path = with pkgs; [openssh sops coreutils gnugrep gnutar bash];
       environment = {
         OCI_SSH_PUBKEY_FILE = "${telstarPubkey}";
         TENV_AUTO_INSTALL = "true";
+        TF_PLUGIN_CACHE_DIR = "/var/lib/telstar-capture/plugin-cache";
       };
       # If the loop hits a real (non-capacity) error it exits non-zero; bound the
       # restart so a genuine break doesn't hammer every 5 min forever.
@@ -42,22 +42,23 @@ _: {
         Type = "simple";
         User = user;
         Group = "users";
-        WorkingDirectory = home;
+        StateDirectory = "telstar-capture";
+        StateDirectoryMode = "0700";
+        WorkingDirectory = "/var/lib/telstar-capture";
         Restart = "on-failure";
+        RestartPreventExitStatus = [75];
         RestartSec = "300";
       };
-      # Refresh the clone (latest oracle configs + .env.sops), then run the SSOT
-      # retry script (own PATH/sops/tenv/creds handling inside).
+      # Copy the reviewed source closure into a writable runtime directory, then
+      # run its retry script (own PATH/sops/tenv/creds handling inside).
       script = ''
-        set -uo pipefail
+        set -euo pipefail
         export PATH="/run/current-system/sw/bin:${home}/.nix-profile/bin:$PATH"
-        if ! test -d "${home}/homelab-iac/.git"; then
-          test ! -e "${home}/homelab-iac"
-          ${pkgs.git}/bin/git clone --branch main --single-branch \
-            git@github_erikbpf:ErikBPF/homelab-iac.git "${home}/homelab-iac"
-        fi
-        cd "${home}/homelab-iac"
-        ${pkgs.git}/bin/git pull --ff-only 2>/dev/null || true
+        rm -rf "$STATE_DIRECTORY/source"
+        cp -R --no-preserve=mode ${inputs.homelab-iac} "$STATE_DIRECTORY/source"
+        mkdir -p "$TF_PLUGIN_CACHE_DIR"
+        export REPO="$STATE_DIRECTORY/source"
+        cd "$STATE_DIRECTORY/source"
         exec ${pkgs.bash}/bin/bash oracle/bin/telstar-get-retry.sh
       '';
     };
