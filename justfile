@@ -2537,7 +2537,7 @@ recover-discovery-telstar-lock lock_id:
     just pause-discovery-telstar
     ssh -p 2222 erik@{{ip_discovery}} 'set -euo pipefail
       cd /var/lib/telstar-capture/source
-      oracle/bin/telstar-lock-recover.sh "{{lock_id}}"
+      bash oracle/bin/telstar-lock-recover.sh "{{lock_id}}"
       sudo systemctl reset-failed telstar-capture.service
       sudo systemctl start telstar-capture.service'
 
