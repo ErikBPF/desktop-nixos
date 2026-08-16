@@ -52,3 +52,10 @@ def test_structure_check_guards_semantic_placement():
     recipe = read("justfile")
     assert ":: reusable names under host directories" in recipe
     assert ":: host-prefixed leaves in profiles" in recipe
+
+
+def test_syncthing_does_not_sync_git_internal_state():
+    ignore = read("modules/common/stignore")
+
+    assert "**/.git" in ignore.splitlines()
+    assert ".git is intentionally NOT ignored" not in ignore
