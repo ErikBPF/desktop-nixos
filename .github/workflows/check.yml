@@ -28,7 +28,7 @@ jobs:
         run: nix develop -c just fmt-check
 
       - name: Orion owner migration contract
-        run: nix develop -c pytest -q tests/orion-owner-cutover/test_contract.py
+        run: nix develop -c python -m unittest discover -s tests/orion-owner-cutover -p 'test_*.py'
 
   eval:
     runs-on: ubuntu-latest
