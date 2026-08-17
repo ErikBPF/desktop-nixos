@@ -1,0 +1,59 @@
+# Harbor config TEMPLATE — rendered to harbor.yml by scripts/harbor-setup.sh,
+# which substitutes ${VARS} from the host .env (push-env). Real harbor.yml is
+# gitignored (contains rendered secrets). Harbor runs plain HTTP behind SWAG,
+# which terminates TLS (cloudflare DNS-01 wildcard) — so NO https: block here.
+# external_url is https so Harbor mints correct docker-login / registry URLs.
+
+hostname: harbor.${HOMELAB_DOMAIN}
+
+http:
+  # SWAG proxies to this host-published port (see harbor.subdomain.conf).
+  port: 8085
+
+external_url: https://harbor.${HOMELAB_DOMAIN}
+
+# Initial admin password (admin/${HARBOR_ADMIN_PASSWORD}). Only applied on a
+# fresh DB init; rotate later via the UI/API.
+harbor_admin_password: ${HARBOR_ADMIN_PASSWORD}
+
+# Image/chart blobs + DB live on the big vault disk (1.8T free), not the root fs.
+data_volume: /home/erik/vault/harbor
+
+database:
+  password: ${HARBOR_DB_PASSWORD}
+  max_idle_conns: 100
+  max_open_conns: 900
+  conn_max_lifetime: 5m
+  conn_max_idle_time: 0
+
+jobservice:
+  max_job_workers: 5
+  job_loggers:
+    - STD_OUTPUT
+    - FILE
+  logger_sweeper_duration: 1
+
+notification:
+  webhook_job_max_retry: 3
+  webhook_job_http_client_timeout: 3
+
+log:
+  level: info
+  local:
+    rotate_count: 50
+    rotate_size: 200M
+    location: /var/log/harbor
+
+# Purge stale layer uploads so the registry doesn't accumulate orphaned blobs.
+upload_purging:
+  enabled: true
+  age: 168h
+  interval: 24h
+  dryrun: false
+
+# Trivy is intentionally NOT installed (install.sh run without --with-trivy) to
+# save RAM on the busy host — matches the lab-slimmed in-cluster chart.
+
+# Harbor config-schema version — keep in sync with HARBOR_VERSION in
+# scripts/harbor-setup.sh (without the leading 'v').
+_version: 2.14.4

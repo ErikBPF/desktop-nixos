@@ -28,9 +28,7 @@ KINDLE_UNIT = "podman-compose-kindle-dash.service"
 KINDLE_CONTAINER = "kindle-dash"
 KINDLE_VOLUME = "discovery_kindle_dash_data"
 KINDLE_URL = "http://kindle.homelab.pastelariadev.com/dash.png"
-HARBOR_MIRROR_SCRIPT = (
-    SERVARR_REPO / "machines/discovery/scripts/harbor-mirror.sh"
-)
+HARBOR_MIRROR_SCRIPT = pathlib.Path("/run/current-system/sw/bin/harbor-mirror")
 COSIGN_IDENTITY = (
     "https://github.com/ErikBPF/kindle-dash/"
     ".github/workflows/publish.yml@refs/heads/main"
