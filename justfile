@@ -2668,6 +2668,7 @@ p2-iac-plan-equivalence:
       esac
     done
     [ -n "${PATH:-}" ] && [ -n "${TG_TF_PATH:-}" ] && [ -n "${TF_PLUGIN_CACHE_DIR:-}" ] && [ -n "${SOPS_AGE_KEY_FILE:-}" ] || exit 1
+    export PATH="$PATH:/run/current-system/sw/bin"
     case "$(systemctl is-enabled "$service" 2>/dev/null || true)" in
       masked*) echo "drift service already masked" >&2; exit 1 ;;
     esac
@@ -2772,7 +2773,7 @@ p2-iac-plan-equivalence:
     SHIM
     chmod 700 "$shim_dir/bash"
     chown -R erik:users "$scratch"
-    sudo -u erik env -i \
+    /run/wrappers/bin/sudo -u erik env -i \
       HOME=/home/erik USER=erik STATE_DIRECTORY=/var/lib/homelab-iac-drift \
       TG_TF_PATH="$TG_TF_PATH" TF_PLUGIN_CACHE_DIR="$TF_PLUGIN_CACHE_DIR" SOPS_AGE_KEY_FILE="$SOPS_AGE_KEY_FILE" \
       OCI_SSH_PUBKEY_FILE="${OCI_SSH_PUBKEY_FILE:-}" OCI_CONSOLE_PUBKEY_FILE="${OCI_CONSOLE_PUBKEY_FILE:-}" \

@@ -78,7 +78,8 @@ def test_equivalence_recipe_is_private_sequential_and_action_only():
     assert "umask 077" in recipe
     assert "mktemp -d /run/homelab-iac-p2.XXXXXX" in recipe
     assert 'export DISCORD_WEBHOOK_URL=""' in recipe
-    assert "sudo -u erik env -i" in recipe
+    assert 'export PATH="$PATH:/run/current-system/sw/bin"' in recipe
+    assert "/run/wrappers/bin/sudo -u erik env -i" in recipe
     assert 'TG_TF_PATH="$TG_TF_PATH"' in recipe
     assert 'TF_PLUGIN_CACHE_DIR="$TF_PLUGIN_CACHE_DIR"' in recipe
     assert 'SOPS_AGE_KEY_FILE="$SOPS_AGE_KEY_FILE"' in recipe
