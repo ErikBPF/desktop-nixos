@@ -27,6 +27,9 @@ jobs:
       - name: Format check
         run: nix develop -c just fmt-check
 
+      - name: Orion owner migration contract
+        run: nix develop -c pytest -q tests/orion-owner-cutover/test_contract.py
+
   eval:
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -2653,6 +2653,35 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
+# Remove Orion's stateless legacy llama-chat, then use the canonical stack lifecycle.
+orion-retire-legacy-llama:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip orion)"
+    ssh -p 2222 erik@"$IP" 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      test "$(hostname)" = orion
+      export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+      export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
+      mapfile -t ids < <(docker ps -aq --no-trunc \
+        --filter label=com.docker.compose.project=homelab \
+        --filter label=com.docker.compose.service=llama-chat)
+      [[ "${#ids[@]}" -le 1 ]]
+      if [[ "${#ids[@]}" -eq 1 ]]; then
+        legacy_id="${ids[0]}"
+        docker inspect -- "$legacy_id" | jq -e --arg id "$legacy_id" '
+          .[0]
+          | select(.Id == $id and .Name == "/llama-chat")
+          | select(.Config.Labels["com.docker.compose.project.working_dir"] == "/home/erik/homelab")
+          | select(.Config.Labels["com.docker.compose.project.config_files"] == "ai-models.yml")
+        ' >/dev/null
+        systemctl --user stop podman-compose-ai-models.service
+        docker stop --time 30 -- "$legacy_id" >/dev/null
+        docker rm -- "$legacy_id" >/dev/null
+      fi
+    REMOTE
+    just kick-stack orion ai-models
+
 # Read-only live proof for the Kepler UniFi CEF receiver.
 verify-wazuh-siem:
     #!/usr/bin/env bash
