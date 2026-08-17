@@ -7,8 +7,6 @@
       (final: _prev: {
         quickshell = inputs.quickshell.packages.${final.stdenv.hostPlatform.system}.default;
         claude-code = inputs.claude-code-nix.packages.${final.stdenv.hostPlatform.system}.default;
-        # NixOS/nixpkgs#552212: Moonlight 6.1.0 does not build with FFmpeg 9.
-        moonlight-qt = _prev.moonlight-qt.override {ffmpeg = final.ffmpeg_8;};
         # 2.3.1 pin: 2.3.2 has broken GL init on Mesa 26.x (see flake.nix input).
         inherit (import inputs.nixpkgs-orca {inherit (final.stdenv.hostPlatform) system;}) orca-slicer;
 
