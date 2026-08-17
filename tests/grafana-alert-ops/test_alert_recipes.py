@@ -13,6 +13,15 @@ def test_endeavour_upgrade_has_diagnostics_and_retry_target():
     ) in justfile
 
 
+def test_kepler_upgrade_has_read_only_diagnostics():
+    justfile = (ROOT / "justfile").read_text()
+    assert "diagnose kepler nixos-upgrade.service" in justfile
+    assert (
+        "kepler-upgrade) host=kepler; "
+        "unit=nixos-upgrade.service; action=reset ;;"
+    ) in justfile
+
+
 def test_transient_discovery_jobs_have_bounded_retries():
     wiki = (ROOT / "modules/hosts/discovery/hermes-wiki.nix").read_text()
     restic = (ROOT / "modules/services/restic-tofu-state.nix").read_text()
