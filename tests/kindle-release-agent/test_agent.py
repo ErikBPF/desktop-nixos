@@ -81,12 +81,13 @@ class PinContract(unittest.TestCase):
             self.assertEqual(
                 hashlib.sha256((snapshot / relative).read_bytes()).hexdigest(), digest
             )
-        self.assertIn("${./servarr-harbor/scripts/harbor-setup.sh}", harbor)
+        self.assertIn("servarrHarbor = ./servarr-harbor;", harbor)
+        self.assertIn("${servarrHarbor}/scripts/harbor-setup.sh", harbor)
         self.assertIn(
-            "${./servarr-harbor/scripts/harbor-proxycache.sh}",
+            "${servarrHarbor}/scripts/harbor-proxycache.sh",
             harbor,
         )
-        self.assertIn("${./servarr-harbor/scripts/harbor-mirror.sh}", harbor)
+        self.assertIn("${servarrHarbor}/scripts/harbor-mirror.sh", harbor)
         self.assertIn('HARBOR_RUNTIME_DIR = "/home/${username}/servarr/machines/discovery";', harbor)
         self.assertEqual(
             self.agent.HARBOR_MIRROR_SCRIPT,
