@@ -784,8 +784,19 @@ verify-kepler-after-esp-migration:
       test "$(sudo zpool list -H -o health fast-pool)" = ONLINE
       test "$(sudo zpool list -H -o health bulk-pool)" = ONLINE
       test "$(sudo du -xsb /home/erik | awk "{print \$1}")" -gt 100000000000
-      sudo systemctl is-active sshd tailscaled syncthing nfs-server
-      systemctl --user is-active podman-compose-ai-serving.service podman-compose-docs-search.service
+      for unit in sshd tailscaled syncthing nfs-server; do
+        sudo systemctl is-active --quiet "$unit" || exit 1
+      done
+      for unit in \
+        podman-compose-infra.service \
+        podman-compose-buzz.service \
+        podman-compose-monitoring.service \
+        podman-compose-sync.service \
+        podman-compose-security.service \
+        podman-compose-whisper-gpu.service \
+        podman-compose-qwen4b-gpu.service; do
+        systemctl --user is-active --quiet "$unit" || exit 1
+      done
       ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
       tailscale status --self
       podman ps --format json | jq -r ".[] | [.Names[0], .Status] | @tsv"
@@ -2570,6 +2581,7 @@ grafana-alert-diagnostics:
     }
     diagnose endeavour ampagent-watchdog.service
     diagnose endeavour nixos-upgrade.service
+    diagnose kepler nixos-upgrade.service
     diagnose orion nix-cache-builder.service
     diagnose orion nixos-upgrade.service
     diagnose discovery telstar-capture.service
@@ -2589,10 +2601,11 @@ grafana-alert-retry target:
     case "{{target}}" in
       endeavour) host=endeavour; unit=ampagent-watchdog.service; action=start ;;
       endeavour-upgrade) host=endeavour; unit=nixos-upgrade.service; action=reset ;;
+      kepler-upgrade) host=kepler; unit=nixos-upgrade.service; action=reset ;;
       orion) host=orion; unit=nixos-upgrade.service; action=reset ;;
       discovery-telstar) host=discovery; unit=telstar-capture.service; action=start-no-block ;;
       discovery-drift) host=discovery; unit=homelab-iac-drift.service; action=start ;;
-      *) echo "target must be endeavour, endeavour-upgrade, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
+      *) echo "target must be endeavour, endeavour-upgrade, kepler-upgrade, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
     esac
     command="sudo systemctl reset-failed '$unit'"
     [ "$action" = start ] && command="$command && sudo systemctl start '$unit'"
