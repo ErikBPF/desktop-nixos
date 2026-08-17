@@ -21,7 +21,8 @@ in {
       url = "https://github.com/goharbor/harbor/releases/download/${harborVersion}/harbor-online-installer-${harborVersion}.tgz";
       sha256 = "sha256-iPanQ2sxiQ6ORylyp0M9NrfWo23preuGM3/cn+f7X6M=";
     };
-    setup = "${./servarr-harbor/scripts/harbor-setup.sh}";
+    servarrHarbor = ./servarr-harbor;
+    setup = "${servarrHarbor}/scripts/harbor-setup.sh";
     # Idempotent: creates the docker-hub registry endpoint + the PUBLIC `dockerhub`
     # proxy-cache project (anonymous pull → no creds in the k3s registries.yaml).
     # Folded in as a non-fatal ExecStartPost so the proxy-cache survives a Harbor
@@ -29,12 +30,12 @@ in {
     # instead of a manual one-shot. Best-effort: a `-` prefix means a transient
     # Harbor-not-ready failure never flaps the harbor unit (the script also retries
     # the API for ~90s internally; next switch reconciles).
-    proxycache = "${./servarr-harbor/scripts/harbor-proxycache.sh}";
+    proxycache = "${servarrHarbor}/scripts/harbor-proxycache.sh";
     harborMirror = pkgs.writeShellApplication {
       name = "harbor-mirror";
       runtimeInputs = with pkgs; [cosign skopeo];
       text = ''
-        exec ${pkgs.bash}/bin/bash ${./servarr-harbor/scripts/harbor-mirror.sh} "$@"
+        exec ${pkgs.bash}/bin/bash ${servarrHarbor}/scripts/harbor-mirror.sh "$@"
       '';
     };
   in {
