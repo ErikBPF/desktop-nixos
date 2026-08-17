@@ -1,8 +1,21 @@
+import json
+import subprocess
 from pathlib import Path
 
 
 ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/dev/herdr-gemini.nix"
+GALAXY_S25_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
+
+
+def nix_eval(attribute):
+    result = subprocess.run(
+        ["nix", "eval", "--json", f"{ROOT}#{attribute}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
 
 
 def test_gemini_owns_pinned_plugins_and_default_sessions():
@@ -12,6 +25,13 @@ def test_gemini_owns_pinned_plugins_and_default_sessions():
     assert 'navigatorVersion = "0.3.6"' in source
     assert '"homelab" "dataplatform"' in source
     assert 'ExecStart = "${herdr}/bin/herdr --session %i server"' in source
+
+
+def test_default_session_bootstrap_exports_herdr_socket_path():
+    source = MODULE.read_text()
+
+    assert 'export HERDR_SOCKET_PATH="$HOME/.config/herdr/sessions/$session/herdr.sock"' in source
+    assert 'herdr-plus open "$project" || echo "herdr project $project is unavailable; session remains attachable" >&2' in source
 
 
 def test_repo_launcher_creates_persistent_remote_named_session():
@@ -68,6 +88,30 @@ def test_gemini_imports_remote_session_profile_with_linger():
 
     assert "m.home.herdr-gemini" in gemini
     assert "linger = true;" in gemini
+
+
+def test_galaxy_s25_key_is_scoped_to_gemini_user():
+    erik_keys = nix_eval(
+        "nixosConfigurations.orion.config.containers.gemini.config.users.users.erik.openssh.authorizedKeys.keys"
+    )
+    root_keys = nix_eval(
+        "nixosConfigurations.orion.config.containers.gemini.config.users.users.root.openssh.authorizedKeys.keys"
+    )
+
+    assert GALAXY_S25_KEY in erik_keys
+    assert GALAXY_S25_KEY not in root_keys
+
+
+def test_galaxy_s25_key_is_scoped_to_endeavour_user():
+    erik_keys = nix_eval(
+        "nixosConfigurations.endeavour.config.users.users.erik.openssh.authorizedKeys.keys"
+    )
+    root_keys = nix_eval(
+        "nixosConfigurations.endeavour.config.users.users.root.openssh.authorizedKeys.keys"
+    )
+
+    assert GALAXY_S25_KEY in erik_keys
+    assert GALAXY_S25_KEY not in root_keys
 
 
 def test_shared_aliases_expose_default_and_repo_sessions():

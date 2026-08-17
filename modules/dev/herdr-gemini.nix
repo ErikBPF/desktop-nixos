@@ -104,12 +104,13 @@
         session=$1
         project=$2
         export HERDR_SESSION="$session"
+        export HERDR_SOCKET_PATH="$HOME/.config/herdr/sessions/$session/herdr.sock"
 
         for _ in {1..40}; do
           if workspaces=$(herdr workspace list 2>/dev/null); then
             if ! jq -e --arg label "$project" \
               'any(.result.workspaces[]?; .label == $label)' <<<"$workspaces" >/dev/null; then
-              herdr-plus open "$project"
+              herdr-plus open "$project" || echo "herdr project $project is unavailable; session remains attachable" >&2
             fi
             exit
           fi
