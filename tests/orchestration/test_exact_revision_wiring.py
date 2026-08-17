@@ -87,7 +87,7 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('/nix/store/*/bin/servarr-exact-revision)', recipe)
         self.assertIn('"$helper" --help 2>&1 | grep -q pin-v2', recipe)
         self.assertIn('kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu)', recipe)
-        self.assertIn('orion) stacks=(shared monitoring ai-models)', recipe)
+        self.assertIn('orion) stacks=(shared monitoring ai-models sync)', recipe)
         self.assertIn('voyager) stacks=(offsite)', recipe)
         self.assertIn('systemctl --user is-enabled "$unit"', recipe)
         self.assertIn('systemctl --user is-active "$unit" >/dev/null', recipe)
@@ -104,6 +104,10 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('runtime_sha256=', recipe)
         self.assertNotIn('inspect="$(docker inspect', recipe)
         self.assertNotIn('docker inspect "$id"', recipe)
+
+    def test_orion_backup_stack_has_a_declarative_rollout_unit(self):
+        compose = (ROOT / "modules/hosts/orion/compose.nix").read_text()
+        self.assertIn('"sync" # restic backup', compose)
 
     def test_rollout_status_remote_shell_parses(self):
         recipe = JUSTFILE.read_text().split(

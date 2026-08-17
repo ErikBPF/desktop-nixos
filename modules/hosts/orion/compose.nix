@@ -6,6 +6,7 @@ _: {
         "shared" # scrutiny-collector
         "monitoring" # prometheus-podman-exporter
         "ai-models" # llama-server (AMD Vulkan GPU)
+        "sync" # restic backup
         # hermes-agent relocated to Discovery 2026-05-23 (always-on host)
       ];
     };
