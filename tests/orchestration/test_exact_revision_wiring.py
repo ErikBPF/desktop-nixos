@@ -62,6 +62,7 @@ class ExactRevisionWiringTest(unittest.TestCase):
             recipe,
         )
         self.assertIn(pin, recipe)
+        self.assertIn('"$helper" --help 2>&1 | grep -q pin-v2', recipe)
         self.assertLess(recipe.index(fetch), recipe.index(pin))
         self.assertIn('systemctl --user restart servarr-pull.service', recipe)
         self.assertIn(
@@ -84,6 +85,7 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('show -s --format=%T HEAD', recipe)
         self.assertIn('systemctl --user is-active servarr-pull.service', recipe)
         self.assertIn('/nix/store/*/bin/servarr-exact-revision)', recipe)
+        self.assertIn('"$helper" --help 2>&1 | grep -q pin-v2', recipe)
         self.assertIn('kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu)', recipe)
         self.assertIn('orion) stacks=(shared monitoring ai-models)', recipe)
         self.assertIn('voyager) stacks=(offsite)', recipe)
