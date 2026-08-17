@@ -30,6 +30,9 @@ jobs:
       - name: Orion owner migration contract
         run: nix develop -c python -m unittest discover -s tests/orion-owner-cutover -p 'test_*.py'
 
+      - name: Switch safety contracts
+        run: nix develop -c python -m unittest discover -s tests/switch-safety -p 'test_*.py'
+
   eval:
     runs-on: ubuntu-latest
     timeout-minutes: 20
