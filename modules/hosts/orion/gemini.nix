@@ -37,6 +37,7 @@
 
   laptopKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com";
   nixBuilderKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop";
+  galaxyS25Key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/";
 
   # Host dir bind-mounted into the container, holding the decrypted tailscale
   # authkey (populated by the pre-provision oneshot below).
@@ -152,7 +153,7 @@ in {
           extraGroups = ["wheel"];
           linger = true; # keep persistent Herdr sessions alive without SSH login
           shell = pkgs.zsh;
-          openssh.authorizedKeys.keys = [laptopKey nixBuilderKey];
+          openssh.authorizedKeys.keys = [laptopKey nixBuilderKey galaxyS25Key];
         };
         users.users.root.openssh.authorizedKeys.keys = [laptopKey];
 

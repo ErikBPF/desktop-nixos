@@ -80,5 +80,8 @@ in {
       randomizedDelaySec = "900";
     };
     services.openssh.enable = true;
+    users.users.${config.username}.openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
+    ];
   };
 }

@@ -59,6 +59,7 @@
 **/.helm
 **/.kube/cache
 **/.kube/http-cache
+**/.pgdata
 
 // ----- Claude Code per-machine state (agent worktrees churn heavily) -----
 **/.claude

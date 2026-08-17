@@ -59,3 +59,9 @@ def test_syncthing_does_not_sync_git_internal_state():
 
     assert "**/.git" in ignore.splitlines()
     assert ".git is intentionally NOT ignored" not in ignore
+
+
+def test_syncthing_does_not_sync_local_database_state():
+    ignore = read("modules/common/stignore")
+
+    assert "**/.pgdata" in ignore.splitlines()
