@@ -2671,7 +2671,7 @@ orion-retire-legacy-llama:
         legacy_id="${ids[0]}"
         docker inspect -- "$legacy_id" | jq -e --arg id "$legacy_id" '
           .[0]
-          | select(.Id == $id and .Name == "/llama-chat")
+          | select(.Id == $id)
           | select(.Config.Labels["com.docker.compose.project.working_dir"] == "/home/erik/homelab")
           | select(.Config.Labels["com.docker.compose.project.config_files"] == "ai-models.yml")
         ' >/dev/null

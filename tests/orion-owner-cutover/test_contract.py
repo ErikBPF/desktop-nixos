@@ -20,7 +20,6 @@ class StatelessOwnerCleanupTest(unittest.TestCase):
             'label=com.docker.compose.service=llama-chat',
             '[[ "${#ids[@]}" -le 1 ]]',
             'if [[ "${#ids[@]}" -eq 1 ]]; then',
-            '.Name == "/llama-chat"',
             '.Config.Labels["com.docker.compose.project.working_dir"] == "/home/erik/homelab"',
             '.Config.Labels["com.docker.compose.project.config_files"] == "ai-models.yml"',
             'systemctl --user stop podman-compose-ai-models.service',
@@ -34,6 +33,7 @@ class StatelessOwnerCleanupTest(unittest.TestCase):
         )
         self.assertNotIn("docker rm -f", recipe)
         self.assertNotIn("--remove-orphans", recipe)
+        self.assertNotIn('.Name == "/llama-chat"', recipe)
         self.assertIn(
             "python -m unittest discover -s tests/orion-owner-cutover",
             WORKFLOW.read_text(),
