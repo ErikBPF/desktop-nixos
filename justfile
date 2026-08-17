@@ -1205,6 +1205,42 @@ switch-voyager user="erik" port="2222":
         --max-jobs 0 \
         --use-substitutes --sudo --show-trace
 
+# Prove Voyager's OCI serial-console recovery path before a tailnet-only switch.
+# Prints the current generation as the exact rollback target; executes no switch.
+voyager-rollback-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! generation="$(
+      timeout 15 ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=6 erik@{{tailscale_voyager}} bash -s <<'REMOTE'
+    set -euo pipefail
+    die() { echo "BLOCKED: $*" >&2; exit 2; }
+    test "$(hostname)" = voyager || die "wrong host"
+    test -c /dev/ttyS0 || die "serial console device missing"
+    systemctl is-active --quiet serial-getty@ttyS0.service || die "serial getty inactive"
+    sudo -n true || die "passwordless sudo unavailable"
+    status="$(passwd -S erik)"
+    [[ "$status" == erik\ P\ * ]] || die "erik password login unavailable"
+    link="$(readlink /nix/var/nix/profiles/system)"
+    link="${link##*/}"
+    [[ "$link" =~ ^system-([1-9][0-9]*)-link$ ]] || die "current system generation is invalid"
+    generation="${BASH_REMATCH[1]}"
+    sudo -n test -x "/nix/var/nix/profiles/system-$generation-link/bin/switch-to-configuration" || die "rollback generation is unavailable"
+    test "$(readlink -f /run/current-system)" = "$(readlink -f "/nix/var/nix/profiles/system-$generation-link")" || die "system profile is not the running generation"
+    printf '%s\n' "$generation"
+    REMOTE
+    )"; then
+      echo "BLOCKED: Voyager console recovery preflight failed" >&2
+      exit 2
+    fi
+    [[ "$generation" =~ ^[1-9][0-9]*$ ]] || { echo "BLOCKED: invalid Voyager generation" >&2; exit 2; }
+    echo ":: Open the authenticated OCI serial/web console and log in as erik before deployment."
+    echo "rollback_generation=$generation"
+    echo "sudo /run/current-system/sw/bin/nix-env --profile /nix/var/nix/profiles/system --switch-generation $generation && sudo /nix/var/nix/profiles/system-$generation-link/bin/switch-to-configuration switch"
+    echo "test \"\$(readlink -f /run/current-system)\" = \"\$(readlink -f /nix/var/nix/profiles/system-$generation-link)\""
+    echo "sudo systemctl is-active sshd tailscaled"
+    echo ":: After tailnet returns, run from the Servarr checkout: (cd machines && just check-stack voyager offsite)"
+    echo ":: Confirm every required container is running/healthy; status output is not a fail-closed gate."
+
 # telstar (public projects host, Oracle A1 aarch64, 12 GB). Build on Orion
 # (aarch64 via binfmt), activate on the target. First run after `just
 # deploy-telstar` the base is erik@2222 already (nixos-anywhere set it). Stages
