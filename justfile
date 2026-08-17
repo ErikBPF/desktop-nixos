@@ -2605,6 +2605,190 @@ grafana-alert-retry target:
       ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" "$command"
     fi
 
+# One-shot, no-apply proof that the deployed pinned IaC source and an exact Git
+# checkout produce identical action metadata. Raw plans stay in private /run
+# scratch and are deleted; only the normalized evidence envelope is retained.
+p2-iac-plan-equivalence:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    REV="$(jq -r '.nodes["homelab-iac"].locked.rev' flake.lock)"
+    [[ "$REV" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid homelab-iac lock revision" >&2; exit 2; }
+    ip="$(jq -r '.hosts.discovery.tailscaleIp // empty' fleet.json)"
+    [ -n "$ip" ] || ip="$(just _host-ip discovery)"
+    evidence=.gsd/evidence/p2-iac-plan-equivalence.json
+    evidence_dir="${evidence%/*}"
+    mkdir -p "$evidence_dir"
+    chmod 700 "$evidence_dir"
+    tmp="$(mktemp "$evidence_dir/.plan-equivalence.XXXXXX")"
+    trap 'rm -f -- "$tmp"' EXIT
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" \
+      sudo bash -s -- "$REV" >"$tmp" <<'REMOTE'
+    set -euo pipefail
+    umask 077
+    REV=$1
+    [[ "$REV" =~ ^[0-9a-f]{40}$ ]] || exit 2
+    [ "$(hostname)" = discovery ] || { echo "wrong host" >&2; exit 1; }
+    [ "$(systemctl show -p User --value homelab-iac-drift.service)" = erik ] || exit 1
+
+    timer=homelab-iac-drift.timer
+    service=homelab-iac-drift.service
+    timer_was_active=0
+    mask_applied=0
+    systemctl is-active --quiet "$timer" && timer_was_active=1
+    scratch="$(mktemp -d /run/homelab-iac-p2.XXXXXX)"
+    chown erik:users "$scratch"
+    chmod 700 "$scratch"
+    cleanup() {
+      rc=$?
+      rm -rf -- "$scratch" || rc=1
+      if [ "$mask_applied" -eq 1 ]; then
+        systemctl unmask --runtime "$service" >/dev/null || rc=1
+      fi
+      if [ "$timer_was_active" -eq 1 ]; then
+        systemctl start "$timer" || rc=1
+      fi
+      exit "$rc"
+    }
+    trap cleanup EXIT
+    trap 'exit 130' HUP INT TERM
+
+    systemctl stop "$timer"
+    systemctl is-failed --quiet "$service" && { echo "drift canary failed; retry it first" >&2; exit 1; }
+    exec_start="$(systemctl show -p ExecStart --value "$service" | sed -n 's/^{ path=\([^ ;]*\).*/\1/p')"
+    [ -x "$exec_start" ] || { echo "invalid deployed drift command" >&2; exit 1; }
+    unit_env="$(systemctl show -p Environment --value "$service")"
+    for assignment in $unit_env; do
+      assignment="${assignment#\"}"
+      assignment="${assignment%\"}"
+      case "$assignment" in
+        PATH=*|TG_TF_PATH=*|SOPS_AGE_KEY_FILE=*|TF_PLUGIN_CACHE_DIR=*|OCI_SSH_PUBKEY_FILE=*|OCI_CONSOLE_PUBKEY_FILE=*)
+          export "$assignment"
+          ;;
+      esac
+    done
+    [ -n "${PATH:-}" ] && [ -n "${TG_TF_PATH:-}" ] && [ -n "${TF_PLUGIN_CACHE_DIR:-}" ] && [ -n "${SOPS_AGE_KEY_FILE:-}" ] || exit 1
+    case "$(systemctl is-enabled "$service" 2>/dev/null || true)" in
+      masked*) echo "drift service already masked" >&2; exit 1 ;;
+    esac
+    mask_applied=1
+    systemctl mask --runtime "$service" >/dev/null
+    service_state="$(systemctl show -p ActiveState --value "$service")"
+    [ "$service_state" = inactive ] || { echo "drift service state is $service_state" >&2; exit 1; }
+    if pgrep -u erik -f '(^|/)(terragrunt|tofu)( |$)' >/dev/null; then
+      echo "another IaC process is active" >&2
+      exit 1
+    fi
+
+    compare="$scratch/compare"
+    shim_dir="$scratch/shim"
+    mkdir "$shim_dir"
+    cat >"$compare" <<'COMPARE'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    export DISCORD_WEBHOOK_URL=""
+    pinned=/var/lib/homelab-iac-drift/source
+    scratch="${P2_SCRATCH:?}"
+    REV="${P2_REV:?}"
+    legacy="$scratch/legacy"
+    started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    git -c init.defaultBranch=main init --quiet "$legacy"
+    git -C "$legacy" remote add origin https://github.com/ErikBPF/homelab-iac.git
+    git -C "$legacy" fetch --quiet --depth=1 origin "$REV"
+    git -C "$legacy" checkout --quiet --detach FETCH_HEAD
+    [ "$(git -C "$legacy" rev-parse HEAD)" = "$REV" ]
+    [ -z "$(git -C "$legacy" status --porcelain)" ]
+    diff -qr --exclude=.git --exclude=.terragrunt-cache "$pinned" "$legacy" >/dev/null
+
+    normalize() {
+      local json_dir=$1 output=$2 units=$3
+      find "$json_dir" -type f -name '*.json' -printf '%P\n' | LC_ALL=C sort >"$units"
+      [ -s "$units" ] || { echo "no plan JSON produced" >&2; return 1; }
+      : >"$output"
+      while IFS= read -r unit; do
+        jq -c --arg unit "$unit" '
+          def resource($scope):
+            .[]? | select(.change.actions != ["no-op"]) |
+            {unit:$unit,scope:$scope,address,previous_address,mode,type,name,index,deposed,
+             actions:.change.actions,action_reason};
+          (.resource_changes | resource("resource_changes")),
+          (.resource_drift | resource("resource_drift")),
+          (.output_changes // {} | to_entries[] |
+            select((.value.actions // ["no-op"]) != ["no-op"]) |
+            {unit:$unit,scope:"output_changes",name:.key,actions:.value.actions})
+        ' "$json_dir/$unit" >>"$output"
+      done <"$units"
+      LC_ALL=C sort -o "$output" "$output"
+    }
+
+    run_plan() {
+      local label=$1 source=$2 raw="$scratch/results-$1"
+      mkdir -p "$raw/plans" "$raw/json"
+      set +e
+      (cd "$source" && TG_OUT_DIR="$raw/plans" TG_JSON_OUT_DIR="$raw/json" \
+        /run/current-system/sw/bin/bash bin/drift-check.sh >"$raw/run.log" 2>&1)
+      local rc=$?
+      set -e
+      case "$rc" in 0|2) ;; *) echo "$label plan failed: $rc" >&2; return 1 ;; esac
+      printf '%s' "$rc" >"$raw/exit"
+      normalize "$raw/json" "$raw/normalized.jsonl" "$raw/units"
+    }
+
+    run_plan pinned "$pinned"
+    run_plan legacy "$legacy"
+    pinned_exit="$(cat "$scratch/results-pinned/exit")"
+    legacy_exit="$(cat "$scratch/results-legacy/exit")"
+    [ "$pinned_exit" = "$legacy_exit" ]
+    cmp -s "$scratch/results-pinned/units" "$scratch/results-legacy/units"
+    cmp -s "$scratch/results-pinned/normalized.jsonl" "$scratch/results-legacy/normalized.jsonl"
+    tree="$(git -C "$legacy" rev-parse "$REV^{tree}")"
+    units="$(wc -l <"$scratch/results-pinned/units")"
+    actions="$(wc -l <"$scratch/results-pinned/normalized.jsonl")"
+    normalized_sha256="$(sha256sum "$scratch/results-pinned/normalized.jsonl" | cut -d' ' -f1)"
+    terragrunt_version="$(terragrunt --version | head -1)"
+    tofu_version="$($TG_TF_PATH version -json | jq -r .terraform_version)"
+    jq -nS \
+      --arg revision "$REV" --arg tree "$tree" \
+      --arg started_at "$started" --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg terragrunt_version "$terragrunt_version" --arg tofu_version "$tofu_version" \
+      --arg normalized_sha256 "$normalized_sha256" \
+      --argjson exit_code "$pinned_exit" --argjson units "$units" --argjson action_count "$actions" \
+      --slurpfile normalized_actions "$scratch/results-pinned/normalized.jsonl" \
+      '{schema:"homelab-iac-plan-equivalence-v1",revision:$revision,tree:$tree,
+        started_at:$started_at,completed_at:$completed_at,terragrunt_version:$terragrunt_version,
+        tofu_version:$tofu_version,pinned_exit:$exit_code,legacy_exit:$exit_code,units:$units,
+        action_count:$action_count,normalized_sha256:$normalized_sha256,
+        normalized_actions:$normalized_actions}'
+    COMPARE
+    chmod 700 "$compare"
+    cat >"$shim_dir/bash" <<'SHIM'
+    #!/bin/sh
+    if [ "$#" -eq 1 ] && [ "$1" = bin/drift-check.sh ]; then
+      exec "$P2_COMPARE"
+    fi
+    exec /run/current-system/sw/bin/bash "$@"
+    SHIM
+    chmod 700 "$shim_dir/bash"
+    chown -R erik:users "$scratch"
+    sudo -u erik env -i \
+      HOME=/home/erik USER=erik STATE_DIRECTORY=/var/lib/homelab-iac-drift \
+      TG_TF_PATH="$TG_TF_PATH" TF_PLUGIN_CACHE_DIR="$TF_PLUGIN_CACHE_DIR" SOPS_AGE_KEY_FILE="$SOPS_AGE_KEY_FILE" \
+      OCI_SSH_PUBKEY_FILE="${OCI_SSH_PUBKEY_FILE:-}" OCI_CONSOLE_PUBKEY_FILE="${OCI_CONSOLE_PUBKEY_FILE:-}" \
+      P2_SCRATCH="$scratch" P2_REV="$REV" P2_COMPARE="$compare" \
+      PATH="$shim_dir:$PATH" "$exec_start"
+    REMOTE
+    jq -e --arg rev "$REV" '
+      .schema == "homelab-iac-plan-equivalence-v1" and
+      .revision == $rev and
+      .pinned_exit == .legacy_exit and (.pinned_exit == 0 or .pinned_exit == 2) and
+      .units > 0 and .action_count == (.normalized_actions | length)
+    ' "$tmp" >/dev/null
+    mv "$tmp" "$evidence"
+    trap - EXIT
+    jq -r --arg evidence "$evidence" '":: P2 equivalence PASS revision=\(.revision) units=\(.units) actions=\(.action_count) sha256=\(.normalized_sha256) evidence=\($evidence)"' "$evidence"
+
 # Pause the Discovery Telstar capacity retry while its remote state is repaired.
 pause-discovery-telstar:
     ssh -p 2222 erik@{{ip_discovery}} 'sudo systemctl stop telstar-capture.service; sudo systemctl reset-failed telstar-capture.service'
