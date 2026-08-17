@@ -2218,12 +2218,13 @@ pin-servarr target commit:
     commit="$1"
     target="$2"
     repo=/home/erik/servarr
-    flock -x /run/lock/servarr-repository.lock git -C "$repo" fetch --prune origin refs/heads/main:refs/remotes/origin/main
     helper=$(readlink -f "$(command -v servarr-exact-revision)")
     case "$helper" in
       /nix/store/*/bin/servarr-exact-revision) ;;
       *) echo "BLOCKED: declarative servarr-exact-revision helper unavailable" >&2; exit 2 ;;
     esac
+    "$helper" --help 2>&1 | grep -q pin-v2 || { echo "BLOCKED: deployed helper lacks pin-v2" >&2; exit 2; }
+    flock -x /run/lock/servarr-repository.lock git -C "$repo" fetch --prune origin refs/heads/main:refs/remotes/origin/main
     "$helper" pin-v2 "$commit" "$target"
     uid=$(id -u)
     sudo -n /run/current-system/sw/bin/systemctl start "user-runtime-dir@$uid.service" "user@$uid.service"
@@ -2255,6 +2256,7 @@ servarr-rollout-status target commit="":
       /nix/store/*/bin/servarr-exact-revision) ;;
       *) die "exact-revision helper is not declarative" ;;
     esac
+    "$helper" --help 2>&1 | grep -q pin-v2 || die "deployed helper lacks pin-v2"
     head="$(git -C "$repo" rev-parse HEAD)"
     tree="$(git -C "$repo" show -s --format=%T HEAD)"
     pin_state=absent
