@@ -1241,6 +1241,36 @@ voyager-rollback-preflight:
     echo ":: After tailnet returns, run from the Servarr checkout: (cd machines && just check-stack voyager offsite)"
     echo ":: Confirm every required container is running/healthy; status output is not a fail-closed gate."
 
+# Reconcile Voyager's locked live account to the already-declared Sops hash.
+# Prints no hash or password; console login still requires a witnessed test.
+recover-voyager-console-login:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash="$(sops decrypt --extract '["hashed_password"]' secrets/sops/secrets.yaml)"
+    [[ "$hash" =~ ^\$y\$[./A-Za-z0-9]+\$[./A-Za-z0-9]+\$[./A-Za-z0-9]+$ ]] || {
+      unset hash
+      echo "BLOCKED: declarative login hash is not supported yescrypt" >&2
+      exit 2
+    }
+    if ! printf 'erik:%s\n' "$hash" | timeout 20 ssh -p 2222 \
+      -o BatchMode=yes -o ConnectTimeout=6 erik@{{tailscale_voyager}} '
+        set -euo pipefail
+        die() { echo "BLOCKED: $*" >&2; exit 2; }
+        test "$(hostname)" = voyager || die "wrong host"
+        sudo -n true || die "passwordless sudo unavailable"
+        sudo -n chpasswd -e
+        status="$(passwd -S erik)"
+        [[ "$status" == erik\ P\ * ]] || die "erik password login unavailable"
+        echo "voyager_console_login=password-backed"
+      '
+    then
+      unset hash
+      exit 2
+    fi
+    unset hash
+    echo ":: Open the OCI serial/web console and witness an erik password login."
+    echo ":: Then run: just voyager-rollback-preflight"
+
 # telstar (public projects host, Oracle A1 aarch64, 12 GB). Build on Orion
 # (aarch64 via binfmt), activate on the target. First run after `just
 # deploy-telstar` the base is erik@2222 already (nixos-anywhere set it). Stages

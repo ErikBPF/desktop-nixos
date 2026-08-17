@@ -50,3 +50,39 @@ class SwitchSafetyTests(unittest.TestCase):
             self.assertIn(required, recipe)
         self.assertNotIn("deploy-rs voyager", recipe)
         self.assertNotIn("systemctl reboot", recipe)
+
+    def test_voyager_console_login_recovery_uses_only_the_declarative_hash(self):
+        result = subprocess.run(
+            ["just", "--dry-run", "recover-voyager-console-login"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        recipe = result.stdout + result.stderr
+        for required in (
+            "set -euo pipefail",
+            "sops decrypt --extract",
+            '["hashed_password"]',
+            "^\\$y\\$",
+            "printf 'erik:%s\\n' \"$hash\" | timeout 20 ssh",
+            "-o BatchMode=yes -o ConnectTimeout=6",
+            'test "$(hostname)" = voyager',
+            'die "wrong host"',
+            "sudo -n chpasswd -e",
+            "passwd -S erik",
+            "unset hash",
+            "voyager_console_login=password-backed",
+        ):
+            self.assertIn(required, recipe)
+        for forbidden in (
+            "set-user-password",
+            "nixos-rebuild",
+            "deploy-rs",
+            "systemctl reboot",
+            'echo "$hash"',
+        ):
+            self.assertNotIn(forbidden, recipe)
+        guide = (ROOT / "docs/guides/break-glass.md").read_text()
+        self.assertIn("just recover-voyager-console-login", guide)
+        self.assertIn("witness an `erik` login", guide)
