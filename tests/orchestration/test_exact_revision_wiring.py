@@ -3,6 +3,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 
@@ -49,7 +50,7 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn("commit={{ quote(commit) }}", recipe)
         self.assertIn('[[ "$commit" =~ ^[0-9a-f]{40}$ ]]', recipe)
         self.assertIn('[[ "$target" =~ ^[a-z0-9-]+$ ]]', recipe)
-        self.assertIn('IP="$(just _host-ip "$target")"', recipe)
+        self.assertIn(".hosts[$h].tailscaleIp // .hosts[$h].ip", recipe)
         fetch = (
             'git -C "$repo" fetch --prune origin '
             'refs/heads/main:refs/remotes/origin/main'
@@ -68,6 +69,53 @@ class ExactRevisionWiringTest(unittest.TestCase):
         )
         self.assertNotIn("sudo systemctl", recipe)
         self.assertNotIn('sudo -n "$helper"', recipe)
+
+    def test_rollout_status_is_value_free_and_fails_closed_on_runtime_health(self):
+        source = JUSTFILE.read_text()
+        recipe = source.split('servarr-rollout-status target commit="":', 1)[1]
+        recipe = recipe.split("\n# ", 1)[0]
+        self.assertIn("target={{ quote(target) }}", recipe)
+        self.assertIn("commit={{ quote(commit) }}", recipe)
+        self.assertIn(".hosts[$h].tailscaleIp // .hosts[$h].ip", recipe)
+        self.assertIn('expected="${2-}"', recipe)
+        self.assertIn('(keys | sort) == ["pin", "pin_sha256"]', recipe)
+        self.assertIn('jq -jcS .pin', recipe)
+        self.assertIn('rev-parse HEAD', recipe)
+        self.assertIn('show -s --format=%T HEAD', recipe)
+        self.assertIn('systemctl --user is-active servarr-pull.service', recipe)
+        self.assertIn('/nix/store/*/bin/servarr-exact-revision)', recipe)
+        self.assertIn('kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu)', recipe)
+        self.assertIn('orion) stacks=(shared monitoring ai-models)', recipe)
+        self.assertIn('voyager) stacks=(offsite)', recipe)
+        self.assertIn('systemctl --user is-enabled "$unit"', recipe)
+        self.assertIn('systemctl --user is-active "$unit" >/dev/null', recipe)
+        self.assertIn('running/healthy/0', recipe)
+        self.assertIn('running/none/0', recipe)
+        self.assertIn('buzz-minio-init/exited/none/0', recipe)
+        self.assertIn('restic-rest-init/exited/none/0', recipe)
+        self.assertIn('wazuh-snapshot-init/exited/none/0', recipe)
+        self.assertNotIn('|exited/none/0)', recipe)
+        self.assertIn('die() { echo "BLOCKED: $*"', recipe)
+        self.assertIn('die "rollout unit inactive', recipe)
+        self.assertIn('die "rollout container unhealthy', recipe)
+        self.assertIn('die "expected exact pin missing', recipe)
+        self.assertIn('runtime_sha256=', recipe)
+        self.assertNotIn('inspect="$(docker inspect', recipe)
+        self.assertNotIn('docker inspect "$id"', recipe)
+
+    def test_rollout_status_remote_shell_parses(self):
+        recipe = JUSTFILE.read_text().split(
+            'servarr-rollout-status target commit="":', 1
+        )[1].split("\n# ", 1)[0]
+        remote = recipe.split("<<'REMOTE'\n", 1)[1].rsplit("\n    REMOTE", 1)[0]
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=textwrap.dedent(remote),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_branch_pull_refuses_to_overwrite_policy_while_exact_pin_exists(self):
         source = JUSTFILE.read_text()

@@ -2212,7 +2212,7 @@ pin-servarr target commit:
     commit={{ quote(commit) }}
     [[ "$target" =~ ^[a-z0-9-]+$ ]] || { echo "BLOCKED: invalid host" >&2; exit 2; }
     [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "BLOCKED: commit must be a full SHA-1" >&2; exit 2; }
-    IP="$(just _host-ip "$target")"
+    IP="$(jq -er --arg h "$target" '.hosts[$h].tailscaleIp // .hosts[$h].ip' fleet.json)"
     ssh -p 2222 erik@"$IP" bash -s -- "$commit" "$target" <<'REMOTE'
     set -euo pipefail
     commit="$1"
@@ -2231,6 +2231,90 @@ pin-servarr target commit:
     systemctl --user daemon-reload
     systemctl --user restart servarr-pull.service
     systemctl --user status servarr-pull.service --no-pager -n15
+    REMOTE
+
+# Value-free exact-pin and runtime fingerprint for one Servarr rollout gate.
+servarr-rollout-status target commit="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{ quote(target) }}
+    commit={{ quote(commit) }}
+    [[ "$target" =~ ^[a-z0-9-]+$ ]] || { echo "BLOCKED: invalid host" >&2; exit 2; }
+    [[ -z "$commit" || "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "BLOCKED: commit must be a full SHA-1" >&2; exit 2; }
+    IP="$(jq -er --arg h "$target" '.hosts[$h].tailscaleIp // .hosts[$h].ip' fleet.json)"
+    ssh -p 2222 erik@"$IP" bash -s -- "$target" "$commit" <<'REMOTE'
+    set -euo pipefail
+    target="$1"
+    expected="${2-}"
+    repo=/home/erik/servarr
+    die() { echo "BLOCKED: $*" >&2; exit 1; }
+    helper="$(command -v servarr-exact-revision || true)"
+    [[ -n "$helper" ]] || die "declarative exact-revision helper missing"
+    helper="$(readlink -f "$helper")"
+    case "$helper" in
+      /nix/store/*/bin/servarr-exact-revision) ;;
+      *) die "exact-revision helper is not declarative" ;;
+    esac
+    head="$(git -C "$repo" rev-parse HEAD)"
+    tree="$(git -C "$repo" show -s --format=%T HEAD)"
+    pin_state=absent
+    if [[ -e "$repo/.deploy-commit" ]]; then
+      jq -e --arg machine "$target" '
+        (keys | sort) == ["pin", "pin_sha256"] and
+        (.pin | keys | sort) == ["commit", "machine", "tree", "version"] and
+        .pin.version == 2 and .pin.machine == $machine and
+        (.pin.commit | test("^[0-9a-f]{40}$")) and
+        (.pin.tree | test("^[0-9a-f]{40}$")) and
+        (.pin_sha256 | test("^[0-9a-f]{64}$"))
+      ' "$repo/.deploy-commit" >/dev/null || die "malformed v2 pin"
+      pin_sha="$(jq -jcS .pin "$repo/.deploy-commit" | sha256sum | cut -d' ' -f1)"
+      [[ "$pin_sha" == "$(jq -r .pin_sha256 "$repo/.deploy-commit")" ]] || die "pin hash mismatch"
+      [[ "$head" == "$(jq -r .pin.commit "$repo/.deploy-commit")" ]] || die "pin HEAD mismatch"
+      [[ "$tree" == "$(jq -r .pin.tree "$repo/.deploy-commit")" ]] || die "pin tree mismatch"
+      [[ -z "$expected" || "$head" == "$expected" ]] || die "unexpected exact pin"
+      pin_state=v2
+    else
+      [[ -z "$expected" ]] || die "expected exact pin missing"
+    fi
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
+    case "$target" in
+      kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu) ;;
+      orion) stacks=(shared monitoring ai-models) ;;
+      voyager) stacks=(offsite) ;;
+      *) die "host outside exact-pin rollout" ;;
+    esac
+    runtime="$(mktemp)"
+    trap 'rm -f "$runtime"' EXIT
+    container_count=0
+    for stack in "${stacks[@]}"; do
+      unit="podman-compose-$stack.service"
+      systemctl --user is-enabled "$unit" >/dev/null || die "rollout unit disabled: $unit"
+      systemctl --user is-active "$unit" >/dev/null || die "rollout unit inactive: $unit"
+      mapfile -t ids < <(docker ps -aq \
+        --filter "label=com.docker.compose.project=$stack" | sort)
+      ((${#ids[@]} > 0)) || die "rollout stack has no containers: $stack"
+      for id in "${ids[@]}"; do
+        record="$(docker inspect -- "$id" | jq -cer '
+          .[0] | {
+            name: (.Name | ltrimstr("/")),
+            state: (.State.Status + "/" + (.State.Health.Status // "none") + "/" + (.State.ExitCode | tostring)),
+            fingerprint: [.Id, .Name, .Config.Labels["com.docker.compose.project"], .State.StartedAt]
+          }
+        ')"
+        container_key="$(jq -r '.name + "/" + .state' <<<"$record")"
+        case "$container_key" in
+          */running/healthy/0|*/running/none/0|buzz-minio-init/exited/none/0|restic-rest-init/exited/none/0|wazuh-snapshot-init/exited/none/0) ;;
+          *) die "rollout container unhealthy" ;;
+        esac
+        jq -r '.fingerprint | @tsv' <<<"$record" >>"$runtime"
+        ((container_count += 1))
+      done
+    done
+    docker network inspect homelab-net >/dev/null || die "homelab-net missing"
+    runtime_sha256="$(sort "$runtime" | sha256sum | cut -d' ' -f1)"
+    printf 'target=%s pin=%s head=%s tree=%s units=%s containers=%s runtime_sha256=%s\n' \
+      "$target" "$pin_state" "$head" "$tree" "${#stacks[@]}" "$container_count" "$runtime_sha256"
     REMOTE
 
 # Repair only the Git checkout surface; leave untracked container runtime state alone.
