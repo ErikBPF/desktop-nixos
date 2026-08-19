@@ -114,6 +114,18 @@ def test_galaxy_s25_key_is_scoped_to_endeavour_user():
     assert GALAXY_S25_KEY not in root_keys
 
 
+def test_galaxy_s25_key_is_scoped_to_orion_user():
+    erik_keys = nix_eval(
+        "nixosConfigurations.orion.config.users.users.erik.openssh.authorizedKeys.keys"
+    )
+    root_keys = nix_eval(
+        "nixosConfigurations.orion.config.users.users.root.openssh.authorizedKeys.keys"
+    )
+
+    assert GALAXY_S25_KEY in erik_keys
+    assert GALAXY_S25_KEY not in root_keys
+
+
 def test_shared_aliases_expose_default_and_repo_sessions():
     aliases = (ROOT / "modules/shell/_aliases.nix").read_text()
 

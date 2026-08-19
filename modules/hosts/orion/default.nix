@@ -139,9 +139,10 @@ in {
 
     services.btrfs.autoScrub.enable = true;
 
-    # Allow laptop's nix-builder root key to trigger builds via ssh-ng
+    # Allow laptop's nix-builder root key and Galaxy S25 Termius access.
     users.users.${config.username}.openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
     ];
 
     # zramSwap intentionally disabled: 62GB host RAM is enough for the 21GB
