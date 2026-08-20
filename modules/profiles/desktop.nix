@@ -68,6 +68,7 @@ in {
       m.home.nvim
       m.home.claude-code
       m.home.codex
+      m.home.tuicr
       m.home.buzz
       m.home.opencode
       m.home.hermes-agent

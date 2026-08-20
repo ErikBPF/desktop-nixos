@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review and Revise"
+  short_description: "Review, fix, simplify, and verify"
+  default_prompt: "Use $rv to review and revise this artifact, apply verified improvements, simplify it, and rerun validation."

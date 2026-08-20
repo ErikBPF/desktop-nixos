@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grill"
+  short_description: "Pressure-test plans one decision at a time"
+  default_prompt: "Use $grill to pressure-test this idea or plan, resolve facts from source, and surface human decisions one at a time."

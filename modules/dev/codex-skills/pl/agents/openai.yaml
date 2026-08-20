@@ -1,0 +1,4 @@
+interface:
+  display_name: "Planning"
+  short_description: "Shape ideas into executable behavior"
+  default_prompt: "Use $pl to ground this idea, elicit perspectives, map decisions, and write its BDD feature contract."

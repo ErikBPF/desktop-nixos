@@ -1,0 +1,4 @@
+interface:
+  display_name: "CodeHero"
+  short_description: "Run independent specialist risk reviews"
+  default_prompt: "Use $codehero to select and run independent security and other applicable specialist reviews for this work."

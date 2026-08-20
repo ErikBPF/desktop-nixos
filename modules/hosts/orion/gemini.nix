@@ -193,6 +193,7 @@ in {
               m.home.atuin
               m.home.claude-code
               m.home.codex
+              m.home.tuicr
               m.home.opencode
               m.home.vscode
               m.home.nvim

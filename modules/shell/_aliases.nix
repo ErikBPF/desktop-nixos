@@ -100,6 +100,7 @@ _: {
   c = "codex --dangerously-bypass-approvals-and-sandbox"; # codex shorthand — dangerous
   cc = "code . ; codex --dangerously-bypass-approvals-and-sandbox"; # editor + dangerous codex
   e = "code ."; # editor in cwd
+  tcr = "tuicr -w"; # review uncommitted working-tree changes
 
   # --- OpenCode (yolo by default, mirroring `c`) ---
   oc = "opencode --auto"; # default opencode (auto-approve)
