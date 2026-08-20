@@ -1568,8 +1568,9 @@ diagnose-gateway-reachability target:
       echo ":: Tailscale routing prefs"
       tailscale version | head -1
       tailscale debug prefs | grep -E '"RouteAll"|"AdvertiseTags"|"AdvertiseRoutes"'
-      echo ":: gateway TCP/443"
-      timeout 2 bash -c "exec 3<>/dev/tcp/$gw/443" && echo "reachable" || echo "unreachable"
+      probe=1.1.1.1
+      echo ":: routed TCP/443"
+      timeout 2 bash -c "exec 3<>/dev/tcp/$probe/443" && echo "reachable" || echo "unreachable"
     REMOTE
     }
     if [ "{{target}}" = gemini ]; then
@@ -1594,8 +1595,9 @@ recover-orion-tailscale-routes:
         echo "gateway still routed through Tailscale: $route" >&2
         exit 1
       }
-      timeout 2 bash -c "exec 3<>/dev/tcp/$gw/443"
-      echo "gateway_route=physical gateway_tcp_443=reachable"
+      probe=1.1.1.1
+      timeout 2 bash -c "exec 3<>/dev/tcp/$probe/443"
+      echo "gateway_route=physical routed_tcp_443=reachable"
     REMOTE
 
 diagnose-orion-upgrade:
@@ -1604,8 +1606,9 @@ diagnose-orion-upgrade:
       echo ":: routes"
       ip route
       gw="$(ip route show default | awk '/default/{print $3; exit}')"
-      echo ":: gateway TCP/443"
-      timeout 2 bash -c "exec 3<>/dev/tcp/$gw/443" && echo "reachable" || echo "unreachable"
+      probe=1.1.1.1
+      echo ":: routed TCP/443"
+      timeout 2 bash -c "exec 3<>/dev/tcp/$probe/443" && echo "reachable" || echo "unreachable"
       echo ":: NetworkManager"
       systemctl status NetworkManager --no-pager -l || true
       nmcli general status
