@@ -2072,7 +2072,7 @@ drtest-vm-ssh:
 # ── kepler k3s cluster ────────────────────────────────────
 
 # Fetch cp-1's admin kubeconfig → repoint at the LB admin endpoint (via discovery)
-# → rename context to 'pastelariadev' → ~/.kube/config. Run after a fresh laptop
+# → rename context to 'homelab' → ~/.kube/config. Run after a fresh laptop
 # or a cluster reform. cp-1 (clusterInit server, 10.250.0.11) is on the private
 # subnet, reached by agent-forward (kepler sshd disallows TCP forwarding).
 kubeconfig:
@@ -2084,7 +2084,7 @@ kubeconfig:
     ssh -A -o StrictHostKeyChecking=accept-new -p 2222 erik@{{ip_kepler}} \
         'ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 "cat /etc/rancher/k3s/k3s.yaml"' \
         | sed 's#https://127.0.0.1:6443#https://k8s.pastelariadev.com:6443#' \
-        | sed 's/: default$/: pastelariadev/' \
+        | sed 's/: default$/: homelab/' \
         > "$tmp"
     chmod 600 "$tmp"
     mv "$tmp" ~/.kube/config
@@ -2095,23 +2095,23 @@ kubeconfig:
 # LAN-direct kubeconfig → apiserver VIP 192.168.10.245 (cert SAN covers it),
 # bypassing discovery's stream-proxy. Use on the kepler LAN or when discovery is
 # down (grill §5 — admin access must not depend on a second host). Separate file;
-# use via `KUBECONFIG=~/.kube/pastelariadev-lan.yaml kubectl …`.
+# use via `KUBECONFIG=~/.kube/homelab-lan.yaml kubectl …`.
 kubeconfig-lan:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p ~/.kube
-    tmp=$(mktemp ~/.kube/pastelariadev-lan.yaml.XXXXXX)
+    tmp=$(mktemp ~/.kube/homelab-lan.yaml.XXXXXX)
     trap 'rm -f "$tmp"' EXIT
     ssh -A -o StrictHostKeyChecking=accept-new -p 2222 erik@{{ip_kepler}} \
         'ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null root@10.250.0.11 "cat /etc/rancher/k3s/k3s.yaml"' \
         | sed 's#https://127.0.0.1:6443#https://192.168.10.245:6443#' \
-        | sed 's/: default$/: pastelariadev-lan/' \
+        | sed 's/: default$/: homelab-lan/' \
         > "$tmp"
     chmod 600 "$tmp"
-    mv "$tmp" ~/.kube/pastelariadev-lan.yaml
+    mv "$tmp" ~/.kube/homelab-lan.yaml
     trap - EXIT
-    echo ":: LAN kubeconfig → ~/.kube/pastelariadev-lan.yaml (context pastelariadev-lan)"
-    KUBECONFIG=~/.kube/pastelariadev-lan.yaml kubectl get nodes
+    echo ":: LAN kubeconfig → ~/.kube/homelab-lan.yaml (context homelab-lan)"
+    KUBECONFIG=~/.kube/homelab-lan.yaml kubectl get nodes
 
 # ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
 # archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.
@@ -3943,7 +3943,7 @@ capture-k3s-bootstrap-secrets:
     printf '%s' "$secret_id" | jq -Rs . \
       | sops set --value-stdin secrets/sops/secrets.yaml '["k3s_bootstrap"]["vault_approle_secret_id"]'
     unset secret_id
-    kubectl --context pastelariadev -n argocd get secret homelab-gitops-repo \
+    kubectl --context homelab -n argocd get secret homelab-gitops-repo \
       -o jsonpath='{.data.sshPrivateKey}' \
       | base64 --decode \
       | jq -Rs . \
