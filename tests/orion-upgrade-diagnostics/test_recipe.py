@@ -15,7 +15,7 @@ def test_orion_upgrade_diagnostics_cover_network_and_generation_state():
         "table 52",
         "tailscale version",
         "RouteAll",
-        "/dev/tcp/$gw/443",
+        "/dev/tcp/$probe/443",
     ):
         assert check in recipe
 
@@ -29,7 +29,7 @@ def test_orion_route_recovery_disables_subnet_routes_and_verifies_physical_path(
     for check in (
         "tailscale set --accept-routes=false",
         "dev enp4s0",
-        "/dev/tcp/$gw/443",
+        "/dev/tcp/$probe/443",
     ):
         assert check in recipe
 

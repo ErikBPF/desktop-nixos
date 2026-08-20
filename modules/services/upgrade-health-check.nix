@@ -41,25 +41,23 @@ _: {
         # the switch broke the interface/routing/uplink but sshd/tailscaled stay
         # "active", so the loop above misses it and the host silently locks out
         # (the exact failure class deploy-rs magic rollback catches and this
-        # module previously did not). Probe the UniFi gateway's HTTPS listener;
-        # it deliberately rejects ICMP on some hosts, making ping a permanent
-        # false failure. Roll back only if TCP/443 stays unreachable across
-        # retries, tolerating a transient blip while networking re-settles.
-        gw="$(${pkgs.iproute2}/bin/ip route show default | ${pkgs.gawk}/bin/awk '/default/{print $3; exit}')"
-        if [ -n "$gw" ]; then
-          reachable=0
-          for _ in 1 2 3 4 5 6; do
-            if ${pkgs.coreutils}/bin/timeout 2 ${pkgs.bash}/bin/bash -c "exec 3<>/dev/tcp/$gw/443"; then reachable=1; break; fi
-            sleep 5
-          done
-          if [ "$reachable" -ne 1 ]; then
-            echo "HEALTH CHECK: default gateway $gw TCP/443 unreachable after upgrade — rolling back" >&2
-            ${pkgs.nix}/bin/nix-env --profile /nix/var/nix/profiles/system --rollback
-            /nix/var/nix/profiles/system/bin/switch-to-configuration switch
-            exit 1
-          fi
+        # module previously did not). Probe a routed public HTTPS endpoint;
+        # gateway service ports vary by network and caused false rollbacks.
+        # Roll back only if TCP/443 stays unreachable across retries,
+        # tolerating a transient blip while networking re-settles.
+        probe=1.1.1.1
+        reachable=0
+        for _ in 1 2 3 4 5 6; do
+          if ${pkgs.coreutils}/bin/timeout 2 ${pkgs.bash}/bin/bash -c "exec 3<>/dev/tcp/$probe/443"; then reachable=1; break; fi
+          sleep 5
+        done
+        if [ "$reachable" -ne 1 ]; then
+          echo "HEALTH CHECK: routed TCP/443 unreachable after upgrade — rolling back" >&2
+          ${pkgs.nix}/bin/nix-env --profile /nix/var/nix/profiles/system --rollback
+          /nix/var/nix/profiles/system/bin/switch-to-configuration switch
+          exit 1
         fi
-        echo "Health check passed: critical units active and gateway reachable"
+        echo "Health check passed: critical units active and routed network reachable"
       '');
     };
   };

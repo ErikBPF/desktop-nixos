@@ -58,6 +58,13 @@ def test_upgrade_health_units_extend_immutable_base():
         assert "modules.upgradeHealthCheck.criticalUnits =" not in path.read_text()
 
 
+def test_upgrade_health_checks_routed_network_not_gateway_service():
+    module = read("modules/services/upgrade-health-check.nix")
+    assert "probe=1.1.1.1" in module
+    assert "/dev/tcp/$probe/443" in module
+    assert "/dev/tcp/$gw/443" not in module
+
+
 def test_vault_concerns_are_split():
     vault = read("modules/hosts/discovery/vault.nix")
     assert "./_vault-agent.nix" in vault
