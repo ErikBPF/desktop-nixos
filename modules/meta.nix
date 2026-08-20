@@ -106,7 +106,8 @@
         telstar = {
           # Public Oracle Cloud Ampere A1 VM (2 OCPU / 12 GB, aarch64) for
           # exposing personal projects outside the home. Ephemeral public IP,
-          # filled in after the capacity-retry provisioning lands.
+          # updated after instance recreation.
+          ip = "163.176.138.152";
           role = "server";
         };
         vanguard = {

@@ -1,3 +1,4 @@
+import json
 import pathlib
 
 
@@ -67,6 +68,16 @@ def test_transient_discovery_jobs_have_bounded_retries():
 def test_telstar_lock_failure_is_not_automatically_restarted():
     module = (ROOT / "modules/hosts/discovery/telstar-capture.nix").read_text()
     assert "RestartPreventExitStatus = [75];" in module
+
+
+def test_telstar_capture_retires_after_instance_creation():
+    fleet = json.loads((ROOT / "fleet.json").read_text())
+    capture = (ROOT / "modules/hosts/discovery/telstar-capture.nix").read_text()
+
+    assert fleet["hosts"]["telstar"]["ip"] is not None
+    assert (
+        "lib.mkIf (config.fleet.hosts.telstar.ip == null)"
+    ) in capture
 
 
 def test_telstar_lock_recovery_is_exact_and_guarded():

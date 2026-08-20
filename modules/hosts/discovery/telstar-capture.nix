@@ -1,4 +1,8 @@
-{inputs, ...}: {
+{
+  config,
+  inputs,
+  ...
+}: {
   # Persistent retry that creates the Oracle Always-Free A1 `telstar` instance
   # the moment free-tier capacity frees ("Out of host capacity" is intermittent
   # in sa-saopaulo-1). Runs on discovery (always-on). Declarative replacement for
@@ -8,7 +12,11 @@
   # oracle stack and the encrypted OCI creds, which discovery decrypts at
   # runtime. A system service with User=erik survives reboots without linger. See
   # homelab-iac/oracle/telstar-capture-status.md.
-  flake.modules.nixos.discovery-telstar-capture = {pkgs, ...}: let
+  flake.modules.nixos.discovery-telstar-capture = {
+    lib,
+    pkgs,
+    ...
+  }: let
     # Fleet username (meta.nix `username`, readOnly "erik"); referenced directly
     # since that option is flake-level, not a nixos config attr in this context.
     user = "erik";
@@ -19,7 +27,7 @@
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxdE+uAvR4Nm2XwZNjTf2Ae8PlrRtnZUI6BBrbGl78u erikbogado@gmail.com
     '';
   in {
-    systemd.services.telstar-capture = {
+    systemd.services.telstar-capture = lib.mkIf (config.fleet.hosts.telstar.ip == null) {
       description = "Retry Oracle A1 telstar create until free-tier capacity frees";
       wantedBy = ["multi-user.target"];
       after = ["network-online.target"];

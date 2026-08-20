@@ -43,7 +43,7 @@
       "tailscaleIp": "100.102.248.13"
     },
     "telstar": {
-      "ip": null,
+      "ip": "163.176.138.152",
       "mac": null,
       "role": "server",
       "tailscaleIp": null
