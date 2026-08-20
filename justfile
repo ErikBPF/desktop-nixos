@@ -2643,7 +2643,8 @@ grafana-alert-diagnostics:
         local ip
         ip="$(jq -r --arg host "$host" '.hosts[$host].tailscaleIp // empty' fleet.json)"
         [ -n "$ip" ] || ip="$(just _host-ip "$host")"
-        ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" \
+        ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
+          -o ServerAliveInterval=3 -o ServerAliveCountMax=1 "erik@$ip" \
           "systemctl status '$unit' --no-pager -l || true; journalctl -u '$unit' -n 80 --no-pager || true" \
           || true
       fi
@@ -2655,6 +2656,38 @@ grafana-alert-diagnostics:
     diagnose orion nixos-upgrade.service
     diagnose discovery telstar-capture.service
     diagnose discovery homelab-iac-drift.service
+
+# Correlate Kepler's exporter, SSH, and recent kernel faults without mutation.
+diagnose-kepler-kernel:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    metrics=$(curl --fail --silent --show-error --max-time 8 --get \
+      http://discovery:9090/api/v1/query \
+      --data-urlencode 'query=up{instance="kepler",job="integrations/unix"}')
+    printf 'metrics_up=%s\n' "$(jq -r '.data.result[0].value[1] // "missing"' <<<"$metrics")"
+
+    ip=$(jq -r '.hosts.kepler.tailscaleIp // empty' fleet.json)
+    [ -n "$ip" ] || ip=$(just _host-ip kepler)
+    if timeout 12 ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=5 \
+      -o ServerAliveInterval=3 -o ServerAliveCountMax=1 "erik@$ip" true; then
+      echo ssh_reachable=1
+    else
+      echo ssh_reachable=0
+    fi
+
+    logs=$(curl --fail --silent --show-error --max-time 8 --get \
+      http://discovery:3100/loki/api/v1/query_range \
+      --data-urlencode 'query={host="kepler"} |~ "BUG: unable to handle page fault|reboot is needed"' \
+      --data-urlencode "start=$(date --date='7 days ago' +%s%N)" \
+      --data-urlencode 'limit=100' \
+      --data-urlencode 'direction=backward')
+    jq -r '.data.result[]?.values[]?[1]' <<<"$logs"
+    if jq -e '[.data.result[]?.values[]?[1] | select(contains("reboot is needed"))] | length > 0' \
+      >/dev/null <<<"$logs"; then
+      echo reboot_required=1
+      exit 2
+    fi
+    echo reboot_required=0
 
 # Identify the process killed by the kernel OOM detector on Discovery.
 grafana-alert-oom-diagnostics:
