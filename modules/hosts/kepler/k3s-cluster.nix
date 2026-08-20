@@ -1,4 +1,4 @@
-# k3s test cluster on kepler — each node a NixOS MicroVM.
+# Stable k3s cluster on kepler — each node a NixOS MicroVM.
 # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.
 #
 # STAGE 2: full topology — 3 control-plane (HA embedded etcd, NoSchedule-tainted)
@@ -54,7 +54,7 @@ in {
     # pods aren't tailnet members so "discovery" doesn't resolve in-cluster (the
     # host Alloy in modules/services/alloy.nix uses the name). Keep the IP in sync.
     discoveryLokiUrl = "http://100.76.140.121:3100/loki/api/v1/push";
-    clusterName = lib.head (lib.splitString "." domain); # "pastelariadev"
+    clusterName = "homelab";
 
     # In-cluster Alloy DaemonSet config: tail pod logs via the k8s API (not host
     # files → no hostPath, stays PodSecurity-baseline clean) and forward to Loki,
@@ -405,7 +405,7 @@ in {
     imports = [inputs.microvm.nixosModules.host];
 
     options.kepler.k3s = {
-      enable = lib.mkEnableOption "k3s test cluster (microvm nodes) on kepler";
+      enable = lib.mkEnableOption "stable k3s cluster (microvm nodes) on kepler";
       workerCount = lib.mkOption {
         type = lib.types.int;
         default = 2;
