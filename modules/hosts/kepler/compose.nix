@@ -8,14 +8,15 @@ _: {
       dockerSocket = "unix:///run/user/1000/podman/podman.sock";
       stacks = [
         # Order matters: each unit waits for the previous via After=.
-        # Qdrant in infra must precede docs-search. Other heavier stacks
+        # Security precedes sync because Ofelia starts in sync and discovers
+        # labeled jobs only once. Other heavier stacks
         # (knowledge, photos, cicd) remain manual until migrated off
         # the legacy TrueNAS deployment.
         "infra"
         "buzz"
         "monitoring"
-        "sync"
         "security"
+        "sync"
         "whisper-gpu"
         "qwen4b-gpu"
       ];

@@ -4,6 +4,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MODULE = ROOT / "modules/server/orchestration.nix"
+KEPLER_COMPOSE = ROOT / "modules/hosts/kepler/compose.nix"
 
 
 class UnitLifecycleTest(unittest.TestCase):
@@ -31,6 +32,12 @@ class UnitLifecycleTest(unittest.TestCase):
         self.assertIn("com.docker.compose.project=${name}", stop_script)
         self.assertNotIn("runtimeProvider", stop_script)
         self.assertNotIn("composeEnv", stop_script)
+
+    def test_kepler_security_starts_before_ofelia_scheduler(self):
+        source = KEPLER_COMPOSE.read_text()
+        stacks = source.split("stacks = [", 1)[1].split("];", 1)[0]
+
+        self.assertLess(stacks.index('"security"'), stacks.index('"sync"'))
 
 
 if __name__ == "__main__":
