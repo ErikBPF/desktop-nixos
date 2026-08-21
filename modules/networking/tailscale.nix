@@ -48,5 +48,7 @@ in {
         ]
         ++ lib.optional (role == "server") "--advertise-tags=tag:server";
     };
+
+    systemd.services.tailscaled-autoconnect.serviceConfig.TimeoutStartSec = "5min";
   };
 }

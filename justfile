@@ -3712,17 +3712,18 @@ kepler-retire-ai-serving-user-approved:
 reboot-kepler:
     #!/usr/bin/env bash
     set -euo pipefail
-    ssh -p 2222 erik@{{ip_kepler}} sudo systemctl reboot || true
+    ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=10 \
+        erik@{{ip_kepler}} sudo systemd-run --collect --on-active=2s systemctl reboot
     echo ":: waiting for kepler to stop..."
     for _ in $(seq 1 30); do
-        if ! ssh -p 2222 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
+        if ! ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
             break
         fi
         sleep 1
     done
     echo ":: waiting for kepler to return..."
     for _ in $(seq 1 150); do
-        if ssh -p 2222 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
+        if ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=2 erik@{{ip_kepler}} true 2>/dev/null; then
             echo ":: kepler reachable"
             exit 0
         fi
