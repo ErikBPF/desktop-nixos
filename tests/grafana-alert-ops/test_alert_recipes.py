@@ -48,6 +48,22 @@ def test_kepler_kernel_diagnostics_are_bounded_and_read_only():
     assert "sudo reboot" not in recipe
 
 
+def test_kepler_reboot_dispatch_fails_fast_when_ssh_is_unavailable():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("reboot-kepler:", 1)[1].split("\n# ", 1)[0]
+
+    assert "-o BatchMode=yes" in recipe
+    assert "-o ConnectTimeout=10" in recipe
+    assert "systemd-run --collect --on-active=2s" in recipe
+    assert "systemctl reboot || true" not in recipe
+
+
+def test_tailscale_enrollment_allows_slow_boot_networks():
+    module = (ROOT / "modules/networking/tailscale.nix").read_text()
+
+    assert 'TimeoutStartSec = "5min";' in module
+
+
 def test_transient_discovery_jobs_have_bounded_retries():
     wiki = (ROOT / "modules/hosts/discovery/hermes-wiki.nix").read_text()
     restic = (ROOT / "modules/services/restic-tofu-state.nix").read_text()
