@@ -6,6 +6,7 @@ AGENT_POLICY = Path(__file__).parents[2] / "modules/dev/agent-policy.md"
 CLAUDE = Path(__file__).parents[2] / "modules/dev/claude-code.nix"
 CODEX = Path(__file__).parents[2] / "modules/dev/codex.nix"
 FLAKE = Path(__file__).parents[2] / "flake.nix"
+TMUX = Path(__file__).parents[2] / "modules/terminal/tmux.nix"
 ZSH = Path(__file__).parents[2] / "modules/shell/zsh.nix"
 
 
@@ -53,6 +54,19 @@ def test_gemini_herdr_entrypoints_and_version():
     assert 'hg = "herdr --remote gemini --session code";' in aliases
     assert "hgs = \"ssh -t gemini 'exec herdr session attach code'\";" in aliases
     assert 'herdr.url = "github:herdrdev/herdr/v0.8.0";' in FLAKE.read_text()
+
+
+def test_homelab_tmux_profile_opens_eight_windows_without_killing_sessions():
+    aliases = ALIASES.read_text()
+    tmux = TMUX.read_text()
+
+    assert 'tlab = "tmux-homelab";' in aliases
+    assert 'name = "tmux-homelab";' in tmux
+    assert 'for window in {2..8}; do' in tmux
+    assert '-n shell-1 -c "$repo"' in tmux
+    assert '-n "shell-$window" -c "$repo"' in tmux
+    assert 'tmux list-windows -t "=$session"' in tmux
+    assert "tmux-homelab: existing session has" in tmux
 
 
 def test_high_value_shortcuts_without_unsafe_duplicates():

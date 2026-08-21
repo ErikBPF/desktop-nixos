@@ -1,0 +1,4 @@
+interface:
+  display_name: "Party Elicitation"
+  short_description: "Elicit decisions through distinct perspectives"
+  default_prompt: "Use $party to run a bounded roundtable that surfaces disagreements, risks, and unresolved decisions."

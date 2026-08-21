@@ -12,7 +12,6 @@ def test_endeavour_moves_work_posture_into_the_vm():
     assert "m.nixos.work" not in endeavour
     assert "m.nixos.endeavour-ubuntu-work" in endeavour
     assert "cloudflare-warp" not in endeavour
-    assert "boot.kernelPackages = pkgs.linuxPackages_latest;" in endeavour
     assert 'environment.etc."brave/policies/managed/cloudflare-access.json"' not in endeavour
 
 

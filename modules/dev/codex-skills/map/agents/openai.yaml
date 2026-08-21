@@ -1,0 +1,4 @@
+interface:
+  display_name: "Decision Map"
+  short_description: "Map decisions, dependencies, and unknowns"
+  default_prompt: "Use $map to turn this effort into a decision map with destination, dependencies, risks, fog, and frontier."

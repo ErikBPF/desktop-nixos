@@ -36,7 +36,7 @@ class ExactRevisionWiringTest(unittest.TestCase):
         exact = exact.split("else\n                        EXACT_PIN_ACTIVE=0", 1)[0]
         self.assertIn(".pin.version == 2", exact)
         self.assertIn('.pin.machine == $machine', exact)
-        self.assertIn('PIN_VERSION="$(' , exact)
+        self.assertIn('PIN_VERSION="$(', exact)
         self.assertIn(
             'if [ "$EXACT_PIN_ACTIVE" -eq 1 ] && [ "$PIN_VERSION" -eq 1 ]; then',
             self.source,

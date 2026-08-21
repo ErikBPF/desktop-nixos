@@ -8,6 +8,13 @@
     home = {
       packages = [pkgs.claude-code];
       file.".claude/AGENT_POLICY.md".source = ./agent-policy.md;
+      file.".claude/skills/codehero".source = ./codex-skills/codehero;
+      file.".claude/skills/grill".source = ./codex-skills/grill;
+      file.".claude/skills/ip".source = ./codex-skills/ip;
+      file.".claude/skills/map".source = ./codex-skills/map;
+      file.".claude/skills/party".source = ./codex-skills/party;
+      file.".claude/skills/pl".source = ./codex-skills/pl;
+      file.".claude/skills/rv".source = ./codex-skills/rv;
     };
 
     home.activation.includeClaudeAgentPolicy = lib.hm.dag.entryAfter ["writeBoundary"] ''

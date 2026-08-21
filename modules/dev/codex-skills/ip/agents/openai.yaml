@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implementation Plan"
+  short_description: "Turn behavior into vertical TDD slices"
+  default_prompt: "Use $ip to turn the accepted behavior into a grilled, test-first delivery plan."

@@ -46,7 +46,7 @@
       "ip": "163.176.138.152",
       "mac": null,
       "role": "server",
-      "tailscaleIp": null
+      "tailscaleIp": "100.95.101.74"
     },
     "vanguard": {
       "ip": "163.176.206.86",

@@ -120,7 +120,7 @@ _: {
       # mongodb-compass
       github-desktop
       opencode
-      gemini-cli
+      antigravity-cli
       claude-code
       discord
       obsidian

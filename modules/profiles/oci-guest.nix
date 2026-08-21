@@ -18,6 +18,10 @@ _: {
     services.openssh.openFirewall = lib.mkForce false;
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [2222];
 
+    # Oracle block volumes don't expose SMART; smartd exits non-zero when no
+    # monitorable device exists and makes activation fail.
+    services.smartd.enable = lib.mkForce false;
+
     # OCI disk + NIC are virtio; without these initrd modules the guest can't
     # find its root disk or network (a confirmed boot-deaf failure on voyager).
     boot.initrd.availableKernelModules = ["xhci_pci" "virtio_pci" "virtio_scsi" "virtio_blk" "virtio_net" "sd_mod"];

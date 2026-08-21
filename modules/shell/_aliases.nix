@@ -100,6 +100,7 @@ _: {
   c = "codex --dangerously-bypass-approvals-and-sandbox"; # codex shorthand — dangerous
   cc = "code . ; codex --dangerously-bypass-approvals-and-sandbox"; # editor + dangerous codex
   e = "code ."; # editor in cwd
+  tcr = "tuicr -w"; # review uncommitted working-tree changes
 
   # --- OpenCode (yolo by default, mirroring `c`) ---
   oc = "opencode --auto"; # default opencode (auto-approve)
@@ -108,7 +109,7 @@ _: {
 
   # --- Tmux repo sessions ---
   t = "tmux-repo";
-  tlab = "tmux-repo ~/Documents/erik/homelab";
+  tlab = "tmux-homelab";
   tdap = "tmux-repo ~/Documents/nstech/dataplatform";
 
   # --- Repo jumps ---

@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/dev/herdr-gemini.nix"
 GALAXY_S25_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
+GEMINI_SYNCTHING_ID = "3MXXNKD-O7PXY6E-2SKDLDF-7SJXAYJ-JNLLF2O-YZU2Y33-UKKXTOV-5HD3ZAF"
 
 
 def nix_eval(attribute):
@@ -124,6 +125,14 @@ def test_galaxy_s25_key_is_scoped_to_orion_user():
 
     assert GALAXY_S25_KEY in erik_keys
     assert GALAXY_S25_KEY not in root_keys
+
+
+def test_endeavour_uses_live_gemini_syncthing_identity():
+    device_id = nix_eval(
+        "nixosConfigurations.endeavour.config.services.syncthing.settings.devices.gemini.id"
+    )
+
+    assert device_id == GEMINI_SYNCTHING_ID
 
 
 def test_shared_aliases_expose_default_and_repo_sessions():

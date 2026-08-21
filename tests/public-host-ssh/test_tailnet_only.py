@@ -35,3 +35,14 @@ def test_oci_ssh_is_open_only_on_tailscale(host):
 def test_live_oci_deploys_use_stable_tailnet_addresses(host):
     assert nix_eval(f"deploy.nodes.{host}.hostname") == FLEET[host]["tailscaleIp"]
     assert nix_eval(f"deploy.nodes.{host}.magicRollback") is False
+
+
+def test_telstar_dhcp_uses_oci_nic():
+    assert nix_eval(
+        "nixosConfigurations.telstar.config.networking.interfaces.enp0s6.useDHCP"
+    ) is True
+
+
+@pytest.mark.parametrize("host", ["voyager", "vanguard", "telstar"])
+def test_oci_guests_disable_smartd(host):
+    assert nix_eval(f"nixosConfigurations.{host}.config.services.smartd.enable") is False
