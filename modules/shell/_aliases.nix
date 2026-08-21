@@ -109,7 +109,7 @@ _: {
 
   # --- Tmux repo sessions ---
   t = "tmux-repo";
-  tlab = "tmux-repo ~/Documents/erik/homelab";
+  tlab = "tmux-homelab";
   tdap = "tmux-repo ~/Documents/nstech/dataplatform";
 
   # --- Repo jumps ---

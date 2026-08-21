@@ -39,10 +39,6 @@ in {
     boot.tmp.useTmpfs = lib.mkForce false;
     boot.tmp.cleanOnBoot = true;
 
-    # Oracle block volumes don't support SMART; smartd exits non-zero and
-    # marks the system degraded. Disable it on this guest.
-    services.smartd.enable = lib.mkForce false;
-
     virtualisation.vmVariant = {
       # Force legacy eth0 naming so the static config below lands on the real
       # interface. Without this, predictable naming yields ens3 and the IP is

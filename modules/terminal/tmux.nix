@@ -65,6 +65,37 @@ _: {
           fi
         '';
       })
+      (pkgs.writeShellApplication {
+        name = "tmux-homelab";
+        runtimeInputs = [pkgs.tmux];
+        text = ''
+          repo="$HOME/Documents/erik/homelab"
+          session=homelab
+
+          if tmux has-session -t "=$session" 2>/dev/null; then
+            windows=0
+            while read -r _; do
+              windows=$((windows + 1))
+            done < <(tmux list-windows -t "=$session" -F '#{window_id}')
+            if [[ $windows != 8 ]]; then
+              echo "tmux-homelab: existing session has $windows windows; expected 8; refusing to replace it" >&2
+              exit 1
+            fi
+          else
+            tmux new-session -d -s "$session" -n shell-1 -c "$repo"
+            for window in {2..8}; do
+              tmux new-window -d -t "=$session" -n "shell-$window" -c "$repo"
+            done
+            tmux select-window -t "=$session:1"
+          fi
+
+          if [[ -n "''${TMUX:-}" ]]; then
+            exec tmux switch-client -t "=$session"
+          else
+            exec tmux attach-session -t "=$session"
+          fi
+        '';
+      })
     ];
 
     programs.tmux = {

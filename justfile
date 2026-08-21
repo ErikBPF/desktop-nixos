@@ -425,6 +425,9 @@ discovery-apparmor-diagnostic:
 switch-orion:
     just deploy-rs orion
 
+restart-gemini-herdr:
+    ssh gemini 'systemctl --user restart herdr-session-homelab.service && systemctl --user is-active herdr-session-homelab.service'
+
 recache-orion:
     ssh -p 2222 erik@{{ip_orion}} 'sudo systemctl start nix-cache-builder.service'
 

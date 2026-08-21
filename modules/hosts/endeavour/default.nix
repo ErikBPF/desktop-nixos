@@ -38,10 +38,20 @@ in {
       inherit (config) colorScheme;
     };
 
+    environment.etc."libinput/local-overrides.quirks".text = ''
+      [Positivo VAIO VJBK1BF11X Touchpad]
+      MatchBus=i2c
+      MatchVendor=0x093A
+      MatchProduct=0x0255
+      MatchUdevType=touchpad
+      MatchDMIModalias=dmi:*:svnPositivoBahia-VAIO:pnVJBK1BF11X-*:*
+      AttrEventCode=+BTN_RIGHT
+    '';
+
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.intel.updateMicrocode = true;
-    boot.kernelPackages = pkgs.linuxPackages_latest;
+    boot.kernelPackages = pkgs.linuxPackages_zen;
     boot = {
       kernelParams = ["nohibernate"];
       supportedFilesystems = ["ntfs"];

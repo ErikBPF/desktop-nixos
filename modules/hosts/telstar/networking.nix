@@ -4,7 +4,7 @@ _: {
       hostName = "telstar";
       networkmanager.enable = false;
       useDHCP = false;
-      interfaces.ens3.useDHCP = true;
+      interfaces.enp0s6.useDHCP = true;
 
       # telstar exposes personal projects to the public internet, so public
       # ingress is deliberately scoped here as it is added. Until then the host

@@ -109,6 +109,7 @@
           # updated after instance recreation.
           ip = "163.176.138.152";
           role = "server";
+          tailscaleIp = "100.95.101.74";
         };
         vanguard = {
           # Second Always-Free Oracle VM (AMD VM.Standard.E2.1.Micro, 1 OCPU /

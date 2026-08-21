@@ -48,10 +48,6 @@ in {
     boot.tmp.useTmpfs = lib.mkForce false;
     boot.tmp.cleanOnBoot = true;
 
-    # Oracle block volumes don't support SMART; smartd exits non-zero and
-    # marks the system degraded. Disable it on this guest.
-    services.smartd.enable = lib.mkForce false;
-
     # Phase 1 roles (docs/proposals/2026-07-10-vanguard-second-oracle-node.md
     # §enablement): the light pair — R1 CoreDNS secondary resolver (tailnet
     # fallback, tens of MB, bound to tailscale0) + R2 offsite dead-man's-switch
