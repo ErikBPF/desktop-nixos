@@ -4423,6 +4423,27 @@ test-cleytin-grafana-route:
     echo ":: Cleytin Grafana route canary accepted HTTP $status"
     REMOTE
 
+# Stop only Cleytin/Argus until the next activation or boot.
+stop-hermes-argus:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=10 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl stop \
+        hermes-argus-healthcheck.timer \
+        hermes-argus-healthcheck.service \
+        docker-hermes-argus.service
+      ! sudo systemctl is-active --quiet hermes-argus-healthcheck.timer
+      ! sudo systemctl is-active --quiet docker-hermes-argus.service
+      if ! state="$(docker inspect --format="{{"{{"}}.State.Status{{"}}"}}" hermes-argus 2>/dev/null)"; then
+        state=absent
+      fi
+      test "$state" != running
+      sudo systemctl is-active docker-hermes-agent.service docker-hermes-daedalus.service
+      printf ":: hermes-argus state=%s timer=stopped peers=running\n" "$state"
+    '
+
 hermes-agents-health:
     #!/usr/bin/env bash
     set -euo pipefail
