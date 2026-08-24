@@ -194,11 +194,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787589197,
-        "narHash": "sha256-cfzje/L0KqKT5VaR555dS0R6IxabZbrH8Oj9XsZODvY=",
+        "lastModified": 1787591423,
+        "narHash": "sha256-cI+qrfU8g/Pqmw3BvQil8H1IO+AmdpsuyluOhpQGXFU=",
         "owner": "ErikBPF",
         "repo": "deepseek-harness-flake",
-        "rev": "e32fbda0449a92c87f57fff404d657cf74a42af3",
+        "rev": "c319658f3f77fa6e78419f268dca829d35e4b8ea",
         "type": "github"
       },
       "original": {
