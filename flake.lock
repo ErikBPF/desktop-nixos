@@ -187,6 +187,26 @@
         "url": "https://flakehub.com/f/ErikBPF/codex-flake/%2A"
       }
     },
+    "deepseek-harness-flake": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1787589197,
+        "narHash": "sha256-cfzje/L0KqKT5VaR555dS0R6IxabZbrH8Oj9XsZODvY=",
+        "owner": "ErikBPF",
+        "repo": "deepseek-harness-flake",
+        "rev": "e32fbda0449a92c87f57fff404d657cf74a42af3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ErikBPF",
+        "repo": "deepseek-harness-flake",
+        "type": "github"
+      }
+    },
     "deploy-rs": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -1324,6 +1344,7 @@
         "buzz-flake": "buzz-flake",
         "claude-code-nix": "claude-code-nix",
         "codex-flake": "codex-flake",
+        "deepseek-harness-flake": "deepseek-harness-flake",
         "deploy-rs": "deploy-rs",
         "disko": "disko",
         "flake-parts": "flake-parts",
