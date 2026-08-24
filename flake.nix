@@ -105,6 +105,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    deepseek-harness-flake = {
+      url = "github:ErikBPF/deepseek-harness-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     opencode-flake = {
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
       inputs.flake-parts.follows = "flake-parts";
