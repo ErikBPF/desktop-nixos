@@ -18,4 +18,8 @@ def test_endeavour_gets_deepseek_web_yolo_profile():
     assert "m.home.deepseek-harness" not in pathfinder
     assert "inputs.deepseek-harness-flake.packages.${system}.default" in module
     assert 'DSH_TELEMETRY_DISABLED = "1";' in module
-    assert 'dp = "env DSH_PERMISSION_MODE=danger-full-access dsh web";' in module
+    assert (
+        'dp = "env DSH_PERMISSION_MODE=danger-full-access '
+        'DSH_TELEMETRY_DISABLED=1 dsh web";'
+        in module
+    )
