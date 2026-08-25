@@ -79,7 +79,7 @@
     };
 
     virtualisation.oci-containers.containers.wazuh-agent = {
-      image = "wazuh/wazuh-agent:4.14.7@sha256:150e7af098fbe34ec7d4825a0943ec2ab87525bff3d62488f104094c3354032e";
+      image = "docker.io/wazuh/wazuh-agent:4.14.7@sha256:150e7af098fbe34ec7d4825a0943ec2ab87525bff3d62488f104094c3354032e";
       environment = {
         WAZUH_MANAGER_SERVER = "192.168.10.250";
         WAZUH_REGISTRATION_SERVER = "192.168.10.250";
