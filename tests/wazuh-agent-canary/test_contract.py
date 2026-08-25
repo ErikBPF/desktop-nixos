@@ -5,7 +5,7 @@ ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/hosts/orion/wazuh-agent.nix"
 
 
-def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
+def test_orion_canary_uses_fresh_vault_enrollment():
     assert MODULE.exists()
     source = MODULE.read_text()
     orion = (ROOT / "modules/hosts/orion/default.nix").read_text()
@@ -22,8 +22,8 @@ def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
     assert "RuntimeDirectory =" not in source
     assert 'RuntimeDirectoryPreserve = "yes"' in source
     assert '"f ${stateDir}/client.keys 0600 999 999 -"' in source
-    assert "/var/log/journal:/var/log/journal:ro" in source
-    assert "/etc/machine-id:/etc/machine-id:ro" in source
+    assert "hostJournal" not in source
+    assert "/var/log/journal" not in source
     assert "sops-nix.service" not in source
     assert "--privileged" not in source
     assert "networking.firewall.allowedTCPPorts = [6443 443 1514 1515];" in cluster
