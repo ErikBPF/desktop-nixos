@@ -4051,7 +4051,7 @@ capture-k3s-vault-lane-secrets:
             "http://127.0.0.1:8200/v1/auth/approle/role/eso-$lane/role-id" | jq -er .data.role_id)
           secret_id=$(curl --header @"$cfg" --silent --show-error --fail --request POST \
             "http://127.0.0.1:8200/v1/auth/approle/role/eso-$lane/secret-id" | jq -er .data.secret_id)
-          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" '{$role_id,$secret_id}'
+          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" "\$ARGS.named"
         '
       )
       lane_key=${lane//-/_}

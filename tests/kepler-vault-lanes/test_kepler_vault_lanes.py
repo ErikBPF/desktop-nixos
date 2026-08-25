@@ -21,3 +21,4 @@ def test_capture_recipe_mints_only_declared_lane_roles_into_sops():
     assert 'role/eso-$lane/role-id' in recipe
     assert 'role/eso-$lane/secret-id' in recipe
     assert '["k3s_bootstrap"]' in recipe
+    assert '"\\$ARGS.named"' in recipe
