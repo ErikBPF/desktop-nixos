@@ -11,19 +11,26 @@ def test_monitoring_refuses_to_start_without_vault_mount():
     assert 'mountpoint --quiet /home/erik/vault' in config
 
 
-def test_alloy_pushes_to_discovery_tailnet_ip():
+def test_alloy_pushes_to_kubernetes_backends():
     config = (ROOT / "modules/services/alloy.nix").read_text()
 
-    assert "config.fleet.hosts.discovery.tailscaleIp" in config
-    assert 'http://${discoveryTs}:3100/loki/api/v1/push' in config
-    assert 'http://${discoveryTs}:9090/api/v1/write' in config
+    assert "config.fleet.hosts.discovery.tailscaleIp" not in config
+    assert 'https://loki.homelab.pastelariadev.com/loki/api/v1/push' in config
+    assert 'https://prometheus.homelab.pastelariadev.com/api/v1/write' in config
 
 
-def test_vector_pushes_to_discovery_tailnet_ip():
+def test_vector_pushes_to_kubernetes_loki():
     config = (ROOT / "modules/services/vector-logs.nix").read_text()
 
-    assert "config.fleet.hosts.discovery.tailscaleIp" in config
-    assert 'endpoint = "http://${discoveryTs}:3100"' in config
+    assert "config.fleet.hosts.discovery.tailscaleIp" not in config
+    assert 'endpoint = "https://loki.homelab.pastelariadev.com"' in config
+
+
+def test_cluster_log_collector_uses_in_cluster_loki():
+    config = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
+
+    assert 'http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push' in config
+    assert "100.76.140.121:3100" not in config
 
 
 def test_monitoring_health_gate_includes_metrics_and_logs_backends():

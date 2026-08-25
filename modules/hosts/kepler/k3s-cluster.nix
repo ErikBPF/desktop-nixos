@@ -81,7 +81,7 @@ in {
     # sink the host Alloy uses, but addressed by raw tailnet IP, not MagicDNS:
     # pods aren't tailnet members so "discovery" doesn't resolve in-cluster (the
     # host Alloy in modules/services/alloy.nix uses the name). Keep the IP in sync.
-    discoveryLokiUrl = "http://100.76.140.121:3100/loki/api/v1/push";
+    clusterLokiUrl = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push";
     clusterName = "homelab";
 
     # In-cluster Alloy DaemonSet config: tail pod logs via the k8s API (not host
@@ -126,7 +126,7 @@ in {
 
       loki.write "discovery" {
         endpoint {
-          url = "${discoveryLokiUrl}"
+          url = "${clusterLokiUrl}"
         }
         external_labels = { "cluster" = "${clusterName}" }
       }
