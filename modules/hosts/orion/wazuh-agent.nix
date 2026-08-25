@@ -7,12 +7,6 @@
     runtimeDir = "/run/wazuh-agent";
     stateDir = "/var/lib/wazuh-agent";
     sopsFile = self + "/secrets/sops/secrets.yaml";
-    hostJournal = pkgs.writeShellScript "wazuh-agent-host-journal" ''
-      config=/var/ossec/etc/ossec.conf
-      if ! grep -q '<location>journald</location>' "$config"; then
-        sed -i '/<\/ossec_config>/i\  <localfile>\n    <location>journald</location>\n    <log_format>journald</log_format>\n  </localfile>' "$config"
-      fi
-    '';
     vaultConfig = pkgs.writeText "wazuh-agent-vault.hcl" ''
       pid_file = "${runtimeDir}/vault.pid"
       vault { address = "http://100.76.140.121:8200" }
@@ -91,9 +85,6 @@
       environmentFiles = ["/run/wazuh-agent/agent.env"];
       volumes = [
         "${stateDir}/client.keys:/var/ossec/etc/client.keys"
-        "/var/log/journal:/var/log/journal:ro"
-        "/etc/machine-id:/etc/machine-id:ro"
-        "${hostJournal}:/entrypoint-scripts/10-host-journal.sh:ro"
       ];
       extraOptions = ["--hostname=orion"];
     };
