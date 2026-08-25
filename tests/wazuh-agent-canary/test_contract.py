@@ -20,6 +20,7 @@ def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
     assert 'environmentFiles = ["/run/wazuh-agent/agent.env"]' in source
     assert '"d ${runtimeDir} 0700 root root -"' in source
     assert "RuntimeDirectory =" not in source
+    assert 'RuntimeDirectoryPreserve = "yes"' in source
     assert '"f ${stateDir}/client.keys 0600 999 999 -"' in source
     assert "/var/log/journal:/var/log/journal:ro" in source
     assert "/etc/machine-id:/etc/machine-id:ro" in source
