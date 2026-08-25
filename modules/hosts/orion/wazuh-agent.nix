@@ -45,6 +45,7 @@
     };
 
     systemd.tmpfiles.rules = [
+      "d ${runtimeDir} 0700 root root -"
       "d ${stateDir} 0700 root root -"
       "f ${stateDir}/client.keys 0600 999 999 -"
     ];
@@ -59,8 +60,6 @@
         Type = "simple";
         Restart = "on-failure";
         RestartSec = "10s";
-        RuntimeDirectory = "wazuh-agent";
-        RuntimeDirectoryMode = "0700";
         Environment = "HOME=${runtimeDir}";
         ExecStart = "${pkgs.openbao}/bin/bao agent -config=${vaultConfig}";
         ExecStartPost = pkgs.writeShellScript "wait-for-wazuh-agent-env" ''
