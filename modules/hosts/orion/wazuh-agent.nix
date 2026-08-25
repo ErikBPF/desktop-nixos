@@ -29,12 +29,12 @@
   in {
     sops.secrets."wazuh-agent-vault-role-id" = {
       inherit sopsFile;
-      key = "k3s_bootstrap/vault_approle_platform_role_id";
+      key = "wazuh_agent_role_id";
       mode = "0400";
     };
     sops.secrets."wazuh-agent-vault-secret-id" = {
       inherit sopsFile;
-      key = "k3s_bootstrap/vault_approle_platform_secret_id";
+      key = "wazuh_agent_secret_id";
       mode = "0400";
     };
 
