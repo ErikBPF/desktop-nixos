@@ -75,6 +75,7 @@
     systemd.services.podman-wazuh-agent = {
       after = ["wazuh-agent-vault.service"];
       requires = ["wazuh-agent-vault.service"];
+      serviceConfig.RuntimeDirectoryPreserve = "yes";
     };
 
     virtualisation.oci-containers.containers.wazuh-agent = {
