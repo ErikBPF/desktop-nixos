@@ -46,7 +46,7 @@
 
     systemd.tmpfiles.rules = [
       "d ${stateDir} 0700 root root -"
-      "f ${stateDir}/client.keys 0600 root root -"
+      "f ${stateDir}/client.keys 0600 999 999 -"
     ];
 
     systemd.services.wazuh-agent-vault = {
