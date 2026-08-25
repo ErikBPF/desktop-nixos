@@ -18,6 +18,7 @@ def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
     assert 'WAZUH_AGENT_NAME = "orion-canary"' in source
     assert 'secret/data/platform/wazuh/wazuh-authd-pass' in source
     assert 'environmentFiles = ["/run/wazuh-agent/agent.env"]' in source
+    assert '"f ${stateDir}/client.keys 0600 999 999 -"' in source
     assert "/var/log/journal:/var/log/journal:ro" in source
     assert "/etc/machine-id:/etc/machine-id:ro" in source
     assert "sops-nix.service" not in source
