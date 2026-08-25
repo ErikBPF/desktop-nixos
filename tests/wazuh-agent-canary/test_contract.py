@@ -17,6 +17,9 @@ def test_orion_canary_uses_fresh_vault_enrollment():
     assert 'WAZUH_MANAGER_SERVER = "192.168.10.250"' in source
     assert 'WAZUH_AGENT_NAME = "orion-canary"' in source
     assert 'secret/data/platform/wazuh/wazuh-authd-pass' in source
+    assert 'key = "wazuh_agent_role_id"' in source
+    assert 'key = "wazuh_agent_secret_id"' in source
+    assert "vault_approle_platform" not in source
     assert 'environmentFiles = ["/run/wazuh-agent/agent.env"]' in source
     assert '"d ${runtimeDir} 0700 root root -"' in source
     assert "RuntimeDirectory =" not in source
