@@ -72,6 +72,8 @@ in {
     # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).
     # ⚠ Brings up systemd-networkd — deploy supervised (see the module header).
     kepler.k3s.enable = true;
+    kepler.k3s.workerCount = 3;
+    kepler.k3s.workerVcpu = 4;
     services.pangolinNewt = {
       enable = true;
       siteName = "home-kepler";
