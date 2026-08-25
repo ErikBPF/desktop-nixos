@@ -18,4 +18,5 @@ def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
     assert 'environmentFiles = ["/run/wazuh-agent/agent.env"]' in source
     assert "/var/log/journal:/var/log/journal:ro" in source
     assert "/etc/machine-id:/etc/machine-id:ro" in source
+    assert "sops-nix.service" not in source
     assert "--privileged" not in source

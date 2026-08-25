@@ -53,9 +53,8 @@
       description = "Render the Wazuh canary enrollment secret";
       wantedBy = ["multi-user.target"];
       before = ["podman-wazuh-agent.service"];
-      after = ["network-online.target" "sops-nix.service"];
+      after = ["network-online.target"];
       wants = ["network-online.target"];
-      requires = ["sops-nix.service"];
       serviceConfig = {
         Type = "simple";
         Restart = "on-failure";
