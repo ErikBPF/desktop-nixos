@@ -33,6 +33,15 @@ def test_cluster_log_collector_uses_in_cluster_loki():
     assert "100.76.140.121:3100" not in config
 
 
+def test_operator_metric_clients_use_kubernetes_prometheus():
+    terminal = (ROOT / "modules/terminal/grafatui.nix").read_text()
+    recipes = (ROOT / "justfile").read_text()
+
+    for config in (terminal, recipes):
+        assert "http://discovery:9090" not in config
+        assert "https://prometheus.homelab.pastelariadev.com" in config
+
+
 def test_monitoring_health_gate_includes_metrics_and_logs_backends():
     config = (ROOT / "modules/hosts/discovery/compose.nix").read_text()
 

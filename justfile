@@ -2704,7 +2704,7 @@ diagnose-kepler-kernel:
     #!/usr/bin/env bash
     set -euo pipefail
     metrics=$(curl --fail --silent --show-error --max-time 8 --get \
-      http://discovery:9090/api/v1/query \
+      https://prometheus.homelab.pastelariadev.com/api/v1/query \
       --data-urlencode 'query=up{instance="kepler",job="integrations/unix"}')
     printf 'metrics_up=%s\n' "$(jq -r '.data.result[0].value[1] // "missing"' <<<"$metrics")"
 
@@ -3836,7 +3836,7 @@ verify-k3s-observability:
           | grep -c "^etcd_server_has_leader 1$" | grep -qx 1
       done
     '
-    response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
+    response=$(curl --fail --silent --show-error --get https://prometheus.homelab.pastelariadev.com/api/v1/query \
       --data-urlencode 'query=up{job="etcd"}')
     printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
     test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
@@ -3880,7 +3880,7 @@ resize-kepler-k3s-disks:
 verify-container-metrics:
     #!/usr/bin/env bash
     set -euo pipefail
-    response=$(curl --fail --silent --show-error --get http://discovery:9090/api/v1/query \
+    response=$(curl --fail --silent --show-error --get https://prometheus.homelab.pastelariadev.com/api/v1/query \
       --data-urlencode 'query=container_last_seen or podman_container_info')
     failed=0
     for host in discovery kepler orion; do

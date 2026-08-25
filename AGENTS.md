@@ -178,8 +178,8 @@ under `references/repos/` for quick local access (the real working trees live at
 `~/Documents/erik/...`):
 
 ```
-references/repos/servarr               → ~/Documents/erik/servarr            (home compose workloads)
-references/repos/homelab-gitops        → ~/Documents/erik/homelab-gitops     (lab k8s workloads, Argo CD)
+references/repos/servarr               → ~/Documents/erik/servarr            (media and remaining legacy compose workloads)
+references/repos/homelab-gitops        → ~/Documents/erik/homelab-gitops     (home-services and lab k8s workloads, Argo CD)
 references/repos/homelab-iac           → ~/Documents/erik/homelab-iac        (multi-provider infrastructure control plane)
 references/repos/hermes-flake          → ~/Documents/erik/hermes-flake       (hermes-agent package + deployment modules)
 references/repos/hermes-skills         → ~/Documents/erik/hermes-skills      (hermes skill content)
@@ -199,8 +199,8 @@ references/repos/servarr`); never hard-code the absolute path.
 
 Three clean layers: **network/physical** (`homelab-iac`) → **host/cluster
 substrate** (`desktop-nixos`, incl. k3s microvms) → **workloads** (`servarr`
-compose **and** `homelab-gitops` k8s — two *peer* permanent envs, not a
-migration). Full rationale + decisions D1–D9 live in
+media Compose and `homelab-gitops` Kubernetes home-services/lab lanes). Full
+rationale + original decisions D1–D9 live in
 `docs/implemented/2026-06-29-repo-ssot-srp.md` (and the P3 secrets sub-RFC). One
 owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 
@@ -209,8 +209,8 @@ owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 | Terraform-managed infrastructure/control planes: network, edge, GitHub, LiteLLM API resources | `homelab-iac` |
 | Host OS + fleet system config; **hosts/roles/addressing** (`fleet.json`) + **domains** (`fleet.ingress`/`fleet.services`) | `desktop-nixos` |
 | Cluster substrate (k3s microvms, NFS) | `desktop-nixos` (Nix-native, D6) |
-| Home / always-on household workloads (compose) | `servarr` |
-| Lab / prod-mimic / ephemeral workloads (k8s, Argo; vcluster for throwaways) | `homelab-gitops` |
+| Media workloads and temporary legacy Compose services | `servarr` |
+| Non-media home services plus lab/prod-mimic workloads (k8s, Argo) | `homelab-gitops` |
 | **Runtime** secrets (docker via vault-agent, k8s via ESO, iac via provider) | platform **Vault** @discovery (D5) |
 | **Host/build/bootstrap** secrets (SSH/age keys, wifi/restic, Vault+iac bootstrap) | **sops** (D5) |
 | Container images: private SSOT / public OSS | **Harbor** / **GHCR** (D7) |
@@ -220,7 +220,7 @@ owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 | Kindle dashboard image (standalone OSS) | `kindle-dash` (D8) |
 | Cosmo/Pala Note device firmware + transport runbook | `cosmo-notes` (private, non-redistributable) |
 
-D1–D9 one-liners: D1 two peer envs (home=servarr, lab=gitops), placed by purpose;
+D1–D9 historical one-liners: D1 originally defined two peer environments;
 D2 lab self-contained (own obs/ingress/CoreDNS), only the network is shared; D3
 ephemeral lab = vcluster; D4 lab on the home LAN; D5 shared platform Vault =
 runtime-secret SSOT, sops = root-of-trust + host/build/bootstrap only; D6 VMs stay
@@ -235,8 +235,8 @@ one sanctioned runtime dep).
 1. **Network/DNS/DHCP/reservation/ACL/Cloudflare** → `homelab-iac`.
 2. **Host OS aspect, cluster substrate, or a VM** → `desktop-nixos`.
 3. **A workload (service/app):**
-   - household / always-on home service → **`servarr`** (compose).
-   - study / prod-mimic / ephemeral experiment → **`homelab-gitops`** (k8s; vcluster for throwaways).
+   - media service or an explicitly retained legacy stack → **`servarr`** (compose).
+   - non-media home service, study, or prod-mimic workload → **`homelab-gitops`** (k8s; `home-services` or `homelab` lane).
 4. **App config of an existing appliance** (HA, printer) → that appliance's repo
    (`home-assistant-config`, `klipper-biqu`) — this flake owns its OS, not its config.
 5. **A fleet-wide *fact*** (host IP/MAC/role, ingress zone, public/cross-host
@@ -245,10 +245,10 @@ one sanctioned runtime dep).
    edge resources still belong to `homelab-iac`, host-side serving to `servarr`,
    and this flake only owns required host substrate.
 
-No forced migration of existing home stacks; peer envs are placed by **purpose**,
-not absorbed.
+Migration is expand/canary/contract. Do not retire a Compose owner before its
+Kubernetes user journey and rollback gate pass.
 
-### `servarr` — container stacks on homelab hosts
+### `servarr` — media and temporary legacy Compose stacks
 
 - Lives at `~/Documents/erik/servarr`. Reachable in-repo via
   `references/repos/servarr`.
@@ -348,18 +348,16 @@ not absorbed.
   the hosts. Apply **only from a wired LAN host** (Wi-Fi changes can self-lock);
   state is local + encrypted. See its `README.md`.
 
-### `homelab-gitops` — lab k8s workloads (Argo CD)
+### `homelab-gitops` — home-services and lab k8s workloads (Argo CD)
 
 - Lives at `~/Documents/erik/homelab-gitops`. Reachable via
   `references/repos/homelab-gitops`. **Not Nix** (prod-mimic, servarr-style repo).
-- Owns the **lab** env (D1): k8s workloads synced by Argo CD onto the kepler k3s
-  cluster. Current root app manages 11 children: Argo, Traefik, NFS CSI, ESO,
-  KSM, Alloy metrics, KEDA, Jaeger, OTel Collector, trace-demo, and demo.
-  ESO reads OpenBao@discovery; Traefik is the default ingress; telemetry
-  remote-writes to discovery. Harbor runs on discovery and in-cluster Vault was
-  retired, so neither is a current Argo app. Ephemeral experiments are assigned
-  to **vcluster** by D3, though no vcluster app is currently declared. Lab
-  hostnames live here, not in the fleet domains SSOT. See
+- Owns non-media Kubernetes workloads synced by Argo CD onto the Kepler
+  `homelab` cluster. `apps/home-services` contains household services;
+  `apps/homelab` contains lab/automation/AI workloads. Monitoring and logs are
+  in-cluster; ESO reads OpenBao@Discovery. Harbor remains on Discovery and
+  in-cluster Vault is retired. Work-test workloads use Gemini's separate
+  `pastelariadev` k3s context. See
   `docs/reference/kepler-k3s-platform-status.md`.
 
 ### `hermes-skills` — hermes skill content
@@ -445,11 +443,11 @@ not absorbed.
 
 ```
 desktop-nixos (system config + fleet SSOT: fleet.json hosts/ingress/services)
-├── inputs.servarr      → home compose workloads on kepler/discovery/orion
+├── inputs.servarr      → media and temporary legacy compose workloads
 ├── inputs.hermes-flake → hermes-agent (+ hermes-skills content, git-synced)
 ├── inputs.opencode-flake → opencode pkg + HM module (FlakeHub); Endeavour dev env
 ├── inputs.codex-flake  → codex CLI pkg + HM module (FlakeHub); Endeavour dev env
-├── k3s microvms (kepler) ← homelab-gitops syncs lab k8s workloads via Argo CD
+├── k3s microvms (kepler) ← homelab-gitops syncs home-services and lab workloads via Argo CD
 ├── deploys / hosts     → discovery hosts HAOS; home-assistant-config owns HA app config
 ├── archinaut host      → klipper-biqu owns /var/lib/klipper config (git source-of-truth)
 ├── kindle-dash         → standalone OSS image (GHCR+Harbor); servarr references it
