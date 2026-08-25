@@ -1423,11 +1423,11 @@ deploy target ip port="2222" user="erik":
         --max-jobs 0
 
 # deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
-# auto-revert if the host lost reachability). Builds on orion and substitutes to
-# the target, matching the --build-host model of switch-<host> (--builders +
-# builders-use-substitutes; the closure never compiles on the 1 GB/aarch64
-# target). Node config (hostname from fleet SSOT, erik@2222, per-host magic
-# rollback) lives in modules/deploy-rs.nix.
+# auto-revert if the host lost reachability). Uses the target-aware builders and
+# permits one local fallback job when a builder is offline; the deployment
+# target never compiles its own closure. Node config
+# (hostname from fleet SSOT, erik@2222, per-host magic rollback) lives in
+# modules/deploy-rs.nix.
 #
 # Rollout is canary-first: voyager is the free, recreatable canary. Its
 # tailnet-only path uses activation-failure rollback because a post-activation
@@ -1444,7 +1444,7 @@ deploy-rs target:
     nix run .#deploy-rs -- --skip-checks .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
-           --max-jobs 0
+           --max-jobs 1
 
 # Like deploy-rs, but --boot: set the new generation as the NEXT-BOOT target
 # WITHOUT live-activating. For GPU/driver hosts (kepler, discovery) where an
@@ -2118,6 +2118,45 @@ kubeconfig-lan:
     trap - EXIT
     echo ":: LAN kubeconfig → ~/.kube/homelab-lan.yaml (context homelab-lan)"
     KUBECONFIG=~/.kube/homelab-lan.yaml kubectl get nodes
+
+# Merge Gemini's single-node work cluster into ~/.kube/config without replacing
+# the main homelab context or reusing k3s's default cluster/user names.
+kubeconfig-pastelariadev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p ~/.kube
+    current=~/.kube/config
+    cluster=$(mktemp ~/.kube/pastelariadev.XXXXXX)
+    base=$(mktemp ~/.kube/config-base.XXXXXX)
+    merged=$(mktemp ~/.kube/config.XXXXXX)
+    trap 'rm -f "$cluster" "$base" "$merged"' EXIT
+    ssh gemini 'sudo -n cat /etc/rancher/k3s/k3s.yaml' \
+        | sed 's#https://127.0.0.1:6443#https://gemini:6443#' \
+        | sed 's/: default$/: pastelariadev-gemini/' \
+        > "$cluster"
+    chmod 600 "$cluster"
+    KUBECONFIG="$cluster" kubectl config rename-context pastelariadev-gemini pastelariadev >/dev/null
+    if [ -s "$current" ]; then
+      active=$(KUBECONFIG="$current" kubectl config current-context 2>/dev/null || true)
+      cp "$current" "$base"
+      KUBECONFIG="$base" kubectl config delete-context pastelariadev >/dev/null 2>&1 || true
+      KUBECONFIG="$base" kubectl config delete-cluster pastelariadev-gemini >/dev/null 2>&1 || true
+      KUBECONFIG="$base" kubectl config delete-user pastelariadev-gemini >/dev/null 2>&1 || true
+      KUBECONFIG="$base:$cluster" kubectl config view --raw --flatten > "$merged"
+      if [ -n "$active" ]; then
+        KUBECONFIG="$merged" kubectl config use-context "$active" >/dev/null
+      fi
+    else
+      KUBECONFIG="$cluster" kubectl config view --raw --flatten > "$merged"
+    fi
+    chmod 600 "$merged"
+    mv "$merged" "$current"
+    trap - EXIT
+    kubectl --context pastelariadev get nodes
+
+# Read-only post-deploy proof through Gemini's existing Tailscale SSH path.
+diagnose-pastelariadev:
+    ssh gemini "sudo -n systemctl is-active k3s && sudo -n k3s kubectl get nodes -o wide && sudo -n ss -ltnp 'sport = :6443' || { sudo -n systemctl status k3s --no-pager -l; sudo -n journalctl -u k3s -b --no-pager -n 80; exit 1; }"
 
 # ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
 # archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.
@@ -3989,6 +4028,43 @@ capture-k3s-bootstrap-secrets:
       | jq -Rs . \
       | sops set --value-stdin secrets/sops/secrets.yaml '["k3s_bootstrap"]["argocd_repo_ssh_key"]'
     echo ":: k3s bootstrap credentials encrypted in sops"
+
+# Mint lane-scoped ESO AppRole credentials after homelab-iac has applied the
+# policies/roles. Values travel only through stdin and encrypted Sops writes.
+capture-k3s-vault-lane-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    for lane in platform homelab home-services; do
+      credentials=$(
+        printf '%s\n%s\n' "$token" "$lane" | ssh -p 2222 erik@{{ip_discovery}} '
+          set -euo pipefail
+          IFS= read -r token
+          IFS= read -r lane
+          case "$lane" in platform|homelab|home-services) ;; *) exit 2 ;; esac
+          cfg=$(mktemp)
+          trap "rm -f $cfg" EXIT
+          printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+          unset token
+          chmod 600 "$cfg"
+          role_id=$(curl --header @"$cfg" --silent --show-error --fail \
+            "http://127.0.0.1:8200/v1/auth/approle/role/eso-$lane/role-id" | jq -er .data.role_id)
+          secret_id=$(curl --header @"$cfg" --silent --show-error --fail --request POST \
+            "http://127.0.0.1:8200/v1/auth/approle/role/eso-$lane/secret-id" | jq -er .data.secret_id)
+          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" '{$role_id,$secret_id}'
+        '
+      )
+      lane_key=${lane//-/_}
+      role_path='["k3s_bootstrap"]["vault_approle_'"$lane_key"'_role_id"]'
+      secret_path='["k3s_bootstrap"]["vault_approle_'"$lane_key"'_secret_id"]'
+      jq -er .role_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml "$role_path"
+      jq -er .secret_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml "$secret_path"
+      unset credentials
+    done
+    unset token
+    echo ":: lane AppRole credentials encrypted in sops"
 
 # Collect sanitized K1 collision evidence. Collector executes from committed
 # stdin, writes nothing remotely, and emits only allowlisted runtime metadata.

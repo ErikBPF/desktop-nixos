@@ -39,6 +39,11 @@ def test_builder_preflight_is_explicit_and_target_aware():
     assert "builder-preflight" not in recipe("switch")
 
 
+def test_deploy_rs_has_one_local_fallback_job():
+    body = recipe("deploy-rs")
+    assert "--max-jobs 1" in body
+
+
 def test_dry_all_builds_fleet_in_one_scheduler_invocation():
     body = recipe("dry-all")
     assert "just build-all" in body

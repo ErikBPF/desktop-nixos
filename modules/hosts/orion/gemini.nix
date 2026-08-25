@@ -65,8 +65,20 @@ in {
       localAddress = "${ctIp}/24";
 
       enableTun = true; # grant /dev/net/tun + CAP_NET_ADMIN for in-container tailscale
+      additionalCapabilities = ["CAP_SYSLOG"]; # kubelet reads only the bound /dev/kmsg
+      allowedDevices = [
+        {
+          node = "/dev/kmsg";
+          modifier = "r";
+        }
+      ];
 
       bindMounts = {
+        # kubelet reads kernel messages; the bind itself remains read-only.
+        "/dev/kmsg" = {
+          hostPath = "/dev/kmsg";
+          isReadOnly = true;
+        };
         # tailscale authkey (decrypted host-side, see the oneshot).
         "/var/lib/tailscale-auth" = {
           hostPath = tsAuthHostDir;
@@ -131,9 +143,24 @@ in {
           nameservers = ["1.1.1.1" "9.9.9.9"];
           firewall = {
             enable = true;
-            allowedTCPPorts = [2222 22000];
+            allowedTCPPorts = [2222 6443 22000];
             allowedUDPPorts = [21027];
           };
+        };
+
+        # Single-node work sandbox. Nix owns only the cluster substrate;
+        # workloads remain GitOps-owned.
+        services.k3s = {
+          enable = true;
+          role = "server";
+          disable = ["traefik"];
+          extraFlags = [
+            "--node-name=${ctName}"
+            "--node-ip=${ctIp}"
+            "--tls-san=${ctName}"
+            "--flannel-backend=host-gw"
+            "--kubelet-arg=protect-kernel-defaults=true"
+          ];
         };
 
         # Access: sshd on 2222, passwordless wheel, zsh.
@@ -253,6 +280,15 @@ in {
       };
     };
     networking.firewall.trustedInterfaces = ["br-dev"];
+    boot.kernelModules = ["br_netfilter" "overlay"];
+    boot.kernel.sysctl = {
+      "net.bridge.bridge-nf-call-iptables" = 1;
+      "net.bridge.bridge-nf-call-ip6tables" = 1;
+      "net.ipv4.ip_forward" = 1;
+      "kernel.panic" = 10;
+      "kernel.panic_on_oops" = 1;
+      "vm.overcommit_memory" = 1;
+    };
     networking.nat = {
       enable = true;
       internalInterfaces = ["br-dev"];

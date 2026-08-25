@@ -36,14 +36,42 @@ in {
     # Traefik cutover (RFC §14) complete: the LB fronts Traefik's NodePort and
     # ingress-nginx has been removed from autoDeployCharts.
     traefikIngressPort = 30444;
+    wazuhAgentNodePort = 31514;
+    wazuhRegistrationNodePort = 31515;
+    wazuhSyslogNodePort = 30514;
 
     # LB upstream server lists, generated from the topology.
     cpServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (10 + i)}:6443;") [1 2 3];
     workerServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString traefikIngressPort};") (lib.range 1 cfg.workerCount);
+    wazuhAgentServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString wazuhAgentNodePort};") (lib.range 1 cfg.workerCount);
+    wazuhRegistrationServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString wazuhRegistrationNodePort};") (lib.range 1 cfg.workerCount);
+    wazuhSyslogServers = lib.concatMapStringsSep "\n" (i: "        server ${subnet}.${toString (20 + i)}:${toString wazuhSyslogNodePort};") (lib.range 1 cfg.workerCount);
 
     tokenDir = "/var/lib/k3s-cluster";
     bootstrapDir = "/run/k3s-bootstrap";
     sopsFile = self + "/secrets/sops/secrets.yaml";
+    vaultLanes = ["platform" "homelab" "home-services"];
+    laneSecretName = lane: field: "k3s-bootstrap-vault-approle-${lane}-${field}-id";
+    laneSecretKey = lane: field: "k3s_bootstrap/vault_approle_${lib.replaceStrings ["-"] ["_"] lane}_${field}_id";
+    laneSecretAttrs = lib.listToAttrs (lib.concatMap (lane:
+      map (field:
+        lib.nameValuePair (laneSecretName lane field) {
+          inherit sopsFile;
+          key = laneSecretKey lane field;
+          mode = "0400";
+        }) ["role" "secret"])
+    vaultLanes);
+    laneSecretsReady =
+      lib.concatMapStrings (lane: " && test -s ${config.sops.secrets.${laneSecretName lane "role"}.path} && test -s ${config.sops.secrets.${laneSecretName lane "secret"}.path}")
+      vaultLanes;
+    laneMaterialize =
+      lib.concatMapStringsSep "\n" (lane: ''
+        install -m 0400 ${config.sops.secrets.${laneSecretName lane "role"}.path} \
+          ${bootstrapDir}/vault_approle_${lane}_role_id
+        install -m 0400 ${config.sops.secrets.${laneSecretName lane "secret"}.path} \
+          ${bootstrapDir}/vault_approle_${lane}_secret_id
+      '')
+      vaultLanes;
 
     # etcd snapshots land here (kepler's bulk-pool ZFS, /bulk) via a per-CP
     # virtiofs share — survives guest root.img loss. RFC §13.
@@ -307,6 +335,7 @@ in {
       # Pod-level isolation is k8s NetworkPolicy (default-deny baseline), not the
       # node firewall.
       networking.firewall.enable = false;
+      boot.kernel.sysctl."vm.max_map_count" = 262144;
 
       # Pull docker.io through the Harbor pull-through cache on discovery
       # (off-cluster, so no self-hosting deadlock). Upstream is a fallback
@@ -353,6 +382,10 @@ in {
           approle_id=${bootstrapDir}/vault_approle_secret_id
           test -s "$repo_key"
           test -s "$approle_id"
+          for lane in platform homelab home-services; do
+            test -s "${bootstrapDir}/vault_approle_''${lane}_role_id"
+            test -s "${bootstrapDir}/vault_approle_''${lane}_secret_id"
+          done
 
           ready=0
           for _ in $(seq 60); do
@@ -387,7 +420,15 @@ in {
             --dry-run=client -o yaml \
             | k3s kubectl apply -f - >/dev/null
 
-          echo "bootstrap credentials reconciled: argocd/homelab-gitops-repo external-secrets/vault-approle"
+          for lane in platform homelab home-services; do
+            k3s kubectl -n external-secrets create secret generic "vault-approle-$lane" \
+              --from-file=role_id="${bootstrapDir}/vault_approle_''${lane}_role_id" \
+              --from-file=secret_id="${bootstrapDir}/vault_approle_''${lane}_secret_id" \
+              --dry-run=client -o yaml \
+              | k3s kubectl apply -f - >/dev/null
+          done
+
+          echo "bootstrap credentials reconciled: Argo repository and four ESO AppRoles"
         '';
       };
       systemd.timers.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
@@ -493,25 +534,41 @@ in {
           upstream k3s-ingress {
           ${workerServers}
           }
+          upstream k3s-wazuh-agent {
+          ${wazuhAgentServers}
+          }
+          upstream k3s-wazuh-registration {
+          ${wazuhRegistrationServers}
+          }
+          upstream k3s-wazuh-syslog {
+          ${wazuhSyslogServers}
+          }
           # Listen on all interfaces so the endpoints answer on the LAN (.245/.250
           # aliases + private 10.250.0.1 registration) AND kepler's Tailscale IP —
           # discovery's SWAG is on a different physical LAN and reaches kepler only
           # over the tailnet (RFC §5.3 / 4d).
           server { listen 6443; proxy_pass k3s-apiserver; proxy_timeout 600s; }
           server { listen 443; proxy_pass k3s-ingress; proxy_timeout 600s; }
+          server { listen ${ingressVip}:1514; proxy_pass k3s-wazuh-agent; proxy_timeout 600s; }
+          server { listen ${ingressVip}:1515; proxy_pass k3s-wazuh-registration; proxy_timeout 600s; }
+          server { listen ${ingressVip}:5514 udp; proxy_pass k3s-wazuh-syslog; proxy_responses 0; }
         '';
       };
 
-      sops.secrets.k3s-bootstrap-argocd-repo-ssh-key = {
-        inherit sopsFile;
-        key = "k3s_bootstrap/argocd_repo_ssh_key";
-        mode = "0400";
-      };
-      sops.secrets.k3s-bootstrap-vault-approle-secret-id = {
-        inherit sopsFile;
-        key = "k3s_bootstrap/vault_approle_secret_id";
-        mode = "0400";
-      };
+      sops.secrets =
+        laneSecretAttrs
+        // {
+          k3s-bootstrap-argocd-repo-ssh-key = {
+            inherit sopsFile;
+            key = "k3s_bootstrap/argocd_repo_ssh_key";
+            mode = "0400";
+          };
+          k3s-bootstrap-vault-approle-secret-id = {
+            inherit sopsFile;
+            key = "k3s_bootstrap/vault_approle_secret_id";
+            mode = "0400";
+          };
+        };
 
       systemd.tmpfiles.rules = ["d ${bootstrapDir} 0700 root root -"];
       systemd.targets.microvms.wants = ["k3s-bootstrap-materialize.service"];
@@ -532,8 +589,8 @@ in {
             };
             script = ''
               for _ in $(seq 60); do
-                if [ -s ${config.sops.secrets.k3s-bootstrap-argocd-repo-ssh-key.path} ] \
-                  && [ -s ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path} ]; then
+                if test -s ${config.sops.secrets.k3s-bootstrap-argocd-repo-ssh-key.path} \
+                  && test -s ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path}${laneSecretsReady}; then
                   break
                 fi
                 sleep 5
@@ -544,6 +601,7 @@ in {
                 ${bootstrapDir}/argocd_repo_ssh_key
               install -m 0400 ${config.sops.secrets.k3s-bootstrap-vault-approle-secret-id.path} \
                 ${bootstrapDir}/vault_approle_secret_id
+              ${laneMaterialize}
             '';
           };
 
