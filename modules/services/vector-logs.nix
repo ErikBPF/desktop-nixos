@@ -1,6 +1,4 @@
-{config, ...}: let
-  discoveryTs = config.fleet.hosts.discovery.tailscaleIp;
-in {
+{config, ...}: {
   # Lite journal→Loki shipper for storage/RAM-constrained hosts (e.g. the 1 GB
   # archinaut printer Pi) where the full Alloy agent is too heavy (~260 MB RSS
   # starved sshd during boot — see modules/services/alloy.nix). Vector idles at
@@ -29,10 +27,8 @@ in {
         sinks.loki = {
           type = "loki";
           inputs = ["journal"];
-          # Discovery's Loki over Tailscale MagicDNS (requires accept-dns +
-          # tailnet ACL host -> discovery:3100, same as Alloy hosts). Vector
-          # appends /loki/api/v1/push to this base endpoint itself.
-          endpoint = "http://${discoveryTs}:3100";
+          # Vector appends /loki/api/v1/push to this base endpoint itself.
+          endpoint = "https://loki.homelab.pastelariadev.com";
           # Match the fleet Alloy label set exactly (build-time hostname bake —
           # mirrors the alloy.nix journal labels).
           labels = {

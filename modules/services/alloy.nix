@@ -1,6 +1,4 @@
-{config, ...}: let
-  discoveryTs = config.fleet.hosts.discovery.tailscaleIp;
-in {
+{config, ...}: {
   flake.modules.nixos.alloy = {
     config,
     lib,
@@ -31,12 +29,10 @@ in {
 
     environment.etc."alloy/config.alloy".text = ''
       // Grafana Alloy configuration — fleet-wide NixOS module
-      // Ships systemd journal logs to Discovery Loki, host metrics to Discovery Prometheus.
-      // Endpoints use Discovery's MagicDNS name ("discovery") — requires tailscaled
-      // + accept-dns (fleet default). Tailnet ACL grants <host> -> discovery:3100,9090.
+      // Ships systemd journal logs and host metrics to the Kubernetes backends.
 
       // ============================================================================
-      // Systemd journal logs -> Loki (on Discovery via Tailscale)
+      // Systemd journal logs -> Kubernetes Loki
       // ============================================================================
       loki.source.journal "journal" {
         forward_to = [loki.write.loki.receiver]
@@ -49,7 +45,7 @@ in {
 
       loki.write "loki" {
         endpoint {
-          url = "http://${discoveryTs}:3100/loki/api/v1/push"
+          url = "https://loki.homelab.pastelariadev.com/loki/api/v1/push"
         }
       }
 
@@ -150,14 +146,11 @@ in {
       }
 
       // ============================================================================
-      // Prometheus remote write -> Discovery Prometheus (via Tailscale).
-      // :9090/api/v1/write, --web.enable-remote-write-receiver enabled on the
-      // Prometheus container (servarr discovery/monitoring.yml). The old :9009
-      // target was Mimir, which was never deployed — host metrics never shipped.
+      // Prometheus remote write -> Kubernetes Prometheus.
       // ============================================================================
       prometheus.remote_write "prometheus" {
         endpoint {
-          url = "http://${discoveryTs}:9090/api/v1/write"
+          url = "https://prometheus.homelab.pastelariadev.com/api/v1/write"
         }
       }
     '';

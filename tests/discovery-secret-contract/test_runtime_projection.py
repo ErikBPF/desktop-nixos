@@ -196,14 +196,15 @@ class RuntimeProjectionTest(unittest.TestCase):
             'secretSpecRuntimeProfiles."kindle-dash" = "kindle-dash";',
             'secretSpecRuntimeHealthContainers."kindle-dash" = ["kindle-dash"];',
             'secretSpecRuntimeProfiles."ai-serving" = "ai-serving";',
-            'secretSpecRuntimeSourceConfigNames."ai-serving" = ["LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT"];',
-            'secretSpecRuntimeHealthContainers."ai-serving" = ["litellm" "langfuse-clickhouse" "langfuse-web" "langfuse-worker"];',
+            'secretSpecRuntimeSourceConfigNames."ai-serving" = ["LANGFUSE_PUBLIC_KEY"];',
+            'secretSpecRuntimeIgnoredSourceNames."ai-serving" = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_SALT" "MINIO_ROOT_PASSWORD"];',
+            'secretSpecRuntimeHealthContainers."ai-serving" = ["litellm"];',
         ]
         for declaration in expected:
             self.assertIn(declaration, source)
         self.assertNotIn('secretSpecRuntimeLegacySecretNames."ai-serving"', source)
         self.assertIn(
-            'secretSpecRuntimeHealthContainers.monitoring = ["grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];',
+            'secretSpecRuntimeHealthContainers.monitoring = ["prometheus" "grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];',
             source,
         )
 
