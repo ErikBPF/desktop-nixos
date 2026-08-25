@@ -9,6 +9,7 @@ def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
     assert MODULE.exists()
     source = MODULE.read_text()
     orion = (ROOT / "modules/hosts/orion/default.nix").read_text()
+    cluster = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
 
     assert "m.nixos.orion-wazuh-agent" in orion
     assert "wazuh/wazuh-agent:4.14.7@sha256:150e7af098fbe34ec7d4825a0943ec2ab87525bff3d62488f104094c3354032e" in source
@@ -21,3 +22,5 @@ def test_orion_canary_uses_fresh_vault_enrollment_and_host_journal():
     assert "/etc/machine-id:/etc/machine-id:ro" in source
     assert "sops-nix.service" not in source
     assert "--privileged" not in source
+    assert "networking.firewall.allowedTCPPorts = [6443 443 1514 1515];" in cluster
+    assert "networking.firewall.allowedUDPPorts = [5514];" in cluster

@@ -522,7 +522,8 @@ in {
           prefixLength = 24;
         }
       ];
-      networking.firewall.allowedTCPPorts = [6443 443];
+      networking.firewall.allowedTCPPorts = [6443 443 1514 1515];
+      networking.firewall.allowedUDPPorts = [5514];
 
       services.nginx = {
         enable = true;
