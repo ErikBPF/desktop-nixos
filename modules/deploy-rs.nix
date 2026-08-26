@@ -125,9 +125,14 @@ in {
       host = "orion";
       magicRollback = true;
     };
+
+    # Pathfinder's LAN route is unavailable from the deploy controller; use its
+    # stable tailnet address and the same activation-only rollback as other
+    # tailnet-only hosts.
     pathfinder = mkNode {
       host = "pathfinder";
-      magicRollback = true;
+      tailnetOnly = true;
+      magicRollback = false;
     };
 
     # kepler: LAN-IP/sshd reach → magic rollback safe. Deploy on its own window

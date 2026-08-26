@@ -446,7 +446,7 @@ switch-pathfinder:
 pathfinder-esp-preflight:
     #!/usr/bin/env bash
     set -euo pipefail
-    IP="{{ip_pathfinder}}"
+    IP="$(jq -r '.hosts.pathfinder.tailscaleIp // .hosts.pathfinder.ip' fleet.json)"
     evidence="/tmp/pathfinder-esp-preflight.txt"
     nix build --no-link \
       .#nixosConfigurations.pathfinder.config.system.build.kernel \
@@ -1220,9 +1220,10 @@ voyager-rollback-preflight:
     test "$(hostname)" = voyager || die "wrong host"
     test -c /dev/ttyS0 || die "serial console device missing"
     systemctl is-active --quiet serial-getty@ttyS0.service || die "serial getty inactive"
+    who | awk '$1 == "erik" && $2 == "ttyS0" { found=1 } END { exit !found }' || die "no authenticated erik ttyS0 session"
     sudo -n true || die "passwordless sudo unavailable"
     status="$(passwd -S erik)"
-    [[ "$status" == erik\ P\ * ]] || die "erik password login unavailable"
+    [[ "$status" == "erik P"* ]] || die "erik password login unavailable"
     link="$(readlink /nix/var/nix/profiles/system)"
     link="${link##*/}"
     [[ "$link" =~ ^system-([1-9][0-9]*)-link$ ]] || die "current system generation is invalid"
@@ -1262,8 +1263,8 @@ recover-voyager-console-login:
         test "$(hostname)" = voyager || die "wrong host"
         sudo -n true || die "passwordless sudo unavailable"
         sudo -n chpasswd -e
-        status="$(passwd -S erik)"
-        [[ "$status" == erik\ P\ * ]] || die "erik password login unavailable"
+        account_status="$(passwd -S erik)"
+        [[ "$account_status" == "erik P"* ]] || die "erik password login unavailable: $account_status"
         echo "voyager_console_login=password-backed"
       '
     then
@@ -1281,7 +1282,7 @@ recover-voyager-console-login:
 switch-telstar user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
-    IP="{{ip_telstar}}"
+    IP="$(jq -r '.hosts.telstar.tailscaleIp // .hosts.telstar.ip' fleet.json)"
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
     ssh -p {{port}} {{user}}@"$IP" \
@@ -1493,6 +1494,52 @@ verify target ip port="2222" user="erik":
     ssh -p {{port}} {{user}}@{{ip}} "echo ':: SOPS staging cleanup:' && test ! -f /var/lib/sops-staging/age-keys.txt && echo 'cleaned' || echo 'STILL EXISTS'"
     @echo ":: Verification complete for {{target}}"
 
+# Reboot one fleet host, require a down/up transition, then prove the requested
+# 7.x generation and basic control-plane health. Uses the tailnet when present.
+reboot-wait target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(jq -r --arg h "{{target}}" '.hosts[$h].tailscaleIp // .hosts[$h].ip // empty' fleet.json)"
+    [ -n "$IP" ] || { echo "unknown target: {{target}}" >&2; exit 1; }
+    target_rev="$(jq -r '.nodes[.nodes.root.inputs.nixpkgs].locked.rev' flake.lock | cut -c1-7)"
+    ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=10 \
+      erik@"$IP" sudo systemd-run --collect --on-active=2s systemctl reboot
+    echo ":: waiting for {{target}} to stop..."
+    saw_down=0
+    for _ in $(seq 1 30); do
+      if ! timeout 5 ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=2 erik@"$IP" true 2>/dev/null; then
+        saw_down=1
+        break
+      fi
+      sleep 1
+    done
+    (( saw_down == 1 )) || { echo ":: {{target}} never became unreachable" >&2; exit 1; }
+    echo ":: waiting for {{target}} to return..."
+    deadline=$((SECONDS + 600))
+    while (( SECONDS < deadline )); do
+      if timeout 5 ssh -p 2222 -o BatchMode=yes -o ConnectionAttempts=1 -o ConnectTimeout=2 erik@"$IP" \
+        bash -s -- "$target_rev" <<'REMOTE'
+    set -euo pipefail
+    target_rev="$1"
+    kernel="$(uname -r)"
+    version="$(nixos-version)"
+    printf 'kernel=%s\nversion=%s\n' "$kernel" "$version"
+    [[ "$kernel" == 7.* ]]
+    [[ "$version" == *".$target_rev"* ]]
+    [[ "$(systemctl is-system-running --wait)" == running ]]
+    test -z "$(systemctl --failed --no-legend)"
+    test -z "$(systemctl --user --failed --no-legend)"
+    tailscale status --peers=false
+    REMOTE
+      then
+        echo ":: {{target}} healthy"
+        exit 0
+      fi
+      sleep 2
+    done
+    echo ":: {{target}} did not return healthy within 600s" >&2
+    exit 1
+
 verify-pangolin-newt target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -1558,7 +1605,10 @@ trust-root-builder-host-key target ip fingerprint port="2222":
     echo ":: Trusted root builder key for {{target}}: {{fingerprint}}"
 
 diagnose-pathfinder-bootstrap:
-    ssh -p 2222 erik@{{ip_pathfinder}} "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: account'; sudo passwd -S erik; echo ':: home path'; namei -l /home/erik/Documents/erik; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 80; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
+    ssh -p 2222 erik@$(jq -r '.hosts.pathfinder.tailscaleIp // .hosts.pathfinder.ip' fleet.json) "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: btrfs scrub'; sudo systemctl status btrfs-scrub--.timer btrfs-scrub--.service --no-pager -l || true; sudo systemctl cat btrfs-scrub--.timer; sudo journalctl -u btrfs-scrub--.timer -u btrfs-scrub--.service -b --no-pager -n 40; echo ':: account'; sudo passwd -S erik; echo ':: home path'; namei -l /home/erik/Documents/erik; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 80; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
+
+recover-pathfinder-scrub:
+    ssh -p 2222 erik@$(jq -r '.hosts.pathfinder.tailscaleIp // .hosts.pathfinder.ip' fleet.json) "sudo systemctl reset-failed btrfs-scrub--.timer; sudo systemctl start btrfs-scrub--.timer; systemctl is-active btrfs-scrub--.timer"
 
 diagnose-orion-bootstrap:
     ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: account'; sudo passwd -S erik; echo ':: home top-level'; find /home/erik -mindepth 1 -maxdepth 1 -printf '%f %y %u:%g\n' | sort; echo ':: ssh ownership'; namei -l /home/erik/.ssh/config; ls -la /home/erik/.ssh; echo ':: sops first-boot log'; sudo journalctl -u sops-first-boot -b --no-pager -n 100; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 100; echo ':: tailscale log'; sudo journalctl -u tailscaled-autoconnect -b --no-pager -n 100; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
@@ -2327,7 +2377,7 @@ pull-servarr target branch="main":
     branch={{ quote(branch) }}
     [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "BLOCKED: invalid branch" >&2; exit 2; }
     git check-ref-format --branch "$branch" >/dev/null || { echo "BLOCKED: invalid branch" >&2; exit 2; }
-    IP="$(just _host-ip "$target")"
+    IP="$(jq -er --arg h "$target" '.hosts[$h].tailscaleIp // .hosts[$h].ip' fleet.json)"
     echo ":: Pointing $target servarr clone at origin/$branch and pulling..."
     ssh -p 2222 erik@"$IP" bash -s -- "$branch" <<'REMOTE'
     set -euo pipefail
@@ -2727,8 +2777,9 @@ diagnose-kepler-kernel:
 
     ip=$(jq -r '.hosts.kepler.tailscaleIp // empty' fleet.json)
     [ -n "$ip" ] || ip=$(just _host-ip kepler)
-    if timeout 12 ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=5 \
-      -o ServerAliveInterval=3 -o ServerAliveCountMax=1 "erik@$ip" true; then
+    if boot_start=$(timeout 12 ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=5 \
+      -o ServerAliveInterval=3 -o ServerAliveCountMax=1 "erik@$ip" \
+      'date --date="$(uptime -s)" +%s%N'); then
       echo ssh_reachable=1
     else
       echo ssh_reachable=0
@@ -2737,7 +2788,7 @@ diagnose-kepler-kernel:
     logs=$(curl --fail --silent --show-error --max-time 8 --get \
       http://discovery:3100/loki/api/v1/query_range \
       --data-urlencode 'query={host="kepler"} |~ "BUG: unable to handle page fault|reboot is needed"' \
-      --data-urlencode "start=$(date --date='7 days ago' +%s%N)" \
+      --data-urlencode "start=$boot_start" \
       --data-urlencode 'limit=100' \
       --data-urlencode 'direction=backward')
     jq -r '.data.result[]?.values[]?[1]' <<<"$logs"
@@ -3747,6 +3798,26 @@ reboot-kepler:
     echo ":: kepler did not return within 300s" >&2
     exit 1
 
+# Re-prove peer-dependent Discovery units after a fleet reboot. The unrelated
+# IaC drift failure is left for its owning repo and only reset for this window.
+recover-discovery-reboot-blockers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    for unit in mnt-nfs-fast.mount restic-backups-vault-offsite.service restic-check-voyager.service; do
+      sudo systemctl reset-failed "$unit"
+      sudo systemctl start "$unit" || {
+        sudo systemctl status "$unit" --no-pager -l || true
+        sudo journalctl -u "$unit" -n 80 --no-pager || true
+        exit 1
+      }
+    done
+    sudo systemctl reset-failed homelab-iac-drift.service
+    test -z "$(systemctl --failed --no-legend)"
+    REMOTE
+
 # Reboot Discovery and prove the host transitioned down then up. The separate
 # `just discovery-swag-transition-amendment-execute ...` repeats the exact P1
 # SWAG gates after this returns.
@@ -3788,6 +3859,16 @@ reboot-discovery:
     echo ":: discovery did not return within 240s" >&2
     exit 1
 
+restart-k3s-worker target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+      w-1|w-2|w-3) ;;
+      *) echo "invalid worker: {{target}}" >&2; exit 2 ;;
+    esac
+    ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl restart microvm@{{target}}.service"
+    kubectl --context homelab wait --for=condition=Ready node/{{target}} --timeout=5m
+
 # Read-only proof for the k3s guest reconciler and embedded-etcd metrics.
 verify-k3s-observability:
     #!/usr/bin/env bash
@@ -3812,8 +3893,9 @@ verify-k3s-observability:
           | grep -c "^etcd_server_has_leader 1$" | grep -qx 1
       done
     '
-    response=$(curl --fail --silent --show-error --get https://prometheus.homelab.pastelariadev.com/api/v1/query \
-      --data-urlencode 'query=up{job="etcd"}')
+    response=$(kubectl --context homelab -n monitoring exec \
+      statefulset/prometheus-monitoring-kube-prometheus-prometheus -c prometheus -- \
+      wget -qO- 'http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22etcd%22%7D')
     printf '%s\n' "$response" | jq -c '.data.result[]? | {instance: .metric.instance, value: .value[1]}'
     test "$(printf '%s\n' "$response" | jq '[.data.result[]? | select(.value[1] == "1")] | length')" -eq 3
 
