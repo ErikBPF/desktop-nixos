@@ -21,6 +21,15 @@ class FleetDnsEvalTest(unittest.TestCase):
         self.assertIn("bind tailscale0",vanguard);self.assertIn("\n  log\n",vanguard)
         self.assertNotIn("policy sequential",vanguard)
 
+    def test_monitoring_records_override_the_discovery_wildcard(self):
+        for host in ("kepler", "vanguard"):
+            corefile=self.value(host,"services.coredns.config",True)
+            for name in ("grafana", "prometheus"):
+                marker=f"{name}.homelab.pastelariadev.com {{"
+                self.assertIn(marker,corefile)
+                block=corefile.split(marker,1)[1].split("\n}\n",1)[0]
+                self.assertIn("192.168.10.250",block)
+
     def test_firewall_and_service_are_interface_scoped(self):
         self.assertEqual(self.value("kepler","networking.firewall.interfaces.enp5s0.allowedTCPPorts"),[53])
         self.assertEqual(self.value("kepler","networking.firewall.interfaces.enp5s0.allowedUDPPorts"),[53])

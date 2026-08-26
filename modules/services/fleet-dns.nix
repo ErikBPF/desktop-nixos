@@ -68,6 +68,12 @@ in {
         default = true;
         description = "Whether CoreDNS logs every query.";
       };
+
+      records = lib.mkOption {
+        type = lib.types.attrsOf lib.types.singleLineStr;
+        default = {};
+        description = "Exact DNS records that override a fleet ingress wildcard.";
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -90,7 +96,8 @@ in {
         enable = true;
         config =
           lib.concatStrings (
-            lib.mapAttrsToList
+            lib.mapAttrsToList zoneBlock cfg.records
+            ++ lib.mapAttrsToList
             (_: ingress: zoneBlock ingress.zone fleet.hosts.${ingress.host}.ip)
             fleet.ingress
           )

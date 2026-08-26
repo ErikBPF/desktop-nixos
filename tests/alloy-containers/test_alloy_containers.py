@@ -51,6 +51,9 @@ def test_container_and_cache_diagnostics_preserve_startup_evidence():
     assert "systemctl show alloy docker" in recipe
     assert "ActiveState,SubState,Result,ActiveEnterTimestamp" in recipe
     assert "journalctl -b -u alloy" in recipe
+    assert "remote_write|prometheus" in recipe
+    assert "getent ahostsv4 prometheus.homelab.pastelariadev.com" in recipe
+    assert "127.0.0.1:12345/metrics" in recipe
     assert "diagnose orion nix-cache-builder.service" in recipe
 
 

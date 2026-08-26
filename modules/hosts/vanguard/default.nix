@@ -53,7 +53,13 @@ in {
     # fallback, tens of MB, bound to tailscale0) + R2 offsite dead-man's-switch
     # prober (a plain systemd timer). Both cheap on the 1 GB box; R3/R4 stay off
     # until later phases.
-    services.fleetDns.enable = true;
+    services.fleetDns = {
+      enable = true;
+      records = {
+        "grafana.homelab.pastelariadev.com" = "192.168.10.250";
+        "prometheus.homelab.pastelariadev.com" = "192.168.10.250";
+      };
+    };
     services.deadMansSwitch.enable = true;
     # Probe the public HA endpoint; the internal ingress apex has no certificate.
     services.deadMansSwitch.checkUrl = "https://${config.flake.fleet.services.ha.fqdn}";
