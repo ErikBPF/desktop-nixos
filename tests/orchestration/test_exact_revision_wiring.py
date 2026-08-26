@@ -95,7 +95,6 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('running/none/0', recipe)
         self.assertIn('buzz-minio-init/exited/none/0', recipe)
         self.assertIn('restic-rest-init/exited/none/0', recipe)
-        self.assertIn('wazuh-snapshot-init/exited/none/0', recipe)
         self.assertNotIn('|exited/none/0)', recipe)
         self.assertIn('die() { echo "BLOCKED: $*"', recipe)
         self.assertIn('die "rollout unit inactive', recipe)

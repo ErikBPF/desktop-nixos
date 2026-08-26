@@ -85,11 +85,6 @@ in {
           perms = "0440"
         }
         template {
-          contents = "${renderedAt}{{ with secret \"secret/data/home/monitoring\" }}GRAFANA_SECRET_KEY={{ .Data.data.GRAFANA_SECRET_KEY }}\nHEALTHCHECKS_SECRET_KEY={{ .Data.data.HEALTHCHECKS_SECRET_KEY }}\nHEALTHCHECKS_SUPERUSER_PASSWORD={{ .Data.data.HEALTHCHECKS_SUPERUSER_PASSWORD }}\nSCRUTINY_INFLUXDB_PASSWORD={{ .Data.data.SCRUTINY_INFLUXDB_PASSWORD }}\nSCRUTINY_INFLUXDB_TOKEN={{ .Data.data.SCRUTINY_INFLUXDB_TOKEN }}\nTELEGRAM_BOT_TOKEN={{ .Data.data.TELEGRAM_BOT_TOKEN }}\n{{ end }}"
-          destination = "/run/vault-agent/monitoring.env"
-          perms = "0440"
-        }
-        template {
           contents = "${renderedAt}{{ with secret \"secret/data/home/shared-db\" }}POSTGRES_PASSWORD={{ .Data.data.POSTGRES_PASSWORD }}\nREDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/shared-db.env"
           perms = "0440"
@@ -129,6 +124,11 @@ in {
           contents = "${renderedAt}{{ with secret \"secret/data/home/ai-serving\" }}LITELLM_MASTER_KEY={{ .Data.data.LITELLM_MASTER_KEY }}\nLITELLM_SALT_KEY={{ .Data.data.LITELLM_SALT_KEY }}\nLANGFUSE_PUBLIC_KEY={{ .Data.data.LANGFUSE_PUBLIC_KEY }}\nLANGFUSE_SECRET_KEY={{ .Data.data.LANGFUSE_SECRET_KEY }}\nLANGFUSE_SALT={{ .Data.data.LANGFUSE_SALT }}\nLANGFUSE_INIT_USER_PASSWORD={{ .Data.data.LANGFUSE_INIT_USER_PASSWORD }}\nOPENCODE_GO_KEY={{ .Data.data.OPENCODE_GO_KEY }}\nOPENCODE_ZEN_KEY={{ .Data.data.OPENCODE_ZEN_KEY }}\nUI_PASSWORD={{ .Data.data.UI_PASSWORD }}\nMINIO_ROOT_PASSWORD={{ .Data.data.MINIO_ROOT_PASSWORD }}\nCLICKHOUSE_PASSWORD={{ .Data.data.CLICKHOUSE_PASSWORD }}\n{{ end }}"
           destination = "/run/vault-agent/ai-serving.env"
           perms = "0440"
+        }
+        template {
+          contents = "{{ with secret \"secret/data/home/ai-serving\" }}{{ .Data.data.LITELLM_MASTER_KEY }}{{ end }}"
+          destination = "/run/vault-agent/litellm-metrics.token"
+          perms = "0400"
         }
         template {
           contents = "${renderedAt}{{ with secret \"secret/data/home/networking\" }}ADGUARD_PASSWORD={{ .Data.data.ADGUARD_PASSWORD }}\nCLOUDFLARE_API_TOKEN={{ .Data.data.CLOUDFLARE_API_TOKEN }}\n{{ end }}"

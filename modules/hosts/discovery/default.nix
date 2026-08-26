@@ -21,6 +21,7 @@ in {
       m.nixos.discovery-networking
       m.nixos.discovery-diagnostics
       m.nixos.discovery-docker-net-heal
+      m.nixos.discovery-monitoring
       m.nixos.discovery-syncthing
       m.nixos.discovery-haos
       m.nixos.first-boot

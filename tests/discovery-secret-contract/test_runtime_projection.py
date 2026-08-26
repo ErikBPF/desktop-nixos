@@ -153,7 +153,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn("renderedAt = ''# rendered_at={{ timestamp }}\\n'';", source)
         for basename in (
             "ai-serving", "ha-harness", "infra", "kindle-dash", "media",
-            "media-server", "monitoring", "networking", "shared-arr",
+            "media-server", "networking", "shared-arr",
             "shared-db", "shared-grafana", "tools", "tunneling",
         ):
             block = next(
@@ -168,19 +168,6 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn('secretSpecRuntimeProfiles."media-server" = "media-server";', source)
         self.assertIn(
             'secretSpecRuntimeIgnoredSourceNames."media-server" = ["REDIS_PASSWORD"];',
-            source,
-        )
-
-    def test_monitoring_gates_all_secret_consumers(self):
-        source = COMPOSE.read_text()
-        self.assertIn('monitoring = ["monitoring" "shared-grafana" "ai-serving"];', source)
-        self.assertIn('secretSpecRuntimeProfiles.monitoring = "monitoring";', source)
-        self.assertIn(
-            'secretSpecRuntimeSourceConfigNames.monitoring = ["GRAFANA_ADMIN_USER"];',
-            source,
-        )
-        self.assertIn(
-            'secretSpecRuntimeIgnoredSourceNames.monitoring = ["CLICKHOUSE_PASSWORD" "LANGFUSE_INIT_USER_PASSWORD" "LANGFUSE_PUBLIC_KEY" "LANGFUSE_SALT" "LANGFUSE_SECRET_KEY" "LITELLM_SALT_KEY" "MINIO_ROOT_PASSWORD" "OPENCODE_GO_KEY" "OPENCODE_ZEN_KEY" "UI_PASSWORD"];',
             source,
         )
 
@@ -203,10 +190,6 @@ class RuntimeProjectionTest(unittest.TestCase):
         for declaration in expected:
             self.assertIn(declaration, source)
         self.assertNotIn('secretSpecRuntimeLegacySecretNames."ai-serving"', source)
-        self.assertIn(
-            'secretSpecRuntimeHealthContainers.monitoring = ["prometheus" "grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];',
-            source,
-        )
 
     def test_runtime_health_gate_accepts_all_secret_consumers(self):
         orchestration = ORCHESTRATION.read_text()
