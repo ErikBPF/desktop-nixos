@@ -67,6 +67,10 @@ in {
       queryLog = false;
       upstream = ["192.168.10.210" "1.1.1.1" "9.9.9.9"];
       sequentialUpstream = true;
+      records = {
+        "grafana.homelab.pastelariadev.com" = "192.168.10.250";
+        "prometheus.homelab.pastelariadev.com" = "192.168.10.250";
+      };
     };
 
     # k3s test cluster (microvm nodes). Stage 1: single cp-1 VM (plumbing proof).

@@ -1704,7 +1704,7 @@ p3-dns-preflight:
       "sudo ss -H -lntu 'sport = :53' | grep -Ev '127\\.0\\.0\\.(53|54)(%lo)?:53|\\[::1\\]:53' || true")
     test -z "$listeners" || { echo "BLOCKED: Kepler non-loopback port 53 already in use" >&2; exit 1; }
     for transport in +notcp +tcp; do
-      test "$(dig "$transport" +short +time=3 +tries=1 @"$VANGUARD_TAIL" grafana.homelab.pastelariadev.com A)" = "192.168.10.210"
+      test "$(dig "$transport" +short +time=3 +tries=1 @"$VANGUARD_TAIL" grafana.homelab.pastelariadev.com A)" = "192.168.10.250"
       test -n "$(dig "$transport" +short +time=3 +tries=1 @"$VANGUARD_TAIL" example.com A)"
     done
     echo ":: P3 preflight OK — Kepler :53 free; vanguard UDP/TCP DNS healthy"
@@ -1716,7 +1716,7 @@ p3-dns-verify:
     set -euo pipefail
     KEPLER=$(just _host-ip kepler)
     for transport in +notcp +tcp; do
-      test "$(dig "$transport" +short +time=3 +tries=1 @"$KEPLER" grafana.homelab.pastelariadev.com A)" = "192.168.10.210"
+      test "$(dig "$transport" +short +time=3 +tries=1 @"$KEPLER" grafana.homelab.pastelariadev.com A)" = "192.168.10.250"
       test -n "$(dig "$transport" +short +time=3 +tries=1 @"$KEPLER" example.com A)"
       dig "$transport" +time=3 +tries=1 @"$KEPLER" grafana.homelab.pastelariadev.com AAAA | grep -q 'status: NOERROR'
     done
@@ -3894,7 +3894,7 @@ verify-container-metrics:
 # Inspect the host collector when container metrics verification fails.
 diagnose-container-metrics host:
     ssh -p 2222 erik@{{host}} \
-      "systemctl show alloy docker --property=Id,ActiveState,SubState,Result,ActiveEnterTimestamp --no-pager; journalctl -b -u alloy --no-pager -n 300 | grep -Ei 'cadvisor|containerd|docker|factory' || true"
+      "systemctl show alloy docker --property=Id,ActiveState,SubState,Result,ActiveEnterTimestamp --no-pager; getent ahostsv4 prometheus.homelab.pastelariadev.com; curl -fsS http://127.0.0.1:12345/metrics | grep -E 'prometheus_remote_(storage|write)' || true; journalctl -b -u alloy --no-pager -n 300 | grep -Ei 'remote_write|prometheus|cadvisor|containerd|docker|factory' || true"
 
 # Read-only proof that cp-1's timer last reconciled both bootstrap Secrets.
 verify-k3s-bootstrap:

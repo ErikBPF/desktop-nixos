@@ -26,8 +26,8 @@ class FleetDnsLanTest(unittest.TestCase):
         self.assertRegex(KEPLER,r'services\.fleetDns\s*=\s*\{[^}]*enable\s*=\s*true;[^}]*interface\s*=\s*"enp5s0";[^}]*listenAddress\s*=\s*config\.flake\.fleet\.hosts\.kepler\.ip;[^}]*upstream\s*=\s*\["192\.168\.10\.210"\s+"1\.1\.1\.1"\s+"9\.9\.9\.9"\];[^}]*sequentialUpstream\s*=\s*true;')
 
     def test_vanguard_keeps_default_tailnet_behavior(self):
-        self.assertIn('services.fleetDns.enable = true;',VANGUARD)
-        self.assertNotRegex(VANGUARD,r'services\.fleetDns\.(?:interface|upstream|sequentialUpstream)')
+        self.assertRegex(VANGUARD,r'services\.fleetDns\s*=\s*\{[^}]*enable\s*=\s*true;')
+        self.assertNotRegex(VANGUARD,r'\b(?:interface|upstream|sequentialUpstream)\s*=')
 
     def test_fleet_zones_remain_locally_synthesized(self):
         self.assertIn('template IN A',MODULE)
