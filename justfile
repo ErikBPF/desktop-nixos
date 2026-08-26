@@ -1320,10 +1320,19 @@ test-vanguard-dead-mans-switch:
     #!/usr/bin/env bash
     set -euo pipefail
     ssh -p 2222 erik@{{tailscale_vanguard}} 'set -euo pipefail
-      systemctl is-active dead-mans-switch.timer
-      for _ in {1..6}; do sudo dead-mans-switch-probe http://192.0.2.1:9; done
+      sudo systemctl stop dead-mans-switch.timer
+      cleanup() { sudo systemctl start dead-mans-switch.timer; }
+      trap cleanup EXIT
       sudo dead-mans-switch-probe
-      sudo grep -qx 0 /var/lib/dead-mans-switch/failures'
+      sudo grep -qx 0 /var/lib/dead-mans-switch/failures
+      output=$(for _ in {1..6}; do sudo dead-mans-switch-probe http://127.0.0.1:9; done 2>&1)
+      printf "%s\n" "$output"
+      grep -Fq "notification delivered" <<<"$output"
+      sudo grep -qx 6 /var/lib/dead-mans-switch/failures
+      sudo dead-mans-switch-probe
+      sudo grep -qx 0 /var/lib/dead-mans-switch/failures
+      cleanup
+      trap - EXIT'
 
 # First NixOS boot on the infect path: build the flake gen on orion and set it as
 # the NEXT-BOOT generation on the still-Ubuntu box (root@22; closure copied via
