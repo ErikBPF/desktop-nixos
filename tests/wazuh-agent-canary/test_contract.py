@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/hosts/orion/wazuh-agent.nix"
+JUSTFILE = (ROOT / "justfile").read_text()
 
 
 def test_orion_canary_uses_fresh_vault_enrollment():
@@ -31,3 +32,19 @@ def test_orion_canary_uses_fresh_vault_enrollment():
     assert "--privileged" not in source
     assert "networking.firewall.allowedTCPPorts = [6443 443 1514 1515];" in cluster
     assert "networking.firewall.allowedUDPPorts = [5514];" in cluster
+
+
+def test_live_canary_verifier_checks_runtime_and_attributed_alert():
+    recipe = JUSTFILE.split("verify-wazuh-agent-canary:", 1)[1].split("\n\n", 1)[0]
+    assert "wazuh-agent-vault.service podman-wazuh-agent.service" in recipe
+    assert "agent_control -lc" in recipe
+    assert "orion-canary" in recipe
+    assert "alerts.json" in recipe
+
+
+def test_canary_probe_is_harmless_bounded_and_attributed():
+    recipe = JUSTFILE.split("probe-wazuh-agent-canary:", 1)[1].split("\n\n", 1)[0]
+    assert "192.0.2.1" in recipe
+    assert "for _ in {1..30}" in recipe
+    assert "orion-canary" in recipe
+    assert "just verify-wazuh-agent-canary" in recipe

@@ -26,27 +26,32 @@ in {
     sopsFile = self + "/secrets/sops/secrets.yaml";
     webhookPath = config.sops.secrets."dead-mans-switch/discord_webhook".path;
 
-    probeScript = pkgs.writeShellScript "dead-mans-switch-probe" ''
-      set -euo pipefail
-      STATE=/var/lib/dead-mans-switch/failures
-      [ -f "$STATE" ] || echo 0 > "$STATE"
+    probeScript = pkgs.writeShellApplication {
+      name = "dead-mans-switch-probe";
+      text = ''
+        set -euo pipefail
+        STATE=/var/lib/dead-mans-switch/failures
+        url="${cfg.checkUrl}"
+        if [ "$#" -gt 0 ]; then url="$1"; fi
+        [ -f "$STATE" ] || echo 0 > "$STATE"
 
-      if ${pkgs.curl}/bin/curl --fail --silent --show-error --max-time 10 -o /dev/null "${cfg.checkUrl}"; then
-        echo 0 > "$STATE"
-        exit 0
-      fi
+        if ${pkgs.curl}/bin/curl --fail --silent --show-error --max-time 10 -o /dev/null "$url"; then
+          echo 0 > "$STATE"
+          exit 0
+        fi
 
-      failures=$(($(cat "$STATE") + 1))
-      echo "$failures" > "$STATE"
-      echo "dead-mans-switch: probe of ${cfg.checkUrl} failed ($failures/${toString cfg.failureThreshold})" >&2
+        failures=$(($(cat "$STATE") + 1))
+        echo "$failures" > "$STATE"
+        echo "dead-mans-switch: probe of ${cfg.checkUrl} failed ($failures/${toString cfg.failureThreshold})" >&2
 
-      if [ "$failures" -eq ${toString cfg.failureThreshold} ]; then
-        webhook=$(cat "${webhookPath}")
-        ${pkgs.curl}/bin/curl --silent --max-time 10 -X POST -H 'Content-Type: application/json' \
-          --data "$(${pkgs.jq}/bin/jq -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "${config.networking.hostName} dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — Discovery or home ingress may be down." '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
-          "$webhook" || true
-      fi
-    '';
+        if [ "$failures" -eq ${toString cfg.failureThreshold} ]; then
+          webhook=$(cat "${webhookPath}")
+          ${pkgs.curl}/bin/curl --silent --max-time 10 -X POST -H 'Content-Type: application/json' \
+            --data "$(${pkgs.jq}/bin/jq -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "${config.networking.hostName} dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — Discovery or home ingress may be down." '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
+            "$webhook" || true
+        fi
+      '';
+    };
   in {
     options.services.deadMansSwitch = {
       enable = lib.mkEnableOption "the offsite dead-man's-switch prober — disabled by default, see docs/proposals/2026-07-10-vanguard-second-oracle-node.md §R2";
@@ -71,6 +76,7 @@ in {
     };
 
     config = lib.mkIf cfg.enable {
+      environment.systemPackages = [probeScript];
       # TODO(before enable): this key does not exist in secrets/sops/secrets.yaml
       # yet — add an INDEPENDENT Discord webhook (its own channel, not the
       # in-home `discord_webhook_incidents`) before flipping this role on.
@@ -85,7 +91,7 @@ in {
         description = "Offsite dead-man's-switch: probe the home fleet, alert on prolonged silence";
         serviceConfig = {
           Type = "oneshot";
-          ExecStart = "${probeScript}";
+          ExecStart = "${probeScript}/bin/dead-mans-switch-probe";
           StateDirectory = "dead-mans-switch";
         };
       };
