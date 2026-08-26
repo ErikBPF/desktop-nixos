@@ -24,6 +24,7 @@ def test_discovery_alloy_scrapes_local_application_metrics():
         assert f'"job"         = "{job}"' in config
         assert f'"__address__" = "{target}"' in config
     assert 'credentials_file = "/run/vault-agent/litellm-metrics.token"' in config
+    assert 'regex         = "up|cloudflared_tunnel_.*"' in config
 
 
 def test_discovery_alloy_replaces_remote_federation_scrapes():
