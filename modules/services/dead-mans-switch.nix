@@ -46,9 +46,13 @@ in {
 
         if [ "$failures" -eq ${toString cfg.failureThreshold} ]; then
           webhook=$(cat "${webhookPath}")
-          ${pkgs.curl}/bin/curl --silent --max-time 10 -X POST -H 'Content-Type: application/json' \
+          if ${pkgs.curl}/bin/curl --fail --silent --max-time 10 -X POST -H 'Content-Type: application/json' \
             --data "$(${pkgs.jq}/bin/jq -nc --arg user ${lib.escapeShellArg cleytinId} --arg c "${config.networking.hostName} dead-man's-switch: ${cfg.checkUrl} unreachable for $failures consecutive checks — Discovery or home ingress may be down." '{content:("<@"+$user+">\n"+$c),allowed_mentions:{users:[$user]}}')" \
-            "$webhook" || true
+            "$webhook"; then
+            echo "dead-mans-switch: notification delivered"
+          else
+            echo "dead-mans-switch: notification delivery failed" >&2
+          fi
         fi
       '';
     };
