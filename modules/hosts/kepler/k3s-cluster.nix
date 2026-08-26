@@ -171,7 +171,8 @@ in {
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
         # etcd is memory + fsync sensitive; 2G/1vcpu flapped under sync load
-        # (grill §3). 4G/2vcpu gives etcd+apiserver headroom. 3×4G+2×16G on 62G.
+        # (grill §3). 4G/2vcpu gives etcd+apiserver headroom. The configured
+        # 3×4G control planes + 3×16G workers use 60 GiB of kepler's 96 GiB.
         vcpu = 2;
         mem = 4096;
         disk = 32768;
@@ -195,6 +196,8 @@ in {
     mkGuest = name: let
       s = nodeSpec name;
     in {
+      boot.kernelPackages = pkgs.linuxPackages_7_2;
+
       imports =
         [
           (mkK3sNode {
@@ -455,7 +458,7 @@ in {
       workerMem = lib.mkOption {
         type = lib.types.int;
         default = 16384;
-        description = "RAM (MiB) per worker. 16 GB; with 2 workers that's 32 GB + 6 GB CP on kepler's 62 GB (ARC yields under pressure). More headroom after the 128 GB upgrade.";
+        description = "RAM (MiB) per worker. Kepler configures 3×16 GiB workers + 3×4 GiB control planes: 60 GiB of 96 GiB total; ARC yields under pressure.";
       };
       workerVcpu = lib.mkOption {
         type = lib.types.int;
