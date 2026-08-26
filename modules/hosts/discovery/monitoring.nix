@@ -37,7 +37,7 @@ _: {
       prometheus.relabel "cloudflared_keep" {
         rule {
           source_labels = ["__name__"]
-          regex         = "cloudflared_tunnel_.*"
+          regex         = "up|cloudflared_tunnel_.*"
           action        = "keep"
         }
         forward_to = [prometheus.remote_write.prometheus.receiver]
