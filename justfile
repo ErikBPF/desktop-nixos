@@ -2445,7 +2445,7 @@ servarr-rollout-status target commit="":
         ')"
         container_key="$(jq -r '.name + "/" + .state' <<<"$record")"
         case "$container_key" in
-          */running/healthy/0|*/running/none/0|buzz-minio-init/exited/none/0|restic-rest-init/exited/none/0|wazuh-snapshot-init/exited/none/0) ;;
+          */running/healthy/0|*/running/none/0|buzz-minio-init/exited/none/0|restic-rest-init/exited/none/0) ;;
           *) die "rollout container unhealthy" ;;
         esac
         jq -r '.fingerprint | @tsv' <<<"$record" >>"$runtime"
@@ -3073,80 +3073,6 @@ probe-wazuh-agent-canary:
     done
     "$seen"
     just verify-wazuh-agent-canary
-
-# Read-only live proof for the Kepler UniFi CEF receiver.
-verify-wazuh-siem:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
-      set -euo pipefail
-      test "$(hostname)" = kepler
-      echo ":: Wazuh containers"
-      podman ps --filter name=wazuh
-      echo ":: UniFi UDP destination=192.168.10.230:5514"
-      ss -lun | grep -E '(^|:)5514[[:space:]]'
-      echo ":: Protect CEF decoder"
-      result=$(printf '%s\n' 'Aug  3 10:00:00 gateway CEF:0|Ubiquiti|UniFi Protect|7.1.87|smartDetectZone|smartDetectZone|3|src=192.0.2.10 dst=192.0.2.20 suser=synthetic act=detected UNIFIdeviceIp=192.0.2.1 UNIFIdeviceMac=00:00:5e:00:53:01 UNIFIcategory=security reason=motion msg=synthetic' |
-        podman exec -i wazuh-manager /var/ossec/bin/wazuh-logtest 2>&1)
-      printf '%s\n' "$result"
-      grep -F "name: 'unifi-cef'" <<<"$result" >/dev/null
-      grep -F "id: '100100'" <<<"$result" >/dev/null
-      echo ":: Ofelia scheduler"
-      podman logs --tail 30 ofelia
-      echo ":: Last-event metric"
-      podman exec wazuh-manager ls -l /metrics
-      sudo grep '^wazuh_unifi_last_event_seconds [0-9][0-9]*$' /var/lib/node-exporter-textfile/wazuh_unifi_last_event.prom 2>/dev/null ||
-        echo 'metric=absent (no CEF event in current archive)'
-    REMOTE
-
-# Capture packet metadata only; no CEF payload bytes.
-capture-unifi-siem:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
-      set -euo pipefail
-      archive=/var/ossec/logs/archives/archives.json
-      before=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
-      nix shell nixpkgs#tcpdump --command sudo timeout 60 tcpdump -nn -i any -c 10 \
-        'udp dst port 5514 or udp dst port 514'
-      after=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
-      cef=$(podman exec wazuh-manager grep -c CEF: /var/ossec/logs/archives/archives.json || true)
-      printf "archive_before=%s archive_after=%s archive_delta=%s cef_lines=%s\n" \
-        "$before" "$after" "$((after - before))" "$cef"
-      podman port wazuh-manager 514/udp
-      podman inspect wazuh-manager |
-        jq -c '.[0].NetworkSettings.Networks | to_entries[] | {network:.key,ip:.value.IPAddress,gateway:.value.Gateway}'
-      if ((after > before)); then
-        podman exec wazuh-manager tail -n 1 "$archive" |
-          jq -c '{timestamp,location,decoder:(.decoder.name // null),hostname:(.predecoder.hostname // null),program:(.predecoder.program_name // null)}'
-      else
-        echo event_metadata=none
-      fi
-    REMOTE
-
-# Inject one harmless synthetic event per hop to isolate ingestion failures.
-probe-unifi-siem:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh -p 2222 erik@{{ip_kepler}} 'bash -se' <<'REMOTE'
-      set -euo pipefail
-      archive=/var/ossec/logs/archives/archives.json
-      probe='CEF:0|Ubiquiti|UniFi OS|0|synthetic|synthetic|1|msg=synthetic'
-      before=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
-      printf '%s\n' "$probe" >/dev/udp/127.0.0.1/5514
-      sleep 2
-      host_after=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
-      printf "host_delta=%s\n" "$((host_after - before))"
-      if ((host_after > before)); then
-        echo container_delta=skipped
-        exit
-      fi
-      podman exec -e PROBE="$probe" wazuh-manager bash -c \
-        'printf "%s\n" "$PROBE" >/dev/udp/127.0.0.1/514'
-      sleep 2
-      container_after=$(podman exec wazuh-manager grep -c "^" "$archive" || true)
-      printf "container_delta=%s\n" "$((container_after - host_after))"
-    REMOTE
 
 # Read-only filesystem allocation and largest top-level trees on Kepler.
 diagnose-kepler-disk:

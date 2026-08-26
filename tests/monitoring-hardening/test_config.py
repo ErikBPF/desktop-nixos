@@ -4,11 +4,46 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 
 
-def test_monitoring_refuses_to_start_without_vault_mount():
+def test_discovery_legacy_monitoring_stack_is_retired():
     config = (ROOT / "modules/hosts/discovery/compose.nix").read_text()
 
-    assert 'podman-compose-monitoring' in config
-    assert 'mountpoint --quiet /home/erik/vault' in config
+    assert 'podman-compose-monitoring' not in config
+    assert '"monitoring" # grafana' not in config
+    assert 'secretSpecRuntimeProfiles.monitoring' not in config
+
+
+def test_discovery_alloy_scrapes_local_application_metrics():
+    config = (ROOT / "modules/hosts/discovery/monitoring.nix").read_text()
+
+    for job, target in (
+        ("adguard", "127.0.0.1:9618"),
+        ("cloudflared", "127.0.0.1:20241"),
+        ("litellm", "127.0.0.1:4000"),
+        ("postgres-discovery", "127.0.0.1:9187"),
+    ):
+        assert f'"job"         = "{job}"' in config
+        assert f'"__address__" = "{target}"' in config
+    assert 'credentials_file = "/run/vault-agent/litellm-metrics.token"' in config
+
+
+def test_discovery_alloy_replaces_remote_federation_scrapes():
+    config = (ROOT / "modules/hosts/discovery/monitoring.nix").read_text()
+
+    for job, target in (
+        ("llamacpp", "100.72.85.73:8080"),
+        ("node-vanguard", "100.90.247.79:9100"),
+        ("node-voyager", "100.105.38.10:9100"),
+    ):
+        assert f'"job"         = "{job}"' in config
+        assert f'"__address__" = "{target}"' in config
+    assert "nvidia-gpu" not in config
+
+
+def test_kepler_alloy_scrapes_its_local_postgres_exporter():
+    config = (ROOT / "modules/hosts/kepler/monitoring.nix").read_text()
+
+    assert '"job"         = "postgres-kepler"' in config
+    assert '"__address__" = "100.94.239.46:9187"' in config
 
 
 def test_alloy_pushes_to_kubernetes_backends():
@@ -40,14 +75,3 @@ def test_operator_metric_clients_use_kubernetes_prometheus():
     for config in (terminal, recipes):
         assert "http://discovery:9090" not in config
         assert "https://prometheus.homelab.pastelariadev.com" in config
-
-
-def test_monitoring_health_gate_includes_metrics_and_logs_backends():
-    config = (ROOT / "modules/hosts/discovery/compose.nix").read_text()
-
-    assert "http://${config.fleet.hosts.discovery.tailscaleIp}:3100/ready" in config
-    assert "--retry-all-errors" in config
-    assert (
-        'secretSpecRuntimeHealthContainers.monitoring = '
-        '["prometheus" "grafana" "healthchecks" "scrutiny-influxdb" "scrutiny"];'
-    ) in config
