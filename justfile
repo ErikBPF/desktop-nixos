@@ -1478,13 +1478,11 @@ verify-pangolin-newt target:
     #!/usr/bin/env bash
     set -euo pipefail
     ip="$(just _host-ip {{target}})"
-    destination="$(just _host-ip discovery)"
     zone="$(jq -r '.ingress.homelab.zone' fleet.json)"
-    [[ "$destination" =~ ^[0-9.]+$ && "$zone" =~ ^[a-z0-9.-]+$ ]]
-    ssh -p 2222 erik@"$ip" bash -s -- "$destination" "$zone" <<'REMOTE'
+    [[ "$zone" =~ ^[a-z0-9.-]+$ ]]
+    ssh -p 2222 erik@"$ip" bash -s -- "$zone" <<'REMOTE'
       set -euo pipefail
-      destination="$1"
-      zone="$2"
+      zone="$1"
       config=/var/lib/pangolin-newt/config.json
       health=/run/pangolin-newt/healthy
       systemctl is-active pangolin-newt.service
@@ -1501,7 +1499,7 @@ verify-pangolin-newt target:
         grep '^# HELP ' >/dev/null
       fqdn="grafana.$zone"
       curl --fail --silent --show-error --max-time 10 \
-        --resolve "$fqdn:443:$destination" "https://$fqdn/api/health" |
+        "https://$fqdn/api/health" |
         jq -e '.database == "ok"' >/dev/null
       echo "pangolin_newt=ready credentials=persisted health=connected metrics=ready backend=ready"
     REMOTE

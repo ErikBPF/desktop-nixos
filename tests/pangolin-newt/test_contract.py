@@ -71,11 +71,12 @@ def test_remote_verification_checks_persisted_credentials_health_and_metrics():
         "http://127.0.0.1:2112/metrics",
         "provisioningKey",
         "grep '^# HELP ' >/dev/null",
-        "--resolve",
         "/api/health",
         '.database == "ok"',
     ):
         assert value in justfile
+    assert "destination=\"$(just _host-ip discovery)\"" not in justfile
+    assert '--resolve "$fqdn:443:$destination"' not in justfile
 
 
 def test_boot_deploy_copies_directly_on_the_lan():
