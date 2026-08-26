@@ -1315,6 +1315,16 @@ switch-vanguard user="erik" port="2222":
         --max-jobs 0 \
         --use-substitutes --sudo --show-trace
 
+# Force the offsite outage alert once, then restore the healthy state.
+test-vanguard-dead-mans-switch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{tailscale_vanguard}} 'set -euo pipefail
+      systemctl is-active dead-mans-switch.timer
+      for _ in {1..6}; do sudo dead-mans-switch-probe http://192.0.2.1:9; done
+      sudo dead-mans-switch-probe
+      sudo grep -qx 0 /var/lib/dead-mans-switch/failures'
+
 # First NixOS boot on the infect path: build the flake gen on orion and set it as
 # the NEXT-BOOT generation on the still-Ubuntu box (root@22; closure copied via
 # substitutes — the 1 GB box never compiles). Uses `boot`, not `switch`: during
@@ -3021,6 +3031,39 @@ orion-retire-legacy-llama:
       fi
     REMOTE
     just kick-stack orion ai-models
+
+# Live proof for Orion's Kubernetes-backed Wazuh canary.
+verify-wazuh-agent-canary:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_orion}} 'set -euo pipefail
+      systemctl is-active wazuh-agent-vault.service podman-wazuh-agent.service
+      sudo podman inspect wazuh-agent | jq -e '\''.[0].State.Status == "running"'\'' >/dev/null'
+    echo ":: Manager enrollment"
+    kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-master -c wazuh-manager -- \
+      sh -c '/var/ossec/bin/agent_control -lc | grep -F orion-canary >/dev/null'
+    echo ":: Attributed alert"
+    kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
+      sh -c 'tail -n 10000 /var/ossec/logs/alerts/alerts.json | grep -Eq '\''"name"[[:space:]]*:[[:space:]]*"orion-canary"'\'''
+    echo ":: Orion Wazuh canary enrolled and attributed alerts present"
+
+probe-wazuh-agent-canary:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    marker="wazuh-canary-$(date +%s)"
+    printf 'Aug 26 01:00:00 orion sshd[4242]: Failed password for invalid user %s from 192.0.2.1 port 4242 ssh2\n' "$marker" |
+      ssh -p 2222 erik@{{ip_orion}} "sudo podman exec -i wazuh-agent sh -c 'cat >> /var/ossec/logs/active-responses.log'"
+    seen=false
+    for _ in {1..30}; do
+      if kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
+        sh -c "tail -n 10000 /var/ossec/logs/alerts/alerts.json | grep -F '$marker' | grep -Eq '\"name\"[[:space:]]*:[[:space:]]*\"orion-canary\"'"; then
+        seen=true
+        break
+      fi
+      sleep 2
+    done
+    "$seen"
+    just verify-wazuh-agent-canary
 
 # Read-only live proof for the Kepler UniFi CEF receiver.
 verify-wazuh-siem:
