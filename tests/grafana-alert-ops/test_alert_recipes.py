@@ -84,6 +84,8 @@ def test_argus_start_is_scoped_and_verified():
     assert "hermes-argus-healthcheck.timer" in recipe
     assert "docker-hermes-agent.service" in recipe
     assert "docker-hermes-daedalus.service" in recipe
+    assert "for attempt in {1..20}" in recipe
+    assert 'docker inspect hermes-argus' in recipe
 
 
 def test_transient_discovery_jobs_have_bounded_retries():
