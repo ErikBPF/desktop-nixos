@@ -4586,6 +4586,11 @@ start-hermes-argus:
     ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=10 erik@"$IP" '
       set -euo pipefail
       sudo systemctl start docker-hermes-argus.service hermes-argus-healthcheck.timer
+      for attempt in {1..20}; do
+        docker inspect hermes-argus >/dev/null 2>&1 && break
+        test "$attempt" -lt 20 || exit 1
+        sleep 1
+      done
       sudo systemctl is-active \
         docker-hermes-argus.service \
         hermes-argus-healthcheck.timer \
