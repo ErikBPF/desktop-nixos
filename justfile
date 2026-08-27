@@ -4578,6 +4578,22 @@ stop-hermes-argus:
       printf ":: hermes-argus state=%s timer=stopped peers=running\n" "$state"
     '
 
+# Resume only Cleytin/Argus after a maintenance window.
+start-hermes-argus:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=10 erik@"$IP" '
+      set -euo pipefail
+      sudo systemctl start docker-hermes-argus.service hermes-argus-healthcheck.timer
+      sudo systemctl is-active \
+        docker-hermes-argus.service \
+        hermes-argus-healthcheck.timer \
+        docker-hermes-agent.service \
+        docker-hermes-daedalus.service
+    '
+    just hermes-agents-health
+
 hermes-agents-health:
     #!/usr/bin/env bash
     set -euo pipefail

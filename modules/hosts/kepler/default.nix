@@ -6,6 +6,7 @@
   m = config.flake.modules;
 in {
   configurations.nixos.kepler.module = {
+    lib,
     pkgs,
     modulesPath,
     ...
@@ -97,6 +98,27 @@ in {
     # so cap at ~2 generations (same as GRUB held).
     boot.loader.efi.canTouchEfiVariables = true;
     boot.loader.systemd-boot.configurationLimit = 2;
+
+    # Keep the outage window locally when Kepler disappears before Alloy can
+    # push it. NixOS already archives firmware pstore records at boot.
+    services.journald.extraConfig = lib.mkForce ''
+      Storage=persistent
+      SystemMaxUse=2G
+      SystemKeepFree=1G
+      MaxRetentionSec=1month
+      MaxFileSec=1day
+    '';
+
+    # Turn both kernel lockup detectors into panic -> reboot recovery. The
+    # shared boot-counting module supplies panic=10; 30s avoids treating a
+    # short ZFS/CUDA scheduling stall as a dead host.
+    boot.kernel.sysctl = {
+      "kernel.watchdog" = 1;
+      "kernel.nmi_watchdog" = lib.mkForce 1;
+      "kernel.softlockup_panic" = 1;
+      "kernel.hardlockup_panic" = 1;
+      "kernel.watchdog_thresh" = 30;
+    };
 
     # ZFS hostId — generated from /etc/machine-id on live ISO (head -c 8 /etc/machine-id)
     networking.hostId = "cf7e11b5";
