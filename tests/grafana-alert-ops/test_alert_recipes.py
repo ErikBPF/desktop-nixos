@@ -76,6 +76,16 @@ def test_argus_stop_is_scoped_and_verified():
     assert "systemctl mask" not in recipe
 
 
+def test_argus_start_is_scoped_and_verified():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("start-hermes-argus:", 1)[1].split("\n# ", 1)[0]
+
+    assert "docker-hermes-argus.service" in recipe
+    assert "hermes-argus-healthcheck.timer" in recipe
+    assert "docker-hermes-agent.service" in recipe
+    assert "docker-hermes-daedalus.service" in recipe
+
+
 def test_transient_discovery_jobs_have_bounded_retries():
     wiki = (ROOT / "modules/hosts/discovery/hermes-wiki.nix").read_text()
     restic = (ROOT / "modules/services/restic-tofu-state.nix").read_text()
