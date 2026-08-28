@@ -10,6 +10,7 @@ _: {
         userSettings = ./vscode-settings.json;
         extensions = with pkgs.vscode-marketplace; [
           bierner.markdown-mermaid
+          carloscamara.vscode-gherkin-powertools
           charliermarsh.ruff
           eamodio.gitlens
           enkia.tokyo-night
