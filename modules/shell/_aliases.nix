@@ -49,7 +49,7 @@ _: {
   gvr = "cz version"; # Show version information (commitizen)
 
   # --- History ---
-  h = "herdr session attach code";
+  h = "herdr session attach homelab";
   hs = "history | rg"; # Ripgrep history
   hsi = "history | rg -i"; # Grep history ignore case
   hist = "fzf-history-widget";
@@ -122,8 +122,8 @@ _: {
 
   # --- Gemini repo jumps (ssh into the orion dev-sandbox at the same dir) ---
   hal = "herdr agent list";
-  hg = "herdr --remote gemini --session code";
-  hgs = "ssh -t gemini 'exec herdr session attach code'";
+  hg = "herdr --remote gemini --session homelab";
+  hgs = "ssh -t gemini 'exec herdr session attach homelab'";
   hl = "herdr session list";
   hlab = "herdr --remote gemini --session homelab";
   hdap = "herdr --remote gemini --session dataplatform";

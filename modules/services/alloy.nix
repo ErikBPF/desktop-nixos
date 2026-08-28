@@ -58,6 +58,11 @@
         textfile {
           directory = "/var/lib/node-exporter-textfile"
         }
+        // A dead Kepler must not block Discovery/Orion host metrics while the
+        // NFS client waits on /mnt/nfs. Preserve Alloy's Linux defaults.
+        filesystem {
+          mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|mnt/nfs)($|/)"
+        }
         // An amdgpu SMU firmware hang leaves hwmon sysfs reads blocked in
         // uninterruptible D-state; NodeCollector.Collect waits on every
         // collector, so one wedged read killed ALL host metrics on orion

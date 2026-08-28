@@ -50,9 +50,9 @@ def test_codex_and_claude_share_repository_policy():
 def test_gemini_herdr_entrypoints_and_version():
     aliases = ALIASES.read_text()
 
-    assert 'h = "herdr session attach code";' in aliases
-    assert 'hg = "herdr --remote gemini --session code";' in aliases
-    assert "hgs = \"ssh -t gemini 'exec herdr session attach code'\";" in aliases
+    assert 'h = "herdr session attach homelab";' in aliases
+    assert 'hg = "herdr --remote gemini --session homelab";' in aliases
+    assert "hgs = \"ssh -t gemini 'exec herdr session attach homelab'\";" in aliases
     assert 'herdr.url = "github:herdrdev/herdr/v0.8.0";' in FLAKE.read_text()
 
 
