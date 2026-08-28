@@ -1,6 +1,50 @@
 {
-  flake.modules.home.monitor-layout-docked = _: {
+  flake.modules.home.monitor-layout-docked = {lib, ...}: let
+    c1Description = "Samsung Electric Company C27F390 HX5MB00876";
+    c1 = "desc:${c1Description}";
+    hotplugRecoveryDelayMs = 1000;
+  in {
     wayland.windowManager.hyprland.settings = {
+      on = [
+        {
+          _args = [
+            "monitor.added"
+            (lib.generators.mkLuaInline ''
+              function(m)
+                local c1Description = "${c1Description}"
+                local hotplugRecoveryDelayMs = ${toString hotplugRecoveryDelayMs}
+                if m.description ~= c1Description then
+                  return
+                end
+
+                hl.timer(function()
+                  local workspace = hl.get_workspace(10)
+                  local target = hl.get_monitor("desc:" .. c1Description)
+                  if workspace == nil or target == nil then
+                    return
+                  end
+
+                  local wasActive = workspace.active
+                  if workspace.monitor ~= nil and workspace.monitor.id == target.id then
+                    for _, fallback in ipairs(hl.get_monitors()) do
+                      if fallback.id ~= target.id then
+                        hl.dispatch(hl.dsp.workspace.move({ workspace = workspace, monitor = fallback }))
+                        break
+                      end
+                    end
+                  end
+
+                  hl.dispatch(hl.dsp.workspace.move({ workspace = workspace, monitor = target }))
+                  if wasActive then
+                    target:set_workspace({ workspace = workspace })
+                  end
+                end, { timeout = hotplugRecoveryDelayMs, type = "oneshot" })
+              end
+            '')
+          ];
+        }
+      ];
+
       monitor = [
         {
           output = "";
@@ -39,7 +83,6 @@
 
       workspace_rule = let
         qbq = "desc:Samsung Electric Company QBQ90 0x01000E00";
-        c1 = "desc:Samsung Electric Company C27F390 HX5MB00876";
         c2 = "desc:Samsung Electric Company C27F390 HX5MB00881";
       in
         (map (workspace:
