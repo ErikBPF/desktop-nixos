@@ -1,0 +1,9 @@
+schemaVersion: "1"
+name: desktop-nixos-codex
+agent: codex
+workspace:
+  path: .
+  clone: true
+sandboxOptions:
+  cpus: 4
+  memory: 8g
