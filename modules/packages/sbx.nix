@@ -1,16 +1,21 @@
-{lib, ...}: {
-  perSystem = {
-    pkgs,
-    system,
-    ...
-  }:
+{
+  inputs,
+  lib,
+  ...
+}: {
+  perSystem = {system, ...}: let
+    pkgs = import inputs.nixpkgs {
+      inherit system;
+      config.allowUnfreePredicate = pkg: lib.getName pkg == "docker-sbx";
+    };
+  in
     lib.optionalAttrs (system == "x86_64-linux") {
       packages.sbx = pkgs.stdenvNoCC.mkDerivation rec {
         pname = "docker-sbx";
         version = "0.39.0";
 
         src = pkgs.fetchurl {
-          url = "https://github.com/docker/sbx/releases/download/v${version}/DockerSandboxes-linux-amd64.tar.gz";
+          url = "https://github.com/docker/sbx-releases/releases/download/v${version}/DockerSandboxes-linux-amd64.tar.gz";
           hash = "sha256-LsRbx5OMIML0Bv6MxyKUrVqVS9wEdgFIS4m/GhCDEdQ=";
         };
 
