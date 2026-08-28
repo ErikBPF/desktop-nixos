@@ -74,6 +74,7 @@
 
       # Reattach with agents back in place after a detach/restart.
       session.resume_agents_on_restore = true;
+      experimental.pane_history = false;
 
       theme = {
         name = "catppuccin";

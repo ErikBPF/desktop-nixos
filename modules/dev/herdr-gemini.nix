@@ -163,6 +163,8 @@
     home.packages = [repoBootstrap pkgs.jq];
 
     xdg.configFile = {
+      "opencode/plugins/herdr-agent-state.js".source =
+        inputs.herdr + "/src/integration/assets/opencode/herdr-agent-state.js";
       "herdr/plugins/config/cloudmanic.herdr-plus/projects/homelab.toml".source = toml.generate "herdr-plus-homelab.toml" (project {
         name = "homelab";
         workingDir = defaults.homelab;
