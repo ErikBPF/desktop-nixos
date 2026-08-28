@@ -33,6 +33,22 @@ def test_monitor_layouts_are_home_modules():
     )
 
 
+def test_docked_workspace_10_recovers_after_monitor_hotplug():
+    layouts = read("modules/desktop/monitor-layouts.nix")
+    docked = layouts.split("flake.modules.home.monitor-layout-docked", 1)[1].split(
+        "flake.modules.home.monitor-layout-pathfinder", 1
+    )[0]
+
+    assert '"monitor.added"' in docked
+    assert "m.description ~= c1Description" in docked
+    assert "hl.get_workspace(10)" in docked
+    assert "hotplugRecoveryDelayMs = 1000;" in docked
+    assert "timeout = hotplugRecoveryDelayMs" in docked
+    assert docked.count("hl.dsp.workspace.move") == 2
+    assert "local wasActive = workspace.active" in docked
+    assert "target:set_workspace({ workspace = workspace })" in docked
+
+
 def test_reusable_modules_do_not_live_under_hosts():
     assert (ROOT / "modules/services/hermes-client.nix").exists()
     assert (ROOT / "modules/services/opencode-client.nix").exists()
