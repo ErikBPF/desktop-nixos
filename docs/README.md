@@ -39,6 +39,8 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Status |
 |-----|--------|
+| [`Gemini Herdr native-restore behavior`](behaviors/gemini-herdr-native-restore/gemini-herdr-native-restore.feature) | Contract — OpenCode is the declarative native-restore canary; deployment and disposable restart proof remain gated. |
+| [`proposals/2026-08-24-kepler-cold-restart-resilience.md`](proposals/2026-08-24-kepler-cold-restart-resilience.md) · [`behavior contract`](behaviors/kepler-cold-restart/kepler-cold-restart.feature) | Implementation planned — reviewed `/pl` contract and `/ip` slices define a forced-off, two-minute-off, power-on sequence, exact storage/source gates, and a 10-minute return deadline. |
 | [`proposals/2026-08-12-endeavour-luks-authentication.md`](proposals/2026-08-12-endeavour-luks-authentication.md) | Moved — canonical Endeavour LUKS authentication proposal lives in `homelab`. |
 | [`proposals/2026-07-21-hermes-argus-n0-responder.md`](proposals/2026-07-21-hermes-argus-n0-responder.md) | Staged — Argus extended as N0 first-line responder on Discord #incidents/#deploys (channel-scoped listen, staged Grafana HMAC webhook, agentmemory incident recall); deploy gated on Discord app token + OpenBao HMAC key. |
 | [`behaviors/discovery-secondary-dns/behavior.md`](behaviors/discovery-secondary-dns/behavior.md) · [`test contract`](behaviors/discovery-secondary-dns/test-contract.md) | Draft P3 contract — Kepler LAN secondary, preserved vanguard tailnet resolver, narrow DHCP ownership, and outage proof before P2 mutation. |
