@@ -2729,19 +2729,24 @@ sync-hermes-skills target:
         "$SRC/" \
         "erik@$IP:/home/erik/hermes-skills/"
 
-# List current Grafana alert instances. Credentials stay inside the remote shell;
-# output contains only alert state, labels, and annotations.
+# List current Kubernetes Grafana alert instances. Credentials stay inside the
+# Grafana pod; output contains only alert state, labels, and annotations.
 grafana-alert-status:
     #!/usr/bin/env bash
     set -euo pipefail
-    IP="$(just _host-ip discovery)"
-    ssh -p 2222 erik@"$IP" '
+    export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/pastelariadev-lan.yaml}"
+    test -r "$KUBECONFIG"
+    pod=$(kubectl -n monitoring get pod \
+      -l app.kubernetes.io/name=grafana \
+      --field-selector=status.phase=Running \
+      -o jsonpath='{.items[0].metadata.name}')
+    test -n "$pod"
+    kubectl -n monitoring exec "$pod" -c grafana -- sh -c '
       set -euo pipefail
-      user=$(docker exec grafana printenv GF_SECURITY_ADMIN_USER)
-      password=$(docker exec grafana printenv GF_SECURITY_ADMIN_PASSWORD)
-      grafana_ip=$(docker inspect -f "{{"{{"}}range .NetworkSettings.Networks{{"}}"}}{{"{{"}}.IPAddress{{"}}"}}{{"{{"}}end{{"}}"}}" grafana)
+      user=${GF_SECURITY_ADMIN_USER:-admin}
+      password=${GF_SECURITY_ADMIN_PASSWORD:?}
       curl -fsS --user "$user:$password" \
-        "http://$grafana_ip:3000/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false"
+        "http://127.0.0.1:3000/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false"
     ' | jq -r '
       if length == 0 then
         "active=0"
@@ -2750,7 +2755,7 @@ grafana-alert-status:
         (.[] | [
           (.status.state // "active"),
           (.labels.severity // "unknown"),
-          (.labels.alertname // "unnamed"),
+          (.labels.alertname // .labels.rulename // "unnamed"),
           (.labels.instance // "-"),
           (.annotations.summary // "-")
         ] | @tsv)
@@ -3146,7 +3151,7 @@ probe-wazuh-agent-canary:
 
 # Read-only filesystem allocation and largest top-level trees on Kepler.
 diagnose-kepler-disk:
-    ssh -p 2222 erik@{{ip_kepler}} 'df -h / /fast; sudo btrfs filesystem usage /; sudo zfs list -o name,mountpoint,used,available,recordsize; systemctl cat microvm@cp-1.service; pgrep -af "openwakeword|ha-train|huggingface|kaggle" || true; sudo du -x -d2 -B1 /nix /var /home 2>/dev/null | sort -nr | head -40; sudo du -x -d2 -B1 /home/erik/.local /home/erik/.cache /home/erik/openwakeword-training /home/erik/ha-train /home/erik/ha-hf /var/lib/microvms 2>/dev/null | sort -nr | head -40'
+    ssh -p 2222 erik@{{ip_kepler}} 'df -h / /fast; sudo btrfs filesystem usage /; sudo btrfs device stats /; sudo btrfs scrub status /; sudo journalctl --no-pager _TRANSPORT=kernel | grep -Ei "BTRFS|Structure needs cleaning|I/O error|corrupt" || true; sudo zfs list -o name,mountpoint,used,available,recordsize; systemctl cat microvm@cp-1.service; pgrep -af "openwakeword|ha-train|huggingface|kaggle" || true; sudo du -x -d2 -B1 /nix /var /home 2>/dev/null | sort -nr | head -40; sudo du -x -d2 -B1 /home/erik/.local /home/erik/.cache /home/erik/openwakeword-training /home/erik/ha-train /home/erik/ha-hf /var/lib/microvms 2>/dev/null | sort -nr | head -40'
 
 # Remove reproducible Hugging Face model caches only.
 clean-kepler-model-cache:

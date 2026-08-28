@@ -24,9 +24,19 @@ def test_kepler_persists_crash_evidence_and_recovers_from_lockups():
     assert 'boot.kernelParams = ["panic=10"];' in boot
 
 
-def test_kepler_uses_the_fleet_linux_7_2_kernel():
+def test_kepler_host_and_guests_use_the_fleet_linux_7_2_kernel():
     kepler = (ROOT / "modules/hosts/kepler/default.nix").read_text()
     server = (ROOT / "modules/profiles/server.nix").read_text()
+    cluster = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
 
     assert "boot.kernelPackages" not in kepler
     assert "boot.kernelPackages = pkgs.linuxPackages_7_2;" in server
+    assert "boot.kernelPackages = pkgs.linuxPackages_7_2;" in cluster
+
+
+def test_kepler_holds_unattended_mutation_during_stability_incident():
+    kepler = (ROOT / "modules/hosts/kepler/default.nix").read_text()
+    upgrade = kepler.split("system.autoUpgrade = {", 1)[1].split("};", 1)[0]
+
+    assert "enable = false;" in upgrade
+    assert "nix.gc.automatic = lib.mkForce false;" in kepler

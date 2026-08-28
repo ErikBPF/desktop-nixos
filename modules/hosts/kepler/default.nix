@@ -92,6 +92,10 @@ in {
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.amd.updateMicrocode = true;
 
+    # The root Btrfs currently reports structural corruption in one garbage
+    # store path. GC must not walk it again before an offline read-only check.
+    nix.gc.automatic = lib.mkForce false;
+
     # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
     # module imported above (grub off, panic=10). Migrated GRUB → systemd-boot
     # 2026-07-03; /boot is already the vfat ESP. ESP is 512 MB / initrds ~180 MB,
@@ -138,7 +142,8 @@ in {
     ];
 
     system.autoUpgrade = {
-      enable = true;
+      # Stability incident hold: activation/reboot stays operator-controlled.
+      enable = false;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#kepler";
       # boot + in-window reboot: a live switch of an nvidia/kernel bump breaks the
       # running CUDA driver (module vs kernel mismatch) — the same reason the manual
