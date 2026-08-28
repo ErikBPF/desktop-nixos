@@ -138,6 +138,39 @@ def test_endeavour_uses_live_gemini_syncthing_identity():
 def test_shared_aliases_expose_default_and_repo_sessions():
     aliases = (ROOT / "modules/shell/_aliases.nix").read_text()
 
+    assert 'h = "herdr session attach homelab";' in aliases
+    assert 'hg = "herdr --remote gemini --session homelab";' in aliases
+    assert 'hgs = "ssh -t gemini \'exec herdr session attach homelab\'";' in aliases
     assert 'hlab = "herdr --remote gemini --session homelab";' in aliases
     assert 'hdap = "herdr --remote gemini --session dataplatform";' in aliases
     assert 'hr = "herdr-repo";' in aliases
+    assert "--session code" not in aliases
+    assert "session attach code" not in aliases
+
+
+def test_opencode_native_restore_integration_is_declarative():
+    gemini = MODULE.read_text()
+    herdr = (ROOT / "modules/dev/herdr.nix").read_text()
+
+    assert '"opencode/plugins/herdr-agent-state.js".source' in gemini
+    assert 'inputs.herdr + "/src/integration/assets/opencode/herdr-agent-state.js"' in gemini
+    assert "opencode/plugins/herdr-agent-state.js" not in herdr
+    assert "herdr integration install opencode" not in herdr
+
+
+def test_herdr_pane_history_is_explicitly_disabled():
+    herdr = (ROOT / "modules/dev/herdr.nix").read_text()
+
+    assert "experimental.pane_history = false;" in herdr
+
+
+def test_gemini_herdr_preflight_is_value_free_and_fail_closed():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("verify-gemini-herdr:", 1)[1].split("\n\n", 1)[0]
+
+    assert "herdr integration status" in recipe
+    assert "opencode: current (" in recipe
+    assert "herdr-session-homelab.service" in recipe
+    assert "herdr-session-dataplatform.service" in recipe
+    for forbidden in ("printenv", "config.toml", "session.json", "auth.json"):
+        assert forbidden not in recipe

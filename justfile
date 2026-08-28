@@ -428,6 +428,25 @@ switch-orion:
 restart-gemini-herdr:
     ssh gemini 'systemctl --user restart herdr-session-homelab.service && systemctl --user is-active herdr-session-homelab.service'
 
+verify-gemini-herdr:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh gemini 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    herdr --version
+    status=$(herdr integration status)
+    opencode=$(grep '^opencode: ' <<<"$status" || true)
+    printf '%s\n' "$opencode"
+    grep -Fq 'opencode: current (' <<<"$opencode" || {
+      echo 'BLOCKED: OpenCode Herdr integration is missing or outdated' >&2
+      exit 1
+    }
+    for unit in herdr-session-homelab.service herdr-session-dataplatform.service; do
+      printf '%s=' "$unit"
+      systemctl --user is-active "$unit"
+    done
+    REMOTE
+
 recache-orion:
     ssh -p 2222 erik@{{ip_orion}} 'sudo systemctl start nix-cache-builder.service'
 
