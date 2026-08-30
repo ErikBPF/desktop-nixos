@@ -2729,38 +2729,11 @@ sync-hermes-skills target:
         "$SRC/" \
         "erik@$IP:/home/erik/hermes-skills/"
 
-# List current Kubernetes Grafana alert instances. Credentials stay inside the
-# Grafana pod; output contains only alert state, labels, and annotations.
+# Grafana alert inventory belongs to the GitOps repository with its runtime.
 grafana-alert-status:
     #!/usr/bin/env bash
-    set -euo pipefail
-    export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/pastelariadev-lan.yaml}"
-    test -r "$KUBECONFIG"
-    pod=$(kubectl -n monitoring get pod \
-      -l app.kubernetes.io/name=grafana \
-      --field-selector=status.phase=Running \
-      -o jsonpath='{.items[0].metadata.name}')
-    test -n "$pod"
-    kubectl -n monitoring exec "$pod" -c grafana -- sh -c '
-      set -euo pipefail
-      user=${GF_SECURITY_ADMIN_USER:-admin}
-      password=${GF_SECURITY_ADMIN_PASSWORD:?}
-      curl -fsS --user "$user:$password" \
-        "http://127.0.0.1:3000/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false"
-    ' | jq -r '
-      if length == 0 then
-        "active=0"
-      else
-        "active=\(length)",
-        (.[] | [
-          (.status.state // "active"),
-          (.labels.severity // "unknown"),
-          (.labels.alertname // .labels.rulename // "unnamed"),
-          (.labels.instance // "-"),
-          (.annotations.summary // "-")
-        ] | @tsv)
-      end
-    '
+    echo "Moved to homelab-gitops: just grafana-alert-status" >&2
+    exit 2
 
 # Read recent systemd status and journal for the failed-unit alert allowlist.
 grafana-alert-diagnostics:
