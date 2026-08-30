@@ -40,6 +40,12 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
     assert "/home/erik/homelab-iac" not in (Path(__file__).parents[2] / "justfile").read_text()
 
 
+def test_pinned_iac_revision_manages_cognee_repo():
+    flake = (Path(__file__).parents[2] / "flake.nix").read_text()
+
+    assert "dc54f16afcf4f5b797c676a043903c5729786181" in flake
+
+
 def test_drift_path_keeps_git_for_terragrunt_repo_root():
     module = (
         Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
