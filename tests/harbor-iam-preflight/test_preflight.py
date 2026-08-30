@@ -10,6 +10,7 @@ from typing import ClassVar
 ROOT = Path(__file__).parents[2]
 SCRIPT = ROOT / "scripts/harbor-iam-preflight.sh"
 BOOTSTRAP = ROOT / "scripts/bootstrap-authentik.sh"
+RETIRE_BOOTSTRAP = ROOT / "scripts/retire-authentik-bootstrap.sh"
 HASHER = ROOT / "scripts/authentik-password-hash.py"
 
 
@@ -239,3 +240,60 @@ def test_authentik_bootstrap_has_a_documented_entrypoint():
     justfile = (ROOT / "justfile").read_text()
     recipe = justfile.split("bootstrap-authentik ", 1)[1].split("\n\n", 1)[0]
     assert "scripts/bootstrap-authentik.sh" in recipe
+
+
+def test_authentik_retirement_handoff_check_is_value_free(tmp_path):
+    handoff = tmp_path / "authentik-iac.secrets.json"
+    handoff.write_text(
+        json.dumps(
+            {
+                "token": "never-print-token-0123456789abcdef",
+                "username": "homelab-iac",
+            }
+        )
+    )
+    handoff.chmod(0o600)
+    result = subprocess.run(
+        ["bash", str(RETIRE_BOOTSTRAP), "--check", str(handoff)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "authentik retirement handoff OK"
+    assert "never-print" not in result.stdout + result.stderr
+
+
+def test_authentik_retirement_removes_bootstrap_material():
+    source = RETIRE_BOOTSTRAP.read_text()
+    assert "authentik-bootstrap-token" in source
+    assert "Authorization: Bearer" in source
+    assert "authentik_iac_token" in source
+    assert "del(.authentik_bootstrap_token)" in source
+    assert "del(.authentik_bootstrap_password_hash)" in source
+    assert "delete secret authentik-bootstrap" in source
+    assert 'rm -f -- "$handoff"' in source
+    assert "authentik_breakglass_password" not in source
+
+
+def test_authentik_retirement_has_a_documented_entrypoint():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("retire-authentik-bootstrap ", 1)[1].split(
+        "\n\n", 1
+    )[0]
+    assert "scripts/retire-authentik-bootstrap.sh" in recipe
+
+
+def test_harbor_iam_snapshot_is_unique_private_and_off_host():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("harbor-iam-snapshot:", 1)[1].split("\n# ", 1)[0]
+
+    assert "pg_dumpall -U postgres" in recipe
+    assert "just harbor-iam-preflight" in recipe
+    assert 'date -u +%Y%m%dT%H%M%SZ' in recipe
+    assert 'test ! -e "$target"' in recipe
+    assert "install -d -m 0700" in recipe
+    assert "chmod 0600" in recipe
+    assert "{{ip_orion}}" in recipe
+    assert "sha256sum" in recipe
+    assert "set -x" not in recipe

@@ -6136,9 +6136,49 @@ harbor-iam-preflight:
       'sudo /run/current-system/sw/bin/bash -s -- --env-file /run/vault-agent/harbor.env' \
       < scripts/harbor-iam-preflight.sh
 
+# Capture the pre-mutation Harbor database and sanitized auth metadata on Orion.
+harbor-iam-snapshot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp=$(mktemp -d)
+    trap 'rm -rf -- "$tmp"' EXIT
+    chmod 700 "$tmp"
+    snapshot_id=$(date -u +%Y%m%dT%H%M%SZ)
+    target="/projects/recovery/harbor-iam/$snapshot_id"
+
+    just harbor-iam-preflight >"$tmp/harbor-auth.json"
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo docker exec harbor-db pg_dumpall -U postgres' \
+      | gzip -9 >"$tmp/harbor-db.sql.gz"
+    chmod 0600 "$tmp/harbor-auth.json" "$tmp/harbor-db.sql.gz"
+    (cd "$tmp" && sha256sum harbor-auth.json harbor-db.sql.gz >SHA256SUMS)
+    chmod 0600 "$tmp/SHA256SUMS"
+
+    ssh -p 2222 erik@{{ip_orion}} bash -s -- "$target" <<'REMOTE'
+    set -euo pipefail
+    target=$1
+    test ! -e "$target"
+    sudo install -d -m 0700 -o erik -g users "$target"
+    REMOTE
+    scp -P 2222 "$tmp/harbor-auth.json" "$tmp/harbor-db.sql.gz" \
+      "$tmp/SHA256SUMS" "erik@{{ip_orion}}:$target/"
+    ssh -p 2222 erik@{{ip_orion}} bash -s -- "$target" <<'REMOTE'
+    set -euo pipefail
+    target=$1
+    chmod 0600 "$target/harbor-auth.json" "$target/harbor-db.sql.gz" \
+      "$target/SHA256SUMS"
+    cd "$target"
+    sha256sum --check SHA256SUMS
+    REMOTE
+    printf 'snapshot_id=%s target=%s\n' "$snapshot_id" "$target"
+
 # Consume a mode-0600 Authentik bootstrap handoff into Sops and Kubernetes.
 bootstrap-authentik handoff="authentik-bootstrap.secrets.json":
     scripts/bootstrap-authentik.sh {{quote(handoff)}}
+
+# Revoke Authentik bootstrap access after storing a dedicated IaC token.
+retire-authentik-bootstrap handoff="authentik-iac.secrets.json":
+    scripts/retire-authentik-bootstrap.sh {{quote(handoff)}}
 
 # Read-only Harbor state/identity/capacity gate before copying vault data.
 discovery-harbor-restore-preflight:
@@ -6147,7 +6187,7 @@ discovery-harbor-restore-preflight:
     source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
       set -euo pipefail
       state=/home/erik/vault/harbor
-      installer=/home/erik/servarr/machines/discovery/.harbor-installer/harbor
+      installer=/home/erik/servarr/machines/discovery/.harbor-installer/current
       test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
       sudo test -d "$state"
       test -d "$installer"
@@ -6202,7 +6242,7 @@ discovery-harbor-restore-seed:
       state_status=$?
       sudo rsync -aHAXx --numeric-ids --delete --stats \
         --rsync-path='sudo rsync' -e "$remote_shell" \
-        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/harbor/ "$installer/"
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/current/ "$installer/"
       installer_status=$?
       set -e
       case "$state_status" in 0|24) ;; *) exit "$state_status" ;; esac
