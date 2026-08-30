@@ -6128,6 +6128,18 @@ discovery-swag-restore-drill:
     REMOTE
     echo ":: PASS: copied SWAG config and certificate validate on networkless Orion"
 
+# Emit only the Harbor IAM metadata needed to decide whether OIDC migration is safe.
+harbor-iam-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo /run/current-system/sw/bin/bash -s -- --env-file /run/vault-agent/harbor.env' \
+      < scripts/harbor-iam-preflight.sh
+
+# Consume a mode-0600 Authentik bootstrap handoff into Sops and Kubernetes.
+bootstrap-authentik handoff="authentik-bootstrap.secrets.json":
+    scripts/bootstrap-authentik.sh {{quote(handoff)}}
+
 # Read-only Harbor state/identity/capacity gate before copying vault data.
 discovery-harbor-restore-preflight:
     #!/usr/bin/env bash
