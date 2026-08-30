@@ -282,3 +282,18 @@ def test_authentik_retirement_has_a_documented_entrypoint():
         "\n\n", 1
     )[0]
     assert "scripts/retire-authentik-bootstrap.sh" in recipe
+
+
+def test_harbor_iam_snapshot_is_unique_private_and_off_host():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("harbor-iam-snapshot:", 1)[1].split("\n# ", 1)[0]
+
+    assert "pg_dumpall -U postgres" in recipe
+    assert "just harbor-iam-preflight" in recipe
+    assert 'date -u +%Y%m%dT%H%M%SZ' in recipe
+    assert 'test ! -e "$target"' in recipe
+    assert "install -d -m 0700" in recipe
+    assert "chmod 0600" in recipe
+    assert "{{ip_orion}}" in recipe
+    assert "sha256sum" in recipe
+    assert "set -x" not in recipe
