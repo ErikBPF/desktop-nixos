@@ -102,6 +102,7 @@ else
 fi
 echo ":: bring up harbor"
 $SUDO docker compose up -d
+$SUDO ln -sfn "$HARBOR_DIR" "$INSTALLER_DIR/current"
 
 echo ":: harbor containers:"
 $SUDO docker compose ps

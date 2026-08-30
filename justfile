@@ -6151,7 +6151,7 @@ discovery-harbor-restore-preflight:
     source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
       set -euo pipefail
       state=/home/erik/vault/harbor
-      installer=/home/erik/servarr/machines/discovery/.harbor-installer/harbor
+      installer=/home/erik/servarr/machines/discovery/.harbor-installer/current
       test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
       sudo test -d "$state"
       test -d "$installer"
@@ -6206,7 +6206,7 @@ discovery-harbor-restore-seed:
       state_status=$?
       sudo rsync -aHAXx --numeric-ids --delete --stats \
         --rsync-path='sudo rsync' -e "$remote_shell" \
-        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/harbor/ "$installer/"
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/current/ "$installer/"
       installer_status=$?
       set -e
       case "$state_status" in 0|24) ;; *) exit "$state_status" ;; esac

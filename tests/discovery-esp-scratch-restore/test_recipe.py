@@ -444,7 +444,7 @@ def test_harbor_seed_uses_root_rsync_and_pinned_host_key():
     assert "/home/erik/vault/harbor/" in recipe
     assert "root=/projects/recovery/discovery-esp/harbor" in recipe
     assert "state=$root/state" in recipe
-    assert ".harbor-installer/harbor/" in recipe
+    assert ".harbor-installer/current/" in recipe
 
 
 def test_harbor_finalize_always_restarts_and_proves_zero_drift():
