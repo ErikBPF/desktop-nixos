@@ -121,6 +121,18 @@ def test_recipe_runs_the_redacting_wrapper_on_discovery():
     assert "/run/vault-agent/harbor.env" in recipe
 
 
+def test_harbor_diagnostic_is_read_only_and_value_free():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("harbor-iam-diagnostic:", 1)[1].split("\n# ", 1)[0]
+
+    assert "systemctl status harbor.service" in recipe
+    assert "journalctl -u harbor.service" in recipe
+    assert "docker ps -a --format json" in recipe
+    assert ".harbor-installer/current" in recipe
+    assert "docker logs" not in recipe
+    assert "harbor.env" not in recipe
+
+
 def test_authentik_bootstrap_handoff_check_is_value_free(tmp_path):
     handoff = tmp_path / "authentik-bootstrap.secrets.json"
     handoff.write_text(
