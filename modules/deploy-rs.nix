@@ -120,6 +120,8 @@ in {
     discovery = mkNode {
       host = "discovery";
       magicRollback = true;
+      # Harbor version reconciles may pull and migrate during activation.
+      activationTimeout = 900;
     };
     orion = mkNode {
       host = "orion";
