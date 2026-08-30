@@ -102,11 +102,14 @@ fi
 # Harbor's generated proxy can drop Basic auth before core's token service.
 # Keep the fix outside the prepare branch so existing cached installs heal too.
 NGINX_CONFIG="common/config/nginx/nginx.conf"
+reload_nginx=false
 if ! $SUDO grep -Fq 'proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"; then
   $SUDO sed -i '/proxy_set_header X-Forwarded-Proto \$x_forwarded_proto;/a\      proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"
+  reload_nginx=true
 fi
 echo ":: bring up harbor"
 $SUDO docker compose up -d
+$reload_nginx && $SUDO docker compose exec -T nginx nginx -s reload
 
 echo ":: harbor containers:"
 $SUDO docker compose ps

@@ -65,12 +65,12 @@ class PinContract(unittest.TestCase):
         )
 
     def test_harbor_runtime_callers_share_one_pinned_servarr_input(self):
-        revision = "e95d30d7ce2394a94640481600a946a18cab1d16"
+        revision = "0d359a0478e3730fc37362f07511ec4b7d311d1c"
         harbor = (ROOT / "modules/hosts/discovery/harbor.nix").read_text()
         justfile = JUSTFILE_PATH.read_text()
         snapshot = ROOT / "modules/hosts/discovery/servarr-harbor"
         expected = {
-            "scripts/harbor-setup.sh": "ff5d5bb694f5c2f753a06e3d27b215316be43753807ab669b5d7720aed3bab38",
+            "scripts/harbor-setup.sh": "101c77065c6c5dadb91e2c69d0447dd57b3da08c1d5261203a2aa0b45b9309fb",
             "scripts/harbor-proxycache.sh": "beee26a5dc9b056be078081b9aa19c38c76c4e004462ea958c3ea63112e9d874",
             "scripts/harbor-mirror.sh": "86bf611d68cd1f3944c25a6f275b5361de47c43f243ebe9d8f2c84253222af3c",
             "config/harbor/harbor.yml.tmpl": "494fd282c3ebaca8858e69754f093a824f5af2f248b506d30cc72a3422f47b7f",
