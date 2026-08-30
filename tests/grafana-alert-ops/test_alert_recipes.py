@@ -5,19 +5,13 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
-def test_alert_status_queries_kubernetes_grafana_without_exporting_credentials():
+def test_alert_status_points_to_the_gitops_owner():
     justfile = (ROOT / "justfile").read_text()
     recipe = justfile.split("grafana-alert-status:", 1)[1].split("\n# ", 1)[0]
 
-    for value in (
-        "pastelariadev-lan.yaml",
-        "app.kubernetes.io/name=grafana",
-        'exec "$pod" -c grafana',
-        "http://127.0.0.1:3000/api/alertmanager/grafana/api/v2/alerts",
-    ):
-        assert value in recipe
-    assert "docker exec grafana" not in recipe
-    assert "_host-ip discovery" not in recipe
+    assert "Moved to homelab-gitops: just grafana-alert-status" in recipe
+    assert "kubectl" not in recipe
+    assert "api/alertmanager" not in recipe
 
 
 def test_endeavour_upgrade_has_diagnostics_and_retry_target():
