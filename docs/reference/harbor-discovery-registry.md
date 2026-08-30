@@ -120,7 +120,7 @@ directive in `servarr` `config/swag/nginx/proxy-confs/harbor.subdomain.conf`
 
 ## Rollback
 
-- Harbor stack: `cd .harbor-installer/harbor && docker compose down` (data
+- Harbor stack: `cd .harbor-installer/current && docker compose down` (data
   persists in `/home/erik/vault/harbor`).
 - Mirror: the upstream fallback endpoint means a broken/missing Harbor degrades
   to direct Docker Hub pulls; full revert = drop `registries.yaml` + bounce.
