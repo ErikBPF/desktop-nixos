@@ -109,7 +109,7 @@ if ! $SUDO grep -Fq 'proxy_set_header Authorization $http_authorization;' "$NGIN
 fi
 echo ":: bring up harbor"
 $SUDO docker compose up -d
-$reload_nginx && $SUDO docker compose exec -T nginx nginx -s reload
+$reload_nginx && $SUDO docker compose exec -T proxy nginx -s reload
 
 echo ":: harbor containers:"
 $SUDO docker compose ps

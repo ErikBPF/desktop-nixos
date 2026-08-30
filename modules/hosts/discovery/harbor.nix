@@ -9,7 +9,7 @@
 #   • a systemd oneshot runs prepare + compose-up on every switch/boot,
 #     reconciling Harbor to the committed inputs.
 # The setup logic remains Servarr-owned. This module vendors the four required
-# files from exact Servarr revision 0d359a0478e3730fc37362f07511ec4b7d311d1c
+# files from exact Servarr revision 3a42110975e8a17182ddb95881b26a172cf284e7
 # because the private repository cannot be fetched by public desktop CI.
 {config, ...}: let
   inherit (config) username;
