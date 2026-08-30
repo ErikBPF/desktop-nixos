@@ -6140,6 +6140,10 @@ harbor-iam-preflight:
 bootstrap-authentik handoff="authentik-bootstrap.secrets.json":
     scripts/bootstrap-authentik.sh {{quote(handoff)}}
 
+# Revoke Authentik bootstrap access after storing a dedicated IaC token.
+retire-authentik-bootstrap handoff="authentik-iac.secrets.json":
+    scripts/retire-authentik-bootstrap.sh {{quote(handoff)}}
+
 # Read-only Harbor state/identity/capacity gate before copying vault data.
 discovery-harbor-restore-preflight:
     #!/usr/bin/env bash
