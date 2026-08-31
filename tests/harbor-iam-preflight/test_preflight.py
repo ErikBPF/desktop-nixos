@@ -15,6 +15,7 @@ RETIRE_BOOTSTRAP = ROOT / "scripts/retire-authentik-bootstrap.sh"
 HASHER = ROOT / "scripts/authentik-password-hash.py"
 ADMIN_TOKEN = ROOT / "scripts/authentik-admin-token.sh"
 ADMIN_TOKEN_MODEL = ROOT / "scripts/authentik-admin-token.py"
+IAC_TOKEN_ROTATE = ROOT / "scripts/rotate-authentik-iac-token.sh"
 PROVIDER_HANDOFF = ROOT / "scripts/harbor-iam-provider-handoff.sh"
 
 
@@ -227,6 +228,30 @@ def test_authentik_admin_token_handoff_never_prints_token(tmp_path):
     assert revoked.returncode == 0, revoked.stderr
     assert "never-print" not in revoked.stdout + revoked.stderr
     assert not handoff.exists()
+
+
+def test_authentik_iac_token_rotation_is_service_scoped_and_direct_to_sops():
+    model = ADMIN_TOKEN_MODEL.read_text()
+    helper = IAC_TOKEN_ROTATE.read_text()
+
+    assert 'action == "rotate-iac"' in model
+    assert 'username="homelab-iac"' in model
+    assert 'identifier="homelab-iac"' in model
+    assert "default_token_key()" in model
+    assert '"expiring": False' in model
+    assert "kubectl --context homelab" in helper
+    assert "AUTHENTIK_TOKEN_ACTION=rotate-iac" in helper
+    assert "sops --decrypt" in helper
+    assert "sops --encrypt" in helper
+    assert ".authentik_iac_token = load_str" in helper
+    assert 'install -m 0600 "$tmp/encrypted.yaml" "$sops_file"' in helper
+    assert 'echo "$token"' not in helper
+
+
+def test_authentik_iac_token_rotation_has_a_documented_entrypoint():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("rotate-authentik-iac-token:", 1)[1].split("\n\n", 1)[0]
+    assert "scripts/rotate-authentik-iac-token.sh" in recipe
 
 
 def test_harbor_provider_handoff_is_private_ignored_and_value_free(tmp_path):
