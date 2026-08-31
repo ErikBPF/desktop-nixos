@@ -6128,6 +6128,27 @@ discovery-swag-restore-drill:
     REMOTE
     echo ":: PASS: copied SWAG config and certificate validate on networkless Orion"
 
+# Read-only, value-free evidence for a Harbor activation failure.
+harbor-iam-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -u
+    systemctl status harbor.service --no-pager -l || true
+    systemctl show harbor.service -p ActiveState -p SubState -p Result -p NRestarts
+    journalctl -u harbor.service -b --no-pager -n 160 -o short-iso || true
+    printf '%s\n' ':: active installer'
+    if test -L /home/erik/servarr/machines/discovery/.harbor-installer/current; then
+      readlink /home/erik/servarr/machines/discovery/.harbor-installer/current
+    else
+      printf '%s\n' absent
+    fi
+    printf '%s\n' ':: harbor containers'
+    sudo docker ps -a --format json |
+      jq -r 'select((.Names // "") | test("harbor|registry")) |
+        [.Names, .State, .Status, .Image] | @tsv'
+    REMOTE
+
 # Emit only the Harbor IAM metadata needed to decide whether OIDC migration is safe.
 harbor-iam-preflight:
     #!/usr/bin/env bash

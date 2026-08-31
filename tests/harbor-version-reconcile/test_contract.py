@@ -29,5 +29,18 @@ def test_vendored_harbor_source_pins_the_leaf_revision():
 
 def test_restore_recipes_follow_the_active_installer_link():
     justfile = (ROOT / "justfile").read_text()
-    assert justfile.count(".harbor-installer/current") == 2
-    assert ".harbor-installer/harbor/" not in justfile
+    preflight = justfile.split("discovery-harbor-restore-preflight:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+    seed = justfile.split("discovery-harbor-restore-seed:", 1)[1].split("\n# ", 1)[0]
+
+    assert ".harbor-installer/current" in preflight
+    assert ".harbor-installer/current" in seed
+    assert ".harbor-installer/harbor/" not in preflight + seed
+
+
+def test_discovery_deploy_timeout_covers_harbor_version_reconciliation():
+    deploy = (ROOT / "modules/deploy-rs.nix").read_text()
+    discovery = deploy.split("discovery = mkNode {", 1)[1].split("};", 1)[0]
+
+    assert "activationTimeout = 1800;" in discovery
