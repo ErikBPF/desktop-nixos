@@ -216,6 +216,21 @@ in {
         # upgrade). Identical Nix manifests across servers = no conflict (k3s only
         # warns about *manual* drift). RFC §5.9 / §13.
         ++ lib.optional (s.role == "server") {
+          services.k3s.manifests.coredns-private-zone.content = {
+            apiVersion = "v1";
+            kind = "ConfigMap";
+            metadata = {
+              name = "coredns-custom";
+              namespace = "kube-system";
+            };
+            data."homelab.server" = ''
+              homelab.pastelariadev.com:53 {
+                cache 30
+                forward . 192.168.10.210
+              }
+            '';
+          };
+
           services.k3s.autoDeployCharts = {
             # ingress-nginx removed (RFC §14 cutover complete) — Traefik is the
             # default IngressClass, the kepler LB fronts its NodePort (30444), and
