@@ -6149,12 +6149,81 @@ harbor-iam-diagnostic:
         [.Names, .State, .Status, .Image] | @tsv'
     REMOTE
 
-# Emit only the Harbor IAM metadata needed to decide whether OIDC migration is safe.
-harbor-iam-preflight:
+# Report only whether Harbor's database owns a non-empty admin credential.
+harbor-admin-credential-diagnostic:
     #!/usr/bin/env bash
     set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    sudo docker exec harbor-db psql -X -U postgres -d registry -Atqc \
+      "SELECT json_build_object(
+        'admin_rows', count(*),
+        'salt_present', coalesce(bool_and(length(salt) > 0), false),
+        'password_present', coalesce(bool_and(length(password) > 0), false),
+        'password_version', max(password_version)
+      ) FROM harbor_user WHERE username = 'admin';"
+    REMOTE
+
+# Reset only Harbor's DB-backed admin credential to the rendered Vault value.
+harbor-admin-password-recover snapshot_id confirmation="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    snapshot_id={{ quote(snapshot_id) }}
+    confirmation={{ quote(confirmation) }}
+    [[ $snapshot_id =~ ^[0-9]{8}T[0-9]{6}Z$ ]]
+    [[ $confirmation == "reset-db-admin-password" ]] || {
+      echo "confirmation must equal reset-db-admin-password" >&2
+      exit 64
+    }
+    ssh -p 2222 erik@{{ip_orion}} bash -s -- "$snapshot_id" <<'REMOTE'
+    set -euo pipefail
+    target="/projects/recovery/harbor-iam/$1"
+    test -d "$target"
+    cd "$target"
+    sha256sum --check --status SHA256SUMS
+    REMOTE
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    updated=$(sudo docker exec harbor-db psql -X -U postgres -d registry -Atqc \
+      "WITH reset AS (
+        UPDATE harbor_user SET salt = '', password = ''
+        WHERE user_id = 1 AND username = 'admin'
+        RETURNING user_id
+      ) SELECT count(*) FROM reset;")
+    test "$updated" = 1
+    sudo docker restart harbor-core >/dev/null
+    ready=false
+    for _ in $(seq 1 60); do
+      if curl -fsS http://127.0.0.1:8085/api/v2.0/health >/dev/null; then
+        ready=true
+        break
+      fi
+      sleep 2
+    done
+    $ready
+    REMOTE
+    just harbor-iam-preflight vault
+    state=$(just harbor-admin-credential-diagnostic)
+    jq -e '
+      .admin_rows == 1 and
+      .salt_present == true and
+      .password_present == true and
+      .password_version == "pbkdf2_sha256"
+    ' <<<"$state" >/dev/null
+    echo "Harbor admin credential recovered from the Vault-rendered value"
+
+# Emit only the Harbor IAM metadata needed to decide whether OIDC migration is safe.
+harbor-iam-preflight source="vault":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source={{ quote(source) }}
+    case "$source" in
+      vault) env_file=/run/vault-agent/harbor.env ;;
+      fallback) env_file=/home/erik/servarr/machines/discovery/.env ;;
+      *) echo "source must be vault|fallback" >&2; exit 64 ;;
+    esac
     ssh -p 2222 erik@{{ip_discovery}} \
-      'sudo /run/current-system/sw/bin/bash -s -- --env-file /run/vault-agent/harbor.env' \
+      "sudo /run/current-system/sw/bin/bash -s -- --env-file $env_file" \
       < scripts/harbor-iam-preflight.sh
 
 # Capture the pre-mutation Harbor database and sanitized auth metadata on Orion.
@@ -6200,6 +6269,14 @@ bootstrap-authentik handoff="authentik-bootstrap.secrets.json":
 # Revoke Authentik bootstrap access after storing a dedicated IaC token.
 retire-authentik-bootstrap handoff="authentik-iac.secrets.json":
     scripts/retire-authentik-bootstrap.sh {{quote(handoff)}}
+
+# Mint a 15-minute admin token into a private local handoff for IaC bootstrap.
+mint-authentik-admin-token handoff="authentik-admin-token.secrets.json":
+    bash scripts/authentik-admin-token.sh create {{quote(handoff)}}
+
+# Revoke the temporary admin token and remove its local handoff.
+revoke-authentik-admin-token handoff="authentik-admin-token.secrets.json":
+    bash scripts/authentik-admin-token.sh revoke {{quote(handoff)}}
 
 # Read-only Harbor state/identity/capacity gate before copying vault data.
 discovery-harbor-restore-preflight:

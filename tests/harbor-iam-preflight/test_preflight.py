@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -12,6 +13,8 @@ SCRIPT = ROOT / "scripts/harbor-iam-preflight.sh"
 BOOTSTRAP = ROOT / "scripts/bootstrap-authentik.sh"
 RETIRE_BOOTSTRAP = ROOT / "scripts/retire-authentik-bootstrap.sh"
 HASHER = ROOT / "scripts/authentik-password-hash.py"
+ADMIN_TOKEN = ROOT / "scripts/authentik-admin-token.sh"
+ADMIN_TOKEN_MODEL = ROOT / "scripts/authentik-admin-token.py"
 
 
 class HarborHandler(BaseHTTPRequestHandler):
@@ -115,10 +118,14 @@ def test_preflight_blocks_non_admin_local_users(tmp_path):
 
 def test_recipe_runs_the_redacting_wrapper_on_discovery():
     justfile = (ROOT / "justfile").read_text()
-    recipe = justfile.split("harbor-iam-preflight:", 1)[1].split("\n\n", 1)[0]
+    recipe = justfile.split('harbor-iam-preflight source="vault":', 1)[1].split(
+        "\n# ", 1
+    )[0]
     assert "scripts/harbor-iam-preflight.sh" in recipe
     assert "sudo /run/current-system/sw/bin/bash -s --" in recipe
     assert "/run/vault-agent/harbor.env" in recipe
+    assert "/home/erik/servarr/machines/discovery/.env" in recipe
+    assert "vault|fallback" in recipe
 
 
 def test_harbor_diagnostic_is_read_only_and_value_free():
@@ -131,6 +138,94 @@ def test_harbor_diagnostic_is_read_only_and_value_free():
     assert ".harbor-installer/current" in recipe
     assert "docker logs" not in recipe
     assert "harbor.env" not in recipe
+
+
+def test_harbor_admin_credential_diagnostic_is_read_only_and_value_free():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("harbor-admin-credential-diagnostic:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "json_build_object" in recipe
+    assert "length(salt)" in recipe
+    assert "length(password)" in recipe
+    assert "password_version" in recipe
+    assert "harbor.env" not in recipe
+    assert "docker logs" not in recipe
+    assert not any(word in recipe.upper() for word in ("UPDATE ", "DELETE ", "INSERT "))
+
+
+def test_harbor_admin_recovery_is_snapshot_and_confirmation_gated():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split(
+        'harbor-admin-password-recover snapshot_id confirmation="":', 1
+    )[1].split("\n# ", 1)[0]
+
+    assert 'confirmation == "reset-db-admin-password"' in recipe
+    assert "{{ip_orion}}" in recipe
+    assert "sha256sum --check --status SHA256SUMS" in recipe
+    assert "UPDATE harbor_user SET salt = '', password = ''" in recipe
+    assert "user_id = 1 AND username = 'admin'" in recipe
+    assert 'test "$updated" = 1' in recipe
+    assert "docker restart harbor-core" in recipe
+    assert "just harbor-iam-preflight vault" in recipe
+    assert "pbkdf2_sha256" in recipe
+
+
+def test_authentik_admin_token_is_short_lived_and_handoff_only(tmp_path):
+    source = ADMIN_TOKEN_MODEL.read_text()
+    helper = ADMIN_TOKEN.read_text()
+
+    assert "timedelta(minutes=15)" in source
+    assert 'username="akadmin"' in source
+    assert 'identifier="homelab-iac-bootstrap"' in source
+    assert "AUTHENTIK_ADMIN_TOKEN=" in source
+    assert "kubectl --context homelab" in helper
+    assert "deployment/authentik-worker" in helper
+    assert "install -m 0600" in helper
+    assert 'rm -f -- "$handoff"' in helper
+    assert 'echo "$token"' not in helper
+
+
+def test_authentik_admin_token_handoff_never_prints_token(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_kubectl = fake_bin / "kubectl"
+    fake_kubectl.write_text(
+        "#!/usr/bin/env bash\n"
+        "cat >/dev/null\n"
+        "if [[ $* == *AUTHENTIK_TOKEN_ACTION=create* ]]; then\n"
+        '  echo \'AUTHENTIK_ADMIN_TOKEN={"token":"never-print-token-0123456789abcdef"}\'\n'
+        "else\n"
+        "  echo 'AUTHENTIK_ADMIN_TOKEN={\"revoked\":true}'\n"
+        "fi\n"
+    )
+    fake_kubectl.chmod(0o755)
+    handoff = tmp_path / "authentik-admin-token.secrets.json"
+    env = os.environ | {"PATH": f"{fake_bin}:{os.environ['PATH']}"}
+
+    created = subprocess.run(
+        ["bash", str(ADMIN_TOKEN), "create", str(handoff)],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert created.returncode == 0, created.stderr
+    assert "never-print" not in created.stdout + created.stderr
+    assert oct(handoff.stat().st_mode & 0o777) == "0o600"
+    assert json.loads(handoff.read_text())["token"].startswith("never-print-token")
+
+    revoked = subprocess.run(
+        ["bash", str(ADMIN_TOKEN), "revoke", str(handoff)],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert revoked.returncode == 0, revoked.stderr
+    assert "never-print" not in revoked.stdout + revoked.stderr
+    assert not handoff.exists()
 
 
 def test_authentik_bootstrap_handoff_check_is_value_free(tmp_path):
