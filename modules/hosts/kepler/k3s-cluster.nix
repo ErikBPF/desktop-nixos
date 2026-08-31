@@ -338,6 +338,9 @@ in {
       # Pod-level isolation is k8s NetworkPolicy (default-deny baseline), not the
       # node firewall.
       networking.firewall.enable = false;
+      # Pods inherit CoreDNS -> guest resolv.conf. AdGuard owns the private
+      # homelab zone; public resolvers are transport-failure fallbacks only.
+      networking.nameservers = ["192.168.10.210" "1.1.1.1" "9.9.9.9"];
       boot.kernel.sysctl."vm.max_map_count" = 262144;
 
       # Pull docker.io through the Harbor pull-through cache on discovery
