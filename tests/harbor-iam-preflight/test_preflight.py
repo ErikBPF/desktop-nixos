@@ -15,6 +15,7 @@ RETIRE_BOOTSTRAP = ROOT / "scripts/retire-authentik-bootstrap.sh"
 HASHER = ROOT / "scripts/authentik-password-hash.py"
 ADMIN_TOKEN = ROOT / "scripts/authentik-admin-token.sh"
 ADMIN_TOKEN_MODEL = ROOT / "scripts/authentik-admin-token.py"
+PROVIDER_HANDOFF = ROOT / "scripts/harbor-iam-provider-handoff.sh"
 
 
 class HarborHandler(BaseHTTPRequestHandler):
@@ -226,6 +227,75 @@ def test_authentik_admin_token_handoff_never_prints_token(tmp_path):
     assert revoked.returncode == 0, revoked.stderr
     assert "never-print" not in revoked.stdout + revoked.stderr
     assert not handoff.exists()
+
+
+def test_harbor_provider_handoff_is_private_ignored_and_value_free(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / ".gitignore").write_text("*.secrets.json\n")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "sops").write_text(
+        "#!/usr/bin/env bash\nprintf '%s\\n' 'never-print-token-0123456789abcdef'\n"
+    )
+    (fake_bin / "ssh").write_text(
+        "#!/usr/bin/env bash\nprintf '%s\\n' 'never-print-password-0123456789abcdef'\n"
+    )
+    for command in (fake_bin / "sops", fake_bin / "ssh"):
+        command.chmod(0o755)
+    sops_file = tmp_path / "secrets.yaml"
+    sops_file.touch()
+    handoff = repo / "harbor-iam-provider.secrets.json"
+    env = os.environ | {
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "AUTHENTIK_SOPS_FILE": str(sops_file),
+    }
+
+    created = subprocess.run(
+        ["bash", str(PROVIDER_HANDOFF), "create", str(handoff), "192.0.2.1"],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert created.returncode == 0, created.stderr
+    assert "never-print" not in created.stdout + created.stderr
+    assert oct(handoff.stat().st_mode & 0o777) == "0o600"
+    assert json.loads(handoff.read_text()) == {
+        "authentik_token": "never-print-token-0123456789abcdef",
+        "harbor_password": "never-print-password-0123456789abcdef",
+    }
+
+    deleted = subprocess.run(
+        ["bash", str(PROVIDER_HANDOFF), "delete", str(handoff)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert deleted.returncode == 0, deleted.stderr
+    assert not handoff.exists()
+
+
+def test_harbor_provider_handoff_rejects_unignored_destination(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    handoff = tmp_path / "harbor-iam-provider.secrets.json"
+    result = subprocess.run(
+        ["bash", str(PROVIDER_HANDOFF), "create", str(handoff), "192.0.2.1"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "ignored" in result.stderr
+    assert not handoff.exists()
+
+
+def test_harbor_provider_handoff_has_a_documented_entrypoint():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("harbor-iam-provider-handoff ", 1)[1].split("\n\n", 1)[0]
+    assert "scripts/harbor-iam-provider-handoff.sh" in recipe
+    assert "{{ip_discovery}}" in recipe
 
 
 def test_authentik_bootstrap_handoff_check_is_value_free(tmp_path):
