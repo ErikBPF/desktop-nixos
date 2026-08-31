@@ -6278,6 +6278,10 @@ mint-authentik-admin-token handoff="authentik-admin-token.secrets.json":
 revoke-authentik-admin-token handoff="authentik-admin-token.secrets.json":
     bash scripts/authentik-admin-token.sh revoke {{quote(handoff)}}
 
+# Rotate the dedicated least-privilege provider token directly into Sops.
+rotate-authentik-iac-token:
+    bash scripts/rotate-authentik-iac-token.sh
+
 # Create, validate, or remove the private provider handoff for Harbor IAM IaC.
 harbor-iam-provider-handoff action="create" handoff="harbor-iam-provider.secrets.json":
     bash scripts/harbor-iam-provider-handoff.sh {{quote(action)}} {{quote(handoff)}} {{ip_discovery}}
