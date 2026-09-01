@@ -249,6 +249,18 @@ in {
               targetNamespace = "monitoring";
               createNamespace = true;
               values = {
+                image = {
+                  registry = "harbor.homelab.${domain}";
+                  repository = "dockerhub/grafana/alloy";
+                  tag = "v1.18.1";
+                  digest = "sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33";
+                };
+                configReloader.image = {
+                  registry = "harbor.homelab.${domain}";
+                  repository = "quay/prometheus-operator/prometheus-config-reloader";
+                  tag = "v0.91.0";
+                  digest = "sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1";
+                };
                 controller = {
                   type = "daemonset";
                   # Run on every node incl. the NoSchedule-tainted control planes,

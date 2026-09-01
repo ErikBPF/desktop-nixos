@@ -54,6 +54,16 @@ def test_k3s_consumes_runtime_registry_auth_not_store_text():
     assert 'harbor-reader = {' in source
 
 
+def test_k3s_alloy_images_are_digest_pinned_through_harbor():
+    source = K3S.read_text()
+
+    assert source.count('registry = "harbor.homelab.${domain}";') >= 2
+    assert 'repository = "dockerhub/grafana/alloy";' in source
+    assert 'digest = "sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33";' in source
+    assert 'repository = "quay/prometheus-operator/prometheus-config-reloader";' in source
+    assert 'digest = "sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1";' in source
+
+
 def test_docker_auth_is_owned_by_the_runtime_principal():
     module = MODULE.read_text()
     discovery = DISCOVERY.read_text()
