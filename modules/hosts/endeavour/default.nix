@@ -3,9 +3,11 @@
   inputs,
   ...
 }: let
-  m = config.flake.modules;
+  flakeConfig = config;
+  m = flakeConfig.flake.modules;
 in {
   configurations.nixos.endeavour.module = {
+    config,
     pkgs,
     modulesPath,
     ...
@@ -27,16 +29,39 @@ in {
       m.nixos.btrfs-snapshots
       m.nixos.endeavour-home-backup
       m.nixos.sccache-client
+      m.nixos.harbor-reader
     ];
 
-    home-manager.users.${config.username} = {
+    home-manager.users.${flakeConfig.username} = {
       imports = [
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
         m.home.deepseek-harness
         m.home.monitor-layout-docked
       ];
-      inherit (config) colorScheme;
+      inherit (flakeConfig) colorScheme;
+    };
+
+    sops.secrets."openbao-harbor-reader-endeavour-role-id" = {
+      sopsFile = ../../../secrets/sops/secrets.yaml;
+      key = "openbao_harbor_reader_endeavour_role_id";
+      owner = flakeConfig.username;
+      mode = "0400";
+    };
+    sops.secrets."openbao-harbor-reader-endeavour-secret-id" = {
+      sopsFile = ../../../secrets/sops/secrets.yaml;
+      key = "openbao_harbor_reader_endeavour_secret_id";
+      owner = flakeConfig.username;
+      mode = "0400";
+    };
+    services.harborReader = {
+      enable = true;
+      address = "https://openbao.homelab.pastelariadev.com";
+      roleIdFile = config.sops.secrets.openbao-harbor-reader-endeavour-role-id.path;
+      secretIdFile = config.sops.secrets.openbao-harbor-reader-endeavour-secret-id.path;
+      format = "docker";
+      user = flakeConfig.username;
+      authPath = "/run/user/1000/containers/auth.json";
     };
 
     environment.etc."libinput/local-overrides.quirks".text = ''
@@ -91,7 +116,7 @@ in {
       randomizedDelaySec = "900";
     };
     services.openssh.enable = true;
-    users.users.${config.username}.openssh.authorizedKeys.keys = [
+    users.users.${flakeConfig.username}.openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
     ];
   };

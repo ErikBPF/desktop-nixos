@@ -19,6 +19,7 @@ in {
 
     users.users.${username} = {
       isNormalUser = true;
+      uid = 1000;
       hashedPasswordFile = config.sops.secrets."hashed_password".path;
       shell = pkgs.zsh;
       openssh.authorizedKeys.keys = [

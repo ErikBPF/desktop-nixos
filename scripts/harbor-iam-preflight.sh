@@ -57,12 +57,44 @@ fetch '/api/v2.0/users?page_size=100' "$tmp/users.json"
 fetch '/api/v2.0/projects?page_size=100' "$tmp/projects.json"
 fetch '/api/v2.0/robots?page_size=100' "$tmp/robots.json"
 
+: >"$tmp/user-details.ndjson"
+while IFS= read -r user_id; do
+  if ! response=$("$curl_bin" --silent --show-error --max-time 15 \
+    --config "$tmp/curl.conf" --write-out $'\n%{http_code}' \
+    "$url/api/v2.0/users/$user_id"); then
+    echo "failed to inspect Harbor user $user_id" >&2
+    exit 1
+  fi
+  status=${response##*$'\n'}
+  body=${response%$'\n'*}
+  case "$status" in
+    200)
+      printf '%s' "$body" | "$jq_bin" -c \
+        '{user_id, oidc: (.oidc_user_meta != null)}' \
+        >>"$tmp/user-details.ndjson"
+      ;;
+    404)
+      # shellcheck disable=SC2016 # $user_id is a jq variable.
+      "$jq_bin" -cn --argjson user_id "$user_id" \
+        '{user_id: $user_id, oidc: false}' >>"$tmp/user-details.ndjson"
+      ;;
+    *)
+      echo "Harbor user detail returned HTTP $status for user $user_id" >&2
+      exit 1
+      ;;
+  esac
+  unset response body status
+done < <("$jq_bin" -r '.[] | select((.sysadmin_flag // false) == false) | .user_id' \
+  "$tmp/users.json")
+"$jq_bin" -s . "$tmp/user-details.ndjson" >"$tmp/user-details.json"
+
 # The single-quoted jq program intentionally expands inside jq, not Bash.
 # shellcheck disable=SC2016
 "$jq_bin" -n \
   --slurpfile system "$tmp/system.json" \
   --slurpfile configuration "$tmp/configuration.json" \
   --slurpfile users "$tmp/users.json" \
+  --slurpfile user_details "$tmp/user-details.json" \
   --slurpfile projects "$tmp/projects.json" \
   --slurpfile robots "$tmp/robots.json" '
     def value($object; $key):
@@ -71,19 +103,23 @@ fetch '/api/v2.0/robots?page_size=100' "$tmp/robots.json"
     ($system[0] // {}) as $system |
     ($configuration[0] // {}) as $configuration |
     ($users[0] // []) as $users |
+    ($user_details[0] // [] | INDEX(.user_id | tostring)) as $user_details |
     {
       auth_mode: $system.auth_mode,
       primary_auth_mode: $system.primary_auth_mode,
       self_registration: $system.self_registration,
-      users: [$users[] | {
-        user_id,
-        username,
-        sysadmin: (.sysadmin_flag // false),
-        oidc: (.oidc_user_meta != null)
+      users: [$users[] as $user | {
+        user_id: $user.user_id,
+        username: $user.username,
+        sysadmin: ($user.sysadmin_flag // false),
+        oidc: ($user_details[($user.user_id | tostring)].oidc // false)
       }],
       local_non_admin_users: [
         $users[] |
-        select((.sysadmin_flag // false) == false and .oidc_user_meta == null) |
+        select(
+          (.sysadmin_flag // false) == false and
+          ($user_details[(.user_id | tostring)].oidc // false) == false
+        ) |
         .username
       ] | sort,
       projects: [($projects[0] // [])[] | {
