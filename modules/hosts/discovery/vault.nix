@@ -125,11 +125,13 @@ in {
     sops.secrets."openbao-harbor-reader-discovery-role-id" = {
       inherit sopsFile;
       key = "openbao_harbor_reader_discovery_role_id";
+      owner = username;
       mode = "0400";
     };
     sops.secrets."openbao-harbor-reader-discovery-secret-id" = {
       inherit sopsFile;
       key = "openbao_harbor_reader_discovery_secret_id";
+      owner = username;
       mode = "0400";
     };
     # Incidents Discord webhook — sops copy of the value vault-agent renders to

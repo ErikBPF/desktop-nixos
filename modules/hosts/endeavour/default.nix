@@ -45,11 +45,13 @@ in {
     sops.secrets."openbao-harbor-reader-endeavour-role-id" = {
       sopsFile = ../../../secrets/sops/secrets.yaml;
       key = "openbao_harbor_reader_endeavour_role_id";
+      owner = flakeConfig.username;
       mode = "0400";
     };
     sops.secrets."openbao-harbor-reader-endeavour-secret-id" = {
       sopsFile = ../../../secrets/sops/secrets.yaml;
       key = "openbao_harbor_reader_endeavour_secret_id";
+      owner = flakeConfig.username;
       mode = "0400";
     };
     services.harborReader = {
@@ -58,6 +60,8 @@ in {
       roleIdFile = config.sops.secrets.openbao-harbor-reader-endeavour-role-id.path;
       secretIdFile = config.sops.secrets.openbao-harbor-reader-endeavour-secret-id.path;
       format = "docker";
+      user = flakeConfig.username;
+      authPath = "/run/user/1000/containers/auth.json";
     };
 
     environment.etc."libinput/local-overrides.quirks".text = ''

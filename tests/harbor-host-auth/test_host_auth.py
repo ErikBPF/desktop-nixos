@@ -5,8 +5,10 @@ ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/services/harbor-reader.nix"
 DISCOVERY = ROOT / "modules/hosts/discovery/default.nix"
 ENDEAVOUR = ROOT / "modules/hosts/endeavour/default.nix"
+USER = ROOT / "modules/user.nix"
 KEPLER = ROOT / "modules/hosts/kepler/default.nix"
 K3S = ROOT / "modules/hosts/kepler/k3s-cluster.nix"
+DISCOVERY_VAULT = ROOT / "modules/hosts/discovery/vault.nix"
 JUSTFILE = ROOT / "justfile"
 
 
@@ -46,6 +48,29 @@ def test_k3s_consumes_runtime_registry_auth_not_store_text():
     assert '"--private-registry=/run/harbor-reader/registries.yaml"' in source
     assert 'environment.etc."rancher/k3s/registries.yaml".text' not in source
     assert 'harbor-reader = {' in source
+
+
+def test_docker_auth_is_owned_by_the_runtime_principal():
+    module = MODULE.read_text()
+    discovery = DISCOVERY.read_text()
+    discovery_vault = DISCOVERY_VAULT.read_text()
+    endeavour = ENDEAVOUR.read_text()
+    user = USER.read_text()
+
+    assert 'user = lib.mkOption' in module
+    assert 'authPath = lib.mkOption' in module
+    assert 'User = cfg.user' in module
+    assert '"L+ ${cfg.authPath}' in module
+    assert '/root/.docker/config.json' not in module
+
+    assert 'user = flakeConfig.username;' in discovery
+    assert 'authPath = "/home/${flakeConfig.username}/.docker/config.json";' in discovery
+    assert 'owner = username;' in discovery_vault
+
+    assert 'user = flakeConfig.username;' in endeavour
+    assert 'authPath = "/run/user/1000/containers/auth.json";' in endeavour
+    assert endeavour.count('owner = flakeConfig.username;') >= 2
+    assert "uid = 1000;" in user
 
 
 def test_fleet_reader_approles_rotate_directly_into_sops():

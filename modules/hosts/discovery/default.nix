@@ -83,6 +83,8 @@ in {
       roleIdFile = config.sops.secrets.openbao-harbor-reader-discovery-role-id.path;
       secretIdFile = config.sops.secrets.openbao-harbor-reader-discovery-secret-id.path;
       format = "docker";
+      user = flakeConfig.username;
+      authPath = "/home/${flakeConfig.username}/.docker/config.json";
     };
 
     systemd.services.harbor-reader = {
