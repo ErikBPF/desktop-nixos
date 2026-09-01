@@ -19,8 +19,12 @@ def test_reader_credentials_are_runtime_only_and_host_scoped():
     assert 'roleIdFile = lib.mkOption' in module
     assert 'secretIdFile = lib.mkOption' in module
     assert 'RuntimeDirectory = "harbor-reader"' in module
+    assert 'RuntimeDirectoryPreserve = "restart"' in module
+    assert 'after = ["network-online.target" "sops-nix.service" "tailscaled-autoconnect.service"]' in module
+    assert 'wants = ["network-online.target" "tailscaled-autoconnect.service"]' in module
     assert 'perms = "0400"' in module
     assert "ExecStartPost" in module
+    assert "for _ in {1..60}" in module
     assert "[[ -s ${destination} ]]" in module
     assert 'ephemeral = true' not in module
     assert 'environment.etc' not in module
