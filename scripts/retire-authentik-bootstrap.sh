@@ -19,7 +19,7 @@ handoff=${1:-authentik-iac.secrets.json}
 jq -e '
   type == "object" and
   (keys == ["token", "username"]) and
-  (.username == "homelab-iac") and
+  (.username == "svc-homelab-iac-authentik-config-manager") and
   (.token | type == "string" and length >= 32)
 ' "$handoff" >/dev/null || { echo "handoff keys are invalid" >&2; exit 1; }
 

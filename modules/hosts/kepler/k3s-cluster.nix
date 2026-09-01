@@ -302,6 +302,13 @@ in {
               mountPoint = "/tokens";
               proto = "virtiofs";
             }
+            {
+              tag = "harbor-reader";
+              source = "/run/harbor-reader";
+              mountPoint = "/run/harbor-reader";
+              proto = "virtiofs";
+              readOnly = true;
+            }
           ]
           # CP nodes write embedded-etcd snapshots to a host-backed /bulk subdir.
           ++ lib.optional s.controlPlane {
@@ -365,13 +372,7 @@ in {
       # can't resolve discovery's SWAG hostname via fleet DNS, so pin it to
       # discovery's LAN IP (reached from the private subnet via kepler's NAT).
       networking.hosts."192.168.10.210" = ["harbor.homelab.${domain}"];
-      environment.etc."rancher/k3s/registries.yaml".text = ''
-        mirrors:
-          docker.io:
-            endpoint:
-              - "https://harbor.homelab.${domain}/v2/dockerhub"
-              - "https://registry-1.docker.io"
-      '';
+      services.k3s.extraFlags = ["--private-registry=/run/harbor-reader/registries.yaml"];
 
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
@@ -580,6 +581,16 @@ in {
       sops.secrets =
         laneSecretAttrs
         // {
+          openbao-harbor-reader-kepler-role-id = {
+            inherit sopsFile;
+            key = "openbao_harbor_reader_kepler_role_id";
+            mode = "0400";
+          };
+          openbao-harbor-reader-kepler-secret-id = {
+            inherit sopsFile;
+            key = "openbao_harbor_reader_kepler_secret_id";
+            mode = "0400";
+          };
           k3s-bootstrap-argocd-repo-ssh-key = {
             inherit sopsFile;
             key = "k3s_bootstrap/argocd_repo_ssh_key";
@@ -600,6 +611,10 @@ in {
 
       systemd.services =
         {
+          harbor-reader = {
+            requiredBy = map (name: "microvm@${name}.service") allNames;
+            before = map (name: "microvm@${name}.service") allNames;
+          };
           k3s-bootstrap-materialize = {
             description = "Materialize k3s bootstrap credentials for cp-1";
             requiredBy = ["microvm@cp-1.service"];

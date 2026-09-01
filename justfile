@@ -4121,6 +4121,130 @@ capture-k3s-vault-lane-secrets:
     unset token
     echo ":: lane AppRole credentials encrypted in sops"
 
+# Rotate exact-path Harbor reader/publisher AppRole credentials into Sops.
+capture-harbor-project-iam-approle-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    for capability in reader publisher; do
+      role="svc-homelab-iac-openbao-harbor-project-iam-$capability"
+      credentials=$(
+        printf '%s\n%s\n' "$token" "$role" | ssh -p 2222 erik@{{ip_discovery}} '
+          set -euo pipefail
+          IFS= read -r token
+          IFS= read -r role
+          case "$role" in
+            svc-homelab-iac-openbao-harbor-project-iam-reader|svc-homelab-iac-openbao-harbor-project-iam-publisher) ;;
+            *) exit 2 ;;
+          esac
+          cfg=$(mktemp)
+          accessor_file="${cfg}.accessors"
+          trap "rm -f $cfg $accessor_file" EXIT
+          printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+          unset token
+          chmod 600 "$cfg"
+          http_status=$(curl --header @"$cfg" --silent --show-error --request LIST \
+            --output "$accessor_file" --write-out "%{http_code}" \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id")
+          case "$http_status" in
+            200) accessors=$(cat "$accessor_file") ;;
+            404) accessors='{"data":{"keys":[]}}' ;;
+            *) echo "SecretID accessor listing returned HTTP $http_status" >&2; exit 1 ;;
+          esac
+          while IFS= read -r accessor; do
+            jq -cn --arg accessor "$accessor" "{secret_id_accessor: \$accessor}" | \
+              curl --header @"$cfg" --silent --show-error --fail --request POST \
+                --data @- \
+                "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id-accessor/destroy" \
+                >/dev/null
+          done < <(jq -r ".data.keys[]?" <<<"$accessors")
+          role_id=$(curl --header @"$cfg" --silent --show-error --fail \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/role-id" | jq -er .data.role_id)
+          secret_id=$(curl --header @"$cfg" --silent --show-error --fail --request POST \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id" | jq -er .data.secret_id)
+          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" "\$ARGS.named"
+        '
+      )
+      key_prefix="openbao_harbor_project_iam_$capability"
+      jq -jer .role_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "[\"homelab_iac\"][\"${key_prefix}_role_id\"]"
+      jq -jer .secret_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "[\"homelab_iac\"][\"${key_prefix}_secret_id\"]"
+      unset credentials
+    done
+    unset token
+    echo ":: Harbor project-IAM AppRole credentials rotated into sops"
+
+# Rotate the fleet-reader publisher plus each projected host's exact-read
+# AppRole directly into Sops. Harbor robot values remain OpenBao-only.
+capture-harbor-fleet-reader-approle-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    for identity in publisher discovery endeavour kepler; do
+      case "$identity" in
+        publisher)
+          role=svc-homelab-iac-openbao-harbor-fleet-readers-publisher
+          key_prefix=openbao_harbor_fleet_readers_publisher
+          key_scope='["homelab_iac"]'
+          ;;
+        discovery|endeavour|kepler)
+          role="svc-desktop-nixos-$identity-harbor-reader"
+          key_prefix="openbao_harbor_reader_${identity}"
+          key_scope=
+          ;;
+        *) exit 2 ;;
+      esac
+      credentials=$(
+        printf '%s\n%s\n' "$token" "$role" | ssh -p 2222 erik@{{ip_discovery}} '
+          set -euo pipefail
+          IFS= read -r token
+          IFS= read -r role
+          case "$role" in
+            svc-homelab-iac-openbao-harbor-fleet-readers-publisher|svc-desktop-nixos-discovery-harbor-reader|svc-desktop-nixos-endeavour-harbor-reader|svc-desktop-nixos-kepler-harbor-reader) ;;
+            *) exit 2 ;;
+          esac
+          cfg=$(mktemp)
+          accessor_file="${cfg}.accessors"
+          trap "rm -f $cfg $accessor_file" EXIT
+          printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+          unset token
+          chmod 600 "$cfg"
+          http_status=$(curl --header @"$cfg" --silent --show-error --request LIST \
+            --output "$accessor_file" --write-out "%{http_code}" \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id")
+          case "$http_status" in
+            200) accessors=$(cat "$accessor_file") ;;
+            404) accessors='{"data":{"keys":[]}}' ;;
+            *) echo "SecretID accessor listing returned HTTP $http_status" >&2; exit 1 ;;
+          esac
+          while IFS= read -r accessor; do
+            jq -cn --arg accessor "$accessor" "{secret_id_accessor: \$accessor}" | \
+              curl --header @"$cfg" --silent --show-error --fail --request POST \
+                --data @- \
+                "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id-accessor/destroy" \
+                >/dev/null
+          done < <(jq -r ".data.keys[]?" <<<"$accessors")
+          role_id=$(curl --header @"$cfg" --silent --show-error --fail \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/role-id" | jq -er .data.role_id)
+          secret_id=$(curl --header @"$cfg" --silent --show-error --fail --request POST \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id" | jq -er .data.secret_id)
+          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" "\$ARGS.named"
+        '
+      )
+      jq -jer .role_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "${key_scope}[\"${key_prefix}_role_id\"]"
+      jq -jer .secret_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "${key_scope}[\"${key_prefix}_secret_id\"]"
+      unset credentials
+    done
+    unset token
+    echo ":: Harbor fleet-reader AppRole credentials rotated into sops"
+
 # Collect sanitized K1 collision evidence. Collector executes from committed
 # stdin, writes nothing remotely, and emits only allowlisted runtime metadata.
 kepler-recovery-inventory:
@@ -6283,7 +6407,7 @@ rotate-authentik-iac-token:
     bash scripts/rotate-authentik-iac-token.sh
 
 # Create, validate, or remove the private provider handoff for Harbor IAM IaC.
-harbor-iam-provider-handoff action="create" handoff="harbor-iam-provider.secrets.json":
+harbor-iam-bootstrap-provider-handoff action="create" handoff="harbor-iam-bootstrap-provider.secrets.json":
     bash scripts/harbor-iam-provider-handoff.sh {{quote(action)}} {{quote(handoff)}} {{ip_discovery}}
 
 # Read-only Harbor state/identity/capacity gate before copying vault data.

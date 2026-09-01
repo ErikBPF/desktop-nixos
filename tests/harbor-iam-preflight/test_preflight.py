@@ -21,6 +21,7 @@ PROVIDER_HANDOFF = ROOT / "scripts/harbor-iam-provider-handoff.sh"
 
 class HarborHandler(BaseHTTPRequestHandler):
     users: ClassVar[list[dict]] = []
+    user_details: ClassVar[dict[int, dict]] = {}
 
     def do_GET(self):
         expected = "Basic " + base64.b64encode(b"admin:test-password").decode()
@@ -49,7 +50,15 @@ class HarborHandler(BaseHTTPRequestHandler):
             ],
         }
         path = self.path.split("?", 1)[0]
-        body = json.dumps(payloads[path]).encode()
+        if path.startswith("/api/v2.0/users/"):
+            payload = self.user_details.get(int(path.rsplit("/", 1)[1]))
+            if payload is None:
+                self.send_response(404)
+                self.end_headers()
+                return
+        else:
+            payload = payloads[path]
+        body = json.dumps(payload).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -60,8 +69,11 @@ class HarborHandler(BaseHTTPRequestHandler):
         pass
 
 
-def run_preflight(tmp_path, users):
+def run_preflight(tmp_path, users, user_details=None):
     HarborHandler.users = users
+    HarborHandler.user_details = user_details or {
+        user["user_id"]: user for user in users
+    }
     server = ThreadingHTTPServer(("127.0.0.1", 0), HarborHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -116,6 +128,48 @@ def test_preflight_blocks_non_admin_local_users(tmp_path):
     )
     assert result.returncode == 2
     assert json.loads(result.stdout)["local_non_admin_users"] == ["local-user"]
+
+
+def test_preflight_treats_missing_oidc_detail_as_local_without_writing_raw_detail(
+    tmp_path,
+):
+    users = [
+        {"user_id": 1, "username": "admin", "sysadmin_flag": True},
+        {"user_id": 2, "username": "local-user", "sysadmin_flag": False},
+    ]
+    result = run_preflight(tmp_path, users, {1: users[0]})
+
+    assert result.returncode == 2, result.stderr
+    assert json.loads(result.stdout)["local_non_admin_users"] == ["local-user"]
+    source = SCRIPT.read_text()
+    assert '"$tmp/user-$user_id.json"' not in source
+
+
+def test_preflight_uses_user_detail_to_identify_oidc_users(tmp_path):
+    users = [
+        {"user_id": 1, "username": "admin", "sysadmin_flag": True},
+        {"user_id": 2, "username": "erik", "sysadmin_flag": False},
+    ]
+    result = run_preflight(
+        tmp_path,
+        users,
+        {
+            1: users[0],
+            2: {
+                **users[1],
+                "oidc_user_meta": {
+                    "subiss": "subject-issuer",
+                    "secret": "must-not-appear",
+                },
+            },
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "must-not-appear" not in result.stdout
+    evidence = json.loads(result.stdout)
+    assert evidence["local_non_admin_users"] == []
+    assert evidence["users"][1]["oidc"] is True
 
 
 def test_recipe_runs_the_redacting_wrapper_on_discovery():
@@ -180,7 +234,7 @@ def test_authentik_admin_token_is_short_lived_and_handoff_only(tmp_path):
 
     assert "timedelta(minutes=15)" in source
     assert 'username="akadmin"' in source
-    assert 'identifier="homelab-iac-bootstrap"' in source
+    assert 'identifier="bootstrap-homelab-iac-authentik-config-manager"' in source
     assert "AUTHENTIK_ADMIN_TOKEN=" in source
     assert "kubectl --context homelab" in helper
     assert "deployment/authentik-worker" in helper
@@ -235,10 +289,13 @@ def test_authentik_iac_token_rotation_is_service_scoped_and_direct_to_sops():
     helper = IAC_TOKEN_ROTATE.read_text()
 
     assert 'action == "rotate-iac"' in model
-    assert 'username="homelab-iac"' in model
-    assert 'identifier="homelab-iac"' in model
+    assert 'username="svc-homelab-iac-authentik-config-manager"' in model
+    assert 'identifier="svc-homelab-iac-authentik-config-manager-api-token"' in model
     assert "default_token_key()" in model
-    assert '"expiring": False' in model
+    assert '"expiring": True' in model
+    assert '"expires": now() + timedelta(days=90)' in model
+    assert 'service_account.type not in ("service_account", "internal_service_account")' in model
+    assert "service_account.is_superuser" in model
     assert "kubectl --context homelab" in helper
     assert "AUTHENTIK_TOKEN_ACTION=rotate-iac" in helper
     assert "sops --decrypt" in helper
@@ -246,6 +303,24 @@ def test_authentik_iac_token_rotation_is_service_scoped_and_direct_to_sops():
     assert ".authentik_iac_token = load_str" in helper
     assert 'install -m 0600 "$tmp/encrypted.yaml" "$sops_file"' in helper
     assert 'echo "$token"' not in helper
+
+
+def test_harbor_project_iam_approle_credentials_are_rotated_directly_to_sops():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("capture-harbor-project-iam-approle-secrets:", 1)[1].split(
+        "\n# ", 1
+    )[0]
+
+    assert "reader publisher" in recipe
+    assert "svc-homelab-iac-openbao-harbor-project-iam-$capability" in recipe
+    assert "--request LIST" in recipe
+    assert '--write-out "%{http_code}"' in recipe
+    assert "404) accessors=" in recipe
+    assert "secret-id-accessor/destroy" in recipe
+    assert "openbao_harbor_project_iam_$capability" in recipe
+    assert recipe.count("sops set --value-stdin") == 2
+    assert recipe.count("jq -jer") == 2
+    assert 'echo "$credentials"' not in recipe
 
 
 def test_authentik_iac_token_rotation_has_a_documented_entrypoint():
@@ -271,7 +346,7 @@ def test_harbor_provider_handoff_is_private_ignored_and_value_free(tmp_path):
         command.chmod(0o755)
     sops_file = tmp_path / "secrets.yaml"
     sops_file.touch()
-    handoff = repo / "harbor-iam-provider.secrets.json"
+    handoff = repo / "harbor-iam-bootstrap-provider.secrets.json"
     env = os.environ | {
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
         "AUTHENTIK_SOPS_FILE": str(sops_file),
@@ -288,8 +363,8 @@ def test_harbor_provider_handoff_is_private_ignored_and_value_free(tmp_path):
     assert "never-print" not in created.stdout + created.stderr
     assert oct(handoff.stat().st_mode & 0o777) == "0o600"
     assert json.loads(handoff.read_text()) == {
-        "authentik_token": "never-print-token-0123456789abcdef",
-        "harbor_password": "never-print-password-0123456789abcdef",
+        "authentik_config_manager_token": "never-print-token-0123456789abcdef",
+        "harbor_bootstrap_admin_password": "never-print-password-0123456789abcdef",
     }
 
     deleted = subprocess.run(
@@ -304,7 +379,7 @@ def test_harbor_provider_handoff_is_private_ignored_and_value_free(tmp_path):
 
 def test_harbor_provider_handoff_rejects_unignored_destination(tmp_path):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    handoff = tmp_path / "harbor-iam-provider.secrets.json"
+    handoff = tmp_path / "harbor-iam-bootstrap-provider.secrets.json"
     result = subprocess.run(
         ["bash", str(PROVIDER_HANDOFF), "create", str(handoff), "192.0.2.1"],
         text=True,
@@ -318,7 +393,9 @@ def test_harbor_provider_handoff_rejects_unignored_destination(tmp_path):
 
 def test_harbor_provider_handoff_has_a_documented_entrypoint():
     justfile = (ROOT / "justfile").read_text()
-    recipe = justfile.split("harbor-iam-provider-handoff ", 1)[1].split("\n\n", 1)[0]
+    recipe = justfile.split("harbor-iam-bootstrap-provider-handoff ", 1)[1].split(
+        "\n\n", 1
+    )[0]
     assert "scripts/harbor-iam-provider-handoff.sh" in recipe
     assert "{{ip_discovery}}" in recipe
 
@@ -450,7 +527,7 @@ def test_authentik_retirement_handoff_check_is_value_free(tmp_path):
         json.dumps(
             {
                 "token": "never-print-token-0123456789abcdef",
-                "username": "homelab-iac",
+                "username": "svc-homelab-iac-authentik-config-manager",
             }
         )
     )
@@ -480,9 +557,7 @@ def test_authentik_retirement_removes_bootstrap_material():
 
 def test_authentik_retirement_has_a_documented_entrypoint():
     justfile = (ROOT / "justfile").read_text()
-    recipe = justfile.split("retire-authentik-bootstrap ", 1)[1].split(
-        "\n\n", 1
-    )[0]
+    recipe = justfile.split("retire-authentik-bootstrap ", 1)[1].split("\n\n", 1)[0]
     assert "scripts/retire-authentik-bootstrap.sh" in recipe
 
 
@@ -492,7 +567,7 @@ def test_harbor_iam_snapshot_is_unique_private_and_off_host():
 
     assert "pg_dumpall -U postgres" in recipe
     assert "just harbor-iam-preflight" in recipe
-    assert 'date -u +%Y%m%dT%H%M%SZ' in recipe
+    assert "date -u +%Y%m%dT%H%M%SZ" in recipe
     assert 'test ! -e "$target"' in recipe
     assert "install -d -m 0700" in recipe
     assert "chmod 0600" in recipe

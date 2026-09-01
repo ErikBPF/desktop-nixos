@@ -3,10 +3,10 @@ set -euo pipefail
 umask 077
 
 action=${1:-}
-handoff=${2:-harbor-iam-provider.secrets.json}
+handoff=${2:-harbor-iam-bootstrap-provider.secrets.json}
 discovery_ip=${3:-}
-[[ $(basename "$handoff") == harbor-iam-provider.secrets.json ]] || {
-  echo "handoff must be named harbor-iam-provider.secrets.json" >&2
+[[ $(basename "$handoff") == harbor-iam-bootstrap-provider.secrets.json ]] || {
+  echo "handoff must be named harbor-iam-bootstrap-provider.secrets.json" >&2
   exit 64
 }
 
@@ -18,9 +18,9 @@ validate() {
   }
   jq -e '
     type == "object" and
-    keys == ["authentik_token", "harbor_password"] and
-    (.authentik_token | type == "string" and length >= 32) and
-    (.harbor_password | type == "string" and length > 0)
+    keys == ["authentik_config_manager_token", "harbor_bootstrap_admin_password"] and
+    (.authentik_config_manager_token | type == "string" and length >= 32) and
+    (.harbor_bootstrap_admin_password | type == "string" and length > 0)
   ' "$file" >/dev/null
 }
 
@@ -56,11 +56,11 @@ case $action in
       exit 1
     }
     jq -n \
-      --rawfile authentik_token "$tmp/authentik-token" \
-      --rawfile harbor_password "$tmp/harbor-password" \
+      --rawfile authentik_config_manager_token "$tmp/authentik-token" \
+      --rawfile harbor_bootstrap_admin_password "$tmp/harbor-password" \
       '{
-        authentik_token: ($authentik_token | rtrimstr("\n")),
-        harbor_password: ($harbor_password | rtrimstr("\n"))
+        authentik_config_manager_token: ($authentik_config_manager_token | rtrimstr("\n")),
+        harbor_bootstrap_admin_password: ($harbor_bootstrap_admin_password | rtrimstr("\n"))
       }' >"$tmp/handoff"
     validate "$tmp/handoff"
     install -m 0600 "$tmp/handoff" "$handoff"
@@ -71,7 +71,7 @@ case $action in
     echo "Harbor IAM provider handoff removed"
     ;;
   *)
-    echo "usage: $0 {create|check|delete} [harbor-iam-provider.secrets.json] [discovery-ip]" >&2
+    echo "usage: $0 {create|check|delete} [harbor-iam-bootstrap-provider.secrets.json] [discovery-ip]" >&2
     exit 64
     ;;
 esac

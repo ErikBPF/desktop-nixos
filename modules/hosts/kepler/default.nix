@@ -3,9 +3,11 @@
   inputs,
   ...
 }: let
-  m = config.flake.modules;
+  flakeConfig = config;
+  m = flakeConfig.flake.modules;
 in {
   configurations.nixos.kepler.module = {
+    config,
     lib,
     pkgs,
     modulesPath,
@@ -29,6 +31,7 @@ in {
       m.nixos.kepler-recovery-tooling
       m.nixos.kepler-k1-inventory-tooling
       m.nixos.kepler-k3s-cluster
+      m.nixos.harbor-reader
       m.nixos.pangolin-newt
       m.nixos.first-boot
       m.nixos.runtime-secret-health
@@ -48,7 +51,7 @@ in {
     # SOPS-managed webhook after 15 minutes of silence.
     services.deadMansSwitch = {
       enable = true;
-      checkUrl = "https://${config.flake.fleet.services.ha.fqdn}";
+      checkUrl = "https://${flakeConfig.flake.fleet.services.ha.fqdn}";
       failureThreshold = 3;
     };
 
@@ -64,7 +67,7 @@ in {
     services.fleetDns = {
       enable = true;
       interface = "enp5s0";
-      listenAddress = config.flake.fleet.hosts.kepler.ip;
+      listenAddress = flakeConfig.flake.fleet.hosts.kepler.ip;
       queryLog = false;
       upstream = ["192.168.10.210" "1.1.1.1" "9.9.9.9"];
       sequentialUpstream = true;
@@ -79,12 +82,19 @@ in {
     kepler.k3s.enable = true;
     kepler.k3s.workerCount = 3;
     kepler.k3s.workerVcpu = 4;
+    services.harborReader = {
+      enable = true;
+      address = "http://100.76.140.121:8200";
+      roleIdFile = config.sops.secrets.openbao-harbor-reader-kepler-role-id.path;
+      secretIdFile = config.sops.secrets.openbao-harbor-reader-kepler-secret-id.path;
+      format = "k3s";
+    };
     services.pangolinNewt = {
       enable = true;
       siteName = "home-kepler";
     };
 
-    home-manager.users.${config.username}.imports = [
+    home-manager.users.${flakeConfig.username}.imports = [
       m.home.kepler-ssh
     ];
 
@@ -137,7 +147,7 @@ in {
     # Allow the laptop's dedicated root-owned builder key. Client-side
     # scheduling caps this host at two ordinary x86_64 jobs and excludes
     # Kepler itself from using Kepler as a remote builder.
-    users.users.${config.username}.openssh.authorizedKeys.keys = [
+    users.users.${flakeConfig.username}.openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop"
     ];
 

@@ -3,9 +3,11 @@
   inputs,
   ...
 }: let
-  m = config.flake.modules;
+  flakeConfig = config;
+  m = flakeConfig.flake.modules;
 in {
   configurations.nixos.discovery.module = {
+    config,
     pkgs,
     modulesPath,
     ...
@@ -34,6 +36,7 @@ in {
       m.nixos.discovery-stateful-stack-ops
       m.nixos.discovery-kindle-release-agent
       m.nixos.discovery-harbor
+      m.nixos.harbor-reader
       m.nixos.discovery-restic-voyager-check
       m.nixos.discovery-telstar-capture
       # OCI cutover (2026-06-25): replace the live servarr Docker hermes with
@@ -72,6 +75,19 @@ in {
     services.kindleReleaseAgent = {
       enable = true;
       timerEnable = true;
+    };
+
+    services.harborReader = {
+      enable = true;
+      address = "http://127.0.0.1:8200";
+      roleIdFile = config.sops.secrets.openbao-harbor-reader-discovery-role-id.path;
+      secretIdFile = config.sops.secrets.openbao-harbor-reader-discovery-secret-id.path;
+      format = "docker";
+    };
+
+    systemd.services.harbor-reader = {
+      after = ["openbao-unseal.service"];
+      wants = ["openbao-unseal.service"];
     };
 
     # Discord webhook for incident alerts (cert monitor, restic failure, iac
@@ -113,12 +129,12 @@ in {
     # reach to every provider and hosts the MinIO state backend it plans against.
     services.homelabIacDrift = {
       enable = true;
-      user = config.username;
+      user = flakeConfig.username;
       discordWebhookFile = "/run/vault-agent/discord_webhook_incidents";
       # The oracle/compute* units cat this at plan time; without it they fall
       # back to ~/.ssh/id_ed25519.pub (absent here) and fail the whole run.
       # This is the laptop pubkey (== the key in OCI state), copied here.
-      ociSshPubKeyFile = "/home/${config.username}/telstar-ssh-key.pub";
+      ociSshPubKeyFile = "/home/${flakeConfig.username}/telstar-ssh-key.pub";
       ociConsoleSshPubKeyFile = "${./oci-console-rsa.pub}";
       litellmContainer = "litellm";
     };
@@ -131,14 +147,14 @@ in {
 
     # NOTE: fuse-overlayfs storage.conf removed — discovery now uses rootful
     # Docker instead of rootless Podman. See modules/hosts/discovery/containers.nix.
-    home-manager.users.${config.username}.imports = [
+    home-manager.users.${flakeConfig.username}.imports = [
       m.home.discovery-ssh
     ];
 
     # Lingering allows erik's systemd user session (and user services) to
     # survive after logout and start on boot without an interactive login.
     # Required for rootless Podman compose stacks to auto-start.
-    users.users.${config.username}.linger = true;
+    users.users.${flakeConfig.username}.linger = true;
 
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";

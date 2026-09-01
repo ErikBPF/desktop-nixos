@@ -122,6 +122,16 @@ in {
       inherit sopsFile;
       mode = "0400";
     };
+    sops.secrets."openbao-harbor-reader-discovery-role-id" = {
+      inherit sopsFile;
+      key = "openbao_harbor_reader_discovery_role_id";
+      mode = "0400";
+    };
+    sops.secrets."openbao-harbor-reader-discovery-secret-id" = {
+      inherit sopsFile;
+      key = "openbao_harbor_reader_discovery_secret_id";
+      mode = "0400";
+    };
     # Incidents Discord webhook — sops copy of the value vault-agent renders to
     # /run/vault-agent/discord_webhook_incidents. That render VANISHES exactly
     # when OpenBao is sealed, so the seal-related alert (openbao-unseal-onfail)
