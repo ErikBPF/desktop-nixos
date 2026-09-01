@@ -83,8 +83,8 @@
       systemd.services.harbor-reader = {
         description = "Render this host's Harbor pull credential from OpenBao";
         wantedBy = ["multi-user.target"];
-        after = ["network-online.target" "sops-nix.service"];
-        wants = ["network-online.target"];
+        after = ["network-online.target" "sops-nix.service" "tailscaled-autoconnect.service"];
+        wants = ["network-online.target" "tailscaled-autoconnect.service"];
         path = [pkgs.bash];
         serviceConfig =
           {
@@ -92,6 +92,7 @@
             RestartSec = "10s";
             RuntimeDirectory = "harbor-reader";
             RuntimeDirectoryMode = "0700";
+            RuntimeDirectoryPreserve = "restart";
             Environment = "HOME=/run/harbor-reader";
             NoNewPrivileges = true;
             PrivateTmp = true;
@@ -118,7 +119,7 @@
                 perms = "0400"
               }
             ''}";
-            ExecStartPost = "${pkgs.bash}/bin/bash -c 'for _ in {1..30}; do [[ -s ${destination} ]] && exit 0; ${pkgs.coreutils}/bin/sleep 1; done; exit 1'";
+            ExecStartPost = "${pkgs.bash}/bin/bash -c 'for _ in {1..60}; do [[ -s ${destination} ]] && exit 0; ${pkgs.coreutils}/bin/sleep 1; done; exit 1'";
           }
           // lib.optionalAttrs (cfg.user != null) {
             User = cfg.user;
