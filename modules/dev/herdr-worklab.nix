@@ -1,5 +1,5 @@
 {inputs, ...}: {
-  flake.modules.home.herdr-gemini = {
+  flake.modules.home.herdr-worklab = {
     config,
     lib,
     pkgs,
@@ -59,21 +59,21 @@
           panes = [
             {
               label = "Codex 1";
-              command = "codex --yolo";
+              command = "codex";
             }
             {
               label = "Codex 2";
-              command = "codex --yolo";
+              command = "codex";
               split = "right";
             }
             {
               label = "Codex 3";
-              command = "codex --yolo";
+              command = "codex";
               split = "down";
             }
             {
               label = "Codex 4";
-              command = "codex --yolo";
+              command = "codex";
               split = "right";
             }
           ];
@@ -94,6 +94,9 @@
     defaults = {
       homelab = "~/Documents/erik/homelab";
       dataplatform = "~/Documents/nstech/dataplatform";
+      dataplatform-spark = "~/Documents/nstech/dataplatform-spark";
+      dataplatform-airflow = "~/Documents/nstech/dataplatform-airflow";
+      dataplatform-datacontracts = "~/Documents/nstech/dataplatform-datacontracts";
     };
     defaultSessions = ["homelab" "dataplatform"];
 
@@ -172,6 +175,18 @@
       "herdr/plugins/config/cloudmanic.herdr-plus/projects/dataplatform.toml".source = toml.generate "herdr-plus-dataplatform.toml" (project {
         name = "dataplatform";
         workingDir = defaults.dataplatform;
+      });
+      "herdr/plugins/config/cloudmanic.herdr-plus/projects/dataplatform-spark.toml".source = toml.generate "herdr-plus-dataplatform-spark.toml" (project {
+        name = "dataplatform-spark";
+        workingDir = defaults.dataplatform-spark;
+      });
+      "herdr/plugins/config/cloudmanic.herdr-plus/projects/dataplatform-airflow.toml".source = toml.generate "herdr-plus-dataplatform-airflow.toml" (project {
+        name = "dataplatform-airflow";
+        workingDir = defaults.dataplatform-airflow;
+      });
+      "herdr/plugins/config/cloudmanic.herdr-plus/projects/dataplatform-datacontracts.toml".source = toml.generate "herdr-plus-dataplatform-datacontracts.toml" (project {
+        name = "dataplatform-datacontracts";
+        workingDir = defaults.dataplatform-datacontracts;
       });
     };
 

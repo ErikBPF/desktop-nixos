@@ -7,6 +7,7 @@ SSH_MODULE = Path(__file__).parents[2] / "modules/ssh.nix"
 def test_nixos_fleet_hosts_default_to_hardened_ssh_port():
     text = SSH_MODULE.read_text()
     fleet_hosts = {
+        "apollo",
         "archinaut",
         "discovery",
         "endeavour",

@@ -6,7 +6,7 @@ _: {
         general = {
           lock_cmd = "pidof hyprlock || hyprlock";
           before_sleep_cmd = "loginctl lock-session";
-          after_sleep_cmd = "hyprctl dispatch dpms on";
+          after_sleep_cmd = "hyprctl dispatch 'hl.dsp.dpms({ action = \"enable\" })'";
         };
         listener = [
           {
@@ -15,8 +15,8 @@ _: {
           }
           {
             timeout = 330;
-            on-timeout = "hyprctl dispatch dpms off";
-            on-resume = "hyprctl dispatch dpms on && brightnessctl -r && sleep 1 && ~/.config/quickshell/scripts/qs_manager.sh refresh";
+            on-timeout = "hyprctl dispatch 'hl.dsp.dpms({ action = \"disable\" })'";
+            on-resume = "hyprctl dispatch 'hl.dsp.dpms({ action = \"enable\" })' && brightnessctl -r && sleep 1 && ~/.config/quickshell/scripts/qs_manager.sh refresh";
           }
         ];
       };

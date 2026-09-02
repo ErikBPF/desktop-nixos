@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[2]
-MODULE = ROOT / "modules/dev/herdr-gemini.nix"
+MODULE = ROOT / "modules/dev/herdr-worklab.nix"
 GALAXY_S25_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
 GEMINI_SYNCTHING_ID = "3MXXNKD-O7PXY6E-2SKDLDF-7SJXAYJ-JNLLF2O-YZU2Y33-UKKXTOV-5HD3ZAF"
 
@@ -87,7 +87,7 @@ def test_vim_and_herdr_share_ctrl_directional_navigation():
 def test_gemini_imports_remote_session_profile_with_linger():
     gemini = (ROOT / "modules/hosts/orion/gemini.nix").read_text()
 
-    assert "m.home.herdr-gemini" in gemini
+    assert "m.home.herdr-worklab" in gemini
     assert "linger = true;" in gemini
 
 
