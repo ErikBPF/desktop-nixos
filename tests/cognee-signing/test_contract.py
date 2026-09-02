@@ -12,3 +12,13 @@ def test_discovery_renders_scoped_cognee_signing_material() -> None:
     assert 'destination = "/run/vault-agent/cognee-cosign.password"' in source
     assert ".Data.data.COSIGN_PRIVATE_KEY" in source
     assert ".Data.data.COSIGN_PASSWORD" in source
+
+
+def test_signing_bootstrap_uses_stdin_and_exact_vault_path() -> None:
+    source = (ROOT / "justfile").read_text()
+
+    assert "bootstrap-cognee-signing private_key password_file:" in source
+    assert "secret/home/cognee-signing" in source
+    assert "@/dev/stdin" in source
+    assert "COSIGN_PRIVATE_KEY" in source
+    assert "COSIGN_PASSWORD" in source
