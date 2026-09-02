@@ -18,6 +18,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`reference/2026-08-30-kepler-k3s-etcd-io-incident.md`](reference/2026-08-30-kepler-k3s-etcd-io-incident.md) | Kepler k3s outage evidence, shared-pool etcd latency mechanism, safe writer capture, and storage-remediation gate. | Mitigated; writer attribution and storage redesign open |
 | [`reference/2026-08-10-endeavour-password-lockout.md`](reference/2026-08-10-endeavour-password-lockout.md) | Endeavour declarative-password lockout, recovery, root cause, and guardrails. | Resolved (verified 2026-08-16) |
 | [`reference/discovery-stateful-inventory.md`](reference/discovery-stateful-inventory.md) | Time-bounded P0 owner/image/mount/volume/backup inventory for discovery state migrations. | Audit evidence (2026-07-13) |
 | [`reference/dendritic-contract.md`](reference/dendritic-contract.md) | The rules a `modules/` file must follow (registration, naming, `_` helpers). Enforced by `just structure-check`. | Reference |
@@ -39,8 +40,11 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Status |
 |-----|--------|
+| [`Orion games and models storage separation`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-09-01-orion-games-models-storage-separation.md) · [`behavior contract`](behaviors/orion-storage-separation/orion-games-models-storage-separation.feature) | Proposed — requested Nix, Podman, and explicit build-tree cleanup completed; snapshot-exclusive usage remains unmeasured; hardware approval still blocks implementation planning. |
+| [`Apollo native work lab`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-08-29-apollo-native-work-lab.md) · [`behavior contract`](../tests/apollo-worklab/apollo-work-lab.feature) | In progress — host and five-node substrate are live; fleet/cache/API operations are implemented; source landing, telemetry rollout, workload proof, and writer cutover remain. |
 | [`Gemini Herdr native-restore behavior`](behaviors/gemini-herdr-native-restore/gemini-herdr-native-restore.feature) | Contract — OpenCode is the declarative native-restore canary; deployment and disposable restart proof remain gated. |
 | [`proposals/2026-08-24-kepler-cold-restart-resilience.md`](proposals/2026-08-24-kepler-cold-restart-resilience.md) · [`behavior contract`](behaviors/kepler-cold-restart/kepler-cold-restart.feature) | Implementation planned — reviewed `/pl` contract and `/ip` slices define a forced-off, two-minute-off, power-on sequence, exact storage/source gates, and a 10-minute return deadline. |
+| [`behaviors/sbx/behavior.md`](behaviors/sbx/behavior.md) · [`behavior contract`](behaviors/sbx/sbx.feature) | Implemented — package-local unfree allowance, corrected Docker release source, real build, and CLI smoke gate pass. |
 | [`proposals/2026-08-12-endeavour-luks-authentication.md`](proposals/2026-08-12-endeavour-luks-authentication.md) | Moved — canonical Endeavour LUKS authentication proposal lives in `homelab`. |
 | [`proposals/2026-07-21-hermes-argus-n0-responder.md`](proposals/2026-07-21-hermes-argus-n0-responder.md) | Staged — Argus extended as N0 first-line responder on Discord #incidents/#deploys (channel-scoped listen, staged Grafana HMAC webhook, agentmemory incident recall); deploy gated on Discord app token + OpenBao HMAC key. |
 | [`behaviors/discovery-secondary-dns/behavior.md`](behaviors/discovery-secondary-dns/behavior.md) · [`test contract`](behaviors/discovery-secondary-dns/test-contract.md) | Draft P3 contract — Kepler LAN secondary, preserved vanguard tailnet resolver, narrow DHCP ownership, and outage proof before P2 mutation. |

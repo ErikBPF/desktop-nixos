@@ -27,6 +27,12 @@ jobs:
       - name: Format check
         run: nix develop -c just fmt-check
 
+      - name: SBX package contract
+        run: |
+          nix develop -c python -m unittest discover -s tests/sbx -p 'test_*.py'
+          nix build .#sbx --no-link
+          nix run .#sbx -- version
+
       - name: Orion owner migration contract
         run: nix develop -c python -m unittest discover -s tests/orion-owner-cutover -p 'test_*.py'
 

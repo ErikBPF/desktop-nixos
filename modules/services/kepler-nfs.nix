@@ -14,6 +14,7 @@ _: {
       fsType = "nfs";
       options = [
         "nfsvers=4"
+        "nolock"
         "soft"
         "timeo=30"
         "retrans=2"
@@ -31,6 +32,7 @@ _: {
       fsType = "nfs";
       options = [
         "nfsvers=4"
+        "nolock"
         "soft"
         "timeo=30"
         "retrans=2"

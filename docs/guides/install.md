@@ -9,6 +9,7 @@
 | laptop     | Laptop  | Intel i7-1165G7 + Iris Xe, NVMe LUKS+btrfs   | DHCP           |
 | orion      | HTPC    | AMD Ryzen + RX 9070XT, Jovian Steam UI        | 192.168.10.220 |
 | kepler     | NAS/AI  | AMD Ryzen 5 3600 + RTX 3070, ZFS pools        | 192.168.10.230 |
+| apollo     | Work lab | Intel, 64 GB, 2×240 GB Btrfs RAID1            | 192.168.10.174 |
 | archinaut  | Printer | RPi 3 Model B+ (BCM2837), BIQU B1 Klipper, WiFi | 192.168.10.225 |
 
 `archinaut` is **services-only** (kernel-direct boot, no u-boot): NixOS owns the

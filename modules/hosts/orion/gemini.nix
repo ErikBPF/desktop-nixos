@@ -226,7 +226,7 @@ in {
               m.home.nvim
               m.home.hermes-agent
               m.home.herdr
-              m.home.herdr-gemini
+              m.home.herdr-worklab
               m.home.grafatui
               m.home.tmux
             ];

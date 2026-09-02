@@ -12,6 +12,7 @@ ip_archinaut := `jq -r '.hosts.archinaut.ip' fleet.json`
 ip_voyager := `jq -r '.hosts.voyager.ip' fleet.json`
 ip_telstar := `jq -r '.hosts.telstar.ip' fleet.json`
 ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
+ip_apollo := `jq -r '.hosts.apollo.ip' fleet.json`
 tailscale_voyager := `jq -r '.hosts.voyager.tailscaleIp' fleet.json`
 tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
 
@@ -2205,6 +2206,225 @@ kubeconfig-lan:
     echo ":: LAN kubeconfig → ~/.kube/homelab-lan.yaml (context homelab-lan)"
     KUBECONFIG=~/.kube/homelab-lan.yaml kubectl get nodes
 
+# Read-only daily proof for Apollo's host, work sessions, cache, and cluster.
+diagnose-apollo-worklab:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    echo ':: capacity'
+    free -h
+    df -h /
+    echo ':: failed units'
+    failed=$(sudo -n systemctl --failed --no-legend --plain)
+    printf '%s\n' "${failed:-none}"
+    test -z "$failed"
+    echo ':: critical units'
+    sudo -n systemctl is-active \
+      alloy.service syncthing.service microvms.target \
+      microvm@cp-1.service microvm@cp-2.service microvm@cp-3.service \
+      microvm@w-1.service microvm@w-2.service
+    echo ':: work sessions'
+    systemctl --user is-active \
+      herdr-session-homelab.service herdr-session-dataplatform.service
+    echo ':: Orion cache'
+    curl --fail --silent --show-error --connect-timeout 3 --max-time 5 \
+      http://orion:5000/nix-cache-info >/dev/null
+    echo 'reachable'
+    echo ':: Kubernetes readiness'
+    ready=$(ssh -n -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new \
+      root@10.251.0.11 \
+      "k3s kubectl get nodes -o 'jsonpath={range .items[*]}{.status.conditions[?(@.type==\"Ready\")].status}{\"\\n\"}{end}'" \
+      | grep -c '^True$' || true)
+    printf 'ready_nodes=%s expected=5\n' "$ready"
+    test "$ready" -eq 5
+    REMOTE
+
+# Prove project-owned toolchains from the Apollo checkout before host cleanup.
+verify-apollo-project-environments:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    repos=(
+      "$HOME/Documents/nstech/dataplatform-spark"
+      "$HOME/Documents/nstech/dataplatform-airflow"
+      "$HOME/Documents/nstech/dataplatform-datacontracts"
+    )
+    for repo in "${repos[@]}"; do
+      printf ':: devenv test %s\n' "${repo##*/}"
+      test -d "$repo/.git"
+      (cd "$repo" && devenv test)
+    done
+    REMOTE
+
+# Clone the explicit work-lab allowlist from local Git bundles, without credentials.
+bootstrap-apollo-worklab-repositories:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bundle_dir=$(mktemp -d)
+    trap 'rm -rf -- "$bundle_dir"' EXIT
+    root=$PWD
+    specs=(
+      "homelab|$root/../homelab|Documents/erik/homelab"
+      "dataplatform|$root/../../nstech/dataplatform|Documents/nstech/dataplatform"
+      "dataplatform-spark|$root/../../nstech/dataplatform-spark|Documents/nstech/dataplatform-spark"
+      "dataplatform-airflow|$root/../../nstech/dataplatform-airflow|Documents/nstech/dataplatform-airflow"
+      "dataplatform-datacontracts|$root/../../nstech/dataplatform-datacontracts|Documents/nstech/dataplatform-datacontracts"
+    )
+    for spec in "${specs[@]}"; do
+      IFS='|' read -r name local_repo remote_path <<<"$spec"
+      test -d "$local_repo/.git"
+      origin=$(git -C "$local_repo" config --get remote.origin.url)
+      case "$origin" in git@*:*) ;; *) echo "unsupported origin for $name" >&2; exit 2;; esac
+      bundle="$bundle_dir/$name.bundle"
+      git -C "$local_repo" bundle create "$bundle" --all
+      scp -P 2222 -q "$bundle" "erik@{{ip_apollo}}:/tmp/apollo-$name.bundle"
+      ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} \
+        'bash -s' -- "$name" "$remote_path" "$origin" <<'REMOTE'
+    set -euo pipefail
+    name=$1
+    remote_path=$2
+    origin=$3
+    bundle="/tmp/apollo-$name.bundle"
+    target="$HOME/$remote_path"
+    trap 'rm -f "$bundle"' EXIT
+    git bundle list-heads "$bundle" >/dev/null
+    mkdir -p "$(dirname "$target")"
+    if [ -e "$target" ]; then
+      test -d "$target/.git"
+    else
+      git clone "$bundle" "$target"
+    fi
+    git -C "$target" remote set-url origin "$origin"
+    REMOTE
+    done
+    local_cli="$root/../../nstech/dataplatform-datacontracts/.devenv/state/contract-cli"
+    remote_cli=Documents/nstech/dataplatform-datacontracts/.devenv/state/contract-cli
+    test -x "$local_cli/contract-cli"
+    test -s "$local_cli/.version"
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_apollo}} 'bash -s' -- "$remote_cli" <<'REMOTE'
+    set -euo pipefail
+    remote_cli=$1
+    mkdir -p "$HOME/$remote_cli"
+    REMOTE
+    scp -P 2222 -q "$local_cli/contract-cli" "$local_cli/.version" \
+      "erik@{{ip_apollo}}:$remote_cli/"
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_apollo}} 'bash -s' -- "$remote_cli" <<'REMOTE'
+    set -euo pipefail
+    remote_cli=$1
+    chmod 0755 "$HOME/$remote_cli/contract-cli"
+    chmod 0644 "$HOME/$remote_cli/.version"
+    REMOTE
+    remote_devenv=Documents/nstech/dataplatform-datacontracts/devenv.nix
+    if ! ssh -p 2222 -o BatchMode=yes erik@{{ip_apollo}} \
+      'git -C "$HOME/Documents/nstech/dataplatform-datacontracts" diff --quiet -- devenv.nix'; then
+      cmp -s "$root/../../nstech/dataplatform-datacontracts/devenv.nix" \
+        <(ssh -p 2222 -o BatchMode=yes erik@{{ip_apollo}} "cat '$remote_devenv'") || {
+        echo "refusing to overwrite changed $remote_devenv" >&2
+        exit 2
+      }
+    fi
+    scp -P 2222 -q "$root/../../nstech/dataplatform-datacontracts/devenv.nix" \
+      "erik@{{ip_apollo}}:$remote_devenv"
+    scp -P 2222 -q "$root/../../nstech/dataplatform-airflow/devenv.nix" \
+      "erik@{{ip_apollo}}:Documents/nstech/dataplatform-airflow/devenv.nix"
+    scp -P 2222 -q "$root/../../nstech/dataplatform-airflow/devenv.lock" \
+      "erik@{{ip_apollo}}:Documents/nstech/dataplatform-airflow/devenv.lock"
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_apollo}} \
+      'cd "$HOME/Documents/nstech/dataplatform-airflow" && cp -n .env.example .env'
+
+# Merge Apollo's development cluster without replacing the active kubeconfig.
+apollo-kubeconfig:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    current="${KUBECONFIG:-$HOME/.kube/config}"
+    case "$current" in *:*) echo "KUBECONFIG must name one file" >&2; exit 2;; esac
+    mkdir -p "$(dirname "$current")"
+    cluster=$(mktemp "${current}.apollo.XXXXXX")
+    base=$(mktemp "${current}.base.XXXXXX")
+    merged=$(mktemp "${current}.merged.XXXXXX")
+    trap 'rm -f "$cluster" "$base" "$merged"' EXIT
+    ssh -J erik@{{ip_apollo}}:2222 -o BatchMode=yes -o ConnectTimeout=8 \
+      -o StrictHostKeyChecking=accept-new root@10.251.0.11 \
+      'cat /etc/rancher/k3s/k3s.yaml' \
+      | sed 's#https://127.0.0.1:6443#https://apollo:6443#' \
+      | sed 's/: default$/: apollo-dev/' > "$cluster"
+    chmod 600 "$cluster"
+    if [ -s "$current" ]; then
+      active=$(KUBECONFIG="$current" kubectl config current-context 2>/dev/null || true)
+      cp "$current" "$base"
+      cp "$current" "${current}.apollo-backup"
+      chmod 600 "${current}.apollo-backup"
+      KUBECONFIG="$base" kubectl config delete-context apollo-dev >/dev/null 2>&1 || true
+      KUBECONFIG="$base" kubectl config delete-cluster apollo-dev >/dev/null 2>&1 || true
+      KUBECONFIG="$base" kubectl config delete-user apollo-dev >/dev/null 2>&1 || true
+      KUBECONFIG="$base:$cluster" kubectl config view --raw --flatten > "$merged"
+      if [ -n "$active" ]; then
+        KUBECONFIG="$merged" kubectl config use-context "$active" >/dev/null
+      fi
+    else
+      KUBECONFIG="$cluster" kubectl config view --raw --flatten > "$merged"
+    fi
+    chmod 600 "$merged"
+    mv "$merged" "$current"
+    trap - EXIT
+    KUBECONFIG="$current" kubectl config get-contexts apollo-dev
+
+# Start the declared five-node target and wait for the daily proof to pass.
+apollo-cluster-start:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} \
+      'sudo -n systemctl start microvms.target microvm@cp-1.service microvm@cp-2.service microvm@cp-3.service microvm@w-1.service microvm@w-2.service'
+    for attempt in $(seq 1 60); do
+      if just diagnose-apollo-worklab; then exit 0; fi
+      sleep 5
+    done
+    echo "Apollo cluster did not become ready within five minutes" >&2
+    exit 1
+
+# Stop only Apollo's declared MicroVM target and prove every guest is inactive.
+apollo-cluster-stop:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    sudo -n systemctl stop \
+      microvms.target microvm@cp-1.service microvm@cp-2.service \
+      microvm@cp-3.service microvm@w-1.service microvm@w-2.service
+    states=$(sudo -n systemctl is-active \
+      microvms.target microvm@cp-1.service microvm@cp-2.service \
+      microvm@cp-3.service microvm@w-1.service microvm@w-2.service || true)
+    printf '%s\n' "$states"
+    test "$(printf '%s\n' "$states" | grep -c "^inactive$")" -eq 6
+    REMOTE
+
+# Delete only the five disposable guest state directories after typed consent.
+apollo-cluster-rebuild confirmation:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test {{quote(confirmation)}} = "REBUILD-APOLLO-CLUSTER" || {
+      echo 'type REBUILD-APOLLO-CLUSTER to continue' >&2
+      exit 2
+    }
+    just diagnose-apollo-worklab
+    just apollo-cluster-stop
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} \
+      'sudo -n bash -s' <<'REMOTE'
+    set -euo pipefail
+    test "$(hostname)" = apollo
+    state_dir=/var/lib/microvms
+    names=(cp-1 cp-2 cp-3 w-1 w-2)
+    for name in "${names[@]}"; do
+      test -d "$state_dir/$name"
+    done
+    for name in "${names[@]}"; do
+      rm -rf --one-file-system -- "$state_dir/$name"
+    done
+    REMOTE
+    just apollo-cluster-start
+
 # Merge Gemini's single-node work cluster into ~/.kube/config without replacing
 # the main homelab context or reusing k3s's default cluster/user names.
 kubeconfig-pastelariadev:
@@ -2783,7 +3003,7 @@ diagnose-kepler-kernel:
     fi
 
     logs=$(curl --fail --silent --show-error --max-time 8 --get \
-      http://discovery:3100/loki/api/v1/query_range \
+      https://loki.homelab.pastelariadev.com/loki/api/v1/query_range \
       --data-urlencode 'query={host="kepler"} |~ "BUG: unable to handle page fault|reboot is needed"' \
       --data-urlencode "start=$boot_start" \
       --data-urlencode 'limit=100' \
@@ -2795,6 +3015,43 @@ diagnose-kepler-kernel:
       exit 2
     fi
     echo reboot_required=0
+
+# Attribute current fast-pool writes without printing process arguments.
+diagnose-kepler-io:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ip=$(jq -r '.hosts.kepler.tailscaleIp // empty' fleet.json)
+    [ -n "$ip" ] || ip=$(just _host-ip kepler)
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=5 \
+      -o ServerAliveInterval=3 -o ServerAliveCountMax=1 "erik@$ip" \
+      'sudo bash -s' <<'REMOTE'
+    set -euo pipefail
+    test "$(zpool list -H -o health fast-pool)" = ONLINE
+    declare -A before
+    for io in /proc/[0-9]*/io; do
+      pid=${io#/proc/}; pid=${pid%/io}
+      before[$pid]=$(awk '$1 == "write_bytes:" { print $2 }' "$io" 2>/dev/null || true)
+    done
+
+    echo ":: fast-pool physical I/O (three one-second samples)"
+    timeout 8 zpool iostat -v fast-pool 1 4
+
+    echo ":: process write deltas during sample"
+    printf '%12s  %-7s  %-24s  %s\n' bytes pid process cgroup
+    {
+      for io in /proc/[0-9]*/io; do
+        pid=${io#/proc/}; pid=${pid%/io}
+        current=$(awk '$1 == "write_bytes:" { print $2 }' "$io" 2>/dev/null || true)
+        previous=${before[$pid]:-}
+        [ -n "$current" ] && [ -n "$previous" ] || continue
+        delta=$((current - previous))
+        [ "$delta" -gt 0 ] || continue
+        process=$(tr -cd '[:alnum:]_.@+-' <"/proc/$pid/comm" 2>/dev/null || printf unknown)
+        cgroup=$(awk -F: '$1 == "0" { print $3 }' "/proc/$pid/cgroup" 2>/dev/null || true)
+        printf '%12d  %-7s  %-24s  %s\n' "$delta" "$pid" "$process" "${cgroup:--}"
+      done
+    } | sort -nr | head -15 || true
+    REMOTE
 
 # Identify the process killed by the kernel OOM detector on Discovery.
 grafana-alert-oom-diagnostics:
@@ -3893,6 +4150,29 @@ reboot-discovery:
     echo ":: discovery did not return within 240s" >&2
     exit 1
 
+stop-k3s-worker target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{target}}" in
+      w-1|w-2|w-3) ;;
+      *) echo "invalid worker: {{target}}" >&2; exit 2 ;;
+    esac
+    uncordon_on_failure() {
+      exit_code=$?
+      trap - EXIT
+      if (( exit_code != 0 )); then
+        kubectl --context homelab uncordon "{{target}}" >/dev/null 2>&1 || true
+      fi
+      exit "$exit_code"
+    }
+    trap uncordon_on_failure EXIT
+    kubectl --context homelab drain "{{target}}" \
+      --ignore-daemonsets --delete-emptydir-data --timeout=5m
+    ssh -p 2222 erik@{{ip_kepler}} 'sudo systemctl stop microvm@{{target}}.service
+      state=$(sudo systemctl is-active microvm@{{target}}.service || true)
+      test "$state" = inactive'
+    trap - EXIT
+
 restart-k3s-worker target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -3902,6 +4182,7 @@ restart-k3s-worker target:
     esac
     ssh -p 2222 erik@{{ip_kepler}} "sudo systemctl restart microvm@{{target}}.service"
     kubectl --context homelab wait --for=condition=Ready node/{{target}} --timeout=5m
+    kubectl --context homelab uncordon {{target}}
 
 # Read-only proof for the k3s guest reconciler and embedded-etcd metrics.
 verify-k3s-observability:

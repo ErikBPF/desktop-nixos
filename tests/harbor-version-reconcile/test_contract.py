@@ -24,7 +24,7 @@ def test_vendored_harbor_installer_and_schema_follow_the_declared_version():
 
 def test_vendored_harbor_source_pins_the_leaf_revision():
     module = (ROOT / "modules/hosts/discovery/harbor.nix").read_text()
-    assert "504cbd1b1f1582e8feafe1c6c0208c207df49488" in module
+    assert "bda18b9b5201d574952f4f486166d84448bbaf56" in module
 
 
 def test_restore_recipes_follow_the_active_installer_link():

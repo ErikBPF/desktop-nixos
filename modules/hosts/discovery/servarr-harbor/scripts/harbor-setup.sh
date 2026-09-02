@@ -100,8 +100,19 @@ else
   $SUDO sed -i -E 's/^(    container_name: )(redis|registry|registryctl|nginx)$/\1harbor-\2/' docker-compose.yml
   printf '%s' "$new_stamp" | $SUDO tee "$STAMP" >/dev/null
 fi
+
+# Harbor's generated proxy can drop Basic auth before core's token service.
+# Keep this outside the prepare branch so existing cached installs heal too.
+NGINX_CONFIG="common/config/nginx/nginx.conf"
+reload_nginx=false
+if ! $SUDO grep -Fq 'proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"; then
+  $SUDO sed -i '/proxy_set_header X-Forwarded-Proto \$x_forwarded_proto;/a\      proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"
+  $SUDO grep -Fq 'proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"
+  reload_nginx=true
+fi
 echo ":: bring up harbor"
 $SUDO docker compose up -d
+$reload_nginx && $SUDO docker compose exec -T proxy nginx -s reload
 $SUDO ln -sfn "$HARBOR_DIR" "$INSTALLER_DIR/current"
 
 echo ":: harbor containers:"

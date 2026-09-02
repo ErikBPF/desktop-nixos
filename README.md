@@ -15,6 +15,7 @@ top-level module, options replace `specialArgs`, no aggregator boilerplate.
 | **orion** | HTPC · build server · dev sandbox | Ryzen 9 5950X | 128 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SATA SSD btrfs | 192.168.10.220 |
 | **discovery** | Home server | i5-4670 | 32 GB | Quadro P2000 | 2×SSD btrfs RAID1 · 3.6TB HDD | 192.168.10.210 |
 | **kepler** | NAS / lab cluster | Ryzen 5 3600 | 96 GB | RTX 3070 LHR | M.2 btrfs · ZFS RAIDZ1 | 192.168.10.230 |
+| **apollo** | Remote development / disposable k3s lab | Intel | 64 GB | — | 2×240 GB SSD · Btrfs RAID1 | 192.168.10.174 |
 | **archinaut** | 3D-printer host (Klipper) | RPi 3B+ | 1 GB | — | microSD | 192.168.10.225 (WiFi) |
 | **homeassistant** | HAOS appliance (VM) | — | — | — | discovery-hosted | 192.168.10.115 |
 | **vanguard** | Offsite resilience node | Oracle VM (x86), 2 vCPU | 1 GB | — | 50 GB boot | 163.176.206.86 (ephemeral) / Tailscale |
@@ -79,6 +80,7 @@ just upgrade           # flake update + switch
 just switch-orion      # remote deploy to orion
 just switch-all        # parallel deploy to discovery + orion + pathfinder
 just verify orion 192.168.10.220   # post-deploy health check
+just diagnose-apollo-worklab       # Apollo host/session/cache/cluster proof
 just dry               # dry-build current host
 just check             # lint + fmt-check + dry-build all hosts
 just lint              # statix
