@@ -26,9 +26,22 @@ _: {
     # nfs-slow → HDD pool (RFC homelab-gitops §4).
     systemd.tmpfiles.rules = [
       "d /fast/k8s 0755 root root -"
-      "d /fast/k8s/cognee-backups 0770 erik users -"
       "d /bulk/k8s 0755 root root -"
     ];
+
+    systemd.services.cognee-backup-path = {
+      description = "Prepare Cognee backup path after local pools mount";
+      wantedBy = ["multi-user.target"];
+      after = ["local-fs.target"];
+      before = ["nfs-server.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        ${pkgs.coreutils}/bin/install -d -m 0770 -o erik -g users /fast/k8s/cognee-backups
+      '';
+    };
 
     # --- Samba ---
     # Provides read-write access to bulk storage for Windows/macOS clients
