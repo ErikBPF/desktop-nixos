@@ -3069,13 +3069,25 @@ kepler-retire-legacy-retrieval:
       set -euo pipefail
       export XDG_RUNTIME_DIR="/run/user/$(id -u)"
       digest=@sha256:aedf3b34836dc57289583142adcf2b93836cda0736ac8e6ce43691b9c2c67170
+      legacy=ghcr.io/huggingface/text-embeddings-inference:86-1.9
       systemctl --user stop podman-compose-retrieval.service || true
       for name in bge-m3 bge-reranker-v2-m3; do
         mapfile -t ids < <(docker ps -aq --no-trunc --filter "name=^/${name}$")
         [[ ${#ids[@]} -le 1 ]]
         if [[ ${#ids[@]} -eq 1 ]]; then
-          docker inspect -- "${ids[0]}" | jq -e --arg name "$name" --arg digest "$digest" '
-            .[0] | select(.Name == "/" + $name) | select(.Config.Image | endswith($digest))
+          docker inspect -- "${ids[0]}" | jq -r --arg name "$name" '
+            .[0] | "name=\(.Name) image=\(.Config.Image) project=\(.Config.Labels["com.docker.compose.project"] // "none")"
+          '
+          docker inspect -- "${ids[0]}" | jq -e --arg name "$name" --arg digest "$digest" --arg legacy "$legacy" '
+            .[0]
+            | select(.Name == $name or .Name == "/" + $name)
+            | select(
+                (.Config.Image | endswith($digest))
+                or (
+                  .Config.Image == $legacy
+                  and .Config.Labels["com.docker.compose.project"] == "kepler"
+                )
+              )
           ' >/dev/null
           docker rm -f -- "${ids[0]}" >/dev/null
         fi
