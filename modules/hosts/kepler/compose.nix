@@ -19,6 +19,7 @@ _: {
         "sync"
         "whisper-gpu"
         "qwen4b-gpu"
+        "retrieval"
       ];
     };
   };

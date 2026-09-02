@@ -2489,7 +2489,7 @@ servarr-rollout-status target commit="":
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
     case "$target" in
-      kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu) ;;
+      kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu retrieval) ;;
       orion) stacks=(shared monitoring ai-models sync) ;;
       voyager) stacks=(offsite) ;;
       *) die "host outside exact-pin rollout" ;;
@@ -4035,6 +4035,35 @@ openbao-eso-contract:
         http://127.0.0.1:8200/v1/sys/policies/acl/eso \
         | jq -r .data.policy
     '
+
+# Store Cognee's encrypted Cosign keypair in its exact OpenBao path.
+# Secret values travel only through stdin and never enter argv or stdout.
+bootstrap-cognee-signing private_key password_file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    private_key={{quote(private_key)}}
+    password_file={{quote(password_file)}}
+    test "$(stat -c %a "$private_key")" = 600
+    test "$(stat -c %a "$password_file")" = 600
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    jq -cn \
+      --arg token "$token" \
+      --rawfile key "$private_key" \
+      --rawfile password "$password_file" \
+      '{token:$token,key:$key,password:($password | rtrimstr("\n"))}' |
+      ssh -p 2222 erik@{{ip_discovery}} '
+        set -euo pipefail
+        payload=$(cat)
+        token=$(jq -er .token <<<"$payload")
+        secret=$(jq -c "{COSIGN_PRIVATE_KEY:.key,COSIGN_PASSWORD:.password}" <<<"$payload")
+        unset payload
+        export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$token"
+        unset token
+        printf "%s" "$secret" | bao kv put secret/home/cognee-signing @/dev/stdin >/dev/null
+        unset secret BAO_TOKEN
+        echo ":: Cognee signing secret stored"
+      '
+    unset token
 
 # List OpenBao audit devices and safe transport options only.
 openbao-audit-status:
