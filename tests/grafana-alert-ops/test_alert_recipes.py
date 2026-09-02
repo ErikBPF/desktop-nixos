@@ -61,6 +61,25 @@ def test_kepler_kernel_diagnostics_are_bounded_and_read_only():
         assert value in recipe
     assert "systemctl restart" not in recipe
     assert "sudo reboot" not in recipe
+    assert "https://loki.homelab.pastelariadev.com/loki/api/v1/query_range" in recipe
+    assert "http://discovery:3100" not in recipe
+
+
+def test_kepler_io_diagnostics_are_bounded_read_only_and_value_safe():
+    justfile = (ROOT / "justfile").read_text()
+    recipe = justfile.split("diagnose-kepler-io:", 1)[1].split("\n# ", 1)[0]
+
+    for value in (
+        "zpool iostat -v fast-pool 1 4",
+        "/proc/[0-9]*/io",
+        'write_bytes:',
+        "ServerAliveCountMax=1",
+        "timeout 8",
+        "head -15",
+    ):
+        assert value in recipe
+    for value in ("cmdline", "systemctl restart", "zpool scrub", "zfs set"):
+        assert value not in recipe
 
 
 def test_kepler_reboot_dispatch_fails_fast_when_ssh_is_unavailable():

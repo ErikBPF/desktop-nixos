@@ -1,8 +1,12 @@
-_: {
+{config, ...}: let
+  bulkRwClients = builtins.concatStringsSep " " (map
+    (host: "${config.fleet.hosts.${host}.tailscaleIp}(rw,sync,no_subtree_check,root_squash)")
+    ["orion" "apollo" "endeavour"]);
+in {
   flake.modules.nixos.kepler-nas = {pkgs, ...}: {
     # --- NFS exports ---
     # /fast and /bulk exported to the LAN (192.168.10.0/24) and Tailscale (100.64.0.0/10).
-    # ro: bulk is read-only for clients by default — write access goes through Samba.
+    # ro: bulk is read-only by default; Orion, Apollo, and Endeavour are read-write.
     # rw: fast pool is read-write for direct access (models, scratch).
     services.nfs.server = {
       enable = true;
@@ -13,7 +17,7 @@ _: {
       lockdPort = 4001;
       exports = ''
         /fast  192.168.10.0/24(rw,sync,no_subtree_check,no_root_squash) 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)
-        /bulk  192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
+        /bulk  ${bulkRwClients} 192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
         /fast/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
         /bulk/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
       '';

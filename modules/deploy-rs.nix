@@ -143,6 +143,10 @@ in {
       host = "kepler";
       magicRollback = true;
     };
+    apollo = mkNode {
+      host = "apollo";
+      magicRollback = true;
+    };
 
     # archinaut: aarch64 RPi (activate.nixos resolves to aarch64-linux via
     # pkgs.system; closure still builds on orion through binfmt). Reached on its

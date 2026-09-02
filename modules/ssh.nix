@@ -27,7 +27,7 @@ _: {
 
         # NixOS fleet hosts resolve via tailnet MagicDNS (no LAN HostName override).
         # sshd is fleet-wide on port 2222 (modules/networking/openssh.nix).
-        Host archinaut discovery endeavour kepler orion pathfinder telstar vanguard voyager 192.168.10.220
+        Host apollo archinaut discovery endeavour kepler orion pathfinder telstar vanguard voyager 192.168.10.220
           Port 2222
           User erik
 

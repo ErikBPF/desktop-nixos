@@ -121,6 +121,12 @@
         };
       };
     };
+    # Apollo starts with no peers or folders. This creates and preserves its
+    # device identity before the stopped-writer worktree cutover.
+    apollo = {
+      devices = [];
+      folderPaths = {};
+    };
     # gemini — the orion dev-sandbox container. Its own tailnet node; syncs only
     # the dev workspace with the laptop. (Generated module consumed by the
     # container config in modules/hosts/orion/gemini.nix.)
