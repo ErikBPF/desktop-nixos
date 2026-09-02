@@ -1,7 +1,15 @@
-_: {
-  flake.modules.nixos.kepler-nfs = _: {
+{config, ...}: let
+  inherit (config) fleet;
+in {
+  flake.modules.nixos.kepler-nfs = {config, ...}: let
+    server =
+      if config.networking.hostName == "apollo"
+      then fleet.hosts.kepler.ip
+      else "kepler";
+  in {
     # NFS client mounts for Kepler's fast-pool and bulk-pool.
-    # Exported over Tailscale only — MagicDNS resolves "kepler" to its Tailscale IP.
+    # MagicDNS resolves "kepler" to its Tailscale IP; Apollo uses LAN because its
+    # tagged Tailscale identity cannot see Kepler in its peer map.
     # nofail: boot continues if Kepler is offline or the mount times out.
     # x-systemd.automount: mount is not attempted until first access (lazy).
     # x-systemd.mount-timeout: fail fast if Kepler is unreachable.
@@ -10,7 +18,7 @@ _: {
     # (used by Nix, flatpak, etc.) can bind-mount /home without encountering these
     # automount points and failing with "Unable to apply mount flags: remount ... No such device".
     fileSystems."/mnt/nfs/fast" = {
-      device = "kepler:/fast";
+      device = "${server}:/fast";
       fsType = "nfs";
       options = [
         "nfsvers=4"
@@ -28,7 +36,7 @@ _: {
     };
 
     fileSystems."/mnt/nfs/bulk" = {
-      device = "kepler:/bulk";
+      device = "${server}:/bulk";
       fsType = "nfs";
       options = [
         "nfsvers=4"

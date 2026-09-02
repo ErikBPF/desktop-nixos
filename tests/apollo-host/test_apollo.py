@@ -44,3 +44,12 @@ def test_apollo_uses_the_observed_lan_interface() -> None:
 
     assert 'hostName = "apollo";' in network
     assert 'enp6s0' in network
+
+
+def test_apollo_nfs_uses_its_reachable_lan_path() -> None:
+    client = read("modules/services/kepler-nfs.nix")
+    server = read("modules/hosts/kepler/nas.nix")
+
+    assert 'config.networking.hostName == "apollo"' in client
+    assert 'fleet.hosts.kepler.ip' in client
+    assert 'config.fleet.hosts.apollo.ip' in server

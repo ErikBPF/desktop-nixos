@@ -2,6 +2,7 @@
   bulkRwClients = builtins.concatStringsSep " " (map
     (host: "${config.fleet.hosts.${host}.tailscaleIp}(rw,sync,no_subtree_check,root_squash)")
     ["orion" "apollo" "endeavour"]);
+  apolloLanRwClient = "${config.fleet.hosts.apollo.ip}(rw,sync,no_subtree_check,root_squash)";
 in {
   flake.modules.nixos.kepler-nas = {pkgs, ...}: {
     # --- NFS exports ---
@@ -17,7 +18,7 @@ in {
       lockdPort = 4001;
       exports = ''
         /fast  192.168.10.0/24(rw,sync,no_subtree_check,no_root_squash) 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)
-        /bulk  ${bulkRwClients} 192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
+        /bulk  ${bulkRwClients} ${apolloLanRwClient} 192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
         /fast/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
         /bulk/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
       '';
