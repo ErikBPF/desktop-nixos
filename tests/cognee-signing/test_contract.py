@@ -10,6 +10,8 @@ def test_discovery_renders_scoped_cognee_signing_material() -> None:
     assert 'secret \\"secret/data/home/cognee-signing\\"' in source
     assert 'destination = "/run/vault-agent/cognee-cosign.key"' in source
     assert 'destination = "/run/vault-agent/cognee-cosign.password"' in source
+    assert 'secret \\"secret/data/home/cognee-harbor-publisher\\"' in source
+    assert 'destination = "/run/vault-agent/cognee-harbor-publisher.env"' in source
     assert ".Data.data.COSIGN_PRIVATE_KEY" in source
     assert ".Data.data.COSIGN_PASSWORD" in source
 
