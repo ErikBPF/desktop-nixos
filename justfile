@@ -2489,7 +2489,7 @@ servarr-rollout-status target commit="":
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
     case "$target" in
-      kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu) ;;
+      kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu retrieval) ;;
       orion) stacks=(shared monitoring ai-models sync) ;;
       voyager) stacks=(offsite) ;;
       *) die "host outside exact-pin rollout" ;;
