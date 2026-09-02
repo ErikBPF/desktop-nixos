@@ -3060,6 +3060,31 @@ diagnose-stack target stack:
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
 
+# One-time cutover from the old manually started stateless BGE containers.
+kepler-retire-legacy-retrieval:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+      digest=@sha256:aedf3b34836dc57289583142adcf2b93836cda0736ac8e6ce43691b9c2c67170
+      systemctl --user stop podman-compose-retrieval.service || true
+      for name in bge-m3 bge-reranker-v2-m3; do
+        mapfile -t ids < <(docker ps -aq --no-trunc --filter "name=^/${name}$")
+        [[ ${#ids[@]} -le 1 ]]
+        if [[ ${#ids[@]} -eq 1 ]]; then
+          docker inspect -- "${ids[0]}" | jq -e --arg name "$name" --arg digest "$digest" '
+            .[0] | select(.Name == "/" + $name) | select(.Config.Image | endswith($digest))
+          ' >/dev/null
+          docker rm -f -- "${ids[0]}" >/dev/null
+        fi
+      done
+      systemctl --user reset-failed podman-compose-retrieval.service
+      systemctl --user restart podman-compose-retrieval.service
+      systemctl --user status podman-compose-retrieval.service --no-pager -n15
+    REMOTE
+
 # Remove Orion's stateless legacy llama-chat, then use the canonical stack lifecycle.
 orion-retire-legacy-llama:
     #!/usr/bin/env bash

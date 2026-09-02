@@ -26,7 +26,7 @@ _: {
     # nfs-slow → HDD pool (RFC homelab-gitops §4).
     systemd.tmpfiles.rules = [
       "d /fast/k8s 0755 root root -"
-      "d /fast/k8s/cognee-backups 0770 root root -"
+      "d /fast/k8s/cognee-backups 0770 erik users -"
       "d /bulk/k8s 0755 root root -"
     ];
 
