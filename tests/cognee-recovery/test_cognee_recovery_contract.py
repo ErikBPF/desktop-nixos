@@ -15,5 +15,6 @@ def test_kepler_has_safe_legacy_retrieval_cutover() -> None:
 
     assert "kepler-retire-legacy-retrieval:" in source
     assert "bge-m3 bge-reranker-v2-m3" in source
+    assert "ghcr.io/huggingface/text-embeddings-inference:86-1.9" in source
     assert "aedf3b34836dc57289583142adcf2b93836cda0736ac8e6ce43691b9c2c67170" in source
-    assert ".Config.Image | endswith($digest)" in source
+    assert '.Config.Labels["com.docker.compose.project"] == "kepler"' in source
