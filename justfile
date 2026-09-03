@@ -3,7 +3,7 @@ profile := "endeavour"
 # Host IPs (LAN, SSH port 2222). Endeavour is Tailscale-only (roaming).
 # Derived from the fleet SSOT (modules/meta.nix → fleet.json); regenerate with
 # `just fleet-json` after changing an IP. archinaut is wifi (wlan0, DHCP-reserved
-# on the wlan0 MAC; wired retired) — roaming/admin → deploy via tailscale.
+# on the wlan0 MAC; wired retired) — roaming/admin via Tailscale, deploy-rs via LAN.
 ip_discovery := `jq -r '.hosts.discovery.ip' fleet.json`
 ip_orion := `jq -r '.hosts.orion.ip' fleet.json`
 ip_pathfinder := `jq -r '.hosts.pathfinder.ip' fleet.json`
