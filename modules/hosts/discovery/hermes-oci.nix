@@ -59,7 +59,8 @@ in {
       # Keep the container name + ports so SWAG (hermes.* → hermes-agent:8642)
       # and the tailnet/host clients keep working unchanged across the cutover.
       containerName = "hermes-agent";
-      image = "nousresearch/hermes-agent@sha256:68e15ae2a6d894d0ccbd9f8aacbbe13d4d28fa5dc9b6a303970b67bb2499b1a6";
+      # Upstream main 562ee8ab (2026-09-03), including x-opencode-session.
+      image = "nousresearch/hermes-agent@sha256:d7800dcb7fe821ba5fb7ec594724a07d3fa972ee2e37092cc9fb8265185c7868";
       # Reuse the existing live state dir (restic-backed btrfs subvol):
       # memories, sessions, skills, lazy venv survive the Docker→OCI swap.
       hostDataDir = "/home/${username}/homelab/apps/hermes-agent";
@@ -126,7 +127,7 @@ in {
         # left unset on purpose — hermes auto-detects each aliased model's
         # window from LiteLLM.
         model = {
-          provider = "custom";
+          provider = "opencode-go";
           default = "deepseek-v4-flash";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
@@ -142,13 +143,13 @@ in {
             api_key = "\${OPENAI_API_KEY}";
           };
           compression = {
-            provider = "custom";
+            provider = "opencode-go";
             model = "mimo";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
           session_search = {
-            provider = "custom";
+            provider = "opencode-go";
             model = "mimo";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
@@ -179,7 +180,7 @@ in {
         model_aliases = {
           deepseek = {
             model = "deepseek-v4-flash";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
           qwen = {
@@ -189,32 +190,32 @@ in {
           };
           glm = {
             model = "glm-5";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
           kimi = {
             model = "kimi-k2-code";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
           qwen-max = {
             model = "qwen3-max";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
           minimax = {
             model = "minimax-m2";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
           mimo = {
             model = "mimo";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
           mimo-pro = {
             model = "mimo-pro";
-            provider = "custom";
+            provider = "opencode-go";
             base_url = litellmUrl;
           };
         };

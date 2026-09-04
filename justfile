@@ -816,8 +816,7 @@ verify-kepler-after-esp-migration:
         podman-compose-monitoring.service \
         podman-compose-sync.service \
         podman-compose-security.service \
-        podman-compose-whisper-gpu.service \
-        podman-compose-qwen4b-gpu.service; do
+        podman-compose-retrieval.service; do
         systemctl --user is-active --quiet "$unit" || exit 1
       done
       ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
@@ -2709,7 +2708,7 @@ servarr-rollout-status target commit="":
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
     case "$target" in
-      kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu retrieval) ;;
+      kepler) stacks=(infra buzz monitoring sync security retrieval) ;;
       orion) stacks=(shared monitoring ai-models sync) ;;
       voyager) stacks=(offsite) ;;
       *) die "host outside exact-pin rollout" ;;

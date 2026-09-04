@@ -20,20 +20,20 @@ in {
     securityChannel = "1530261608419299428"; # #security
     commonSettings = {
       model = {
-        provider = "custom";
+        provider = "opencode-go";
         default = "deepseek-v4-flash";
         base_url = litellmUrl;
         api_key = "\${OPENAI_API_KEY}";
       };
       auxiliary = {
         compression = {
-          provider = "custom";
+          provider = "opencode-go";
           model = "mimo";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
         };
         session_search = {
-          provider = "custom";
+          provider = "opencode-go";
           model = "mimo";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
@@ -48,27 +48,27 @@ in {
       model_aliases = {
         deepseek = {
           model = "deepseek-v4-flash";
-          provider = "custom";
+          provider = "opencode-go";
           base_url = litellmUrl;
         };
         glm = {
           model = "glm-5";
-          provider = "custom";
+          provider = "opencode-go";
           base_url = litellmUrl;
         };
         kimi = {
           model = "kimi-k2-code";
-          provider = "custom";
+          provider = "opencode-go";
           base_url = litellmUrl;
         };
         mimo = {
           model = "mimo";
-          provider = "custom";
+          provider = "opencode-go";
           base_url = litellmUrl;
         };
         mimo-pro = {
           model = "mimo-pro";
-          provider = "custom";
+          provider = "opencode-go";
           base_url = litellmUrl;
         };
       };
@@ -93,7 +93,8 @@ in {
     services.hermes-agent-oci-daedalus = {
       enable = true;
       enableHealthcheck = false;
-      image = "nousresearch/hermes-agent@sha256:68e15ae2a6d894d0ccbd9f8aacbbe13d4d28fa5dc9b6a303970b67bb2499b1a6";
+      # Upstream main 562ee8ab (2026-09-03), including x-opencode-session.
+      image = "nousresearch/hermes-agent@sha256:d7800dcb7fe821ba5fb7ec594724a07d3fa972ee2e37092cc9fb8265185c7868";
       hostDataDir = "/home/${username}/homelab/apps/hermes-daedalus";
       environmentFile = "/run/vault-agent/hermes-daedalus.env";
       openBindAddress = "0.0.0.0";
@@ -144,7 +145,8 @@ in {
     services.hermes-agent-oci-argus = {
       enable = true;
       enableHealthcheck = true;
-      image = "nousresearch/hermes-agent@sha256:68e15ae2a6d894d0ccbd9f8aacbbe13d4d28fa5dc9b6a303970b67bb2499b1a6";
+      # Upstream main 562ee8ab (2026-09-03), including x-opencode-session.
+      image = "nousresearch/hermes-agent@sha256:d7800dcb7fe821ba5fb7ec594724a07d3fa972ee2e37092cc9fb8265185c7868";
       hostDataDir = "/home/${username}/homelab/apps/hermes-argus";
       environmentFile = "/run/vault-agent/hermes-argus.env";
       openBindAddress = "0.0.0.0";

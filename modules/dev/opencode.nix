@@ -12,6 +12,9 @@
       if [[ -r /run/secrets/opencode/litellm_key ]]; then
         export OPENCODE_LITELLM_KEY="$(</run/secrets/opencode/litellm_key)"
       fi
+      if [[ -r /run/secrets/opencode/work_key ]]; then
+        export OPENCODE_WORK_KEY="$(</run/secrets/opencode/work_key)"
+      fi
       if [[ -r /run/secrets/opencode/zen_key ]]; then
         export OPENCODE_GO_KEY="$(</run/secrets/opencode/zen_key)"
       elif [[ -r "$HOME/.config/opencode/secrets.env" ]]; then
@@ -134,6 +137,22 @@
             };
           };
         };
+        work = {
+          npm = "@ai-sdk/openai-compatible";
+          name = "Work";
+          options = {
+            baseURL = "https://llm-gateway-dataplatform-dev.nstech.com.br/v1";
+            apiKey = "{env:OPENCODE_WORK_KEY}";
+          };
+          models = {
+            "chatgpt-5.6-luna" = {};
+            "chatgpt-5.6-sol" = {};
+            "chatgpt-5.6-terra" = {};
+            "deepseek-v4-flash" = {};
+            "deepseek-v4-pro" = {};
+            "glm-5.3-flash" = {};
+          };
+        };
         opencode = {
           npm = "@ai-sdk/openai-compatible";
           name = "OpenCode Zen (direct escape-hatch)";
@@ -194,6 +213,11 @@
           effect = "allow";
           action = "provider.use";
           resource = "litellm";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "work";
         }
         {
           effect = "allow";

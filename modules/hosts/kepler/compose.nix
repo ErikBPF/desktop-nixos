@@ -17,8 +17,9 @@ _: {
         "monitoring"
         "security"
         "sync"
-        "whisper-gpu"
-        "qwen4b-gpu"
+        # Paused while Kepler runs the FreeToken Qwen3.6 NVFP4 trial.
+        # "whisper-gpu"
+        # "qwen4b-gpu"
         "retrieval"
       ];
     };
