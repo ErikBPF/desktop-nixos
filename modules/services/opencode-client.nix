@@ -29,6 +29,13 @@
       mode = "0400";
       path = "/run/secrets/opencode/litellm_key";
     };
+    sops.secrets."opencode/work_key" = {
+      sopsFile = self + "/secrets/sops/secrets.yaml";
+      key = "opencode/work_key";
+      owner = "erik";
+      mode = "0400";
+      path = "/run/secrets/opencode/work_key";
+    };
     sops.secrets."opencode/zen_key" = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
       key = "opencode/zen_key";

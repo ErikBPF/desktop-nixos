@@ -86,7 +86,7 @@ class ExactRevisionWiringTest(unittest.TestCase):
         self.assertIn('systemctl --user is-active servarr-pull.service', recipe)
         self.assertIn('/nix/store/*/bin/servarr-exact-revision)', recipe)
         self.assertIn('"$helper" --help 2>&1 | grep -q pin-v2', recipe)
-        self.assertIn('kepler) stacks=(infra buzz monitoring sync security whisper-gpu qwen4b-gpu retrieval)', recipe)
+        self.assertIn('kepler) stacks=(infra buzz monitoring sync security retrieval)', recipe)
         self.assertIn('orion) stacks=(shared monitoring ai-models sync)', recipe)
         self.assertIn('voyager) stacks=(offsite)', recipe)
         self.assertIn('systemctl --user is-enabled "$unit"', recipe)
