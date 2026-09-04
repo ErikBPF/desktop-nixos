@@ -78,17 +78,6 @@
                 output = 384000;
               };
             };
-            glm-5 = {
-              name = "GLM-5.2 (LiteLLM → OpenCode Go)";
-              cost = {
-                input = 0.0000014;
-                output = 0.0000044;
-              };
-              limit = {
-                context = 1000000;
-                output = 131072;
-              };
-            };
             "glm-5.3-flash" = {
               name = "GLM-5.3 Flash (LiteLLM → OpenCode Go)";
               cost = {
@@ -98,17 +87,6 @@
               limit = {
                 context = 1000000;
                 output = 131072;
-              };
-            };
-            mimo = {
-              name = "MiMo V2.5 (LiteLLM → OpenCode Go)";
-              cost = {
-                input = 0.00000014;
-                output = 0.00000028;
-              };
-              limit = {
-                context = 1000000;
-                output = 128000;
               };
             };
             qwen-chat = {
@@ -142,30 +120,6 @@
               limit = {
                 context = 32768;
                 output = 0;
-              };
-            };
-            # OpenCode Zen free tier (Homelab workspace, 100 req/day, $0) via the
-            # litellm zen-free* routes. deepseek is a heavy reasoner — prefer pickle.
-            zen-free = {
-              name = "Zen Free — DeepSeek V4 Flash (free, reasoner)";
-              cost = {
-                input = 0.0;
-                output = 0.0;
-              };
-              limit = {
-                context = 163840;
-                output = 8192;
-              };
-            };
-            zen-free-pickle = {
-              name = "Zen Free — Big Pickle (free, coder)";
-              cost = {
-                input = 0.0;
-                output = 0.0;
-              };
-              limit = {
-                context = 204800;
-                output = 8192;
               };
             };
           };
