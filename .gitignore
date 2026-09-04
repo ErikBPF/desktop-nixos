@@ -40,6 +40,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+# Purpose-named, mode-0600 local secret handoffs; consume and delete after use.
+*.secrets.json
 # Local handoff for B2/Modal credentials; populate, migrate to sops, then delete.
 /provider-credentials.local.json
 # Local handoff for Discord webhook secrets; populate, distribute, then delete.

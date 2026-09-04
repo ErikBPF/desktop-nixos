@@ -14,9 +14,21 @@ def test_enabled_stacks_include_backup_and_exclude_empty_profile():
     assert '"docs-search"' not in text
 
 
+def test_gpu_ai_stacks_are_paused_for_freetoken():
+    stacks = MODULE.read_text().split("stacks = [", 1)[1].split("];", 1)[0]
+    stacks = "\n".join(
+        line for line in stacks.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert '"whisper-gpu"' not in stacks
+    assert '"qwen4b-gpu"' not in stacks
+
+
 def test_esp_verifier_checks_exact_declared_units_individually():
     module = MODULE.read_text()
     stacks = module.split("stacks = [", 1)[1].split("];", 1)[0]
+    stacks = "\n".join(
+        line for line in stacks.splitlines() if not line.lstrip().startswith("#")
+    )
     declared = re.findall(r'"([^"]+)"', stacks)
     recipe = JUSTFILE.read_text().split(
         "verify-kepler-after-esp-migration:", 1

@@ -15,6 +15,8 @@
       agents.extraText = builtins.readFile ./agent-policy.md;
     };
 
+    home.sessionVariables.GRAPHIFY_NO_TIPS = "1";
+
     home.file.".agents/skills/codehero".source = ./codex-skills/codehero;
     home.file.".agents/skills/grill".source = ./codex-skills/grill;
     home.file.".agents/skills/ip".source = ./codex-skills/ip;
