@@ -67,11 +67,33 @@
                 output = 384000;
               };
             };
+            deepseek-v4-pro = {
+              name = "DeepSeek V4 Pro (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.00000174;
+                output = 0.00000384;
+              };
+              limit = {
+                context = 1000000;
+                output = 384000;
+              };
+            };
             glm-5 = {
               name = "GLM-5.2 (LiteLLM → OpenCode Go)";
               cost = {
                 input = 0.0000014;
                 output = 0.0000044;
+              };
+              limit = {
+                context = 1000000;
+                output = 131072;
+              };
+            };
+            "glm-5.3-flash" = {
+              name = "GLM-5.3 Flash (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.000000075;
+                output = 0.00000025;
               };
               limit = {
                 context = 1000000;
@@ -98,6 +120,17 @@
               limit = {
                 context = 98304;
                 output = 32768;
+              };
+            };
+            "qwen3.8-flash" = {
+              name = "Qwen3.8 Flash (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.00000015;
+                output = 0.00000047;
+              };
+              limit = {
+                context = 1000000;
+                output = 131072;
               };
             };
             qwen-embed = {
