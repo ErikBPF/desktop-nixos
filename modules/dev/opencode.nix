@@ -145,9 +145,15 @@
             apiKey = "{env:OPENCODE_WORK_KEY}";
           };
           models = {
-            "chatgpt-5.6-luna" = {};
-            "chatgpt-5.6-sol" = {};
-            "chatgpt-5.6-terra" = {};
+            "chatgpt-5.6-luna" = {
+              options.reasoningEffort = "none";
+            };
+            "chatgpt-5.6-sol" = {
+              options.reasoningEffort = "none";
+            };
+            "chatgpt-5.6-terra" = {
+              options.reasoningEffort = "none";
+            };
             "deepseek-v4-flash" = {};
             "deepseek-v4-pro" = {};
             "glm-5.3-flash" = {};
