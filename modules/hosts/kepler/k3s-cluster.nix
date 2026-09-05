@@ -216,6 +216,21 @@ in {
         # upgrade). Identical Nix manifests across servers = no conflict (k3s only
         # warns about *manual* drift). RFC §5.9 / §13.
         ++ lib.optional (s.role == "server") {
+          services.k3s.manifests.coredns-private-zone.content = {
+            apiVersion = "v1";
+            kind = "ConfigMap";
+            metadata = {
+              name = "coredns-custom";
+              namespace = "kube-system";
+            };
+            data."homelab.server" = ''
+              homelab.pastelariadev.com:53 {
+                cache 30
+                forward . 192.168.10.210
+              }
+            '';
+          };
+
           services.k3s.autoDeployCharts = {
             # ingress-nginx removed (RFC §14 cutover complete) — Traefik is the
             # default IngressClass, the kepler LB fronts its NodePort (30444), and
@@ -234,6 +249,18 @@ in {
               targetNamespace = "monitoring";
               createNamespace = true;
               values = {
+                image = {
+                  registry = "harbor.homelab.${domain}";
+                  repository = "dockerhub/grafana/alloy";
+                  tag = "v1.18.1";
+                  digest = "sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33";
+                };
+                configReloader.image = {
+                  registry = "harbor.homelab.${domain}";
+                  repository = "quay/prometheus-operator/prometheus-config-reloader";
+                  tag = "v0.91.0";
+                  digest = "sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1";
+                };
                 controller = {
                   type = "daemonset";
                   # Run on every node incl. the NoSchedule-tainted control planes,
@@ -287,6 +314,13 @@ in {
               mountPoint = "/tokens";
               proto = "virtiofs";
             }
+            {
+              tag = "harbor-reader";
+              source = "/run/harbor-reader";
+              mountPoint = "/run/harbor-reader";
+              proto = "virtiofs";
+              readOnly = true;
+            }
           ]
           # CP nodes write embedded-etcd snapshots to a host-backed /bulk subdir.
           ++ lib.optional s.controlPlane {
@@ -338,6 +372,9 @@ in {
       # Pod-level isolation is k8s NetworkPolicy (default-deny baseline), not the
       # node firewall.
       networking.firewall.enable = false;
+      # Pods inherit CoreDNS -> guest resolv.conf. AdGuard owns the private
+      # homelab zone; public resolvers are transport-failure fallbacks only.
+      networking.nameservers = ["192.168.10.210" "1.1.1.1" "9.9.9.9"];
       boot.kernel.sysctl."vm.max_map_count" = 262144;
 
       # Pull docker.io through the Harbor pull-through cache on discovery
@@ -347,13 +384,7 @@ in {
       # can't resolve discovery's SWAG hostname via fleet DNS, so pin it to
       # discovery's LAN IP (reached from the private subnet via kepler's NAT).
       networking.hosts."192.168.10.210" = ["harbor.homelab.${domain}"];
-      environment.etc."rancher/k3s/registries.yaml".text = ''
-        mirrors:
-          docker.io:
-            endpoint:
-              - "https://harbor.homelab.${domain}/v2/dockerhub"
-              - "https://registry-1.docker.io"
-      '';
+      services.k3s.extraFlags = ["--private-registry=/run/harbor-reader/registries.yaml"];
 
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
@@ -562,6 +593,16 @@ in {
       sops.secrets =
         laneSecretAttrs
         // {
+          openbao-harbor-reader-kepler-role-id = {
+            inherit sopsFile;
+            key = "openbao_harbor_reader_kepler_role_id";
+            mode = "0400";
+          };
+          openbao-harbor-reader-kepler-secret-id = {
+            inherit sopsFile;
+            key = "openbao_harbor_reader_kepler_secret_id";
+            mode = "0400";
+          };
           k3s-bootstrap-argocd-repo-ssh-key = {
             inherit sopsFile;
             key = "k3s_bootstrap/argocd_repo_ssh_key";
@@ -582,6 +623,10 @@ in {
 
       systemd.services =
         {
+          harbor-reader = {
+            requiredBy = map (name: "microvm@${name}.service") allNames;
+            before = map (name: "microvm@${name}.service") allNames;
+          };
           k3s-bootstrap-materialize = {
             description = "Materialize k3s bootstrap credentials for cp-1";
             requiredBy = ["microvm@cp-1.service"];

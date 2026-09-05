@@ -101,7 +101,7 @@
           ip = "192.168.10.225";
           mac = "b8:27:eb:15:7e:48";
           role = "server";
-          tailscaleIp = "100.75.250.107";
+          tailscaleIp = "100.67.123.113";
         };
         voyager = {
           # Public Oracle Cloud VM (ephemeral public IP, changes on recreate).

@@ -115,11 +115,18 @@ _: {
       };
       script = ''
         set -euo pipefail
+        retry_git() {
+          for attempt in $(seq 1 10); do
+            "$@" && return 0
+            [ "$attempt" -eq 10 ] && return 1
+            sleep 3
+          done
+        }
         export GIT_SSH_COMMAND="ssh -i ${keyPath} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/var/lib/hermes-wiki-ssh/known_hosts"
         if [ ! -d ${wikiDir}/.git ]; then
-          git clone --branch hermes git@github.com:ErikBPF/vault.git ${wikiDir}
+          retry_git git clone --branch hermes git@github.com:ErikBPF/vault.git ${wikiDir}
         else
-          git -C ${wikiDir} fetch origin hermes
+          retry_git git -C ${wikiDir} fetch origin hermes
           if [ "$(git -C ${wikiDir} status --porcelain -- .known_hosts)" = "?? .known_hosts" ]; then
             test ! -e /var/lib/hermes-wiki-ssh/known_hosts.pre-worktree
             mv ${wikiDir}/.known_hosts /var/lib/hermes-wiki-ssh/known_hosts.pre-worktree

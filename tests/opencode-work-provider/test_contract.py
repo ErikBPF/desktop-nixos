@@ -17,6 +17,10 @@ def test_work_litellm_provider_uses_sops_token():
         "chatgpt-5.6-luna",
         "chatgpt-5.6-sol",
         "chatgpt-5.6-terra",
+    ):
+        assert f'"{model}" = {{\n              options.reasoningEffort = "none";\n            }};' in opencode
+
+    for model in (
         "deepseek-v4-flash",
         "deepseek-v4-pro",
         "glm-5.3-flash",

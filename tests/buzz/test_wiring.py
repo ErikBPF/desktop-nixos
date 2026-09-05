@@ -24,7 +24,7 @@ def test_kepler_exposes_buzz_only_on_tailscale():
     networking = (ROOT / "modules/hosts/kepler/networking.nix").read_text()
     compose = (ROOT / "modules/hosts/kepler/compose.nix").read_text()
 
-    assert "networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187 3000];" in networking
+    assert "networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187 3000 8085 8087];" in networking
     assert "interfaces.wt0" not in networking
     assert '"buzz"' in compose
 

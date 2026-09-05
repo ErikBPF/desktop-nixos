@@ -2,6 +2,7 @@
   bulkRwClients = builtins.concatStringsSep " " (map
     (host: "${config.fleet.hosts.${host}.tailscaleIp}(rw,sync,no_subtree_check,root_squash)")
     ["orion" "apollo" "endeavour"]);
+  apolloLanRwClient = "${config.fleet.hosts.apollo.ip}(rw,sync,no_subtree_check,root_squash)";
 in {
   flake.modules.nixos.kepler-nas = {pkgs, ...}: {
     # --- NFS exports ---
@@ -17,7 +18,7 @@ in {
       lockdPort = 4001;
       exports = ''
         /fast  192.168.10.0/24(rw,sync,no_subtree_check,no_root_squash) 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)
-        /bulk  ${bulkRwClients} 192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
+        /bulk  ${bulkRwClients} ${apolloLanRwClient} 192.168.10.0/24(ro,sync,no_subtree_check,root_squash) 100.64.0.0/10(ro,sync,no_subtree_check,root_squash)
         /fast/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
         /bulk/k8s  10.250.0.0/24(rw,sync,no_subtree_check,no_root_squash)
       '';
@@ -32,6 +33,20 @@ in {
       "d /fast/k8s 0755 root root -"
       "d /bulk/k8s 0755 root root -"
     ];
+
+    systemd.services.cognee-backup-path = {
+      description = "Prepare Cognee backup path after local pools mount";
+      wantedBy = ["multi-user.target"];
+      after = ["local-fs.target"];
+      before = ["nfs-server.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        ${pkgs.coreutils}/bin/install -d -m 0770 -o erik -g users /fast/k8s/cognee-backups
+      '';
+    };
 
     # --- Samba ---
     # Provides read-write access to bulk storage for Windows/macOS clients

@@ -175,6 +175,21 @@ in {
           perms = "0400"
         }
         template {
+          contents = "{{ with secret \"secret/data/home/cognee-signing\" }}{{ .Data.data.COSIGN_PRIVATE_KEY }}{{ end }}"
+          destination = "/run/vault-agent/cognee-cosign.key"
+          perms = "0400"
+        }
+        template {
+          contents = "{{ with secret \"secret/data/home/cognee-signing\" }}{{ .Data.data.COSIGN_PASSWORD }}{{ end }}"
+          destination = "/run/vault-agent/cognee-cosign.password"
+          perms = "0400"
+        }
+        template {
+          contents = "{{ with secret \"secret/data/home/cognee-harbor-publisher\" }}HARBOR_PUBLISHER_USERNAME={{ .Data.data.HARBOR_PUBLISHER_USERNAME }}\nHARBOR_PUBLISHER_SECRET={{ .Data.data.HARBOR_PUBLISHER_SECRET }}\n{{ end }}"
+          destination = "/run/vault-agent/cognee-harbor-publisher.env"
+          perms = "0400"
+        }
+        template {
           contents = "${renderedAt}{{ with secret \"secret/data/home/ha-harness-litellm\" }}LITELLM_API_KEY={{ .Data.data.LITELLM_API_KEY }}\n{{ end }}{{ with secret \"secret/data/home/ha-harness\" }}HA_HARNESS_TOKEN={{ .Data.data.HA_HARNESS_TOKEN }}\n{{ end }}"
           destination = "/run/vault-agent/ha-harness.env"
           perms = "0440"

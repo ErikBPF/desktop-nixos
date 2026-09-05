@@ -22,8 +22,10 @@ RUNTIME_DIR="${HARBOR_RUNTIME_DIR:-$DIR}"
 ENV_FILE="$RUNTIME_DIR/.env"
 TMPL="$DIR/config/harbor/harbor.yml.tmpl"
 INSTALLER_DIR="$RUNTIME_DIR/.harbor-installer"     # gitignored cache
-HARBOR_DIR="$INSTALLER_DIR/harbor"
+VERSION_DIR="$INSTALLER_DIR/$HARBOR_VERSION"
+HARBOR_DIR="$VERSION_DIR/harbor"
 TARBALL="harbor-online-installer-${HARBOR_VERSION}.tgz"
+TARBALL_PATH="$VERSION_DIR/$TARBALL"
 URL="https://github.com/goharbor/harbor/releases/download/${HARBOR_VERSION}/${TARBALL}"
 DATA_VOLUME="/home/erik/vault/harbor"
 
@@ -45,24 +47,24 @@ for v in HOMELAB_DOMAIN HARBOR_ADMIN_PASSWORD HARBOR_DB_PASSWORD; do
   [ -n "${!v}" ] || { echo "❌ $v not set (checked $VAULT_ENV then $ENV_FILE)"; exit 1; }
 done
 
-mkdir -p "$INSTALLER_DIR" "$DATA_VOLUME"
+mkdir -p "$VERSION_DIR" "$DATA_VOLUME"
 
 # Provision the installer once (cached). Prefer the Nix-pinned tarball
 # (HARBOR_INSTALLER_TGZ, set by harbor.service) over a runtime fetch.
 if [ ! -x "$HARBOR_DIR/install.sh" ]; then
   if [ -n "${HARBOR_INSTALLER_TGZ:-}" ] && [ -f "${HARBOR_INSTALLER_TGZ}" ]; then
     echo ":: using pinned installer ${HARBOR_INSTALLER_TGZ}"
-    cp "$HARBOR_INSTALLER_TGZ" "$INSTALLER_DIR/$TARBALL"
+    cp "$HARBOR_INSTALLER_TGZ" "$TARBALL_PATH"
   else
     echo ":: fetching Harbor ${HARBOR_VERSION} installer"
-    curl -fL --retry 3 -o "$INSTALLER_DIR/$TARBALL" "$URL"
+    curl -fL --retry 3 -o "$TARBALL_PATH" "$URL"
   fi
   # Guard: a wrong tag yields a tiny HTML error page that curl -f may not catch.
-  if ! tar -tzf "$INSTALLER_DIR/$TARBALL" >/dev/null 2>&1; then
-    echo "❌ not a valid tarball ($(wc -c < "$INSTALLER_DIR/$TARBALL") bytes) — verify HARBOR_VERSION=${HARBOR_VERSION} exists at github.com/goharbor/harbor/releases"
-    rm -f "$INSTALLER_DIR/$TARBALL"; exit 1
+  if ! tar -tzf "$TARBALL_PATH" >/dev/null 2>&1; then
+    echo "❌ not a valid tarball ($(wc -c < "$TARBALL_PATH") bytes) — verify HARBOR_VERSION=${HARBOR_VERSION} exists at github.com/goharbor/harbor/releases"
+    rm -f "$TARBALL_PATH"; exit 1
   fi
-  tar -xzf "$INSTALLER_DIR/$TARBALL" -C "$INSTALLER_DIR"
+  tar -xzf "$TARBALL_PATH" -C "$VERSION_DIR"
 fi
 
 # Render harbor.yml (substitute ONLY our three vars — pure bash, no envsubst
@@ -100,16 +102,18 @@ else
 fi
 
 # Harbor's generated proxy can drop Basic auth before core's token service.
-# Keep the fix outside the prepare branch so existing cached installs heal too.
+# Keep this outside the prepare branch so existing cached installs heal too.
 NGINX_CONFIG="common/config/nginx/nginx.conf"
 reload_nginx=false
 if ! $SUDO grep -Fq 'proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"; then
   $SUDO sed -i '/proxy_set_header X-Forwarded-Proto \$x_forwarded_proto;/a\      proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"
+  $SUDO grep -Fq 'proxy_set_header Authorization $http_authorization;' "$NGINX_CONFIG"
   reload_nginx=true
 fi
 echo ":: bring up harbor"
 $SUDO docker compose up -d
 $reload_nginx && $SUDO docker compose exec -T proxy nginx -s reload
+$SUDO ln -sfn "$HARBOR_DIR" "$INSTALLER_DIR/current"
 
 echo ":: harbor containers:"
 $SUDO docker compose ps

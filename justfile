@@ -3,7 +3,7 @@ profile := "endeavour"
 # Host IPs (LAN, SSH port 2222). Endeavour is Tailscale-only (roaming).
 # Derived from the fleet SSOT (modules/meta.nix → fleet.json); regenerate with
 # `just fleet-json` after changing an IP. archinaut is wifi (wlan0, DHCP-reserved
-# on the wlan0 MAC; wired retired) — roaming/admin → deploy via tailscale.
+# on the wlan0 MAC; wired retired) — roaming/admin via Tailscale, deploy-rs via LAN.
 ip_discovery := `jq -r '.hosts.discovery.ip' fleet.json`
 ip_orion := `jq -r '.hosts.orion.ip' fleet.json`
 ip_pathfinder := `jq -r '.hosts.pathfinder.ip' fleet.json`
@@ -815,7 +815,8 @@ verify-kepler-after-esp-migration:
         podman-compose-buzz.service \
         podman-compose-monitoring.service \
         podman-compose-sync.service \
-        podman-compose-security.service; do
+        podman-compose-security.service \
+        podman-compose-retrieval.service; do
         systemctl --user is-active --quiet "$unit" || exit 1
       done
       ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
@@ -925,7 +926,6 @@ orion-home-backup-inventory:
       echo ":: excluded nested mounts"
       findmnt -R /home/erik 2>/dev/null || true
     '
-
 
 # Full encrypted NVMe-home safety snapshot plus one-pass selective restore of
 # four evidence classes. SATA mounts are excluded by tar --one-file-system.
@@ -2708,7 +2708,7 @@ servarr-rollout-status target commit="":
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
     case "$target" in
-      kepler) stacks=(infra buzz monitoring sync security) ;;
+      kepler) stacks=(infra buzz monitoring sync security retrieval) ;;
       orion) stacks=(shared monitoring ai-models sync) ;;
       voyager) stacks=(offsite) ;;
       *) die "host outside exact-pin rollout" ;;
@@ -2948,38 +2948,11 @@ sync-hermes-skills target:
         "$SRC/" \
         "erik@$IP:/home/erik/hermes-skills/"
 
-# List current Kubernetes Grafana alert instances. Credentials stay inside the
-# Grafana pod; output contains only alert state, labels, and annotations.
+# Grafana alert inventory belongs to the GitOps repository with its runtime.
 grafana-alert-status:
     #!/usr/bin/env bash
-    set -euo pipefail
-    export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/pastelariadev-lan.yaml}"
-    test -r "$KUBECONFIG"
-    pod=$(kubectl -n monitoring get pod \
-      -l app.kubernetes.io/name=grafana \
-      --field-selector=status.phase=Running \
-      -o jsonpath='{.items[0].metadata.name}')
-    test -n "$pod"
-    kubectl -n monitoring exec "$pod" -c grafana -- sh -c '
-      set -euo pipefail
-      user=${GF_SECURITY_ADMIN_USER:-admin}
-      password=${GF_SECURITY_ADMIN_PASSWORD:?}
-      curl -fsS --user "$user:$password" \
-        "http://127.0.0.1:3000/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false"
-    ' | jq -r '
-      if length == 0 then
-        "active=0"
-      else
-        "active=\(length)",
-        (.[] | [
-          (.status.state // "active"),
-          (.labels.severity // "unknown"),
-          (.labels.alertname // .labels.rulename // "unnamed"),
-          (.labels.instance // "-"),
-          (.annotations.summary // "-")
-        ] | @tsv)
-      end
-    '
+    echo "Moved to homelab-gitops: just grafana-alert-status" >&2
+    exit 2
 
 # Read recent systemd status and journal for the failed-unit alert allowlist.
 grafana-alert-diagnostics:
@@ -3342,6 +3315,43 @@ diagnose-stack target stack:
     set -euo pipefail
     IP="$(just _host-ip {{target}})"
     ssh -p 2222 erik@"$IP" 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n30 || true; journalctl --user -u podman-compose-{{stack}}.service --no-pager -n50'
+
+# One-time cutover from the old manually started stateless BGE containers.
+kepler-retire-legacy-retrieval:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip kepler)"
+    ssh -p 2222 erik@"$IP" 'bash -se' <<'REMOTE'
+      set -euo pipefail
+      export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+      digest=@sha256:aedf3b34836dc57289583142adcf2b93836cda0736ac8e6ce43691b9c2c67170
+      legacy=ghcr.io/huggingface/text-embeddings-inference:86-1.9
+      systemctl --user stop podman-compose-retrieval.service || true
+      for name in bge-m3 bge-reranker-v2-m3; do
+        mapfile -t ids < <(docker ps -aq --no-trunc --filter "name=^/${name}$")
+        [[ ${#ids[@]} -le 1 ]]
+        if [[ ${#ids[@]} -eq 1 ]]; then
+          docker inspect -- "${ids[0]}" | jq -r --arg name "$name" '
+            .[0] | "name=\(.Name) image=\(.Config.Image) project=\(.Config.Labels["com.docker.compose.project"] // "none")"
+          '
+          docker inspect -- "${ids[0]}" | jq -e --arg name "$name" --arg digest "$digest" --arg legacy "$legacy" '
+            .[0]
+            | select(.Name == $name or .Name == "/" + $name)
+            | select(
+                (.Config.Image | endswith($digest))
+                or (
+                  .Config.Image == $legacy
+                  and .Config.Labels["com.docker.compose.project"] == "kepler"
+                )
+              )
+          ' >/dev/null
+          docker rm -f -- "${ids[0]}" >/dev/null
+        fi
+      done
+      systemctl --user reset-failed podman-compose-retrieval.service
+      systemctl --user restart podman-compose-retrieval.service
+      systemctl --user status podman-compose-retrieval.service --no-pager -n15
+    REMOTE
 
 # Remove Orion's stateless legacy llama-chat, then use the canonical stack lifecycle.
 orion-retire-legacy-llama:
@@ -4343,6 +4353,35 @@ openbao-eso-contract:
         | jq -r .data.policy
     '
 
+# Store Cognee's encrypted Cosign keypair in its exact OpenBao path.
+# Secret values travel only through stdin and never enter argv or stdout.
+bootstrap-cognee-signing private_key password_file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    private_key={{quote(private_key)}}
+    password_file={{quote(password_file)}}
+    test "$(stat -c %a "$private_key")" = 600
+    test "$(stat -c %a "$password_file")" = 600
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    jq -cn \
+      --arg token "$token" \
+      --rawfile key "$private_key" \
+      --rawfile password "$password_file" \
+      '{token:$token,key:$key,password:($password | rtrimstr("\n"))}' |
+      ssh -p 2222 erik@{{ip_discovery}} '
+        set -euo pipefail
+        payload=$(cat)
+        token=$(jq -er .token <<<"$payload")
+        secret=$(jq -c "{COSIGN_PRIVATE_KEY:.key,COSIGN_PASSWORD:.password}" <<<"$payload")
+        unset payload
+        export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$token"
+        unset token
+        printf "%s" "$secret" | bao kv put secret/home/cognee-signing @/dev/stdin >/dev/null
+        unset secret BAO_TOKEN
+        echo ":: Cognee signing secret stored"
+      '
+    unset token
+
 # List OpenBao audit devices and safe transport options only.
 openbao-audit-status:
     #!/usr/bin/env bash
@@ -4427,6 +4466,130 @@ capture-k3s-vault-lane-secrets:
     done
     unset token
     echo ":: lane AppRole credentials encrypted in sops"
+
+# Rotate exact-path Harbor reader/publisher AppRole credentials into Sops.
+capture-harbor-project-iam-approle-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    for capability in reader publisher; do
+      role="svc-homelab-iac-openbao-harbor-project-iam-$capability"
+      credentials=$(
+        printf '%s\n%s\n' "$token" "$role" | ssh -p 2222 erik@{{ip_discovery}} '
+          set -euo pipefail
+          IFS= read -r token
+          IFS= read -r role
+          case "$role" in
+            svc-homelab-iac-openbao-harbor-project-iam-reader|svc-homelab-iac-openbao-harbor-project-iam-publisher) ;;
+            *) exit 2 ;;
+          esac
+          cfg=$(mktemp)
+          accessor_file="${cfg}.accessors"
+          trap "rm -f $cfg $accessor_file" EXIT
+          printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+          unset token
+          chmod 600 "$cfg"
+          http_status=$(curl --header @"$cfg" --silent --show-error --request LIST \
+            --output "$accessor_file" --write-out "%{http_code}" \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id")
+          case "$http_status" in
+            200) accessors=$(cat "$accessor_file") ;;
+            404) accessors='{"data":{"keys":[]}}' ;;
+            *) echo "SecretID accessor listing returned HTTP $http_status" >&2; exit 1 ;;
+          esac
+          while IFS= read -r accessor; do
+            jq -cn --arg accessor "$accessor" "{secret_id_accessor: \$accessor}" | \
+              curl --header @"$cfg" --silent --show-error --fail --request POST \
+                --data @- \
+                "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id-accessor/destroy" \
+                >/dev/null
+          done < <(jq -r ".data.keys[]?" <<<"$accessors")
+          role_id=$(curl --header @"$cfg" --silent --show-error --fail \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/role-id" | jq -er .data.role_id)
+          secret_id=$(curl --header @"$cfg" --silent --show-error --fail --request POST \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id" | jq -er .data.secret_id)
+          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" "\$ARGS.named"
+        '
+      )
+      key_prefix="openbao_harbor_project_iam_$capability"
+      jq -jer .role_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "[\"homelab_iac\"][\"${key_prefix}_role_id\"]"
+      jq -jer .secret_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "[\"homelab_iac\"][\"${key_prefix}_secret_id\"]"
+      unset credentials
+    done
+    unset token
+    echo ":: Harbor project-IAM AppRole credentials rotated into sops"
+
+# Rotate the fleet-reader publisher plus each projected host's exact-read
+# AppRole directly into Sops. Harbor robot values remain OpenBao-only.
+capture-harbor-fleet-reader-approle-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token=$(sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml)
+    for identity in publisher discovery endeavour kepler; do
+      case "$identity" in
+        publisher)
+          role=svc-homelab-iac-openbao-harbor-fleet-readers-publisher
+          key_prefix=openbao_harbor_fleet_readers_publisher
+          key_scope='["homelab_iac"]'
+          ;;
+        discovery|endeavour|kepler)
+          role="svc-desktop-nixos-$identity-harbor-reader"
+          key_prefix="openbao_harbor_reader_${identity}"
+          key_scope=
+          ;;
+        *) exit 2 ;;
+      esac
+      credentials=$(
+        printf '%s\n%s\n' "$token" "$role" | ssh -p 2222 erik@{{ip_discovery}} '
+          set -euo pipefail
+          IFS= read -r token
+          IFS= read -r role
+          case "$role" in
+            svc-homelab-iac-openbao-harbor-fleet-readers-publisher|svc-desktop-nixos-discovery-harbor-reader|svc-desktop-nixos-endeavour-harbor-reader|svc-desktop-nixos-kepler-harbor-reader) ;;
+            *) exit 2 ;;
+          esac
+          cfg=$(mktemp)
+          accessor_file="${cfg}.accessors"
+          trap "rm -f $cfg $accessor_file" EXIT
+          printf "X-Vault-Token: %s\n" "$token" > "$cfg"
+          unset token
+          chmod 600 "$cfg"
+          http_status=$(curl --header @"$cfg" --silent --show-error --request LIST \
+            --output "$accessor_file" --write-out "%{http_code}" \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id")
+          case "$http_status" in
+            200) accessors=$(cat "$accessor_file") ;;
+            404) accessors='{"data":{"keys":[]}}' ;;
+            *) echo "SecretID accessor listing returned HTTP $http_status" >&2; exit 1 ;;
+          esac
+          while IFS= read -r accessor; do
+            jq -cn --arg accessor "$accessor" "{secret_id_accessor: \$accessor}" | \
+              curl --header @"$cfg" --silent --show-error --fail --request POST \
+                --data @- \
+                "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id-accessor/destroy" \
+                >/dev/null
+          done < <(jq -r ".data.keys[]?" <<<"$accessors")
+          role_id=$(curl --header @"$cfg" --silent --show-error --fail \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/role-id" | jq -er .data.role_id)
+          secret_id=$(curl --header @"$cfg" --silent --show-error --fail --request POST \
+            "http://127.0.0.1:8200/v1/auth/approle/role/$role/secret-id" | jq -er .data.secret_id)
+          jq -cn --arg role_id "$role_id" --arg secret_id "$secret_id" "\$ARGS.named"
+        '
+      )
+      jq -jer .role_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "${key_scope}[\"${key_prefix}_role_id\"]"
+      jq -jer .secret_id <<<"$credentials" | jq -Rs . \
+        | sops set --value-stdin secrets/sops/secrets.yaml \
+          "${key_scope}[\"${key_prefix}_secret_id\"]"
+      unset credentials
+    done
+    unset token
+    echo ":: Harbor fleet-reader AppRole credentials rotated into sops"
 
 # Collect sanitized K1 collision evidence. Collector executes from committed
 # stdin, writes nothing remotely, and emits only allowlisted runtime metadata.
@@ -6435,6 +6598,163 @@ discovery-swag-restore-drill:
     REMOTE
     echo ":: PASS: copied SWAG config and certificate validate on networkless Orion"
 
+# Read-only, value-free evidence for a Harbor activation failure.
+harbor-iam-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -u
+    systemctl status harbor.service --no-pager -l || true
+    systemctl show harbor.service -p ActiveState -p SubState -p Result -p NRestarts
+    journalctl -u harbor.service -b --no-pager -n 160 -o short-iso || true
+    printf '%s\n' ':: active installer'
+    if test -L /home/erik/servarr/machines/discovery/.harbor-installer/current; then
+      readlink /home/erik/servarr/machines/discovery/.harbor-installer/current
+    else
+      printf '%s\n' absent
+    fi
+    printf '%s\n' ':: harbor containers'
+    sudo docker ps -a --format json |
+      jq -r 'select((.Names // "") | test("harbor|registry")) |
+        [.Names, .State, .Status, .Image] | @tsv'
+    REMOTE
+
+# Report only whether Harbor's database owns a non-empty admin credential.
+harbor-admin-credential-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    sudo docker exec harbor-db psql -X -U postgres -d registry -Atqc \
+      "SELECT json_build_object(
+        'admin_rows', count(*),
+        'salt_present', coalesce(bool_and(length(salt) > 0), false),
+        'password_present', coalesce(bool_and(length(password) > 0), false),
+        'password_version', max(password_version)
+      ) FROM harbor_user WHERE username = 'admin';"
+    REMOTE
+
+# Reset only Harbor's DB-backed admin credential to the rendered Vault value.
+harbor-admin-password-recover snapshot_id confirmation="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    snapshot_id={{ quote(snapshot_id) }}
+    confirmation={{ quote(confirmation) }}
+    [[ $snapshot_id =~ ^[0-9]{8}T[0-9]{6}Z$ ]]
+    [[ $confirmation == "reset-db-admin-password" ]] || {
+      echo "confirmation must equal reset-db-admin-password" >&2
+      exit 64
+    }
+    ssh -p 2222 erik@{{ip_orion}} bash -s -- "$snapshot_id" <<'REMOTE'
+    set -euo pipefail
+    target="/projects/recovery/harbor-iam/$1"
+    test -d "$target"
+    cd "$target"
+    sha256sum --check --status SHA256SUMS
+    REMOTE
+    ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    updated=$(sudo docker exec harbor-db psql -X -U postgres -d registry -Atqc \
+      "WITH reset AS (
+        UPDATE harbor_user SET salt = '', password = ''
+        WHERE user_id = 1 AND username = 'admin'
+        RETURNING user_id
+      ) SELECT count(*) FROM reset;")
+    test "$updated" = 1
+    sudo docker restart harbor-core >/dev/null
+    ready=false
+    for _ in $(seq 1 60); do
+      if curl -fsS http://127.0.0.1:8085/api/v2.0/health >/dev/null; then
+        ready=true
+        break
+      fi
+      sleep 2
+    done
+    $ready
+    REMOTE
+    just harbor-iam-preflight vault
+    state=$(just harbor-admin-credential-diagnostic)
+    jq -e '
+      .admin_rows == 1 and
+      .salt_present == true and
+      .password_present == true and
+      .password_version == "pbkdf2_sha256"
+    ' <<<"$state" >/dev/null
+    echo "Harbor admin credential recovered from the Vault-rendered value"
+
+# Emit only the Harbor IAM metadata needed to decide whether OIDC migration is safe.
+harbor-iam-preflight source="vault":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source={{ quote(source) }}
+    case "$source" in
+      vault) env_file=/run/vault-agent/harbor.env ;;
+      fallback) env_file=/home/erik/servarr/machines/discovery/.env ;;
+      *) echo "source must be vault|fallback" >&2; exit 64 ;;
+    esac
+    ssh -p 2222 erik@{{ip_discovery}} \
+      "sudo /run/current-system/sw/bin/bash -s -- --env-file $env_file" \
+      < scripts/harbor-iam-preflight.sh
+
+# Capture the pre-mutation Harbor database and sanitized auth metadata on Orion.
+harbor-iam-snapshot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp=$(mktemp -d)
+    trap 'rm -rf -- "$tmp"' EXIT
+    chmod 700 "$tmp"
+    snapshot_id=$(date -u +%Y%m%dT%H%M%SZ)
+    target="/projects/recovery/harbor-iam/$snapshot_id"
+
+    just harbor-iam-preflight >"$tmp/harbor-auth.json"
+    ssh -p 2222 erik@{{ip_discovery}} \
+      'sudo docker exec harbor-db pg_dumpall -U postgres' \
+      | gzip -9 >"$tmp/harbor-db.sql.gz"
+    chmod 0600 "$tmp/harbor-auth.json" "$tmp/harbor-db.sql.gz"
+    (cd "$tmp" && sha256sum harbor-auth.json harbor-db.sql.gz >SHA256SUMS)
+    chmod 0600 "$tmp/SHA256SUMS"
+
+    ssh -p 2222 erik@{{ip_orion}} bash -s -- "$target" <<'REMOTE'
+    set -euo pipefail
+    target=$1
+    test ! -e "$target"
+    sudo install -d -m 0700 -o erik -g users "$target"
+    REMOTE
+    scp -P 2222 "$tmp/harbor-auth.json" "$tmp/harbor-db.sql.gz" \
+      "$tmp/SHA256SUMS" "erik@{{ip_orion}}:$target/"
+    ssh -p 2222 erik@{{ip_orion}} bash -s -- "$target" <<'REMOTE'
+    set -euo pipefail
+    target=$1
+    chmod 0600 "$target/harbor-auth.json" "$target/harbor-db.sql.gz" \
+      "$target/SHA256SUMS"
+    cd "$target"
+    sha256sum --check SHA256SUMS
+    REMOTE
+    printf 'snapshot_id=%s target=%s\n' "$snapshot_id" "$target"
+
+# Consume a mode-0600 Authentik bootstrap handoff into Sops and Kubernetes.
+bootstrap-authentik handoff="authentik-bootstrap.secrets.json":
+    scripts/bootstrap-authentik.sh {{quote(handoff)}}
+
+# Revoke Authentik bootstrap access after storing a dedicated IaC token.
+retire-authentik-bootstrap handoff="authentik-iac.secrets.json":
+    scripts/retire-authentik-bootstrap.sh {{quote(handoff)}}
+
+# Mint a 15-minute admin token into a private local handoff for IaC bootstrap.
+mint-authentik-admin-token handoff="authentik-admin-token.secrets.json":
+    bash scripts/authentik-admin-token.sh create {{quote(handoff)}}
+
+# Revoke the temporary admin token and remove its local handoff.
+revoke-authentik-admin-token handoff="authentik-admin-token.secrets.json":
+    bash scripts/authentik-admin-token.sh revoke {{quote(handoff)}}
+
+# Rotate the dedicated least-privilege provider token directly into Sops.
+rotate-authentik-iac-token:
+    bash scripts/rotate-authentik-iac-token.sh
+
+# Create, validate, or remove the private provider handoff for Harbor IAM IaC.
+harbor-iam-bootstrap-provider-handoff action="create" handoff="harbor-iam-bootstrap-provider.secrets.json":
+    bash scripts/harbor-iam-provider-handoff.sh {{quote(action)}} {{quote(handoff)}} {{ip_discovery}}
 
 # Read-only Harbor state/identity/capacity gate before copying vault data.
 discovery-harbor-restore-preflight:
@@ -6443,7 +6763,7 @@ discovery-harbor-restore-preflight:
     source_bytes=$(ssh -p 2222 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
       set -euo pipefail
       state=/home/erik/vault/harbor
-      installer=/home/erik/servarr/machines/discovery/.harbor-installer/harbor
+      installer=/home/erik/servarr/machines/discovery/.harbor-installer/current
       test "$(findmnt -nro UUID /home/erik/vault)" = d026033d-158d-49ca-9ff9-dd2d5c8a21dc
       sudo test -d "$state"
       test -d "$installer"
@@ -6498,7 +6818,7 @@ discovery-harbor-restore-seed:
       state_status=$?
       sudo rsync -aHAXx --numeric-ids --delete --stats \
         --rsync-path='sudo rsync' -e "$remote_shell" \
-        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/harbor/ "$installer/"
+        erik@{{ip_discovery}}:/home/erik/servarr/machines/discovery/.harbor-installer/current/ "$installer/"
       installer_status=$?
       set -e
       case "$state_status" in 0|24) ;; *) exit "$state_status" ;; esac

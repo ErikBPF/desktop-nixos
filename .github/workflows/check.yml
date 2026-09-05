@@ -29,7 +29,7 @@ jobs:
 
       - name: SBX package contract
         run: |
-          nix develop -c python -m pytest -q tests/sbx
+          nix develop -c python -m unittest discover -s tests/sbx -p 'test_*.py'
           nix build .#sbx --no-link
           nix run .#sbx -- version
 
