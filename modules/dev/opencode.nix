@@ -59,80 +59,67 @@
             deepseek-v4-flash = {
               name = "DeepSeek V4 Flash (LiteLLM → OpenCode Go)";
               cost = {
-                input = 0.00000014;
-                output = 0.00000028;
+                input = 0.14;
+                output = 0.28;
               };
               limit = {
                 context = 1000000;
                 output = 384000;
               };
             };
-            glm-5 = {
-              name = "GLM-5.2 (LiteLLM → OpenCode Go)";
+            deepseek-v4-pro = {
+              name = "DeepSeek V4 Pro (LiteLLM → OpenCode Go)";
               cost = {
-                input = 0.0000014;
-                output = 0.0000044;
+                input = 1.74;
+                output = 3.84;
+              };
+              limit = {
+                context = 1000000;
+                output = 384000;
+              };
+            };
+            "glm-5.3-flash" = {
+              name = "GLM-5.3 Flash (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.075;
+                output = 0.25;
               };
               limit = {
                 context = 1000000;
                 output = 131072;
               };
             };
-            mimo = {
-              name = "MiMo V2.5 (LiteLLM → OpenCode Go)";
-              cost = {
-                input = 0.00000014;
-                output = 0.00000028;
-              };
-              limit = {
-                context = 1000000;
-                output = 128000;
-              };
-            };
             qwen-chat = {
               name = "Qwen Chat (Orion)";
               cost = {
-                input = 0.000000195;
-                output = 0.00000156;
+                input = 0.25;
+                output = 0.75;
               };
               limit = {
                 context = 98304;
                 output = 32768;
               };
             };
+            "qwen3.8-flash" = {
+              name = "Qwen3.8 Flash (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.15;
+                output = 0.47;
+              };
+              limit = {
+                context = 1000000;
+                output = 131072;
+              };
+            };
             qwen-embed = {
               name = "Qwen Embed (Orion)";
               cost = {
-                input = 0.00000013;
+                input = 0.13;
                 output = 0.0;
               };
               limit = {
                 context = 32768;
                 output = 0;
-              };
-            };
-            # OpenCode Zen free tier (Homelab workspace, 100 req/day, $0) via the
-            # litellm zen-free* routes. deepseek is a heavy reasoner — prefer pickle.
-            zen-free = {
-              name = "Zen Free — DeepSeek V4 Flash (free, reasoner)";
-              cost = {
-                input = 0.0;
-                output = 0.0;
-              };
-              limit = {
-                context = 163840;
-                output = 8192;
-              };
-            };
-            zen-free-pickle = {
-              name = "Zen Free — Big Pickle (free, coder)";
-              cost = {
-                input = 0.0;
-                output = 0.0;
-              };
-              limit = {
-                context = 204800;
-                output = 8192;
               };
             };
           };
