@@ -15,6 +15,8 @@ OPTIONS = """hosts: builtins.mapAttrs (_: host: let c = host.config; in {
   kernelModules = c.boot.kernelModules;
   extraModules = map (p: p.pname or p.name) c.boot.extraModulePackages;
   toolkit = c.hardware.nvidia-container-toolkit.enable;
+  openDriver = if builtins.elem "nvidia" c.services.xserver.videoDrivers then c.hardware.nvidia.open else false;
+  cdiRequires = c.systemd.services.nvidia-container-toolkit-cdi-generator.requires or [];
   persistence = c.hardware.nvidia.nvidiaPersistenced;
   clocks = c.systemd.services.nvidia-conservative-clocks.script or "";
   clockDependencies = c.systemd.services.nvidia-conservative-clocks.requires or [];
@@ -71,7 +73,12 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertFalse(kepler["autoUpgrade"])
             self.assertFalse({"whisper-gpu", "qwen4b-gpu", "retrieval"} & set(kepler["stacks"]))
         with self.subTest(host="apollo"):
-            self.assertEqual(apollo["bootEntries"], 3)
+            self.assertEqual(apollo["bootEntries"], 5)
+            self.assertTrue(apollo["openDriver"])
+            self.assertFalse(any("nvidia-x11" in name or "nvidia-kernel-modules" in name
+                                 for name in apollo["extraModules"]))
+            self.assertTrue(any("nvidia-open" in name for name in apollo["extraModules"]))
+            self.assertIn("nvidia-conservative-clocks.service", apollo["cdiRequires"])
             self.assertEqual(apollo["drivers"], ["nvidia"])
             self.assertIn("nvidia", apollo["initrdModules"])
             self.assertTrue({"nvidia", "nvidia_modeset", "nvidia_uvm", "nvidia_drm"}
@@ -83,8 +90,10 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertTrue(apollo["graphics32Bit"])
             self.assertIn("nvtop", " ".join(apollo["packages"]))
             self.assertIn("nvidia-persistenced.service", apollo["clockDependencies"])
-            self.assertIn("--power-limit=170", apollo["clocks"])
-            self.assertIn("--lock-gpu-clocks=210,1500", apollo["clocks"])
+            self.assertEqual(apollo["clocks"], (ROOT / "modules/hosts/apollo/_gpu-power.sh").read_text())
+            self.assertIn("--id=", apollo["clocks"])
+            self.assertIn("--power-limit=", apollo["clocks"])
+            self.assertIn("clocks=210,1500", apollo["clocks"])
 
 
 if __name__ == "__main__":
