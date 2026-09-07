@@ -247,3 +247,17 @@ earlier host-only candidate over this layout. Six-host dry builds, targeted
 tmux regression, lint/format, documentation and live Orion checks passed.
 Keep upgrades disabled until the source lands on main, then re-enable through
 a reviewed source change while retaining `allowReboot = false`.
+
+## Integration review follow-up
+
+The candidate is rebased onto main's 2026-09-07 host reconciliation and OpenBao
+fixes. Review removed retired Gemini Herdr/kubeconfig/diagnostic recipes and
+Gemini-only tests, retaining shared Herdr checks under `tests/herdr-worklab`.
+Alias checks now follow Orion/Apollo umbrella entry points. Native Orion
+retains Tuicr through its Home Manager import; that final package addition
+awaits deployment. The existing disk cutover and upgrade hold remain active.
+
+The updated tests first reproduced the missing native Tuicr import and stale
+Gemini command paths, then passed with the fixes. After rebase, 45 focused
+checks pass, including upstream Apollo host checks. Lint, format, documentation
+and commit-hook secret checks pass. The role `.feature` remains unautomated.
