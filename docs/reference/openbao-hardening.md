@@ -1,6 +1,6 @@
 # OpenBao ingress and audit hardening
 
-**Status:** Implemented; deploy and verification commands below are the rollout gate.
+**Status:** Deployed and verified on Discovery, 2026-09-07.
 
 Discovery runs OpenBao on loopback, its tailnet address, and the dedicated
 SWAG bridge. SWAG terminates TLS and permits only LAN/tailnet source addresses.
@@ -43,7 +43,18 @@ Raft backup before restart and invokes the existing unseal service. Finish with
 required for secrets, rejection of spoofed forwarding headers, private audit
 file permissions, and active audit-device metadata without exposing values.
 
-If activation fails, deploy-rs preserves its normal rollback safeguards. If the
+The 2026-09-07 rollout passed the external, denial, audit, and service checks.
+The initial activation failed while Hermes images were still being extracted;
+deploy-rs restored the profile pointer but could not reactivate the older
+generation. After extraction and Hermes health checks completed, retrying the
+normal deployment succeeded and confirmed activation. Use
+`just discovery-activation-diagnostic` to compare running and boot profiles;
+do not assume a rollback summary proves runtime recovery. The initial post-unseal
+health check briefly returned 429 during Raft readiness; bounded retries handle
+that transition. IaC AppRole login reaches OpenBao but returns HTTP 400 and
+requires separate credential investigation.
+
+If activation fails, inspect deploy-rs rollback results. If the
 OpenBao restart fails, preserve its state and use the
 [existing recovery runbook](vault-disaster-recovery.md); never initialize a new
 store or restore over production as an ingress fix.
