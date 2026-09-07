@@ -183,7 +183,7 @@ Within the 6-step per-slice loop (global AGENTS.md "Per-slice TDD
 mechanics"), party-elicitation can substitute for step 2 ("grounded
 grill") when the slice's `behavior.md` crosses multiple expertise
 domains and a single-model grill would miss signals. Use it explicitly;
-the default step-2 grill stays single-model (architect, GLM).
+the default step-2 grill stays single-model (architect).
 
 If you ran party-elicitation at step 2, record the felt panel summary
 in `behavior.md` as a new section ("## Elicitation:") and proceed to

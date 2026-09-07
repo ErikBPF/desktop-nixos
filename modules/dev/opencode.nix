@@ -1,6 +1,6 @@
 {inputs, ...}: {
   flake.modules.home.opencode = _: {
-    imports = [inputs.opencode-flake.homeManagerModules.withPackage];
+    imports = [inputs.opencode-flake.homeManagerModules.withPackage ./_opencode-profiles.nix];
 
     # Provider keys for opencode's `{env:...}` substitution. Declarative port
     # of the former hand-made ~/.config/fish/conf.d/zz-opencode-secrets.fish:
@@ -15,28 +15,19 @@
       if [[ -r /run/secrets/opencode/work_key ]]; then
         export OPENCODE_WORK_KEY="$(</run/secrets/opencode/work_key)"
       fi
-      if [[ -r /run/secrets/opencode/zen_key ]]; then
-        export OPENCODE_GO_KEY="$(</run/secrets/opencode/zen_key)"
-      elif [[ -r "$HOME/.config/opencode/secrets.env" ]]; then
-        export OPENCODE_GO_KEY="$(grep '^OPENCODE_GO_KEY=' "$HOME/.config/opencode/secrets.env" | cut -d= -f2-)"
-      fi
     '';
 
     programs.opencode-profile = {
       enable = true;
       tui.enable = true;
       rtk.enable = true;
-      # The full instruction file (caveman + guidelines + doctrine + canary)
-      # is ported verbatim from the previously hand-managed
-      # ~/.config/opencode/AGENTS.md; profile style stays off because the
-      # file already carries its own caveman section.
+      # Instructions already carry the response style and shared repo policy.
       agents.preamble = "";
       agents.extraText = builtins.readFile ./opencode-agents.md;
     };
 
     # Host-local policy (opencode-flake RFC D3): provider routing and this
-    # fleet's extra guardrails stay out of the reusable profile. Ported
-    # verbatim from the hand-managed opencode.json (2026-07-02). Keys come
+    # fleet's extra guardrails stay out of the reusable profile. Keys come
     # from sops via opencode-client (the zsh snippet above sources
     # /run/secrets/opencode/*).
     programs.opencode.settings = {
@@ -44,9 +35,17 @@
       plugin = [
         "./plugins/rtk.ts"
         "${inputs.ponytail}/.opencode/plugins/ponytail.mjs"
+        # Context pruning: dedups tool outputs, purges stale errors, lets the
+        # model compress ranges. Version pinned exactly — floating specs would
+        # trigger the plugin's self-rm-rf auto-update path (audited 2026-09-05).
+        "@tarquinen/opencode-dcp@3.1.15"
       ];
-      model = "litellm/deepseek-v4-flash";
+      model = "litellm/glm-5.3-flash";
+      small_model = "litellm/glm-5.3-flash";
+      # 1.18.29 still uses this filter; policies cover the newer core path.
+      enabled_providers = ["litellm" "work"];
 
+      # Gateway /model/info snapshot, 2026-09-07; costs per million tokens.
       provider = {
         litellm = {
           npm = "@ai-sdk/openai-compatible";
@@ -59,6 +58,7 @@
             deepseek-v4-flash = {
               name = "DeepSeek V4 Flash (LiteLLM → OpenCode Go)";
               cost = {
+                cache_read = 0.014;
                 input = 0.14;
                 output = 0.28;
               };
@@ -70,6 +70,7 @@
             deepseek-v4-pro = {
               name = "DeepSeek V4 Pro (LiteLLM → OpenCode Go)";
               cost = {
+                cache_read = 0.044;
                 input = 1.74;
                 output = 3.84;
               };
@@ -89,17 +90,6 @@
                 output = 131072;
               };
             };
-            qwen-chat = {
-              name = "Qwen Chat (Orion)";
-              cost = {
-                input = 0.25;
-                output = 0.75;
-              };
-              limit = {
-                context = 98304;
-                output = 32768;
-              };
-            };
             "qwen3.8-flash" = {
               name = "Qwen3.8 Flash (LiteLLM → OpenCode Go)";
               cost = {
@@ -109,17 +99,6 @@
               limit = {
                 context = 1000000;
                 output = 131072;
-              };
-            };
-            qwen-embed = {
-              name = "Qwen Embed (Orion)";
-              cost = {
-                input = 0.13;
-                output = 0.0;
-              };
-              limit = {
-                context = 32768;
-                output = 0;
               };
             };
           };
@@ -133,63 +112,70 @@
           };
           models = {
             "chatgpt-5.6-luna" = {
+              limit = {
+                context = 922000;
+                output = 128000;
+              };
+              cost = {
+                cache_read = 0.02;
+                input = 0.2;
+                output = 1.2;
+              };
               options.reasoningEffort = "none";
             };
             "chatgpt-5.6-sol" = {
+              limit = {
+                context = 922000;
+                output = 128000;
+              };
+              cost = {
+                cache_read = 0.5;
+                input = 4.0;
+                output = 20.0;
+              };
               options.reasoningEffort = "none";
             };
             "chatgpt-5.6-terra" = {
+              limit = {
+                context = 922000;
+                output = 128000;
+              };
+              cost = {
+                cache_read = 0.2;
+                input = 2.0;
+                output = 12.0;
+              };
               options.reasoningEffort = "none";
             };
-            "deepseek-v4-flash" = {};
-            "deepseek-v4-pro" = {};
-            "glm-5.3-flash" = {};
-          };
-        };
-        opencode = {
-          npm = "@ai-sdk/openai-compatible";
-          name = "OpenCode Zen (direct escape-hatch)";
-          options = {
-            baseURL = "https://opencode.ai/zen/go/v1";
-            apiKey = "{env:OPENCODE_GO_KEY}";
-          };
-        };
-        openai = {
-          name = "OpenAI (ChatGPT subscription, OAuth via `opencode auth login openai`)";
-          models = {
-            "gpt-5.4" = {
-              name = "GPT-5.4";
+            "deepseek-v4-flash" = {
               limit = {
-                context = 200000;
-                output = 32000;
+                context = 1024000;
+                output = 384000;
+              };
+              cost = {
+                input = 0.22;
+                output = 0.66;
               };
             };
-            "gpt-5.4-mini" = {
-              name = "GPT-5.4 Mini";
+            "deepseek-v4-pro" = {
               limit = {
-                context = 200000;
-                output = 32000;
+                context = 1024000;
+                output = 384000;
+              };
+              cost = {
+                input = 0.87;
+                output = 1.74;
               };
             };
-            "gpt-5.5" = {
-              name = "GPT-5.5";
+            "glm-5.3-flash" = {
               limit = {
-                context = 200000;
-                output = 32000;
+                context = 1048576;
+                output = 131072;
               };
-            };
-            "gpt-5-codex" = {
-              name = "GPT-5 Codex";
-              limit = {
-                context = 200000;
-                output = 32000;
-              };
-            };
-            "gpt-5.3-codex-spark" = {
-              name = "GPT-5.3 Codex Spark";
-              limit = {
-                context = 200000;
-                output = 32000;
+              cost = {
+                cache_read = 0.015;
+                input = 0.075;
+                output = 0.25;
               };
             };
           };
@@ -212,16 +198,6 @@
           action = "provider.use";
           resource = "work";
         }
-        {
-          effect = "allow";
-          action = "provider.use";
-          resource = "opencode";
-        }
-        {
-          effect = "allow";
-          action = "provider.use";
-          resource = "openai";
-        }
       ];
 
       # Extends the profile's G1 rules with this host's extra denies and the
@@ -241,53 +217,22 @@
         };
       };
 
-      # Per-agent model routing (spicyphus per-slice loop): DeepSeek is the
-      # session default; architect/plan stay on GLM and executor subagents on
-      # MiMo. `build` inherits the session-wide model (no override). Spec +
-      # active model list discoverable via `opencode models litellm`.
+      # Helpers inherit the selected gateway/model. Architect remains read-only.
       agent = {
         plan = {
-          model = "litellm/glm-5";
           temperature = 0.1;
         };
         architect = {
           description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
           mode = "subagent";
-          model = "litellm/glm-5";
           temperature = 0.1;
           permission = {
             edit = "deny";
             bash = "deny";
           };
         };
-        general = {
-          model = "litellm/mimo";
-          temperature = 0.2;
-        };
-        explore = {
-          model = "litellm/mimo";
-          temperature = 0.1;
-        };
       };
 
-      # Per-slice skills HM-managed at `~/.config/opencode/skills/<name>/SKILL.md`
-      # via `xdg.configFile`. Sources-of-truth under
-      # `modules/dev/opencode-skills/<name>/SKILL.md`.
-      #
-      # `tdd-slice`: spicyphus per-slice 6-step loop (seed→grill→contract→
-      #   red tests→green impl→seed-integrity review+lessons); multi-model
-      #   dispatch (GLM architect + mimo general) + 3-retry self-improve cap.
-      # `tdd`: red-green-refactor discipline mechanics (one cycle per
-      #   vertical slice, never refactor while RED). Adapted from
-      #   obra/superpowers' bundled tdd skill — imposed declaratively here
-      #   after extraction, replacing the prior hand-installed
-      #   `~/.agents/skills/tdd/`.
-      # `party-elicitation`: multi-persona facilitator — picks 2-3
-      #   personas (Architect/Skeptic/Builder/PM/QA/Maintainer) per turn,
-      #   in-character cross-talk, exits on E. Genericized from BMAD
-      #   party-mode (no _bmad paths, no agent-manifest.csv, no bmad-speak.sh
-      #   hook) — the only BMAD skill we extracted before Phase-2 bulk
-      #   removal.
       compaction = {
         auto = true;
         tail_turns = 8;
@@ -298,11 +243,36 @@
       };
     };
 
-    xdg.configFile."opencode/skills/tdd-slice/SKILL.md".source =
-      ./opencode-skills/tdd-slice/SKILL.md;
-    xdg.configFile."opencode/skills/tdd/SKILL.md".source =
-      ./opencode-skills/tdd/SKILL.md;
-    xdg.configFile."opencode/skills/party-elicitation/SKILL.md".source =
-      ./opencode-skills/party-elicitation/SKILL.md;
+    # HM-managed skills (`opencode-skills/`) plus slash-command wrappers for
+    # the workflow skills and their dependency closure; each command loads the
+    # shared skill from ~/.agents/skills or ~/.config/opencode/skills.
+    xdg.configFile =
+      (builtins.listToAttrs (map (n: {
+          name = "opencode/skills/${n}/SKILL.md";
+          value.source = ./opencode-skills/${n}/SKILL.md;
+        }) [
+          "tdd-slice"
+          "tdd"
+          "party-elicitation"
+        ]))
+      // (builtins.listToAttrs (map (n: {
+          name = "opencode/command/${n}.md";
+          value.source = ./opencode-commands/${n}.md;
+        }) [
+          "pl"
+          "ip"
+          "rv"
+          "party"
+          "map"
+          "grill"
+          "codehero"
+          "tdd"
+        ]))
+      // {
+        # Vendored `graphify install --platform opencode` output (graphifyy
+        # uv-tool binary v0.9.53); re-vendor under modules/dev/graphify-skills
+        # when the uv tool is bumped.
+        "opencode/skills/graphify".source = ./graphify-skills/opencode;
+      };
   };
 }

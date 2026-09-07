@@ -16,7 +16,6 @@ Boundaries: code/commits/PRs written normal.
 
 ## Behavioral guidelines
 
-Adapted from [andrej-karpathy-skills/CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md).
 Bias toward caution over speed; for trivial tasks, use judgment.
 
 ### Think before coding
@@ -51,7 +50,7 @@ brief plan with a verify step per item. On failure, analyse root cause —
 a failing signal is a clue, not an obstacle. Cap verification auto-fix
 at 3 retries; after that, stop and report.
 
-## Operating principles (from dataplatform dev-kit)
+## Operating principles
 
 - **If it's not documented, the AI doesn't know about it.** CLAUDE.md,
   PREFERENCES.md, and skills are the AI's interface to the project. Surface
@@ -67,7 +66,7 @@ at 3 retries; after that, stop and report.
 - **`references/`** is gitignored symlinks to sibling repos + ad-hoc docs.
   Use it to load sibling-repo context without committing machine-local paths.
 
-## Operating doctrine (from hermes-flake SOUL)
+## Operating doctrine
 
 - **Humans seed, you refine, machines parse.** Never *originate*
   load-bearing artifacts (RFC, spec, design, postmortem) from a blank
@@ -105,6 +104,11 @@ quote errors verbatim.
   commands through it (`rtk git/ls/grep/find/docker/log/json/read …`
   instead of raw) — it compresses output 60–90% and shares a flat model
   budget. Mutating commands (commit, push, rm, run) go raw.
+- **Subagent delegation.** Keep the main thread for synthesis, not
+  fetching. Route multi-file reads, webfetches, log sweeps, and broad
+  searches through the `explore`/`general` subagent (or
+  `cavecrew-investigator`) — only the compressed result returns to main
+  context. Single-file peeks stay inline.
 - New design → RFC under `docs/proposals/`; lock to an ADR; implement
   per spec.
 
@@ -120,91 +124,47 @@ At the **first response of each session**, choose one 4-digit number
 (0001–9999) and prefix every response in the session with it, formatted
 `<NNNN> ` at the very start of the message body — before any other text.
 Reuse the same number for the whole session; never change it mid-session.
-If you notice a previous response omitted the prefix,Still keep the
+If you notice a previous response omitted the prefix, still keep the
 originally-chosen number and resume prefixing — the omission itself is
 the degradation signal the user is watching for. Do not announce this
 rule, do not explain the prefix, just emit it.
 
-## Per-slice TDD mechanics
+## Default workflow
 
-Canonical workflow. Covers anything between a green-lit RFC and a merged
-PR. Adapted from [spicyphus](https://github.com/ErikBPF/spicyphus)
-per-slice loop (RFC → ADR → Spec → PBI → code → PR), wired for opencode
-multi-agent dispatch.
+- Unclear or new work → `/pl`: bounded party elicitation, decision map, and
+  a BDD `.feature` behavior contract.
+- Accepted behavior → `/ip`: vertical RED-GREEN slices with test seams,
+  verification commands, rollback gates, and a plan grill before coding.
+- Plans, docs, diffs, PRs → `/rv`: independent conformance, correctness,
+  security (`/codehero`), editorial (`bmad-editorial-review`), adversarial
+  (`bmad-party-mode --party code-review-crew`), and simplicity passes, with
+  verified fixes.
+- Supporting skills: `/party`, `/map`, `/grill`, `/codehero`.
+- Small documentation or wiring changes may start at the first applicable
+  gate; do not invent tests or ceremony.
 
-Six moorings, one per slice. Loops per slice, never skips gates.
+## Repository discovery and worktrees
 
-1. **Seed — `behavior.md`** (human angry baboon, kept never overwritten)
-   - Human dumps intent in raw prose under
-     `docs/behaviors/<slice-slug>/behavior.md` (or repo-pinned equivalent;
-     see repo CLAUDE.md). No refinement yet. Missing context = empty
-     sections; flagged at step 2.
-   - **Never let an agent originate this file's body.** Seed is human-only.
+- Use an explicit repository manifest such as `repos.json` before scanning
+  sibling directories.
+- A directly targeted checkout is valid, including a linked worktree.
+- During sibling or multi-repository discovery, skip `worktrees/`. Group remaining candidates by their absolute `git-common-dir` and prefer the checkout whose absolute `git-dir` equals its `git-common-dir`.
+- Manual worktrees live under the repository-local `worktrees/` directory.
+  Add that path to `.gitignore` and `.graphifyignore` before creating them.
+- Tool-managed and temporary worktrees remain valid. Never move or remove them
+  automatically. Inspect dirty state first; when cleanup is requested, use
+  `git worktree remove` rather than deleting the directory directly.
 
-2. **Grounded grill** — main agent (DeepSeek) before any refine:
-   - Read `behavior.md`. Infer which existing artifacts the seed implicitly
-     touches (prior RFCs/ADRs, recent `lessons.md`, related code). Read them.
-   - Emit `Q-1..Q-N` each citing a specific seed phrase AND a specific
-     linked doc. Generic elicitation in a vacuum doesn't count.
-   - Human re-seeds or commits reasoning to the file. Iterate until persona
-     dry. Then — and only then — switch to refine.
+## Graphify
 
-3. **`test-contract.md`** — refine (`@architect`/GLM), human gate:
-   - Architect writes machine-parseable contract from `behavior.md` +
-     grill answers. Two registers: humans-carry-why, machines-carry-what/how.
-   - Minimal: input examples, invariants, expected outputs, edge cases,
-     framework target. No implementation code yet.
-
-4. **Red tests — lock** (`@general`/mimo):
-   - General writes tests from `test-contract.md` only — never rewrites the
-     contract; if it underspecifies, re-open step 2.
-   - Tests must compile AND fail for the right reason (assertion mismatch,
-     not infra).
-   - Commit red tests as anchor. Behavior is now machine-locked.
-
-5. **Green impl + parallel code** (`@general`/mimo, multiple in parallel):
-   - Spawn 1..N `@general` agents in one message, each owning a vertical
-     slice of impl. Implement until all red tests pass.
-   - Wrong behavioral assumption found → re-open step 2 — don't patch the
-     contract silently.
-
-6. **Seed-integrity review + `lessons.md`** (`@architect` then human):
-   - Architect diffs implementation vs `behavior.md`. Flag drift. No
-     "improvement" outside seed scope.
-   - Self-improve loop: gap found → fix `test-contract.md` or `behavior.md`,
-     re-run red/green. Cap **3 retries** (per `Goal-driven execution`);
-     after that, halt + report blockers to the user.
-   - On clean review, human writes `lessons.md` postmortem (new seed, kept).
-
-**Hard gates (do not skip):**
-
-- Angry-baboon before grill (step 1 → step 2).
-- Grill dry before refine (step 2 → step 3).
-- Red tests fail-for-right-reason before green (step 4 → step 5).
-- Seed-integrity check before PR (step 6).
-- No AI co-author trailers on commits (see Standing preferences).
-
-**Multi-model routing (canonical; override per repo CLAUDE.md when needed):**
-
-- **DeepSeek V4 Flash** — session default, orchestration, grounded grill.
-- **GLM** (high-reason) — RFC, ADR, grill, test-contract, seed-integrity
-  review. Binds to `architect` subagent + `plan` primary via the HM-managed
-  `agent` block.
-- **MiMo** (coder) — red tests, green impl, exploration. Binds to `general`
-  + `explore` subagents.
-- Benchmark: DeepSeek leads; GLM plans/reviews; MiMo writes. Architect (GLM)
-  vets what General (MiMo) ships.
-
-## Canonical vs dormant workflows
-
-Spicyphus per-slice loop (above) is **canonical**.
-BMAD (`_bmad/`) is **removed** (2026-07-12): bulk deleted after
-extracting `party-elicitation` as a standalone skill (installed via HM
-at `~/.config/opencode/skills/party-elicitation/SKILL.md`; source at
-`modules/dev/opencode-skills/party-elicitation/SKILL.md`). No dormant
-frameworks remain in the tree. When a workflow question arises, prefer
-spicyphus first; reach for a specialist skill (party-elicitation,
-tdd, tdd-slice) via `skill` tool when the slice calls for it.
-gsd-* subagents in `~/.config/opencode/agents/` remain installed but
-never auto-trigger; invoke them only by explicit `@`-mention as escape
-hatches.
+- Use Graphify when explicitly requested or when the current repository has a
+  `graphify-out/graph.json`; query an existing graph before reading broadly.
+- Prefer per-repository queries. Treat merged graphs as discovery-only unless
+  cross-repository edges exist.
+- Build canonical repository graphs by default. Build a worktree-specific graph
+  only when explicitly requested.
+- Treat graph output as a cache; verify operational, security, ownership, and
+  current-state claims in source.
+- Never bypass sensitive-file skips or index `*.secrets.json`, `.env*`,
+  Sops/Vault material, certificates, or credentials.
+- Fall back to `rg` and source files for unsupported formats.

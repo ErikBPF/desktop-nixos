@@ -513,11 +513,11 @@ change lands in first (per `Rule of thumb` above); this flake's
 
 **Multi-agent dispatch for nixos-flake slices:**
 
-- Architect (GLM, `opencode-go/glm-5.2`): grill, draft `test-contract.md`,
-  run seed-integrity diff. Model bind lives in `modules/dev/opencode.nix`
-  via HM.
-- General (MiMo pro, `opencode-go/mimo-v2.5-pro`): write red tests + green
-  impl. Source-of-trUTH: agent edits `modules/**` + `flake.nix` only —
+- Architect: grill, draft `test-contract.md`, run seed-integrity diff.
+  Helpers inherit the selected home/work gateway and model; both profiles
+  default to GLM 5.3 Flash through the Home Manager OpenCode configuration.
+- General: write red tests + green implementation with the same inherited
+  gateway and model. Source-of-trUTH: agent edits `modules/**` + `flake.nix` only —
   never edits `/nix/store` or remote host files (re-iterate the `Remote
   actions → repo → deploy` rule).
 - Verify: `just dry <host>` MUST pass before green claim; use CI or the
