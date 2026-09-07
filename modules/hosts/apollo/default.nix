@@ -86,9 +86,8 @@ in {
 
     boot.loader = {
       efi.canTouchEfiVariables = true;
-      # Keep the original AMD generation while concurrent staging advances profiles.
-      # Restore a finite limit after GPU-exchange acceptance.
-      systemd-boot.configurationLimit = null;
+      # GPU exchange and stable-MAC networking passed post-boot acceptance.
+      systemd-boot.configurationLimit = 3;
     };
 
     system.autoUpgrade.enable = false;
