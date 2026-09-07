@@ -141,3 +141,13 @@ Receive-only catch-up can retain local differences or conflict copies. Review
 those against the retained snapshot and source before accepting send/receive;
 never use Override or Revert to force counters to zero. Follow the preservation
 and two-way canary checks above. Keep both holds if recovery cannot be accepted.
+
+
+Apollo requests one Syncthing connection to Orion. During recovery, automatic
+parallel connections repeatedly replaced the index connection and produced
+`folder is not running` errors while receiving index updates. A single native
+connection avoids that extra connection lifecycle; other fleet peers retain
+existing defaults. Apply the generated `numConnections` field to Apollo's
+Orion device through the authenticated local API while the bootstrap updater
+is held; the normal generated updater owns it after acceptance. See
+[Syncthing connection negotiation](https://docs.syncthing.net/advanced/device-numconnections.html).

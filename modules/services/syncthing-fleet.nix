@@ -167,10 +167,13 @@
         # NixOS syncthing module uses the JSON API format, not XML:
         # XML rawListenAddresses → JSON API listenAddresses.
         options.listenAddresses = ["tcp://0.0.0.0:22000" "tcp://[::]:22000"];
-        devices = lib.genAttrs devices (peer: {
-          id = deviceIDs."${peer}_id";
-          addresses = ["tcp://${peer}:22000" "dynamic"];
-        });
+        devices = lib.genAttrs devices (peer:
+          {
+            id = deviceIDs."${peer}_id";
+            addresses = ["tcp://${peer}:22000" "dynamic"];
+          }
+          # One connection avoids index-handler churn during Apollo's first join.
+          // lib.optionalAttrs (name == "apollo") {numConnections = 1;});
         folders = lib.mapAttrs (id: f:
           {
             label = folderLabels.${id};
