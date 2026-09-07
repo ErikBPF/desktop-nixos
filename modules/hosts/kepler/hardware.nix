@@ -10,19 +10,14 @@ _: {
       (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
-    # --- Hardware detection (AMD Ryzen 5 3600, RTX 3070 LHR) ---
+    # --- Hardware detection (AMD Ryzen 5 3600, Radeon Tobago PRO (1002:665f)) ---
     boot.initrd.availableKernelModules = ["xhci_pci" "ahci" "usb_storage" "sd_mod" "usbhid"];
-    boot.initrd.kernelModules = ["nvidia"];
+    boot.initrd.kernelModules = ["amdgpu"];
     boot.kernelModules = [
       "kvm-amd"
       "mpt3sas" # LSI SAS3008 HBA (IT mode confirmed) — no drives yet, ready for HDDs
-      "nvidia"
-      "nvidia_modeset"
-      "nvidia_uvm"
-      "nvidia_drm"
+      "amdgpu"
     ];
-    boot.extraModulePackages = [config.boot.kernelPackages.nvidiaPackages.stable];
-    boot.blacklistedKernelModules = ["nouveau"];
 
     networking.useDHCP = lib.mkDefault false; # set per-interface in networking.nix
     nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
@@ -105,48 +100,16 @@ _: {
     # mount units and leaves zfs-mount.service failed despite healthy mounts.
     systemd.services.zfs-mount.enable = false;
 
-    # --- RTX 3070 LHR (GA104): headless CUDA, no display ---
-    services.xserver.videoDrivers = ["nvidia"];
+    # Apollo's observed amdgpu-bound Radeon; no CUDA workload on Kepler.
+    services.xserver.videoDrivers = ["amdgpu"];
 
     hardware.graphics = {
       enable = true;
       enable32Bit = true;
     };
 
-    hardware.nvidia = {
-      open = false;
-      modesetting.enable = true;
-      powerManagement.enable = false;
-      powerManagement.finegrained = false;
-      nvidiaSettings = false;
-      nvidiaPersistenced = true;
-      package = config.boot.kernelPackages.nvidiaPackages.stable;
-    };
-
-    hardware.nvidia-container-toolkit.enable = true;
-
-    # This card has produced repeatable NVIDIA Xid 13/31 faults under
-    # faster-whisper large-v3 inference at stock boost. Keep the model and
-    # reduce boost/power transients instead: 170 W is ~77% of the RTX 3070's
-    # stock 220 W limit, while 1500 MHz remains ample for voice STT latency.
-    systemd.services.nvidia-conservative-clocks = {
-      description = "Apply conservative NVIDIA power and clock limits";
-      wantedBy = ["multi-user.target"];
-      after = ["nvidia-persistenced.service"];
-      requires = ["nvidia-persistenced.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-      };
-      script = ''
-        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --power-limit=170
-        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --lock-gpu-clocks=210,1500
-      '';
-    };
-
     environment.systemPackages = with pkgs; [
       e2fsprogs
-      nvtopPackages.nvidia
       zfs
     ];
 

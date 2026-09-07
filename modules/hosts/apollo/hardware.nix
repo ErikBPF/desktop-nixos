@@ -2,10 +2,54 @@ _: {
   flake.modules.nixos.apollo-hardware = {
     config,
     lib,
+    pkgs,
     ...
   }: {
     boot.initrd.availableKernelModules = ["xhci_pci" "ehci_pci" "ahci" "usb_storage" "sd_mod"];
-    boot.kernelModules = ["kvm-intel"];
+    # RTX 3070 LHR exchanged from Kepler; retain its existing driver policy.
+    boot.initrd.kernelModules = ["nvidia"];
+    boot.kernelModules = ["kvm-intel" "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm"];
+    boot.extraModulePackages = [config.boot.kernelPackages.nvidiaPackages.stable];
+    boot.blacklistedKernelModules = ["nouveau"];
+
+    services.xserver.videoDrivers = ["nvidia"];
+    hardware.graphics = {
+      enable = true;
+      enable32Bit = true;
+    };
+
+    hardware.nvidia = {
+      open = false;
+      modesetting.enable = true;
+      powerManagement.enable = false;
+      powerManagement.finegrained = false;
+      nvidiaSettings = false;
+      nvidiaPersistenced = true;
+      package = config.boot.kernelPackages.nvidiaPackages.stable;
+    };
+
+    hardware.nvidia-container-toolkit.enable = true;
+
+    # This card has produced repeatable NVIDIA Xid 13/31 faults under
+    # faster-whisper large-v3 inference at stock boost. Keep the model and
+    # reduce boost/power transients instead: 170 W is ~77% of the RTX 3070's
+    # stock 220 W limit, while 1500 MHz remains ample for voice STT latency.
+    systemd.services.nvidia-conservative-clocks = {
+      description = "Apply conservative NVIDIA power and clock limits";
+      wantedBy = ["multi-user.target"];
+      after = ["nvidia-persistenced.service"];
+      requires = ["nvidia-persistenced.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --power-limit=170
+        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --lock-gpu-clocks=210,1500
+      '';
+    };
+
+    environment.systemPackages = [pkgs.nvtopPackages.nvidia];
 
     networking.useDHCP = lib.mkDefault false;
     hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
