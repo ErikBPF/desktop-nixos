@@ -75,6 +75,7 @@
           path = "/home/${u}/Documents/";
           syncAll = false;
           devices = ["discovery" "laptop" "pathfinder" "apollo"];
+          ignoreFile = ../common/stignore-orion-retained;
         };
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
         "tofu-state" = {

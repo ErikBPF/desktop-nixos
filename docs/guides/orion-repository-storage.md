@@ -58,3 +58,27 @@ system-disk trees and snapshot until a separately reviewed cleanup. For rollback
 stop writers and sync first, preserve new writes, and reconcile them before
 returning to the prior mount configuration; unmounting alone would expose stale
 original files.
+
+## Retained legacy directories
+
+Orion Documents adds `modules/common/stignore-orion-retained` to the shared
+ignore rules. Its 41 exact rooted exclusions cover 923 directory deletions
+blocked by ignored local files on 2026-09-07. Each root was verified as globally
+deleted and locally present before exclusion. Files remain in place, including
+local Git history and artifacts; these paths no longer receive or send changes.
+Five exclusions are narrow subdirectories inside otherwise active work repos.
+The homelab/dataplatform umbrellas and other sister repo paths remain in scope.
+Apollo and Orion's other folders keep their existing filters.
+
+Use `/path` without a trailing slash to match the directory itself and its
+children. Never use `(?d)` to silence these errors: it permits removal of ignored
+files. See [Syncthing's ignore semantics](https://docs.syncthing.net/users/ignoring.html).
+Before adding or removing an exclusion, inspect both the live global index and
+retained local files. Reintroducing a globally deleted path can resume deletion;
+copy/reconcile any wanted files outside that tombstoned path first.
+
+Deploy with the verification and `just switch-orion` sequence above. Request a
+Documents scan through the authenticated local API, without resetting the index.
+Require an unpaused, idle folder with no pending items or errors; compare retained
+file metadata before/after and verify an active repo probe in both directions
+with Apollo, including deletion of the probe.
