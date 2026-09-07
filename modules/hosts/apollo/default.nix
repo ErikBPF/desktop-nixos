@@ -86,8 +86,9 @@ in {
 
     boot.loader = {
       efi.canTouchEfiVariables = true;
-      # GPU exchange and stable-MAC networking passed post-boot acceptance.
-      systemd-boot.configurationLimit = 3;
+      # Preserve the accepted closed-driver boot during the three-GPU/open
+      # module preparation. Return to three after that hardware is accepted.
+      systemd-boot.configurationLimit = 5;
     };
 
     system.autoUpgrade.enable = false;
