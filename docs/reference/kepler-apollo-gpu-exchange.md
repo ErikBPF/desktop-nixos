@@ -1,6 +1,6 @@
 # Kepler / Apollo GPU exchange
 
-**Status:** Inventory and migration preparation; hardware exchange not performed.
+**Status:** GPUs exchanged; Kepler accepted. Apollo GPU accepted; [NIC recovery](apollo-nic-recovery.md) in progress.
 
 The operator selected removal of NVIDIA from Kepler by exchanging its GPU with
 Apollo. Household inference is explicitly suspended for now. Physical compatibility
@@ -41,11 +41,11 @@ implicitly authorize moving household inference there.
 
 The [pciutils ID database](https://kernel.googlesource.com/pub/scm/utils/pciutils/pciutils/+/7078ff5329bc467d32d41dc91667a8cfd871e767/pci.ids)
 identifies the AMD family; PCI ID alone does not prove board variant, VRAM,
-physical clearance or PSU suitability. The cards have not been exchanged.
+physical clearance or PSU suitability. This inventory predates the exchange.
 Neither host has `lspci` installed; sysfs provided the inventory above.
 
 The Radeon is not accepted as an equivalent CUDA inference replacement.
-Kepler's current source includes NVIDIA initrd/kernel modules, driver/toolkit,
+Kepler's pre-exchange source included NVIDIA initrd/kernel modules, driver/toolkit,
 persistence, `nvtopPackages.nvidia`, and a 170 W / 210–1500 MHz clock-limiting
 unit. That policy documents prior Xid 13/31 faults. Moving the card does not
 repair it: preserve those limits on Apollo until a bounded workload test proves
@@ -57,8 +57,8 @@ stability. Do not relax them as part of the exchange.
 is deliberately unautomated. Source preparation belongs here; workload/image and
 endpoint changes belong to Servarr, with IaC owning any required network policy.
 The coordination decision is maintained in Homelab's Orion/Apollo stability
-proposal. The reviewed candidate changes both host driver configurations; the running
-host generations remain unchanged until the physical exchange.
+proposal. Both hosts have booted the exchanged-driver configurations; Kepler
+passed acceptance, while Apollo requires the linked NIC recovery.
 
 1. Keep household inference suspended as selected; record future workload
    placement before drafting resume/service/route changes.
