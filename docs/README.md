@@ -37,6 +37,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`guides/obsidian.md`](guides/obsidian.md) | Obsidian + sync configuration for the desktop hosts. | Guide |
 | [`guides/install.md`](guides/install.md) | Host bootstrap walkthrough (nixos-anywhere / ISO paths). | Guide |
 | [`guides/yazi.md`](guides/yazi.md) | Nautilus/Yazi desktop workflow: launch shortcuts, GUI→Yazi keymap bridge, and path persistence. | Guide |
+| [`guides/apollo-repository-sync.md`](guides/apollo-repository-sync.md) | Selected Documents repo sync with Orion; guarded initial join. | Prepared; rollout evidence in homelab |
 | [`guides/umbrella-sessions.md`](guides/umbrella-sessions.md) | `l1/l2` on Orion; `w1/w2` on Apollo. | Active; client rollout host-specific |
 | [`guides/orion-retirement-staging.md`](guides/orion-retirement-staging.md) | Encrypted Kepler archives, checksums and Gemini retirement. | Completed 2026-09-07 |
 | [`guides/orion-repository-storage.md`](guides/orion-repository-storage.md) | Selected personal repositories on projects disk; stable umbrella paths. | Declarative placement; rollout evidence in homelab |
