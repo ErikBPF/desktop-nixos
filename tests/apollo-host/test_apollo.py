@@ -66,7 +66,10 @@ def test_apollo_uses_the_observed_lan_interface() -> None:
     network = read("modules/hosts/apollo/networking.nix")
 
     assert 'hostName = "apollo";' in network
-    assert 'enp6s0' in network
+    assert 'uplink = "lan0";' in network
+    assert 'interfaces.${uplink}.useDHCP = true;' in network
+    assert 'nat.externalInterface = uplink;' in network
+    assert 'matchConfig.PermanentMACAddress = config.flake.fleet.hosts.apollo.mac;' in network
 
 
 def test_apollo_nfs_uses_its_reachable_lan_path() -> None:
@@ -76,3 +79,15 @@ def test_apollo_nfs_uses_its_reachable_lan_path() -> None:
     assert 'config.networking.hostName == "apollo"' in client
     assert 'fleet.hosts.kepler.ip' in client
     assert 'config.fleet.hosts.apollo.ip' in server
+
+
+def test_deployment_can_recover_over_tailnet() -> None:
+    import subprocess
+
+    for recipe in ("deploy-rs", "deploy-rs-preview"):
+        command = subprocess.run(
+            ["just", "--dry-run", recipe, "apollo", "apollo"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        assert command.returncode == 0, command.stderr
+        assert "--hostname 'apollo'" in command.stderr
