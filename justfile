@@ -8802,3 +8802,74 @@ discovery-activation-diagnostic:
     timeout 15 sudo docker image ls --format "{{"{{"}}.Repository{{"}}"}} {{"{{"}}.ID{{"}}"}}" | grep hermes || true
     df -h /var/lib/docker /nix /home
     REMOTE
+
+# Value-free rollout evidence for the three remaining OpenCode consumers.
+opencode-rollout-status target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case '{{target}}' in pathfinder|orion|apollo) ;; *) exit 2;; esac
+    address=$(jq -r --arg host '{{target}}' '.hosts[$host].ip' fleet.json)
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$address" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    hostname
+    for path in /run/current-system /run/booted-system /nix/var/nix/profiles/system; do
+        printf '%s=%s\n' "$path" "$(readlink -f "$path")"
+    done
+    systemctl show home-manager-erik.service nixos-upgrade.service -p Id -p Result -p ActiveState
+    systemctl list-jobs --no-pager --no-legend
+    systemctl --failed --no-pager --no-legend
+    systemctl is-active sshd tailscaled
+    if command -v opencode-home >/dev/null; then opencode-home --version; fi
+    for command in opencode-home opencode-work opencode-home-omo opencode-work-omo; do
+        command -v "$command" || true
+    done
+    for profile in home work home-omo work-omo; do
+        file="$HOME/.config/opencode/profiles/$profile/opencode.json"
+        if [ -f "$file" ]; then
+            jq -c --arg profile "$profile" '{profile:$profile,model,small_model,enabled_providers}' "$file"
+        else
+            printf 'profile=%s absent\n' "$profile"
+        fi
+    done
+    for file in opencode.json tui.json opencode.json.backup tui.json.backup; do
+        path="$HOME/.config/opencode/$file"
+        if [ -e "$path" ]; then stat -c '%a %F %n' "$path"; fi
+    done
+    if git -C "$HOME/Documents/erik/desktop-nixos" rev-parse HEAD >/dev/null 2>&1; then
+        git -C "$HOME/Documents/erik/desktop-nixos" log -1 --format='checkout=%H'
+        printf 'dirty_paths='
+        git -C "$HOME/Documents/erik/desktop-nixos" status --porcelain | wc -l
+    fi
+    REMOTE
+
+# Tiny real requests; report only exit status and fixed tool/final markers.
+opencode-rollout-smoke target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case '{{target}}' in orion|apollo|pathfinder) ;; *) exit 2;; esac
+    address=$(jq -r --arg host '{{target}}' '.hosts[$host].ip' fleet.json)
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$address" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    success=0
+    prompt="Use the bash tool to run printf 'opencode-profile-ok\\n'. After seeing its output, reply with opencode-profile-ok. Do not modify files."
+    for lane in home work; do
+        key=work_key
+        if [ "$lane" = home ]; then key=litellm_key; fi
+        if [ ! -r "/run/secrets/opencode/$key" ]; then
+            printf '{"lane":"%s","status":"credential-unavailable"}\n' "$lane"
+            success=1
+            continue
+        fi
+        set +e
+        report=$(timeout 180 "opencode-$lane" run --dir /tmp --format json "$prompt" 2>/dev/null |
+            jq -Rsc 'split("\n") | map(fromjson?) | {
+              tool_marker: any(.[]; .type == "tool_use" and .part.tool == "bash" and .part.state.status == "completed" and ((.part.state.output // "") | contains("opencode-profile-ok"))),
+              final_marker: any(.[]; .type == "text" and ((.part.text // "") | contains("opencode-profile-ok")))
+            }')
+        code=$?
+        set -e
+        printf '%s' "$report" | jq -c --arg lane "$lane" --argjson code "$code" '. + {lane:$lane,exit:$code}'
+        if [ "$code" -ne 0 ] || ! printf '%s' "$report" | jq -e '.tool_marker and .final_marker' >/dev/null; then success=1; fi
+    done
+    exit "$success"
+    REMOTE
