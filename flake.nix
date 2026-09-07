@@ -2,6 +2,10 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # GPU exchange: preserve the already-running host/guest kernels only.
+    # Keep the fleet package baseline unchanged during the hardware move.
+    nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/c043004d1c6985732bcc1cbc5a9c9aecbbb4e0f0";
+
     # Kepler recovery tooling is reviewed against SecretSpec 0.13.0.
     nixpkgs-secretspec.url = "github:nixos/nixpkgs/e7a3ca8092b61ff85b6a45bf863ea2b2d6a661b3";
 

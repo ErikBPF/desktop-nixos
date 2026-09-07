@@ -23,6 +23,13 @@ OPTIONS = """hosts: builtins.mapAttrs (_: host: let c = host.config; in {
   graphics32Bit = c.hardware.graphics.enable32Bit;
   autoUpgrade = c.system.autoUpgrade.enable;
   stacks = c.homelab.compose.stacks;
+  kernelVersion = c.boot.kernelPackages.kernel.version;
+  kernelImage = "${c.boot.kernelPackages.kernel}/${c.system.boot.loader.kernelFile}";
+  guestKernels = builtins.mapAttrs (_: vm: let g = vm.config.config; in {
+    version = g.boot.kernelPackages.kernel.version;
+    image = "${g.boot.kernelPackages.kernel}/${g.system.boot.loader.kernelFile}";
+    hypervisorImage = "${g.microvm.kernel.dev}/vmlinux";
+  }) c.microvm.vms;
 }) { inherit (hosts) kepler apollo; }"""
 
 
@@ -33,6 +40,23 @@ class GPUExchangeOptions(unittest.TestCase):
             cwd=ROOT, text=True,
         ))
         kepler, apollo = hosts["kepler"], hosts["apollo"]
+        for name, host in hosts.items():
+            with self.subTest(kernel=name):
+                self.assertEqual(host["kernelVersion"], "7.2.3")
+                self.assertEqual(host["kernelImage"], "/nix/store/4f2m1k8c5ih0fa6zh8762k4s6pa6bw0p-linux-7.2.3/bzImage")
+            with self.subTest(guest_kernels=name):
+                expected = {
+                    "version": "7.2.3",
+                    "image": "/nix/store/4f2m1k8c5ih0fa6zh8762k4s6pa6bw0p-linux-7.2.3/bzImage",
+                    "hypervisorImage": "/nix/store/5pfk37ynwny49qfmb7s0sy57d8jqvih3-linux-7.2.3-dev/vmlinux",
+                } if name == "kepler" else {
+                    "version": "6.18.49",
+                    "image": "/nix/store/s40h0m3746r0l287laa9sxa9345bkykf-linux-6.18.49/bzImage",
+                    "hypervisorImage": "/nix/store/8gsy6nldplfw12ylblabahhay8bv8xfx-linux-6.18.49-dev/vmlinux",
+                }
+                self.assertTrue(host["guestKernels"])
+                for kernel in host["guestKernels"].values():
+                    self.assertEqual(kernel, expected)
         with self.subTest(host="kepler"):
             self.assertEqual(kepler["drivers"], ["amdgpu"])
             self.assertIn("amdgpu", kepler["initrdModules"])

@@ -1,16 +1,22 @@
-_: {
+{inputs, ...}: {
   flake.modules.nixos.kepler-hardware = {
     config,
     lib,
     pkgs,
     modulesPath,
     ...
-  }: {
+  }: let
+    kernelPkgs = import inputs.nixpkgs-gpu-kernel {
+      inherit (pkgs.stdenv.hostPlatform) system;
+      config = config.nixpkgs.config;
+    };
+  in {
     imports = [
       (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
     # --- Hardware detection (AMD Ryzen 5 3600, Radeon Tobago PRO (1002:665f)) ---
+    boot.kernelPackages = lib.mkForce kernelPkgs.linuxPackages_7_2;
     boot.initrd.availableKernelModules = ["xhci_pci" "ahci" "usb_storage" "sd_mod" "usbhid"];
     boot.initrd.kernelModules = ["amdgpu"];
     boot.kernelModules = [

@@ -1,10 +1,16 @@
-_: {
+{inputs, ...}: {
   flake.modules.nixos.apollo-hardware = {
     config,
     lib,
     pkgs,
     ...
-  }: {
+  }: let
+    kernelPkgs = import inputs.nixpkgs-gpu-kernel {
+      inherit (pkgs.stdenv.hostPlatform) system;
+      config = config.nixpkgs.config;
+    };
+  in {
+    boot.kernelPackages = lib.mkForce kernelPkgs.linuxPackages_7_2;
     boot.initrd.availableKernelModules = ["xhci_pci" "ehci_pci" "ahci" "usb_storage" "sd_mod"];
     # RTX 3070 LHR exchanged from Kepler; retain its existing driver policy.
     boot.initrd.kernelModules = ["nvidia"];

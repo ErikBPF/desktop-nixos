@@ -196,7 +196,8 @@ in {
     mkGuest = name: let
       s = nodeSpec name;
     in {
-      boot.kernelPackages = pkgs.linuxPackages_7_2;
+      # Keep the guests on the host's already-running 7.2 kernel baseline.
+      boot.kernelPackages = config.boot.kernelPackages;
 
       imports =
         [

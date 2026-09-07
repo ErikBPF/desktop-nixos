@@ -57,7 +57,8 @@ stability. Do not relax them as part of the exchange.
 is deliberately unautomated. Source preparation belongs here; workload/image and
 endpoint changes belong to Servarr, with IaC owning any required network policy.
 The coordination decision is maintained in Homelab's Orion/Apollo stability
-proposal. No host driver configuration has been changed by this inventory.
+proposal. The reviewed candidate changes both host driver configurations; the running
+host generations remain unchanged until the physical exchange.
 
 1. Keep household inference suspended as selected; record future workload
    placement before drafting resume/service/route changes.
@@ -125,3 +126,93 @@ was active with only the two BGE containers consuming CUDA. Its existing
 `ExecStop` uses Compose `stop` (no removal or volume flags). Stopping that unit
 returned inactive/dead; the NVIDIA compute-process query returned no rows.
 Model definitions, model files, databases and backup containers were retained.
+
+## Boot-only staging
+
+Before staging, record running/profile generations and upgrade activity:
+
+```bash
+for host in kepler apollo; do
+  ip=$(jq -er --arg host "$host" '.hosts[$host].ip' fleet.json)
+  printf '%s\n' "$host"
+  ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" \
+    'readlink -f /run/current-system
+     readlink -f /nix/var/nix/profiles/system
+     uname -r
+     readlink -f /run/current-system/kernel
+     readlink -f /run/booted-system/kernel
+     sudo nix-env -p /nix/var/nix/profiles/system --list-generations
+     df -h /boot
+     sudo bootctl list --no-pager
+     systemctl show nixos-upgrade.timer nixos-upgrade.service -p Id -p LoadState -p ActiveState -p SubState'
+done
+```
+
+Observed preflight: both hosts run kernel `7.2.3`, with kernel image
+`/nix/store/4f2m1k8c5ih0fa6zh8762k4s6pa6bw0p-linux-7.2.3/bzImage`.
+Kepler's six guests run `7.2.3`; Apollo's five guests run `6.18.49`.
+The main-branch package input would downgrade these kernels. Preserve this
+running baseline through a scoped pinned kernel input, without importing the
+unrelated changes in the canonical checkout's dirty lock file.
+
+Recorded compatible host generations before staging:
+
+| Host | Running system | Compatible boot entry | ESP free |
+|---|---|---|---|
+| Kepler | `/nix/store/y2wwlynrdvlk29iy7falw6866agrhfrc-nixos-system-kepler-26.11.20260905.c043004` | Generation 126 | 1.7 GiB |
+| Apollo | `/nix/store/z9h08r55cs8f7rx2l882x2xnxcphpjb1-nixos-system-apollo-26.11.20260905.c043004` | Generation 8 | 1.9 GiB |
+
+Both upgrade timers/services were absent and inactive. Apollo's existing
+next-boot profile differed from its running system; do not treat a profile
+symlink alone as evidence of what is running. Retain the compatible entries
+above when staging and verify their presence again afterward.
+
+After reviewed CI and both actual host builds pass, stage through the existing
+owner recipe, without a live switch or reboot:
+
+```bash
+just deploy-rs-boot kepler
+just deploy-rs-boot apollo
+```
+
+Verify both profile/default boot targets refer to the reviewed exchanged-driver
+generations while `/run/current-system` remains the recorded original. Do not
+signal ready-to-move if either staging failed or an upgrade is running. Keep
+both hosts powered normally until the operator is ready to shut both down and
+perform the exchange. Never remove a powered card.
+
+Read actual running VM kernel arguments through the trusted owning host:
+
+```bash
+for host in kepler apollo; do
+  ip=$(jq -er --arg host "$host" '.hosts[$host].ip' fleet.json)
+  ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$ip" 'bash -s' <<'REMOTE'
+set -eu
+if [ "$(hostname)" = kepler ]; then
+  state=/fast/microvms
+  names="cp-1 cp-2 cp-3 w-1 w-2 w-3"
+else
+  state=/var/lib/microvms
+  names="cp-1 cp-2 cp-3 w-1 w-2"
+fi
+for name in $names; do
+  printf '%s %s\n' "$(hostname)" "$name"
+  readlink -e "$state/$name/booted" "$state/$name/current" "$state/$name/toplevel"
+  pid=$(systemctl show "microvm@$name.service" -p MainPID --value)
+  test "$pid" -gt 0
+  sudo awk -v RS='\0' 'prev=="-kernel" || prev=="--kernel" {print "kernel=" $0} prev=="-initrd" || prev=="--initramfs" {print "initrd=" $0} {prev=$0}' "/proc/$pid/cmdline"
+done
+REMOTE
+done
+```
+
+Observed all eleven running VM processes: Kepler uses
+`/nix/store/5pfk37ynwny49qfmb7s0sy57d8jqvih3-linux-7.2.3-dev/vmlinux`;
+Apollo uses `/nix/store/8gsy6nldplfw12ylblabahhay8bv8xfx-linux-6.18.49-dev/vmlinux`.
+Every VM's `booted` and `current` runner matched. Use these exact paths when
+checking the prepared kernels. Boot-only staging leaves running VMs alone;
+the next host boot installs the declared guest runners before starting them.
+
+Stage each host once from the final reviewed revision. Kepler retains two boot
+entries and Apollo three: a second distinct staged revision could evict the
+original Kepler generation. Recheck retained entries after every staging attempt.
