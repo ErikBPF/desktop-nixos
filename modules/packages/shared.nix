@@ -4,10 +4,9 @@ _: {
     lib,
     ...
   }: {
-    # The x86-leaning workstation toolbox (cloud/devops/GUI-dev + x86-only
-    # binaries like rar/postman/lens) is gated to x86_64 so the headless
-    # aarch64 print host (archinaut) gets a lean, portable subset. No behaviour
-    # change on existing x86_64 hosts.
+    # The cloud/devops toolbox and x86-only binaries like rar are gated so
+    # the aarch64 print host (archinaut) gets a portable subset. GUI tools
+    # belong to the desktop package set.
     environment.systemPackages = with pkgs;
       [
         # --- Version Control & Editors ---
@@ -146,7 +145,6 @@ _: {
         kubelogin
         kubectx
         k9s
-        lens
         kubernetes-helm
         helmfile
         azure-storage-azcopy
@@ -154,8 +152,6 @@ _: {
 
         # --- Editors & Dev Tools (x86-only / heavy) ---
         ngrok
-        postman
-        dbeaver-bin
       ];
   };
 }

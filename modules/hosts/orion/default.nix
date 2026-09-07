@@ -49,7 +49,6 @@ in {
       m.nixos.orion-lact
       m.nixos.btrfs-snapshots
       m.nixos.sccache-cache
-      m.nixos.orion-gemini
       m.nixos.orion-wazuh-agent
     ];
 
@@ -80,6 +79,13 @@ in {
         m.home.orion-ssh
         m.home.hyprland
         m.home.fonts
+        m.home.claude-code
+        m.home.codex
+        m.home.opencode
+        m.home.nvim
+        m.home.herdr
+        m.home.tmux
+        m.home.tuicr
       ];
       inherit (config) colorScheme;
     };
@@ -139,6 +145,7 @@ in {
     };
 
     services.btrfs.autoScrub.enable = true;
+    environment.systemPackages = [pkgs.nvd];
 
     # Allow laptop's nix-builder root key and Galaxy S25 Termius access.
     users.users.${config.username}.openssh.authorizedKeys.keys = [
@@ -190,7 +197,9 @@ in {
     };
 
     system.autoUpgrade = {
-      enable = true;
+      # Hold until this reviewed retirement/storage source lands on main.
+      # A persistent timer can run a missed upgrade immediately after switching.
+      enable = false;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#orion";
       # boot (not live switch): a nightly kernel/GPU-driver bump activated live
       # mismatches the running module. Staging for next boot + rebooting in-window

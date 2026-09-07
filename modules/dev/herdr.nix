@@ -26,25 +26,15 @@
       rev = "820d48f5d9c9a7dece6a4bebfa3982ec30bbfbb7";
       hash = "sha256-qn69GDH3kCSYm9x/it3EyJqZiwQoK3pnwdfATeSwJ38=";
     };
-    repoLauncher = pkgs.writeShellApplication {
-      name = "herdr-repo";
-      runtimeInputs = [pkgs.git pkgs.openssh herdr];
-      text = ''
-        repo=$(git -C "''${1:-.}" rev-parse --show-toplevel)
-        session=''${repo##*/}
-        [[ $session =~ ^[A-Za-z0-9_.-]+$ ]] || {
-          echo "unsupported session name: $session" >&2
-          exit 2
-        }
-        remote_repo="''${repo/#$HOME/~}"
-        printf -v remote_command "herdr-repo-bootstrap %q %q" "$session" "$remote_repo"
-        # shellcheck disable=SC2029 # arguments are intentionally quoted client-side
-        ssh gemini "$remote_command"
-        exec herdr --remote gemini --session "$session"
-      '';
-    };
   in {
-    home.packages = [herdr repoLauncher pkgs.jq];
+    home.packages = [herdr pkgs.jq];
+
+    home.shellAliases = {
+      l1 = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
+      l2 = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l2'";
+      w1 = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec herdr --session w1'";
+      w2 = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec herdr --session w2'";
+    };
 
     xdg.configFile."nvim/after/plugin/herdr_nav.lua".source = "${vimHerdrNavigation}/editor/nvim.lua";
 

@@ -101,6 +101,9 @@ _: {
       libsecret
 
       # --- GUI Applications ---
+      lens
+      postman
+      dbeaver-bin
       moonlight-qt
       chromium
       vlc

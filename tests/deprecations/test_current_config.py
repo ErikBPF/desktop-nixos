@@ -15,9 +15,3 @@ def test_nixvim_explicitly_uses_the_host_nixpkgs():
     nvim = (ROOT / "modules/dev/nvim.nix").read_text()
 
     assert "nixpkgs.source = inputs.nixpkgs;" in nvim
-
-
-def test_gemini_container_preserves_xdg_session_variables():
-    gemini = (ROOT / "modules/hosts/orion/gemini.nix").read_text()
-
-    assert "setSessionVariables = true;" in gemini
