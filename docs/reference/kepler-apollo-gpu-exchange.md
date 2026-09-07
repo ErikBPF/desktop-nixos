@@ -1,6 +1,10 @@
 # Kepler / Apollo GPU exchange
 
-**Status:** GPUs exchanged; host, storage, network and bounded Apollo compute acceptance passed. Three-entry boot retention applied; household inference remains paused.
+**Status:** GPUs exchanged; host, storage, network and bounded Apollo compute acceptance passed. Later three-GPU preparation supersedes boot retention; household inference remains paused.
+
+See [three-GPU preparation](apollo-three-gpu-preparation.md) for the incoming
+RTX 5060 Ti cards and open-module/power-policy acceptance. The three-entry
+retention receipt below is historical evidence of the earlier cleanup.
 
 The operator selected removal of NVIDIA from Kepler by exchanging its GPU with
 Apollo. Household inference is explicitly suspended for now. Physical compatibility

@@ -12,10 +12,9 @@
   in {
     boot.kernelPackages = lib.mkForce kernelPkgs.linuxPackages_7_2;
     boot.initrd.availableKernelModules = ["xhci_pci" "ehci_pci" "ahci" "usb_storage" "sd_mod"];
-    # RTX 3070 LHR exchanged from Kepler; retain its existing driver policy.
+    # Mixed Ampere / Blackwell host: Blackwell requires the open kernel modules.
     boot.initrd.kernelModules = ["nvidia"];
     boot.kernelModules = ["kvm-intel" "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm"];
-    boot.extraModulePackages = [config.boot.kernelPackages.nvidiaPackages.stable];
     boot.blacklistedKernelModules = ["nouveau"];
 
     services.xserver.videoDrivers = ["nvidia"];
@@ -25,7 +24,7 @@
     };
 
     hardware.nvidia = {
-      open = false;
+      open = true;
       modesetting.enable = true;
       powerManagement.enable = false;
       powerManagement.finegrained = false;
@@ -36,23 +35,26 @@
 
     hardware.nvidia-container-toolkit.enable = true;
 
-    # This card has produced repeatable NVIDIA Xid 13/31 faults under
-    # faster-whisper large-v3 inference at stock boost. Keep the model and
-    # reduce boost/power transients instead: 170 W is ~77% of the RTX 3070's
-    # stock 220 W limit, while 1500 MHz remains ample for voice STT latency.
+    # Retain the RTX 3070's Xid 13/31 mitigation; incoming RTX 5060 Ti cards
+    # get their own power ceiling, never the 3070's clock cap. These native
+    # controls limit power/boost; they do not program a voltage undervolt.
     systemd.services.nvidia-conservative-clocks = {
       description = "Apply conservative NVIDIA power and clock limits";
       wantedBy = ["multi-user.target"];
       after = ["nvidia-persistenced.service"];
       requires = ["nvidia-persistenced.service"];
+      path = [config.hardware.nvidia.package.bin];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
       };
-      script = ''
-        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --power-limit=170
-        ${config.hardware.nvidia.package.bin}/bin/nvidia-smi --lock-gpu-clocks=210,1500
-      '';
+      script = builtins.readFile ./_gpu-power.sh;
+    };
+
+    # Do not publish GPU container devices if applying their limits failed.
+    systemd.services.nvidia-container-toolkit-cdi-generator = {
+      after = ["nvidia-conservative-clocks.service"];
+      requires = ["nvidia-conservative-clocks.service"];
     };
 
     environment.systemPackages = [pkgs.nvtopPackages.nvidia];
