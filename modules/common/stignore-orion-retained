@@ -1,0 +1,45 @@
+// Orion Documents only: retired remote paths with retained ignored local data.
+// Global deletion verified 2026-09-07; preserve local Git history and artifacts.
+// Rooted paths without trailing slash exclude the directory itself and children.
+// Never add (?d): it would authorize deleting the retained files.
+/erik/agentmemory
+/nstech/MSKafka_hub
+/nstech/airflow-data-platform
+/nstech/data-foundation-terraform
+/nstech/datafoundation-argocd
+/nstech/datafoundation-grafana
+/nstech/datafoundation-iac
+/nstech/datafoundation-keda
+/nstech/datafoundation-qualitransp
+/nstech/datahub_api_hub
+/nstech/debezium-data-platform
+/nstech/deploy-agents-data-platform
+/nstech/driver-risk-score
+/nstech/elasticsearch-data-platform
+/nstech/grafana-data-platform
+/nstech/iam-datalake
+/nstech/iam_hub
+/nstech/infra-datalake
+/nstech/infra_hub
+/nstech/kafka-data-platform
+/nstech/kafka-mongo-mdm-sync
+/nstech/mdm-core
+/nstech/mdm-data-platform
+/nstech/nextcloud-data-platform
+/nstech/nsdocs-document-ingestor-data-platform
+/nstech/nshub
+/nstech/openmetadata-data-platform
+/nstech/osrm-hub-ofertas
+/nstech/prometheus-data-platform
+/nstech/prometheus_hub
+/nstech/revops-sql-agent
+/nstech/sadbox-dbs-data-platform
+/nstech/spark-operator-data-platform
+/nstech/traefik-data-platform
+/nstech/traefik-hub-ofertas
+/nstech/traefik_hub
+/nstech/dataplatform-t2s-agent/.devenv
+/nstech/dataplatform/terraform-provider-litellm
+/nstech/dataplatform-data-sdk/src/dataplatform
+/nstech/dataplatform-datacontracts/dataplatform-adb-iam/azure
+/nstech/dataplatform-airflow/src/dags/datafoundation
