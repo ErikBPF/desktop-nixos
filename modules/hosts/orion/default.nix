@@ -197,9 +197,7 @@ in {
     };
 
     system.autoUpgrade = {
-      # Hold until this reviewed retirement/storage source lands on main.
-      # A persistent timer can run a missed upgrade immediately after switching.
-      enable = false;
+      enable = true;
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#orion";
       # boot (not live switch): a nightly kernel/GPU-driver bump activated live
       # mismatches the running module. Staging for next boot + rebooting in-window

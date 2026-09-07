@@ -107,7 +107,8 @@ Project shells select toolchains; project recipes own their deploy/test loops.
 Keep the host/session, Git branch and Kubernetes context visible. Read-only
 Apollo diagnosis remains `just diagnose-apollo-worklab` from desktop-nixos.
 Orion automatic upgrades are disabled until this migration lands on main.
-Re-enable in source without automatic reboot; maintenance must account for sessions. Closing a laptop should preserve
+The final candidate restores boot-only upgrades at the post-merge switch,
+without automatic reboot; maintenance must account for sessions. Closing a laptop should preserve
 work; rebooting its execution host interrupts processes.
 
 Gemini retirement is authorized. Legacy `hg`, `hgs`, `hlab` and `hr` now enter

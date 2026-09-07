@@ -4,6 +4,11 @@
 checksum recording passed; reviewed old models and staging snapshots removed.
 No formatting is required. Do not run disko's partition/format modes.
 
+**Integration activation gate:** the final candidate restores boot-only automatic
+upgrades with `allowReboot = false`. Do not deploy it before its PR is merged
+into main. Orion's currently deployed generation keeps upgrade units absent
+until that post-merge switch; no runtime timer is resumed early.
+
 | Device | Existing UUID | Destination |
 |---|---|---|
 | MP510 NVMe | `754e224d-40cb-4ad6-8152-970677417ed8` | System, unchanged |
@@ -261,3 +266,14 @@ The updated tests first reproduced the missing native Tuicr import and stale
 Gemini command paths, then passed with the fixes. After rebase, 45 focused
 checks pass, including upstream Apollo host checks. Lint, format, documentation
 and commit-hook secret checks pass. The role `.feature` remains unautomated.
+
+## Final upgrade configuration
+
+The final integration candidate enables automatic boot-target staging while
+keeping automatic reboot disabled. This avoids a second integration/rollout
+solely to release the temporary hold. Merge the complete retirement/storage
+source first, fetch and verify that main contains it, then use `just switch-orion`.
+A missed persistent timer may run immediately; after merge its upstream source
+already contains the new mounts and Gemini retirement. Verify the upgrade
+service outcome, current/next-boot fstabs, absent Gemini and live services.
+The historical maintenance-hold steps above describe the earlier deployed state.
