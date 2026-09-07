@@ -515,7 +515,7 @@ in {
     # unauthenticated, so no token dependency (it must work exactly when the
     # store is sealed). Probe failure writes sealed=1: unreachable == unusable.
     systemd.services.openbao-seal-probe = {
-      description = "Export OpenBao seal status as a node_exporter textfile metric";
+      description = "Export OpenBao seal and authentication status as textfile metrics";
       serviceConfig = {
         Type = "oneshot";
         NoNewPrivileges = true;
@@ -525,12 +525,35 @@ in {
           set -eu
           sealed=$(${pkgs.curl}/bin/curl -fsS -m 10 ${addr}/v1/sys/seal-status \
             | ${jq} -r 'if .sealed then 1 else 0 end' || echo 1)
+          authenticated=0
+          token="$(${pkgs.coreutils}/bin/cat /run/vault-agent/token 2>/dev/null || true)"
+          case "$token" in
+            ""|*$'\r'*|*$'\n'*) ;;
+            *)
+              # stdin headers keep the token out of argv; lookup-self includes
+              # token metadata, so discard its body and never follow redirects.
+              status=$(printf 'X-Vault-Token: %s\n' "$token" \
+                | ${pkgs.curl}/bin/curl -q -s --max-time 10 --header @- \
+                  --output /dev/null --write-out '%{http_code}' \
+                  ${addr}/v1/auth/token/lookup-self || true)
+              if [ "$status" = 200 ]; then authenticated=1; fi
+              ;;
+          esac
+          unset token
+          probed_at=$(${pkgs.coreutils}/bin/date +%s)
           d=/var/lib/node-exporter-textfile
           tmp=$(${pkgs.coreutils}/bin/mktemp "$d/.openbao_sealed.XXXXXX")
+          trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
           {
             echo "# HELP openbao_sealed 1 when the OpenBao store is sealed or unreachable, 0 when unsealed."
             echo "# TYPE openbao_sealed gauge"
             echo "openbao_sealed $sealed"
+            echo "# HELP openbao_authenticated_probe_success 1 when the agent token authenticates, 0 otherwise."
+            echo "# TYPE openbao_authenticated_probe_success gauge"
+            echo "openbao_authenticated_probe_success $authenticated"
+            echo "# HELP openbao_authenticated_probe_timestamp_seconds Unix timestamp of the latest authentication probe attempt."
+            echo "# TYPE openbao_authenticated_probe_timestamp_seconds gauge"
+            echo "openbao_authenticated_probe_timestamp_seconds $probed_at"
           } > "$tmp"
           ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
           ${pkgs.coreutils}/bin/mv "$tmp" "$d/openbao_sealed.prom"
