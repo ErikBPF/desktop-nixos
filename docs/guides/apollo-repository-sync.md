@@ -95,3 +95,59 @@ Keep the Apollo peer paused on Orion throughout an interrupted first join. A
 reboot into the staged generation applies declared send/receive mode, so check
 Apollo's folder state before releasing the hold. Reconcile its local index and
 working files in receive-only mode before enabling two-way transport.
+
+
+## Interrupted first-join index recovery
+
+Keep Orion's Apollo peer paused and Apollo Documents paused in `receiveonly`
+mode. Check `/home` is mounted, preserve a fresh read-only home snapshot under
+its root-only staging directory, and capture the five VM process identities.
+An interrupted boot into `sendreceive` may have promoted bootstrap files into
+its index; changing the folder type back does not undo those versions.
+
+Stage the merged generation and apply its generated ignore link as above.
+An optional SSH/rsync pre-seed may copy **only missing files**, using the same
+shared and Apollo-specific exclusions; use `--ignore-existing`, no deletion,
+and never copy `.git`. Review a dry run before copying. Existing working files
+and Git indexes must remain intact.
+
+Hold the native configuration updater with a runtime condition before resetting.
+A runtime mask does not supersede this NixOS unit in `/etc/systemd/system`.
+The updater can run after a Syncthing restart and reapply declared send/receive
+mode, even when the folder was paused before the reset. Keep the peer hold.
+
+```sh
+ssh -p 2222 erik@apollo 'test ! -e /run/apollo-sync-bootstrap-accepted'
+printf '[Unit]\nConditionPathExists=/run/apollo-sync-bootstrap-accepted\n' | ssh -p 2222 erik@apollo 'sudo systemctl edit --runtime --drop-in=50-bootstrap-hold.conf --stdin syncthing-init.service'
+ssh -p 2222 erik@apollo 'sudo systemctl stop syncthing-init.service && sudo systemctl start syncthing-init.service && systemctl show syncthing-init.service -p ConditionResult -p ActiveState'
+```
+
+Require `ConditionResult=no` and `ActiveState=inactive` before proceeding.
+
+Use the authenticated local Syncthing API to POST
+`system/reset?folder=ykxhp-khmz2` on Apollo only. This resets that folder's
+index and restarts Syncthing; never omit the folder parameter. Keep the Orion
+peer paused across the restart, recheck Apollo's `receiveonly` mode, and then
+unpause the local folder to rebuild its index before reconnecting Orion.
+Clear the runtime condition only at acceptance, immediately before running the
+targeted native updater:
+
+```sh
+printf '[Unit]\nConditionPathExists=\n' | ssh -p 2222 erik@apollo 'sudo systemctl edit --runtime --drop-in=50-bootstrap-hold.conf --stdin syncthing-init.service'
+```
+See the [native reset API](https://docs.syncthing.net/rest/system-reset-post.html).
+
+Receive-only catch-up can retain local differences or conflict copies. Review
+those against the retained snapshot and source before accepting send/receive;
+never use Override or Revert to force counters to zero. Follow the preservation
+and two-way canary checks above. Keep both holds if recovery cannot be accepted.
+
+
+Apollo requests one Syncthing connection to Orion. During recovery, automatic
+parallel connections repeatedly replaced the index connection and produced
+`folder is not running` errors while receiving index updates. A single native
+connection avoids that extra connection lifecycle; other fleet peers retain
+existing defaults. Apply the generated `numConnections` field to Apollo's
+Orion device through the authenticated local API while the bootstrap updater
+is held; the normal generated updater owns it after acceptance. See
+[Syncthing connection negotiation](https://docs.syncthing.net/advanced/device-numconnections.html).
