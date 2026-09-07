@@ -29,10 +29,11 @@ Apply the reviewed IaC ACL on wired Orion: only the two Apollo/Orion TCP 22000
 grants may change. Validate policy tests and require a zero-drift follow-up.
 Stage Apollo's generation with `just deploy-rs-boot apollo`; its full live switch
 would restart the five VMs and apply unrelated pending changes. Keep the running
-generation and VM processes intact. Apply only Nix's generated Syncthing updater
-and ignore link using the commands below, while Orion does not know Apollo yet.
-Before deploying Orion, use the authenticated local API to set Apollo's
-Documents folder to `receiveonly`, and verify the setting. Credentials stay in
+generation and VM processes intact. Apply the generated ignore link first. Read the device and folder JSON fragments
+referenced by Nix's generated Syncthing updater; create the Orion device and
+Documents folder through the authenticated local API, changing only the initial
+folder type to `receiveonly`. Verify that setting before deploying Orion. Do not
+run the native updater until catch-up is accepted: it declares `sendreceive`. Credentials stay in
 process memory, never output or plaintext files. Apollo retains staggered
 version history. Deploy Orion through `just switch-orion`; never override or
 revert local changes in the Syncthing UI/API to force convergence.
@@ -40,7 +41,7 @@ revert local changes in the Syncthing UI/API to force convergence.
 Wait for selected file downloads to complete. Verify all selected Git repos,
 source commit availability, original HEADs/indexes and reference links. Inspect
 receive-only changes/conflicts and preserve any unique files. Only after clean
-acceptance set Apollo's folder back to the declared `sendreceive` mode. Test
+acceptance run the targeted updater below to apply the declared `sendreceive` mode. Test
 nonsensitive creation, return edit and deletion; test that credential-shaped
 and worktree canaries remain excluded, then remove the canaries. Do not infer a
 complete Git/WIP handoff or independent restore proof from file transport.
@@ -56,6 +57,8 @@ silently overwriting the active Documents tree.
 
 After the merged source is built/copied by `just deploy-rs-boot apollo`, derive
 the live update directly from its Nix outputs. Do not hand-copy API settings.
+Apply the ignore link before first join; run the runtime updater only after
+receive-only catch-up and preservation checks have passed.
 Require no preexisting runtime override at the path below; preserve VM PIDs and
 activation timestamps before/after. Nix's native updater uses its normal private
 `/run/syncthing-init` directory for runtime API authentication; never print it.
