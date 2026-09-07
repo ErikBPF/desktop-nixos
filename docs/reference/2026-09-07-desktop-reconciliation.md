@@ -1,7 +1,7 @@
 # Desktop reconciliation and OpenCode rollout
 
-**Status:** Orion activated and Apollo verified; Pathfinder unreachable. Canonical
-staged and unstaged drafts retained unchanged. Audit against main `1ed67c9`.
+**Status:** Orion activated and Apollo verified; Pathfinder unreachable. Orion inference awaits missing credential projection; Apollo home/work real tool
+smokes pass. Canonical staged and unstaged drafts retained unchanged. Audit against main `1ed67c9`.
 
 ## Delivery evidence
 
@@ -38,7 +38,7 @@ staged and unstaged drafts retained unchanged. Audit against main `1ed67c9`.
 This inventory covers tracked edits and untracked paths reported by Git at the
 audit point. It does not reset the index, remove worktrees or delete draft files.
 
-### Retained draft requiring its own scoped review (19)
+### Reviewed remaining paths (19; dispositions below)
 
 - `.gitignore`
 - `docs/README.md`
@@ -167,3 +167,35 @@ audit point. It does not reset the index, remove worktrees or delete draft files
 ### Corrected and delivered by this slice (1)
 
 - `modules/terminal/ghostty.nix`
+
+## Hunk-level decisions for remaining paths
+
+- `.gitignore`: anchor `/references/` would expose vendored nested skill references;
+  useful only with the separate skill-vendoring draft, retain with that work.
+- `docs/README.md`: mixed index of delivered GPU/umbrella changes, recovery gates,
+  excluded fork sync and concurrent tooling. Apply only this slice's targeted rows.
+- OpenBao recovery docs plus `recovery-custody.feature`: accepted and ported. They
+  correctly separate Kepler host-loss copies from outside-home Voyager/B2 and
+  require B4/S1 witness evidence; no new credential or standing root token.
+- `endeavour-luks-recovery/recovery.feature`: sound manual staffed-console contract
+  linked to the canonical proposal, not runnable proof. Preserve pending physical
+  passphrase/escrow witnesses; no boot/keyslot mutation is implied.
+- Fork-sync module, guide and `profile-desktop` import: excluded. The list explicitly
+  includes corporate repositories and LMCache, Sail and Airflow, which the user
+  deferred. Native Git fast-forward safeguards do not authorize that scope; retain
+  manual credential provisioning boundary.
+- `umbrella-sessions.md`: superseded by delivered Orion/Apollo native sessions;
+  preserve published paths instead of replacing with older mixed branch text.
+- `opencode.nix`: superseded. Draft restores direct Go credential fallback,
+  experimental baseline plugins and DeepSeek default, and drops delivered gateway
+  headers/profiles. This conflicts with the accepted simplified GLM configuration.
+- `opencode-agents.md` plus `agent-disciplines.md`: separates instruction prose,
+  but coupled Codex/OpenCode installation is concurrent workflow work. Keep current
+  reviewed routing and discipline content until that separate change is reviewed.
+- NetBird module: explicit external-network client exception, interactive enrollment;
+  a distinct network feature, not OpenCode or a homelab fleet fix. Retain unactivated.
+- `justfile`: useful older Apollo-builder/host recipes have newer reviewed owners;
+  new Headroom proxy experiments, Codex-only deploy and display capture are separate
+  concurrent work. No wholesale replacement of current recovery/deploy recipes.
+- Orion capture guide/scripts/tests and `deploy-codex-tools.sh`: arrived during this
+  reconciliation from another active task; preserve and leave to that owner.

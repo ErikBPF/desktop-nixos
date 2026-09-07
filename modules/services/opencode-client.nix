@@ -19,9 +19,6 @@
     #   Replace master key (full admin) with virtual rotation via the same
     #   script when retiring.
     #
-    # zen_key = OPENCODE_GO_KEY for opencode Zen (flat-rate escape-hatch
-    #   when LiteLLM is offline). Pulled from discovery .env.sops where the
-    #   litellm container also sources it.
     sops.secrets."opencode/litellm_key" = {
       sopsFile = self + "/secrets/sops/secrets.yaml";
       key = "opencode/litellm_key";
@@ -35,13 +32,6 @@
       owner = "erik";
       mode = "0400";
       path = "/run/secrets/opencode/work_key";
-    };
-    sops.secrets."opencode/zen_key" = {
-      sopsFile = self + "/secrets/sops/secrets.yaml";
-      key = "opencode/zen_key";
-      owner = "erik";
-      mode = "0400";
-      path = "/run/secrets/opencode/zen_key";
     };
   };
 }

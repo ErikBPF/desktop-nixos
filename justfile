@@ -8841,3 +8841,35 @@ opencode-rollout-status target:
         git -C "$HOME/Documents/erik/desktop-nixos" status --porcelain | wc -l
     fi
     REMOTE
+
+# Tiny real requests; report only exit status and fixed tool/final markers.
+opencode-rollout-smoke target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case '{{target}}' in orion|apollo|pathfinder) ;; *) exit 2;; esac
+    address=$(jq -r --arg host '{{target}}' '.hosts[$host].ip' fleet.json)
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$address" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    success=0
+    prompt="Use the bash tool to run printf 'opencode-profile-ok\\n'. After seeing its output, reply with opencode-profile-ok. Do not modify files."
+    for lane in home work; do
+        key=work_key
+        if [ "$lane" = home ]; then key=litellm_key; fi
+        if [ ! -r "/run/secrets/opencode/$key" ]; then
+            printf '{"lane":"%s","status":"credential-unavailable"}\n' "$lane"
+            success=1
+            continue
+        fi
+        set +e
+        report=$(timeout 180 "opencode-$lane" run --dir /tmp --format json "$prompt" 2>/dev/null |
+            jq -Rsc 'split("\n") | map(fromjson?) | {
+              tool_marker: any(.[]; .type == "tool_use" and .part.tool == "bash" and .part.state.status == "completed" and ((.part.state.output // "") | contains("opencode-profile-ok"))),
+              final_marker: any(.[]; .type == "text" and ((.part.text // "") | contains("opencode-profile-ok")))
+            }')
+        code=$?
+        set -e
+        printf '%s' "$report" | jq -c --arg lane "$lane" --argjson code "$code" '. + {lane:$lane,exit:$code}'
+        if [ "$code" -ne 0 ] || ! printf '%s' "$report" | jq -e '.tool_marker and .final_marker' >/dev/null; then success=1; fi
+    done
+    exit "$success"
+    REMOTE
