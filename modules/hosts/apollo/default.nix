@@ -51,8 +51,8 @@ in {
       GatewayPorts = "no";
     };
 
-    # Current 64 GiB layout leaves about 20 GiB for the host while the five
-    # cluster guests are running. Keep parallel builds bounded until 256 GiB.
+    # Interactive baseline alongside the 8/32 GiB guests. RAM headroom does
+    # not reserve CPU: 14 jobs x 4 cores oversubscribes this 28-thread host.
     nix.settings = {
       max-jobs = lib.mkForce 6;
       cores = lib.mkForce 2;

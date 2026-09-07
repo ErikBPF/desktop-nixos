@@ -23,7 +23,7 @@ _: {
       disk = {
         nvme0 = {
           type = "disk";
-          device = "/dev/nvme0n1"; # confirmed: Force MP510 447GB NVMe
+          device = "/dev/disk/by-id/nvme-Force_MP510_19458242000129183963";
           content = {
             type = "gpt";
             partitions = {
@@ -69,7 +69,7 @@ _: {
         };
         ssd1 = {
           type = "disk";
-          device = "/dev/sda"; # confirmed: Kingston SV300S37A 480GB SATA SSD → /opt/models
+          device = "/dev/disk/by-id/ata-KINGSTON_SV300S37A480G_50026B724709FD21";
           content = {
             type = "gpt";
             partitions = {
@@ -87,7 +87,7 @@ _: {
         };
         ssd2 = {
           type = "disk";
-          device = "/dev/sdb"; # confirmed: SanDisk SSD PLUS 480GB SATA → /projects
+          device = "/dev/disk/by-id/ata-SanDisk_SSD_PLUS_480GB_193181805834";
           content = {
             type = "gpt";
             partitions = {

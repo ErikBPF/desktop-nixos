@@ -538,6 +538,20 @@ orion-disk-inventory:
       systemctl --failed --no-legend || true
     '
 
+# Read-only verification of Apollo's reserved array and guest-state mount.
+apollo-disk-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    lsblk -e7 -o NAME,SIZE,TYPE,FSTYPE,UUID,MOUNTPOINTS,MODEL,SERIAL
+    for path in / /var/lib/microvms /mnt/microvms; do
+      findmnt -T "$path" -nro TARGET,SOURCE,FSTYPE,UUID
+    done
+    cat /proc/mdstat
+    sudo -n mdadm --detail /dev/md/microvms
+    REMOTE
+
 # Read-only identity/state gate before Kepler's OS-M.2-only migration.
 kepler-esp-inventory:
     #!/usr/bin/env bash

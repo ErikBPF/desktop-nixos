@@ -18,7 +18,7 @@ in {
     subnet = "10.251.0";
     hostIp = "${subnet}.1";
     workerCount = 2;
-    workerMem = 16384;
+    workerMem = 32768;
     workerVcpu = 8;
     tokenDir = "/var/lib/k3s-cluster";
     snapshotDir = "/var/lib/k3s-etcd-snapshots";
@@ -45,7 +45,7 @@ in {
         cid = 10 + i;
         mac = "02:00:00:00:fc:0${toString i}";
         vcpu = 2;
-        mem = 4096;
+        mem = 8192;
         disk = 16384;
       }
       else let
