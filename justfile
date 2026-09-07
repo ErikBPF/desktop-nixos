@@ -172,9 +172,28 @@ update:
 # Bump all inputs, then dry-build every host; revert the lock if any fails.
 # Guards against bleeding-edge nixpkgs/git-tip inputs breaking a build.
 update-safe:
-    git diff --quiet -- flake.lock || { echo ":: flake.lock already modified; refusing destructive rollback"; exit 1; }
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! git diff --quiet -- flake.lock || ! git diff --cached --quiet -- flake.lock; then
+        echo ":: flake.lock already modified (worktree or index); refusing update" >&2
+        exit 1
+    fi
+    backup=$(mktemp)
+    cp -- flake.lock "$backup"
+    cleanup() {
+        status=$?
+        if (( status != 0 )); then
+            echo ":: update failed — restoring pre-update flake.lock" >&2
+            cp -- "$backup" flake.lock || { echo ":: restore failed; backup retained at $backup" >&2; exit 1; }
+        fi
+        rm -f -- "$backup"
+        exit "$status"
+    }
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     nix flake update
-    just dry-all || { echo ":: dry-build failed — restoring pre-update flake.lock"; git restore --source=HEAD -- flake.lock; exit 1; }
+    just dry-all
 
 # Bump a single input in isolation (e.g. just update-input hyprland), so a
 # volatile git-tip input's breakage doesn't get tangled with a nixpkgs bump.
