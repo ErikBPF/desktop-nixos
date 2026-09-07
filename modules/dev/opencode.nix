@@ -1,6 +1,8 @@
 {inputs, ...}: {
-  flake.modules.home.opencode = _: {
+  flake.modules.home.opencode = {pkgs, ...}: {
     imports = [inputs.opencode-flake.homeManagerModules.withPackage ./_opencode-profiles.nix];
+
+    home.packages = [pkgs.rtk];
 
     # Provider keys for opencode's `{env:...}` substitution. Declarative port
     # of the former hand-made ~/.config/fish/conf.d/zz-opencode-secrets.fish:
@@ -39,6 +41,8 @@
         # model compress ranges. Version pinned exactly — floating specs would
         # trigger the plugin's self-rm-rf auto-update path (audited 2026-09-05).
         "@tarquinen/opencode-dcp@3.1.15"
+        # Custom providers need Go's session header as well as OpenCode's native headers.
+        "./plugins/gateway-headers.mjs"
       ];
       model = "litellm/glm-5.3-flash";
       small_model = "litellm/glm-5.3-flash";
@@ -269,6 +273,7 @@
           "tdd"
         ]))
       // {
+        "opencode/plugins/gateway-headers.mjs".source = ./opencode-plugins/gateway-headers.mjs;
         # Vendored `graphify install --platform opencode` output (graphifyy
         # uv-tool binary v0.9.53); re-vendor under modules/dev/graphify-skills
         # when the uv tool is bumped.
