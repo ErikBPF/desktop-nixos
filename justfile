@@ -8802,3 +8802,42 @@ discovery-activation-diagnostic:
     timeout 15 sudo docker image ls --format "{{"{{"}}.Repository{{"}}"}} {{"{{"}}.ID{{"}}"}}" | grep hermes || true
     df -h /var/lib/docker /nix /home
     REMOTE
+
+# Value-free rollout evidence for the three remaining OpenCode consumers.
+opencode-rollout-status target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case '{{target}}' in pathfinder|orion|apollo) ;; *) exit 2;; esac
+    address=$(jq -r --arg host '{{target}}' '.hosts[$host].ip' fleet.json)
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 "erik@$address" 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    hostname
+    for path in /run/current-system /run/booted-system /nix/var/nix/profiles/system; do
+        printf '%s=%s\n' "$path" "$(readlink -f "$path")"
+    done
+    systemctl show home-manager-erik.service nixos-upgrade.service -p Id -p Result -p ActiveState
+    systemctl list-jobs --no-pager --no-legend
+    systemctl --failed --no-pager --no-legend
+    systemctl is-active sshd tailscaled
+    if command -v opencode-home >/dev/null; then opencode-home --version; fi
+    for command in opencode-home opencode-work opencode-home-omo opencode-work-omo; do
+        command -v "$command" || true
+    done
+    for profile in home work home-omo work-omo; do
+        file="$HOME/.config/opencode/profiles/$profile/opencode.json"
+        if [ -f "$file" ]; then
+            jq -c --arg profile "$profile" '{profile:$profile,model,small_model,enabled_providers}' "$file"
+        else
+            printf 'profile=%s absent\n' "$profile"
+        fi
+    done
+    for file in opencode.json tui.json opencode.json.backup tui.json.backup; do
+        path="$HOME/.config/opencode/$file"
+        if [ -e "$path" ]; then stat -c '%a %F %n' "$path"; fi
+    done
+    if git -C "$HOME/Documents/erik/desktop-nixos" rev-parse HEAD >/dev/null 2>&1; then
+        git -C "$HOME/Documents/erik/desktop-nixos" log -1 --format='checkout=%H'
+        printf 'dirty_paths='
+        git -C "$HOME/Documents/erik/desktop-nixos" status --porcelain | wc -l
+    fi
+    REMOTE

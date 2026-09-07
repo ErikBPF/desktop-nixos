@@ -1,6 +1,7 @@
 # Declarative OpenCode profiles
 
-**Status:** Implemented and locally verified; activation pending on affected hosts.
+**Status:** Activated on Endeavour and Orion; Apollo verified. Pathfinder awaits
+reachability. Latest rollout evidence: [desktop reconciliation](../reference/2026-09-07-desktop-reconciliation.md).
 
 `modules/dev/opencode.nix` owns the shared Home Manager configuration, plugins,
 provider policy and workflow commands. `modules/dev/_opencode-profiles.nix` owns
