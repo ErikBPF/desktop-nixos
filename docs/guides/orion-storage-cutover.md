@@ -4,10 +4,9 @@
 checksum recording passed; reviewed old models and staging snapshots removed.
 No formatting is required. Do not run disko's partition/format modes.
 
-**Integration activation gate:** the final candidate restores boot-only automatic
-upgrades with `allowReboot = false`. Do not deploy it before its PR is merged
-into main. Orion's currently deployed generation keeps upgrade units absent
-until that post-merge switch; no runtime timer is resumed early.
+**Integration complete:** PR #284 merged as `e76eb7e`, then the reviewed source
+was activated on Orion. Boot-only upgrades are enabled with `allowReboot = false`;
+the temporary live hold was released only after main contained the migration.
 
 | Device | Existing UUID | Destination |
 |---|---|---|
@@ -259,8 +258,8 @@ The candidate is rebased onto main's 2026-09-07 host reconciliation and OpenBao
 fixes. Review removed retired Gemini Herdr/kubeconfig/diagnostic recipes and
 Gemini-only tests, retaining shared Herdr checks under `tests/herdr-worklab`.
 Alias checks now follow Orion/Apollo umbrella entry points. Native Orion
-retains Tuicr through its Home Manager import; that final package addition
-awaits deployment. The existing disk cutover and upgrade hold remain active.
+retains Tuicr through its Home Manager import; Tuicr 0.24.0 was verified after
+the post-merge deployment. The disk cutover remains active.
 
 The updated tests first reproduced the missing native Tuicr import and stale
 Gemini command paths, then passed with the fixes. After rebase, 45 focused
@@ -277,3 +276,21 @@ A missed persistent timer may run immediately; after merge its upstream source
 already contains the new mounts and Gemini retirement. Verify the upgrade
 service outcome, current/next-boot fstabs, absent Gemini and live services.
 The historical maintenance-hold steps above describe the earlier deployed state.
+
+## Post-merge activation verified
+
+PR #284 merged as `e76eb7ee7b42e2fcde7b025dc82490f65a3ecd42` after all required
+CI checks passed, including the k3s VM smoke test. The reviewed tree matched main
+before `just switch-orion`; deploy-rs confirmed activation. Running system:
+`/nix/store/7rpms8bx39qc3hmjpw0qvv5aahpc0030-nixos-system-orion-26.11.20260902.3ed67ec`.
+Next-boot wrapper:
+`/nix/store/gfl9qm1k5kkby7v54572d6sgcp8blgnz-activatable-nixos-system-orion-26.11.20260902.3ed67ec`.
+Their fstabs agree.
+
+On 2026-09-07, the active upgrade timer's next run was 2026-09-08 04:00 -03.
+The installed script runs `nixos-rebuild boot` against main, with no reboot
+command. The upgrade service is inactive/successful; no missed job ran during
+this final switch. All expected disk UUIDs and absent Gemini paths passed.
+Steam/Gamescope are active, inference reports healthy and HTTP 200, its private
+model mount uses SanDisk, and no system units are failed. Free space remains
+228 GiB system, 102 GiB projects/models, and 397 GiB games. No reboot occurred.
