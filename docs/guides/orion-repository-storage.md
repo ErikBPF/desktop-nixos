@@ -1,6 +1,9 @@
 # Orion repository storage
 
-**Status:** Copy staging in progress, 2026-09-07; activation and verification pending.
+**Status:** Declarative placement implemented; rollout results are tracked in the
+[homelab proposal](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-09-07-orion-apollo-development-stability.md).
+Staging on 2026-09-07 passed checksum comparisons for all 21 personal repos;
+nine missing Git repositories were initialized and all 28 sister links matched.
 
 The 21 personal repositories listed in `modules/hosts/orion/workspace-storage.nix`
 live under `/projects/workspaces/erik`. Bind mounts retain their existing
@@ -13,6 +16,9 @@ Syncthing already carries the Documents working files. Git metadata is excluded
 and remains local. Never copy credentials or synchronize live `.git` directories.
 Missing Git metadata is seeded through Git transport, without overwriting working
 files; existing branches, staged changes and unpublished history are preserved.
+Endeavour's source commits are also imported under `refs/remotes/endeavour/...`
+without changing existing Orion HEADs or indexes. Upstream reference caches are
+shallow Git fetches at the recorded source commits, outside Documents sync.
 This provisioning is not a two-writer Git reconciliation protocol.
 
 ## One-time staging and cutover

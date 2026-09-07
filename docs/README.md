@@ -38,7 +38,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`guides/yazi.md`](guides/yazi.md) | Nautilus/Yazi desktop workflow: launch shortcuts, GUI→Yazi keymap bridge, and path persistence. | Guide |
 | [`guides/umbrella-sessions.md`](guides/umbrella-sessions.md) | `l1/l2` on Orion; `w1/w2` on Apollo. | Active; client rollout host-specific |
 | [`guides/orion-retirement-staging.md`](guides/orion-retirement-staging.md) | Encrypted Kepler archives, checksums and Gemini retirement. | Completed 2026-09-07 |
-| [`guides/orion-repository-storage.md`](guides/orion-repository-storage.md) | Selected personal repositories on projects disk; stable umbrella paths. | Staging, verification pending |
+| [`guides/orion-repository-storage.md`](guides/orion-repository-storage.md) | Selected personal repositories on projects disk; stable umbrella paths. | Declarative placement; rollout evidence in homelab |
 | [`guides/orion-storage-cutover.md`](guides/orion-storage-cutover.md) | Existing-disk separation and completed guarded cleanup. | Active and verified 2026-09-07 |
 
 ## Designs and proposals
