@@ -44,3 +44,10 @@ def test_discovery_deploy_timeout_covers_harbor_version_reconciliation():
     discovery = deploy.split("discovery = mkNode {", 1)[1].split("};", 1)[0]
 
     assert "activationTimeout = 1800;" in discovery
+
+
+def test_runtime_pin_cannot_downgrade_observed_discovery_version():
+    # Discovery's installer and all running components were 2.15.2 on 2026-09-07.
+    module = (ROOT / "modules/hosts/discovery/harbor.nix").read_text()
+    version = re.search(r'harborVersion = "v([0-9.]+)"', module).group(1)
+    assert tuple(map(int, version.split("."))) >= (2, 15, 2)
