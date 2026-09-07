@@ -1,6 +1,6 @@
 # Kepler / Apollo GPU exchange
 
-**Status:** GPUs exchanged; host, storage, network and bounded Apollo compute acceptance passed. Finite boot-retention cleanup prepared.
+**Status:** GPUs exchanged; host, storage, network and bounded Apollo compute acceptance passed. Three-entry boot retention applied; household inference remains paused.
 
 The operator selected removal of NVIDIA from Kepler by exchanging its GPU with
 Apollo. Household inference is explicitly suspended for now. Physical compatibility
@@ -319,3 +319,11 @@ existing effective GPU contract, standard checks, `just dry apollo` and
 Before and after staging, use the recorded boot inventory above to verify the
 running generation is unchanged and at least one accepted NVIDIA plus `lan0`
 generation remains selectable. No extra reboot is needed for this cleanup.
+
+Observed **2026-09-07 21:20:53 UTC** after [Desktop #301](https://github.com/ErikBPF/desktop-nixos/pull/301)
+merged as `3dd1002` and `just deploy-rs-boot apollo` succeeded: exactly
+generations **15, 16 and 17** remain selectable, with **17** the next-boot
+default. Accepted generation **15** remains running; its exact `7.2.3` kernel
+image is unchanged. ESP usage fell from 552 MiB to 210 MiB (1.8 GiB free).
+Both NFS shares remain mounted, no system units failed, and the NVIDIA power
+limit remains 170 W. This cleanup performed no reboot or inference restart.

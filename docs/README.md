@@ -23,7 +23,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`reference/discovery-stateful-inventory.md`](reference/discovery-stateful-inventory.md) | Time-bounded P0 owner/image/mount/volume/backup inventory for discovery state migrations. | Audit evidence (2026-07-13) |
 | [`reference/dendritic-contract.md`](reference/dendritic-contract.md) | The rules a `modules/` file must follow (registration, naming, `_` helpers). Enforced by `just structure-check`. | Reference |
 | [`reference/apollo-nic-recovery.md`](reference/apollo-nic-recovery.md) | Permanent-MAC uplink naming, DHCP/NAT recovery and reboot acceptance. | In progress |
-| [`reference/kepler-apollo-gpu-exchange.md`](reference/kepler-apollo-gpu-exchange.md) | GPU exchange, bounded CUDA correctness check and household inference suspension. | Hardware/network/compute acceptance passed; finite boot retention prepared |
+| [`reference/kepler-apollo-gpu-exchange.md`](reference/kepler-apollo-gpu-exchange.md) | GPU exchange, bounded CUDA correctness check and household inference suspension. | Hardware/network/compute accepted; three boot entries applied; inference paused |
 | [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. | Reference |
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. | Reference |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. | As-built |
