@@ -22,6 +22,7 @@ OPTIONS = """hosts: builtins.mapAttrs (_: host: let c = host.config; in {
   graphics = c.hardware.graphics.enable;
   graphics32Bit = c.hardware.graphics.enable32Bit;
   autoUpgrade = c.system.autoUpgrade.enable;
+  bootEntries = c.boot.loader.systemd-boot.configurationLimit;
   stacks = c.homelab.compose.stacks;
   kernelVersion = c.boot.kernelPackages.kernel.version;
   kernelImage = "${c.boot.kernelPackages.kernel}/${c.system.boot.loader.kernelFile}";
@@ -70,6 +71,7 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertFalse(kepler["autoUpgrade"])
             self.assertFalse({"whisper-gpu", "qwen4b-gpu", "retrieval"} & set(kepler["stacks"]))
         with self.subTest(host="apollo"):
+            self.assertGreaterEqual(apollo["bootEntries"], 6)
             self.assertEqual(apollo["drivers"], ["nvidia"])
             self.assertIn("nvidia", apollo["initrdModules"])
             self.assertTrue({"nvidia", "nvidia_modeset", "nvidia_uvm", "nvidia_drm"}
