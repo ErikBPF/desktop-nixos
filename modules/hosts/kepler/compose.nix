@@ -17,10 +17,11 @@ _: {
         "monitoring"
         "security"
         "sync"
-        # Paused while Kepler runs the FreeToken Qwen3.6 NVFP4 trial.
+        # Household inference paused for the Kepler/Apollo GPU exchange.
+        # Retain definitions and model data; resume only after backend acceptance.
         # "whisper-gpu"
         # "qwen4b-gpu"
-        "retrieval"
+        # "retrieval"
       ];
     };
   };
