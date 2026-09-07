@@ -1,6 +1,6 @@
 ---
 name: tdd-slice
-description: Spicyphus per-slice 6-step TDD loop — behavior.md (seed, human) → grounded grill (GLM) → test-contract.md (refine, architect) → red tests (lock, mimo) → green impl (parallel mimo) → seed-integrity review + lessons.md. Use when implementing a slice under an approved RFC. Triggers: "tdd slice", "per-slice loop", "behavior.md", "test-contract", "red then green", "seed-integrity review", "spicyphus loop".
+description: Spicyphus per-slice 6-step TDD loop — behavior.md (seed, human) → grounded grill → test-contract.md (refine, architect) → red tests (lock) → green impl (parallel agents) → seed-integrity review + lessons.md. Use only when explicitly choosing this legacy workflow under an approved RFC; default workflow is /pl → /ip → /rv. Triggers: "tdd slice", "per-slice loop", "behavior.md", "test-contract", "red then green", "seed-integrity review", "spicyphus loop".
 license: MIT
 compatibility: opencode
 metadata:
@@ -18,14 +18,14 @@ the per-slice loop starts ONLY *after* the Spec gate.
 Drop if the task is a single-file edit, a hotfix, or routine drafting
 (commit body, runbook, message). Those don't need the 6-step.
 
-## The 6 steps (canonical)
+## The 6 steps (opt-in)
 
 1. **Seed — `behavior.md`** (human only, kept never overwritten)
    - Human dumps intent in raw prose. Missing context = empty sections,
      flagged at step 2. Don't refine yet.
    - **Hard gate:** no agent originates this file's body.
 
-2. **Grounded grill** (main agent, GLM, before any refine)
+2. **Grounded grill** (main agent, before any refine)
    - Read `behavior.md`. Infer which existing artifacts the seed implicitly
      touches (prior RFCs/ADRs, recent `lessons.md`, related code). Read them.
    - Emit `Q-1..Q-N` each citing a specific seed phrase AND a specific
@@ -38,14 +38,14 @@ Drop if the task is a single-file edit, a hotfix, or routine drafting
    - Minimal: input examples, invariants, expected outputs, edge cases,
      framework target. No implementation code yet.
 
-4. **Red tests — lock** (`@general` / mimo)
+4. **Red tests — lock** (`@general`)
    - General writes tests from `test-contract.md` only. Contract
      underspecified → re-open step 2 (don't rewrite contract silently).
    - Tests must compile AND fail for the right reason (assertion mismatch,
      not infra).
    - Commit red tests as anchor. Behavior is now machine-locked.
 
-5. **Green impl + parallel code** (`@general` / mimo, multiple in parallel)
+5. **Green impl + parallel code** (`@general`, multiple in parallel)
    - Spawn 1..N `@general` agents in one message, each owning a vertical
      slice of impl. Implement until all red tests pass.
    - Wrong behavioral assumption found → re-open step 2.
@@ -59,16 +59,14 @@ Drop if the task is a single-file edit, a hotfix, or routine drafting
 
 ## Multi-agent dispatch (opencode)
 
-- Step 2 grill: main thread inline (DeepSeek primary)
-- Step 3 test-contract: `@architect` (GLM)
-- Step 4 red tests: `@general` (mimo)
-- Step 5 green impl: spawn multiple `@general` (mimo) in ONE message via
+- Step 2 grill: main thread inline
+- Step 3 test-contract: `@architect`
+- Step 4 red tests: `@general`
+- Step 5 green impl: spawn multiple `@general` in ONE message via
   parallel Task tool calls
-- Step 6 review: `@architect` (GLM)
+- Step 6 review: `@architect`
 
-Per-agent model binds in `~/.config/opencode/opencode.json` (HM-managed
-via `opencode-flake`); routing convention lives in global AGENTS.md under
-"Per-slice TDD mechanics > Multi-model routing".
+Agents inherit the selected session model and gateway from the Home Manager profile.
 
 ## Files per slice
 
