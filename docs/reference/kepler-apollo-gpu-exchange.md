@@ -214,13 +214,13 @@ checking the prepared kernels. Boot-only staging leaves running VMs alone;
 the next host boot installs the declared guest runners before starting them.
 
 Stage each host once from the final reviewed revision. Kepler retains two boot
-entries and Apollo six: a second distinct staged revision could evict the
+entries; Apollo temporarily keeps all existing generations: a second distinct staged revision could evict the
 original Kepler generation. Recheck retained entries after every staging attempt.
 
-Apollo's profile ledger already contains generations 9–12 after the original
-AMD generation 8, although its boot menu showed only 7–9. The bootloader applies
-its retention limit to profile generations before skipping unusable wrappers.
-The exchange therefore raises Apollo's limit from three to six, preserving
-8 through the expected new generation 13. Re-read the ledger immediately before
-staging; if it advanced, review retention again before proceeding. Reduce the
-limit only after the exchanged hardware has passed acceptance.
+Apollo's profile ledger advanced from generation 12 to 13 during preparation,
+while the running original remains generation 8. The bootloader applies its
+retention limit to profile generations before skipping unusable wrappers.
+Temporarily set Apollo's limit to `null` (keep all), so other authorized staging
+cannot consume its original AMD recovery entry. Check ESP space and confirm
+that generation 8 remains selectable after staging. Restore a finite limit
+only after the exchanged hardware has passed acceptance.

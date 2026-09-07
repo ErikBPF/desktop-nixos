@@ -86,8 +86,9 @@ in {
 
     boot.loader = {
       efi.canTouchEfiVariables = true;
-      # Keep original AMD generation 8 through the GPU-exchange stage (13).
-      systemd-boot.configurationLimit = 6;
+      # Keep the original AMD generation while concurrent staging advances profiles.
+      # Restore a finite limit after GPU-exchange acceptance.
+      systemd-boot.configurationLimit = null;
     };
 
     system.autoUpgrade.enable = false;

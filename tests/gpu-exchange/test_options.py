@@ -71,7 +71,7 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertFalse(kepler["autoUpgrade"])
             self.assertFalse({"whisper-gpu", "qwen4b-gpu", "retrieval"} & set(kepler["stacks"]))
         with self.subTest(host="apollo"):
-            self.assertGreaterEqual(apollo["bootEntries"], 6)
+            self.assertIsNone(apollo["bootEntries"])
             self.assertEqual(apollo["drivers"], ["nvidia"])
             self.assertIn("nvidia", apollo["initrdModules"])
             self.assertTrue({"nvidia", "nvidia_modeset", "nvidia_uvm", "nvidia_drm"}
