@@ -17,6 +17,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       inputs.jovian.nixosModules.default
       m.nixos.profile-base
+      m.nixos.opencode-client
       m.nixos.systemd-boot-counting
       m.nixos.orion-hardware
       m.nixos.orion-networking

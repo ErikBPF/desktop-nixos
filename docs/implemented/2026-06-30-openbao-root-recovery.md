@@ -111,5 +111,8 @@ are the backstop; nothing here touches storage.
 - Rotation runbook: mint new → **write to sops + commit + `lookup`-verify** →
   *then* revoke old. Never revoke-before-persist; never leave the only copy in
   `/run`.
-- Consider a second unseal-key holder / a break-glass root token stored in the
-  password manager so a lost token isn't a single point of failure.
+- **Custody review 2026-09-07:** use the existing encrypted age-key/SOPS recovery
+  path and the [B4/S1 acceptance record](../reference/vault-disaster-recovery.md#recovery-custody-acceptance)
+  for a second custodian. Physical custody and independent access remain
+  unconfirmed. This follow-up does not authorize another standing root token or
+  execution of the historical root-minting procedure above.
