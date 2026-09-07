@@ -4,7 +4,7 @@ _: {
       hostName = "apollo";
       networkmanager.enable = false;
       useDHCP = false;
-      interfaces.enp6s0.useDHCP = true;
+      interfaces.enp5s0.useDHCP = true;
       firewall = {
         enable = true;
         checkReversePath = "loose";

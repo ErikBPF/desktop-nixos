@@ -1489,17 +1489,17 @@ deploy target ip port="2222" user="erik":
 # matches flake.lock. archinaut (aarch64) activates fine here: activate.nixos is
 # selected per host system in the module.
 #   just deploy-rs voyager
-deploy-rs target:
+deploy-rs target hostname="":
     BUILDERS="$(just _builders {{target}})"; \
-    nix run .#deploy-rs -- --skip-checks .#{{target}} \
+    nix run .#deploy-rs -- --skip-checks {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 1
 
 # Build and show activation changes without switching the remote system.
-deploy-rs-preview target:
+deploy-rs-preview target hostname="":
     BUILDERS="$(just _builders {{target}})"; \
-    nix run .#deploy-rs -- --skip-checks --dry-activate .#{{target}} \
+    nix run .#deploy-rs -- --skip-checks --dry-activate {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 1

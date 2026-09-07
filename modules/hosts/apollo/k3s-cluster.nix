@@ -198,7 +198,7 @@ in {
       nat = {
         enable = true;
         internalInterfaces = ["br-k3s"];
-        externalInterface = "enp6s0";
+        externalInterface = "enp5s0";
       };
     };
 

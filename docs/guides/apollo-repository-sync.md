@@ -77,3 +77,16 @@ ssh -p 2222 erik@apollo 'sudo systemctl restart syncthing-init.service'
 This runtime override points to the same generated updater as the staged
 next-boot generation. It disappears at reboot, when that generation supplies
 the permanent unit. No reboot or full Apollo live switch is part of this task.
+
+## LAN recovery after hardware changes
+
+The observed uplink is `enp5s0`; DHCP and VM NAT must name the same physical
+interface. If Apollo is reachable only through Tailnet, use the existing
+recipes with a hostname override: `just deploy-rs-preview apollo apollo`, then
+`just deploy-rs apollo apollo`. Inspect the activation preview and verify the
+reserved LAN address, VM egress and `just diagnose-apollo-worklab` afterward.
+
+Keep the Apollo peer paused on Orion throughout an interrupted first join. A
+reboot into the staged generation applies declared send/receive mode, so check
+Apollo's folder state before releasing the hold. Reconcile its local index and
+working files in receive-only mode before enabling two-way transport.
