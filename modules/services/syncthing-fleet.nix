@@ -139,18 +139,27 @@
     shareWith ? devices,
   }: {pkgs, ...}: let
     folders = lib.mapAttrs (_: normalizeFolder) folderPaths;
+    ignoreFiles =
+      lib.mapAttrs
+      (_: f:
+        if f.ignoreFile != null
+        then pkgs.writeText "syncthing-${name}-ignore" "${builtins.readFile stignore}\n${builtins.readFile f.ignoreFile}"
+        else if f.syncAll
+        then stignoreSyncAll
+        else stignore)
+      folders;
   in {
     systemd.tmpfiles.rules =
       (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -") folders)
       ++ (lib.mapAttrsToList
-        (_: f: "L+ ${f.path}.stignore - - - - ${
-          if f.ignoreFile != null
-          then pkgs.writeText "syncthing-${name}-ignore" "${builtins.readFile stignore}\n${builtins.readFile f.ignoreFile}"
-          else if f.syncAll
-          then stignoreSyncAll
-          else stignore
-        }")
+        (id: f: "L+ ${f.path}.stignore - - - - ${ignoreFiles.${id}}")
         folders);
+
+    # Syncthing caches ignores by mtime; Nix store files all have a fixed mtime.
+    systemd.services.syncthing = {
+      after = ["systemd-tmpfiles-resetup.service"];
+      restartTriggers = lib.mapAttrsToList (_: file: "${file}") ignoreFiles;
+    };
 
     services.syncthing = {
       enable = true;

@@ -77,8 +77,12 @@ Before adding or removing an exclusion, inspect both the live global index and
 retained local files. Reintroducing a globally deleted path can resume deletion;
 copy/reconcile any wanted files outside that tombstoned path first.
 
-Deploy with the verification and `just switch-orion` sequence above. Request a
-Documents scan through the authenticated local API, without resetting the index.
+Deploy with the verification and `just switch-orion` sequence above. Changes to
+any declared ignore file restart Syncthing after tmpfiles installs its symlink.
+This is necessary because Syncthing caches rules by modification time, while Nix
+store files have a fixed timestamp; a scan alone can retain the previous rules.
+The existing index survives the restart. Request a Documents scan through the
+authenticated local API if needed, without resetting the index.
 Require an unpaused, idle folder with no pending items or errors; compare retained
 file metadata before/after and verify an active repo probe in both directions
 with Apollo, including deletion of the probe.
