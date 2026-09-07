@@ -27,7 +27,10 @@ Syncthing working-file set. Preserve matching umbrella reference links.
 
 Apply the reviewed IaC ACL on wired Orion: only the two Apollo/Orion TCP 22000
 grants may change. Validate policy tests and require a zero-drift follow-up.
-Deploy Apollo first, while Orion still does not know its Syncthing identity.
+Stage Apollo's generation with `just deploy-rs-boot apollo`; its full live switch
+would restart the five VMs and apply unrelated pending changes. Keep the running
+generation and VM processes intact. Apply only Nix's generated Syncthing updater
+and ignore link using the commands below, while Orion does not know Apollo yet.
 Before deploying Orion, use the authenticated local API to set Apollo's
 Documents folder to `receiveonly`, and verify the setting. Credentials stay in
 process memory, never output or plaintext files. Apollo retains staggered
@@ -43,8 +46,31 @@ and worktree canaries remain excluded, then remove the canaries. Do not infer a
 complete Git/WIP handoff or independent restore proof from file transport.
 
 Run lint, format, focused tests, Orion/Apollo dry builds and activation previews
-before the corresponding `just switch-apollo` and `just switch-orion` recipes.
+before the boot-stage/targeted Apollo update and `just switch-orion`.
 Verify SSH, Syncthing, persistent sessions, Apollo's five VM/k3s nodes, Nix-cache
 access, disk headroom and failed units. Keep the snapshot for rollback; pause
 writers/sync and reconcile new work before any recovery. Never roll back by
 silently overwriting the active Documents tree.
+
+## Targeted Apollo activation
+
+After the merged source is built/copied by `just deploy-rs-boot apollo`, derive
+the live update directly from its Nix outputs. Do not hand-copy API settings.
+Require no preexisting runtime override at the path below; preserve VM PIDs and
+activation timestamps before/after. Nix's native updater uses its normal private
+`/run/syncthing-init` directory for runtime API authentication; never print it.
+
+```sh
+APOLLO_SYNC_INIT=$(nix eval --raw .#nixosConfigurations.apollo.config.systemd.services.syncthing-init.serviceConfig.ExecStart)
+APOLLO_SYNC_IGNORE=$(nix eval --json .#nixosConfigurations.apollo.config.systemd.tmpfiles.rules | jq -r '.[] | select(startswith("L+ /home/erik/Documents/.stignore "))')
+test -n "$APOLLO_SYNC_INIT"
+test -n "$APOLLO_SYNC_IGNORE"
+printf '%s\n' "$APOLLO_SYNC_IGNORE" | ssh -p 2222 erik@apollo 'sudo systemd-tmpfiles --create -'
+ssh -p 2222 erik@apollo 'test ! -e /run/systemd/system/syncthing-init.service.d/override.conf'
+printf '[Service]\nExecStart=\nExecStart=%s\n' "$APOLLO_SYNC_INIT" | ssh -p 2222 erik@apollo 'sudo systemctl edit --runtime --stdin syncthing-init.service'
+ssh -p 2222 erik@apollo 'sudo systemctl restart syncthing-init.service'
+```
+
+This runtime override points to the same generated updater as the staged
+next-boot generation. It disappears at reboot, when that generation supplies
+the permanent unit. No reboot or full Apollo live switch is part of this task.
