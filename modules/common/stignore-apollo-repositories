@@ -18,6 +18,9 @@
 **/.npmrc
 **/worktrees
 **/.local
+**/.terragrunt-cache
+**/.devenv
+**/.storage
 **/.codex
 **/.opencode/*.db*
 **/*sync-conflict-*

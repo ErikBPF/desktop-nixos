@@ -332,6 +332,9 @@ def test_apollo_syncthing_shares_selected_documents_with_orion() -> None:
     assert "#include ${stignore}" not in topology
     patterns = read("modules/common/stignore-apollo-repositories").splitlines()
     assert patterns[-1] == "*"
-    for denied in ("**/.env.*", "**/*.secrets.json", "**/worktrees", "**/.local", "**/.codex"):
+    for denied in (
+        "**/.env.*", "**/*.secrets.json", "**/worktrees", "**/.local",
+        "**/.codex", "**/.terragrunt-cache", "**/.devenv", "**/.storage",
+    ):
         assert patterns.index(denied) < patterns.index("!/erik/homelab")
     assert "!/nstech/dataplatform" in patterns
