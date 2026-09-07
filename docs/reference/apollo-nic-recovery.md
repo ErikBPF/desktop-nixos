@@ -1,6 +1,12 @@
 # Apollo NIC recovery
 
-**Status:** Diagnosing post-GPU-exchange NIC startup and address drift.
+**Status:** Delivered — generation 15 reboot proved automatic NIC naming, DHCP, guest NAT and five-node recovery.
+
+The diagnosis and rollout below record the completed September 7 recovery.
+The current interface is `lan0`; `enp5s0` was its pre-repair name. No additional
+staging or reboot is needed for this documentation closeout.
+
+## Historical diagnosis
 
 Reuse the already-trusted LAN host key through `HostKeyAlias`; do not bypass
 host-key verification. Use Apollo's fleet-declared Tailscale address when its LAN reservation is
@@ -41,7 +47,7 @@ interface constant supplies the link name, DHCP owner and NAT egress. Keep
 NetworkManager disabled and preserve the existing k3s bridge and guest placement.
 No polling service, restart loop or second DHCP client is needed.
 
-## Rollout and acceptance
+## Historical rollout and acceptance
 
 Run the effective network contract, lint/format/docs checks and `just dry apollo`
 plus `just build apollo`; publish and pass CI before staging. Reach the existing
@@ -80,7 +86,24 @@ kubectl --context apollo-dev get nodes -o wide
 
 Require automatic `lan0` configuration with the expected MAC, DHCP reservation
 `192.168.10.174`, default IPv4 route, guest NAT via `lan0`, all five cluster nodes
-Ready, retained NVIDIA limits, mounted `/mnt/nfs-fast` and `/mnt/nfs-bulk`, and
+Ready, retained NVIDIA limits, mounted `/mnt/nfs/fast` and `/mnt/nfs/bulk`, and
 no failed units (including the previously failed wait-online and NFS mounts). Household inference stays
 paused. Keep the prior generation until this reboot acceptance passes; it retains
 the old NIC failure and is recovery fallback, not a successful networking fix.
+
+## Completed acceptance — 2026-09-07
+
+[Desktop #296](https://github.com/ErikBPF/desktop-nixos/pull/296) merged as
+`eff62b6` after effective-option RED/GREEN checks, matching rendered initrd and
+system link rules, full build, independent review and green CI. The controlled
+reboot booted generation **15**. At **20:35:51 UTC**, networkd automatically
+acquired `192.168.10.174/24` with gateway `192.168.10.1` on `lan0`, using
+`10-apollo-lan.link`, `40-lan0.network` and permanent MAC `2a:38:4d:07:de:54`.
+No manual NIC command was needed after boot. Guest NAT used `lan0`, all five
+nodes were Ready, both NFS shares were mounted, and no host units failed.
+
+Generation 14 was the temporary rollback entry during this repair. The later
+[GPU acceptance and retention cleanup](kepler-apollo-gpu-exchange.md) supersedes
+that ledger: at **21:20:53 UTC**, exactly generations **15–17** remained,
+accepted generation **15** still running and **17** the next-boot default.
+No further reboot occurred; household inference remains paused.

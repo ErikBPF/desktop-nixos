@@ -18,11 +18,12 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. | Identity loss and recovery proven; recipient confirmation pending |
 | [`reference/2026-08-30-kepler-k3s-etcd-io-incident.md`](reference/2026-08-30-kepler-k3s-etcd-io-incident.md) | Kepler k3s outage evidence, shared-pool etcd latency mechanism, safe writer capture, and storage-remediation gate. | Mitigated; writer attribution and storage redesign open |
 | [`reference/2026-08-10-endeavour-password-lockout.md`](reference/2026-08-10-endeavour-password-lockout.md) | Endeavour declarative-password lockout, recovery, root cause, and guardrails. | Resolved (verified 2026-08-16) |
 | [`reference/discovery-stateful-inventory.md`](reference/discovery-stateful-inventory.md) | Time-bounded P0 owner/image/mount/volume/backup inventory for discovery state migrations. | Audit evidence (2026-07-13) |
 | [`reference/dendritic-contract.md`](reference/dendritic-contract.md) | The rules a `modules/` file must follow (registration, naming, `_` helpers). Enforced by `just structure-check`. | Reference |
-| [`reference/apollo-nic-recovery.md`](reference/apollo-nic-recovery.md) | Permanent-MAC uplink naming, DHCP/NAT recovery and reboot acceptance. | In progress |
+| [`reference/apollo-nic-recovery.md`](reference/apollo-nic-recovery.md) | Permanent-MAC uplink naming, DHCP/NAT recovery and reboot acceptance. | Delivered; generation 15 reboot-proven; finite retention restored |
 | [`reference/kepler-apollo-gpu-exchange.md`](reference/kepler-apollo-gpu-exchange.md) | GPU exchange, bounded CUDA correctness check and household inference suspension. | Hardware/network/compute accepted; three boot entries applied; inference paused |
 | [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. | Reference |
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. | Reference |
