@@ -31,10 +31,6 @@ _: {
           Port 2222
           User erik
 
-        # orion dev-sandbox container — its own tailnet node (MagicDNS).
-        Host gemini
-          Port 2222
-          User erik
       '';
       onChange = ''
         config_tmp="$(mktemp ~/.ssh/config.XXXXXX)"

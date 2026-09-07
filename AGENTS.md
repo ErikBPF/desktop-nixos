@@ -356,8 +356,8 @@ Kubernetes user journey and rollback gate pass.
   `homelab` cluster. `apps/home-services` contains household services;
   `apps/homelab` contains lab/automation/AI workloads. Monitoring and logs are
   in-cluster; ESO reads OpenBao@Discovery. Harbor remains on Discovery and
-  in-cluster Vault is retired. Work-test workloads use Gemini's separate
-  `pastelariadev` k3s context. See
+  in-cluster Vault is retired. Gemini and its `pastelariadev` cluster were
+  retired on 2026-09-07; Apollo owns work/production-analog development. See
   `docs/reference/kepler-k3s-platform-status.md`.
 
 ### `hermes-skills` — hermes skill content

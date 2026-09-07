@@ -150,17 +150,17 @@
       TIMELINE_LIMIT_YEARLY = 0;
     };
 
-    # --- Steam library on /opt/models (declarative) ---
+    # --- Steam library on /games (declarative) ---
     # Steam's data dir (client + game library) is bind-mounted from
-    # /opt/models (Kingston SATA SSD), keeping the ~290G of games off the btrfs
+    # /games (Kingston SATA SSD), keeping games off the btrfs
     # /home subvolume: frees the root SSD, keeps games out of /home snapshots,
     # and survives nixos-rebuild. Steam still sees its normal path, so no
-    # libraryfolders.vdf juggling. Games + GGUF models share Kingston (both
-    # re-downloadable); /projects (SanDisk) holds project/ML work.
+    # libraryfolders.vdf juggling. Projects and active GGUF models use separate
+    # subvolumes on the SanDisk; inactive weights remain staged on Kepler.
     fileSystems."/home/erik/.local/share/Steam" = {
-      device = "/opt/models/Steam";
+      device = "/games/Steam";
       fsType = "none";
-      options = ["bind"];
+      options = ["bind" "x-systemd.requires-mounts-for=/games"];
     };
 
     # --- Silent boot ---

@@ -2,7 +2,7 @@ _: {
   # General-purpose multiplexer for plain SSH / non-herdr sessions (herdr owns
   # the AI-agent panes). Base16 theming comes from the stylix tmux target,
   # enabled centrally in modules/desktop/stylix.nix so this module stays
-  # portable to hosts without stylix (e.g. the orion dev-sandbox microvm).
+  # portable to hosts without stylix.
   # Session save/restore is intentionally omitted: herdr already provides
   # session persistence, so no resurrect/continuum here.
   flake.modules.home.tmux = {pkgs, ...}: {
@@ -16,7 +16,8 @@ _: {
 
           if tmux has-session -t "=$session" 2>/dev/null &&
             [[ $(tmux display-message -p -t "=$session:1" '#{window_panes}') != 7 ]]; then
-            tmux kill-session -t "=$session"
+            echo "tmux-repo: existing session has a custom layout; refusing to replace it; use tmux attach-session -t \"=$session\"" >&2
+            exit 1
           fi
 
           if ! tmux has-session -t "=$session" 2>/dev/null; then

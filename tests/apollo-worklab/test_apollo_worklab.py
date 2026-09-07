@@ -330,10 +330,3 @@ def test_apollo_syncthing_starts_without_peers_or_folders() -> None:
       devices = [];
       folderPaths = {};
     };""" in topology
-
-
-def test_gemini_uses_the_host_neutral_worklab_module() -> None:
-    gemini = read("modules/hosts/orion/gemini.nix")
-
-    assert "m.home.herdr-worklab" in gemini
-    assert "m.home.herdr-gemini" not in gemini

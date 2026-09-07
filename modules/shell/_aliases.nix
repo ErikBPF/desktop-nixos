@@ -120,17 +120,17 @@ _: {
   dair = "cd ~/Documents/nstech/dataplatform-airflow";
   dcon = "cd ~/Documents/nstech/dataplatform-datacontracts";
 
-  # --- Gemini repo jumps (ssh into the orion dev-sandbox at the same dir) ---
+  # --- Persistent umbrella sessions and remote repo jumps ---
   hal = "herdr agent list";
-  hg = "herdr --remote gemini --session homelab";
-  hgs = "ssh -t gemini 'exec herdr session attach homelab'";
+  hg = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
+  hgs = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
   hl = "herdr session list";
-  hlab = "herdr --remote gemini --session homelab";
-  hdap = "herdr --remote gemini --session dataplatform";
-  hr = "herdr-repo";
-  snix = "ssh -t gemini 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
-  sdp = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
-  sspark = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";
-  sair = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-airflow && exec zsh -l'";
-  scon = "ssh -t gemini 'cd ~/Documents/nstech/dataplatform-datacontracts && exec zsh -l'";
+  hlab = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
+  hdap = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec herdr --session w1'";
+  hr = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
+  snix = "ssh -t orion 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
+  sdp = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
+  sspark = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";
+  sair = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform-airflow && exec zsh -l'";
+  scon = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform-datacontracts && exec zsh -l'";
 }

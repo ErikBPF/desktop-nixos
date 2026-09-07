@@ -9,7 +9,6 @@ def test_orion_upgrade_diagnostics_cover_network_and_generation_state():
 
     for check in (
         "tailscaleIp",
-        "systemd-run --machine=gemini --pipe --wait",
         "ip route",
         "ip rule",
         "table 52",
@@ -40,3 +39,11 @@ def test_orion_does_not_accept_subnet_routes():
     ).read_text()
 
     assert 'extraSetFlags = lib.mkForce ["--accept-dns=true" "--accept-routes=false"]' in networking
+
+
+def test_retired_gemini_has_no_operational_recipes():
+    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    for retired in ("ssh gemini", "--machine=gemini", "restart-gemini-herdr:",
+                    "verify-gemini-herdr:", "kubeconfig-pastelariadev:",
+                    "diagnose-pastelariadev:"):
+        assert retired not in justfile

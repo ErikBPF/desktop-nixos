@@ -426,28 +426,6 @@ discovery-apparmor-diagnostic:
 switch-orion:
     just deploy-rs orion
 
-restart-gemini-herdr:
-    ssh gemini 'systemctl --user restart herdr-session-homelab.service && systemctl --user is-active herdr-session-homelab.service'
-
-verify-gemini-herdr:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh gemini 'bash -s' <<'REMOTE'
-    set -euo pipefail
-    herdr --version
-    status=$(herdr integration status)
-    opencode=$(grep '^opencode: ' <<<"$status" || true)
-    printf '%s\n' "$opencode"
-    grep -Fq 'opencode: current (' <<<"$opencode" || {
-      echo 'BLOCKED: OpenCode Herdr integration is missing or outdated' >&2
-      exit 1
-    }
-    for unit in herdr-session-homelab.service herdr-session-dataplatform.service; do
-      printf '%s=' "$unit"
-      systemctl --user is-active "$unit"
-    done
-    REMOTE
-
 recache-orion:
     ssh -p 2222 erik@{{ip_orion}} 'sudo systemctl start nix-cache-builder.service'
 
@@ -1684,11 +1662,7 @@ diagnose-gateway-reachability target:
       timeout 2 bash -c "exec 3<>/dev/tcp/$probe/443" && echo "reachable" || echo "unreachable"
     REMOTE
     }
-    if [ "{{target}}" = gemini ]; then
-      check | ssh -p 2222 erik@{{ip_orion}} 'sudo systemd-run --machine=gemini --pipe --wait /run/current-system/sw/bin/bash -s'
-    else
-      check | ssh -p 2222 erik@"$addr" 'bash -s'
-    fi
+    check | ssh -p 2222 erik@"$addr" 'bash -s'
 
 recover-orion-tailscale-routes:
     #!/usr/bin/env bash
@@ -2445,45 +2419,6 @@ apollo-cluster-rebuild confirmation:
     done
     REMOTE
     just apollo-cluster-start
-
-# Merge Gemini's single-node work cluster into ~/.kube/config without replacing
-# the main homelab context or reusing k3s's default cluster/user names.
-kubeconfig-pastelariadev:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p ~/.kube
-    current=~/.kube/config
-    cluster=$(mktemp ~/.kube/pastelariadev.XXXXXX)
-    base=$(mktemp ~/.kube/config-base.XXXXXX)
-    merged=$(mktemp ~/.kube/config.XXXXXX)
-    trap 'rm -f "$cluster" "$base" "$merged"' EXIT
-    ssh gemini 'sudo -n cat /etc/rancher/k3s/k3s.yaml' \
-        | sed 's#https://127.0.0.1:6443#https://gemini:6443#' \
-        | sed 's/: default$/: pastelariadev-gemini/' \
-        > "$cluster"
-    chmod 600 "$cluster"
-    KUBECONFIG="$cluster" kubectl config rename-context pastelariadev-gemini pastelariadev >/dev/null
-    if [ -s "$current" ]; then
-      active=$(KUBECONFIG="$current" kubectl config current-context 2>/dev/null || true)
-      cp "$current" "$base"
-      KUBECONFIG="$base" kubectl config delete-context pastelariadev >/dev/null 2>&1 || true
-      KUBECONFIG="$base" kubectl config delete-cluster pastelariadev-gemini >/dev/null 2>&1 || true
-      KUBECONFIG="$base" kubectl config delete-user pastelariadev-gemini >/dev/null 2>&1 || true
-      KUBECONFIG="$base:$cluster" kubectl config view --raw --flatten > "$merged"
-      if [ -n "$active" ]; then
-        KUBECONFIG="$merged" kubectl config use-context "$active" >/dev/null
-      fi
-    else
-      KUBECONFIG="$cluster" kubectl config view --raw --flatten > "$merged"
-    fi
-    chmod 600 "$merged"
-    mv "$merged" "$current"
-    trap - EXIT
-    kubectl --context pastelariadev get nodes
-
-# Read-only post-deploy proof through Gemini's existing Tailscale SSH path.
-diagnose-pastelariadev:
-    ssh gemini "sudo -n systemctl is-active k3s && sudo -n k3s kubectl get nodes -o wide && sudo -n ss -ltnp 'sport = :6443' || { sudo -n systemctl status k3s --no-pager -l; sudo -n journalctl -u k3s -b --no-pager -n 80; exit 1; }"
 
 # ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
 # archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.

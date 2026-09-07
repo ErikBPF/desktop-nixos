@@ -18,7 +18,8 @@ _: {
     nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
     hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-    # --- Disko: NVMe (btrfs) + 2x SSD (ext4) ---
+    # Existing filesystems: system NVMe, projects/models Btrfs, Steam ext4.
+    # Migration preserves GPT labels; never run disko formatting for this cutover.
     disko.devices = {
       disk = {
         nvme0 = {
@@ -78,7 +79,7 @@ _: {
                 content = {
                   type = "filesystem";
                   format = "ext4";
-                  mountpoint = "/opt/models";
+                  mountpoint = "/games";
                   mountOptions = ["defaults" "noatime"];
                 };
               };
@@ -103,6 +104,10 @@ _: {
                     "/projects" = {
                       mountpoint = "/projects";
                       mountOptions = ["subvol=projects" "compress=zstd" "noatime"];
+                    };
+                    "/models" = {
+                      mountpoint = "/opt/models";
+                      mountOptions = ["subvol=models" "compress=zstd" "noatime"];
                     };
                   };
                 };
