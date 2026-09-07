@@ -1,6 +1,10 @@
 // Apollo: only selected working trees; Git and build exclusions are included first.
 **/.env.*
 **/*.secrets.json
+**/id_rsa*
+**/id_ed25519*
+**/id_ecdsa*
+**/*.agekey
 **/*.key
 **/*.pem
 **/*.p12
