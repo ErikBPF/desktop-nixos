@@ -238,3 +238,12 @@ Steam/Gamescope and inference remain healthy; no failed system units. Kepler's
 service/timer definitions are absent, and Gemini's config/root/rendered secrets
 remain absent. Integration and later source-controlled upgrade re-enablement
 remain; no commit, push, merge or unrelated host deployment was performed here.
+
+## Integration complete
+
+PR #284 merged as `e76eb7e`, then Orion activated the reviewed source. The
+temporary upgrade hold is released: the installed command stages boot targets
+without rebooting. Tuicr 0.24.0, Steam, inference, mount UUIDs and current/next-boot
+fstab checks passed. The earlier hold and uncommitted-candidate statements above
+are dated migration history; the [cutover guide](orion-storage-cutover.md) records
+the final post-merge generation and service evidence.
