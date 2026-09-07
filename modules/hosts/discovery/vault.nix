@@ -42,6 +42,21 @@ in {
       enable = true;
       settings = {
         ui = true;
+        # Audit configuration is owned here, never by a standing root token.
+        unsafe_allow_api_audit_creation = false;
+        audit = [
+          {
+            file.host-file = {
+              description = "Local HMAC-protected audit trail";
+              options = {
+                file_path = "/var/log/openbao/audit.json";
+                mode = "0600";
+                log_raw = "false";
+                hmac_accessor = "true";
+              };
+            };
+          }
+        ];
         listener.default = {
           type = "tcp";
           address = "127.0.0.1:8200";
@@ -89,6 +104,21 @@ in {
       wants = ["network-online.target"];
       startLimitIntervalSec = 0;
       serviceConfig.RestartSec = "2s";
+      serviceConfig.LogsDirectory = "openbao";
+      serviceConfig.LogsDirectoryMode = "0700";
+    };
+
+    services.logrotate.settings.openbao-audit = {
+      files = ["/var/log/openbao/audit.json"];
+      frequency = "daily";
+      maxsize = "25M";
+      rotate = 14;
+      compress = true;
+      delaycompress = true;
+      missingok = true;
+      notifempty = true;
+      create = "0600 openbao openbao";
+      postrotate = "${pkgs.systemd}/bin/systemctl kill --kill-whom=main --signal=HUP openbao.service";
     };
 
     sops.secrets."vault_unseal_key" = {

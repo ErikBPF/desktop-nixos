@@ -5299,6 +5299,11 @@ discovery-openbao-access-diagnostic:
     ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
     set -euo pipefail
     systemctl is-active openbao
+    sudo -n iptables-save -t nat
+    sudo -n iptables -S ts-forward
+    sudo -n docker inspect swag | jq '.[0].NetworkSettings.Networks | with_entries(.value |= {IPAddress, Gateway})'
+    sudo -n docker port swag
+    systemctl show openbao -p User -p Group -p NoNewPrivileges -p ProtectSystem -p ProtectHome -p PrivateTmp -p CapabilityBoundingSet -p MemoryDenyWriteExecute
     curl -sS --max-time 5 -o /dev/null -w 'openbao_local=%{http_code}\n' http://127.0.0.1:8200/v1/sys/health
     sudo -n docker exec swag sh -c '
       nginx -t
@@ -5306,6 +5311,37 @@ discovery-openbao-access-diagnostic:
       tail -n 500 /config/log/nginx/error.log | sed -n "s/.*access forbidden by rule, client: \([^,]*\), server: openbao[^,]*,.*/openbao_denied_client=\1/p" | sort -u
     '
     REMOTE
+
+# Snapshot before the controlled restart needed to load a new immutable config.
+restart-openbao-with-backup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    test "$(systemctl show openbao -p LogsDirectory --value)" = openbao
+    sudo -n systemctl start restic-backups-vault.service
+    test "$(systemctl show restic-backups-vault -p Result --value)" = success
+    sudo -n systemctl restart openbao.service
+    sudo -n systemctl start openbao-unseal.service
+    curl -fsS --max-time 10 http://127.0.0.1:8200/v1/sys/health | jq -e '.initialized and (.sealed | not)' >/dev/null
+    systemctl is-active openbao vault-agent
+    REMOTE
+
+# No token: prove transport works, secrets require auth, and headers cannot spoof access.
+verify-openbao-hardening:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    curl -fsS --max-time 10 https://openbao.homelab.pastelariadev.com/v1/sys/health | jq -e '.initialized and (.sealed | not)' >/dev/null
+    test "$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' https://openbao.homelab.pastelariadev.com/v1/secret/data/shared/discord)" = 403
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    status=$(sudo -n docker exec swag curl -sS --max-time 10 -o /dev/null -w '%{http_code}' --resolve openbao.homelab.pastelariadev.com:443:127.0.0.1 -H 'X-Forwarded-For: 100.100.0.2' https://openbao.homelab.pastelariadev.com/v1/sys/health)
+    test "$status" = 403
+    test "$(sudo -n stat -Lc '%a' /var/log/openbao/audit.json)" = 600
+    sudo -n test -s /var/log/openbao/audit.json
+    systemctl is-active openbao vault-agent
+    REMOTE
+    just openbao-audit-status
 
 # P1 SWAG adoption authorization is prepared offline from a previously captured,
 # value-free inventory. Inventory is the only recipe that contacts Discovery;
