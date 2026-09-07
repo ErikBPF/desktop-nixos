@@ -5331,7 +5331,7 @@ restart-openbao-with-backup:
     test "$(systemctl show restic-backups-vault -p Result --value)" = success
     sudo -n systemctl restart openbao.service
     sudo -n systemctl start openbao-unseal.service
-    curl -fsS --max-time 10 http://127.0.0.1:8200/v1/sys/health | jq -e '.initialized and (.sealed | not)' >/dev/null
+    curl -fsS --retry 15 --retry-delay 1 --retry-max-time 30 --max-time 10 http://127.0.0.1:8200/v1/sys/health | jq -e '.initialized and (.sealed | not)' >/dev/null
     systemctl is-active openbao vault-agent
     REMOTE
 
@@ -8787,4 +8787,22 @@ verify-b2-backups:
       "$restic_bin" -r s3:https://s3.us-east-005.backblazeb2.com/homelab-vault/discovery/openbao \
       dump latest /var/lib/vault-snapshots/openbao.snap | cmp - /var/lib/vault-snapshots/openbao.snap
     echo "B2 backup + streamed restore verification: OK"
+    REMOTE
+
+# Value-free service/generation evidence after a Discovery activation failure.
+discovery-activation-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    readlink -f /run/current-system /nix/var/nix/profiles/system
+    systemctl list-jobs --no-pager
+    for unit in docker-hermes-agent docker-hermes-argus docker-hermes-daedalus hermes-wiki-cron-seed openbao; do
+      systemctl show "$unit" -p Id -p ActiveState -p SubState -p Result
+      pid=$(systemctl show "$unit" -p MainPID --value)
+      if [ "$pid" != 0 ]; then ps -p "$pid" -o pid,comm,wchan:32; fi
+    done
+    timeout 15 sudo docker ps -a --format "{{"{{"}}.Names{{"}}"}} {{"{{"}}.Status{{"}}"}}" || true
+    timeout 15 sudo docker image ls --format "{{"{{"}}.Repository{{"}}"}} {{"{{"}}.ID{{"}}"}}" | grep hermes || true
+    df -h /var/lib/docker /nix /home
     REMOTE
