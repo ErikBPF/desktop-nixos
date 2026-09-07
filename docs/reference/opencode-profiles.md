@@ -14,7 +14,11 @@ agents inherit the selected gateway and model instead of carrying separate route
 | `opencode-home-omo` | Home LiteLLM | Oh My OpenCode |
 | `opencode-work-omo` | Work proxy | Oh My OpenCode |
 
-The baseline loads RTK, Ponytail and `@tarquinen/opencode-dcp@3.1.15`.
+The baseline loads RTK, Ponytail, `@tarquinen/opencode-dcp@3.1.15`, and a small
+local gateway header hook. The hook forwards the real session ID as
+`x-opencode-session`, required by Go-backed routes behind custom LiteLLM providers.
+RTK itself is also installed declaratively; the plugin alone does not provide its
+executable. OpenCode is pinned to the published 1.18.29 package.
 Oh My OpenCode `5.0.0-beta.43` is explicit opt-in through the `-omo` launchers.
 Memory, quota, ntfy and discovery plugins are outside the baseline. Their local
 data remains available; this change does not migrate or delete it.
@@ -39,7 +43,8 @@ Manager perform its normal backup and linking. Never use `force = true` or activ
 the stale failed generation. Verify managed links and service success afterward;
 clear the historical upgrade failure only after its Home Manager cause is resolved.
 
-Verification: `python3 -m unittest discover -s tests/opencode-profiles -v`
+Verification: `node tests/opencode-profiles/test_headers.mjs` checks header
+forwarding; `python3 -m unittest discover -s tests/opencode-profiles -v`
 evaluates the profile helper and checks repository overrides with the installed
 OpenCode binary. Profile files live under
 `~/.config/opencode/profiles/{home,work,home-omo,work-omo}/`; OmO profiles also own

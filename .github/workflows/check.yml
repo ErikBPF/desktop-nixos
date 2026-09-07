@@ -44,6 +44,7 @@ jobs:
 
       - name: OpenCode gateway profiles
         run: |
+          node tests/opencode-profiles/test_headers.mjs
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/opencode-profiles -v
 
