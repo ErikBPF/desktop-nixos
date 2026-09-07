@@ -111,11 +111,18 @@ shared and Apollo-specific exclusions; use `--ignore-existing`, no deletion,
 and never copy `.git`. Review a dry run before copying. Existing working files
 and Git indexes must remain intact.
 
+Temporarily mask the native configuration updater with
+`sudo systemctl mask --runtime syncthing-init.service` on Apollo before resetting.
+The updater can run after a Syncthing restart and reapply declared send/receive
+mode, even when the folder was paused before the reset. Keep the peer hold.
+
 Use the authenticated local Syncthing API to POST
 `system/reset?folder=ykxhp-khmz2` on Apollo only. This resets that folder's
 index and restarts Syncthing; never omit the folder parameter. Keep the Orion
 peer paused across the restart, recheck Apollo's `receiveonly` mode, and then
 unpause the local folder to rebuild its index before reconnecting Orion.
+Remove the temporary mask with `sudo systemctl unmask --runtime syncthing-init.service`
+only at acceptance, immediately before running the targeted native updater.
 See the [native reset API](https://docs.syncthing.net/rest/system-reset-post.html).
 
 Receive-only catch-up can retain local differences or conflict copies. Review
