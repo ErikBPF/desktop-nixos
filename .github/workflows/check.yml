@@ -48,6 +48,9 @@ jobs:
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/opencode-profiles -v
 
+      - name: GPU exchange effective options
+        run: nix develop -c python -m unittest discover -s tests/gpu-exchange -p 'test_*.py'
+
       - name: OpenBao authenticated probe contract
         run: nix develop -c python -m unittest discover -s tests/openbao-probe -p 'test_*.py'
 
@@ -68,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [pathfinder, endeavour, orion, discovery, kepler]
+        host: [pathfinder, endeavour, orion, discovery, kepler, apollo]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

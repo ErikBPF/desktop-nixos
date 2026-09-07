@@ -15,6 +15,10 @@ in {
     ...
   }: let
     mkK3sNode = import ../../services/_k3s-node.nix;
+    kernelPkgs = import inputs.nixpkgs-gpu-kernel {
+      inherit (pkgs.stdenv.hostPlatform) system;
+      config = config.nixpkgs.config;
+    };
     subnet = "10.251.0";
     hostIp = "${subnet}.1";
     workerCount = 2;
@@ -66,6 +70,8 @@ in {
     mkGuest = name: let
       s = nodeSpec name;
     in {
+      # Apollo guests retain their running LTS kernel, independently of the host.
+      boot.kernelPackages = kernelPkgs.linuxPackages_6_18;
       imports = [
         (mkK3sNode {
           inherit (s) role nodeIp clusterInit serverAddr controlPlane;
