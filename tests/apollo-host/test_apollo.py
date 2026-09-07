@@ -66,9 +66,10 @@ def test_apollo_uses_the_observed_lan_interface() -> None:
     network = read("modules/hosts/apollo/networking.nix")
 
     assert 'hostName = "apollo";' in network
-    assert 'interfaces.enp5s0.useDHCP = true;' in network
-    cluster = read("modules/hosts/apollo/k3s-cluster.nix")
-    assert 'externalInterface = "enp5s0";' in cluster
+    assert 'uplink = "lan0";' in network
+    assert 'interfaces.${uplink}.useDHCP = true;' in network
+    assert 'nat.externalInterface = uplink;' in network
+    assert 'matchConfig.PermanentMACAddress = config.flake.fleet.hosts.apollo.mac;' in network
 
 
 def test_apollo_nfs_uses_its_reachable_lan_path() -> None:

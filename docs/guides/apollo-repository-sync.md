@@ -80,8 +80,10 @@ the permanent unit. No reboot or full Apollo live switch is part of this task.
 
 ## LAN recovery after hardware changes
 
-The observed uplink is `enp5s0`; DHCP and VM NAT must name the same physical
-interface. If Apollo is reachable only through Tailnet, use the existing
+The physical uplink changed to `enp5s0` after the GPU exchange. The MAC-based
+link rule now assigns `lan0`, shared by DHCP and VM NAT. An already-running
+interface does not acquire that new name just by switching generations; coordinate
+the controlled reboot with the hardware recovery before expecting LAN access. If Apollo is reachable only through Tailnet, use the existing
 recipes with a hostname override: `just deploy-rs-preview apollo apollo`, then
 `just deploy-rs apollo apollo`. Inspect the activation preview and verify the
 reserved LAN address, VM egress and `just diagnose-apollo-worklab` afterward.
