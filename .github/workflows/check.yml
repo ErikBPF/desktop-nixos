@@ -46,10 +46,12 @@ jobs:
         run: |
           sudo unshare --net python3 tests/openbao-ingress/test_network.py
           settings=$(mktemp)
-          trap 'rm -f "$settings"' EXIT
+          rotation=$(mktemp)
+          trap 'rm -f "$settings" "$rotation"' EXIT
           nix eval --json .#nixosConfigurations.discovery.config.services.openbao.settings > "$settings"
+          nix eval --json .#nixosConfigurations.discovery.config.services.logrotate.settings.openbao-audit > "$rotation"
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.discovery.config.services.openbao.package)
-          python3 tests/openbao-hardening/test_audit.py "$settings" "$package/bin/bao"
+          python3 tests/openbao-hardening/test_audit.py "$settings" "$package/bin/bao" "$rotation"
 
   eval:
     runs-on: ubuntu-latest

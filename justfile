@@ -5289,6 +5289,43 @@ restart-openbao-with-backup:
     systemctl is-active openbao vault-agent
     REMOTE
 
+# Repair only the empty audit file created outside OpenBao's idmapped mount.
+# No audit data is removed; fail closed on any different state.
+repair-openbao-empty-audit-owner:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    systemctl is-active --quiet openbao.service
+    test "$(systemctl show openbao -p DynamicUser --value)" = yes
+    pid=$(systemctl show openbao -p MainPID --value)
+    test "$pid" -gt 1
+    uid=$(awk '/^Uid:/ {print $2}' "/proc/$pid/status")
+    gid=$(awk '/^Gid:/ {print $2}' "/proc/$pid/status")
+    sudo -n nsenter -t "$pid" -m -- bash -s -- "$uid" "$gid" <<'NAMESPACE'
+    set -euo pipefail
+    file=/var/log/openbao/audit.json
+    test -f "$file" && test ! -L "$file" && test ! -s "$file"
+    test "$(stat -c '%a' "$file")" = 600
+    test "$(stat -Lc '%u:%g' /var/log/openbao)" = "$1:$2"
+    test "$(stat -c '%u:%g' "$file")" != "$1:$2"
+    chown -- "$1:$2" "$file"
+    test "$(stat -c '%u:%g:%a' "$file")" = "$1:$2:600"
+    NAMESPACE
+    test "$(systemctl show openbao -p MainPID --value)" = "$pid"
+    sudo -n systemctl kill --kill-whom=main --signal=HUP openbao.service
+    for attempt in {1..15}; do
+        status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8200/v1/secret/data/shared/discord)
+        if [ "$status" = 403 ] && sudo -n test -s /var/log/openbao/audit.json; then
+            echo 'PASS: audit ownership repaired; denied request audited'
+            exit 0
+        fi
+        sleep 1
+    done
+    echo 'FAIL: audit did not resume' >&2
+    exit 1
+    REMOTE
+
 # No token: prove transport works, secrets require auth, and headers cannot spoof access.
 verify-openbao-hardening:
     #!/usr/bin/env bash
@@ -5301,6 +5338,11 @@ verify-openbao-hardening:
     test "$status" = 403
     test "$(sudo -n stat -Lc '%a' /var/log/openbao/audit.json)" = 600
     sudo -n test -s /var/log/openbao/audit.json
+    pid=$(systemctl show openbao -p MainPID --value)
+    test "$pid" -gt 1
+    uid=$(awk '/^Uid:/ {print $2}' "/proc/$pid/status")
+    gid=$(awk '/^Gid:/ {print $2}' "/proc/$pid/status")
+    test "$(sudo -n nsenter -t "$pid" -m -- stat -Lc '%u:%g:%a' /var/log/openbao/audit.json)" = "$uid:$gid:600"
     systemctl is-active openbao vault-agent
     REMOTE
     just openbao-audit-status
