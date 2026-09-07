@@ -83,5 +83,61 @@ _: {
     };
 
     fileSystems."/var/log".neededForBoot = true;
+
+    # Reserved redundant data pool. Created live 2026-09-05 with
+    # the same parted/mdadm/mkfs commands this declaration generates on
+    # reinstall (see proposal 2026-09-05-apollo-vm-ram-and-raid1-pool).
+    disko.devices.disk = {
+      ssd3 = {
+        type = "disk";
+        device = "/dev/disk/by-id/ata-Samsung_SSD_870_EVO_4TB_S6PJNS0YA01548X";
+        content = {
+          type = "gpt";
+          partitions.data = {
+            size = "100%";
+            type = "A19D880F-05FC-4D3B-B009-31F1992A73E0";
+            content = {
+              type = "mdraid";
+              name = "microvms";
+            };
+          };
+        };
+      };
+
+      ssd4 = {
+        type = "disk";
+        device = "/dev/disk/by-id/ata-Samsung_SSD_870_EVO_4TB_S6PJNS0YA01573P";
+        content = {
+          type = "gpt";
+          partitions.data = {
+            size = "100%";
+            type = "A19D880F-05FC-4D3B-B009-31F1992A73E0";
+            content = {
+              type = "mdraid";
+              name = "microvms";
+            };
+          };
+        };
+      };
+    };
+
+    disko.devices.mdadm.microvms = {
+      type = "mdadm";
+      level = 1;
+      metadata = "1.2";
+      extraArgs = ["--homehost=apollo"];
+      content = {
+        type = "filesystem";
+        format = "ext4";
+        # Operator decision 2026-09-07: keep MicroVM state on the root pool.
+        # Retain this existing mount and array identity; future use is undecided.
+        mountpoint = "/mnt/microvms";
+      };
+    };
+
+    boot.swraid.mdadmConf = ''
+      ARRAY /dev/md/microvms metadata=1.2 UUID=e34c6b0a:37d94b6b:8c27d172:8b74ecdc
+      MAILADDR root
+    '';
   };
 }
