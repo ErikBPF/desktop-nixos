@@ -1499,6 +1499,14 @@ deploy-rs target:
            --option builders-use-substitutes true \
            --max-jobs 1
 
+# Build and show activation changes without switching the remote system.
+deploy-rs-preview target:
+    BUILDERS="$(just _builders {{target}})"; \
+    nix run .#deploy-rs -- --skip-checks --dry-activate .#{{target}} \
+        -- --option builders "$BUILDERS" \
+           --option builders-use-substitutes true \
+           --max-jobs 1
+
 # Like deploy-rs, but --boot: set the new generation as the NEXT-BOOT target
 # WITHOUT live-activating. For GPU/driver hosts (kepler, discovery) where an
 # nvidia driver bump in the closure would mismatch the running kernel module on a
