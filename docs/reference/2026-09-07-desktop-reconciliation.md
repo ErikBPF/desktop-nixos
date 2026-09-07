@@ -1,17 +1,21 @@
 # Desktop reconciliation and OpenCode rollout
 
-**Status:** Orion activated and Apollo verified; Pathfinder unreachable. Orion inference awaits missing credential projection; Apollo home/work real tool
-smokes pass. Canonical staged and unstaged drafts retained unchanged. Audit against main `1ed67c9`.
+**Status:** Endeavour and Orion activated; Orion and Apollo home/work real tool checks pass.
+Pathfinder remains unreachable. Canonical drafts retained unchanged; original audit against `1ed67c9`.
 
 ## Delivery evidence
 
 - Orion: `just dry orion` and `just deploy-rs-preview orion` passed. Reviewed
   closure changes add OpenCode 1.18.29, four profiles, workflows and RTK; no GPU,
   NIC, kernel or storage changes. `just deploy-rs orion` confirmed activation.
-  Current system: `8p561acaiib8svzqiznkd2w47r7bzwig`; booted system remains
+  Current system: `z8xjq7c6nc0hxz92vxaiagr59wjnfa7g`; booted system remains
   `f5q7xqcangibzrmnnb044aiqwhq926yh`. No reboot required for this user-tool change.
 - Apollo: already running and booted `qz5mfaljrfcgc7j1n57bqvkxcz4rc05i` with all
   four correct GLM 5.3 Flash profiles and successful Home Manager. No redeployment.
+- Endeavour: `h1la17hlb9vfcqv0q6pa7lwkg6yqlwlg` activated; Home Manager finished
+  successfully at 2026-09-07 23:05:55 UTC; no failed units; Ghostty uses `never`.
+  Ten conflicting overlay links were archived losslessly under `~/.local/state/home-manager-overlay-handoffs/2026-09-07-31ksvujl`;
+  managed links were restored while the newer Codex 0.153.4/RTK 0.48.0 profile and binaries were retained.
 - Pathfinder: tailnet SSH timed out; LAN returned no route to host. Source is
   ready; activation and consumer verification remain gated on host reachability.
 - The operator can repeat value-free evidence with
