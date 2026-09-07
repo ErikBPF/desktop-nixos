@@ -39,6 +39,9 @@ jobs:
       - name: Switch safety contracts
         run: nix develop -c python -m unittest discover -s tests/switch-safety -p 'test_*.py'
 
+      - name: Safe lock update contract
+        run: nix develop -c python -m unittest discover -s tests/update-safe -p 'test_*.py'
+
       - name: OpenBao ingress and audit regressions
         run: |
           sudo unshare --net python3 tests/openbao-ingress/test_network.py
