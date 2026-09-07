@@ -36,6 +36,6 @@ def test_discovery_runs_litellm_semantic_probe():
     module = source("modules/hosts/discovery/runtime-health.nix")
 
     assert "litellm_semantic_ready" in module
-    assert '"ha-agent-qwen4b"' in module
+    assert '"qwen-chat"' in module
     assert "/v1/chat/completions" in module
     assert "docker exec -i litellm" in module

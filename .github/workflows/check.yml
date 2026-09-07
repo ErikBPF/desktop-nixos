@@ -54,6 +54,9 @@ jobs:
       - name: Apollo uplink effective options
         run: nix develop -c python -m unittest discover -s tests/apollo-nic-recovery -p 'test_*.py'
 
+      - name: LiteLLM semantic probe
+        run: nix develop -c python -m unittest discover -s tests/runtime-secret-health -p 'test_semantic_probe.py'
+
       - name: OpenBao authenticated probe contract
         run: nix develop -c python -m unittest discover -s tests/openbao-probe -p 'test_*.py'
 
