@@ -194,17 +194,12 @@ in {
       flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#orion";
       # boot (not live switch): a nightly kernel/GPU-driver bump activated live
       # mismatches the running module. Staging for next boot + rebooting in-window
-      # keeps kernel and driver in lockstep. orion is the fleet cache/builder, so
-      # it upgrades and reboots FIRST (04:00–04:30) — dependents then substitute
-      # from a settled cache at 05:00 instead of hammering it mid-reboot.
+      # keeps kernel and driver in lockstep. Stage nightly; reboot during a
+      # reviewed maintenance window so persistent work is not interrupted.
       operation = "boot";
       flags = ["--show-trace"];
-      allowReboot = true;
+      allowReboot = false;
       dates = "04:00";
-      rebootWindow = {
-        lower = "04:00";
-        upper = "04:30";
-      };
     };
 
     services.openssh.enable = true;
