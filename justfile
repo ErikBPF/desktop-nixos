@@ -5292,6 +5292,21 @@ discovery-migration-inventory:
       systemctl --failed --no-legend || true
     REMOTE
 
+# Inspect OpenBao ingress without reading credentials or logging request bodies.
+discovery-openbao-access-diagnostic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_discovery}} 'bash -s' <<'REMOTE'
+    set -euo pipefail
+    systemctl is-active openbao
+    curl -sS --max-time 5 -o /dev/null -w 'openbao_local=%{http_code}\n' http://127.0.0.1:8200/v1/sys/health
+    sudo -n docker exec swag sh -c '
+      nginx -t
+      grep -E "^[[:space:]]*(server_name|allow|deny|set_real_ip_from|real_ip_header|real_ip_recursive) " /config/nginx/proxy-confs/openbao.subdomain.conf /config/nginx/nginx.conf
+      tail -n 500 /config/log/nginx/error.log | sed -n "s/.*access forbidden by rule, client: \([^,]*\), server: openbao[^,]*,.*/openbao_denied_client=\1/p" | sort -u
+    '
+    REMOTE
+
 # P1 SWAG adoption authorization is prepared offline from a previously captured,
 # value-free inventory. Inventory is the only recipe that contacts Discovery;
 # it runs the fixed read-only collector and validates the result locally.
