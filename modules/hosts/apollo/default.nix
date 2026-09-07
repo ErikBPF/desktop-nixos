@@ -88,7 +88,7 @@ in {
       efi.canTouchEfiVariables = true;
       # Preserve the accepted closed-driver boot during the three-GPU/open
       # module preparation. Return to three after that hardware is accepted.
-      systemd-boot.configurationLimit = 5;
+      systemd-boot.configurationLimit = 6;
     };
 
     system.autoUpgrade.enable = false;

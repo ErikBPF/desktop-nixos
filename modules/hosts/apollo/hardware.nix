@@ -35,11 +35,10 @@
 
     hardware.nvidia-container-toolkit.enable = true;
 
-    # Retain the RTX 3070's Xid 13/31 mitigation; incoming RTX 5060 Ti cards
-    # get their own power ceiling, never the 3070's clock cap. These native
-    # controls limit power/boost; they do not program a voltage undervolt.
+    # Per-model power ceilings with firmware-managed clocks. Reset old clock
+    # locks when applying policy; these controls do not program an undervolt.
     systemd.services.nvidia-conservative-clocks = {
-      description = "Apply conservative NVIDIA power and clock limits";
+      description = "Apply NVIDIA power limits and restore default clocks";
       wantedBy = ["multi-user.target"];
       after = ["nvidia-persistenced.service"];
       requires = ["nvidia-persistenced.service"];
