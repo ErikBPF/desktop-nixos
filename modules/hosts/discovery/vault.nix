@@ -117,7 +117,9 @@ in {
       delaycompress = true;
       missingok = true;
       notifempty = true;
-      create = "0600 openbao openbao";
+      # LogsDirectory is idmapped for DynamicUser. Host-created files have the
+      # wrong owner inside the service; let OpenBao reopen/create at mode 0600.
+      create = false;
       postrotate = "${pkgs.systemd}/bin/systemctl kill --kill-whom=main --signal=HUP openbao.service";
     };
 
