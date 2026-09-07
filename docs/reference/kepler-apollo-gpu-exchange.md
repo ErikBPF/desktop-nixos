@@ -93,6 +93,45 @@ household service is automatically relocated to Apollo. Keep model data and
 Compose definitions. Kepler's declared stack list excludes `whisper-gpu`,
 `qwen4b-gpu`, and `retrieval` during the exchange.
 
+During this pause IaC withdraws `ha-agent-qwen4b` and Servarr removes its expected
+probe entry. Discovery's semantic canary checks the still-promised `qwen-chat`
+route through an actual completion and database readiness; failure alerts remain
+enabled. Credentials, model data and Compose definitions stay intact. Restoring
+the HA alias requires explicit workload placement and a verified backend first.
+The IaC source pin includes the withdrawal while retaining Discovery's existing
+23 monitored drift units. New units remain explicitly excluded until their
+runtime credentials and zero-diff plans are accepted in the IaC owner.
+
+After the IaC route withdrawal and Servarr catalog changes merge, preflight
+Discovery's current kernel and activation preview before switching its canary:
+
+```bash
+ip=$(jq -er '.hosts.discovery.ip' fleet.json)
+ssh -p 2222 "erik@$ip" \
+  'readlink -f /run/current-system/kernel; readlink -f /run/booted-system/kernel
+   systemctl is-active docker.service openbao.service tailscaled.service'
+nix eval --raw .#nixosConfigurations.discovery.config.boot.kernelPackages.kernel
+just deploy-rs-preview discovery
+```
+
+Require the candidate kernel to match the live kernel and inspect the preview
+for unrelated changes. With reviewed source and green CI, deploy and verify the
+actual metric through the installed service:
+
+```bash
+just pin-servarr discovery e2e368110f56648b704e7ae0ea630e115713c44f
+just deploy-rs discovery
+ip=$(jq -er '.hosts.discovery.ip' fleet.json)
+ssh -p 2222 "erik@$ip" \
+  'sudo systemctl start litellm-semantic-health.service
+   cat /var/lib/node-exporter-textfile/litellm-semantic.prom
+   systemctl is-active docker.service openbao.service tailscaled.service'
+```
+
+Require `litellm_semantic_ready 1`; do not silence failure or resume HA to force
+this gate green. Gateway catalog and completion evidence belong to the IaC
+route-withdrawal runbook.
+
 Read current units, container names and NVIDIA consumers before stopping them:
 
 ```bash

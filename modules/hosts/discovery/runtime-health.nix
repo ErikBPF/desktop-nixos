@@ -39,7 +39,8 @@ _: {
       assert health == {"status": "healthy", "db": "connected"}
 
       body = json.dumps({
-          "model": "ha-agent-qwen4b",
+          # HA inference is paused after the GPU exchange; qwen-chat remains promised.
+          "model": "qwen-chat",
           "messages": [{"role": "user", "content": "Reply OK"}],
           "max_tokens": 2,
       }).encode()
