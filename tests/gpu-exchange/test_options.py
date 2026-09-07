@@ -73,7 +73,7 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertFalse(kepler["autoUpgrade"])
             self.assertFalse({"whisper-gpu", "qwen4b-gpu", "retrieval"} & set(kepler["stacks"]))
         with self.subTest(host="apollo"):
-            self.assertEqual(apollo["bootEntries"], 5)
+            self.assertEqual(apollo["bootEntries"], 6)
             self.assertTrue(apollo["openDriver"])
             self.assertFalse(any("nvidia-x11" in name or "nvidia-kernel-modules" in name
                                  for name in apollo["extraModules"]))
@@ -93,7 +93,8 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertEqual(apollo["clocks"], (ROOT / "modules/hosts/apollo/_gpu-power.sh").read_text())
             self.assertIn("--id=", apollo["clocks"])
             self.assertIn("--power-limit=", apollo["clocks"])
-            self.assertIn("clocks=210,1500", apollo["clocks"])
+            self.assertIn("--reset-gpu-clocks", apollo["clocks"])
+            self.assertNotIn("--lock-gpu-clocks", apollo["clocks"])
 
 
 if __name__ == "__main__":

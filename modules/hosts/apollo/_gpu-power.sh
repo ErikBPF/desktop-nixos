@@ -15,8 +15,8 @@ while IFS=', ' read -r uuid device extra; do
     continue
   fi
   case "${device^^}" in
-    0X248810DE|0X248410DE) watts=170; clocks=210,1500 ;; # RTX 3070; retain proven fault limits.
-    0X2D0410DE) watts=145; clocks= ;; # RTX 5060 Ti; provisional efficiency ceiling.
+    0X248810DE|0X248410DE) watts=170 ;; # RTX 3070; retain the power ceiling.
+    0X2D0410DE) watts=145 ;; # RTX 5060 Ti; provisional efficiency ceiling.
     *)
       echo "No reviewed power policy for $uuid ($device)" >&2
       status=1
@@ -27,8 +27,6 @@ while IFS=', ' read -r uuid device extra; do
     status=1
     continue
   fi
-  if [[ -n "$clocks" ]]; then
-    nvidia-smi --id="$uuid" --error-on-warning --lock-gpu-clocks="$clocks" || status=1
-  fi
+  nvidia-smi --id="$uuid" --error-on-warning --reset-gpu-clocks || status=1
 done <<< "$inventory"
 exit "$status"

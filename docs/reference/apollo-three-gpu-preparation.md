@@ -15,15 +15,18 @@ revoke an already-generated CDI file if an operator later changes settings.
 
 | Card | PCI device | Power ceiling | Graphics clock policy |
 |---|---|---:|---|
-| RTX 3070, including current LHR card | 2484 / 2488 | 170 W | Existing 210–1500 MHz fault mitigation |
-| Each RTX 5060 Ti | 2D04 | 145 W, provisional | Firmware-managed; no 3070 clock cap |
+| RTX 3070, including current LHR card | 2484 / 2488 | 170 W | Firmware-managed; prior lock reset |
+| Each RTX 5060 Ti | 2D04 | 145 W, provisional | Firmware-managed; prior lock reset |
 
 These are power/clock defaults, **not a verified voltage undervolt**. Actual V/F
 curve tuning requires supported controls and stability qualification on each
 physical card. The 5060 Ti ceiling is an engineering starting point (~81% of
 NVIDIA's reference 180 W), accepted only if the actual board's reported range
 permits it. NVIDIA's native command validates that range; warnings are failures.
-Limits apply at boot and when the power service restarts. After a driver reset
+Limits apply at boot and when the power service restarts. Each known card also
+receives `--reset-gpu-clocks`, removing any earlier graphics-clock lock.
+The operator reported a PCIe extender on Kepler as a possible cause of the
+3070 faults and requested stock frequencies; that cause is not yet proven. After a driver reset
 or unload/reload, reapply and verify them before resuming GPU work.
 
 The existing 595.99.02 driver supports both models. Blackwell requires **open**
@@ -44,9 +47,9 @@ Source tests do not prove a card that is not installed works.
 This changes kernel-module flavor: use **boot staging**, no live driver switch
 or automatic reboot. At September 7 preflight, running generation 15 used the
 accepted closed driver; another deployment had advanced the default to 18 and
-retained only 16–18 in the menu. Keep five entries during preparation so the next
-single stage can restore generation 15's selectable entry. Recount immediately
-before staging: five covers 15–19 only. If the profile advanced again, preserve
+retained only 16–18 in the menu. The first preparation restored 15–19.
+Keep six entries for this follow-up so staging generation 20 retains accepted
+generation 15. Recount immediately before staging: six covers 15–20 only. If the profile advanced again, preserve
 the accepted generation before proceeding; do not silently prune it.
 
 ```sh
@@ -64,6 +67,22 @@ After staging, verify the new default, the accepted generation's actual boot
 entry and unchanged running system/kernel. Return retention to three only after
 open-driver and three-card hardware acceptance. The old closed-driver entry is
 a rollback for the existing 3070; it cannot operate the incoming Blackwell cards.
+
+## Apply clock correction without a driver switch
+
+After review, the production helper can apply power limits and reset graphics
+clock locks on the running driver, without replacing remote configuration:
+
+```sh
+ssh -p 2222 erik@192.168.10.174 'sudo bash -s' < modules/hosts/apollo/_gpu-power.sh
+ssh -p 2222 erik@192.168.10.174 \
+  'nvidia-smi --query-gpu=uuid,name,power.limit --format=csv; nvidia-smi -q -d CLOCK'
+```
+
+Boot-stage the same source through the owner recipe for persistence. The old
+running service still contains the historical cap until the prepared generation
+boots; restarting that old service can reintroduce it. Reapply this helper if
+that happens. No driver reload or reboot is required for the clock reset itself.
 
 ## Arrival and acceptance
 
@@ -88,7 +107,7 @@ just diagnose-apollo-worklab
 ```
 
 Require one 3070 and two 5060 Ti identities, open modules, all three applied
-power ceilings, correct 3070 clock range, NVIDIA CDI inventory for all cards,
+power ceilings, default graphics-clock policy, NVIDIA CDI inventory for all cards,
 automatic `lan0` networking, NFS and five healthy guest nodes. Inventory alone
 is not compute acceptance. Use the existing bounded CUDA correctness procedure
 in [GPU exchange](kepler-apollo-gpu-exchange.md), selecting each UUID through
