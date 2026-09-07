@@ -1,13 +1,25 @@
-_: {
+{config, ...}: let
+  uplink = "lan0";
+in {
   flake.modules.nixos.apollo-networking = {lib, ...}: {
     networking = {
       hostName = "apollo";
       networkmanager.enable = false;
       useDHCP = false;
-      interfaces.enp6s0.useDHCP = true;
+      interfaces.${uplink}.useDHCP = true;
+      nat.externalInterface = uplink;
       firewall = {
         enable = true;
         checkReversePath = "loose";
+      };
+    };
+
+    # Keep DHCP and guest NAT independent of PCI numbering after hardware moves.
+    systemd.network.links."10-apollo-lan" = {
+      matchConfig.PermanentMACAddress = config.flake.fleet.hosts.apollo.mac;
+      linkConfig = {
+        NamePolicy = "";
+        Name = uplink;
       };
     };
 
