@@ -39,6 +39,15 @@ jobs:
       - name: Switch safety contracts
         run: nix develop -c python -m unittest discover -s tests/switch-safety -p 'test_*.py'
 
+      - name: OpenBao ingress and audit regressions
+        run: |
+          sudo unshare --net python3 tests/openbao-ingress/test_network.py
+          settings=$(mktemp)
+          trap 'rm -f "$settings"' EXIT
+          nix eval --json .#nixosConfigurations.discovery.config.services.openbao.settings > "$settings"
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.discovery.config.services.openbao.package)
+          python3 tests/openbao-hardening/test_audit.py "$settings" "$package/bin/bao"
+
   eval:
     runs-on: ubuntu-latest
     timeout-minutes: 20

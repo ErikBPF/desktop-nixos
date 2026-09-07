@@ -16,10 +16,10 @@
 in {
   flake.modules.nixos.discovery-harbor = {pkgs, ...}: let
     # Runtime pin; the vendored script's fallback applies only outside this unit.
-    harborVersion = "v2.14.4";
+    harborVersion = "v2.15.2";
     harborInstaller = pkgs.fetchurl {
       url = "https://github.com/goharbor/harbor/releases/download/${harborVersion}/harbor-online-installer-${harborVersion}.tgz";
-      sha256 = "sha256-vzWifyFuJ1OyRyslAgga8SUuKUBe3svsjb2Ipgw7h8E=";
+      sha256 = "sha256-iPanQ2sxiQ6ORylyp0M9NrfWo23preuGM3/cn+f7X6M=";
     };
     servarrHarbor = ./servarr-harbor;
     setup = "${servarrHarbor}/scripts/harbor-setup.sh";

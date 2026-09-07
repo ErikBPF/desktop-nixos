@@ -2,7 +2,11 @@
   # Self IP from the fleet SSOT (modules/meta.nix) — don't re-type the literal.
   selfIp = config.fleet.hosts.discovery.ip;
 in {
-  flake.modules.nixos.discovery-networking = {lib, ...}: {
+  flake.modules.nixos.discovery-networking = {
+    lib,
+    pkgs,
+    ...
+  }: {
     networking = {
       hostName = "discovery";
 
@@ -28,6 +32,14 @@ in {
 
       firewall = {
         enable = true;
+        # Keep the authenticated tailnet source visible to SWAG's IP allowlists.
+        # Mangle POSTROUTING runs before Tailscale's NAT regardless of rule order.
+        extraCommands = ''
+          ${pkgs.bash}/bin/bash ${./_preserve-ingress-source.sh} add ${selfIp} ${config.fleet.hosts.discovery.tailscaleIp}
+        '';
+        extraStopCommands = ''
+          ${pkgs.bash}/bin/bash ${./_preserve-ingress-source.sh} remove ${selfIp} ${config.fleet.hosts.discovery.tailscaleIp}
+        '';
         checkReversePath = "loose";
         # Default-closed: only SSH + syncthing
         allowedTCPPorts = [
