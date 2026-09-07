@@ -1,6 +1,6 @@
 # Kepler / Apollo GPU exchange
 
-**Status:** GPUs exchanged; Kepler accepted. Apollo GPU accepted; [NIC recovery](apollo-nic-recovery.md) in progress.
+**Status:** GPUs exchanged; host, storage, network and bounded Apollo compute acceptance passed. Finite boot-retention cleanup prepared.
 
 The operator selected removal of NVIDIA from Kepler by exchanging its GPU with
 Apollo. Household inference is explicitly suspended for now. Physical compatibility
@@ -213,14 +213,109 @@ Every VM's `booted` and `current` runner matched. Use these exact paths when
 checking the prepared kernels. Boot-only staging leaves running VMs alone;
 the next host boot installs the declared guest runners before starting them.
 
-Stage each host once from the final reviewed revision. Kepler retains two boot
-entries; Apollo temporarily keeps all existing generations: a second distinct staged revision could evict the
-original Kepler generation. Recheck retained entries after every staging attempt.
+For the initial exchange, each host was staged once from the reviewed revision.
+Kepler retained two boot entries; Apollo temporarily kept all existing
+generations. Recheck retained entries after every staging attempt.
 
 Apollo's profile ledger advanced from generation 12 to 13 during preparation,
 while the running original remains generation 8. The bootloader applies its
 retention limit to profile generations before skipping unusable wrappers.
-Temporarily set Apollo's limit to `null` (keep all), so other authorized staging
-cannot consume its original AMD recovery entry. Check ESP space and confirm
-that generation 8 remains selectable after staging. Restore a finite limit
-only after the exchanged hardware has passed acceptance.
+Apollo's limit was temporarily set to `null` (keep all), preserving the original
+AMD recovery entry through the exchange. Hardware and networking acceptance
+now permit restoring three entries as described in the compute acceptance below.
+
+## Bounded Apollo compute acceptance
+
+Read the available tools and idle GPU before choosing a correctness workload:
+
+```bash
+ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@192.168.10.174 \
+  'command -v python3 nvcc nvidia-smi podman docker || true
+   nvidia-smi --query-gpu=name,temperature.gpu,power.limit,power.draw,memory.used --format=csv,noheader
+   nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader
+   podman images --format "{{.Repository}}:{{.Tag}}"'
+```
+
+Keep the existing 170 W / 210–1500 MHz limits. Do not resume household
+inference or borrow an active application's container for this check.
+
+Build only NVIDIA's pinned CUDA 12.8 `matrixMul` sample, which checks every
+result against its known constant-input reference. Its source comes from the
+flake's CUDA sample derivation; no application data or custom GPU kernel is used:
+
+```bash
+sample=$(nix build --impure --no-link --print-out-paths --expr '
+  let f = builtins.getFlake (toString ./.);
+      sample = f.nixosConfigurations.apollo.pkgs.cudaPackages.cuda-samples;
+  in sample.overrideAttrs (old: {
+    pname = "apollo-matrixmul"; name = "apollo-matrixmul-12.8";
+    prePatch = ""; postPatch = "";
+    nativeBuildInputs = builtins.filter (p: (p.pname or "") != "cmake") old.nativeBuildInputs;
+    buildInputs = builtins.filter (p: builtins.elem (p.pname or "")
+      [ "cuda_cudart" "cuda_cccl" "cuda_profiler_api" ]) old.buildInputs;
+    dontUseCmakeConfigure = true;
+    buildPhase = "nvcc -O2 -arch=sm_86 -ICommon Samples/0_Introduction/matrixMul/matrixMul.cu -o matrixMul";
+    installPhase = "install -Dm755 matrixMul $out/bin/matrixMul; install -Dm644 LICENSE $out/share/licenses/cuda-samples/LICENSE";
+  })')
+# All runtime dependencies are already present on Apollo; import only this local build.
+nix-store --export "$sample" | ssh -p 2222 -o BatchMode=yes erik@192.168.10.174 \
+  'sudo -n nix-store --import'
+```
+
+The following bounded test uses the resulting immutable store path. Check it
+matches the build output. It stops on errors or 85°C, uses a 65-second outer
+timeout, and leaves host configuration and the retained GPU limits unchanged:
+
+```bash
+ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@192.168.10.174 'bash -s' <<'REMOTE'
+set -euo pipefail
+sample=/nix/store/x1g93y34041jipmny7w0jsccibm6vf8c-apollo-matrixmul-12.8/bin/matrixMul
+test -x "$sample"
+test -z "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)"
+test "$(nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits)" = 170.00
+systemctl is-active --quiet nvidia-conservative-clocks.service
+start=$(date --iso-8601=seconds)
+nvidia-smi --query-gpu=temperature.gpu,power.draw,clocks.gr,memory.used --format=csv,noheader
+timeout --kill-after=5s 65s bash -c '
+  set -e
+  passes=0
+  while (( SECONDS < 45 )); do
+    "$1" -wA=2048 -hA=2048 -wB=2048 -hB=2048
+    passes=$((passes + 1))
+  done
+  printf "completed_correctness_passes=%s elapsed_seconds=%s\n" "$passes" "$SECONDS"
+' bash "$sample" &
+load_pid=$!
+trap 'kill -TERM "$load_pid" 2>/dev/null || true' EXIT
+while kill -0 "$load_pid" 2>/dev/null; do
+  temperature=$(timeout 5s nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits)
+  test "$temperature" -lt 85
+  nvidia-smi --query-gpu=timestamp,temperature.gpu,power.draw,clocks.gr,utilization.gpu --format=csv,noheader
+  sleep 1
+done
+wait "$load_pid"
+trap - EXIT
+faults=$(journalctl -b -k --since "$start" --no-pager | grep -Ei 'NVRM.*Xid|GPU has fallen off|GPU.*fault' || true)
+test -z "$faults" || { printf '%s\n' "$faults"; exit 1; }
+nvidia-smi --query-gpu=temperature.gpu,power.limit,power.draw,memory.used --format=csv,noheader
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader
+printf 'bounded_cuda_correctness=PASS new_gpu_faults=0\n'
+REMOTE
+```
+
+This is bounded FP32 compute/memory-path evidence, not a repair of the card's
+historical Xid faults or acceptance of Whisper, tensor-core inference, or an
+extended thermal soak. Retain the conservative power and clock settings.
+
+Observed **2026-09-07 21:08:40–21:09:28 UTC**: all eleven 2048×2048 runs
+passed the upstream correctness check (300 timed multiplies per run), exit 0.
+Forty-six telemetry samples peaked at 54°C and 76.51 W; active compute used
+1500 MHz. No new kernel GPU fault appeared. The GPU returned to 1 MiB used
+memory with no compute processes; its 170 W limit remained applied.
+
+After this acceptance, restore Apollo's former three-entry boot limit. Run the
+existing effective GPU contract, standard checks, `just dry apollo` and
+`just build apollo`; merge after green CI, then `just deploy-rs-boot apollo`.
+Before and after staging, use the recorded boot inventory above to verify the
+running generation is unchanged and at least one accepted NVIDIA plus `lan0`
+generation remains selectable. No extra reboot is needed for this cleanup.
