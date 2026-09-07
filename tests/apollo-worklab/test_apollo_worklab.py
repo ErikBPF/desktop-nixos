@@ -321,12 +321,15 @@ def test_apollo_agent_defaults_do_not_bypass_approval() -> None:
         assert command not in apollo
 
 
-def test_apollo_syncthing_starts_without_peers_or_folders() -> None:
-    apollo = read("modules/hosts/apollo/default.nix")
+def test_apollo_syncthing_shares_selected_documents_with_orion() -> None:
     topology = read("modules/services/syncthing-fleet.nix")
-
-    assert "m.nixos.apollo-syncthing" in apollo
-    assert """apollo = {
-      devices = [];
-      folderPaths = {};
-    };""" in topology
+    apollo = topology.split("    apollo = {", 1)[1].split("\n    };", 1)[0]
+    assert 'devices = ["orion"]' in apollo
+    assert 'path = "/home/${u}/Documents/"' in apollo
+    assert "stignore-apollo-repositories" in apollo
+    assert "versioning = stateVersioning" in apollo
+    patterns = read("modules/common/stignore-apollo-repositories").splitlines()
+    assert patterns[-1] == "*"
+    for denied in ("**/.env.*", "**/*.secrets.json", "**/worktrees", "**/.local", "**/.codex"):
+        assert patterns.index(denied) < patterns.index("!/erik/homelab")
+    assert "!/nstech/dataplatform" in patterns

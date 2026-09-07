@@ -24,6 +24,7 @@
   # dirs (e.g. the tofu-state mirror) that must replicate *.tfstate.
   folderDefaults = {
     devices = null; # null → fall back to the host's shareWith
+    ignoreFile = null; # optional scoped working-file filter
     versioning = null; # null → no version history
     syncAll = false; # true → stignore-sync-all instead of the fleet stignore
   };
@@ -66,11 +67,15 @@
       };
     };
     orion = {
-      devices = ["discovery" "laptop" "pathfinder" "kepler"];
+      devices = ["discovery" "laptop" "pathfinder" "kepler" "apollo"];
       shareWith = ["discovery" "laptop" "pathfinder"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
-        "ykxhp-khmz2" = "/home/${u}/Documents/";
+        "ykxhp-khmz2" = {
+          path = "/home/${u}/Documents/";
+          syncAll = false;
+          devices = ["discovery" "laptop" "pathfinder" "apollo"];
+        };
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
         "tofu-state" = {
           path = "/home/${u}/tofu-state-backup/";
@@ -114,11 +119,16 @@
         };
       };
     };
-    # Apollo starts with no peers or folders. This creates and preserves its
-    # device identity before the stopped-writer worktree cutover.
+    # Keep repository working files on home; connect only to Orion.
     apollo = {
-      devices = [];
-      folderPaths = {};
+      devices = ["orion"];
+      folderPaths."ykxhp-khmz2" = {
+        path = "/home/${u}/Documents/";
+        devices = ["orion"];
+        syncAll = false;
+        ignoreFile = ../common/stignore-apollo-repositories;
+        versioning = stateVersioning;
+      };
     };
   };
 
@@ -126,14 +136,16 @@
     devices,
     folderPaths,
     shareWith ? devices,
-  }: _: let
+  }: {pkgs, ...}: let
     folders = lib.mapAttrs (_: normalizeFolder) folderPaths;
   in {
     systemd.tmpfiles.rules =
       (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -") folders)
       ++ (lib.mapAttrsToList
         (_: f: "L+ ${f.path}.stignore - - - - ${
-          if f.syncAll
+          if f.ignoreFile != null
+          then pkgs.writeText "syncthing-${name}-ignore" "#include ${stignore}\n${builtins.readFile f.ignoreFile}"
+          else if f.syncAll
           then stignoreSyncAll
           else stignore
         }")
