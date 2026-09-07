@@ -95,3 +95,30 @@ Keep the Apollo peer paused on Orion throughout an interrupted first join. A
 reboot into the staged generation applies declared send/receive mode, so check
 Apollo's folder state before releasing the hold. Reconcile its local index and
 working files in receive-only mode before enabling two-way transport.
+
+
+## Interrupted first-join index recovery
+
+Keep Orion's Apollo peer paused and Apollo Documents paused in `receiveonly`
+mode. Check `/home` is mounted, preserve a fresh read-only home snapshot under
+its root-only staging directory, and capture the five VM process identities.
+An interrupted boot into `sendreceive` may have promoted bootstrap files into
+its index; changing the folder type back does not undo those versions.
+
+Stage the merged generation and apply its generated ignore link as above.
+An optional SSH/rsync pre-seed may copy **only missing files**, using the same
+shared and Apollo-specific exclusions; use `--ignore-existing`, no deletion,
+and never copy `.git`. Review a dry run before copying. Existing working files
+and Git indexes must remain intact.
+
+Use the authenticated local Syncthing API to POST
+`system/reset?folder=ykxhp-khmz2` on Apollo only. This resets that folder's
+index and restarts Syncthing; never omit the folder parameter. Keep the Orion
+peer paused across the restart, recheck Apollo's `receiveonly` mode, and then
+unpause the local folder to rebuild its index before reconnecting Orion.
+See the [native reset API](https://docs.syncthing.net/rest/system-reset-post.html).
+
+Receive-only catch-up can retain local differences or conflict copies. Review
+those against the retained snapshot and source before accepting send/receive;
+never use Override or Revert to force counters to zero. Follow the preservation
+and two-way canary checks above. Keep both holds if recovery cannot be accepted.
