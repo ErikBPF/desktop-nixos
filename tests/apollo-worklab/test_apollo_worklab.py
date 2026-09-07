@@ -335,6 +335,7 @@ def test_apollo_syncthing_shares_selected_documents_with_orion() -> None:
     for denied in (
         "**/.env.*", "**/*.secrets.json", "**/worktrees", "**/.local",
         "**/.codex", "**/.terragrunt-cache", "**/.devenv", "**/.storage",
+        "**/graphify-out", "**/.env-*",
     ):
         assert patterns.index(denied) < patterns.index("!/erik/homelab")
     assert "!/nstech/dataplatform" in patterns

@@ -1,5 +1,6 @@
 // Apollo: only selected working trees; Git and build exclusions are included first.
 **/.env.*
+**/.env-*
 **/*.secrets.json
 **/id_rsa*
 **/id_ed25519*
@@ -21,6 +22,7 @@
 **/.terragrunt-cache
 **/.devenv
 **/.storage
+**/graphify-out
 **/.codex
 **/.opencode/*.db*
 **/*sync-conflict-*

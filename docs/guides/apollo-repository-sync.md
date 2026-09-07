@@ -7,6 +7,9 @@ Use its existing Syncthing identity and only Orion as a new peer. Share the
 existing Documents folder ID with an Apollo-specific selected-repository filter.
 Do not share Downloads, kube or state mirrors. Git metadata, credentials,
 worktrees and local agent state are excluded; Git owns committed history.
+Exclude `graphify-out` as generated cache: it can contain entire copied working
+trees. Environment-file exclusions cover `.env`, `.env.*` and `.env-*`; tracked
+`.envrc` files remain eligible for sync.
 
 ## Guarded first join
 
