@@ -144,7 +144,7 @@
       ++ (lib.mapAttrsToList
         (_: f: "L+ ${f.path}.stignore - - - - ${
           if f.ignoreFile != null
-          then pkgs.writeText "syncthing-${name}-ignore" "#include ${stignore}\n${builtins.readFile f.ignoreFile}"
+          then pkgs.writeText "syncthing-${name}-ignore" "${builtins.readFile stignore}\n${builtins.readFile f.ignoreFile}"
           else if f.syncAll
           then stignoreSyncAll
           else stignore

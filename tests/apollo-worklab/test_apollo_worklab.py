@@ -328,6 +328,8 @@ def test_apollo_syncthing_shares_selected_documents_with_orion() -> None:
     assert 'path = "/home/${u}/Documents/"' in apollo
     assert "stignore-apollo-repositories" in apollo
     assert "versioning = stateVersioning" in apollo
+    # Syncthing resolves includes relative to Documents, including /nix/store.
+    assert "#include ${stignore}" not in topology
     patterns = read("modules/common/stignore-apollo-repositories").splitlines()
     assert patterns[-1] == "*"
     for denied in ("**/.env.*", "**/*.secrets.json", "**/worktrees", "**/.local", "**/.codex"):
