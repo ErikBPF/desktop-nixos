@@ -48,6 +48,8 @@ jobs:
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/opencode-profiles -v
 
+      - name: Syncthing conflict archive
+        run: python3 -m unittest discover -s tests/syncthing-conflicts
       - name: Syncthing ignore activation
         run: python3 -m unittest discover -s tests/syncthing-ignore
       - name: GPU exchange effective options
