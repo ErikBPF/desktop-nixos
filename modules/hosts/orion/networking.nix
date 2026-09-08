@@ -1,9 +1,13 @@
-_: {
+{config, ...}: {
   flake.modules.nixos.orion-networking = {lib, ...}: {
     networking = {
       hostName = "orion";
       networkmanager.enable = true;
       networkmanager.dns = "systemd-resolved";
+      networkmanager.settings."connection-orion-wol" = {
+        match-device = "mac:${config.flake.fleet.hosts.orion.mac}";
+        "ethernet.wake-on-lan" = 64; # magic packet
+      };
       firewall = {
         enable = true;
         checkReversePath = "loose";
