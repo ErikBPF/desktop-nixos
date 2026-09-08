@@ -53,6 +53,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 | Doc | Status |
 |-----|--------|
+| [`proposals/2026-09-08-fleet-capability-composition.md`](proposals/2026-09-08-fleet-capability-composition.md) · [`behavior contract`](behaviors/fleet-capability-composition/composition.feature) | Proposed — grounded `/pl` and `/ip` draft for shared wake/routing capabilities, developer-tool composition and import-only profiles; no implementation or deployment. |
 | [`Orion games and models storage separation`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-09-01-orion-games-models-storage-separation.md) · [`behavior contract`](behaviors/orion-storage-separation/orion-games-models-storage-separation.feature) | Proposed — requested Nix, Podman, and explicit build-tree cleanup completed; snapshot-exclusive usage remains unmeasured; hardware approval still blocks implementation planning. |
 | [`Apollo native work lab`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-08-29-apollo-native-work-lab.md) · [`behavior contract`](../tests/apollo-worklab/apollo-work-lab.feature) | In progress — host and five-node substrate are live; fleet/cache/API operations are implemented; source landing, telemetry rollout, workload proof, and writer cutover remain. |
 | [`Gemini Herdr native-restore behavior`](behaviors/gemini-herdr-native-restore/gemini-herdr-native-restore.feature) | Contract — OpenCode is the declarative native-restore canary; deployment and disposable restart proof remain gated. |
