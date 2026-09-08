@@ -84,3 +84,6 @@ Desktop.ini
 **/*.heapsnapshot
 **/coverage
 **/.nyc_output
+
+// Agent benchmark jobs are local runtime state, including container-owned files.
+/erik/agent-evals/.local
