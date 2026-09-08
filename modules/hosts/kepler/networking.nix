@@ -1,4 +1,4 @@
-_: {
+{config, ...}: {
   flake.modules.nixos.kepler-networking = {lib, ...}: {
     networking = {
       hostName = "kepler";
@@ -34,6 +34,16 @@ _: {
           4001 # lockd UDP
           5514 # UniFi SIEM syslog
         ];
+      };
+    };
+
+    systemd.network.links."10-kepler-lan" = {
+      matchConfig.PermanentMACAddress = config.flake.fleet.hosts.kepler.mac;
+      linkConfig = {
+        NamePolicy = "keep kernel database onboard slot path";
+        AlternativeNamesPolicy = "database onboard slot path";
+        MACAddressPolicy = "persistent";
+        WakeOnLan = "magic";
       };
     };
 

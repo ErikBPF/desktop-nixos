@@ -81,6 +81,7 @@ in {
         NamePolicy = "keep kernel database onboard slot path";
         AlternativeNamesPolicy = "database onboard slot path";
         MACAddressPolicy = "persistent";
+        WakeOnLan = "magic";
         TCPSegmentationOffload = false;
         TCP6SegmentationOffload = false;
         GenericSegmentationOffload = false;
