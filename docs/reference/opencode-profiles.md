@@ -5,7 +5,7 @@ reachability. Latest rollout evidence: [desktop reconciliation](../reference/202
 
 `modules/dev/opencode.nix` owns the shared Home Manager configuration, plugins,
 provider policy and workflow commands. `modules/dev/_opencode-profiles.nix` owns
-the gateway launchers. Both home and work default to **GLM 5.3 Flash**; helper
+the gateway launchers. Home defaults to **DeepSeek V4.1 Flash** (`litellm/deepseek-flash`, via OpenCode Go); work defaults to **GLM 5.3 Flash**. Helper
 agents inherit the selected gateway and model instead of carrying separate routes.
 
 | Command | Gateway | Optional orchestration |

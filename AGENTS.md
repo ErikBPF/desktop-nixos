@@ -514,8 +514,8 @@ change lands in first (per `Rule of thumb` above); this flake's
 **Multi-agent dispatch for nixos-flake slices:**
 
 - Architect: grill, draft `test-contract.md`, run seed-integrity diff.
-  Helpers inherit the selected home/work gateway and model; both profiles
-  default to GLM 5.3 Flash through the Home Manager OpenCode configuration.
+  Helpers inherit the selected home/work gateway and model; home defaults to DeepSeek V4.1 Flash and work to
+  GLM 5.3 Flash through the Home Manager OpenCode configuration.
 - General: write red tests + green implementation with the same inherited
   gateway and model. Source-of-trUTH: agent edits `modules/**` + `flake.nix` only —
   never edits `/nix/store` or remote host files (re-iterate the `Remote

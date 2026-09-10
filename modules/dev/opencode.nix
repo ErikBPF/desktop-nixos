@@ -44,8 +44,8 @@
         # Custom providers need Go's session header as well as OpenCode's native headers.
         "./plugins/gateway-headers.mjs"
       ];
-      model = "litellm/glm-5.3-flash";
-      small_model = "litellm/glm-5.3-flash";
+      model = "litellm/deepseek-flash";
+      small_model = "litellm/deepseek-flash";
       # 1.18.29 still uses this filter; policies cover the newer core path.
       enabled_providers = ["litellm" "work"];
 
@@ -59,6 +59,24 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
+            deepseek-flash = {
+              name = "DeepSeek V4.1 Flash (LiteLLM → OpenCode Go)";
+              cost = {
+                input = 0.15;
+                output = 0.6;
+                cache_read = 0.003;
+              };
+              limit = {
+                context = 1000000;
+                output = 384000;
+              };
+              modalities = {
+                input = ["text" "image"];
+                output = ["text"];
+              };
+              reasoning = true;
+              tool_call = true;
+            };
             deepseek-v4-flash = {
               name = "DeepSeek V4 Flash (LiteLLM → OpenCode Go)";
               cost = {
