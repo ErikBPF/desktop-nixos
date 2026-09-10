@@ -25,8 +25,8 @@ class Profiles(unittest.TestCase):
                                 capture_output=True, text=True, check=True)
         module = json.loads(result.stdout)
         settings = module["globalSettings"]
-        self.assertEqual(settings["model"], "litellm/glm-5.3-flash")
-        self.assertEqual(settings["small_model"], "litellm/glm-5.3-flash")
+        self.assertEqual(settings["model"], "litellm/deepseek-flash")
+        self.assertEqual(settings["small_model"], "litellm/deepseek-flash")
         self.assertEqual(set(settings["provider"]), {"litellm", "work"})
         self.assertEqual(settings["enabled_providers"], ["litellm", "work"])
         self.assertEqual(len(settings["plugin"]), 4)
@@ -47,12 +47,12 @@ class Profiles(unittest.TestCase):
             global_dir.mkdir(parents=True)
             providers = {provider: {"npm": "@ai-sdk/openai-compatible",
                          "options": {"baseURL": "http://127.0.0.1:9/v1", "apiKey": "synthetic"},
-                         "models": {"glm-5.3-flash": {"name": "Synthetic"}}}
+                         "models": {("deepseek-flash" if provider == "litellm" else "glm-5.3-flash"): {"name": "Synthetic"}}}
                          for provider in ["litellm", "work", "rogue"]}
             (global_dir / "opencode.json").write_text(json.dumps({"provider": providers}))
             (repo / "opencode.json").write_text(json.dumps({"model": "rogue/other", "enabled_providers": ["rogue"]}))
             for lane, provider in [("home", "litellm"), ("work", "work")]:
-                model = provider + "/glm-5.3-flash"
+                model = provider + ("/deepseek-flash" if lane == "home" else "/glm-5.3-flash")
                 for suffix in ["", "-omo"]:
                     prefix = "opencode/profiles/" + lane + suffix + "/"
                     config = json.loads(files[prefix + "opencode.json"]["text"])

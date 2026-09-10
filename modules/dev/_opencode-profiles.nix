@@ -49,8 +49,13 @@
       omo = true;
     };
   };
+  modelFor = profile: "${profile.provider}/${
+    if profile.provider == "litellm"
+    then "deepseek-flash"
+    else "glm-5.3-flash"
+  }";
   files = name: profile: let
-    model = "${profile.provider}/glm-5.3-flash";
+    model = modelFor profile;
     prefix = "opencode/profiles/${name}/";
   in
     {
@@ -98,7 +103,7 @@ in {
   home.file.".omo/omo.jsonc".text = builtins.toJSON {
     profiles = lib.mapAttrs (_: profile: let
       route = {
-        model = "${profile.provider}/glm-5.3-flash";
+        model = modelFor profile;
         fallback_models = ["${profile.provider}/deepseek-v4-flash"];
       };
     in {
