@@ -141,6 +141,15 @@ switch target=profile:
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 0
 
+# Activate only the declarative user environment; leaves the running OS unchanged.
+home-switch target=profile:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    activation=$(nix build --no-link --print-out-paths \
+      .#nixosConfigurations.{{target}}.config.home-manager.users.erik.home.activationPackage \
+      --builders '' --max-jobs 2)
+    HOME_MANAGER_BACKUP_EXT=backup "$activation/activate"
+
 builder-preflight target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo ./scripts/builder-preflight.sh "$BUILDERS"
