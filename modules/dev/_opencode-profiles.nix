@@ -51,7 +51,7 @@
   };
   modelFor = profile: "${profile.provider}/${
     if profile.provider == "litellm"
-    then "deepseek-flash"
+    then "deepseek-v4.1-flash"
     else "glm-5.3-flash"
   }";
   files = name: profile: let
@@ -104,7 +104,7 @@ in {
     profiles = lib.mapAttrs (_: profile: let
       route = {
         model = modelFor profile;
-        fallback_models = ["${profile.provider}/deepseek-v4-flash"];
+        fallback_models = ["${profile.provider}/deepseek-v4.1-flash"];
       };
     in {
       "[opencode]" = {
