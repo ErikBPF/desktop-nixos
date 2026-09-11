@@ -5,6 +5,9 @@
 }: let
   addr = "http://127.0.0.1:8200";
   renderedAt = ''# rendered_at={{ timestamp }}\n'';
+  # Hermes' opencode-go provider resolves only its native credential variable.
+  # Keep the original scoped LiteLLM key for custom/auxiliary routes too.
+  hermesEnv = field: ''{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.${field} | regexReplaceAll \"(?m)^OPENAI_API_KEY=(.*)$\" \"$0\\nOPENCODE_GO_API_KEY=$1\" }}\nOPENCODE_GO_BASE_URL=http://litellm:4000/v1\n{{ end }}'';
 in {
   users.groups.vault-consumers = {};
   users.users.${username}.extraGroups = ["vault-consumers"];
@@ -139,17 +142,17 @@ in {
           }
         }
         template {
-          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.SERVER_ENV }}\n{{ end }}"
+          contents = "${hermesEnv "SERVER_ENV"}"
           destination = "/run/vault-agent/hermes-agent.env"
           perms = "0400"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.DAEDALUS_ENV }}\n{{ end }}"
+          contents = "${hermesEnv "DAEDALUS_ENV"}"
           destination = "/run/vault-agent/hermes-daedalus.env"
           perms = "0400"
         }
         template {
-          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.ARGUS_ENV }}\n{{ end }}WEBHOOK_SECRET={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.argus_webhook_hmac }}{{ end }}\n"
+          contents = "${hermesEnv "ARGUS_ENV"}WEBHOOK_SECRET={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.argus_webhook_hmac }}{{ end }}\n"
           destination = "/run/vault-agent/hermes-argus.env"
           perms = "0400"
         }
