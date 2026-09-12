@@ -34,8 +34,9 @@ non-Git inputs and follows edges, without parsing or copying sensitive lock
 metadata. The Git revision identifies the source baseline; it does not assert
 that unrelated source files are clean or that the revision is published.
 
-This receipt records the existing `dry-all` check, not realized builds,
-affected-host classification, rollout authorization, or runtime acceptance.
+This receipt records the existing `dry-all` check, which delegates to
+`build-all` and runs `nix build --no-link`. It does not enumerate realized
+closures, classify affected hosts, authorize rollout, or establish runtime acceptance.
 An older receipt remains historical after failure; compare its candidate
 digest with the current lock before using it. Each linked worktree has its
 own Git metadata path.
@@ -46,7 +47,8 @@ Extend the existing real Just/Git disposable-repository check. Preserve staged
 and unstaged refusal, update/build failures, INT/TERM handling, and Git clean
 filter coverage. Add exact successful receipt fields and timestamp, synthetic
 secret exclusion, preservation of previous receipts on failure, and lock
-restoration when receipt publication fails. No real Nix update or fleet
+restoration when receipt publication fails, and termination during writing
+or immediately after publication. No real Nix update or fleet
 operation runs in this test.
 
 Rollback: revert the writer and its recipe call; keep the existing transaction.

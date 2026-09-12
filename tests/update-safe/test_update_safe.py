@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -17,12 +18,13 @@ class UpdateSafe(unittest.TestCase):
     def test_transaction(self):
         for mode in ("staged", "unstaged", "update-fail", "build-fail",
                      "update-INT", "update-TERM", "build-INT", "build-TERM",
-                     "evidence-fail", "success"):
+                     "evidence-fail", "evidence-TERM", "published-TERM", "success"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 repo = Path(directory)
                 (repo / "justfile").write_bytes((ROOT / "justfile").read_bytes())
                 (repo / "fleet.json").write_bytes((ROOT / "fleet.json").read_bytes())
-                shutil.copytree(ROOT / "scripts", repo / "scripts")
+                (repo / "scripts").mkdir()
+                shutil.copy2(ROOT / "scripts" / "upgrade-candidate-evidence.py", repo / "scripts")
                 (repo / "bin").mkdir()
                 (repo / "tmp").mkdir()
                 env = dict(os.environ, PATH=f"{repo / 'bin'}:{os.environ['PATH']}",
@@ -68,6 +70,33 @@ case "$MODE" in
 esac
 ''')
                     stub.chmod(0o755)
+                if mode in ("evidence-TERM", "published-TERM"):
+                    writer = repo / "bin" / "python3"
+                    writer.write_text(f'''#!{sys.executable}
+import json
+import os
+from pathlib import Path
+import runpy
+import signal
+import sys
+
+if os.environ["MODE"] == "evidence-TERM":
+    dump = json.dump
+    def interrupted_dump(*args, **kwargs):
+        dump(*args, **kwargs)
+        os.kill(os.getpid(), signal.SIGTERM)
+    json.dump = interrupted_dump
+else:
+    replace = Path.replace
+    def interrupted_replace(*args, **kwargs):
+        result = replace(*args, **kwargs)
+        os.kill(os.getppid(), signal.SIGTERM)
+        return result
+    Path.replace = interrupted_replace
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name="__main__")
+''')
+                    writer.chmod(0o755)
                 result = subprocess.run([JUST, "update-safe"], cwd=repo, env=env,
                                         capture_output=True, timeout=20)
                 self.assertEqual(result.returncode == 0, mode == "success",
@@ -77,7 +106,7 @@ esac
                 self.assertEqual(list((repo / "tmp").iterdir()), [])
                 calls = (repo / "calls").read_text() if (repo / "calls").exists() else ""
                 expected = "" if mode in ("staged", "unstaged") else "update\n"
-                if mode.startswith("build") or mode in ("evidence-fail", "success"):
+                if mode.startswith(("build", "evidence", "published")) or mode == "success":
                     expected += "build\n"
                 self.assertEqual(calls, expected)
                 if mode == "success":
