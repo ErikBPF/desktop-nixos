@@ -28,17 +28,16 @@ def snapshot(reference, phase, selector):
             or any(not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name)
                    for name in names)):
         sys.exit(f"upgrade-impact: invalid {phase} host set")
-    expression = (
-        "configs: builtins.listToAttrs (map (name: { inherit name; "
-        "value = configs.${name}.config.system.build.toplevel.drvPath; }) [ "
-        + " ".join(json.dumps(name) for name in names) + " ])"
-    )
-    identities = evaluate(reference, "nixosConfigurations", expression, phase)
-    if (not isinstance(identities, dict) or set(identities) != set(names)
-            or any(not isinstance(value, str) or not re.fullmatch(
-                r"/nix/store/[0-9abcdfghijklmnpqrsvwxyz]{32}-[A-Za-z0-9+._?=-]+\.drv", value
-            ) for value in identities.values())):
-        sys.exit(f"upgrade-impact: invalid {phase} derivation identity")
+    identities = {}
+    # ponytail: sequential processes bound memory to one host; parallelize only with measured headroom.
+    for name in names:
+        value = evaluate(reference, "nixosConfigurations",
+                         f'configs: configs."{name}".config.system.build.toplevel.drvPath', phase)
+        if not isinstance(value, str) or not re.fullmatch(
+            r"/nix/store/[0-9abcdfghijklmnpqrsvwxyz]{32}-[A-Za-z0-9+._?=-]+\.drv", value
+        ):
+            sys.exit(f"upgrade-impact: invalid {phase} derivation identity")
+        identities[name] = value
     return identities
 
 
