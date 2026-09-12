@@ -2693,8 +2693,8 @@ servarr-rollout-status target commit="":
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
     case "$target" in
-      kepler) stacks=(infra buzz monitoring sync security retrieval) ;;
-      orion) stacks=(shared monitoring ai-models sync) ;;
+      kepler) stacks=(infra buzz monitoring sync security) ;;
+      orion) stacks=(shared monitoring ai-models sync retrieval) ;;
       voyager) stacks=(offsite) ;;
       *) die "host outside exact-pin rollout" ;;
     esac
