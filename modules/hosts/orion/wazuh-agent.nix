@@ -84,6 +84,10 @@
       };
       environmentFiles = ["/run/wazuh-agent/agent.env"];
       volumes = [
+        "${./wazuh-agent.xml}:/wazuh-config-mount/etc/ossec.conf:ro"
+        "/var/log/journal:/var/log/journal:ro"
+        "/run/log/journal:/run/log/journal:ro"
+        "/etc/machine-id:/etc/machine-id:ro"
         "${stateDir}/client.keys:/var/ossec/etc/client.keys"
       ];
       extraOptions = ["--hostname=orion"];

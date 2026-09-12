@@ -1,0 +1,29 @@
+<ossec_config>
+  <client>
+    <server>
+      <address>CHANGE_MANAGER_IP</address>
+      <port>CHANGE_MANAGER_PORT</port>
+      <protocol>tcp</protocol>
+    </server>
+    <notify_time>20</notify_time>
+    <time-reconnect>60</time-reconnect>
+    <auto_restart>yes</auto_restart>
+    <crypto_method>aes</crypto_method>
+    <enrollment>
+      <enabled>yes</enabled>
+      <manager_address>CHANGE_ENROLL_IP</manager_address>
+      <port>CHANGE_ENROLL_PORT</port>
+      <agent_name>CHANGE_AGENT_NAME</agent_name>
+      <groups>CHANGE_AGENT_GROUP</groups>
+    </enrollment>
+  </client>
+  <rootcheck><disabled>yes</disabled></rootcheck>
+  <syscheck><disabled>yes</disabled></syscheck>
+  <wodle name="syscollector"><disabled>yes</disabled></wodle>
+  <sca><enabled>no</enabled></sca>
+  <localfile>
+    <location>journald</location>
+    <log_format>journald</log_format>
+    <filter field="_SYSTEMD_UNIT">^sshd\.service$</filter>
+  </localfile>
+</ossec_config>

@@ -3377,21 +3377,39 @@ verify-wazuh-agent-canary:
     echo ":: Manager enrollment"
     kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-master -c wazuh-manager -- \
       sh -c '/var/ossec/bin/agent_control -lc | grep -F orion-canary >/dev/null'
-    echo ":: Attributed alert"
+    echo ":: Attributed host SSH alert"
     kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
-      sh -c 'tail -n 10000 /var/ossec/logs/alerts/alerts.json | grep -Eq '\''"name"[[:space:]]*:[[:space:]]*"orion-canary"'\'''
-    echo ":: Orion Wazuh canary enrolled and attributed alerts present"
+      tail -n 10000 /var/ossec/logs/alerts/alerts.json | \
+      jq -e 'select(.agent.name == "orion-canary" and .location == "journald" and ((.rule.groups // []) | index("sshd"))) | true' >/dev/null
+    echo ":: Orion Wazuh canary enrolled and host SSH alerts present"
 
 probe-wazuh-agent-canary:
     #!/usr/bin/env bash
     set -euo pipefail
-    marker="wazuh-canary-$(date +%s)"
-    printf 'Aug 26 01:00:00 orion sshd[4242]: Failed password for invalid user %s from 192.0.2.1 port 4242 ssh2\n' "$marker" |
-      ssh -p 2222 erik@{{ip_orion}} "sudo podman exec -i wazuh-agent sh -c 'cat >> /var/ossec/logs/active-responses.log'"
+    marker="wazuh-$(cat /proc/sys/kernel/random/uuid)"
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_orion}} "bash -s -- $marker" <<'REMOTE'
+    set -euo pipefail
+    marker=$1
+    ! getent passwd "$marker" >/dev/null
+    known_hosts=$(mktemp)
+    trap 'rm -f -- "$known_hosts"' EXIT
+    awk '{print "[127.0.0.1]:2222 " $1 " " $2}' /etc/ssh/ssh_host_ed25519_key.pub >"$known_hosts"
+    since=$(date --iso-8601=seconds)
+    status=0
+    ssh -F /dev/null -p 2222 -o BatchMode=yes -o ConnectTimeout=5 \
+      -o ConnectionAttempts=1 -o PreferredAuthentications=none \
+      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
+      -o GlobalKnownHostsFile=/dev/null -o HostKeyAlgorithms=ssh-ed25519 \
+      "$marker@127.0.0.1" true >/dev/null 2>&1 || status=$?
+    test "$status" -eq 255
+    sudo journalctl --sync
+    sudo journalctl -u sshd.service --since "$since" --no-pager -o cat | grep -F "$marker" >/dev/null
+    REMOTE
     seen=false
     for _ in {1..30}; do
       if kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
-        sh -c "tail -n 10000 /var/ossec/logs/alerts/alerts.json | grep -F '$marker' | grep -Eq '\"name\"[[:space:]]*:[[:space:]]*\"orion-canary\"'"; then
+        tail -n 10000 /var/ossec/logs/alerts/alerts.json | \
+        jq -e --arg marker "$marker" 'select(.agent.name == "orion-canary" and .location == "journald" and ((.rule.groups // []) | index("sshd")) and ((.full_log // "") | contains($marker))) | true' >/dev/null; then
         seen=true
         break
       fi
