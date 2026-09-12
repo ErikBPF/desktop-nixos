@@ -247,20 +247,36 @@ dry target=profile:
 # Build fleet toplevels in one scheduler invocation so independent host graphs
 # run concurrently and shared derivations are built once. Does not create links.
 build-all:
-    nix build --no-link \
-        .#nixosConfigurations.archinaut.config.system.build.toplevel \
-        .#nixosConfigurations.pathfinder.config.system.build.toplevel \
-        .#nixosConfigurations.discovery.config.system.build.toplevel \
-        .#nixosConfigurations.orion.config.system.build.toplevel \
-        .#nixosConfigurations.kepler.config.system.build.toplevel \
-        .#nixosConfigurations.telstar.config.system.build.toplevel \
-        .#nixosConfigurations.vanguard.config.system.build.toplevel \
-        .#nixosConfigurations.voyager.config.system.build.toplevel \
-        --builders '{{orion_builder}} ; {{kepler_builder}}' \
-        --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
-    nix build --no-link \
-        .#nixosConfigurations.endeavour.config.system.build.toplevel \
-        --builders '' --show-trace
+    #!/usr/bin/env bash
+    set -euo pipefail
+    configurations=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)
+    hosts=$(nix eval .#fleet.hosts --apply "$(< scripts/upgrade-hosts.nix)" --json)
+    names=$(jq -er --argjson configurations "$configurations" 'if type == "array" and length > 0 and all(.[]; type == "string" and test("^[A-Za-z0-9_][A-Za-z0-9_-]*$")) and ($configurations | type == "array") and (. - $configurations | length == 0) then .[] else error("invalid or missing fleet NixOS configurations") end' <<<"$hosts")
+    remote=()
+    local_build=false
+    while IFS= read -r host; do
+        if [[ "$host" == endeavour ]]; then
+            local_build=true
+        else
+            remote+=(".#nixosConfigurations.$host.config.system.build.toplevel")
+        fi
+    done <<<"$names"
+    if ((${#remote[@]})); then
+        nix build --no-link "${remote[@]}" \
+            --builders '{{orion_builder}} ; {{kepler_builder}}' \
+            --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
+    fi
+    if "$local_build"; then
+        nix build --no-link \
+            .#nixosConfigurations.endeavour.config.system.build.toplevel \
+            --builders '' --show-trace
+    fi
+
+# Compare evaluated managed-host derivations without building or activating.
+[positional-arguments]
+upgrade-impact before after:
+    #!/usr/bin/env bash
+    exec python3 scripts/upgrade-impact.py "$1" "$2"
 
 dry-all:
     just build-all
