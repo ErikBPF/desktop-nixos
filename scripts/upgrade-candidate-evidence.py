@@ -4,12 +4,14 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
 
 
 baseline, backup = sys.argv[1:]
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
 receipt = {
     "baseline_revision": baseline,
     "before_lock_sha256": hashlib.sha256(Path(backup).read_bytes()).hexdigest(),

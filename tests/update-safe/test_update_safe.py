@@ -18,7 +18,9 @@ class UpdateSafe(unittest.TestCase):
     def test_transaction(self):
         for mode in ("staged", "unstaged", "update-fail", "build-fail",
                      "update-INT", "update-TERM", "build-INT", "build-TERM",
-                     "evidence-fail", "evidence-TERM", "published-TERM", "success"):
+                     "evidence-fail", "evidence-TERM", "published-TERM",
+                     "published-TERM-no-receipt", "success", "success-no-receipt",
+                     "success-worktree"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 repo = Path(directory)
                 (repo / "justfile").write_bytes((ROOT / "justfile").read_bytes())
@@ -44,12 +46,24 @@ class UpdateSafe(unittest.TestCase):
                 git("add", "flake.lock", ".gitattributes")
                 git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
                     "commit", "-qm", "baseline")
+                if mode == "success-worktree":
+                    linked = repo / "linked"
+                    git("worktree", "add", "-q", "--detach", str(linked), "HEAD")
+                    for name in ("justfile", "fleet.json"):
+                        shutil.copy2(repo / name, linked / name)
+                    shutil.copytree(repo / "scripts", linked / "scripts")
+                    (linked / "bin").mkdir()
+                    (linked / "tmp").mkdir()
+                    repo = linked
+                    env.update(PATH=f"{repo / 'bin'}:{os.environ['PATH']}", TMPDIR=str(repo / "tmp"))
+                    lock = repo / "flake.lock"
+                    lock.write_bytes(original)
                 baseline = git("rev-parse", "HEAD").decode().strip()
-                evidence = repo / ".git" / "upgrade-candidate.json"
+                evidence = repo / git("rev-parse", "--git-path", "upgrade-candidate.json").decode().strip()
                 previous = b'{"previous": "receipt"}\n'
                 if mode == "evidence-fail":
                     evidence.mkdir()
-                else:
+                elif not mode.endswith("no-receipt"):
                     evidence.write_bytes(previous)
                 if mode in ("staged", "unstaged"):
                     original += b"local edit\n"
@@ -70,7 +84,7 @@ case "$MODE" in
 esac
 ''')
                     stub.chmod(0o755)
-                if mode in ("evidence-TERM", "published-TERM"):
+                if mode == "evidence-TERM" or mode.startswith("published-TERM"):
                     writer = repo / "bin" / "python3"
                     writer.write_text(f'''#!{sys.executable}
 import json
@@ -99,17 +113,18 @@ runpy.run_path(sys.argv[0], run_name="__main__")
                     writer.chmod(0o755)
                 result = subprocess.run([JUST, "update-safe"], cwd=repo, env=env,
                                         capture_output=True, timeout=20)
-                self.assertEqual(result.returncode == 0, mode == "success",
+                success = mode.startswith("success")
+                self.assertEqual(result.returncode == 0, success,
                                  result.stderr.decode())
-                self.assertEqual(lock.read_bytes(), b"candidate\n" if mode == "success" else original)
+                self.assertEqual(lock.read_bytes(), b"candidate\n" if success else original)
                 self.assertEqual(git("show", ":flake.lock"), index)
                 self.assertEqual(list((repo / "tmp").iterdir()), [])
                 calls = (repo / "calls").read_text() if (repo / "calls").exists() else ""
                 expected = "" if mode in ("staged", "unstaged") else "update\n"
-                if mode.startswith(("build", "evidence", "published")) or mode == "success":
+                if mode.startswith(("build", "evidence", "published")) or success:
                     expected += "build\n"
                 self.assertEqual(calls, expected)
-                if mode == "success":
+                if success:
                     receipt = json.loads(evidence.read_bytes())
                     self.assertIn("checked_at", receipt, "successful candidate must replace the previous receipt")
                     timestamp = datetime.fromisoformat(receipt.pop("checked_at"))
@@ -124,6 +139,8 @@ runpy.run_path(sys.argv[0], run_name="__main__")
                     self.assertNotIn(b"synthetic-secret", evidence.read_bytes())
                 elif mode == "evidence-fail":
                     self.assertTrue(evidence.is_dir())
+                elif mode.endswith("no-receipt"):
+                    self.assertFalse(evidence.exists())
                 else:
                     self.assertEqual(evidence.read_bytes(), previous)
-                self.assertEqual(list((repo / ".git").glob("upgrade-candidate-*.tmp")), [])
+                self.assertEqual(list(evidence.parent.glob("upgrade-candidate-*.tmp")), [])

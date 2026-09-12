@@ -189,13 +189,24 @@ update-safe:
     fi
     backup=$(mktemp)
     cp -- flake.lock "$backup"
+    evidence_backup=''
+    evidence_started=false
+    evidence_existed=false
     cleanup() {
         status=$?
         if (( status != 0 )); then
             echo ":: update failed — restoring pre-update flake.lock" >&2
             cp -- "$backup" flake.lock || { echo ":: restore failed; backup retained at $backup" >&2; exit 1; }
+            if "$evidence_started"; then
+                if "$evidence_existed"; then
+                    cp -- "$evidence_backup" "$evidence" || { echo ":: receipt restore failed; backup retained at $evidence_backup" >&2; exit 1; }
+                elif [[ -f "$evidence" ]]; then
+                    rm -f -- "$evidence"
+                fi
+            fi
         fi
         rm -f -- "$backup"
+        if [[ -n "$evidence_backup" ]]; then rm -f -- "$evidence_backup"; fi
         exit "$status"
     }
     trap cleanup EXIT
@@ -204,6 +215,13 @@ update-safe:
     baseline=$(git rev-parse HEAD)
     nix flake update
     just dry-all
+    evidence=$(git rev-parse --git-path upgrade-candidate.json)
+    if [[ -f "$evidence" ]]; then
+        evidence_backup=$(mktemp)
+        cp -- "$evidence" "$evidence_backup"
+        evidence_existed=true
+    fi
+    evidence_started=true
     python3 scripts/upgrade-candidate-evidence.py "$baseline" "$backup"
 
 # Bump a single input in isolation (e.g. just update-input hyprland), so a

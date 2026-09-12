@@ -48,7 +48,14 @@ and unstaged refusal, update/build failures, INT/TERM handling, and Git clean
 filter coverage. Add exact successful receipt fields and timestamp, synthetic
 secret exclusion, preservation of previous receipts on failure, and lock
 restoration when receipt publication fails, and termination during writing
-or immediately after publication. No real Nix update or fleet
+or immediately after publication, with and without a previous receipt.
+Run successful preparation in a real linked worktree as well. No real Nix update or fleet
 operation runs in this test.
 
 Rollback: revert the writer and its recipe call; keep the existing transaction.
+
+Observed September 12: 15 transaction cases pass, including two interruption
+regressions reproduced failing before their fixes. Four existing switch-safety
+checks, ShellCheck of the recipe, `just lint`, `just fmt-check`, and
+`just docs-check` pass. Independent security/reliability and conformance/simplicity
+reviews completed. This is local implementation evidence, not upstream CI or deployment.
