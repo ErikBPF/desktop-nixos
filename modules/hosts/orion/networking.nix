@@ -11,6 +11,7 @@
       firewall = {
         enable = true;
         checkReversePath = "loose";
+        interfaces.tailscale0.allowedTCPPorts = [8085 8087];
         allowedTCPPorts = [
           8080 # llama.cpp (LiteLLM routes here)
           8081
