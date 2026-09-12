@@ -1,9 +1,11 @@
 """Evaluate input-free local flakes without realizing any derivation."""
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -37,11 +39,11 @@ class UpgradeImpact(unittest.TestCase):
         )
         return str(path)
 
-    def run_impact(self, before, after):
+    def run_impact(self, before, after, env=None):
         return subprocess.run(
             [shutil.which("just"), "--justfile", str(ROOT / "justfile"),
              "upgrade-impact", before, after],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=30, env=env,
         )
 
     def test_evaluated_leaf_shared_and_unchanged(self):
@@ -122,3 +124,27 @@ class UpgradeImpact(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
         self.assertNotIn(SECRET, result.stderr)
+
+    def test_host_evaluations_release_nix_memory_between_hosts(self):
+        before = self.flake("before", {"apollo": "v1", "endeavour": "v1"})
+        after = self.flake("after", {"apollo": "v2", "endeavour": "v1"})
+        commands = self.root / "bin"
+        commands.mkdir()
+        calls = self.root / "calls.jsonl"
+        nix = commands / "nix"
+        nix.write_text(f'''#!{sys.executable}
+import json
+import os
+import sys
+with open({str(calls)!r}, "a") as output:
+    output.write(json.dumps(sys.argv[1:]) + "\\n")
+os.execv({shutil.which("nix")!r}, [{shutil.which("nix")!r}, *sys.argv[1:]])
+''')
+        nix.chmod(0o755)
+        result = self.run_impact(before, after,
+                                 dict(os.environ, PATH=f"{commands}:{os.environ['PATH']}"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        evaluations = [json.loads(line) for line in calls.read_text().splitlines()]
+        identities = [args for args in evaluations if args[-1].endswith("#nixosConfigurations")]
+        self.assertEqual(len(identities), 4,
+                         "each host identity must use a separate Nix process to release its heap")

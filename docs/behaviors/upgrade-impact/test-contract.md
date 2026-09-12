@@ -15,6 +15,7 @@ inputs: two explicitly selected flake snapshots without an attribute fragment
 evaluation:
   source: fleet.hosts excluding role=appliance, with a required nixosConfigurations entry
   identity: config.system.build.toplevel.drvPath
+  process_scope: one host identity per Nix process, sequential
   offline: true
   write_lock_file: false
   allow_import_from_derivation: false
@@ -36,9 +37,10 @@ managed host. Exclude appliance roles and auxiliary configurations absent from
 the registry; do not infer impact from filenames or lock input names.
 A host addition/removal requires separate review and
 cannot silently disappear from the report. Evaluation can populate local
-derivation metadata; offline mode and disabled import-from-derivation prevent
-network fetching and evaluation-triggered builds. Uncached or IFD-dependent
-snapshots fail closed.
+derivation metadata. Disabled import-from-derivation prevents evaluation-triggered
+builds. Nix's offline flag disables substituters and treats cached downloads as
+current; it is not a network sandbox. Use retained local snapshots for the
+bounded offline workflow. Any failed or IFD-dependent evaluation fails closed.
 
 This reports candidate impact, not attribution exclusively to input changes.
 Source or revision metadata changes may conservatively affect many hosts.
