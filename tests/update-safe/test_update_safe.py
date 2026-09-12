@@ -1,4 +1,7 @@
 """Run the real recipe in disposable repositories; never update fleet inputs."""
+from datetime import datetime, timezone
+import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -13,11 +16,13 @@ JUST = shutil.which("just")
 class UpdateSafe(unittest.TestCase):
     def test_transaction(self):
         for mode in ("staged", "unstaged", "update-fail", "build-fail",
-                     "update-INT", "update-TERM", "build-INT", "build-TERM", "success"):
+                     "update-INT", "update-TERM", "build-INT", "build-TERM",
+                     "evidence-fail", "success"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 repo = Path(directory)
                 (repo / "justfile").write_bytes((ROOT / "justfile").read_bytes())
                 (repo / "fleet.json").write_bytes((ROOT / "fleet.json").read_bytes())
+                shutil.copytree(ROOT / "scripts", repo / "scripts")
                 (repo / "bin").mkdir()
                 (repo / "tmp").mkdir()
                 env = dict(os.environ, PATH=f"{repo / 'bin'}:{os.environ['PATH']}",
@@ -31,12 +36,19 @@ class UpdateSafe(unittest.TestCase):
                 git("config", "filter.lock.clean", "sed s/worktree/canonical/g")
                 git("config", "filter.lock.smudge", "cat")
                 (repo / ".gitattributes").write_text("flake.lock filter=lock\n")
-                original = b'worktree lock bytes\r\n\n'
+                original = b'worktree lock bytes https://user:synthetic-secret@example.invalid\r\n\n'
                 lock = repo / "flake.lock"
                 lock.write_bytes(original)
                 git("add", "flake.lock", ".gitattributes")
                 git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
                     "commit", "-qm", "baseline")
+                baseline = git("rev-parse", "HEAD").decode().strip()
+                evidence = repo / ".git" / "upgrade-candidate.json"
+                previous = b'{"previous": "receipt"}\n'
+                if mode == "evidence-fail":
+                    evidence.mkdir()
+                else:
+                    evidence.write_bytes(previous)
                 if mode in ("staged", "unstaged"):
                     original += b"local edit\n"
                     lock.write_bytes(original)
@@ -65,6 +77,24 @@ esac
                 self.assertEqual(list((repo / "tmp").iterdir()), [])
                 calls = (repo / "calls").read_text() if (repo / "calls").exists() else ""
                 expected = "" if mode in ("staged", "unstaged") else "update\n"
-                if mode.startswith("build") or mode == "success":
+                if mode.startswith("build") or mode in ("evidence-fail", "success"):
                     expected += "build\n"
                 self.assertEqual(calls, expected)
+                if mode == "success":
+                    receipt = json.loads(evidence.read_bytes())
+                    self.assertIn("checked_at", receipt, "successful candidate must replace the previous receipt")
+                    timestamp = datetime.fromisoformat(receipt.pop("checked_at"))
+                    self.assertEqual(timestamp.utcoffset(), timezone.utc.utcoffset(None))
+                    self.assertLess(abs((datetime.now(timezone.utc) - timestamp).total_seconds()), 30)
+                    self.assertEqual(receipt, {
+                        "baseline_revision": baseline,
+                        "before_lock_sha256": hashlib.sha256(original).hexdigest(),
+                        "candidate_lock_sha256": hashlib.sha256(b"candidate\n").hexdigest(),
+                        "validation": "dry-all",
+                    })
+                    self.assertNotIn(b"synthetic-secret", evidence.read_bytes())
+                elif mode == "evidence-fail":
+                    self.assertTrue(evidence.is_dir())
+                else:
+                    self.assertEqual(evidence.read_bytes(), previous)
+                self.assertEqual(list((repo / ".git").glob("upgrade-candidate-*.tmp")), [])
