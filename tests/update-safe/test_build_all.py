@@ -16,12 +16,16 @@ ROOT = Path(__file__).resolve().parents[2]
 class BuildAll(unittest.TestCase):
     def test_evaluated_host_selection(self):
         for mode in ("all", "only-endeavour", "only-remote", "eval-fail", "empty",
-                     "invalid", "remote-fail", "local-fail"):
+                     "invalid", "missing-config", "remote-fail", "local-fail"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 repo = Path(directory)
                 for name in ("justfile", "fleet.json"):
                     shutil.copy2(ROOT / name, repo / name)
                 (repo / "bin").mkdir()
+                (repo / "scripts").mkdir()
+                selector = ROOT / "scripts" / "upgrade-hosts.nix"
+                if selector.exists():
+                    shutil.copy2(selector, repo / "scripts")
                 hosts = ["apollo", "archinaut", "endeavour", "future-host", "orion"]
                 if mode == "only-endeavour":
                     hosts = ["endeavour"]
@@ -31,6 +35,14 @@ class BuildAll(unittest.TestCase):
                     hosts = []
                 elif mode == "invalid":
                     hosts = ["apollo", "--option injected true"]
+                fleet = " ".join(f'{h}.role = "server";' for h in hosts if not h.startswith("--"))
+                configurations = " ".join(f"{h} = {{}};" for h in hosts
+                                          if not h.startswith("--") and not (mode == "missing-config" and h == "apollo"))
+                (repo / "flake.nix").write_text(
+                    "{ outputs = { self }: { fleet.hosts = { " + fleet +
+                    ' homeassistant.role = "appliance"; }; nixosConfigurations = { ' +
+                    configurations + " drtest = {}; }; }; }"
+                )
                 env = dict(os.environ, PATH=f"{repo / 'bin'}:{os.environ['PATH']}",
                            BUILD_ALL_MODE=mode, BUILD_ALL_HOSTS=json.dumps(hosts))
                 nix = repo / "bin" / "nix"
@@ -38,6 +50,7 @@ class BuildAll(unittest.TestCase):
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 args = sys.argv[1:]
 with Path("calls.jsonl").open("a") as calls:
@@ -46,7 +59,12 @@ mode = os.environ["BUILD_ALL_MODE"]
 if args[0] == "eval":
     if mode == "eval-fail":
         sys.exit(23)
-    print(os.environ["BUILD_ALL_HOSTS"])
+    if mode == "invalid":
+        print(os.environ["BUILD_ALL_HOSTS"])
+    else:
+        sys.exit(subprocess.run([{shutil.which("nix")!r}, *args, "--offline",
+                                 "--no-write-lock-file", "--option",
+                                 "allow-import-from-derivation", "false"]).returncode)
 elif args[0] == "build":
     remote = bool(args[args.index("--builders") + 1])
     if (remote and mode == "remote-fail") or (not remote and mode == "local-fail"):
@@ -59,15 +77,17 @@ else:
                                         env=env, capture_output=True, timeout=20)
                 calls = [json.loads(line) for line in (repo / "calls.jsonl").read_text().splitlines()]
                 self.assertEqual(calls[0][0], "eval", "enumerate before building")
-                self.assertIn(".#nixosConfigurations", calls[0])
-                self.assertIn("builtins.attrNames", calls[0])
-                blocked = mode in ("eval-fail", "empty", "invalid", "remote-fail", "local-fail")
+                blocked = mode in ("eval-fail", "empty", "invalid", "missing-config", "remote-fail", "local-fail")
                 self.assertEqual(result.returncode != 0, blocked, result.stderr.decode())
-                if mode in ("eval-fail", "empty", "invalid"):
-                    self.assertEqual(len(calls), 1, "failed enumeration must not start a build")
+                if mode in ("eval-fail", "empty", "invalid", "missing-config"):
+                    self.assertTrue(all(c[0] == "eval" for c in calls),
+                                    "failed enumeration must not start a build")
                     continue
+                evaluations = [c for c in calls if c[0] == "eval"]
+                self.assertTrue(any(".#fleet.hosts" in c for c in evaluations))
+                self.assertTrue(any(".#nixosConfigurations" in c for c in evaluations))
                 remote_hosts = sorted(set(hosts) - {"endeavour"})
-                builds = calls[1:]
+                builds = [c for c in calls if c[0] == "build"]
                 if remote_hosts:
                     remote = builds.pop(0)
                     self.assertEqual(sorted(a for a in remote if a.startswith(".#")),

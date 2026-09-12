@@ -13,7 +13,7 @@ The historical human-authored upgrade seed is not modified.
 command: just upgrade-impact before after
 inputs: two explicitly selected flake snapshots without an attribute fragment
 evaluation:
-  source: nixosConfigurations
+  source: fleet.hosts excluding role=appliance, with a required nixosConfigurations entry
   identity: config.system.build.toplevel.drvPath
   offline: true
   write_lock_file: false
@@ -31,8 +31,10 @@ side_effects: no update, build, SSH, activation, or notification
 tests: python3 -m unittest discover -s tests/update-safe -v
 ```
 
-Use Nix's evaluated host set, not fleet appliance entries, changed filenames,
-or lock input names. A host addition/removal requires separate review and
+Use the evaluated fleet registry and require a NixOS configuration for each
+managed host. Exclude appliance roles and auxiliary configurations absent from
+the registry; do not infer impact from filenames or lock input names.
+A host addition/removal requires separate review and
 cannot silently disappear from the report. Evaluation can populate local
 derivation metadata; offline mode and disabled import-from-derivation prevent
 network fetching and evaluation-triggered builds. Uncached or IFD-dependent
@@ -48,11 +50,15 @@ separate work.
 
 ## Existing build coverage correction
 
-`build-all` must enumerate the same evaluated NixOS configuration names rather
+`build-all` must enumerate the same evaluated managed configuration names rather
 than its incomplete static list. Send non-Endeavour targets through the
 existing remote-builder flags; build Endeavour separately with no builders.
 Enumeration failure, empty/invalid names, or a failed build stops the recipe.
 Do not change deployment commands, builder selection, or the `dry-all` alias.
+One shared Nix selection expression keeps these two callers aligned. The
+September 12 source check found `drtest`, `archinaut-base`, and
+`orion-esp-installer` alongside standing configurations, so selecting every
+`nixosConfigurations` key would silently expand the managed fleet.
 
 ## Verification
 
