@@ -201,8 +201,10 @@ update-safe:
     trap cleanup EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
+    baseline=$(git rev-parse HEAD)
     nix flake update
     just dry-all
+    python3 scripts/upgrade-candidate-evidence.py "$baseline" "$backup"
 
 # Bump a single input in isolation (e.g. just update-input hyprland), so a
 # volatile git-tip input's breakage doesn't get tangled with a nixpkgs bump.
