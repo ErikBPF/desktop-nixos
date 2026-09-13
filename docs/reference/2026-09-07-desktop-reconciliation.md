@@ -1,7 +1,34 @@
 # Desktop reconciliation and OpenCode rollout
 
 **Status:** Endeavour and Orion activated; Orion and Apollo home/work real tool checks pass.
-Pathfinder remains unreachable. Canonical drafts retained unchanged; original audit against `1ed67c9`.
+Pathfinder remains unverified since the rollout below. September 13 residual review
+against `9b704841` retired the obsolete Gemini launcher and standalone journald
+migration; Headroom remains deferred. Original audit against `1ed67c9` follows.
+
+## September 13 residual closeout
+
+The preserved draft stash is `6a98559779e9d2d13a2f7d20c404775e3965d26a`.
+It was inspected without applying it; no runtime configuration changed.
+
+- **Gemini launcher: retired.** The draft `herdr-repo` command targets `gemini`,
+  contradicting the [accepted Orion/Apollo placement](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-09-07-orion-apollo-development.md).
+  Current `modules/dev/herdr.nix` already supplies personal Orion `l1/l2` and
+  work Apollo `w1/w2` entry points. Do not restore the draft or silently retarget
+  personal repositories to Apollo.
+- **Standalone journald API migration: retired against the current pin.**
+  `nix eval --json --no-write-lock-file .#nixosConfigurations.discovery.options.services.journald --apply 'o: builtins.attrNames o'`
+  succeeds and lists `extraConfig`, with no `settings` option. Discovery and
+  Kepler already declare persistent 2G journals; the shared module retains its
+  50M default. Keep those working declarations. Reconsider API migration only
+  when a separately reviewed Nixpkgs update requires it, not as missing retention
+  implementation.
+- **Headroom: deferred.** The [Codex tooling record](codex-tooling.md) retains
+  the adoption and reproducible-runtime questions. The intended benefit over
+  the existing RTK path remains unspecified; retain the current endpoint.
+
+The path inventory below is the September 7 historical audit, not a current
+implementation queue. Subsequent reviewed publications delivered the independent
+Codex tooling, manual fork-sync and display-capture work.
 
 ## Delivery evidence
 
