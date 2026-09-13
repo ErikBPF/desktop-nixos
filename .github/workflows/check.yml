@@ -57,6 +57,12 @@ jobs:
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
           PATH="$package/bin:$PATH" python3 tests/local-workspace-sessions/smoke.py
 
+      - name: Neovim opener and session recovery
+        run: |
+          python3 tests/nvim-opener/test_opener.py
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.nixvim.build.package)
+          PATH="$package/bin:$PATH" python3 tests/nvim-sessions/test_sessions.py
+
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts
       - name: Syncthing ignore activation

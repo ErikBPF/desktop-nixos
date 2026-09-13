@@ -29,6 +29,9 @@
 
       globals.mapleader = " ";
 
+      extraPlugins = [pkgs.vimPlugins.persisted-nvim];
+      extraConfigLua = builtins.readFile ./nvim-sessions.lua;
+
       opts = {
         number = true;
         mouse = "a"; # full mouse support
