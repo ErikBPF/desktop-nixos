@@ -11,9 +11,7 @@
   # NOTE: llama-cpp-private master is a private integration line (661 commits
   # ahead) — rebased manually, never auto-synced.
   forks = [
-    "/home/${username}/Documents/nstech/litellm:upstream:litellm_internal_staging:origin"
     "/home/${username}/Documents/erik/LMCache:upstream:dev:origin"
-    "/home/${username}/Documents/nstech/delta-rs:origin:main:fork"
     "/home/${username}/Documents/erik/sail:origin:main:fork"
     "/home/${username}/Documents/erik/FreeToken:upstream:main:erikbpf"
     "/home/${username}/Documents/erik/airflow:upstream:main:origin"

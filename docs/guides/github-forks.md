@@ -25,8 +25,8 @@ Append a line to the module's `forks` list:
 
 Remote names are per-repo git remotes (e.g. `upstream:dev:origin` for LMCache).
 Repos whose fork branch carries private work (e.g. `llama-cpp-private`) must
-**not** be added — rebase those manually. Currently synced: litellm, LMCache,
-delta-rs, sail, FreeToken, airflow, datafusion-comet.
+**not** be added — rebase those manually. Current personal targets: LMCache, sail, FreeToken, airflow and datafusion-comet.
+Work checkouts are excluded from this helper.
 
 ## Auth
 
