@@ -575,29 +575,58 @@ in {
     systemd.services.openbao-restore-drill = {
       description = "Verify OpenBao snapshot restore in an isolated raft node";
       path = [pkgs.bash];
+      environment = {
+        RESTIC_REPOSITORY_FILE = "/run/secrets/restic_vault_rest_url";
+        RESTIC_PASSWORD_FILE = "/run/secrets/vault_restic_password";
+      };
       serviceConfig = {
         Type = "oneshot";
+        TimeoutStartSec = "15min";
         PrivateTmp = true;
         ProtectHome = true;
         RuntimeDirectory = "openbao-restore-drill";
         Environment = "HOME=/run/openbao-restore-drill";
         ExecStart = pkgs.writeShellScript "openbao-restore-drill" ''
           set -euo pipefail
-          test -s ${snapFile}
-          ${pkgs.findutils}/bin/find ${snapFile} -mmin -2880 -print -quit | ${pkgs.gnugrep}/bin/grep -q .
+          umask 077
 
           work="$(${pkgs.coreutils}/bin/mktemp -d /var/tmp/openbao-restore-drill.XXXXXX)"
           pid=
+          metric=
           cleanup() {
             if [ -n "$pid" ]; then
               ${pkgs.coreutils}/bin/kill "$pid" 2>/dev/null || true
               wait "$pid" 2>/dev/null || true
             fi
             ${pkgs.coreutils}/bin/rm -rf -- "$work"
+            if [ -n "$metric" ]; then
+              ${pkgs.coreutils}/bin/rm -f -- "$metric"
+            fi
           }
           trap cleanup EXIT
+          trap 'exit 1' HUP INT TERM
+          # Keep upstream diagnostics (which may contain repository credentials) private.
+          exec 3>&2
+          exec 2>"$work/errors.log"
+          trap 'echo "openbao_restore_drill=failed" >&3' ERR
+          source_path=${snapFile}
+          ${pkgs.restic}/bin/restic snapshots --json --path "$source_path" --latest 1 > "$work/snapshots.json"
+          snapshot="$(${jq} -er 'if type == "array" and length == 1 then .[0].id else error("snapshot selection") end | select(type == "string" and test("^[0-9a-f]{64}$"))' "$work/snapshots.json")"
+          ${pkgs.restic}/bin/restic ls --json "$snapshot" "$source_path" > "$work/files.json"
+          mtime="$(${jq} -ser --arg path "$source_path" '
+            [.[] | select(.struct_type == "node" and .path == $path)] |
+            if length == 1 then .[0] else error("source selection") end |
+            select(.type == "file" and (.size | type == "number") and .size > 0) |
+            .mtime | select(type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"))' "$work/files.json")"
+          source_epoch="$(${pkgs.coreutils}/bin/date -d "$mtime" +%s)"
+          now="$(${pkgs.coreutils}/bin/date +%s)"
+          test "$source_epoch" -le "$now"
+          test "$((now - source_epoch))" -lt 172800
+          ${pkgs.restic}/bin/restic dump "$snapshot" "$source_path" > "$work/openbao.snap"
+          test -s "$work/openbao.snap"
+          # Reject another listener before any drill credentials can be submitted.
+          test -z "$(${pkgs.iproute2}/bin/ss -H -ltn 'sport = :18200 or sport = :18201')"
           ${pkgs.coreutils}/bin/install -d -m 0700 "$work/data"
-          ${pkgs.coreutils}/bin/install -m 0600 ${snapFile} "$work/openbao.snap"
           ${pkgs.coreutils}/bin/cat > "$work/config.hcl" <<EOF
           disable_mlock = true
           api_addr = "http://127.0.0.1:18200"
@@ -616,19 +645,22 @@ in {
           ${bao} server -config="$work/config.hcl" >"$work/server.log" 2>&1 &
           pid=$!
           for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+            ${pkgs.coreutils}/bin/kill -0 "$pid"
             ${curl} -sS -m 1 http://127.0.0.1:18200/v1/sys/health >/dev/null 2>&1 && break
             ${pkgs.coreutils}/bin/sleep 0.25
           done
           ${curl} -sS -m 1 http://127.0.0.1:18200/v1/sys/health >/dev/null
 
+          ${pkgs.coreutils}/bin/kill -0 "$pid"
           BAO_ADDR=http://127.0.0.1:18200 ${bao} operator init \
             -key-shares=1 -key-threshold=1 -format=json > "$work/init.json"
           ${pkgs.coreutils}/bin/chmod 0600 "$work/init.json"
-          BAO_ADDR=http://127.0.0.1:18200 ${bao} operator unseal \
-            "$(${jq} -r '.unseal_keys_b64[0]' "$work/init.json")" >/dev/null
+          ${jq} '{key: .unseal_keys_b64[0]}' "$work/init.json" \
+            | ${curl} -fsS -m 10 -X PUT --data @- \
+                http://127.0.0.1:18200/v1/sys/unseal >/dev/null
           BAO_ADDR=http://127.0.0.1:18200 \
             BAO_TOKEN="$(${jq} -r .root_token "$work/init.json")" \
-            ${bao} operator raft snapshot restore -force "$work/openbao.snap"
+            ${bao} operator raft snapshot restore -force "$work/openbao.snap" >"$work/restore.log"
 
           ${jq} -n --rawfile key /run/secrets/vault_unseal_key \
             '{key: ($key | rtrimstr("\n"))}' \
@@ -647,12 +679,17 @@ in {
           ${jq} -e '.auth.client_token | type == "string" and length > 0' \
             "$work/login.json" >/dev/null
 
+          cleanup
+          pid=
           now="$(${pkgs.coreutils}/bin/date +%s)"
+          test "$source_epoch" -le "$now"
+          test "$((now - source_epoch))" -lt 172800
           metric="$(${pkgs.coreutils}/bin/mktemp ${textfileDir}/.openbao_restore_drill.XXXXXX)"
           printf 'openbao_restore_drill_last_success_seconds %s\n' "$now" > "$metric"
+          printf 'openbao_restore_drill_source_timestamp_seconds %s\n' "$source_epoch" >> "$metric"
           ${pkgs.coreutils}/bin/chmod 0644 "$metric"
           ${pkgs.coreutils}/bin/mv "$metric" ${textfileDir}/openbao_restore_drill.prom
-          echo "openbao_restore_drill=passed snapshot_age_max=48h"
+          echo "openbao_restore_drill=passed repository=voyager snapshot=$snapshot source_epoch=$source_epoch source_age_seconds=$((now - source_epoch)) snapshot_age_max=48h"
         '';
       };
     };

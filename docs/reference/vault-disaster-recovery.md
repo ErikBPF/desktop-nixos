@@ -140,10 +140,18 @@ unseals with the **original** key, not the new one):
 ## Quarterly isolated drill
 
 `openbao-restore-drill.timer` runs on the first day of January, April, July,
-and October. It restores the latest snapshot into a temporary raft node bound
-only to `127.0.0.1:18200`, unseals it with the production key, authenticates
-through the production AppRole, and proves a known path exists without printing
-its value. Production `:8200` and `/var/lib/openbao` are untouched.
+and October. It selects the latest Voyager snapshot for the fixed OpenBao source
+path, pins its full snapshot ID, and downloads only the archived Raft file.
+The archived file must be regular, nonempty and less than 48 hours old; future
+timestamps fail. Repository and password values are read from existing SOPS
+credential files. There is no local, SFTP or B2 fallback.
+
+The drill restores into a temporary raft node bound only to loopback
+`18200`/`18201`, unseals it with the production key and authenticates through the
+production AppRole. It does not read a known secret path. Production `:8200` and
+`/var/lib/openbao` are untouched. Occupied drill ports and a dead child process
+fail before credentials are submitted. Private scratch and the process are
+removed before publishing success; the entire unit has a 15-minute limit.
 
 Run it manually through the documented entry point:
 
@@ -152,8 +160,11 @@ just openbao-restore-drill
 ```
 
 Success updates
-`/var/lib/node-exporter-textfile/openbao_restore_drill.prom`. Re-run after every
-OpenBao upgrade.
+`/var/lib/node-exporter-textfile/openbao_restore_drill.prom` with completion and
+source timestamps. The journal receipt identifies Voyager and the exact snapshot
+ID without secret values. Failures preserve previous success metrics. Re-run after
+every OpenBao upgrade. This verifies remote snapshot recovery with existing key
+and AppRole material; it does not prove independent cold-bootstrap custody.
 
 ## Notes
 
