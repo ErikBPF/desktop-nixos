@@ -31,3 +31,8 @@ def test_global_pl_skill_is_repository_agnostic():
     skill = ROOT / "modules/dev/codex-skills/pl/SKILL.md"
 
     assert "docs/proposal-index.md" not in skill.read_text()
+
+
+def test_opencode_loads_shared_agent_policy():
+    module = (ROOT / "modules/dev/opencode.nix").read_text()
+    assert "builtins.readFile ./agent-policy.md" in module
