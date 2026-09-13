@@ -72,7 +72,7 @@ haos-backup/
 #   references/repos/hermes-flake          → ~/Documents/erik/hermes-flake
 #   references/repos/codex-flake           → ~/Documents/erik/codex-flake
 #   references/repos/home-assistant-config → ~/Documents/erik/code/home-assistant-config
-references/
+/references/
 ampagent*
 data/
 /worktrees/

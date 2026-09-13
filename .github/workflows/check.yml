@@ -68,6 +68,11 @@ jobs:
           python3 scripts/test_capture_orion_display.py
           python3 -m unittest discover -s tests/github-fork-sync -v
 
+      - name: Codex UI and vendored skill contracts
+        run: |
+          python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.tomlkit p.pytest])')
+          "$python/bin/python" -m pytest -q tests/codex-ui tests/codex-skills modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
+
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts
       - name: Syncthing ignore activation
