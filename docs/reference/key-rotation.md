@@ -1,6 +1,6 @@
 # Key rotation
 
-**Status:** Reference (as-built, 2026-06-30).
+**Status:** Reference; key-distribution and retirement procedure source-reviewed 2026-09-13.
 
 When (and when not) to rotate the fleet's keys and secrets, and how. Rotation is
 a risk trade-off, **not** hygiene theater: every rotation is itself a chance to
@@ -52,62 +52,90 @@ sops file **and** must get the new private key onto every host, or sops-nix
 can't decrypt and the fleet bricks on next activation/reboot. Do the **two-phase**
 below; **never** the naive "re-encrypt then redeploy" — see the trap.
 
-**Key model (as-built).** `sops.age.keyFile = ~/.config/sops/age/keys.txt` on
-every host (`modules/services/sops.nix`). The **`primary`** key (the workstation
-key) is staged onto **most** hosts — discovery, kepler, pathfinder, voyager,
-telstar, laptop. **`orion`** and **`archinaut`** hold their **own** keys (they
-are separate recipients in `.sops.yaml`) and are unaffected by rotating primary,
-provided they stay recipients. Rotating primary = re-key every primary host.
+**Key model (source checked 2026-09-13).** System SOPS reads
+`/var/lib/sops-nix/key.txt`; Home Manager reads
+`~/.config/sops/age/keys.txt` ([module](../../modules/services/sops.nix)). These
+are independent files. Inventory the current recipient rules, encrypted files,
+and key holders before rotating; a historical host list is not a distribution
+checklist. Preserve unrelated host identities and recipients throughout.
 
-> **TRAP — a redeploy does NOT distribute the key.** `first-boot.nix`'s
-> `distributeSopsKey` copies the staged key **only if the target doesn't exist**
-> (`[ ! -f "$TARGET" ]`), then deletes the staging file. On a live host the key
-> already exists, so **`switch`/`deploy-rs` never overwrite it.** There is no
-> repo→deploy path for the private key on running hosts — distribution is a
-> manual `ssh` write to each host's `~/.config/sops/age/keys.txt`. A `keys.txt`
-> may hold **multiple** identities (one `AGE-SECRET-KEY-…` per line); sops tries
-> each, which is what makes the additive phase safe.
+> **TRAP — updating the user key does not update an existing system key.**
+> [First-boot activation](../../modules/services/first-boot.nix) installs a
+> nonempty staging file into the system key store, replacing its contents. It
+> copies staging into the user store only when that file is absent. Without
+> staging, it copies the user key to the system store only when the system store
+> is empty or absent. Consequently, `just rsync-sops` updates only the user
+> store; activation alone does not synchronize both existing stores. Never
+> stage a new-only key during the additive phase: it would replace the system
+> store's still-needed identities.
 
-**Phase A — additive, zero brick window (old key still works throughout):**
-1. Generate: `age-keygen -o /tmp/new-primary.txt`; note its public key
-   (`age-keygen -y /tmp/new-primary.txt`).
-2. **Add** the new recipient to all three `.sops.yaml` (keep old primary + orion
-   + archinaut) — `desktop-nixos/.sops.yaml`, `homelab-iac/.sops.yaml`,
-   `servarr/.sops.yaml`.
-3. `sops updatekeys <file>` for every encrypted file in all three repos → now
-   decryptable by old **and** new. (`rtk proxy sops`; verify key counts.)
-   Commit + push all three.
-4. **Distribute** — append the new key line to `~/.config/sops/age/keys.txt` on
-   **each primary host** (discovery, kepler, pathfinder, voyager, telstar,
-   laptop) + the workstation. e.g. per host:
-   `ssh -p 2222 erik@<host> 'cat >> ~/.config/sops/age/keys.txt' < /tmp/new-primary.txt`
-   (append, do not overwrite — the old key must remain until Phase B).
-5. **Verify every host still decrypts** before proceeding: on each,
-   `sudo systemctl restart <a sops-consuming unit>` or re-run
-   `/run/current-system/activate` and confirm `/run/secrets/*` populate and no
-   sops-nix failure. Do **not** enter Phase B until all hosts pass.
+**Phase A — additive (old key remains usable):**
+1. Generate the replacement in an operator-controlled `0700` temporary
+   directory with `umask 077`; keep the private key file `0600`. Record its
+   public recipient with `age-keygen -y`, never its private value in logs.
+2. **Add** the new recipient wherever the old recipient is used, keeping the
+   old and unrelated recipients. Start with `.sops.yaml` in `desktop-nixos`,
+   `homelab-iac`, and `servarr`; inventory other consumers rather than assuming
+   those three exhaust the key's authority.
+3. Run `rtk proxy sops updatekeys <file>` for every affected encrypted file.
+   Verify recipient coverage and unchanged secret-name counts. Publish the
+   additive recipient changes through the owning repositories.
+4. **Distribute to both stores** on every affected host and the workstation.
+   Add the new identity to each existing store without removing any existing
+   identity. Keep `/var/lib/sops-nix/key.txt` owned by `root:root`, mode `0600`,
+   and the Home Manager store owned by its user, mode `0600`. Use a controlled
+   private transfer; do not put key values in arguments or terminal output.
+   For staging-based activation, supply the complete additive system key set
+   and update an existing Home Manager store separately. Do not assume the two
+   stores contain identical unrelated identities.
+5. **Prove the replacement from each installed store.** Extract only the
+   identity matching the new public recipient into a private temporary file,
+   separately from the installed system and Home Manager files. In an isolated
+   verification environment, make that file the only available decryption
+   identity: exclude default age files, SSH identities, key commands, and other
+   SOPS provider credentials or metadata access. Decrypt every affected
+   encrypted file needed by that store with plaintext directed to `/dev/null`.
+   Require success; record only host, store, encrypted-file path, recipient and
+   exit status. As a control, repeat with no identity and require failure; a
+   successful control means a fallback provider is still available. Delete the
+   temporary identity files after verification. Never remove keys from live
+   stores to perform this test.
+6. **Verify service health separately.** Use the documented host activation
+   entry point in an accepted window, confirm system and Home Manager secret
+   consumers recover, and inspect failures without printing secret values.
+   Successful activation with old and new keys is not proof that the new key
+   works. Do not enter Phase B until both the isolated decrypt proof and health
+   checks pass for every affected store and host.
 
-**Phase B — retire the leaked key (makes the old blob worthless):**
-6. **Remove** the old primary recipient from all three `.sops.yaml`.
-7. `sops updatekeys` every file → now new + orion + archinaut only. Commit + push.
-8. Redeploy / re-activate each host (now decrypting with the new key only);
-   confirm `/run/secrets` still populate.
-9. Cleanup: remove the old key line from each host's `keys.txt`; `shred` the
-   workstation's old key material and `/tmp/new-primary.txt`.
+**Phase B — retire the old recipient from current ciphertext:**
+7. **Remove** only the old recipient from the affected rules and run
+   `rtk proxy sops updatekeys <file>` for every affected file, then
+   `rtk proxy sops rotate --in-place <file>` to replace its data encryption key.
+   Complete both operations before publishing; `updatekeys` alone retains the
+   data key that a removed identity may already know. Recheck the
+   new-identity-only decrypt gate and unchanged plaintext before publishing.
+   Keep unrelated recipients. This ordering follows the [SOPS key-management
+   procedure](https://getsops.io/docs/usage/key-management/#rotating-secrets-after-a-key-in-a-key-group-has-been-compromised).
+8. Redeploy through each owner's documented entry point and confirm both
+   system and Home Manager consumers remain healthy.
+9. Remove the old identity from both stores on every affected host only after
+   convergence. Clean temporary key material using the storage-appropriate
+   procedure; filesystem snapshots and old ciphertext may still retain it.
+   Recipient removal does not revoke the old key's ability to decrypt copies
+   of historical ciphertext. Rotate exposed secret values separately when the
+   trigger was compromise.
 10. **Re-escrow:** `! just escrow-age-key` (fresh strong passphrase) →
     `just escrow-age-key-push` → `just escrow-secrets`; verify with
     `! just escrow-age-key-verify`.
 
 **Ordering / safety notes.**
-- **laptop is session-risky** (a `switch` can disrupt the GUI session — repo
-  rule: no unprompted GUI restart). Append its key + re-activate in a controlled
-  window, or use `boot` + a planned reboot.
-- **`autoUpgrade` (05:00 daily) pulls `main` + rebuilds.** Between a Phase-B push
-  and a host getting the new key, an autoUpgrade would try to decrypt new-only
-  secrets with a host still on the old key → activation fails. Complete Phase A
-  distribution to **all** hosts first; run Phase B in one sitting.
-- orion/archinaut: leave their own keys as recipients throughout; nothing to do
-  on them unless you're also rotating *their* keys.
+- Workstation activation can disrupt a GUI session. Use an accepted window or
+  the documented boot-generation path followed by a planned reboot.
+- Auto-upgrades can consume a Phase-B publication before a manual deployment.
+  Complete distribution and new-identity-only verification everywhere before
+  publishing removal of the old recipient.
+- Hosts using independent identities keep those recipients. Whether a host
+  also holds the primary key must come from the current inventory.
 
 ### escrow passphrase
 `! just escrow-age-key` (choose a new passphrase) → `just escrow-age-key-push`.
