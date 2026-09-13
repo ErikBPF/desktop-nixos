@@ -63,6 +63,7 @@ in {
       m.home.qutebrowser
       m.home.obsidian
       m.home.obsidian-sync
+      m.home.github-fork-sync
       m.home.basalt
       m.home.vscode
       m.home.nvim

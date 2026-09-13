@@ -16,6 +16,9 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 ## Operational references
 
+[Manual fork sync](guides/github-forks.md) and
+[Orion display capture](guides/orion-display-capture.md) describe opt-in helpers.
+
 [Codex tooling reconciliation](reference/codex-tooling.md) records the bounded
 developer-tool changes and preserved runtime boundaries.
 

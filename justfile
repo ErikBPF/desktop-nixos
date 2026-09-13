@@ -1657,6 +1657,18 @@ diagnose-pathfinder-bootstrap:
 recover-pathfinder-scrub:
     ssh -p 2222 erik@$(jq -r '.hosts.pathfinder.tailscaleIp // .hosts.pathfinder.ip' fleet.json) "sudo systemctl reset-failed btrfs-scrub--.timer; sudo systemctl start btrfs-scrub--.timer; systemctl is-active btrfs-scrub--.timer"
 
+# Save a read-only display snapshot locally; repeat while Orion is black, before reboot.
+capture-orion-display:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    capture_dir=$(mktemp -d /tmp/orion-display-XXXXXXXX)
+    echo "Display capture: $capture_dir/snapshot.txt"
+    timeout -k 5s 180s ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 erik@{{ip_orion}} 'bash -s' < scripts/capture-orion-display.sh > "$capture_dir/snapshot.txt" 2>&1 || { echo "Capture incomplete; retained partial output in $capture_dir/snapshot.txt" >&2; exit 1; }
+    if grep -q '^CAPTURE_FAILED status=' "$capture_dir/snapshot.txt"; then
+        echo "Partial capture: inspect CAPTURE_FAILED markers."
+    fi
+
 diagnose-orion-bootstrap:
     ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: account'; sudo passwd -S erik; echo ':: home top-level'; find /home/erik -mindepth 1 -maxdepth 1 -printf '%f %y %u:%g\n' | sort; echo ':: ssh ownership'; namei -l /home/erik/.ssh/config; ls -la /home/erik/.ssh; echo ':: sops first-boot log'; sudo journalctl -u sops-first-boot -b --no-pager -n 100; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 100; echo ':: tailscale log'; sudo journalctl -u tailscaled-autoconnect -b --no-pager -n 100; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
 
