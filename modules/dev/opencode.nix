@@ -76,6 +76,13 @@
               };
               reasoning = true;
               tool_call = true;
+              options.reasoningEffort = "max";
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
+                medium.disabled = true;
+              };
             };
             "glm-5.3-flash" = {
               name = "GLM-5.3 Flash (LiteLLM → OpenCode Go)";
@@ -86,6 +93,13 @@
               limit = {
                 context = 1000000;
                 output = 131072;
+              };
+              reasoning = true;
+              options.reasoningEffort = "max";
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
               };
             };
             qwen-chat = {
@@ -144,6 +158,8 @@
                 output = 1.2;
               };
               options.reasoningEffort = "none";
+              reasoning = true;
+              variants.none.reasoningEffort = "none";
             };
             "chatgpt-5.6-sol" = {
               limit = {
@@ -157,6 +173,8 @@
                 output = 20.0;
               };
               options.reasoningEffort = "none";
+              reasoning = true;
+              variants.none.reasoningEffort = "none";
             };
             "chatgpt-5.6-terra" = {
               limit = {
@@ -170,6 +188,8 @@
                 output = 12.0;
               };
               options.reasoningEffort = "none";
+              reasoning = true;
+              variants.none.reasoningEffort = "none";
             };
             "deepseek-v4.1-flash" = {
               limit = {
@@ -186,6 +206,17 @@
               };
               reasoning = true;
               tool_call = true;
+              # LiteLLM 1.98.0's cached OpenRouter capabilities omit effort.
+              options = {
+                reasoningEffort = "max";
+                allowed_openai_params = ["reasoning_effort"];
+              };
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
+                medium.disabled = true;
+              };
             };
             "glm-5.3-flash" = {
               limit = {
@@ -196,6 +227,16 @@
                 cache_read = 0.015;
                 input = 0.075;
                 output = 0.25;
+              };
+              reasoning = true;
+              options = {
+                reasoningEffort = "max";
+                allowed_openai_params = ["reasoning_effort"];
+              };
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
               };
             };
           };
