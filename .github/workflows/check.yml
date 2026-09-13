@@ -63,6 +63,11 @@ jobs:
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.nixvim.build.package)
           PATH="$package/bin:$PATH" python3 tests/nvim-sessions/test_sessions.py
 
+      - name: Manual desktop helpers
+        run: |
+          python3 scripts/test_capture_orion_display.py
+          python3 -m unittest discover -s tests/github-fork-sync -v
+
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts
       - name: Syncthing ignore activation

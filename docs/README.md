@@ -16,6 +16,9 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 ## Operational references
 
+[Manual fork sync](guides/github-forks.md) and
+[Orion display capture](guides/orion-display-capture.md) describe opt-in helpers.
+
 | Doc | Covers | Status |
 |-----|--------|--------|
 | [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. | Identity loss and recovery proven; recipient confirmation pending |

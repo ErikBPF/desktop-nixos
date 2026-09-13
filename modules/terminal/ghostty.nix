@@ -22,7 +22,8 @@ _: {
         # spotify TUI in hyprland.nix passes --gtk-single-instance=false
         # explicitly, so it keeps its own process.
         gtk-single-instance = true;
-        # Keep Shift-selection available even when a TUI requests mouse capture.
+        # Keep Shift+mouse in the terminal so Ctrl+Shift+click opens links
+        # even when a TUI captures mouse input; ordinary wheel scrolling stays in the app.
         mouse-shift-capture = "never";
       };
     };
