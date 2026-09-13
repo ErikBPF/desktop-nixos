@@ -481,6 +481,15 @@ opencode loads both local `AGENTS.md` and global
 The canonical workflow is the spicyphus per-slice loop below. BMAD is dormant;
 invoke or reinstall it only when explicitly requested.
 
+## Workflow routing
+
+Use `/pl` → `/ip` → implementation → `/rv`, starting at the first applicable
+step. Preserve and ground the human seed throughout. RFC → ADR → spec applies
+only when the user explicitly requests it; prepare those artifacts for human
+feedback once the work is ready, rather than making them routine prerequisites.
+For substantial work, preserve the first draft, obtain a fresh review without a
+fixed delay, then rewrite from the observed outcome and verify seed integrity.
+
 ## Per-slice TDD mechanics (nixos-flake variant)
 
 Spicyphus per-slice loop is canonical here, per global `AGENTS.md`. This
@@ -508,8 +517,8 @@ change lands in first (per `Rule of thumb` above); this flake's
   `Verify changes` section.
 - Shell scripts under `modules/**`: `shellcheck` then `bats` for behavior
   lock. Repo has no `bats` today — when a first `behavior.md` calls for it,
-  add `bats` as a flake devshell input **before** writing tests (RFC step
-  first; no speculative infra).
+  add `bats` as a flake devshell input **before** writing tests after `/ip`
+  establishes the need; no speculative infra.
 
 **Multi-agent dispatch for nixos-flake slices:**
 

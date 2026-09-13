@@ -1,43 +1,33 @@
 ---
 name: pl
-description: Shape an ambiguous idea into an agreed decision map and BDD `.feature` contract before implementation planning. Use for `/pl`, `$pl`, conceptualization, product or architecture discovery, cross-repository changes, Party Mode elicitation, behavior mapping, or requests to plan what should be built. Skip the full ceremony for trivial documentation, wiring, or already-settled changes.
+description: Ground an ambiguous idea in source; agree a decision map and BDD contract before implementation planning. Use for /pl, $pl, discovery, conceptualization, architecture or cross-repository planning. Skip full ceremony for trivial or settled work.
 ---
 
 # Planning
 
-Produce shared understanding, not an implementation plan or production code.
+Produce shared understanding, not code or an implementation plan. Default:
+`/pl` → `/ip` → implementation → `/rv`. RFC → ADR → spec is explicit-request-only;
+prepare a requested RFC when ready for human feedback.
 
-## Skill group
+1. Preserve the human seed verbatim. Separately record destination, motivation,
+   constraints and non-goals. Never invent load-bearing requirements.
+2. Ground questions in ownership, vocabulary, decisions, behavior and source
+   before refinement. Query existing Graphify first; verify operational claims
+   in authoritative source. Read repository environment preferences.
+3. Use `$party` for bounded elicitation; preserve disagreement, not false consensus.
+4. Use `$map` for decisions, dependencies, unknowns, risks and next frontier.
+   Reuse existing artifacts.
+5. Read [references/bdd-feature.md](references/bdd-feature.md). Write concrete,
+   observable agreed examples in the owning repository's `.feature` contract.
+   Unanswered questions must not become scenarios.
+6. Use `$grill` on unresolved decisions and the final contract; apply accepted
+   improvements and update the map. Stop after two critique rounds unless new
+   evidence appears. If a capability is unavailable, apply and name its fallback.
 
-Use these capabilities in order when available:
+For substantial work, preserve the discovery revision and obtain a fresh
+independent read without a fixed delay. Rewrite like you know the end: organize the map
+and examples backward from the supported outcome; cut tangents, retain receipts
+and unresolved questions. Keep seed integrity and accepted principles.
 
-1. **Repository grounding:** Graphify first when a graph exists, then verify
-   operational claims in authoritative source.
-2. **Discovery party:** use `$party` for bounded multi-perspective elicitation.
-3. **Decision map:** use `$map` to preserve decisions, dependencies, fog, risks,
-   and the next frontier.
-4. **BDD:** read [references/bdd-feature.md](references/bdd-feature.md) and
-   express agreed behavior as concrete, observable examples.
-5. **Grill:** use `$grill` to pressure-test unresolved decisions and the final
-   contract without inventing answers.
-
-If a named capability is unavailable, perform its equivalent directly and say
-which fallback was used.
-
-## Workflow
-
-1. Capture the human seed: destination, motivation, constraints, and non-goals.
-   Do not silently originate load-bearing requirements.
-2. Resolve repository ownership, existing vocabulary, related decisions,
-   behavior, and constraints from source.
-3. Run `$party`. Preserve disagreements; do not manufacture consensus.
-4. Run `$map`. Reuse an existing proposal or spec instead of creating another
-   artifact.
-5. Write or update a `.feature` file from agreed behaviors in the repository
-   that owns the behavior. Questions stay questions; they do not become
-   scenarios.
-6. Run `$grill`, apply accepted improvements, and update `$map`. Stop after two
-   critique rounds unless new evidence appears.
-
-Finish when the destination, non-goals, mental map, scenarios, and blockers are
-explicit enough for `$ip`.
+Apply shared feedback policy: queue questions and emit the PL one-pager. Finish
+when destination, non-goals, map, scenarios and blockers support `$ip`.

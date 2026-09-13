@@ -58,8 +58,9 @@ at 3 retries; after that, stop and report.
 - **Bounded iteration.** Design / brainstorm loops run a fixed 2-3 rounds,
   then force a decision. Open-ended AI conversations drift; a fixed round
   count keeps sessions tractable and produces auditable outputs.
-- **RFC → ADR → Spec → Plan → Develop** gates. Every significant decision
-  passes through a documented gate before code is written.
+- **Default flow:** `/pl` → `/ip` → implementation → `/rv`, with human-seed
+  integrity throughout. RFC → ADR → spec is an explicitly requested formal
+  feedback flow, not a prerequisite for ordinary tasks.
 - **Two-layer skills:** repo-specific skills live alongside the repo;
   team-wide skills travel via symlinks / global install. Both load through
   `~/.agents/skills/` discovery.
@@ -99,7 +100,7 @@ quote errors verbatim.
   documented entry points; never hand-edit a running host.
 - **Git:** conventional commits, imperative, *why* not *what*. No AI
   attribution. Never force-push. Ask before pushing and before any
-  irreversible or outward-facing action.
+  irreversible or outward-facing action unless already authorized.
 - **Token discipline.** When `rtk` is on PATH, run read-heavy shell
   commands through it (`rtk git/ls/grep/find/docker/log/json/read …`
   instead of raw) — it compresses output 60–90% and shares a flat model
@@ -109,8 +110,9 @@ quote errors verbatim.
   searches through the `explore`/`general` subagent (or
   `cavecrew-investigator`) — only the compressed result returns to main
   context. Single-file peeks stay inline.
-- New design → RFC under `docs/proposals/`; lock to an ADR; implement
-  per spec.
+- When the user requests RFC → ADR → spec, prepare the RFC under
+  `docs/proposals/` when ready for feedback, record accepted decisions in an ADR,
+  then derive the spec. Otherwise use the default skill flow.
 
 ## Tone
 
@@ -143,28 +145,10 @@ rule, do not explain the prefix, just emit it.
 - Small documentation or wiring changes may start at the first applicable
   gate; do not invent tests or ceremony.
 
-## Repository discovery and worktrees
+## Instruction composition
 
-- Use an explicit repository manifest such as `repos.json` before scanning
-  sibling directories.
-- A directly targeted checkout is valid, including a linked worktree.
-- During sibling or multi-repository discovery, skip `worktrees/`. Group remaining candidates by their absolute `git-common-dir` and prefer the checkout whose absolute `git-dir` equals its `git-common-dir`.
-- Manual worktrees live under the repository-local `worktrees/` directory.
-  Add that path to `.gitignore` and `.graphifyignore` before creating them.
-- Tool-managed and temporary worktrees remain valid. Never move or remove them
-  automatically. Inspect dirty state first; when cleanup is requested, use
-  `git worktree remove` rather than deleting the directory directly.
-
-## Graphify
-
-- Use Graphify when explicitly requested or when the current repository has a
-  `graphify-out/graph.json`; query an existing graph before reading broadly.
-- Prefer per-repository queries. Treat merged graphs as discovery-only unless
-  cross-repository edges exist.
-- Build canonical repository graphs by default. Build a worktree-specific graph
-  only when explicitly requested.
-- Treat graph output as a cache; verify operational, security, ownership, and
-  current-state claims in source.
-- Never bypass sensitive-file skips or index `*.secrets.json`, `.env*`,
-  Sops/Vault material, certificates, or credentials.
-- Fall back to `rg` and source files for unsupported formats.
+Home Manager concatenates this file and `agent-policy.md` into global
+`AGENTS.md`; project `AGENTS.md` supplies repository-specific instructions.
+The shared policy carries feedback, two-draft delivery and baseline review
+safeguards. Load `/pl`, `/ip` or `/rv` for their stage-specific procedure; their
+full bodies are not startup instructions. Keep source changes declarative.

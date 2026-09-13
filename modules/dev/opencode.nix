@@ -25,7 +25,7 @@
       rtk.enable = true;
       # Instructions already carry the response style and shared repo policy.
       agents.preamble = "";
-      agents.extraText = builtins.readFile ./opencode-agents.md;
+      agents.extraText = builtins.readFile ./opencode-agents.md + "\n" + builtins.readFile ./agent-policy.md;
     };
 
     # Host-local policy (opencode-flake RFC D3): provider routing and this
