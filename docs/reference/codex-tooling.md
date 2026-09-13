@@ -12,8 +12,13 @@ file replacement. Existing profile overlays are preserved.
 Current main's gateway headers, model inheritance, shared feedback policy and
 PL/IP/RV instructions remain authoritative. The older working tree's Headroom
 endpoint redirection and scoped overlay are excluded: the proposed service still
-references an imperatively installed binary, so publishing the default endpoint
-requires a reproducible package or an explicit external-runtime contract first.
+references an imperatively installed binary. Headroom remains deferred, not an
+unfinished mandatory part of this rollout. The [earlier evaluation](../implemented/2026-07-02-tokensave-dataplatform-eval.md)
+deferred overlapping compression middleware because stacking lossy layers with
+RTK can undermine correctness. Reopen only for an accepted need with a scoped
+behavior contract; then require a reproducible package or an explicit external
+runtime contract before redirecting the default endpoint. Packaging alone does
+not settle adoption. Preserve the saved draft and existing profile overlays.
 
 Validation: 28 actual pytest checks using declared Nix Python with `tomlkit` and
 `pytest`; lint, format, documentation and dry builds for Endeavour, Pathfinder,
