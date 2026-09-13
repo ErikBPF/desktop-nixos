@@ -1,3 +1,6 @@
+import json
+import shlex
+import subprocess
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -89,3 +92,19 @@ def test_only_host_ssh_journal_is_collected():
     assert root.findtext("wodle[@name='syscollector']/disabled") == "yes"
     assert root.findtext("sca/enabled") == "no"
     assert not root.findall(".//command")
+
+
+def test_alert_verifiers_tolerate_partial_final_line_without_false_positive():
+    alert = {"agent": {"name": "orion-canary"},
+             "location": "/var/log/wazuh-host/sshd.log",
+             "rule": {"groups": ["sshd"]}, "full_log": "fixture-marker"}
+    for line in JUSTFILE.splitlines():
+        if "jq " not in line or '.agent.name == "orion-canary"' not in line:
+            continue
+        command = shlex.split(line.strip().split(" >/dev/null", 1)[0])
+        command = ["fixture-marker" if arg == "$marker" else arg for arg in command]
+        for matches in (True, False):
+            record = alert | {"agent": {"name": "orion-canary" if matches else "other"}}
+            result = subprocess.run(command, input=json.dumps(record) + '\n{"agent":',
+                                    text=True, capture_output=True)
+            assert (result.returncode == 0) == matches, result.stderr

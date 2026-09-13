@@ -3380,7 +3380,7 @@ verify-wazuh-agent-canary:
     echo ":: Attributed host SSH alert"
     kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
       tail -n 10000 /var/ossec/logs/alerts/alerts.json | \
-      jq -e 'select(.agent.name == "orion-canary" and .location == "/var/log/wazuh-host/sshd.log" and ((.rule.groups // []) | index("sshd"))) | true' >/dev/null
+      jq -R -e 'fromjson? | select(.agent.name == "orion-canary" and .location == "/var/log/wazuh-host/sshd.log" and ((.rule.groups // []) | index("sshd"))) | true' >/dev/null
     echo ":: Orion Wazuh canary enrolled and host SSH alerts present"
 
 probe-wazuh-agent-canary:
@@ -3428,7 +3428,7 @@ probe-wazuh-agent-canary:
     for _ in {1..30}; do
       if kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
         tail -n 10000 /var/ossec/logs/alerts/alerts.json | \
-        jq -e --arg marker "$marker" 'select(.agent.name == "orion-canary" and .location == "/var/log/wazuh-host/sshd.log" and ((.rule.groups // []) | index("sshd")) and ((.full_log // "") | contains($marker))) | true' >/dev/null; then
+        jq -R -e --arg marker "$marker" 'fromjson? | select(.agent.name == "orion-canary" and .location == "/var/log/wazuh-host/sshd.log" and ((.rule.groups // []) | index("sshd")) and ((.full_log // "") | contains($marker))) | true' >/dev/null; then
         seen=true
         break
       fi

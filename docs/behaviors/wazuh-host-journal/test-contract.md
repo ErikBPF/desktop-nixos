@@ -47,7 +47,9 @@ behavior remains real host SSH coverage, with existing enrollment preserved.
 - Replace the container-text probe with one bounded invalid-user SSH attempt
   against Orion's loopback sshd. Require the unique marker in the real host SSH
   journal, filtered file and a fresh, attributed manager alert. Missing evidence
-  fails. A separate SSH-shaped record from one unrelated transient unit must be
+  fails. Alert verification must tolerate an incomplete final JSON log line while
+  still requiring a complete matching record; malformed lines cannot count as evidence.
+  A separate SSH-shaped record from one unrelated transient unit must be
   present in its own journal but absent from the filtered file after the positive
   record has flowed. Record this bounded exclusion check without raw log output.
 
