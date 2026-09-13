@@ -16,6 +16,9 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 ## Operational references
 
+[Codex tooling reconciliation](reference/codex-tooling.md) records the bounded
+developer-tool changes and preserved runtime boundaries.
+
 | Doc | Covers | Status |
 |-----|--------|--------|
 | [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. | Identity loss and recovery proven; recipient confirmation pending |
