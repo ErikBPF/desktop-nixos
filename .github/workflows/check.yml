@@ -51,6 +51,12 @@ jobs:
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/opencode-profiles -v
 
+      - name: Independent local workspace sessions
+        run: |
+          python3 -m unittest discover -s tests/local-workspace-sessions -v
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
+          PATH="$package/bin:$PATH" python3 tests/local-workspace-sessions/smoke.py
+
       - name: Neovim opener and session recovery
         run: |
           python3 tests/nvim-opener/test_opener.py
