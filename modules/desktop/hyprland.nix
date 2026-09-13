@@ -85,6 +85,7 @@
 
         settings = {
           terminal = {_var = "ghostty +new-window";};
+          terminalEditor = {_var = "ghostty +new-window -e nvim";};
           fileManager = {_var = "nautilus";};
           fileManagerTui = {_var = "ghostty +new-window -e yazi-resume";};
           browser = {_var = "brave";};
@@ -346,7 +347,7 @@
           bind =
             [
               {_args = ["SUPER + B" (mkLuaInline "hl.dsp.exec_cmd(browser)")];}
-              {_args = ["SUPER + N" (mkLuaInline ''hl.dsp.exec_cmd(terminal .. " -e nvim")'')];}
+              {_args = ["SUPER + N" (mkLuaInline "hl.dsp.exec_cmd(terminalEditor)")];}
               {_args = ["SUPER + T" (mkLuaInline "hl.dsp.exec_cmd(terminal)")];}
               {_args = ["SUPER + E" (mkLuaInline "hl.dsp.exec_cmd(fileManager)")];}
               {_args = ["SUPER + SHIFT + E" (mkLuaInline "hl.dsp.exec_cmd(fileManagerTui)")];}
