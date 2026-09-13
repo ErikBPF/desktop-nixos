@@ -42,6 +42,9 @@ jobs:
       - name: Safe lock update contract
         run: nix develop -c python -m unittest discover -s tests/update-safe -p 'test_*.py'
 
+      - name: Authentik backup staging
+        run: nix develop -c python -m unittest discover -s tests/authentik-backup -p 'test_*.py'
+
       - name: OpenCode gateway profiles
         run: |
           node tests/opencode-profiles/test_headers.mjs
