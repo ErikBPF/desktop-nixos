@@ -1,0 +1,24 @@
+# Codex tooling reconciliation
+
+**Status:** reviewed source, publication pending; no live activation in this slice.
+
+Home Manager installs the pinned RTK binary, missing vendored skills and Graphify
+reference files. Its existing Codex activation installs Ponytail from a catalog
+whose plugin source is pinned to the flake input revision. The UI updater changes
+only quota/context/model display fields, disables automatic recap and enables the
+plan tool; TOML comments and unrelated mutable settings survive an atomic private
+file replacement. Existing profile overlays are preserved.
+
+Current main's gateway headers, model inheritance, shared feedback policy and
+PL/IP/RV instructions remain authoritative. The older working tree's Headroom
+endpoint redirection and scoped overlay are excluded: the proposed service still
+references an imperatively installed binary, so publishing the default endpoint
+requires a reproducible package or an explicit external-runtime contract first.
+
+Validation: 28 actual pytest checks using declared Nix Python with `tomlkit` and
+`pytest`; lint, format, documentation and Endeavour dry-build checks pass.
+
+Pinned Codex 0.154.0's read-only marketplace listing exposes `marketplaces` with
+`name` and `root`. Its [tagged marketplace parser](https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/core-plugins/src/marketplace.rs#L1019)
+accepts URL plugin sources with the `ref` selector and maps that selector to the
+Git source. CLI and schema checks made no changes to the user's configuration.
