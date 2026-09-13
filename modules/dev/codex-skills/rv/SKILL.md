@@ -7,6 +7,8 @@ description: Review and revise a plan, specification, document, working-tree dif
 
 Review, fix, simplify, verify. Default target: the current task's changed
 artifact or diff. Ask for a fixed point only when it cannot be inferred safely.
+Preserve the human seed through review; accepted `/pl` and `/ip` outcomes suffice.
+Do not demand RFC/ADR/spec documents unless the user requested that formal flow.
 
 ## Skill group
 
@@ -26,10 +28,12 @@ nested review tree.
 
 ## Workflow
 
-1. Resolve the target, fixed point, accepted behavior, implementation plan, and
+1. Resolve the human seed, target, fixed point, accepted behavior, plan, and
    relevant repository rules. Refuse an empty or ambiguous diff rather than
    reviewing unrelated work.
-2. Run independent passes without letting one erase another's findings:
+2. For substantial work, preserve the first-draft revision and evidence before
+   a fresh independent review; no fixed waiting period. Run independent passes
+   without letting one erase another's findings:
    - conformance: right behavior and repository rules;
    - correctness: bugs, regressions, races, unexpected behavior, error paths;
    - CodeHero security and other applicable specialist risks;
@@ -40,8 +44,11 @@ nested review tree.
    - code bug: add or identify a failing regression check, verify RED, then fix;
    - behavior drift: return to the accepted contract instead of rewriting it;
    - document defect: preserve intent while applying the accepted correction.
-5. Run the simplicity pass after correctness fixes. Apply only behavior-
-   preserving deletion, reuse, naming, efficiency, and abstraction reductions.
+5. Rewrite like you know the end after correctness fixes: state the observed
+   accepted outcome, work backward through boundaries, interfaces, names and
+   rationale, and remove dead experiments, temporary glue and tangents from the
+   final delivery. Keep first-draft receipts and RED anchors. Apply the simplicity
+   pass without changing accepted behavior, backdating tests or inventing certainty.
 6. Rerun bound `.feature` scenarios, focused tests, the relevant suite, and
    repository checks after final edits.
 7. Repeat once only if final validation exposes new evidence. Otherwise stop

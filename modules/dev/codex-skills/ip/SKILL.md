@@ -5,7 +5,9 @@ description: Convert an accepted proposal, spec, or BDD `.feature` contract into
 
 # Implementation Plan
 
-Plan the build; do not implement it.
+Plan the build; do not implement it. Accept the human seed and settled `/pl`
+outcome without requiring RFC/ADR/spec documents. The formal flow applies only
+when explicitly requested; preserve seed integrity and accepted test gates.
 
 ## Skill group
 
@@ -15,7 +17,8 @@ If unavailable, apply their equivalent directly.
 
 ## Workflow
 
-1. Read the accepted planning artifact and `.feature` file completely. If the
+1. Read the human seed, accepted planning artifact and applicable `.feature`
+   contract completely. If the
    destination or behavior remains disputed, stop and return to `$pl`.
 2. Trace the affected flow, callers, ownership, repository conventions, test
    harness, deployment path, and rollback path.
@@ -42,7 +45,12 @@ If unavailable, apply their equivalent directly.
 Prefer one implementation artifact: update the existing proposal, spec, or
 issue list. Do not scaffold speculative tickets or abstractions.
 
-Apply the shared evidence-and-feedback policy. Include the first-draft snapshot,
+Before handing off a substantial plan, preserve its discovery revision, obtain
+a fresh independent read without a fixed delay, and rewrite the slices backward
+from the accepted outcome: clarify dependencies and test seams, remove obsolete
+steps, and retain the discovery evidence. Do not change accepted behavior.
+
+Apply the shared evidence-and-feedback policy. Include the implementation's first-draft snapshot,
 fresh independent review without a fixed delay, rewrite from the observed
 outcome, and final RV in the slice plan. Define useful green PR boundaries and
 predecessors, plus any separately authorized live target and bounded test loop.

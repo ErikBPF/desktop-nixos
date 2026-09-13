@@ -6,6 +6,9 @@ description: Shape an ambiguous idea into an agreed decision map and BDD `.featu
 # Planning
 
 Produce shared understanding, not an implementation plan or production code.
+Default entry to `/pl` → `/ip` → implementation → `/rv`; RFC → ADR → spec is
+required only when explicitly requested. Prepare a requested RFC when the work
+is ready for human feedback; do not require formal documents to begin planning.
 
 ## Skill group
 
@@ -26,8 +29,9 @@ which fallback was used.
 
 ## Workflow
 
-1. Capture the human seed: destination, motivation, constraints, and non-goals.
-   Do not silently originate load-bearing requirements.
+1. Preserve the human seed verbatim; record destination, motivation, constraints
+   and non-goals separately. Ground questions before refinement. Do not silently
+   originate load-bearing requirements.
 2. Resolve repository ownership, existing vocabulary, related decisions,
    behavior, and constraints from source.
 3. Run `$party`. Preserve disagreements; do not manufacture consensus.
@@ -39,8 +43,12 @@ which fallback was used.
 6. Run `$grill`, apply accepted improvements, and update `$map`. Stop after two
    critique rounds unless new evidence appears.
 
-Finish when the destination, non-goals, mental map, scenarios, and blockers are
-explicit enough for `$ip`.
+Before handing off substantial work, preserve the discovery draft and obtain a
+fresh independent read without a fixed delay. Rewrite like you know the end:
+organize the map and behavior examples backward from the supported outcome,
+remove exploratory tangents from the final artifact, and retain their receipts.
+Do not turn unresolved questions into accepted behavior. Finish when destination,
+non-goals, map, scenarios and blockers are explicit enough for `$ip`.
 
 Apply the shared evidence-and-feedback policy: preserve the raw seed, read the
 repository environment preferences, queue unresolved questions, and emit the PL

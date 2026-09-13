@@ -58,8 +58,9 @@ at 3 retries; after that, stop and report.
 - **Bounded iteration.** Design / brainstorm loops run a fixed 2-3 rounds,
   then force a decision. Open-ended AI conversations drift; a fixed round
   count keeps sessions tractable and produces auditable outputs.
-- **RFC → ADR → Spec → Plan → Develop** gates. Every significant decision
-  passes through a documented gate before code is written.
+- **Default flow:** `/pl` → `/ip` → implementation → `/rv`, with human-seed
+  integrity throughout. RFC → ADR → spec is an explicitly requested formal
+  feedback flow, not a prerequisite for ordinary tasks.
 - **Two-layer skills:** repo-specific skills live alongside the repo;
   team-wide skills travel via symlinks / global install. Both load through
   `~/.agents/skills/` discovery.
@@ -109,8 +110,9 @@ quote errors verbatim.
   searches through the `explore`/`general` subagent (or
   `cavecrew-investigator`) — only the compressed result returns to main
   context. Single-file peeks stay inline.
-- New design → RFC under `docs/proposals/`; lock to an ADR; implement
-  per spec.
+- When the user requests RFC → ADR → spec, prepare the RFC under
+  `docs/proposals/` when ready for feedback, record accepted decisions in an ADR,
+  then derive the spec. Otherwise use the default skill flow.
 
 ## Tone
 

@@ -28,9 +28,16 @@
 ## Evidence and human feedback
 
 Preserve the human seed verbatim. Ground and challenge it against current
-source before refinement. Keep existing RFC → ADR → spec → plan gates,
-accepted BDD/TDD contracts, assertion-failing RED anchors, seed-integrity
-review, and human-authored lessons. Existing approval remains valid; stage
+source before refinement throughout `/pl`, `/ip`, and `/rv`. The default flow is
+`/pl` for behavior, `/ip` for delivery planning, implementation, then `/rv` for
+review and revision; enter at the first applicable step for small or settled work.
+Use RFC → ADR → spec only when the user explicitly requests that formal flow.
+When requested, prepare the RFC once the work is ready for human feedback,
+record accepted decisions in the ADR, and derive the spec from those decisions.
+Do not infer this requirement from task size or generic design-gate guidance.
+One-pagers and questions remain available without an RFC. Preserve accepted
+BDD/TDD contracts, assertion-failing RED anchors, seed-integrity review, and
+human-authored lessons. Existing approval remains valid; stage
 reports do not create new approval gates. Infrastructure failures are not RED.
 
 Read the repository's `env_config.yaml` when present as environment preferences,
@@ -70,7 +77,9 @@ remove the handoff after successful transfer; report failures without values.
 
 ### Two drafts and delivery
 
-Build a bounded complete first draft against the accepted contract. Preserve
+Apply two drafts to substantial PL/IP artifacts and implementations, not only
+to final code. Build a bounded complete first draft against the human seed and
+accepted behavior. Preserve
 its revision, RED/GREEN evidence, failures, and unresolved questions. Request a
 fresh independent reviewer to read it as a stranger; no fixed waiting period.
 
@@ -79,7 +88,9 @@ backward through boundaries, interfaces, names and rationale, then remove dead
 experiments, temporary glue, duplicated configuration and tangents from final
 delivery. Keep discovery receipts. Never backdate tests, fabricate certainty,
 or silently rewrite acceptance. Reopen planning when the behavior must change.
-Run RV and relevant validation on the rewritten result.
+PL rewrites its decision map and behavior examples; IP rewrites delivery slices
+and verification around that outcome. RV owns the implementation rewrite and
+final conformance check. Rerun relevant validation on the rewritten result.
 
 Package useful, green vertical PRs with concrete outcomes, dependencies,
 validation and rollback. Preserve the RED anchor inside a PR; do not require a
