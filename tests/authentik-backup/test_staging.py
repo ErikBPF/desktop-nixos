@@ -18,5 +18,5 @@ class AuthentikStaging(unittest.TestCase):
             cwd=ROOT, capture_output=True, text=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("install -d -m 0770 -o erik -g users", result.stdout)
-        self.assertIn("/fast/k8s/authentik-backups", result.stdout)
+        self.assertIn("install -d -m 0700 -o erik -g users /fast/k8s/authentik-backups", result.stdout)
         self.assertIn("/fast/k8s/cognee-backups", result.stdout)
