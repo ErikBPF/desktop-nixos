@@ -42,7 +42,34 @@
       "d ${runtimeDir} 0700 root root -"
       "d ${stateDir} 0700 root root -"
       "f ${stateDir}/client.keys 0600 999 999 -"
+      "d /var/log/wazuh-host 0700 root root -"
+      "f /var/log/wazuh-host/sshd.log 0600 root root -"
     ];
+
+    services.rsyslogd = {
+      enable = true;
+      defaultConfig = "";
+      extraConfig = ''
+        # ponytail: cursor checkpoints can replay a suffix after a crash; tighten only if duplicate alerts matter.
+        module(load="imjournal" StateFile="wazuh-journal.state"
+          PersistStateInterval="100" IgnorePreviousMessages="on" Ratelimit.Interval="0")
+        if $inputname == "imjournal" and $!_SYSTEMD_UNIT == "sshd.service" then {
+          action(type="omfile" file="/var/log/wazuh-host/sshd.log"
+            template="RSYSLOG_TraditionalFileFormat" fileCreateMode="0600")
+        }
+      '';
+    };
+
+    services.logrotate.settings.wazuh-host = {
+      files = ["/var/log/wazuh-host/sshd.log"];
+      frequency = "daily";
+      rotate = 7;
+      maxsize = "10M";
+      missingok = true;
+      notifempty = true;
+      create = "0600 root root";
+      postrotate = "${pkgs.systemd}/bin/systemctl kill --kill-whom=main --signal=HUP syslog.service";
+    };
 
     systemd.services.wazuh-agent-vault = {
       description = "Render the Wazuh canary enrollment secret";
@@ -67,8 +94,8 @@
     };
 
     systemd.services.podman-wazuh-agent = {
-      after = ["wazuh-agent-vault.service"];
-      requires = ["wazuh-agent-vault.service"];
+      after = ["wazuh-agent-vault.service" "syslog.service"];
+      requires = ["wazuh-agent-vault.service" "syslog.service"];
       serviceConfig.RuntimeDirectoryPreserve = "yes";
     };
 
@@ -85,9 +112,7 @@
       environmentFiles = ["/run/wazuh-agent/agent.env"];
       volumes = [
         "${./wazuh-agent.xml}:/wazuh-config-mount/etc/ossec.conf:ro"
-        "/var/log/journal:/var/log/journal:ro"
-        "/run/log/journal:/run/log/journal:ro"
-        "/etc/machine-id:/etc/machine-id:ro"
+        "/var/log/wazuh-host:/var/log/wazuh-host:ro"
         "${stateDir}/client.keys:/var/ossec/etc/client.keys"
       ];
       extraOptions = ["--hostname=orion"];

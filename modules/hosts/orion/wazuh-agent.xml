@@ -22,8 +22,7 @@
   <wodle name="syscollector"><disabled>yes</disabled></wodle>
   <sca><enabled>no</enabled></sca>
   <localfile>
-    <location>journald</location>
-    <log_format>journald</log_format>
-    <filter field="_SYSTEMD_UNIT">^sshd\.service$</filter>
+    <location>/var/log/wazuh-host/sshd.log</location>
+    <log_format>syslog</log_format>
   </localfile>
 </ossec_config>
