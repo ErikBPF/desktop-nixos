@@ -22,3 +22,8 @@ Pinned Codex 0.154.0's read-only marketplace listing exposes `marketplaces` with
 `name` and `root`. Its [tagged marketplace parser](https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/core-plugins/src/marketplace.rs#L1019)
 accepts URL plugin sources with the `ref` selector and maps that selector to the
 Git source. CLI and schema checks made no changes to the user's configuration.
+
+The same tagged marketplace implementation returns success for an already-added
+local root; plugin installation atomically replaces an existing same-version
+cache. Repeated activation is supported. The scoped RTK derivation was built and
+its executable reported `rtk 0.48.0`. No profile overlay was removed.

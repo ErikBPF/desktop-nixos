@@ -51,4 +51,3 @@ def test_vendored_graphify_reference_links_resolve():
                 ["git", "check-ignore", "-q", str(root / target)], cwd=ROOT
             )
             assert ignored.returncode == 1, f"{platform}: ignored skill dependency {target}"
-
