@@ -41,3 +41,9 @@ If unavailable, apply their equivalent directly.
 
 Prefer one implementation artifact: update the existing proposal, spec, or
 issue list. Do not scaffold speculative tickets or abstractions.
+
+Apply the shared evidence-and-feedback policy. Include the first-draft snapshot,
+fresh independent review without a fixed delay, rewrite from the observed
+outcome, and final RV in the slice plan. Define useful green PR boundaries and
+predecessors, plus any separately authorized live target and bounded test loop.
+Emit the IP one-pager; queue missing input while independent work continues.

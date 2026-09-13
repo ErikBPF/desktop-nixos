@@ -50,3 +50,10 @@ nested review tree.
 Return changed files, verified findings fixed, discarded findings, validation
 commands and results, and unresolved risks. Never claim a `.feature` scenario
 passed unless its bound runner actually ran.
+
+Apply the shared evidence-and-feedback policy. Review the frozen first draft
+independently before the second-draft rewrite; preserve discovery receipts and
+verify the final result against the original seed and accepted contract. Emit
+the RV one-pager and open a task-bound tuicr/Neovim handover when human feedback
+is needed. Reconcile returned points by artifact revision, then report the
+feedback stage. A report or closed review window is not approval.

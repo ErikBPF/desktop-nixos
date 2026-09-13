@@ -41,3 +41,7 @@ which fallback was used.
 
 Finish when the destination, non-goals, mental map, scenarios, and blockers are
 explicit enough for `$ip`.
+
+Apply the shared evidence-and-feedback policy: preserve the raw seed, read the
+repository environment preferences, queue unresolved questions, and emit the PL
+one-pager. Keep the accepted principles visible when refining a new workflow.
