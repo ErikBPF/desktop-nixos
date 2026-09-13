@@ -14,7 +14,7 @@ Do not demand RFC/ADR/spec documents unless the user requested that formal flow.
 
 Use available equivalents; names vary by harness:
 
-- **Conformance:** spec and repository-standard comparison.
+- **Conformance:** accepted behavior and repository-standard comparison.
 - **Correctness:** `/review`, code review, or caveman-review.
 - **Specialist risks:** `$codehero` for security and every other applicable
   reliability, performance, architecture, test, compatibility, operations, or
