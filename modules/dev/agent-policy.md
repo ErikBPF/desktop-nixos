@@ -45,3 +45,11 @@ Use owner recipes/runners. Fix one hypothesis at a time; record baseline, candid
 Autonomous campaigns additionally require a mechanical metric, explicit budget/stop condition, and named target with allowed actions. Unit/static checks do not prove E2E. Existing disposable local E2E may run within task authorization; live/deployed campaigns require a named authorized target.
 
 Use Ponytail to remove unnecessary machinery and Caveman to shorten prose without losing evidence, qualifications, security, or agreed behavior.
+
+### Review safeguards
+
+For any review, compare the human seed, accepted behavior and current source;
+verify findings before changing anything. Preserve existing user work and do not
+rewrite acceptance to fit implementation. Distinguish static checks, observed
+behavior and untested claims. Use `/rv` for the full independent review, repair,
+rewrite and final-validation procedure; do not run that ceremony on every task.
