@@ -1,7 +1,61 @@
 # Desktop reconciliation and OpenCode rollout
 
 **Status:** Endeavour and Orion activated; Orion and Apollo home/work real tool checks pass.
-Pathfinder remains unreachable. Canonical drafts retained unchanged; original audit against `1ed67c9`.
+Pathfinder remains unverified since the rollout below. September 13 residual review
+against `9b704841` retired the obsolete Gemini launcher and standalone journald
+migration; Headroom remains deferred. Original audit against `1ed67c9` follows.
+
+## September 13 residual closeout
+
+The preserved draft stash is `6a98559779e9d2d13a2f7d20c404775e3965d26a`.
+It was inspected without applying it; no runtime configuration changed.
+
+- **Gemini launcher: retired.** The draft `herdr-repo` command targets `gemini`,
+  contradicting the [accepted Orion/Apollo placement](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-09-07-orion-apollo-development.md).
+  Current `modules/dev/herdr.nix` already supplies personal Orion `l1/l2` and
+  work Apollo `w1/w2` entry points. Do not restore the draft or silently retarget
+  personal repositories to Apollo.
+- **Standalone journald API migration: retired against the current pin.**
+  `nix eval --json --no-write-lock-file .#nixosConfigurations.discovery.options.services.journald --apply 'o: builtins.attrNames o'`
+  succeeds and lists `extraConfig`, with no `settings` option. Discovery and
+  Kepler already declare persistent 2G journals; the shared module retains its
+  50M default. Keep those working declarations. Reconsider API migration only
+  when a separately reviewed Nixpkgs update requires it, not as missing retention
+  implementation.
+- **Headroom: deferred.** The [Codex tooling record](codex-tooling.md) retains
+  the adoption and reproducible-runtime questions. The intended benefit over
+  the existing RTK path remains unspecified; retain the current endpoint.
+
+The path inventory below is the September 7 historical audit, not a current
+implementation queue. Subsequent reviewed publications delivered the independent
+Codex tooling, manual fork-sync and display-capture work.
+
+## Exhaustive stash review — September 13
+
+The second pass inspected all ten Desktop stashes, not only the recent
+preservation snapshot. Stashes remain intact; none was applied wholesale.
+
+| Stash group | Current-source comparison | Disposition |
+|---|---|---|
+| `6a985597` | Recent publication snapshot; most paths already delivered. Retired Gemini/journald and deferred Headroom are covered above. The retained LUKS feature describes an operator scope already closed in Homelab. | Keep as historical recovery evidence; do not reopen the closed LUKS gate or replace current routing and package pins. |
+| `a2727790`, `39908e17` | Repeated journald migration and older instruction/pin copies. | Superseded; retain supported declarations and current policy. |
+| `a8aca81d` | Alloy NFS exclusion already present; SBX has newer upstream packaging and tests; Gemini aliases retired. | Already delivered or superseded; no older package/alias overlay. |
+| `f216a075`, `4daeb7ea` | Ubuntu-work already includes the clipboard, keyboard and audio intent, with a newer private PulseAudio setup. | Retain the current implementation and its passing contracts. |
+| `62bf51ae`, `ec569f06`, `49025c8f` | Existing system-key persistence precedes secret activation. Old login/host-key changes conflict with current policy; the key-rotation runbook still described the old single-store model. | Integrate the corrected [rotation procedure](key-rotation.md), not the stale authentication or bootstrap changes. |
+| `b2ac927c` | NetBird server work predates retirement; Kepler parallel-control-plane assertions already exist in `tests/kepler-fast-state`. | Superseded or already covered. |
+
+`ec569f06` also retains 252 generated Graphify files. Those caches are not
+implementation source and remain excluded from publication.
+
+RV verified the system/Home Manager key distinction and staging precedence,
+retained the current first-boot implementation, and corrected the runbook's
+new-key proof and data-key retirement sequence. The isolated SOPS exercise used
+only disposable synthetic keys; it was not a fleet rotation.
+
+Verification: 26 existing pytest checks passed across `login-startup`,
+`kepler-fast-state`, `work-vm`, `work-profile`, and `sbx` in the repository-pinned
+Python environment. Documentation checks passed. No host activation, login
+policy change, key distribution, or real credential operation occurred.
 
 ## Delivery evidence
 

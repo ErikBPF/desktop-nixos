@@ -18,8 +18,10 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-desktop
+      m.nixos.desktop-workspaces
       m.nixos.endeavour-hardware
       m.nixos.endeavour-networking
+      m.nixos.netbird-client
       m.nixos.endeavour-ubuntu-work
       m.nixos.laptop-syncthing
       m.nixos.first-boot
@@ -36,6 +38,7 @@ in {
       imports = [
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
+        m.home.desktop-workspaces
         m.home.deepseek-harness
         m.home.monitor-layout-docked
       ];

@@ -10,6 +10,7 @@ Feature: Compose shared fleet capabilities without changing host behavior
   Scenario Outline: Selected wired hosts retain magic-packet wake
     Given "<host>" explicitly selects the shared wake capability
     And its recorded permanent MAC is "<mac>"
+    And no NetworkManager profile overrides the declared wake default
     When its system configuration is evaluated
     Then its wake policy is magic-packet only
     And its network owner remains "<manager>"
@@ -44,7 +45,7 @@ Feature: Compose shared fleet capabilities without changing host behavior
   Scenario Outline: Incomplete wake selection fails before deployment
     Given a host selects the shared wake capability
     And "<required fact>" is absent
-    When its system configuration is evaluated
+    When its system toplevel is evaluated with assertions enforced
     Then evaluation reports "<diagnostic>"
     And no activation is attempted
 
@@ -53,13 +54,14 @@ Feature: Compose shared fleet capabilities without changing host behavior
       | the permanent MAC                        | wake requires a permanent MAC |
       | the existing link target on a non-NM host | wake requires a link target   |
 
-  @C1
-  Scenario: Repeated composition preserves effective behavior
-    Given a host selects its shared capabilities
-    When the same pinned configuration is evaluated again
-    Then its effective policy is unchanged
-    And its existing NIC rule remains the only applicable owned wake rule
-    And no duplicate route flags or tool configuration are introduced
+  @R1
+  Scenario: Host-derived recovery configurations retain their boundaries
+    Given orion-esp-installer inherits Orion's host configuration
+    When Orion's shared capabilities are refactored
+    Then the installer retains Orion's network manager and wake defaults
+    And its route policy and developer environment remain unchanged
+    And its installer disk graph still contains only the boot NVMe
+    And no installer is activated or executed during validation
 
   @N1
   Scenario: Local clients retain route policy without changing the router

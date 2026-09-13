@@ -25,7 +25,7 @@
       rtk.enable = true;
       # Instructions already carry the response style and shared repo policy.
       agents.preamble = "";
-      agents.extraText = builtins.readFile ./opencode-agents.md;
+      agents.extraText = builtins.readFile ./opencode-agents.md + "\n" + builtins.readFile ./agent-policy.md;
     };
 
     # Host-local policy (opencode-flake RFC D3): provider routing and this
@@ -44,12 +44,12 @@
         # Custom providers need Go's session header as well as OpenCode's native headers.
         "./plugins/gateway-headers.mjs"
       ];
-      model = "litellm/glm-5.3-flash";
-      small_model = "litellm/glm-5.3-flash";
+      model = "litellm/deepseek-v4.1-flash";
+      small_model = "litellm/deepseek-v4.1-flash";
       # 1.18.29 still uses this filter; policies cover the newer core path.
       enabled_providers = ["litellm" "work"];
 
-      # Gateway /model/info snapshot, 2026-09-07; costs per million tokens.
+      # Gateway /model/info snapshot, 2026-09-10; costs per million tokens.
       provider = {
         litellm = {
           npm = "@ai-sdk/openai-compatible";
@@ -59,28 +59,29 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
-            deepseek-v4-flash = {
-              name = "DeepSeek V4 Flash (LiteLLM → OpenCode Go)";
+            "deepseek-v4.1-flash" = {
+              name = "DeepSeek V4.1 Flash (LiteLLM → OpenCode Go)";
               cost = {
-                cache_read = 0.014;
-                input = 0.14;
-                output = 0.28;
+                input = 0.30;
+                output = 1.20;
+                cache_read = 0.006;
               };
               limit = {
                 context = 1000000;
                 output = 384000;
               };
-            };
-            deepseek-v4-pro = {
-              name = "DeepSeek V4 Pro (LiteLLM → OpenCode Go)";
-              cost = {
-                cache_read = 0.044;
-                input = 1.74;
-                output = 3.84;
+              modalities = {
+                input = ["text" "image"];
+                output = ["text"];
               };
-              limit = {
-                context = 1000000;
-                output = 384000;
+              reasoning = true;
+              tool_call = true;
+              options.reasoningEffort = "max";
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
+                medium.disabled = true;
               };
             };
             "glm-5.3-flash" = {
@@ -92,6 +93,36 @@
               limit = {
                 context = 1000000;
                 output = 131072;
+              };
+              reasoning = true;
+              options.reasoningEffort = "max";
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
+              };
+            };
+            qwen-chat = {
+              name = "Qwen Chat (Orion)";
+              cost = {
+                input = 0.25;
+                output = 0.75;
+              };
+              limit = {
+                context = 98304;
+                output = 32768;
+              };
+            };
+            "apollo-qwen38-27b" = {
+              name = "Qwen3.8 27B (Apollo)";
+              cost = {
+                input = 0.0;
+                output = 0.0;
+              };
+              limit = {
+                context = 90000;
+                input = 81808;
+                output = 8192;
               };
             };
             "qwen3.8-flash" = {
@@ -117,7 +148,8 @@
           models = {
             "chatgpt-5.6-luna" = {
               limit = {
-                context = 922000;
+                context = 1050000;
+                input = 922000;
                 output = 128000;
               };
               cost = {
@@ -126,10 +158,13 @@
                 output = 1.2;
               };
               options.reasoningEffort = "none";
+              reasoning = true;
+              variants.none.reasoningEffort = "none";
             };
             "chatgpt-5.6-sol" = {
               limit = {
-                context = 922000;
+                context = 1050000;
+                input = 922000;
                 output = 128000;
               };
               cost = {
@@ -138,10 +173,13 @@
                 output = 20.0;
               };
               options.reasoningEffort = "none";
+              reasoning = true;
+              variants.none.reasoningEffort = "none";
             };
             "chatgpt-5.6-terra" = {
               limit = {
-                context = 922000;
+                context = 1050000;
+                input = 922000;
                 output = 128000;
               };
               cost = {
@@ -150,25 +188,34 @@
                 output = 12.0;
               };
               options.reasoningEffort = "none";
+              reasoning = true;
+              variants.none.reasoningEffort = "none";
             };
-            "deepseek-v4-flash" = {
+            "deepseek-v4.1-flash" = {
               limit = {
-                context = 1024000;
-                output = 384000;
+                context = 1048576;
+                output = 393216;
               };
               cost = {
-                input = 0.22;
-                output = 0.66;
+                input = 0.30;
+                output = 1.20;
               };
-            };
-            "deepseek-v4-pro" = {
-              limit = {
-                context = 1024000;
-                output = 384000;
+              modalities = {
+                input = ["text" "image"];
+                output = ["text"];
               };
-              cost = {
-                input = 0.87;
-                output = 1.74;
+              reasoning = true;
+              tool_call = true;
+              # LiteLLM 1.98.0's cached OpenRouter capabilities omit effort.
+              options = {
+                reasoningEffort = "max";
+                allowed_openai_params = ["reasoning_effort"];
+              };
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
+                medium.disabled = true;
               };
             };
             "glm-5.3-flash" = {
@@ -180,6 +227,16 @@
                 cache_read = 0.015;
                 input = 0.075;
                 output = 0.25;
+              };
+              reasoning = true;
+              options = {
+                reasoningEffort = "max";
+                allowed_openai_params = ["reasoning_effort"];
+              };
+              variants = {
+                low.reasoningEffort = "low";
+                high.reasoningEffort = "high";
+                max.reasoningEffort = "max";
               };
             };
           };

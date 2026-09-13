@@ -2,7 +2,7 @@ _: {
   # General-purpose multiplexer for plain SSH / non-herdr sessions (herdr owns
   # the AI-agent panes). Base16 theming comes from the stylix tmux target,
   # enabled centrally in modules/desktop/stylix.nix so this module stays
-  # portable to hosts without stylix.
+  # portable to hosts without stylix (e.g. the orion dev-sandbox microvm).
   # Session save/restore is intentionally omitted: herdr already provides
   # session persistence, so no resurrect/continuum here.
   flake.modules.home.tmux = {pkgs, ...}: {
@@ -112,6 +112,7 @@ _: {
         # Pass 24-bit truecolor through from the outer terminal so
         # zsh-syntax-highlighting's fg=#hex styles render inside tmux.
         set -ga terminal-features "*:RGB"
+        set -g status-left-length 32
       '';
       plugins = with pkgs.tmuxPlugins; [
         sensible

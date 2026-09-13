@@ -141,6 +141,15 @@ switch target=profile:
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 0
 
+# Activate only the declarative user environment; leaves the running OS unchanged.
+home-switch target=profile:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    activation=$(nix build --no-link --print-out-paths \
+      .#nixosConfigurations.{{target}}.config.home-manager.users.erik.home.activationPackage \
+      --builders '' --max-jobs 2)
+    HOME_MANAGER_BACKUP_EXT=backup "$activation/activate"
+
 builder-preflight target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo ./scripts/builder-preflight.sh "$BUILDERS"
@@ -1648,6 +1657,18 @@ diagnose-pathfinder-bootstrap:
 recover-pathfinder-scrub:
     ssh -p 2222 erik@$(jq -r '.hosts.pathfinder.tailscaleIp // .hosts.pathfinder.ip' fleet.json) "sudo systemctl reset-failed btrfs-scrub--.timer; sudo systemctl start btrfs-scrub--.timer; systemctl is-active btrfs-scrub--.timer"
 
+# Save a read-only display snapshot locally; repeat while Orion is black, before reboot.
+capture-orion-display:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    umask 077
+    capture_dir=$(mktemp -d /tmp/orion-display-XXXXXXXX)
+    echo "Display capture: $capture_dir/snapshot.txt"
+    timeout -k 5s 180s ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 erik@{{ip_orion}} 'bash -s' < scripts/capture-orion-display.sh > "$capture_dir/snapshot.txt" 2>&1 || { echo "Capture incomplete; retained partial output in $capture_dir/snapshot.txt" >&2; exit 1; }
+    if grep -q '^CAPTURE_FAILED status=' "$capture_dir/snapshot.txt"; then
+        echo "Partial capture: inspect CAPTURE_FAILED markers."
+    fi
+
 diagnose-orion-bootstrap:
     ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status sops-first-boot home-manager-erik tailscaled-autoconnect --no-pager -l; echo ':: account'; sudo passwd -S erik; echo ':: home top-level'; find /home/erik -mindepth 1 -maxdepth 1 -printf '%f %y %u:%g\n' | sort; echo ':: ssh ownership'; namei -l /home/erik/.ssh/config; ls -la /home/erik/.ssh; echo ':: sops first-boot log'; sudo journalctl -u sops-first-boot -b --no-pager -n 100; echo ':: home-manager log'; sudo journalctl -u home-manager-erik -b --no-pager -n 100; echo ':: tailscale log'; sudo journalctl -u tailscaled-autoconnect -b --no-pager -n 100; echo ':: staging'; sudo find /var/lib/sops-staging -maxdepth 1 -type f -printf '%f %m %u:%g\n'; echo ':: age destination'; find ~/.config/sops/age -maxdepth 1 -type f -printf '%f %m %u:%g\n' 2>/dev/null || true"
 
@@ -2684,8 +2705,8 @@ servarr-rollout-status target commit="":
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     systemctl --user is-active servarr-pull.service >/dev/null || die "servarr-pull inactive"
     case "$target" in
-      kepler) stacks=(infra buzz monitoring sync security retrieval) ;;
-      orion) stacks=(shared monitoring ai-models sync) ;;
+      kepler) stacks=(infra buzz monitoring sync security) ;;
+      orion) stacks=(shared monitoring ai-models sync retrieval) ;;
       voyager) stacks=(offsite) ;;
       *) die "host outside exact-pin rollout" ;;
     esac
@@ -3363,26 +3384,63 @@ verify-wazuh-agent-canary:
     #!/usr/bin/env bash
     set -euo pipefail
     ssh -p 2222 erik@{{ip_orion}} 'set -euo pipefail
-      systemctl is-active wazuh-agent-vault.service podman-wazuh-agent.service
+      systemctl is-active wazuh-agent-vault.service podman-wazuh-agent.service syslog.service
       sudo podman inspect wazuh-agent | jq -e '\''.[0].State.Status == "running"'\'' >/dev/null'
     echo ":: Manager enrollment"
     kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-master -c wazuh-manager -- \
       sh -c '/var/ossec/bin/agent_control -lc | grep -F orion-canary >/dev/null'
-    echo ":: Attributed alert"
+    echo ":: Attributed host SSH alert"
     kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
-      sh -c 'tail -n 10000 /var/ossec/logs/alerts/alerts.json | grep -Eq '\''"name"[[:space:]]*:[[:space:]]*"orion-canary"'\'''
-    echo ":: Orion Wazuh canary enrolled and attributed alerts present"
+      tail -n 10000 /var/ossec/logs/alerts/alerts.json | \
+      jq -R -e 'fromjson? | select(.agent.name == "orion-canary" and .location == "/var/log/wazuh-host/sshd.log" and ((.rule.groups // []) | index("sshd"))) | true' >/dev/null
+    echo ":: Orion Wazuh canary enrolled and host SSH alerts present"
 
 probe-wazuh-agent-canary:
     #!/usr/bin/env bash
     set -euo pipefail
-    marker="wazuh-canary-$(date +%s)"
-    printf 'Aug 26 01:00:00 orion sshd[4242]: Failed password for invalid user %s from 192.0.2.1 port 4242 ssh2\n' "$marker" |
-      ssh -p 2222 erik@{{ip_orion}} "sudo podman exec -i wazuh-agent sh -c 'cat >> /var/ossec/logs/active-responses.log'"
+    marker="wazuh-$(cat /proc/sys/kernel/random/uuid)"
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_orion}} "bash -s -- $marker" <<'REMOTE'
+    set -euo pipefail
+    marker=$1
+    ! getent passwd "$marker" >/dev/null
+    known_hosts=$(mktemp)
+    trap 'rm -f -- "$known_hosts"' EXIT
+    awk '{print "[127.0.0.1]:2222 " $1 " " $2}' /etc/ssh/ssh_host_ed25519_key.pub >"$known_hosts"
+    since=$(date --iso-8601=seconds)
+    excluded="wazuh-excluded-$(cat /proc/sys/kernel/random/uuid)"
+    sudo systemd-run --quiet --wait --collect --unit="$excluded" \
+      --property=SyslogIdentifier=sshd-session --property=StandardOutput=journal \
+      /run/current-system/sw/bin/printf '%s\n' \
+      "Failed password for invalid user $excluded from 192.0.2.1 port 4242 ssh2"
+    sudo journalctl --sync
+    sudo journalctl -u "$excluded.service" --since "$since" --no-pager -o cat | grep -F "$excluded" >/dev/null
+    status=0
+    ssh -F /dev/null -p 2222 -o BatchMode=yes -o ConnectTimeout=5 \
+      -o ConnectionAttempts=1 -o PreferredAuthentications=none \
+      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
+      -o GlobalKnownHostsFile=/dev/null -o HostKeyAlgorithms=ssh-ed25519 \
+      "$marker@127.0.0.1" true >/dev/null 2>&1 || status=$?
+    test "$status" -eq 255
+    sudo journalctl --sync
+    sudo journalctl -u sshd.service --since "$since" --no-pager -o cat | grep -F "$marker" >/dev/null
+    seen=false
+    for _ in {1..30}; do
+      status=0
+      sudo grep -F "$marker" /var/log/wazuh-host/sshd.log >/dev/null || status=$?
+      if [ "$status" -eq 0 ]; then seen=true; break; fi
+      test "$status" -eq 1
+      sleep 2
+    done
+    "$seen"
+    status=0
+    sudo grep -F "$excluded" /var/log/wazuh-host/sshd.log >/dev/null || status=$?
+    test "$status" -eq 1
+    REMOTE
     seen=false
     for _ in {1..30}; do
       if kubectl --context homelab -n wazuh exec statefulset/wazuh-manager-worker -c wazuh-manager -- \
-        sh -c "tail -n 10000 /var/ossec/logs/alerts/alerts.json | grep -F '$marker' | grep -Eq '\"name\"[[:space:]]*:[[:space:]]*\"orion-canary\"'"; then
+        tail -n 10000 /var/ossec/logs/alerts/alerts.json | \
+        jq -R -e --arg marker "$marker" 'fromjson? | select(.agent.name == "orion-canary" and .location == "/var/log/wazuh-host/sshd.log" and ((.rule.groups // []) | index("sshd")) and ((.full_log // "") | contains($marker))) | true' >/dev/null; then
         seen=true
         break
       fi

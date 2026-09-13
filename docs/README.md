@@ -16,6 +16,12 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 
 ## Operational references
 
+[Manual fork sync](guides/github-forks.md) and
+[Orion display capture](guides/orion-display-capture.md) describe opt-in helpers.
+
+[Codex tooling reconciliation](reference/codex-tooling.md) records the bounded
+developer-tool changes and preserved runtime boundaries.
+
 | Doc | Covers | Status |
 |-----|--------|--------|
 | [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. | Identity loss and recovery proven; recipient confirmation pending |
@@ -30,7 +36,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. | Reference |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. | As-built |
 | [`reference/harbor-discovery-registry.md`](reference/harbor-discovery-registry.md) | Harbor registry on discovery — the imperative baseline. | As-built (proxy-cache + push, 2026-06-29) |
-| [`reference/2026-09-07-desktop-reconciliation.md`](reference/2026-09-07-desktop-reconciliation.md) | Canonical draft dispositions and remaining OpenCode consumer rollout. | Orion activated; Apollo verified; Pathfinder unreachable |
+| [`reference/2026-09-07-desktop-reconciliation.md`](reference/2026-09-07-desktop-reconciliation.md) | Historical rollout, ten-stash review and key-rotation correction. | Gemini/journald drafts retired; Headroom deferred; Pathfinder rollout unverified |
 | [`reference/opencode-profiles.md`](reference/opencode-profiles.md) | Home/work GLM 5.3 Flash launchers, minimal baseline plugins, opt-in OmO and lossless Home Manager recovery. | Implementation in progress; activation pending |
 | [`reference/openbao-hardening.md`](reference/openbao-hardening.md) | Preserve tailnet ingress identity; private declarative audit and controlled restart gates. | Implemented |
 | [`reference/vault-disaster-recovery.md`](reference/vault-disaster-recovery.md) | OpenBao DR runbook — sealed/corrupt/total-loss recovery; the fresh-cluster restore (unseal with the OLD sops key) tested 2026-06-29. | As-built; custody witness gates pending |
@@ -54,6 +60,7 @@ partially applied. Statuses mirror each doc's own `**Status:**` line.
 | Doc | Status |
 |-----|--------|
 | [`proposals/2026-09-08-fleet-capability-composition.md`](proposals/2026-09-08-fleet-capability-composition.md) · [`behavior contract`](behaviors/fleet-capability-composition/composition.feature) | Proposed — grounded `/pl` and `/ip` draft for shared wake/routing capabilities, developer-tool composition and import-only profiles; no implementation or deployment. |
+| [`Independent local workspace sessions`](proposals/2026-09-12-local-workspace-sessions.md) | Implemented — preserves the recorded September 12 activation; isolated publication checks validate the corrected independent-session behavior. |
 | [`Orion games and models storage separation`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-09-01-orion-games-models-storage-separation.md) · [`behavior contract`](behaviors/orion-storage-separation/orion-games-models-storage-separation.feature) | Proposed — requested Nix, Podman, and explicit build-tree cleanup completed; snapshot-exclusive usage remains unmeasured; hardware approval still blocks implementation planning. |
 | [`Apollo native work lab`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-08-29-apollo-native-work-lab.md) · [`behavior contract`](../tests/apollo-worklab/apollo-work-lab.feature) | In progress — host and five-node substrate are live; fleet/cache/API operations are implemented; source landing, telemetry rollout, workload proof, and writer cutover remain. |
 | [`Gemini Herdr native-restore behavior`](behaviors/gemini-herdr-native-restore/gemini-herdr-native-restore.feature) | Contract — OpenCode is the declarative native-restore canary; deployment and disposable restart proof remain gated. |

@@ -42,11 +42,36 @@ jobs:
       - name: Safe lock update contract
         run: nix develop -c python -m unittest discover -s tests/update-safe -p 'test_*.py'
 
+      - name: Authentik backup staging
+        run: nix develop -c python -m unittest discover -s tests/authentik-backup -p 'test_*.py'
+
       - name: OpenCode gateway profiles
         run: |
           node tests/opencode-profiles/test_headers.mjs
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/opencode-profiles -v
+
+      - name: Independent local workspace sessions
+        run: |
+          python3 -m unittest discover -s tests/local-workspace-sessions -v
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
+          PATH="$package/bin:$PATH" python3 tests/local-workspace-sessions/smoke.py
+
+      - name: Neovim opener and session recovery
+        run: |
+          python3 tests/nvim-opener/test_opener.py
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.nixvim.build.package)
+          PATH="$package/bin:$PATH" python3 tests/nvim-sessions/test_sessions.py
+
+      - name: Manual desktop helpers
+        run: |
+          python3 scripts/test_capture_orion_display.py
+          python3 -m unittest discover -s tests/github-fork-sync -v
+
+      - name: Codex UI and vendored skill contracts
+        run: |
+          python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.tomlkit p.pytest])')
+          "$python/bin/python" -m pytest -q tests/codex-ui tests/codex-skills modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
 
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts
@@ -60,6 +85,9 @@ jobs:
 
       - name: LiteLLM semantic probe
         run: nix develop -c python -m unittest discover -s tests/runtime-secret-health -p 'test_semantic_probe.py'
+
+      - name: OpenBao offsite restore contract
+        run: nix develop -c python -m unittest discover -s tests/openbao-offsite-restore -p 'test_*.py'
 
       - name: OpenBao authenticated probe contract
         run: nix develop -c python -m unittest discover -s tests/openbao-probe -p 'test_*.py'

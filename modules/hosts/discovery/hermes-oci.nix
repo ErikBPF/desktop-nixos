@@ -123,12 +123,12 @@ in {
       # guardrails, session_reset, browser, delegation, stt, privacy, agent,
       # terminal, platforms — only the deltas are set here.
       settings = {
-        # Brain: DeepSeek V4 Flash via LiteLLM (opencode Go). context_length
+        # Brain: DeepSeek V4.1 Flash via LiteLLM (opencode Go). context_length
         # left unset on purpose — hermes auto-detects each aliased model's
         # window from LiteLLM.
         model = {
           provider = "opencode-go";
-          default = "deepseek-v4-flash";
+          default = "deepseek-v4.1-flash";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
         };
@@ -179,7 +179,7 @@ in {
         # /model <alias> switches — all routed through LiteLLM.
         model_aliases = {
           deepseek = {
-            model = "deepseek-v4-flash";
+            model = "deepseek-v4.1-flash";
             provider = "opencode-go";
             base_url = litellmUrl;
           };

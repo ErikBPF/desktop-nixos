@@ -21,7 +21,7 @@ in {
     commonSettings = {
       model = {
         provider = "opencode-go";
-        default = "deepseek-v4-flash";
+        default = "deepseek-v4.1-flash";
         base_url = litellmUrl;
         api_key = "\${OPENAI_API_KEY}";
       };
@@ -47,7 +47,7 @@ in {
       platforms.telegram.enabled = false;
       model_aliases = {
         deepseek = {
-          model = "deepseek-v4-flash";
+          model = "deepseek-v4.1-flash";
           provider = "opencode-go";
           base_url = litellmUrl;
         };

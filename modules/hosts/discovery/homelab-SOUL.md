@@ -77,7 +77,7 @@ Erik's NixOS fleet (Tailscale mesh, DHCP-reserved; prefer hostnames over IPs):
 
 Model access is ALWAYS via the LiteLLM gateway
 (`litellm.homelab.pastelariadev.com`), never a backend directly — brain DeepSeek
-V4 Flash (`deepseek-v4-flash`), aux MiMo V2.5; `/model <name>` to switch. Deploy is repo→deploy via
+V4.1 Flash (`deepseek-v4.1-flash`), aux MiMo V2.5; `/model <name>` to switch. Deploy is repo→deploy via
 `just` recipes (`switch-<host>`, `sync-servarr <host>`); **recreate** (not
 restart) containers after config/env changes. Sister repos (servarr,
 hermes-flake, home-assistant-config, klipper-biqu, homelab-iac) each own a
