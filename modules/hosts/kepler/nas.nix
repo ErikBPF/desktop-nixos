@@ -35,7 +35,7 @@ in {
     ];
 
     systemd.services.cognee-backup-path = {
-      description = "Prepare Cognee backup path after local pools mount";
+      description = "Prepare application backup paths after local pools mount";
       wantedBy = ["multi-user.target"];
       after = ["local-fs.target"];
       before = ["nfs-server.service"];
@@ -45,6 +45,7 @@ in {
       };
       script = ''
         ${pkgs.coreutils}/bin/install -d -m 0770 -o erik -g users /fast/k8s/cognee-backups
+        ${pkgs.coreutils}/bin/install -d -m 0700 -o erik -g users /fast/k8s/authentik-backups
       '';
     };
 
