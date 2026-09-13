@@ -27,9 +27,20 @@ def test_orion_canary_uses_fresh_vault_enrollment():
     assert "RuntimeDirectory =" not in source
     assert 'RuntimeDirectoryPreserve = "yes"' in source
     assert '"f ${stateDir}/client.keys 0600 999 999 -"' in source
-    assert '"/var/log/journal:/var/log/journal:ro"' in source
-    assert '"/run/log/journal:/run/log/journal:ro"' in source
-    assert '"/etc/machine-id:/etc/machine-id:ro"' in source
+    assert '"/var/log/wazuh-host:/var/log/wazuh-host:ro"' in source
+    assert '/var/log/journal' not in source
+    assert '/run/log/journal' not in source
+    assert '/etc/machine-id' not in source
+    assert 'services.rsyslogd' in source
+    assert 'defaultConfig = "";' in source
+    assert '$inputname == "imjournal"' in source
+    assert '$!_SYSTEMD_UNIT == "sshd.service"' in source
+    assert 'StateFile=' in source
+    assert 'IgnorePreviousMessages="on"' in source
+    assert 'Ratelimit.Interval="0"' in source
+    assert 'services.logrotate.settings' in source
+    assert 'copytruncate' not in source
+    assert 'syslog.service' in source
     assert '/wazuh-config-mount/etc/ossec.conf:ro' in source
     assert "sops-nix.service" not in source
     assert "--privileged" not in source
@@ -55,6 +66,9 @@ def test_canary_probe_is_harmless_bounded_and_attributed():
     assert "journalctl" in recipe
     assert "sshd.service" in recipe
     assert "active-responses.log" not in recipe
+    assert "/var/log/wazuh-host/sshd.log" in recipe
+    assert "systemd-run" in recipe
+    assert "StandardOutput=journal" in recipe
     assert "for _ in {1..30}" in recipe
     assert "orion-canary" in recipe
     assert "just verify-wazuh-agent-canary" in recipe
@@ -67,12 +81,9 @@ def test_only_host_ssh_journal_is_collected():
     collectors = root.findall("localfile")
     assert len(collectors) == 1
     collector = collectors[0]
-    assert collector.findtext("location") == "journald"
-    assert collector.findtext("log_format") == "journald"
-    filters = collector.findall("filter")
-    assert len(filters) == 1
-    assert filters[0].attrib == {"field": "_SYSTEMD_UNIT"}
-    assert filters[0].text == r"^sshd\.service$"
+    assert collector.findtext("location") == "/var/log/wazuh-host/sshd.log"
+    assert collector.findtext("log_format") == "syslog"
+    assert not collector.findall("filter")
     assert root.findtext("rootcheck/disabled") == "yes"
     assert root.findtext("syscheck/disabled") == "yes"
     assert root.findtext("wodle[@name='syscollector']/disabled") == "yes"
