@@ -25,9 +25,11 @@ class Profiles(unittest.TestCase):
                                 capture_output=True, text=True, check=True)
         module = json.loads(result.stdout)
         settings = module["globalSettings"]
-        self.assertEqual(settings["model"], "litellm/deepseek-v4.1-flash")
-        self.assertEqual(settings["small_model"], "litellm/deepseek-v4.1-flash")
+        self.assertEqual(settings["model"], "litellm/codex-gpt-6-astra")
+        self.assertEqual(settings["small_model"], "litellm/codex-gpt-6-astra")
         self.assertEqual(set(settings["provider"]), {"litellm", "work"})
+        self.assertEqual(settings["provider"]["litellm"]["models"]["codex-gpt-6-astra"]["options"]["reasoningEffort"], "low")
+        self.assertEqual(settings["provider"]["work"]["models"]["deepseek-v4.1-flash"]["options"]["reasoningEffort"], "max")
         self.assertEqual(settings["enabled_providers"], ["litellm", "work"])
         self.assertEqual(set(settings["provider"]["work"]["models"]), {
             "chatgpt-5.6-luna", "chatgpt-5.6-sol", "chatgpt-5.6-terra",
@@ -55,12 +57,12 @@ class Profiles(unittest.TestCase):
             global_dir.mkdir(parents=True)
             providers = {provider: {"npm": "@ai-sdk/openai-compatible",
                          "options": {"baseURL": "http://127.0.0.1:9/v1", "apiKey": "synthetic"},
-                         "models": {("deepseek-v4.1-flash" if provider == "litellm" else "glm-5.3-flash"): {"name": "Synthetic"}}}
+                         "models": {("codex-gpt-6-astra" if provider == "litellm" else "deepseek-v4.1-flash"): {"name": "Synthetic"}}}
                          for provider in ["litellm", "work", "rogue"]}
             (global_dir / "opencode.json").write_text(json.dumps({"provider": providers}))
             (repo / "opencode.json").write_text(json.dumps({"model": "rogue/other", "enabled_providers": ["rogue"]}))
             for lane, provider in [("home", "litellm"), ("work", "work")]:
-                model = provider + ("/deepseek-v4.1-flash" if lane == "home" else "/glm-5.3-flash")
+                model = provider + ("/codex-gpt-6-astra" if lane == "home" else "/deepseek-v4.1-flash")
                 for suffix in ["", "-omo"]:
                     prefix = "opencode/profiles/" + lane + suffix + "/"
                     config = json.loads(files[prefix + "opencode.json"]["text"])
@@ -76,7 +78,7 @@ class Profiles(unittest.TestCase):
                             self.assertTrue(omo[group])
                             for definition in omo[group].values():
                                 self.assertEqual(definition["model"], model)
-                                self.assertEqual(definition["fallback_models"], [provider + "/deepseek-v4.1-flash"])
+                                self.assertEqual(definition["fallback_models"], ["litellm/deepseek-v4.1-flash"] if lane == "home" else [])
                         self.assertEqual(json.loads(files[prefix + "tui.json"]["text"])["plugin"], config["plugin"])
                     else:
                         self.assertNotIn("plugin", config)

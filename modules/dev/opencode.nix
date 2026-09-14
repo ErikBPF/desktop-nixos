@@ -69,8 +69,8 @@
         # Custom providers need Go's session header as well as OpenCode's native headers.
         "./plugins/gateway-headers.mjs"
       ];
-      model = "litellm/deepseek-v4.1-flash";
-      small_model = "litellm/deepseek-v4.1-flash";
+      model = "litellm/codex-gpt-6-astra";
+      small_model = "litellm/codex-gpt-6-astra";
       # 1.18.29 still uses this filter; policies cover the newer core path.
       enabled_providers = ["litellm" "work"];
 
@@ -84,7 +84,7 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
-            "codex-gpt-6-astra" = codexModel "Astra" "medium";
+            "codex-gpt-6-astra" = codexModel "Astra" "low";
             "codex-gpt-5.6-sol" = codexModel "Sol" "low";
             "codex-gpt-5.6-terra" = codexModel "Terra" "medium";
             "codex-gpt-5.6-luna" = codexModel "Luna" "medium";
