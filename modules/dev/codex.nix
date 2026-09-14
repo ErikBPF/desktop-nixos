@@ -87,6 +87,7 @@
     home.file.".agents/skills/caveman-stats".source = ./codex-skills/caveman-stats;
     home.file.".agents/skills/test-driven-development".source = ./codex-skills/test-driven-development;
     home.file.".agents/skills/codehero".source = ./codex-skills/codehero;
+    home.file.".agents/skills/cr".source = ./codex-skills/cr;
     home.file.".agents/skills/grill".source = ./codex-skills/grill;
     home.file.".agents/skills/ip".source = ./codex-skills/ip;
     home.file.".agents/skills/map".source = ./codex-skills/map;

@@ -29,5 +29,6 @@ independent read without a fixed delay. Rewrite like you know the end: organize 
 and examples backward from the supported outcome; cut tangents, retain receipts
 and unresolved questions. Keep seed integrity and accepted principles.
 
-Apply shared feedback policy: queue questions and emit the PL one-pager. Finish
-when destination, non-goals, map, scenarios and blockers support `$ip`.
+Apply shared feedback policy: queue questions, emit the PL one-pager and hand it
+to `/cr` when human feedback is needed. Finish when destination, non-goals, map,
+scenarios and blockers support `$ip`.

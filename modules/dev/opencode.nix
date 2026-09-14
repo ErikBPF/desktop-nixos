@@ -356,6 +356,7 @@
           "map"
           "grill"
           "codehero"
+          "cr"
           "tdd"
         ]))
       // {

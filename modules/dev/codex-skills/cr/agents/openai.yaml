@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review Handoff"
+  short_description: "Hand work to human-led tuicr review and reconcile feedback"
+  default_prompt: "Use $cr to hand this work to tuicr review and reconcile the feedback."

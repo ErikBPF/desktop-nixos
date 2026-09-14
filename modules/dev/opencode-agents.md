@@ -141,7 +141,8 @@ rule, do not explain the prefix, just emit it.
   security (`/codehero`), editorial (`bmad-editorial-review`), adversarial
   (`bmad-party-mode --party code-review-crew`), and simplicity passes, with
   verified fixes.
-- Supporting skills: `/party`, `/map`, `/grill`, `/codehero`.
+- Supporting skills: `/party`, `/map`, `/grill`, `/codehero`, `/cr` (human-led
+  tuicr/Neovim handover of diffs and stage documents).
 - Small documentation or wiring changes may start at the first applicable
   gate; do not invent tests or ceremony.
 
