@@ -34,6 +34,8 @@ class Profiles(unittest.TestCase):
             "deepseek-v4.1-flash", "glm-5.3-flash"})
         self.assertEqual(set(settings["provider"]["litellm"]["models"]), {
             "deepseek-v4.1-flash", "glm-5.3-flash", "qwen3.8-flash",
+            "codex-gpt-6-astra", "codex-gpt-5.6-sol",
+            "codex-gpt-5.6-terra", "codex-gpt-5.6-luna",
             "qwen-chat", "apollo-qwen38-27b"})
         self.assertEqual(len(settings["plugin"]), 4)
         self.assertEqual(settings["plugin"][3], "./plugins/gateway-headers.mjs")
