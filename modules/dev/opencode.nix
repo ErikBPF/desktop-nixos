@@ -1,5 +1,30 @@
 {inputs, ...}: {
-  flake.modules.home.opencode = {pkgs, ...}: {
+  flake.modules.home.opencode = {pkgs, ...}: let
+    codexModel = name: reasoningEffort: {
+      name = "${name} (Codex subscription)";
+      cost = {
+        input = 0;
+        output = 0;
+        cache_read = 0;
+      };
+      # Account catalog default context; reserve 32k for client output.
+      limit = {
+        context = 272000;
+        output = 32768;
+      };
+      modalities = {
+        input = ["text" "image"];
+        output = ["text"];
+      };
+      reasoning = true;
+      tool_call = true;
+      options = {inherit reasoningEffort;};
+      variants = builtins.listToAttrs (map (effort: {
+        name = effort;
+        value.reasoningEffort = effort;
+      }) ["low" "medium" "high" "xhigh" "max"]);
+    };
+  in {
     imports = [inputs.opencode-flake.homeManagerModules.withPackage ./_opencode-profiles.nix];
 
     home.packages = [pkgs.rtk];
@@ -59,6 +84,10 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
+            "codex-gpt-6-astra" = codexModel "Astra" "medium";
+            "codex-gpt-5.6-sol" = codexModel "Sol" "low";
+            "codex-gpt-5.6-terra" = codexModel "Terra" "medium";
+            "codex-gpt-5.6-luna" = codexModel "Luna" "medium";
             "deepseek-v4.1-flash" = {
               name = "DeepSeek V4.1 Flash (LiteLLM → OpenCode Go)";
               cost = {
