@@ -62,6 +62,7 @@ passed unless its bound runner actually ran.
 Apply the shared evidence-and-feedback policy. Review the frozen first draft
 independently before the second-draft rewrite; preserve discovery receipts and
 verify the final result against the original seed and accepted contract. Emit
-the RV one-pager and open a task-bound tuicr/Neovim handover when human feedback
-is needed. Reconcile returned points by artifact revision, then report the
-feedback stage. A report or closed review window is not approval.
+the RV one-pager; when human feedback is needed, hand it and the affected diff to
+`/cr` (task-bound tuicr/Neovim handover). Reconcile returned points by artifact
+revision and record each disposition, then report the feedback stage. A report
+or closed review window is not approval.

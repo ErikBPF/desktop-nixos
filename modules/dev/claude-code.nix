@@ -9,6 +9,7 @@
       packages = [pkgs.claude-code];
       file.".claude/AGENT_POLICY.md".source = ./agent-policy.md;
       file.".claude/skills/codehero".source = ./codex-skills/codehero;
+      file.".claude/skills/cr".source = ./codex-skills/cr;
       file.".claude/skills/grill".source = ./codex-skills/grill;
       file.".claude/skills/ip".source = ./codex-skills/ip;
       file.".claude/skills/map".source = ./codex-skills/map;

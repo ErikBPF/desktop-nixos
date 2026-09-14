@@ -32,5 +32,5 @@ fixed delay, then rewrite slices backward from accepted outcomes. Clarify seams
 and dependencies, cut obsolete steps, retain evidence and accepted behavior.
 
 Plan implementation's snapshot, fresh review, backward rewrite and final RV too.
-Apply shared feedback policy: emit the IP one-pager, queue missing input and
-continue independent work.
+Apply shared feedback policy: emit the IP one-pager, hand it to `/cr` when human
+feedback is needed, queue missing input and continue independent work.
