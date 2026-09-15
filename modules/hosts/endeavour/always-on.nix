@@ -18,6 +18,10 @@ _: {
       AllowSuspendThenHibernate = false;
     };
 
+    # Sleep is refused, so UPower's default HybridSleep can no longer run on a
+    # critical battery. Shut down cleanly instead of cutting power at 0%.
+    services.upower.criticalPowerAction = "PowerOff";
+
     # USB: no autosuspend at all, so externally attached devices never drop.
     boot.kernelParams = ["usbcore.autosuspend=-1"];
 
