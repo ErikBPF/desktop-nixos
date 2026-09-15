@@ -1,5 +1,5 @@
 {inputs, ...}: {
-  flake.modules.home.opencode = {pkgs, ...}: let
+  flake.modules.home.opencode = _: let
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -27,7 +27,9 @@
   in {
     imports = [inputs.opencode-flake.homeManagerModules.withPackage ./_opencode-profiles.nix];
 
-    home.packages = [pkgs.rtk];
+    # rtk comes from modules/dev/codex.nix (hiPrio 0.48.0). Adding pkgs.rtk here
+    # too put two different store paths with the same bin/rtk subpath in one
+    # home-manager buildEnv and broke every rebuild.
 
     # Provider keys for opencode's `{env:...}` substitution. Declarative port
     # of the former hand-made ~/.config/fish/conf.d/zz-opencode-secrets.fish:
