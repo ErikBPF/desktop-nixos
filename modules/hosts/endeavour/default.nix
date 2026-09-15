@@ -21,6 +21,7 @@ in {
       m.nixos.desktop-workspaces
       m.nixos.endeavour-hardware
       m.nixos.endeavour-networking
+      m.nixos.endeavour-always-on
       m.nixos.netbird-client
       m.nixos.endeavour-ubuntu-work
       m.nixos.laptop-syncthing
