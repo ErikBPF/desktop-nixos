@@ -44,9 +44,18 @@ def test_docked_workspace_10_recovers_after_monitor_hotplug():
     assert "hl.get_workspace(10)" in docked
     assert "hotplugRecoveryDelayMs = 1000;" in docked
     assert "timeout = hotplugRecoveryDelayMs" in docked
-    assert docked.count("hl.dsp.workspace.move") == 2
+    assert docked.count("hl.dsp.workspace.move") == 3
     assert "local wasActive = workspace.active" in docked
     assert "target:set_workspace({ workspace = workspace })" in docked
+
+
+def test_central_workspaces_recover_at_startup_and_monitor_hotplug():
+    layouts = read("modules/desktop/monitor-layouts.nix")
+    assert '["hyprland.start" "monitor.added"]' in layouts
+    assert "for id = 1, 9 do" in layouts
+    assert "hl.get_workspace(id)" in layouts
+    assert 'local description = "Samsung Electric Company QBQ90 0x01000E00"' in layouts
+    assert "workspace.monitor.id ~= target.id" in layouts
 
 
 def test_reusable_modules_do_not_live_under_hosts():
