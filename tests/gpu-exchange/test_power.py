@@ -50,7 +50,7 @@ esac
                     calls = log.read_text().splitlines()
                     self.assertEqual(len(calls), count, calls)
                     if status == 0:
-                        for gpu, watts in (("GPU-old", 170), ("GPU-new", 145), ("GPU-new2", 145)):
+                        for gpu, watts in (("GPU-old", 170), ("GPU-new", 150), ("GPU-new2", 150)):
                             if gpu + "," in inventory:
                                 self.assertEqual(
                                     [call for call in calls if call.startswith(f"--id={gpu} ")],
@@ -63,7 +63,7 @@ esac
                                             call.endswith("--reset-gpu-clocks"), call)
                         else:
                             self.assertTrue(call.startswith(("--id=GPU-new ", "--id=GPU-new2 ")), call)
-                            self.assertTrue(call.endswith("--power-limit=145") or
+                            self.assertTrue(call.endswith("--power-limit=150") or
                                             call.endswith("--reset-gpu-clocks"), call)
 
 
