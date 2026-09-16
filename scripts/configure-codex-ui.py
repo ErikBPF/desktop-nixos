@@ -1,4 +1,4 @@
-"""Set Codex display and planning defaults while preserving mutable settings."""
+"""Set Codex defaults and retire the old Headroom route, preserving other settings."""
 
 import os
 from pathlib import Path
@@ -10,11 +10,17 @@ import tomlkit
 
 def configure(path):
     doc = tomlkit.parse(path.read_text()) if path.exists() else tomlkit.document()
+    retire_headroom = doc.get("openai_base_url") == "http://127.0.0.1:8788/v1"
     items = ["five-hour-limit", "weekly-limit", "context-remaining", "model-with-reasoning"]
-    if (doc.get("tui", {}).get("status_line") == items
+    if (not retire_headroom
+            and doc.get("tui", {}).get("status_line") == items
             and doc.get("tui", {}).get("auto_recap") is False
             and doc.get("tools", {}).get("update_plan", {}).get("enabled") is True):
         return
+    if retire_headroom:
+        # Codex 0.154 uses auth-dependent OpenAI defaults when this is absent;
+        # OPENAI_BASE_URL belongs to Hermes and does not select Codex's provider.
+        del doc["openai_base_url"]
     if "tui" not in doc:
         doc["tui"] = tomlkit.table()
     doc["tui"]["status_line"] = items
