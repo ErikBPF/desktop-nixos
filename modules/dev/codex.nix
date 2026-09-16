@@ -60,7 +60,7 @@
       agents.extraText = builtins.readFile ./agent-policy.md;
     };
 
-    home.packages = [rtk];
+    home.packages = [(lib.hiPrio rtk)];
 
     home.sessionVariables.GRAPHIFY_NO_TIPS = "1";
 
