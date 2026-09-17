@@ -18,6 +18,19 @@
     # --- AMD GPU environment ---
     environment.variables.AMD_VULKAN_ICD = "RADV";
 
+    # Keep the TV's modes and HDMI connector available when the TV powers off.
+    hardware.display = {
+      edid.packages = [
+        (pkgs.runCommand "orion-lg-tv-edid" {} ''
+          install -Dm644 ${./lg-tv.edid} "$out/lib/firmware/edid/lg-tv.bin"
+        '')
+      ];
+      outputs."HDMI-A-1" = {
+        edid = "lg-tv.bin";
+        mode = "D";
+      };
+    };
+
     # --- Remove -steamdeck flag from Steam ---
     # Jovian's overlay bakes -steamdeck into steam-wrapped via platformArgs in fhsenv.nix.
     # This makes Steam and all games identify the system as a Steam Deck → Deck resolutions.
