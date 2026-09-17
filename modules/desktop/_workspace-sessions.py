@@ -41,7 +41,8 @@ def bootstrap(config, session):
     existing = subprocess.run([*prefix, "has-session", "-t", "=" + session], text=True, capture_output=True)
     if existing.returncode == 0:
         return
-    command = [] if program is None else [shlex.quote(program) + "; exec " + shlex.quote(config["shell"])]
+    launch = "codex --yolo" if program == "codex" else shlex.quote(program or "")
+    command = [] if program is None else [launch + "; exec " + shlex.quote(config["shell"])]
     run(*prefix, "new-session", "-d", "-s", session, "-c", directory, *command)
 
 

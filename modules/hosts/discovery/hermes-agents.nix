@@ -160,6 +160,12 @@ in {
         "/home/${username}/hermes-skills/research:/opt/skills-research:ro"
         "/var/lib/hermes-wiki:/opt/wiki:ro"
         "${./homelab-SOUL.md}:/opt/context/homelab-SOUL.md:ro"
+        # Native plugin: transform_llm_output strips fabricated tool-call XML
+        # (Argus has zero platform toolsets, so a call is invalid, yet the
+        # tool-less model used to emit the block as plain text and Hermes
+        # posted it verbatim — the 2026-09 Cleytin triage regression). Enabled
+        # via settings.plugins.enabled below.
+        "${./hermes-plugins/toolcall-leak-guard}:/opt/data/plugins/toolcall-leak-guard:ro"
       ];
       extraEnvironment = {
         # N0 channel scoping. Deliberately NO DISCORD_ALLOWED_USERS: with a
@@ -184,6 +190,12 @@ in {
           webhook = [];
         };
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
+        # Opt-in the leak guard mounted at /opt/data/plugins above.
+        plugins.enabled = ["toolcall-leak-guard"];
+        # Backfill re-injects the agent's own prior thread replies; the leaked
+        # tool-call blocks were prime examples, so the model kept reproducing
+        # the pattern. Off for the alert channels.
+        discord.history_backfill = false;
         # Structured Grafana ingest. Hermes authenticates every route with its
         # native WEBHOOK_SECRET rendered by Vault Agent at runtime.
         platforms.webhook.extra.routes.grafana-alerts = {

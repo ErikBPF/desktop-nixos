@@ -130,7 +130,8 @@ class WorkspaceBehavior(unittest.TestCase):
                 self.assertEqual(remainder, [])
             else:
                 program = "codex" if "-agent-" in name else name.rsplit("-", 1)[1]
-                self.assertEqual(remainder, [shlex.quote(program) + "; exec " + shlex.quote(self.config["shell"])])
+                launch = "codex --yolo" if "-agent-" in name else shlex.quote(program)
+                self.assertEqual(remainder, [launch + "; exec " + shlex.quote(self.config["shell"])])
                 commands.append(program)
         self.assertEqual(commands.count("codex"), 12)
         self.assertEqual(commands.count("tuicr"), 2)

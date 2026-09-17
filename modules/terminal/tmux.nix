@@ -112,6 +112,10 @@ _: {
         # Pass 24-bit truecolor through from the outer terminal so
         # zsh-syntax-highlighting's fg=#hex styles render inside tmux.
         set -ga terminal-features "*:RGB"
+        # ghostty is not in tmux's built-in tty_default_features table, so
+        # OSC 8 hyperlinks (e.g. opencode links) are stripped at the tmux
+        # layer unless the feature is declared for its term name.
+        set -ga terminal-features "xterm-ghostty:hyperlinks"
         set -g status-left-length 32
       '';
       plugins = with pkgs.tmuxPlugins; [

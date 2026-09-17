@@ -1,0 +1,12 @@
+name: toolcall-leak-guard
+version: 0.1.0
+description: >-
+  Strip fabricated tool-call payloads (<invoke>/<tool_call>/to=functions.* /
+  ```tool_call fence) that tool-less models emit as plain text; keep any real
+  prose, and suppress the send as NO_REPLY when nothing but leaked blocks
+  remained.
+license: MIT
+author: Erik
+kind: standalone
+provides_hooks:
+  - transform_llm_output

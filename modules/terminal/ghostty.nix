@@ -25,6 +25,9 @@ _: {
         # Keep Shift+mouse in the terminal so Ctrl+Shift+click opens links
         # even when a TUI captures mouse input; ordinary wheel scrolling stays in the app.
         mouse-shift-capture = "never";
+        # Default (true) copies selections to the SELECTION (primary) clipboard
+        # only, so Ctrl+V paste finds nothing; copy to both clipboards instead.
+        copy-on-select = "clipboard";
       };
     };
   };

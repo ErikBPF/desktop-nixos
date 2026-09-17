@@ -76,7 +76,21 @@ in {
     command = "${coordinator}/bin/desktop-workspaces";
     inherit (lib.generators) mkLuaInline;
   in {
-    home.packages = [coordinator];
+    home.packages = [
+      coordinator
+      (pkgs.writeShellApplication {
+        name = "ol";
+        text = ''
+          exec ${config.home.profileDirectory}/bin/opencode-home attach http://127.0.0.1:4096 --dir ${config.home.homeDirectory}/Documents/erik/homelab "$@"
+        '';
+      })
+      (pkgs.writeShellApplication {
+        name = "ow";
+        text = ''
+          exec ${config.home.profileDirectory}/bin/opencode-work attach http://127.0.0.1:4097 --dir ${config.home.homeDirectory}/Documents/nstech/dataplatform "$@"
+        '';
+      })
+    ];
 
     xdg.configFile."tmux/desktop-workspaces.conf".text = ''
       source-file "${config.xdg.configHome}/tmux/tmux.conf"
@@ -101,6 +115,31 @@ in {
           };
         };
       }
+      // builtins.listToAttrs (map (project: let
+        home = project.name == "homelab";
+        profile = "opencode-${
+          if home
+          then "home"
+          else "work"
+        }";
+        package = lib.findFirst (package: lib.getName package == profile) (throw "Missing ${profile} package") config.home.packages;
+        port =
+          if home
+          then 4096
+          else 4097;
+      in
+        lib.nameValuePair "opencode-${project.name}" {
+          Unit.Description = "Persistent OpenCode backend for ${project.name}";
+          Service = {
+            ExecStart = "${package}/bin/${profile} serve --hostname 127.0.0.1 --port ${toString port}";
+            WorkingDirectory = project.directory;
+            Environment = ["PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"];
+            Restart = "on-failure";
+            RestartSec = 2;
+          };
+          Install.WantedBy = ["default.target"];
+        })
+      projects)
       // builtins.listToAttrs (map (session:
         lib.nameValuePair "desktop-session-${session.name}" {
           # Keep the previous servers alive until their work is explicitly retired.

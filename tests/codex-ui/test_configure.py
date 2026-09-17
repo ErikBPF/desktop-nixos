@@ -22,6 +22,24 @@ ITEMS = ["five-hour-limit", "weekly-limit", "context-remaining", "model-with-rea
 
 
 class ConfigureUI(unittest.TestCase):
+    def test_retires_headroom_even_when_ui_is_already_configured(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.toml"
+            configure(path)
+            path.write_text('openai_base_url = "http://127.0.0.1:8788/v1"\n' + path.read_text())
+            configure(path)
+            self.assertNotIn("openai_base_url", tomllib.loads(path.read_text()))
+            identity = (path.stat().st_ino, path.stat().st_mtime_ns)
+            configure(path)
+            self.assertEqual((path.stat().st_ino, path.stat().st_mtime_ns), identity)
+
+    def test_preserves_other_explicit_endpoints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.toml"
+            path.write_text('openai_base_url = "https://api.openai.com/v1"\n')
+            configure(path)
+            self.assertEqual(tomllib.loads(path.read_text())["openai_base_url"], "https://api.openai.com/v1")
+
     def test_preserves_settings_comments_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.toml"

@@ -6,7 +6,7 @@ import subprocess
 ROOT = Path(__file__).parents[2]
 CODEX_MODULE = ROOT / "modules/dev/codex.nix"
 CLAUDE_MODULE = ROOT / "modules/dev/claude-code.nix"
-SKILLS = ("codehero", "grill", "ip", "map", "party", "pl", "rv")
+SKILLS = ("codehero", "cr", "grill", "ip", "map", "party", "pl", "rv")
 
 
 def test_codex_workflow_skills_are_user_global():

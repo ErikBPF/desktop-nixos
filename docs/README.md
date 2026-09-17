@@ -24,6 +24,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`behaviors/local-workspace-sessions/opencode-backends-one-pager.md`](behaviors/local-workspace-sessions/opencode-backends-one-pager.md) | Endeavour persistent homelab/work backends, attach commands and deployment evidence. | Deployed and runtime-verified; original profile test blocked |
 | [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. | Identity loss and recovery proven; recipient confirmation pending |
 | [`reference/2026-08-30-kepler-k3s-etcd-io-incident.md`](reference/2026-08-30-kepler-k3s-etcd-io-incident.md) | Kepler k3s outage evidence, shared-pool etcd latency mechanism, safe writer capture, and storage-remediation gate. | Mitigated; writer attribution and storage redesign open |
 | [`reference/2026-08-10-endeavour-password-lockout.md`](reference/2026-08-10-endeavour-password-lockout.md) | Endeavour declarative-password lockout, recovery, root cause, and guardrails. | Resolved (verified 2026-08-16) |
