@@ -71,8 +71,8 @@
         # Custom providers need Go's session header as well as OpenCode's native headers.
         "./plugins/gateway-headers.mjs"
       ];
-      model = "litellm/codex-gpt-6-astra";
-      small_model = "litellm/codex-gpt-6-astra";
+      model = "litellm/deepseek-v4.1-flash";
+      small_model = "litellm/deepseek-v4.1-flash";
       # 1.18.29 still uses this filter; policies cover the newer core path.
       enabled_providers = ["litellm" "work"];
 
