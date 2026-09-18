@@ -27,16 +27,16 @@ case "$1" in
 esac
 """)
             smi.chmod(0o755)
-            old = "GPU-old, 0x248810DE"
-            new = "GPU-new, 0x2D0410DE"
+            first = "GPU-a, 0x2D0410DE"
+            second = "GPU-b, 0x2D0410DE"
             cases = [
-                ("three-reordered", new + "\n" + old + "\nGPU-new2, 0x2D0410DE", "", "0", 0, 6),
-                ("3070-only", old, "", "0", 0, 2),
-                ("one-failure-does-not-skip-others", new + "\n" + old, "--id=GPU-new", "0", 1, 3),
-                ("unknown-device", "GPU-unknown, 0xFFFF10DE\n" + old, "", "0", 1, 2),
+                ("two-5060tis", first + "\n" + second, "", "0", 0, 4),
+                ("one-failure-does-not-skip-others", first + "\n" + second, "--id=GPU-a", "0", 1, 3),
+                ("unknown-device", "GPU-unknown, 0xFFFF10DE\n" + first, "", "0", 1, 2),
+                ("retired-3070", "GPU-old, 0x248810DE", "", "0", 1, 0),
                 ("no-devices", "", "", "0", 1, 0),
-                ("query-failure", old, "", "1", 1, 0),
-                ("clock-failure", old + "\n" + new, "", "0", 1, 4),
+                ("query-failure", first, "", "1", 1, 0),
+                ("clock-failure", first + "\n" + second, "", "0", 1, 4),
             ]
             for name, inventory, failed, query_fail, status, count in cases:
                 with self.subTest(name=name):
@@ -50,21 +50,16 @@ esac
                     calls = log.read_text().splitlines()
                     self.assertEqual(len(calls), count, calls)
                     if status == 0:
-                        for gpu, watts in (("GPU-old", 170), ("GPU-new", 150), ("GPU-new2", 150)):
+                        for gpu in ("GPU-a", "GPU-b"):
                             if gpu + "," in inventory:
                                 self.assertEqual(
                                     [call for call in calls if call.startswith(f"--id={gpu} ")],
-                                    [f"--id={gpu} --error-on-warning --power-limit={watts}",
+                                    [f"--id={gpu} --error-on-warning --power-limit=150",
                                      f"--id={gpu} --error-on-warning --reset-gpu-clocks"])
                     for call in calls:
                         self.assertIn("--error-on-warning", call)
-                        if call.startswith("--id=GPU-old "):
-                            self.assertTrue(call.endswith("--power-limit=170") or
-                                            call.endswith("--reset-gpu-clocks"), call)
-                        else:
-                            self.assertTrue(call.startswith(("--id=GPU-new ", "--id=GPU-new2 ")), call)
-                            self.assertTrue(call.endswith("--power-limit=150") or
-                                            call.endswith("--reset-gpu-clocks"), call)
+                        self.assertTrue(call.endswith("--power-limit=150") or
+                                        call.endswith("--reset-gpu-clocks"), call)
 
 
 if __name__ == "__main__":

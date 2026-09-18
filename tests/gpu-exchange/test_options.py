@@ -32,7 +32,7 @@ OPTIONS = """hosts: builtins.mapAttrs (_: host: let c = host.config; in {
     version = g.boot.kernelPackages.kernel.version;
     image = "${g.boot.kernelPackages.kernel}/${g.system.boot.loader.kernelFile}";
     hypervisorImage = "${g.microvm.kernel.dev}/vmlinux";
-  }) c.microvm.vms;
+  }) (c.microvm.vms or {});
 }) { inherit (hosts) kepler apollo; }"""
 
 
@@ -48,14 +48,14 @@ class GPUExchangeOptions(unittest.TestCase):
                 self.assertEqual(host["kernelVersion"], "7.2.3")
                 self.assertEqual(host["kernelImage"], "/nix/store/4f2m1k8c5ih0fa6zh8762k4s6pa6bw0p-linux-7.2.3/bzImage")
             with self.subTest(guest_kernels=name):
+                if name != "kepler":
+                    # Apollo's microVM cluster is retired; it declares no guests.
+                    self.assertFalse(host["guestKernels"])
+                    continue
                 expected = {
                     "version": "7.2.3",
                     "image": "/nix/store/4f2m1k8c5ih0fa6zh8762k4s6pa6bw0p-linux-7.2.3/bzImage",
                     "hypervisorImage": "/nix/store/5pfk37ynwny49qfmb7s0sy57d8jqvih3-linux-7.2.3-dev/vmlinux",
-                } if name == "kepler" else {
-                    "version": "6.18.49",
-                    "image": "/nix/store/s40h0m3746r0l287laa9sxa9345bkykf-linux-6.18.49/bzImage",
-                    "hypervisorImage": "/nix/store/8gsy6nldplfw12ylblabahhay8bv8xfx-linux-6.18.49-dev/vmlinux",
                 }
                 self.assertTrue(host["guestKernels"])
                 for kernel in host["guestKernels"].values():

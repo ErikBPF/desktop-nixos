@@ -51,7 +51,7 @@ complete Git/WIP handoff or independent restore proof from file transport.
 
 Run lint, format, focused tests, Orion/Apollo dry builds and activation previews
 before the boot-stage/targeted Apollo update and `just switch-orion`.
-Verify SSH, Syncthing, persistent sessions, Apollo's five VM/k3s nodes, Nix-cache
+Verify SSH, Syncthing, persistent sessions, Nix-cache
 access, disk headroom and failed units. Keep the snapshot for rollback; pause
 writers/sync and reconcile new work before any recovery. Never roll back by
 silently overwriting the active Documents tree.

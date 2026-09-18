@@ -80,13 +80,12 @@ ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@192.168.10.174 \
    systemctl --failed --no-pager
    sudo iptables -t nat -S nixos-nat-post
    nvidia-smi --query-gpu=name,driver_version,power.limit --format=csv,noheader'
-just diagnose-apollo-worklab
-kubectl --context apollo-dev get nodes -o wide
+ just diagnose-apollo-worklab
 ```
 
 Require automatic `lan0` configuration with the expected MAC, DHCP reservation
-`192.168.10.174`, default IPv4 route, guest NAT via `lan0`, all five cluster nodes
-Ready, retained NVIDIA limits, mounted `/mnt/nfs/fast` and `/mnt/nfs/bulk`, and
+`192.168.10.174`, default IPv4 route, retained NVIDIA limits, mounted
+`/mnt/nfs/fast` and `/mnt/nfs/bulk`, and
 no failed units (including the previously failed wait-online and NFS mounts). Household inference stays
 paused. Keep the prior generation until this reboot acceptance passes; it retains
 the old NIC failure and is recovery fallback, not a successful networking fix.

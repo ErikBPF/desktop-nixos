@@ -125,7 +125,7 @@ audit point. It does not reset the index, remove worktrees or delete draft files
 - `modules/dev/herdr.nix`
 - `modules/hosts/apollo/default.nix`
 - `modules/hosts/apollo/hardware.nix`
-- `modules/hosts/apollo/k3s-cluster.nix`
+- `modules/hosts/apollo/k3s-cluster.nix` (removed 2026-09-17 with the host's cluster)
 - `modules/hosts/discovery/diagnostics.nix`
 - `modules/hosts/endeavour/default.nix`
 - `modules/hosts/kepler/default.nix`

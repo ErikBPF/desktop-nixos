@@ -1,7 +1,4 @@
-import json
-import os
 from pathlib import Path
-import stat
 import subprocess
 import textwrap
 
@@ -68,151 +65,21 @@ def test_apollo_diagnosis_checks_every_daily_health_boundary_without_secrets() -
         'test -z "$failed"',
         "alloy.service",
         "syncthing.service",
-        "microvms.target",
         "herdr-session-homelab.service",
         "herdr-session-dataplatform.service",
         "http://orion:5000/nix-cache-info",
-        "ready=$(ssh -n",
-        "status.conditions",
-        'test "$ready" -eq 5',
     ):
         assert required in diagnosis
-    for forbidden in ("k3s-cluster/token", "k3s.yaml", ".kube/config", "set -x"):
+    for forbidden in (
+        "microvms.target",
+        "microvm@",
+        "ready=$(ssh -n",
+        "k3s-cluster/token",
+        "k3s.yaml",
+        ".kube/config",
+        "set -x",
+    ):
         assert forbidden not in diagnosis
-
-
-def test_apollo_kubeconfig_merges_without_replacing_existing_context(
-    tmp_path: Path,
-) -> None:
-    current = tmp_path / "config"
-    current.write_text(
-        """apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    server: https://kept.example
-  name: kept
-contexts:
-- context:
-    cluster: kept
-    user: kept
-  name: kept
-current-context: kept
-users:
-- name: kept
-  user:
-    token: kept
-"""
-    )
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    ssh = fake_bin / "ssh"
-    ssh.write_text(
-        """#!/bin/sh
-cat <<'EOF'
-apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    server: https://127.0.0.1:6443
-  name: default
-contexts:
-- context:
-    cluster: default
-    user: default
-  name: default
-current-context: default
-users:
-- name: default
-  user:
-    token: apollo
-EOF
-"""
-    )
-    ssh.chmod(0o755)
-    env = os.environ | {
-        "HOME": str(tmp_path),
-        "KUBECONFIG": str(current),
-        "PATH": f"{fake_bin}:{os.environ['PATH']}",
-    }
-
-    subprocess.run(
-        ["just", "apollo-kubeconfig"], cwd=ROOT, env=env, check=True, capture_output=True
-    )
-    rendered = subprocess.run(
-        ["kubectl", "config", "view", "--raw", "-o", "json"],
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    config = json.loads(rendered.stdout)
-    contexts = [context["name"] for context in config["contexts"]]
-    apollo = next(context for context in config["contexts"] if context["name"] == "apollo-dev")
-    cluster = next(
-        cluster
-        for cluster in config["clusters"]
-        if cluster["name"] == apollo["context"]["cluster"]
-    )
-
-    assert config["current-context"] == "kept"
-    assert contexts.count("apollo-dev") == 1
-    assert cluster["cluster"]["server"] == "https://apollo:6443"
-    assert stat.S_IMODE(current.stat().st_mode) == 0o600
-
-    kubeconfig = recipe("apollo-kubeconfig")
-    assert "ssh -J erik@{{ip_apollo}}:2222" in kubeconfig
-    assert "ssh -A" not in kubeconfig
-
-
-def test_apollo_cluster_lifecycle_is_explicit_and_rebuild_is_guarded() -> None:
-    start = recipe("apollo-cluster-start")
-    stop = recipe("apollo-cluster-stop")
-    rebuild = recipe("apollo-cluster-rebuild")
-
-    start_command = start.split("for attempt", 1)[0]
-    for unit in (
-        "microvms.target",
-        "microvm@cp-1.service",
-        "microvm@cp-2.service",
-        "microvm@cp-3.service",
-        "microvm@w-1.service",
-        "microvm@w-2.service",
-    ):
-        assert unit in start_command
-    assert "just diagnose-apollo-worklab" in start
-    stop_command = stop.split("states=", 1)[0]
-    for unit in (
-        "microvms.target",
-        "microvm@cp-1.service",
-        "microvm@cp-2.service",
-        "microvm@cp-3.service",
-        "microvm@w-1.service",
-        "microvm@w-2.service",
-    ):
-        assert unit in stop_command
-    assert 'grep -c "^inactive$"' in stop
-    assert 'test {{quote(confirmation)}} = "REBUILD-APOLLO-CLUSTER"' in rebuild
-    assert "just diagnose-apollo-worklab" in rebuild
-    assert "just apollo-cluster-stop" in rebuild
-    assert "just apollo-cluster-start" in rebuild
-    assert "names=(cp-1 cp-2 cp-3 w-1 w-2)" in rebuild
-    assert rebuild.index('test -d "$state_dir/$name"') < rebuild.index("rm -rf")
-    assert 'rm -rf --one-file-system -- "$state_dir/$name"' in rebuild
-    assert "apollo-cluster-rebuild" not in recipe("diagnose-apollo-worklab")
-
-
-def test_apollo_publishes_atomic_freshness_aware_cluster_readiness() -> None:
-    cluster = read("modules/hosts/apollo/k3s-cluster.nix")
-
-    assert 'source = "/var/lib/node-exporter-textfile";' in cluster
-    assert 'lib.optional (name == "cp-1")' in cluster
-    assert "apollo_k3s_ready_nodes" in cluster
-    assert "apollo_k3s_probe_last_success_seconds" in cluster
-    assert "status.conditions" in cluster
-    assert "mktemp" in cluster
-    assert 'mv "$tmp" /host-textfile/apollo-k3s.prom' in cluster
-    assert 'OnUnitActiveSec = "1m";' in cluster
 
 
 def test_apollo_project_environment_gate_runs_inside_each_owned_repository() -> None:

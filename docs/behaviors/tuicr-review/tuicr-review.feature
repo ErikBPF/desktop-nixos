@@ -2,7 +2,7 @@
 Feature: Nix-managed Tuicr reviews
 
   Scenario: Developer environments provide the review tool
-    Given a Home Manager profile for a desktop or the Gemini development container
+    Given a Home Manager profile for a desktop or a fleet host
     When the profile is evaluated
     Then Tuicr is installed from the pinned nixpkgs package
     And Tuicr self-update checks are disabled
