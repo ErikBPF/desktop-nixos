@@ -59,7 +59,7 @@ def test_apollo_uses_the_observed_lan_interface() -> None:
     assert 'hostName = "apollo";' in network
     assert 'uplink = "lan0";' in network
     assert 'interfaces.${uplink}.useDHCP = true;' in network
-    assert 'nat.externalInterface = uplink;' in network
+    assert 'nat.' not in network
     assert 'matchConfig.PermanentMACAddress = config.flake.fleet.hosts.apollo.mac;' in network
 
 

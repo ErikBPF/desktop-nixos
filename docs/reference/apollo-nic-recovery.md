@@ -1,6 +1,6 @@
 # Apollo NIC recovery
 
-**Status:** Delivered — generation 15 reboot proved automatic NIC naming, DHCP, guest NAT and five-node recovery.
+**Status:** Delivered — generation 15 reboot proved automatic NIC naming and DHCP recovery. The guest NAT and five-node recovery it also served were retired 2026-09-17 with the host's microVM cluster.
 
 The diagnosis and rollout below record the completed September 7 recovery.
 The current interface is `lan0`; `enp5s0` was its pre-repair name. No additional
@@ -43,8 +43,9 @@ SLAAC but no IPv4 address or default IPv4 route. IPv6 kept Tailscale available.
 `ethtool -P` confirms permanent MAC `2a:38:4d:07:de:54`, matching fleet metadata.
 
 Bind `lan0` to that permanent MAC with an early systemd `.link`. One local
-interface constant supplies the link name, DHCP owner and NAT egress. Keep
-NetworkManager disabled and preserve the existing k3s bridge and guest placement.
+interface constant supplies the link name and the DHCP owner. The guest bridge
+and its NAT egress were removed with the retired cluster on 2026-09-17, so
+Apollo runs stock scripted networking. Keep NetworkManager disabled.
 No polling service, restart loop or second DHCP client is needed.
 
 ## Historical rollout and acceptance
@@ -76,9 +77,8 @@ Observe SSH go down and return. Then verify over the original LAN reservation:
 ```bash
 ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@192.168.10.174 \
   'readlink -f /run/current-system; uname -r
-   ip -br address; ip route; networkctl status lan0 --no-pager
+   ip -br address; ip route; ip -br link show lan0
    systemctl --failed --no-pager
-   sudo iptables -t nat -S nixos-nat-post
    nvidia-smi --query-gpu=name,driver_version,power.limit --format=csv,noheader'
  just diagnose-apollo-worklab
 ```
@@ -99,7 +99,9 @@ reboot booted generation **15**. At **20:35:51 UTC**, networkd automatically
 acquired `192.168.10.174/24` with gateway `192.168.10.1` on `lan0`, using
 `10-apollo-lan.link`, `40-lan0.network` and permanent MAC `2a:38:4d:07:de:54`.
 No manual NIC command was needed after boot. Guest NAT used `lan0`, all five
-nodes were Ready, both NFS shares were mounted, and no host units failed.
+nodes were Ready, both NFS shares were mounted, and no host units failed. The
+2026-09-17 cluster retirement later dropped the guest bridge, NAT and networkd
+from this host; the naming and DHCP behaviour above is unchanged.
 
 Generation 14 was the temporary rollback entry during this repair. The later
 [GPU acceptance and retention cleanup](kepler-apollo-gpu-exchange.md) supersedes

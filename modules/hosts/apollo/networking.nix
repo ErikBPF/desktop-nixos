@@ -7,14 +7,13 @@ in {
       networkmanager.enable = false;
       useDHCP = false;
       interfaces.${uplink}.useDHCP = true;
-      nat.externalInterface = uplink;
       firewall = {
         enable = true;
         checkReversePath = "loose";
       };
     };
 
-    # Keep DHCP and guest NAT independent of PCI numbering after hardware moves.
+    # Keep DHCP independent of PCI numbering after hardware moves.
     systemd.network.links."10-apollo-lan" = {
       matchConfig.PermanentMACAddress = config.flake.fleet.hosts.apollo.mac;
       linkConfig = {
