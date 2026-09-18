@@ -43,6 +43,21 @@ in {
 
     services.btrfs.autoScrub.enable = true;
     environment.systemPackages = [pkgs.stern pkgs.nvd];
+    # Operator-owned trial storage; never create it on root if the mirror is absent.
+    # Future inference units must require the same mount before accessing it.
+    systemd.services.apollo-ai-storage = {
+      description = "Prepare private AI model and cache directories on the mirror";
+      wantedBy = ["multi-user.target"];
+      unitConfig = {
+        RequiresMountsFor = "/mnt/data";
+        AssertPathIsMountPoint = "/mnt/data";
+      };
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${pkgs.coreutils}/bin/install -d -m 0700 -o ${config.username} -g users /mnt/data/ai /mnt/data/ai/models /mnt/data/ai/cache";
+      };
+    };
     security.sudo.wheelNeedsPassword = lib.mkForce false;
     services.openssh.settings = {
       AllowTcpForwarding = lib.mkForce "local";
