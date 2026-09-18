@@ -99,6 +99,22 @@ temperature and current-boot Xid faults. The configured GPU sum is now 300 W;
 that is not PSU sizing — size cabling and the PSU against the actual board
 limit, CPU and startup transients (the two cards' stock sum is 360 W).
 
+## AI trial storage
+
+Apollo declares `apollo-ai-storage.service` to create private operator-owned
+`/mnt/data/ai/{models,cache}` directories (0700). The service requires the
+existing data-array mount and asserts that `/mnt/data` is a mount point before
+creating anything, so a missing or degraded mirror fails loudly instead of
+filling the root pool. Future inference units must independently require the
+mirror before using it.
+
+Initial operational cache budget is 256 GiB, checked before downloads; it is
+not an enforced filesystem quota. Set per-trial `HF_HOME`, `XDG_CACHE_HOME`,
+`TORCH_HOME` and `CUDA_CACHE_PATH` beneath the cache directory. Do not redirect
+all operator applications globally. Start trials with `MemoryMax=64G`,
+`MemorySwapMax=0` and `CPUQuota=400%`; these limits reserve no host capacity,
+and Nix still permits six build jobs with two cores each.
+
 ## Primary references
 
 - [NVIDIA open-module requirements](https://download.nvidia.com/XFree86/Linux-x86_64/595.71.05/README/kernel_open.html)

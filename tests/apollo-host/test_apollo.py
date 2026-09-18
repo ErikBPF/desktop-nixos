@@ -38,6 +38,9 @@ def test_apollo_keeps_its_data_pool_and_bounds_build_concurrency() -> None:
     assert "microvms.target" not in host
     assert 'max-jobs = lib.mkForce 6;' in host
     assert 'cores = lib.mkForce 2;' in host
+    assert 'AssertPathIsMountPoint = "/mnt/data";' in host
+    assert "/mnt/data/ai/cache" in host
+    assert "/mnt/microvms" not in host
 
 
 def test_orion_reinstall_uses_stable_disks_and_preserves_work_sessions() -> None:
