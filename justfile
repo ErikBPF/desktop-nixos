@@ -189,20 +189,40 @@ update-safe:
     fi
     backup=$(mktemp)
     cp -- flake.lock "$backup"
+    evidence_backup=''
+    evidence_started=false
+    evidence_existed=false
     cleanup() {
         status=$?
         if (( status != 0 )); then
             echo ":: update failed — restoring pre-update flake.lock" >&2
             cp -- "$backup" flake.lock || { echo ":: restore failed; backup retained at $backup" >&2; exit 1; }
+            if "$evidence_started"; then
+                if "$evidence_existed"; then
+                    cp -- "$evidence_backup" "$evidence" || { echo ":: receipt restore failed; backup retained at $evidence_backup" >&2; exit 1; }
+                elif [[ -f "$evidence" ]]; then
+                    rm -f -- "$evidence"
+                fi
+            fi
         fi
         rm -f -- "$backup"
+        if [[ -n "$evidence_backup" ]]; then rm -f -- "$evidence_backup"; fi
         exit "$status"
     }
     trap cleanup EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
+    baseline=$(git rev-parse HEAD)
     nix flake update
     just dry-all
+    evidence=$(git rev-parse --git-path upgrade-candidate.json)
+    if [[ -f "$evidence" ]]; then
+        evidence_backup=$(mktemp)
+        cp -- "$evidence" "$evidence_backup"
+        evidence_existed=true
+    fi
+    evidence_started=true
+    python3 scripts/upgrade-candidate-evidence.py "$baseline" "$backup"
 
 # Bump a single input in isolation (e.g. just update-input hyprland), so a
 # volatile git-tip input's breakage doesn't get tangled with a nixpkgs bump.
@@ -227,20 +247,36 @@ dry target=profile:
 # Build fleet toplevels in one scheduler invocation so independent host graphs
 # run concurrently and shared derivations are built once. Does not create links.
 build-all:
-    nix build --no-link \
-        .#nixosConfigurations.archinaut.config.system.build.toplevel \
-        .#nixosConfigurations.pathfinder.config.system.build.toplevel \
-        .#nixosConfigurations.discovery.config.system.build.toplevel \
-        .#nixosConfigurations.orion.config.system.build.toplevel \
-        .#nixosConfigurations.kepler.config.system.build.toplevel \
-        .#nixosConfigurations.telstar.config.system.build.toplevel \
-        .#nixosConfigurations.vanguard.config.system.build.toplevel \
-        .#nixosConfigurations.voyager.config.system.build.toplevel \
-        --builders '{{orion_builder}} ; {{kepler_builder}}' \
-        --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
-    nix build --no-link \
-        .#nixosConfigurations.endeavour.config.system.build.toplevel \
-        --builders '' --show-trace
+    #!/usr/bin/env bash
+    set -euo pipefail
+    configurations=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)
+    hosts=$(nix eval .#fleet.hosts --apply "$(< scripts/upgrade-hosts.nix)" --json)
+    names=$(jq -er --argjson configurations "$configurations" 'if type == "array" and length > 0 and all(.[]; type == "string" and test("^[A-Za-z0-9_][A-Za-z0-9_-]*$")) and ($configurations | type == "array") and (. - $configurations | length == 0) then .[] else error("invalid or missing fleet NixOS configurations") end' <<<"$hosts")
+    remote=()
+    local_build=false
+    while IFS= read -r host; do
+        if [[ "$host" == endeavour ]]; then
+            local_build=true
+        else
+            remote+=(".#nixosConfigurations.$host.config.system.build.toplevel")
+        fi
+    done <<<"$names"
+    if ((${#remote[@]})); then
+        nix build --no-link "${remote[@]}" \
+            --builders '{{orion_builder}} ; {{kepler_builder}}' \
+            --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
+    fi
+    if "$local_build"; then
+        nix build --no-link \
+            .#nixosConfigurations.endeavour.config.system.build.toplevel \
+            --builders '' --show-trace
+    fi
+
+# Compare evaluated managed-host derivations without building or activating.
+[positional-arguments]
+upgrade-impact before after:
+    #!/usr/bin/env bash
+    exec python3 scripts/upgrade-impact.py "$1" "$2"
 
 dry-all:
     just build-all
