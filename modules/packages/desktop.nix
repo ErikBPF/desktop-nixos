@@ -123,7 +123,6 @@ _: {
       # mongodb-compass
       github-desktop
       opencode
-      antigravity-cli
       claude-code
       discord
       obsidian
