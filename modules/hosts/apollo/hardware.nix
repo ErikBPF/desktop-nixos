@@ -135,9 +135,22 @@
 
     fileSystems."/var/log".neededForBoot = true;
 
-    # Redundant data pool. Created live 2026-09-05 with the same
-    # parted/mdadm/mkfs commands this declaration generates on reinstall
-    # (see proposal 2026-09-05-apollo-vm-ram-and-raid1-pool).
+    # Single-disk AI model store. Operator decision 2026-09-18: the second
+    # 4 TB disk will never be added, so the two-disk mdadm RAID1 mirror
+    # (created live 2026-09-05, see proposal
+    # 2026-09-05-apollo-vm-ram-and-raid1-pool) is retired and the surviving
+    # disk is used directly as one plain ext4 volume at /mnt/data.
+    #
+    # The live filesystem was converted in place, not recreated: the old
+    # degraded mirror carried 1.1 TiB of models, so only the GPT boundary
+    # moved. md's data offset of 264192 sectors on the old /dev/sdb1 put the
+    # ext4 superblock at absolute sector 266240, and the single partition now
+    # starts exactly there, leaving the filesystem byte-identical.
+    # `apollo-ai-storage` in ./default.nix asserts this mountpoint exists.
+    #
+    # There is no redundancy. The volume holds re-downloadable model weights
+    # and experiment scratch only; do not treat it as a backup target.
+    # A reinstall formats this partition empty.
     disko.devices.disk = {
       ssd3 = {
         type = "disk";
@@ -146,50 +159,23 @@
           type = "gpt";
           partitions.data = {
             size = "100%";
-            type = "A19D880F-05FC-4D3B-B009-31F1992A73E0";
+            type = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
             content = {
-              type = "mdraid";
-              name = "microvms";
-            };
-          };
-        };
-      };
-
-      ssd4 = {
-        type = "disk";
-        device = "/dev/disk/by-id/ata-Samsung_SSD_870_EVO_4TB_S6PJNS0YA01573P";
-        content = {
-          type = "gpt";
-          partitions.data = {
-            size = "100%";
-            type = "A19D880F-05FC-4D3B-B009-31F1992A73E0";
-            content = {
-              type = "mdraid";
-              name = "microvms";
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/mnt/data";
+              # A missing or dirty model disk must never block boot. Without
+              # nofail, a failed /mnt/data mount fails local-fs.target, which
+              # drops the host into emergency mode with no sshd (observed
+              # 2026-09-18 when the retired array device disappeared).
+              mountOptions = [
+                "nofail"
+                "x-systemd.device-timeout=30s"
+              ];
             };
           };
         };
       };
     };
-
-    disko.devices.mdadm.microvms = {
-      type = "mdadm";
-      level = 1;
-      metadata = "1.2";
-      extraArgs = ["--homehost=apollo"];
-      content = {
-        type = "filesystem";
-        format = "ext4";
-        # Operator decision 2026-09-17: the microVM cluster is retired, so this
-        # pool is a general data volume. The mdadm name and UUID above stay
-        # unchanged to keep the existing array identity.
-        mountpoint = "/mnt/data";
-      };
-    };
-
-    boot.swraid.mdadmConf = ''
-      ARRAY /dev/md/microvms metadata=1.2 UUID=e34c6b0a:37d94b6b:8c27d172:8b74ecdc
-      MAILADDR root
-    '';
   };
 }
