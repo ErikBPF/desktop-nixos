@@ -544,14 +544,14 @@ orion-disk-inventory:
       systemctl --failed --no-legend || true
     '
 
-# Read-only verification of Apollo's reserved array and guest-state mount.
+# Read-only verification of Apollo's root pool and data array.
 apollo-disk-inventory:
     #!/usr/bin/env bash
     set -euo pipefail
     ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} 'bash -s' <<'REMOTE'
     set -euo pipefail
     lsblk -e7 -o NAME,SIZE,TYPE,FSTYPE,UUID,MOUNTPOINTS,MODEL,SERIAL
-    for path in / /var/lib/microvms /mnt/microvms; do
+    for path in / /mnt/data; do
       findmnt -T "$path" -nro TARGET,SOURCE,FSTYPE,UUID
     done
     cat /proc/mdstat
@@ -2241,7 +2241,7 @@ kubeconfig-lan:
     echo ":: LAN kubeconfig → ~/.kube/homelab-lan.yaml (context homelab-lan)"
     KUBECONFIG=~/.kube/homelab-lan.yaml kubectl get nodes
 
-# Read-only daily proof for Apollo's host, work sessions, cache, and cluster.
+# Read-only daily proof for Apollo's host, work sessions, and cache.
 diagnose-apollo-worklab:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -2255,10 +2255,7 @@ diagnose-apollo-worklab:
     printf '%s\n' "${failed:-none}"
     test -z "$failed"
     echo ':: critical units'
-    sudo -n systemctl is-active \
-      alloy.service syncthing.service microvms.target \
-      microvm@cp-1.service microvm@cp-2.service microvm@cp-3.service \
-      microvm@w-1.service microvm@w-2.service
+    sudo -n systemctl is-active alloy.service syncthing.service
     echo ':: work sessions'
     systemctl --user is-active \
       herdr-session-homelab.service herdr-session-dataplatform.service
@@ -2266,13 +2263,6 @@ diagnose-apollo-worklab:
     curl --fail --silent --show-error --connect-timeout 3 --max-time 5 \
       http://orion:5000/nix-cache-info >/dev/null
     echo 'reachable'
-    echo ':: Kubernetes readiness'
-    ready=$(ssh -n -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new \
-      root@10.251.0.11 \
-      "k3s kubectl get nodes -o 'jsonpath={range .items[*]}{.status.conditions[?(@.type==\"Ready\")].status}{\"\\n\"}{end}'" \
-      | grep -c '^True$' || true)
-    printf 'ready_nodes=%s expected=5\n' "$ready"
-    test "$ready" -eq 5
     REMOTE
 
 # Prove project-owned toolchains from the Apollo checkout before host cleanup.
@@ -2368,97 +2358,6 @@ bootstrap-apollo-worklab-repositories:
       "erik@{{ip_apollo}}:Documents/nstech/dataplatform-airflow/devenv.lock"
     ssh -p 2222 -o BatchMode=yes erik@{{ip_apollo}} \
       'cd "$HOME/Documents/nstech/dataplatform-airflow" && cp -n .env.example .env'
-
-# Merge Apollo's development cluster without replacing the active kubeconfig.
-apollo-kubeconfig:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    current="${KUBECONFIG:-$HOME/.kube/config}"
-    case "$current" in *:*) echo "KUBECONFIG must name one file" >&2; exit 2;; esac
-    mkdir -p "$(dirname "$current")"
-    cluster=$(mktemp "${current}.apollo.XXXXXX")
-    base=$(mktemp "${current}.base.XXXXXX")
-    merged=$(mktemp "${current}.merged.XXXXXX")
-    trap 'rm -f "$cluster" "$base" "$merged"' EXIT
-    ssh -J erik@{{ip_apollo}}:2222 -o BatchMode=yes -o ConnectTimeout=8 \
-      -o StrictHostKeyChecking=accept-new root@10.251.0.11 \
-      'cat /etc/rancher/k3s/k3s.yaml' \
-      | sed 's#https://127.0.0.1:6443#https://apollo:6443#' \
-      | sed 's/: default$/: apollo-dev/' > "$cluster"
-    chmod 600 "$cluster"
-    if [ -s "$current" ]; then
-      active=$(KUBECONFIG="$current" kubectl config current-context 2>/dev/null || true)
-      cp "$current" "$base"
-      cp "$current" "${current}.apollo-backup"
-      chmod 600 "${current}.apollo-backup"
-      KUBECONFIG="$base" kubectl config delete-context apollo-dev >/dev/null 2>&1 || true
-      KUBECONFIG="$base" kubectl config delete-cluster apollo-dev >/dev/null 2>&1 || true
-      KUBECONFIG="$base" kubectl config delete-user apollo-dev >/dev/null 2>&1 || true
-      KUBECONFIG="$base:$cluster" kubectl config view --raw --flatten > "$merged"
-      if [ -n "$active" ]; then
-        KUBECONFIG="$merged" kubectl config use-context "$active" >/dev/null
-      fi
-    else
-      KUBECONFIG="$cluster" kubectl config view --raw --flatten > "$merged"
-    fi
-    chmod 600 "$merged"
-    mv "$merged" "$current"
-    trap - EXIT
-    KUBECONFIG="$current" kubectl config get-contexts apollo-dev
-
-# Start the declared five-node target and wait for the daily proof to pass.
-apollo-cluster-start:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} \
-      'sudo -n systemctl start microvms.target microvm@cp-1.service microvm@cp-2.service microvm@cp-3.service microvm@w-1.service microvm@w-2.service'
-    for attempt in $(seq 1 60); do
-      if just diagnose-apollo-worklab; then exit 0; fi
-      sleep 5
-    done
-    echo "Apollo cluster did not become ready within five minutes" >&2
-    exit 1
-
-# Stop only Apollo's declared MicroVM target and prove every guest is inactive.
-apollo-cluster-stop:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} 'bash -s' <<'REMOTE'
-    set -euo pipefail
-    sudo -n systemctl stop \
-      microvms.target microvm@cp-1.service microvm@cp-2.service \
-      microvm@cp-3.service microvm@w-1.service microvm@w-2.service
-    states=$(sudo -n systemctl is-active \
-      microvms.target microvm@cp-1.service microvm@cp-2.service \
-      microvm@cp-3.service microvm@w-1.service microvm@w-2.service || true)
-    printf '%s\n' "$states"
-    test "$(printf '%s\n' "$states" | grep -c "^inactive$")" -eq 6
-    REMOTE
-
-# Delete only the five disposable guest state directories after typed consent.
-apollo-cluster-rebuild confirmation:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    test {{quote(confirmation)}} = "REBUILD-APOLLO-CLUSTER" || {
-      echo 'type REBUILD-APOLLO-CLUSTER to continue' >&2
-      exit 2
-    }
-    just diagnose-apollo-worklab
-    just apollo-cluster-stop
-    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 erik@{{ip_apollo}} \
-      'sudo -n bash -s' <<'REMOTE'
-    set -euo pipefail
-    test "$(hostname)" = apollo
-    state_dir=/var/lib/microvms
-    names=(cp-1 cp-2 cp-3 w-1 w-2)
-    for name in "${names[@]}"; do
-      test -d "$state_dir/$name"
-    done
-    for name in "${names[@]}"; do
-      rm -rf --one-file-system -- "$state_dir/$name"
-    done
-    REMOTE
-    just apollo-cluster-start
 
 # ── archinaut (BIQU B1 print host, RPi3 aarch64) ──────────
 # archinaut is aarch64: build on orion (binfmt qemu), substitute to the Pi.

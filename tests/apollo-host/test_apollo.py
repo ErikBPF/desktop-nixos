@@ -29,22 +29,13 @@ def test_apollo_uses_the_observed_os_disks() -> None:
     assert hardware.count('"raid1"') == 2
 
 
-def test_apollo_runs_the_accepted_rebuildable_k3s_cluster() -> None:
-    cluster = read("modules/hosts/apollo/k3s-cluster.nix")
-
-    assert '../../services/_k3s-node.nix' in cluster
-    assert 'hypervisor = "cloud-hypervisor";' in cluster
-    assert 'workerCount = 2;' in cluster
-    assert 'workerMem = 32768;' in cluster
-    assert 'mem = 8192;' in cluster
-    assert 'subnet = "10.251.0";' in cluster
-
-
-def test_apollo_keeps_guest_state_on_root_and_bounds_build_concurrency() -> None:
+def test_apollo_keeps_its_data_pool_and_bounds_build_concurrency() -> None:
     hardware = read("modules/hosts/apollo/hardware.nix")
     host = read("modules/hosts/apollo/default.nix")
-    assert 'mountpoint = "/mnt/microvms";' in hardware
-    assert 'mountpoint = "/var/lib/microvms";' not in hardware
+    assert 'mountpoint = "/mnt/data";' in hardware
+    assert 'mountpoint = "/mnt/microvms";' not in hardware
+    assert "/var/lib/microvms" not in host
+    assert "microvms.target" not in host
     assert 'max-jobs = lib.mkForce 6;' in host
     assert 'cores = lib.mkForce 2;' in host
 
@@ -68,7 +59,7 @@ def test_apollo_uses_the_observed_lan_interface() -> None:
     assert 'hostName = "apollo";' in network
     assert 'uplink = "lan0";' in network
     assert 'interfaces.${uplink}.useDHCP = true;' in network
-    assert 'nat.externalInterface = uplink;' in network
+    assert 'nat.' not in network
     assert 'matchConfig.PermanentMACAddress = config.flake.fleet.hosts.apollo.mac;' in network
 
 

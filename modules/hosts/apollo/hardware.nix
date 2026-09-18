@@ -12,7 +12,7 @@
   in {
     boot.kernelPackages = lib.mkForce kernelPkgs.linuxPackages_7_2;
     boot.initrd.availableKernelModules = ["xhci_pci" "ehci_pci" "ahci" "usb_storage" "sd_mod"];
-    # Mixed Ampere / Blackwell host: Blackwell requires the open kernel modules.
+    # Blackwell-only host: the RTX 5060 Ti pair requires the open kernel modules.
     boot.initrd.kernelModules = ["nvidia"];
     boot.kernelModules = ["kvm-intel" "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm"];
     boot.blacklistedKernelModules = ["nouveau"];
@@ -135,9 +135,9 @@
 
     fileSystems."/var/log".neededForBoot = true;
 
-    # Reserved redundant data pool. Created live 2026-09-05 with
-    # the same parted/mdadm/mkfs commands this declaration generates on
-    # reinstall (see proposal 2026-09-05-apollo-vm-ram-and-raid1-pool).
+    # Redundant data pool. Created live 2026-09-05 with the same
+    # parted/mdadm/mkfs commands this declaration generates on reinstall
+    # (see proposal 2026-09-05-apollo-vm-ram-and-raid1-pool).
     disko.devices.disk = {
       ssd3 = {
         type = "disk";
@@ -180,9 +180,10 @@
       content = {
         type = "filesystem";
         format = "ext4";
-        # Operator decision 2026-09-07: keep MicroVM state on the root pool.
-        # Retain this existing mount and array identity; future use is undecided.
-        mountpoint = "/mnt/microvms";
+        # Operator decision 2026-09-17: the microVM cluster is retired, so this
+        # pool is a general data volume. The mdadm name and UUID above stay
+        # unchanged to keep the existing array identity.
+        mountpoint = "/mnt/data";
       };
     };
 

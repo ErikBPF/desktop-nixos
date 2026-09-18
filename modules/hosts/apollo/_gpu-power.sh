@@ -15,7 +15,6 @@ while IFS=', ' read -r uuid device extra; do
     continue
   fi
   case "${device^^}" in
-    0X248810DE|0X248410DE) watts=170 ;; # RTX 3070; retain the power ceiling.
     0X2D0410DE) watts=150 ;; # RTX 5060 Ti; lowest firmware-permitted ceiling (min 150 W).
     *)
       echo "No reviewed power policy for $uuid ($device)" >&2

@@ -33,7 +33,6 @@ in {
       m.nixos.systemd-boot-counting
       m.nixos.apollo-hardware
       m.nixos.apollo-networking
-      m.nixos.apollo-k3s-cluster
       m.nixos.first-boot
       m.nixos.runtime-secret-health
       m.nixos.pangolin-newt
@@ -44,15 +43,14 @@ in {
 
     services.btrfs.autoScrub.enable = true;
     environment.systemPackages = [pkgs.stern pkgs.nvd];
-    modules.upgradeHealthCheck.extraCriticalUnits = ["microvms.target"];
     security.sudo.wheelNeedsPassword = lib.mkForce false;
     services.openssh.settings = {
       AllowTcpForwarding = lib.mkForce "local";
       GatewayPorts = "no";
     };
 
-    # Interactive baseline alongside the 8/32 GiB guests. RAM headroom does
-    # not reserve CPU: 14 jobs x 4 cores oversubscribes this 28-thread host.
+    # Operator baseline: bound build concurrency so interactive work stays
+    # responsive on this 28-thread host.
     nix.settings = {
       max-jobs = lib.mkForce 6;
       cores = lib.mkForce 2;
@@ -86,8 +84,6 @@ in {
 
     boot.loader = {
       efi.canTouchEfiVariables = true;
-      # Preserve the accepted closed-driver boot during the three-GPU/open
-      # module preparation. Return to three after that hardware is accepted.
       systemd-boot.configurationLimit = 6;
     };
 
