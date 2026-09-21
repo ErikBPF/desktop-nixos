@@ -325,6 +325,12 @@
         };
       };
 
+      mcp.donsetch = {
+        type = "local";
+        command = ["npx" "-y" "donsetch" "mcp" "--supervised"];
+        enabled = true;
+      };
+
       compaction = {
         auto = true;
         tail_turns = 8;
