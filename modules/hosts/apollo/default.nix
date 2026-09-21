@@ -25,6 +25,9 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
+      # Rootless Podman + dockerCompat, so minikube can use its podman driver
+      # for the local aster stack (mirrors orion).
+      m.nixos.containers
       m.nixos.nix-index
       m.nixos.hermes-client
       m.nixos.opencode-client
