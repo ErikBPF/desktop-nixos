@@ -327,7 +327,7 @@
 
       mcp.donsetch = {
         type = "local";
-        command = ["npx" "-y" "donsetch" "mcp" "--supervised"];
+        command = ["npx" "-y" "donsetch@4.2.9" "mcp" "--supervised"];
         enabled = true;
       };
 
