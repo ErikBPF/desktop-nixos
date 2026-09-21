@@ -1247,6 +1247,32 @@
         "url": "https://flakehub.com/f/ErikBPF/opencode-flake/%2A"
       }
     },
+    "opencode-tui": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790024092,
+        "narHash": "sha256-Oj5eTuxZ3sejetcMt8XwlQAZUYY0oPX1GIToqZebZhY=",
+        "owner": "ErikBPF",
+        "repo": "opencode-tui",
+        "rev": "3f7c9ecb25b56cca0cdca6785fe7e08ed52e0fdb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ErikBPF",
+        "repo": "opencode-tui",
+        "type": "github"
+      }
+    },
     "ponytail": {
       "flake": false,
       "locked": {
@@ -1383,6 +1409,7 @@
         "nixpkgs-secretspec": "nixpkgs-secretspec",
         "nixvim": "nixvim",
         "opencode-flake": "opencode-flake",
+        "opencode-tui": "opencode-tui",
         "ponytail": "ponytail",
         "quickshell": "quickshell",
         "sops-nix": "sops-nix",
