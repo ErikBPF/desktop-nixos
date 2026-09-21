@@ -230,6 +230,15 @@ in {
                 forward . 192.168.10.210
               }
             '';
+            # The `.k8s` zone (argocd, cognee, demo) resolves on the LAN but
+            # NXDOMAINs in-cluster without this, so pods cannot reach those
+            # ingresses by name. Same forwarder, same private zone.
+            data."k8s.server" = ''
+              k8s.pastelariadev.com:53 {
+                cache 30
+                forward . 192.168.10.210
+              }
+            '';
           };
 
           services.k3s.autoDeployCharts = {
