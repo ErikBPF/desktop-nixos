@@ -17,3 +17,9 @@ the 8 windows show be independet tmux sessions
 check opening layout to make it create windows in a grid pattern
 
 we shold use the default layout an use some sort of hyprctl command to position windows
+
+lets change the 8 windows to w1-w8 on workspace 2 and l1-l8 on workspace 7, all identical shells. remove what was opened on workspaces 3 and 8 (tuicr and neovim). repoint w1/l1 to attach the local tmux session. check if the window opening can be faster.
+
+no need to repoen 7. Lets explore how to make our tmux sessions be reboot persistent
+
+a with 2

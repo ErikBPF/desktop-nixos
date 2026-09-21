@@ -6,10 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SESSIONS = {}
-for project, code, review in (("dataplatform", 2, 3), ("homelab", 7, 8)):
-    SESSIONS.update({f"{project}-agent-{i}": code for i in range(1, 7)})
-    SESSIONS.update({f"{project}-shell-{i}": code for i in range(1, 3)})
-    SESSIONS.update({f"{project}-{app}": review for app in ("tuicr", "nvim")})
+for prefix, workspace in (("w", 2), ("l", 7)):
+    SESSIONS.update({f"{prefix}{i}": workspace for i in range(1, 9)})
 
 class Configuration(unittest.TestCase):
     @classmethod
@@ -17,8 +15,9 @@ class Configuration(unittest.TestCase):
         expression = '''c: let h = c.home-manager.users.erik; in {
           units = builtins.listToAttrs (map (name: {
             inherit name; value = h.systemd.user.services.${name};
-          }) (builtins.filter (name: builtins.match "desktop-(session|window|tmux).*" name != null)
+          }) (builtins.filter (name: builtins.match "(desktop-.*|tmux-save.*)" name != null)
             (builtins.attrNames h.systemd.user.services)));
+          timers = h.systemd.user.timers;
           linger = c.users.users.erik.linger;
           rules = h.wayland.windowManager.hyprland.settings.window_rule;
           workspaceRules = h.wayland.windowManager.hyprland.settings.workspace_rule;
@@ -43,7 +42,7 @@ class Configuration(unittest.TestCase):
         self.assertTrue(any(rule["workspace"] == "1" and rule.get("monitor") for rule in rules))
         self.assertNotIn("hl.layout.register(", self.config["lua"])
 
-    def test_one_server_and_twenty_independent_window_units(self):
+    def test_one_server_and_sixteen_independent_window_units(self):
         """Independent defaults and backend ownership."""
         units = self.config["units"]
         self.assertIn("desktop-tmux", units, "foreground tmux backend missing")
@@ -69,6 +68,20 @@ class Configuration(unittest.TestCase):
             self.assertIn(f"tmux -N -L workspace-desktop attach-session -t ={name}",
                           str(frontend["Service"]["ExecStart"]))
 
+    def test_sessions_are_saved_and_restored_across_reboots(self):
+        """Resurrect snapshot is restored at server start and saved periodically."""
+        backend = self.config["units"]["desktop-tmux"]
+        self.assertIn("desktop-workspaces restore", str(backend["Service"]["ExecStartPost"]))
+        self.assertIn("@resurrect-dir", self.config["tmuxConfig"])
+        self.assertIn("resurrect.tmux", self.config["tmuxConfig"])
+        self.assertIn("desktop-workspaces save", json.dumps(self.config["units"]["tmux-save"]["Service"]["ExecStart"]))
+        shutdown = self.config["units"]["tmux-save-shutdown"]
+        self.assertIn("shutdown.target", shutdown["Unit"]["Before"])
+        self.assertIn("shutdown.target", shutdown["Install"]["WantedBy"])
+        timer = self.config["timers"]["tmux-save"]
+        self.assertEqual(timer["Timer"]["Unit"], "tmux-save.service")
+        self.assertIn("timers.target", timer["Install"]["WantedBy"])
+
     def test_preserve_old_herdr_backends_during_transition(self):
         """Removing attachment windows must not remove the live servers."""
         for project in ("dataplatform", "homelab"):
@@ -81,7 +94,7 @@ class Configuration(unittest.TestCase):
                 self.assertIn(f"--session {name} server", str(backend["Service"]["ExecStart"]))
                 self.assertNotIn(f"desktop-window-{name}", self.config["units"])
 
-    def test_twenty_class_rules_and_both_recovery_triggers(self):
+    def test_sixteen_class_rules_and_both_recovery_triggers(self):
         rules = self.config["rules"]
         for name, workspace in SESSIONS.items():
             matches = [r for r in rules if name in r.get("match", {}).get("class", "")]
