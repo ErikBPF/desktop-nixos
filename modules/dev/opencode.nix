@@ -25,7 +25,15 @@
       }) ["low" "medium" "high" "xhigh" "max"]);
     };
   in {
-    imports = [inputs.opencode-flake.homeManagerModules.withPackage ./_opencode-profiles.nix];
+    imports = [
+      inputs.opencode-flake.homeManagerModules.withPackage
+      inputs.opencode-tui.homeManagerModules.withPackage
+      ./_opencode-profiles.nix
+    ];
+
+    # Rust/ratatui client that attaches to the local `opencode serve`. It
+    # never starts a server; OPENCODE_URL points at the fleet default.
+    programs.opencode-tui.enable = true;
 
     # rtk comes from modules/dev/codex.nix (hiPrio 0.48.0). Adding pkgs.rtk here
     # too put two different store paths with the same bin/rtk subpath in one
