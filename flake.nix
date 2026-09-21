@@ -121,6 +121,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    opencode-tui = {
+      url = "github:ErikBPF/opencode-tui";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.home-manager.follows = "home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     ponytail = {
       url = "github:DietrichGebert/ponytail";
       flake = false;
