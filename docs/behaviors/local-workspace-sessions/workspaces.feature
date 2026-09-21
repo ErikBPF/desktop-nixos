@@ -4,17 +4,26 @@ Feature: Independent local project windows
   Scenario: Create independent default windows
     Given each project's default tmux sessions are absent
     When recovery initializes the desktop
-    Then workspace 2 has six dataplatform coding-agent windows and two shell windows
-    And workspace 7 has six homelab coding-agent windows and two shell windows
-    And each window attaches to a different single-pane tmux session
-    And workspaces 3 and 8 each have independent tuicr and Neovim windows
-    And all twenty sessions start in their project's local directory
+    Then workspace 2 has eight single-pane w1 through w8 windows
+    And workspace 7 has eight single-pane l1 through l8 windows
+    And each window attaches to a different tmux session
+    And workspaces 3 and 8 open nothing
+    And all sixteen sessions start as plain shells in their project's local directory
 
-  Scenario: Use the configured coding agent
-    Given defaultCodingAgent selects another installed executable
-    When a missing coding session is created
-    Then it runs that executable without permission-bypass flags
-    And normal application exit returns to an interactive shell
+  Scenario: Attach local sessions by name
+    Given the dedicated desktop tmux server is running
+    When the w1 or l1 alias is invoked
+    Then the matching local tmux session is attached
+    And a missing session is created once before attaching
+
+  Scenario: Persist sessions across a reboot
+    Given the desktop tmux server holds user work in its named sessions
+    When the periodic timer or shutdown saves the session state
+    Then a snapshot is written under the desktop server's own resurrect directory
+    And no other tmux server reads or writes that snapshot
+    When the desktop tmux server starts again
+    Then the snapshot is restored before any window initializes its session
+    And an absent snapshot leaves startup unchanged
 
   Scenario: Preserve existing work
     Given a named tmux session already exists with user changes

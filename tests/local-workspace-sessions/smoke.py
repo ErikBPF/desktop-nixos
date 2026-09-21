@@ -19,17 +19,15 @@ def main():
         root = Path(temporary)
         binaries = root / "bin"
         binaries.mkdir()
-        for program in ("agent shim", "tuicr", "nvim"):
-            executable = binaries / program
-            executable.write_text("#!/bin/sh\nexit 0\n")
-            executable.chmod(0o700)
         tmux_config = root / "tmux.conf"
         tmux_config.write_text('set -g default-shell /bin/sh\nset -g default-command ""\nset -g destroy-unattached off\nset -s exit-unattached off\n')
-        config = {"defaultCodingAgent": str(binaries / "agent shim"), "shell": "/bin/sh", "projects": []}
-        for project, code, review in (("work", 2, 3), ("lab", 7, 8)):
+        config = {"shell": "/bin/sh", "projects": []}
+        for project, prefix, workspace in (("work", "w", 2), ("lab", "l", 7)):
             directory = root / (project + " project")
             directory.mkdir()
-            config["projects"].append(dict(name=project, directory=str(directory), workspaces=[code, review], code=code, review=review))
+            config["projects"].append(dict(name=project, directory=str(directory), workspaces=[workspace], workspace=workspace, prefix=prefix, count=8))
+        directories = {f"{project['prefix']}{index}": Path(project["directory"])
+                       for project in config["projects"] for index in range(1, project["count"] + 1)}
         environment = {**os.environ, "HOME": str(root), "XDG_CONFIG_HOME": str(root / "config"),
                        "TMUX_TMPDIR": str(root), "TMUX": str(root / "foreign") + ",1,0",
                        "PATH": str(binaries) + os.pathsep + os.environ["PATH"], "TERM": "xterm-256color"}
@@ -47,9 +45,9 @@ def main():
                     if all(row[3] == "sh" for row in before):
                         break
                     time.sleep(0.02)
-                assert len(before) == 20 and len({row[0] for row in before}) == 20, before
+                assert len(before) == 16 and len({row[0] for row in before}) == 16, before
                 assert all(row[3] == "sh" for row in before), "Exited applications did not return to shells"
-                assert all(Path(row[4]) == root / (row[0].split("-", 1)[0] + " project") for row in before), "Wrong project cwd"
+                assert all(Path(row[4]) == directories[row[0]] for row in before), "Wrong project cwd"
                 for row in before:
                     parent = Path(f"/proc/{row[2]}/stat").read_text().rsplit(")", 1)[1].split()[1]
                     assert int(parent) == server.pid, "Pane is not owned by the dedicated backend"
@@ -58,7 +56,7 @@ def main():
                 assert before == snapshot(), "Repeated bootstrap changed session identity/processes"
                 # A control-mode client is a real frontend without requiring a GUI/TTY.
                 client_env = {key: value for key, value in environment.items() if key != "TMUX"}
-                client = subprocess.Popen([*prefix, "-C", "attach-session", "-t", "=work-shell-1"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=client_env)
+                client = subprocess.Popen([*prefix, "-C", "attach-session", "-t", "=w1"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=client_env)
                 try:
                     for _ in range(50):
                         attached = APP.run(*prefix, "list-clients", "-F", "#{client_pid}").stdout.splitlines()
@@ -71,10 +69,10 @@ def main():
                     client.communicate(timeout=5)
                 assert server.poll() is None and before == snapshot(), "Frontend exit stopped backend work"
                 # Native exact targeting must not treat a prefix as an existing session.
-                result = subprocess.run([*prefix, "has-session", "-t", "=work-shell"], capture_output=True)
+                result = subprocess.run([*prefix, "has-session", "-t", "=w"], capture_output=True)
                 assert result.returncode != 0, "Exact session matching accepted a prefix"
                 assert not (root / "foreign").exists(), "Inherited foreign socket was used"
-                print("PASS: 20 independent one-pane sessions, quoted commands return to shells, cwd and repeat identity preserved")
+                print("PASS: 16 independent one-pane sessions, shells in project cwd, repeat identity preserved")
                 print("PASS: dedicated backend owns panes; frontend exit preserves them; exact targets ignore foreign socket")
             finally:
                 subprocess.run([*prefix, "kill-server"], capture_output=True, timeout=5)

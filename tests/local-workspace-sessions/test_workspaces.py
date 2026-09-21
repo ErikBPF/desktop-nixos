@@ -4,7 +4,6 @@ import fcntl
 import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 import tempfile
 import unittest
@@ -14,8 +13,11 @@ SOURCE = Path(__file__).resolve().parents[2] / "modules/desktop/_workspace-sessi
 SPEC = importlib.util.spec_from_file_location("workspace_sessions", SOURCE)
 APP = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(APP)
-SUFFIXES = [*(f"agent-{i}" for i in range(1, 7)), "shell-1", "shell-2", "tuicr", "nvim"]
-SESSION_NAMES = [f"{project}-{suffix}" for project in ("dataplatform", "homelab") for suffix in SUFFIXES]
+PROJECTS = {
+    "dataplatform": ("w", 2, [2, 3, 4]),
+    "homelab": ("l", 7, list(range(5, 13))),
+}
+SESSION_NAMES = [f"{prefix}{i}" for prefix, _, _ in PROJECTS.values() for i in range(1, 9)]
 
 
 class NativeCommands:
@@ -29,6 +31,7 @@ class NativeCommands:
         self.focus = "0xoriginal"
         self.direction = "r"
         self.hide_windows = False
+        self.run_shells = []
 
     def run(self, argv, **kwargs):
         argv = list(argv)
@@ -53,6 +56,8 @@ class NativeCommands:
                     name = args[args.index("-s") + 1]
                     assert name not in self.sessions, "Existing sessions must not be changed"
                     self.sessions[name] = {"panes": 1, "argv": args}
+            elif args[0] == "run-shell":
+                self.run_shells.append(args[1])
             else:
                 raise AssertionError(f"Unexpected tmux mutation: {args}")
         elif argv[0] == "herdr":
@@ -79,7 +84,7 @@ class NativeCommands:
                 cls = "com.pastelariadev." + name
                 if any(c["class"] == cls for c in self.clients):
                     continue
-                workspace = (2 if name.startswith("dataplatform") else 7) + int(name.endswith(("tuicr", "nvim")))
+                workspace = 2 if name.startswith("w") else 7
                 anchor = next((c for c in self.clients if c["address"] == self.focus and c["workspace"]["id"] == workspace), None)
                 size = [1920, 1080]
                 if anchor:
@@ -97,11 +102,14 @@ class WorkspaceBehavior(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.config = {"defaultCodingAgent": "codex", "shell": "/bin/sh", "projects": []}
-        for name, workspaces, code, review in (("dataplatform", [2, 3, 4], 2, 3), ("homelab", list(range(5, 13)), 7, 8)):
+        self.config = {"shell": "/bin/sh", "resurrect": "/nix/store/resurrect",
+                       "resurrectDir": str(Path(self.temp.name) / "resurrect"), "projects": []}
+        for name, (prefix, workspace, workspaces) in PROJECTS.items():
             directory = Path(self.temp.name) / (name + " project")
             directory.mkdir()
-            self.config["projects"].append(dict(name=name, directory=str(directory), workspaces=workspaces, code=code, review=review))
+            self.config["projects"].append(dict(
+                name=name, directory=str(directory), workspaces=workspaces,
+                workspace=workspace, prefix=prefix, count=8))
         self.native = NativeCommands()
         self.addCleanup(patch.stopall)
         patch("subprocess.run", side_effect=lambda *a, **kw: self.native.run(*a, **kw)).start()
@@ -110,56 +118,37 @@ class WorkspaceBehavior(unittest.TestCase):
     def commands(self, name):
         return [call[4:] for call in self.native.calls if call[0] == "tmux" and call[4] == name]
 
-    def test_twenty_independent_sessions_with_one_pane_each(self):
+    def test_sixteen_independent_sessions_with_one_pane_each(self):
         for name in SESSION_NAMES:
             APP.bootstrap(self.config, name)
         self.assertEqual(set(self.native.sessions), set(SESSION_NAMES))
         self.assertTrue(all(session["panes"] == 1 for session in self.native.sessions.values()))
         creates = self.commands("new-session")
-        self.assertEqual(len(creates), 20)
-        commands = []
+        self.assertEqual(len(creates), 16)
         for argv in creates:
             self.assertIn("-d", argv)
             name = argv[argv.index("-s") + 1]
-            directory = next(p["directory"] for p in self.config["projects"] if name.startswith(p["name"] + "-"))
+            directory = next(p["directory"] for p in self.config["projects"] if name.startswith(p["prefix"]))
             self.assertEqual(argv[argv.index("-c") + 1], directory)
-            remainder = argv[argv.index("-c") + 2:]
-            if remainder[:1] == ["--"]:
-                remainder = remainder[1:]
-            if "-shell-" in name:
-                self.assertEqual(remainder, [])
-            else:
-                program = "codex" if "-agent-" in name else name.rsplit("-", 1)[1]
-                launch = "codex --yolo" if "-agent-" in name else shlex.quote(program)
-                self.assertEqual(remainder, [launch + "; exec " + shlex.quote(self.config["shell"])])
-                commands.append(program)
-        self.assertEqual(commands.count("codex"), 12)
-        self.assertEqual(commands.count("tuicr"), 2)
-        self.assertEqual(commands.count("nvim"), 2)
+            self.assertEqual(argv[argv.index("-c") + 2:], [])
 
     def test_existing_customized_session_is_preserved(self):
-        self.native.sessions["homelab-agent-1"] = {"panes": 7, "cwd": "/changed"}
-        APP.bootstrap(self.config, "homelab-agent-1")
+        self.native.sessions["l1"] = {"panes": 7, "cwd": "/changed"}
+        APP.bootstrap(self.config, "l1")
         self.assertEqual(self.commands("new-session"), [])
-        self.assertEqual(self.native.sessions["homelab-agent-1"], {"panes": 7, "cwd": "/changed"})
-        self.assertEqual(self.commands("has-session"), [["has-session", "-t", "=homelab-agent-1"]])
-
-    def test_configured_executable_is_quoted_without_permission_bypass(self):
-        self.config["defaultCodingAgent"] = "/tmp/agent's executable"
-        self.config["shell"] = "/tmp/shell with spaces"
-        APP.bootstrap(self.config, "homelab-agent-1")
-        self.assertEqual(self.commands("new-session")[0][-1], shlex.quote(self.config["defaultCodingAgent"]) + "; exec " + shlex.quote(self.config["shell"]))
+        self.assertEqual(self.native.sessions["l1"], {"panes": 7, "cwd": "/changed"})
+        self.assertEqual(self.commands("has-session"), [["has-session", "-t", "=l1"]])
 
     def test_creation_failure_preserves_other_sessions(self):
-        self.native.sessions["homelab-shell-1"] = {"panes": 1}
+        self.native.sessions["l2"] = {"panes": 1}
         self.native.fail_create = True
         with self.assertRaises(subprocess.CalledProcessError):
-            APP.bootstrap(self.config, "homelab-agent-1")
-        self.assertEqual(self.native.sessions, {"homelab-shell-1": {"panes": 1}})
+            APP.bootstrap(self.config, "l1")
+        self.assertEqual(self.native.sessions, {"l2": {"panes": 1}})
 
     def test_foreign_session_environment_does_not_select_other_server(self):
         with patch.dict(os.environ, {"TMUX": "/tmp/foreign,123,0", "HERDR_SESSION": "foreign"}):
-            APP.bootstrap(self.config, "homelab-shell-1")
+            APP.bootstrap(self.config, "l1")
             self.assertTrue(self.native.calls)
             for call in self.native.calls:
                 self.assertEqual(call[:4], ["tmux", "-N", "-L", "workspace-desktop"])
@@ -168,19 +157,19 @@ class WorkspaceBehavior(unittest.TestCase):
     def test_missing_directory_fails_before_rpc(self):
         Path(self.config["projects"][0]["directory"]).rmdir()
         with self.assertRaises(FileNotFoundError):
-            APP.bootstrap(self.config, "dataplatform-shell-1")
+            APP.bootstrap(self.config, "w1")
         self.assertEqual(self.native.calls, [])
 
     def test_readiness_precedes_creation(self):
         self.native.unready = 2
-        APP.bootstrap(self.config, "homelab-shell-1")
+        APP.bootstrap(self.config, "l1")
         self.assertEqual(len(self.commands("show-options")), 3)
         self.assertEqual(len(self.native.sessions), 1)
 
     def test_readiness_failure_is_bounded(self):
         self.native.unready = 1000
         with self.assertRaises(subprocess.CalledProcessError):
-            APP.bootstrap(self.config, "homelab-shell-1")
+            APP.bootstrap(self.config, "l1")
         self.assertGreater(len(self.native.calls), 1)
         self.assertLess(len(self.native.calls), 1000)
         self.assertEqual(self.native.sessions, {})
@@ -225,12 +214,12 @@ class WorkspaceBehavior(unittest.TestCase):
     def test_empty_workspaces_use_balanced_native_splits_once(self):
         with patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-test"}):
             APP.recover(self.config)
-        for ws, count, dimensions in ((2, 8, [480, 540]), (7, 8, [480, 540]), (3, 2, [960, 1080]), (8, 2, [960, 1080])):
+        for ws, count, dimensions in ((2, 8, [480, 540]), (7, 8, [480, 540])):
             clients = [c for c in self.native.clients if c["workspace"]["id"] == ws]
             self.assertEqual(len(clients), count)
             self.assertTrue(all(c["size"] == dimensions for c in clients), clients)
         self.assertEqual(self.native.focus, "0xoriginal")
-        self.assertEqual(len([call for call in self.native.calls if call[:3] == ["systemctl", "--user", "start"]]), 20)
+        self.assertEqual(len([call for call in self.native.calls if call[:3] == ["systemctl", "--user", "start"]]), 16)
         self.native.calls.clear()
         with patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-test"}):
             APP.recover(self.config)
@@ -264,6 +253,26 @@ class WorkspaceBehavior(unittest.TestCase):
             APP.recover(self.config)
         self.assertFalse(any("dispatch" in call for call in self.native.calls))
         self.assertTrue(all(client["workspace"]["id"] == 9 for client in self.native.clients))
+
+    def test_save_runs_resurrect_inside_the_desktop_server(self):
+        APP.save(self.config)
+        self.assertEqual(self.native.run_shells, ["/nix/store/resurrect/scripts/save.sh"])
+        self.assertEqual(self.native.calls[0][:4], ["tmux", "-N", "-L", "workspace-desktop"])
+
+    def test_save_without_server_does_not_autostart(self):
+        self.native.unready = 1
+        APP.save(self.config)
+        self.assertEqual(self.native.run_shells, [])
+
+    def test_restore_without_snapshot_does_nothing(self):
+        APP.restore(self.config)
+        self.assertEqual(self.native.calls, [])
+
+    def test_restore_replays_snapshot_before_windows(self):
+        Path(self.config["resurrectDir"]).mkdir()
+        (Path(self.config["resurrectDir"]) / "last").write_text("snapshot")
+        APP.restore(self.config)
+        self.assertEqual(self.native.run_shells, ["/nix/store/resurrect/scripts/restore.sh"])
 
 
 if __name__ == "__main__":

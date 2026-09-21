@@ -45,6 +45,8 @@
           kgp = "kubectl get pods";
           kgs = "kubectl get svc";
           kgn = "kubectl get nodes";
+          # tmux
+          t = "tmux -A -D -s";
         };
     in {
       # fzf shell integration (zsh equivalent of the former fzf-fish plugin).

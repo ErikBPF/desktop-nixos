@@ -6,12 +6,6 @@
 }: let
   flakeConfig = config;
 in {
-  options.defaultCodingAgent = lib.mkOption {
-    type = lib.types.singleLineStr;
-    default = "codex";
-    description = "Installed executable used when creating local desktop coding sessions.";
-  };
-
   config.flake.modules.nixos.desktop-workspaces = {
     users.users.${flakeConfig.username}.linger = true;
   };
@@ -26,39 +20,41 @@ in {
       {
         name = "dataplatform";
         directory = "${config.home.homeDirectory}/Documents/nstech/dataplatform";
+        # Routing range for `launch shell|nvim|yazi` by active workspace.
         workspaces = lib.range 2 4;
-        code = 2;
-        review = 3;
+        # Workspace that owns this project's eight window sessions.
+        workspace = 2;
+        prefix = "w";
+        count = 8;
       }
       {
         name = "homelab";
         directory = "${config.home.homeDirectory}/Documents/erik/homelab";
         workspaces = lib.range 5 12;
-        code = 7;
-        review = 8;
+        workspace = 7;
+        prefix = "l";
+        count = 8;
       }
     ];
     legacySessions = lib.concatMap (project:
       map (kind: {
         name = "${project.name}-${kind}";
         inherit (project) directory;
-        workspace = project.${kind};
       }) ["code" "review"])
     projects;
     sessions = lib.concatMap (project:
-      map (suffix: {
-        name = "${project.name}-${suffix}";
-        inherit (project) directory;
-        workspace =
-          if builtins.elem suffix ["tuicr" "nvim"]
-          then project.review
-          else project.code;
-      }) ((map (i: "agent-${toString i}") (lib.range 1 6)) ++ ["shell-1" "shell-2" "tuicr" "nvim"]))
+      map (index: {
+        name = "${project.prefix}${toString index}";
+        inherit (project) directory workspace;
+      }) (lib.range 1 project.count))
     projects;
+    # Session state (scrollback, cwd, running programs, pane layout) is saved
+    # here by tmux-resurrect and restored when desktop-tmux.service starts.
+    resurrect = "${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect";
+    resurrectDir = "${config.xdg.dataHome}/tmux/workspace-desktop";
     manifest = pkgs.writeText "desktop-workspaces.json" (builtins.toJSON {
-      inherit projects;
+      inherit projects resurrect resurrectDir;
       shell = "${pkgs.zsh}/bin/zsh";
-      inherit (flakeConfig) defaultCodingAgent;
     });
     coordinator = pkgs.writeShellApplication {
       name = "desktop-workspaces";
@@ -92,11 +88,23 @@ in {
       })
     ];
 
+    # Bare w1..w8 / l1..l8 attach this machine's persistent tmux session.
+    # Reuses the same exact-name bootstrap the desktop windows use, so a
+    # missing session is created (never a duplicate) before attaching.
+    programs.zsh.shellAliases = lib.listToAttrs (map (session: {
+        inherit (session) name;
+        value = "${command} bootstrap ${session.name} && exec tmux -N -L workspace-desktop attach-session -t =${session.name}";
+      })
+      sessions);
+
     xdg.configFile."tmux/desktop-workspaces.conf".text = ''
       source-file "${config.xdg.configHome}/tmux/tmux.conf"
       set-option -s exit-empty off
       set-option -s exit-unattached off
       set-option -g destroy-unattached off
+      set-option -g @resurrect-dir "${resurrectDir}"
+      set-option -g @resurrect-processes '"nvim->nvim" ssh'
+      run-shell "${resurrect}/resurrect.tmux"
     '';
 
     systemd.user.services =
@@ -108,11 +116,33 @@ in {
           };
           Service = {
             ExecStart = "${pkgs.tmux}/bin/tmux -D -L workspace-desktop -f ${config.xdg.configHome}/tmux/desktop-workspaces.conf";
+            # Restore the last resurrect snapshot before any window unit's
+            # bootstrap runs (a unit is only active once ExecStartPost exits).
+            ExecStartPost = "-${command} restore";
             Environment = ["PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"];
             UnsetEnvironment = ["TMUX"];
             Restart = "on-failure";
             RestartSec = 2;
           };
+        };
+        tmux-save = {
+          Unit.Description = "Save desktop tmux session state";
+          Service = {
+            Type = "oneshot";
+            ExecStart = "${command} save";
+          };
+        };
+        tmux-save-shutdown = {
+          Unit = {
+            Description = "Save desktop tmux session state before shutdown";
+            DefaultDependencies = false;
+            Before = ["shutdown.target"];
+          };
+          Service = {
+            Type = "oneshot";
+            ExecStart = "${command} save";
+          };
+          Install.WantedBy = ["shutdown.target"];
         };
       }
       // builtins.listToAttrs (map (project: let
@@ -174,6 +204,16 @@ in {
           };
         })
       sessions);
+
+    systemd.user.timers.tmux-save = {
+      Unit.Description = "Periodically save desktop tmux session state";
+      Timer = {
+        OnStartupSec = "5min";
+        OnUnitActiveSec = "5min";
+        Unit = "tmux-save.service";
+      };
+      Install.WantedBy = ["timers.target"];
+    };
 
     wayland.windowManager.hyprland.settings = {
       terminal = lib.mkForce {_var = "${command} launch shell";};

@@ -29,13 +29,6 @@
   in {
     home.packages = [herdr pkgs.jq];
 
-    home.shellAliases = {
-      l1 = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
-      l2 = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l2'";
-      w1 = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec herdr --session w1'";
-      w2 = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec herdr --session w2'";
-    };
-
     xdg.configFile."nvim/after/plugin/herdr_nav.lua".source = "${vimHerdrNavigation}/editor/nvim.lua";
 
     home.activation.linkVimHerdrNavigation = lib.hm.dag.entryAfter ["installPackages"] ''
