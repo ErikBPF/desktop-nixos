@@ -53,6 +53,17 @@ in {
       m.nixos.orion-wazuh-agent
     ];
 
+    # Fleet default (modules/services/logrotate.nix) caps the journal at 50M,
+    # which rotated away the 03:00 nix-cache-builder failure before it could be
+    # read. Override for this host: the builder emits ~40 min of Nix output and
+    # is the fleet's only failing-on-schedule unit.
+    services.journald.extraConfig = lib.mkForce ''
+      Storage=persistent
+      SystemMaxUse=2G
+      SystemKeepFree=1G
+      MaxRetentionSec=1month
+    '';
+
     # Host the fleet's shared sccache (dev-loop cargo) cache on the tailnet.
     services.sccacheCache.enable = true;
 
