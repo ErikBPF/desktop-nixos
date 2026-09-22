@@ -118,7 +118,8 @@
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
       inputs.flake-parts.follows = "flake-parts";
       inputs.home-manager.follows = "home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
+      # Match the published flake's toolchain; newer Bun changes dependency hashes.
+      inputs.nixpkgs.url = "github:nixos/nixpkgs/3ed67ec0a4d3c7ab4ae1f04f8ee8df07bfa506a2";
     };
 
     opencode-tui = {
