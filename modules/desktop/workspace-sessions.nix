@@ -163,7 +163,10 @@ in {
           Service = {
             ExecStart = "${package}/bin/${profile} serve --hostname 127.0.0.1 --port ${toString port}";
             WorkingDirectory = project.directory;
-            Environment = ["PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"];
+            Environment = [
+              "OPENCODE_DB=${config.xdg.dataHome}/opencode/opencode-${project.name}.db"
+              "PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"
+            ];
             Restart = "on-failure";
             RestartSec = 2;
           };

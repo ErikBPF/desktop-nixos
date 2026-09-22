@@ -15,7 +15,7 @@ class Configuration(unittest.TestCase):
         expression = '''c: let h = c.home-manager.users.erik; in {
           units = builtins.listToAttrs (map (name: {
             inherit name; value = h.systemd.user.services.${name};
-          }) (builtins.filter (name: builtins.match "(desktop-.*|tmux-save.*)" name != null)
+          }) (builtins.filter (name: builtins.match "(desktop-.*|opencode-.*|tmux-save.*)" name != null)
             (builtins.attrNames h.systemd.user.services)));
           timers = h.systemd.user.timers;
           linger = c.users.users.erik.linger;
@@ -81,6 +81,16 @@ class Configuration(unittest.TestCase):
         timer = self.config["timers"]["tmux-save"]
         self.assertEqual(timer["Timer"]["Unit"], "tmux-save.service")
         self.assertIn("timers.target", timer["Install"]["WantedBy"])
+
+    def test_opencode_backends_use_independent_databases(self):
+        units = self.config["units"]
+        expected = {
+            "opencode-homelab": "opencode-homelab.db",
+            "opencode-dataplatform": "opencode-dataplatform.db",
+        }
+        for name, database in expected.items():
+            environment = units[name]["Service"]["Environment"]
+            self.assertTrue(any(value.endswith("/" + database) for value in environment), name)
 
     def test_preserve_old_herdr_backends_during_transition(self):
         """Removing attachment windows must not remove the live servers."""
