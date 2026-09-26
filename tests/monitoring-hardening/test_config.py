@@ -66,7 +66,7 @@ def test_cluster_log_collector_uses_in_cluster_loki():
     config = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
 
     assert 'http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push' in config
-    assert "100.76.140.121:3100" not in config
+    assert "100.103.52.100:3100" not in config
 
 
 def test_operator_metric_clients_use_kubernetes_prometheus():
