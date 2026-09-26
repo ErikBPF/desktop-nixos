@@ -17,13 +17,14 @@ _: {
     # 1. Persistent, larger journal. Fleet default (modules/services/logrotate.nix)
     #    caps at 50M, which lost the last outage window. Override for this host:
     #    keep ~1 month on disk so a hiccup is still there days later.
-    services.journald.extraConfig = lib.mkForce ''
-      Storage=persistent
-      SystemMaxUse=2G
-      SystemKeepFree=1G
-      MaxRetentionSec=1month
-      MaxFileSec=1day
-    '';
+    services.journald.settings.Journal = lib.mkForce {
+      Audit = "keep";
+      Storage = "persistent";
+      SystemMaxUse = "2G";
+      SystemKeepFree = "1G";
+      MaxRetentionSec = "1month";
+      MaxFileSec = "1day";
+    };
 
     # 2. Tighten sysstat (already enabled fleet-wide in modules/security/audit.nix)
     #    from the default 10-min cadence to 2-min, so `sar` per-interface error

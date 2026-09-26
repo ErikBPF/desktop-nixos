@@ -107,15 +107,14 @@ just deploy pathfinder 192.168.10.215 2222
 
 ### Fleet auto-update
 
-Orion builds and caches all host closures at 03:00. All hosts (including orion)
-update at 05:00 once the cache is warm. Every fleet host — pathfinder,
-discovery, laptop, orion, kepler, **archinaut** — has `system.autoUpgrade`
-enabled.
+Orion builds and caches all host closures at 03:00. Hosts with
+`system.autoUpgrade` enabled update at 05:00 once the cache is warm.
+Endeavour uses manual upgrades (`just upgrade`) and has no nightly update timer.
 
 - orion `nix-cache-builder`: 03:00
-- all hosts: 05:00
+- auto-update hosts: 05:00
 
-No manual deploys needed after merging to main.
+Auto-update hosts need no manual deploys after merging to main.
 
 > **kepler generation cap:** kepler's ESP is 512 MB and holds ~2 generations
 > (`configurationLimit = 2` in `modules/hosts/kepler/default.nix`). More

@@ -115,13 +115,14 @@ in {
 
     # Keep the outage window locally when Kepler disappears before Alloy can
     # push it. NixOS already archives firmware pstore records at boot.
-    services.journald.extraConfig = lib.mkForce ''
-      Storage=persistent
-      SystemMaxUse=2G
-      SystemKeepFree=1G
-      MaxRetentionSec=1month
-      MaxFileSec=1day
-    '';
+    services.journald.settings.Journal = lib.mkForce {
+      Audit = "keep";
+      Storage = "persistent";
+      SystemMaxUse = "2G";
+      SystemKeepFree = "1G";
+      MaxRetentionSec = "1month";
+      MaxFileSec = "1day";
+    };
 
     # Turn both kernel lockup detectors into panic -> reboot recovery. The
     # shared boot-counting module supplies panic=10; 30s avoids treating a

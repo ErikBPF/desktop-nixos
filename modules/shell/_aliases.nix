@@ -122,12 +122,7 @@ _: {
 
   # --- Persistent umbrella sessions and remote repo jumps ---
   hal = "herdr agent list";
-  hg = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
-  hgs = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
   hl = "herdr session list";
-  hlab = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
-  hdap = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec herdr --session w1'";
-  hr = "ssh -t orion 'cd ~/Documents/erik/homelab && exec herdr --session l1'";
   snix = "ssh -t orion 'cd ~/Documents/erik/desktop-nixos && exec zsh -l'";
   sdp = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform && exec zsh -l'";
   sspark = "ssh -t apollo 'cd ~/Documents/nstech/dataplatform-spark && exec zsh -l'";

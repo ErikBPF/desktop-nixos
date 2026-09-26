@@ -110,15 +110,7 @@ in {
       memoryPercent = 25;
     };
     modules.security.tor-monitor.enable = true;
-    system.autoUpgrade = {
-      enable = true;
-      flake = "git+https://github.com/ErikBPF/desktop-nixos?ref=main#endeavour";
-      operation = "switch";
-      flags = ["--show-trace"];
-      allowReboot = false;
-      dates = "05:00";
-      randomizedDelaySec = "900";
-    };
+    system.autoUpgrade.enable = false;
     services.openssh.enable = true;
     users.users.${flakeConfig.username}.openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
