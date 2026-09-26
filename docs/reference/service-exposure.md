@@ -61,7 +61,7 @@ publishing**.
 
 ## Follow-up candidates (decisions, not yet done — `TODO(erik)`)
 
-1. **Bind `prometheus`/`loki` to the tailnet IP** (`100.76.140.121`) instead
+1. **Bind `prometheus`/`loki` to the tailnet IP** (`100.103.52.100`) instead
    of `0.0.0.0` — fleet pushes arrive over Tailscale, so LAN exposure buys
    nothing. Verify no LAN-path pusher first (kepler/orion alloy configs).
 2. **Drop LAN publishes for `seerr`/`gluetun` UIs (5055/9080/9696)** if the
