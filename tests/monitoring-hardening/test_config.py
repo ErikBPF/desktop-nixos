@@ -44,7 +44,7 @@ def test_kepler_alloy_scrapes_its_local_postgres_exporter():
     config = (ROOT / "modules/hosts/kepler/monitoring.nix").read_text()
 
     assert '"job"         = "postgres-kepler"' in config
-    assert '"__address__" = "100.94.239.46:9187"' in config
+    assert '"__address__" = "100.90.113.117:9187"' in config
 
 
 def test_alloy_pushes_to_kubernetes_backends():
