@@ -1,13 +1,9 @@
-{config, ...}: {
-  flake.modules.nixos.orion-networking = {lib, ...}: {
+{...}: {
+  flake.modules.nixos.orion-networking = {lib, pkgs, ...}: {
     networking = {
       hostName = "orion";
       networkmanager.enable = true;
       networkmanager.dns = "systemd-resolved";
-      networkmanager.settings."connection-orion-wol" = {
-        match-device = "mac:${config.flake.fleet.hosts.orion.mac}";
-        "ethernet.wake-on-lan" = 64; # magic packet
-      };
       firewall = {
         enable = true;
         checkReversePath = "loose";
@@ -20,6 +16,21 @@
           # 8642/8644 closed — hermes-agent relocated to Discovery on 2026-05-23.
         ];
         allowedUDPPorts = [21027];
+      };
+    };
+
+    # Wake-on-LAN: re-arm the NIC register on every boot. The register is lost
+    # across a full power cycle, and NetworkManager's `wake-on-lan` connection
+    # property only takes effect once a profile is active — a boot oneshot is
+    # the simplest guarantee for remote wake.
+    systemd.services.orion-wol = {
+      description = "Enable Wake-on-LAN (magic packet) on enp4s0";
+      wantedBy = ["multi-user.target"];
+      after = ["network-pre.target"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${pkgs.ethtool}/bin/ethtool -s enp4s0 wol g";
       };
     };
 
