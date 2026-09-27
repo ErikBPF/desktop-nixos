@@ -1,5 +1,9 @@
 _: {
-  flake.modules.nixos.orion-networking = {lib, pkgs, ...}: {
+  flake.modules.nixos.orion-networking = {
+    lib,
+    pkgs,
+    ...
+  }: {
     networking = {
       hostName = "orion";
       networkmanager.enable = true;
