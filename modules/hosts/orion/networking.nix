@@ -1,4 +1,4 @@
-{...}: {
+_: {
   flake.modules.nixos.orion-networking = {lib, pkgs, ...}: {
     networking = {
       hostName = "orion";
