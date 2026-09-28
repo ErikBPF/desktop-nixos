@@ -13,7 +13,7 @@ _: {
 
       prometheus.scrape "postgres_kepler" {
         targets = [{
-          "__address__" = "100.94.239.46:9187",
+          "__address__" = "100.90.113.117:9187",
           "job"         = "postgres-kepler",
           "host"        = "kepler",
         }]
