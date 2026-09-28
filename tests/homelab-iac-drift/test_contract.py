@@ -43,7 +43,7 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
 def test_pinned_iac_revision_manages_cognee_repo():
     flake = (Path(__file__).parents[2] / "flake.nix").read_text()
 
-    assert "f4c9aadd73c7666ce29d4bef60a04caf6a0390c9" in flake
+    assert "50b47432b80ce15fd8e6d27ccbe4763ab558cc7f" in flake
 
 
 def test_drift_path_keeps_git_for_terragrunt_repo_root():
