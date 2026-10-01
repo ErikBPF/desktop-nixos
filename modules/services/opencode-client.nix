@@ -33,5 +33,15 @@
       mode = "0400";
       path = "/run/secrets/opencode/work_key";
     };
+    # zen_key = OpenCode account key. Read via `{file:...}` by the direct
+    # `opencode-go` provider in modules/dev/opencode.nix. Bypasses the LiteLLM
+    # pool; keep the key scoped to Go-capable workspaces.
+    sops.secrets."opencode/zen_key" = {
+      sopsFile = self + "/secrets/sops/secrets.yaml";
+      key = "opencode/zen_key";
+      owner = "erik";
+      mode = "0400";
+      path = "/run/secrets/opencode/zen_key";
+    };
   };
 }
