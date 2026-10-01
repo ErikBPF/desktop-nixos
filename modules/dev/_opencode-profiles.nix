@@ -49,11 +49,7 @@
       omo = true;
     };
   };
-  modelFor = profile: "${profile.provider}/${
-    if profile.provider == "litellm"
-    then "codex-gpt-6-astra"
-    else "deepseek-v4.1-flash"
-  }";
+  modelFor = profile: "${profile.provider}/deepseek-v4.1-flash";
   files = name: profile: let
     model = modelFor profile;
     prefix = "opencode/profiles/${name}/";
@@ -104,7 +100,6 @@ in {
     profiles = lib.mapAttrs (_: profile: let
       route = {
         model = modelFor profile;
-        fallback_models = lib.optional (profile.provider == "litellm") "litellm/deepseek-v4.1-flash";
       };
     in {
       "[opencode]" = {

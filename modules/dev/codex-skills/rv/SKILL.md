@@ -48,16 +48,21 @@ nested review tree.
 5. Rewrite like you know the end after correctness fixes: state the observed
    accepted outcome, work backward through boundaries, interfaces, names and
    rationale, and remove dead experiments, temporary glue and tangents from the
-   final delivery. Keep first-draft receipts and RED anchors. Apply the simplicity
-   pass without changing accepted behavior, backdating tests or inventing certainty.
-6. Rerun bound `.feature` scenarios, focused tests, the relevant suite, and
-   repository checks after final edits.
+   final delivery, and replace the cheap version of each surviving part. Keep
+   first-draft receipts and RED anchors. Apply the simplicity pass without
+   changing accepted behavior, backdating tests or inventing certainty.
+6. Rerun bound `.feature` scenarios, focused tests, slice verification commands,
+   the relevant suite and repository checks after final edits, using each slice's
+   declared shell and toolchain.
 7. Repeat once only if final validation exposes new evidence. Otherwise stop
    and report the remaining blocker.
 
 Return changed files, verified findings fixed, discarded findings, validation
-commands and results, and unresolved risks. Never claim a `.feature` scenario
-passed unless its bound runner actually ran.
+commands and results, and unresolved risks. Re-measure every completion claim and
+figure immediately before reporting; report met, unmet and abandoned counts,
+surface each abandonment or handoff, and never compose a done report while a
+required gate is unmet. Never claim a `.feature` scenario passed unless its
+bound runner actually ran.
 
 Apply the shared evidence-and-feedback policy. Review the frozen first draft
 independently before the second-draft rewrite; preserve discovery receipts and

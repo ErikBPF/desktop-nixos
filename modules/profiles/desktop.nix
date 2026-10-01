@@ -72,6 +72,7 @@ in {
       m.home.tuicr
       m.home.buzz
       m.home.opencode
+      m.home.goose
       m.home.hermes-agent
       m.home.herdr
       m.home.tmux

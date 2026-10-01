@@ -118,6 +118,14 @@
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
       inputs.flake-parts.follows = "flake-parts";
       inputs.home-manager.follows = "home-manager";
+      # Match the published flake's toolchain; newer Bun changes dependency hashes.
+      inputs.nixpkgs.url = "github:nixos/nixpkgs/3ed67ec0a4d3c7ab4ae1f04f8ee8df07bfa506a2";
+    };
+
+    opencode-tui = {
+      url = "github:ErikBPF/opencode-tui";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.home-manager.follows = "home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -128,7 +136,7 @@
 
     # Runtime jobs execute this reviewed source revision, never a mutable checkout.
     homelab-iac = {
-      url = "github:ErikBPF/homelab-iac/88c8714f577ba57bb0fe588d0d9ea8c4ea747c00";
+      url = "github:ErikBPF/homelab-iac/50b47432b80ce15fd8e6d27ccbe4763ab558cc7f";
       flake = false;
     };
 

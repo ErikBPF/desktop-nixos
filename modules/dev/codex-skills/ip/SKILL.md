@@ -16,7 +16,11 @@ RFC/ADR/spec is explicit-request-only. Preserve seed integrity and test gates.
    - observable result and scenario;
    - RED test/bound scenario, command and expected failure;
    - minimum GREEN surface;
-   - focused/broader checks, owner, dependencies, rollout and rollback.
+   - an exact verification command and the success-only marker it prints only
+     after every assertion passes (zero exit plus marker); a criterion that
+     cannot be made runnable becomes an explicit handoff or abandon, never a
+     silent omission;
+   - owner, dependencies, rollout and rollback.
 5. Use `$map` for decisions, available TDD for slices, `$codehero` for risk gates.
    Order useful green PRs leaf-first, then consumers, then deployment; name
    predecessors. Specify any authorized live target and bounded campaign.
@@ -25,6 +29,12 @@ RFC/ADR/spec is explicit-request-only. Preserve seed integrity and test gates.
    edge cases; check security/specialist risks, evidence, ownership and rollback.
    Apply accepted findings and rerun checks; behavior changes return to `$pl`.
    Use direct equivalents when supporting skills are unavailable.
+
+Author each verification so it can fail honestly: observe the outcome directly,
+print the success marker only after all assertions pass, test absence checks
+against a known positive control, measure supplied figures independently rather
+than copying them into the expectation, and rerun with the same shell and
+toolchain the slice declares.
 
 Reuse one planning artifact; no speculative tickets or abstractions. For a
 substantial plan, preserve discovery, obtain fresh independent review without a

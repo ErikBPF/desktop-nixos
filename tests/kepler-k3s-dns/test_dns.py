@@ -14,3 +14,9 @@ def test_coredns_routes_private_zone_only_to_adguard():
     assert "services.k3s.manifests.coredns-private-zone.content" in module
     assert "homelab.pastelariadev.com:53" in module
     assert "forward . 192.168.10.210" in module
+
+
+def test_coredns_routes_the_k8s_zone_to_adguard_too():
+    module = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
+    assert "k8s.pastelariadev.com:53" in module
+    assert module.count("forward . 192.168.10.210") == 2

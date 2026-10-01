@@ -9,7 +9,7 @@
     sopsFile = self + "/secrets/sops/secrets.yaml";
     vaultConfig = pkgs.writeText "wazuh-agent-vault.hcl" ''
       pid_file = "${runtimeDir}/vault.pid"
-      vault { address = "http://100.76.140.121:8200" }
+      vault { address = "http://100.103.52.100:8200" }
       auto_auth {
         method "approle" {
           mount_path = "auth/approle"

@@ -110,8 +110,10 @@ Orion boot-only upgrades were restored after PR #284 merged, with automatic
 reboot disabled. Maintenance must account for sessions. Closing a laptop should preserve
 work; rebooting its execution host interrupts processes.
 
-Gemini retirement is authorized. Legacy `hg`, `hgs`, `hlab` and `hr` now enter
-Orion `l1`; `hdap` enters Apollo `w1`. The per-repository Gemini launcher is removed.
+Gemini retirement is authorized. The legacy `hg`, `hgs`, `hlab`, `hr` and `hdap`
+entrypoints were removed once the local desktop `w1..w8`/`l1..l8` tmux sessions
+became the canonical workspaces; use those, or `snix`/`sdp` for a plain remote
+shell. The per-repository Gemini launcher is removed.
 
 ## Isolated disconnect smoke check
 

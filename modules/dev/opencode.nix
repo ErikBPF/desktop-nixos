@@ -25,7 +25,15 @@
       }) ["low" "medium" "high" "xhigh" "max"]);
     };
   in {
-    imports = [inputs.opencode-flake.homeManagerModules.withPackage ./_opencode-profiles.nix];
+    imports = [
+      inputs.opencode-flake.homeManagerModules.withPackage
+      inputs.opencode-tui.homeManagerModules.withPackage
+      ./_opencode-profiles.nix
+    ];
+
+    # Rust/ratatui client that attaches to the local `opencode serve`. It
+    # never starts a server; OPENCODE_URL points at the fleet default.
+    programs.opencode-tui.enable = true;
 
     # rtk comes from modules/dev/codex.nix (hiPrio 0.48.0). Adding pkgs.rtk here
     # too put two different store paths with the same bin/rtk subpath in one
@@ -71,8 +79,8 @@
         # Custom providers need Go's session header as well as OpenCode's native headers.
         "./plugins/gateway-headers.mjs"
       ];
-      model = "litellm/codex-gpt-6-astra";
-      small_model = "litellm/codex-gpt-6-astra";
+      model = "litellm/deepseek-v4.1-flash";
+      small_model = "litellm/deepseek-v4.1-flash";
       # 1.18.29 still uses this filter; policies cover the newer core path.
       enabled_providers = ["litellm" "work"];
 
@@ -323,6 +331,12 @@
             bash = "deny";
           };
         };
+      };
+
+      mcp.donsetch = {
+        type = "local";
+        command = ["npx" "-y" "donsetch@4.2.9" "mcp" "--supervised"];
+        enabled = true;
       };
 
       compaction = {

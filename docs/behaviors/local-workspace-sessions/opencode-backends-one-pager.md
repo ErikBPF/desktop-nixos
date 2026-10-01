@@ -60,6 +60,21 @@ ol # homelab, home backend
 ow # dataplatform, work backend
 ```
 
+## 2026-09-21 database isolation and compaction
+
+Both services now set an explicit `OPENCODE_DB`: `opencode-homelab.db` for
+port 4096 and `opencode-dataplatform.db` for port 4097. Historical records were
+split by project worktree; `/home/erik/Documents/nstech/dataplatform*` belongs
+to dataplatform and every other project belongs to homelab. Each event stream
+retains its latest event per session and event type.
+
+The stopped source database was backed up and integrity-checked before the
+split. Both resulting databases pass SQLite integrity and foreign-key checks;
+they are 240 MiB and 186 MiB respectively. Runtime verification observed both
+services healthy on their expected ports and explicit database paths, with
+idle CPU below 1% per server. The retired source remains recoverable under the
+local OpenCode backup directory.
+
 ## Risks and recovery
 
 Original profile-test filesystem blocker remains separate work. Rollback requires removing only the new backend declarations and running `just home-switch endeavour`; obtain authorization before retiring live backend sessions. No commit or push made.

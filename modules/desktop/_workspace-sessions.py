@@ -5,7 +5,6 @@ import fcntl
 import os
 from pathlib import Path
 import subprocess
-import shlex
 import sys
 import time
 
@@ -16,34 +15,50 @@ def run(*argv):
 
 def sessions(config):
     for project in config["projects"]:
-        for index in range(1, 7):
-            yield project, f"{project['name']}-agent-{index}", config["defaultCodingAgent"]
-        for index in range(1, 3):
-            yield project, f"{project['name']}-shell-{index}", None
-        for program in ("tuicr", "nvim"):
-            yield project, f"{project['name']}-{program}", program
+        for index in range(1, project["count"] + 1):
+            yield project, f"{project['prefix']}{index}", None
 
 
-def bootstrap(config, session):
-    project, _, program = next(item for item in sessions(config) if item[1] == session)
-    directory = project["directory"]
-    if not Path(directory).is_dir():
-        raise FileNotFoundError(f"Project directory is unavailable: {directory}")
+def wait_ready():
     prefix = ["tmux", "-N", "-L", "workspace-desktop"]
     for attempt in range(40):
         try:
             run(*prefix, "show-options", "-s", "exit-empty")
-            break
+            return prefix
         except subprocess.CalledProcessError:
             if attempt == 39:
                 raise
             time.sleep(0.25)
+
+
+def bootstrap(config, session):
+    project, _, _ = next(item for item in sessions(config) if item[1] == session)
+    directory = project["directory"]
+    if not Path(directory).is_dir():
+        raise FileNotFoundError(f"Project directory is unavailable: {directory}")
+    prefix = wait_ready()
     existing = subprocess.run([*prefix, "has-session", "-t", "=" + session], text=True, capture_output=True)
     if existing.returncode == 0:
         return
-    launch = "codex --yolo" if program == "codex" else shlex.quote(program or "")
-    command = [] if program is None else [launch + "; exec " + shlex.quote(config["shell"])]
-    run(*prefix, "new-session", "-d", "-s", session, "-c", directory, *command)
+    run(*prefix, "new-session", "-d", "-s", session, "-c", directory)
+
+
+def server_ready():
+    return subprocess.run(["tmux", "-N", "-L", "workspace-desktop", "show-options", "-s", "exit-empty"],
+                          text=True, capture_output=True).returncode == 0
+
+
+def save(config):
+    if not server_ready():
+        return
+    run("tmux", "-N", "-L", "workspace-desktop", "run-shell", f"{config['resurrect']}/scripts/save.sh")
+
+
+def restore(config):
+    if not (Path(config["resurrectDir"]) / "last").exists():
+        return
+    prefix = wait_ready()
+    run(*prefix, "run-shell", f"{config['resurrect']}/scripts/restore.sh")
 
 
 def launch(config, app):
@@ -89,22 +104,21 @@ def recover_windows(config):
     groups = []
     existing = []
     for project in config["projects"]:
-        for role in ("code", "review"):
-            names = [name for item, name, _ in sessions(config)
-                     if item is project and (name.endswith(("-tuicr", "-nvim"))) == (role == "review")]
-            if project[role] in occupied or any("com.pastelariadev." + name in existing_classes for name in names):
-                existing.extend(names)
-            else:
-                groups.append((project[role], names))
+        names = [name for item, name, _ in sessions(config) if item is project]
+        if project["workspace"] in occupied or any("com.pastelariadev." + name in existing_classes for name in names):
+            existing.extend(names)
+        else:
+            groups.append((project["workspace"], names))
     original = json.loads(run("hyprctl", "-j", "activewindow").stdout) if groups else {}
     original_workspace = json.loads(run("hyprctl", "-j", "activeworkspace").stdout)["id"] if groups else None
     try:
         for workspace, names in groups:
             run("hyprctl", "dispatch", f"hl.dsp.focus({{workspace = {workspace}}})")
             opened = []
+            observed = initial
             for name in names:
                 if opened:
-                    tiled = [client for client in clients() if client["address"] in opened and not client.get("floating")]
+                    tiled = [client for client in observed if client["address"] in opened and not client.get("floating")]
                     if tiled:
                         anchor = max(tiled, key=lambda client: client["size"][0] * client["size"][1])
                         run("hyprctl", "dispatch", "hl.dsp.focus({window = " + json.dumps("address:" + anchor["address"]) + "})")
@@ -112,7 +126,8 @@ def recover_windows(config):
                         run("hyprctl", "dispatch", "hl.dsp.layout(" + json.dumps("preselect " + direction) + ")")
                 run("systemctl", "--user", "start", f"desktop-window-{name}.service")
                 for _ in range(100):
-                    window = next((client for client in clients() if client["class"] == "com.pastelariadev." + name
+                    observed = clients()
+                    window = next((client for client in observed if client["class"] == "com.pastelariadev." + name
                                    and client["workspace"]["id"] == workspace), None)
                     if window:
                         opened.append(window["address"])
@@ -141,8 +156,12 @@ if __name__ == "__main__":
             launch(config, sys.argv[3])
         elif mode == "recover" and len(sys.argv) == 3:
             recover(config)
+        elif mode == "save" and len(sys.argv) == 3:
+            save(config)
+        elif mode == "restore" and len(sys.argv) == 3:
+            restore(config)
         else:
-            raise ValueError("Usage: desktop-workspaces bootstrap SESSION | recover | launch shell|nvim|yazi")
+            raise ValueError("Usage: desktop-workspaces bootstrap SESSION | recover | save | restore | launch shell|nvim|yazi")
     except subprocess.CalledProcessError as error:
         print(f"desktop-workspaces: {' '.join(error.cmd)} failed: {(error.stderr or '').strip()}", file=sys.stderr)
         sys.exit(1)

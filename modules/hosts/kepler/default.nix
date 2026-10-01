@@ -84,7 +84,7 @@ in {
     kepler.k3s.workerVcpu = 4;
     services.harborReader = {
       enable = true;
-      address = "http://100.76.140.121:8200";
+      address = "http://100.103.52.100:8200";
       roleIdFile = config.sops.secrets.openbao-harbor-reader-kepler-role-id.path;
       secretIdFile = config.sops.secrets.openbao-harbor-reader-kepler-secret-id.path;
       format = "k3s";
@@ -115,13 +115,14 @@ in {
 
     # Keep the outage window locally when Kepler disappears before Alloy can
     # push it. NixOS already archives firmware pstore records at boot.
-    services.journald.extraConfig = lib.mkForce ''
-      Storage=persistent
-      SystemMaxUse=2G
-      SystemKeepFree=1G
-      MaxRetentionSec=1month
-      MaxFileSec=1day
-    '';
+    services.journald.settings.Journal = lib.mkForce {
+      Audit = "keep";
+      Storage = "persistent";
+      SystemMaxUse = "2G";
+      SystemKeepFree = "1G";
+      MaxRetentionSec = "1month";
+      MaxFileSec = "1day";
+    };
 
     # Turn both kernel lockup detectors into panic -> reboot recovery. The
     # shared boot-counting module supplies panic=10; 30s avoids treating a
