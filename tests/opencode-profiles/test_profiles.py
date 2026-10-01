@@ -27,10 +27,11 @@ class Profiles(unittest.TestCase):
         settings = module["globalSettings"]
         self.assertEqual(settings["model"], "litellm/deepseek-v4.1-flash")
         self.assertEqual(settings["small_model"], "litellm/deepseek-v4.1-flash")
-        self.assertEqual(set(settings["provider"]), {"litellm", "work"})
+        self.assertEqual(set(settings["provider"]), {"litellm", "work", "opencode-go", "openai"})
         self.assertEqual(settings["provider"]["litellm"]["models"]["codex-gpt-6-astra"]["options"]["reasoningEffort"], "low")
+        self.assertEqual(settings["provider"]["openai"]["models"]["gpt-6-astra"]["options"]["reasoningEffort"], "low")
         self.assertEqual(settings["provider"]["work"]["models"]["deepseek-v4.1-flash"]["options"]["reasoningEffort"], "max")
-        self.assertEqual(settings["enabled_providers"], ["litellm", "work"])
+        self.assertEqual(settings["enabled_providers"], ["litellm", "work", "opencode-go", "openai"])
         self.assertEqual(set(settings["provider"]["work"]["models"]), {
             "chatgpt-5.6-luna", "chatgpt-5.6-sol", "chatgpt-5.6-terra",
             "deepseek-v4.1-flash", "glm-5.3-flash"})
@@ -68,7 +69,7 @@ class Profiles(unittest.TestCase):
                     config = json.loads(files[prefix + "opencode.json"]["text"])
                     self.assertEqual(config["model"], model)
                     self.assertEqual(config["small_model"], model)
-                    self.assertEqual(config["enabled_providers"], [provider])
+                    self.assertEqual(config["enabled_providers"], [provider, "opencode-go", "openai"])
                     self.assertNotIn("agent", config)
                     if suffix:
                         omo = json.loads(module["home"]["file"][".omo/omo.jsonc"]["text"])["profiles"][lane + suffix]["[opencode]"]
@@ -94,7 +95,7 @@ class Profiles(unittest.TestCase):
                                                 cwd=repo, env=env, capture_output=True, text=True, check=True, timeout=30)
                         effective = json.loads(result.stdout)
                         self.assertEqual(effective["model"], model)
-                        self.assertEqual(effective["enabled_providers"], [provider])
+                        self.assertEqual(effective["enabled_providers"], [provider, "opencode-go", "openai"])
                         result = subprocess.run([shutil.which("opencode"), "models", "--pure"], cwd=repo,
                                                 env=env, capture_output=True, text=True, check=True, timeout=30)
                         self.assertEqual(result.stdout.strip().splitlines(), [model])
