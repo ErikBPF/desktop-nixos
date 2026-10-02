@@ -24,6 +24,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`reference/2026-10-02-cp1-clocksource-canary.md`](reference/2026-10-02-cp1-clocksource-canary.md) | Kepler guest clocksource canary, persistent deployment, dependency-stop failures and recovery. | All six guests persistent and verified; phased rollout failed; final guard activation preserved guest boots |
 | [`behaviors/local-workspace-sessions/opencode-backends-one-pager.md`](behaviors/local-workspace-sessions/opencode-backends-one-pager.md) | Endeavour persistent homelab/work backends, attach commands and deployment evidence. | Deployed and runtime-verified; original profile test blocked |
 | [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. | Identity loss and recovery proven; recipient confirmation pending |
 | [`reference/2026-08-30-kepler-k3s-etcd-io-incident.md`](reference/2026-08-30-kepler-k3s-etcd-io-incident.md) | Kepler k3s outage evidence, shared-pool etcd latency mechanism, safe writer capture, and storage-remediation gate. | Mitigated; writer attribution and storage redesign open |
