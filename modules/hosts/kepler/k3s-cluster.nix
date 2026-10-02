@@ -198,6 +198,9 @@ in {
     in {
       # Keep the guests on the host's already-running 7.2 kernel baseline.
       boot.kernelPackages = config.boot.kernelPackages;
+      # The cp-1 canary passed after the October 2 timer/RCU stall.
+      # See docs/reference/2026-10-02-cp1-clocksource-canary.md.
+      boot.kernelParams = ["clocksource=kvm-clock"];
 
       imports =
         [
@@ -629,15 +632,25 @@ in {
       systemd.targets.microvms.wants = ["k3s-bootstrap-materialize.service"];
       microvm.stateDir = "/fast/microvms";
       microvm.autostart = allNames;
-      microvm.vms = lib.genAttrs allNames (name: {config = mkGuest name;});
+      microvm.vms = lib.genAttrs allNames (name: {
+        config = mkGuest name;
+        # Activate guest updates one node at a time, preserving etcd quorum.
+        restartIfChanged = false;
+      });
 
       systemd.services =
         {
+          # Pool-import restarts propagate through mounts to every guest.
+          zfs-import-fast-pool.restartIfChanged = false;
+          zfs-import-bulk-pool.restartIfChanged = false;
           harbor-reader = {
+            # Stopping a required bootstrap service also stops running guests.
+            restartIfChanged = false;
             requiredBy = map (name: "microvm@${name}.service") allNames;
             before = map (name: "microvm@${name}.service") allNames;
           };
           k3s-bootstrap-materialize = {
+            restartIfChanged = false;
             description = "Materialize k3s bootstrap credentials for cp-1";
             requiredBy = ["microvm@cp-1.service"];
             before = ["microvm@cp-1.service"];
@@ -671,6 +684,7 @@ in {
           # descend a non-root parent to create root dirs — "unsafe path
           # transition". Plain mkdir as root has no such qualm.) RFC §13.
           k3s-cluster-token = {
+            restartIfChanged = false;
             description = "Provision the k3s join token + etcd-snapshot dirs";
             wantedBy = ["multi-user.target"];
             before = map (n: "microvm@${n}.service") allNames;
