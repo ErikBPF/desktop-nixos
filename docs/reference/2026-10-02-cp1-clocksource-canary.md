@@ -3,6 +3,9 @@
 **Status:** All six guests booted persistent `kvm-clock` and passed final health
 checks. The requested one-at-a-time rollout failed through shared host
 dependencies; the final preservation fix deployed without guest restarts.
+Merged to main. A subsequent serial worker-only closure restoration passed
+peer boot/process continuity and workload recovery gates; storage-delay
+attribution remains open.
 
 ## Original runtime canary (historical)
 
@@ -316,3 +319,117 @@ Final validation passed: rollout evaluation assertions, shell syntax, Statix
 lint, Alejandra formatting, offline Kepler toplevel dry-build, documentation
 links and whitespace. A fresh post-validation cluster read again showed all six
 nodes Ready and all 27 applications Synced/Healthy.
+
+## Post-merge investigation and controlled worker update
+
+The operator requested merging to main, then extended observation and a real
+single-node update. PR #366 merged as `f9e1f1f` on October 2 at 23:31 UTC.
+Four additional successful samples from 23:32:42 through 23:36:49 UTC preserved
+all guest boot IDs, synchronized clocks, fresh leases, API readiness and quorum.
+The failed-proposal counters remained cp-1=4, cp-2=0, cp-3=0.
+
+All three journals show startup hash-check timeouts while peers were returning
+at 16:51 UTC, then an etcd leader election at 16:51:47 UTC. That pre-drill
+inspection found no later etcd leader loss. Slow apply/read-index warnings occur on all three peers, not only
+cp-1. These facts do not uniquely attribute the four failed proposals. Historical
+proposal counters were unavailable: Alloy's etcd keep filter omitted `_total`
+from the applied, committed and failed metric names. The owner fix belongs to
+`homelab-gitops`, with a regression check against the exported metric names.
+
+Use w-3 for the controlled update. Temporarily add the NixOS provenance tag
+`clock-rollout-canary` to that guest only; it changes its closure without changing
+its K3s version, clock policy or workload configuration. Evaluate and require
+all other guest runners to match the live runners. Build on Apollo and inspect
+the pinned deploy-rs preview using the commands above. Capture all six boot IDs
+before host activation; require that staging changes none of them.
+
+After staging, drain w-3 through the existing homelab kubeconfig, honoring PDBs:
+`kubectl --context homelab drain w-3 --ignore-daemonsets --delete-emptydir-data
+--timeout=5m`. When local routing cannot reach the cluster, stream that context's
+existing configuration to Kepler's kubectl as in the prior verification.
+If eviction fails, uncordon and stop the test. Otherwise run only
+`sudo systemctl restart microvm@w-3.service` on Kepler, matching the owner worker
+restart recipe. Require w-3's boot ID to change, its new tagged closure to run,
+and the other five boot IDs to stay unchanged. Verify Ready, kvm-clock, NTP,
+K3s 1.36.4, fresh leases and all control-plane APIs/quorum, then uncordon w-3
+and verify workload recovery. Remove the temporary source tag, rebuild/restage,
+and repeat the same bounded worker procedure to restore the untagged desired closure.
+No control-plane guest or physical host reboot is part of this drill.
+
+### Worker drill incident and restoration gate
+
+The first drill activated the genuinely new tagged w-3 closure. Staging preserved
+all six boot IDs; draining honored PDBs and only w-3's VM rebooted. All six nodes
+and all 27 applications recovered by October 3 at 00:07 UTC. However, cp-1's K3s
+process exited at 00:02:10 UTC and restarted automatically, without a VM reboot.
+Its controller, scheduler and cloud-controller leader leases timed out after
+etcd read-index delays and an 8.87-second apply. The checked kernel logs showed
+no accompanying OOM, RCU or clocksource fault. This is a failed control-plane
+service-continuity gate, despite successful single-VM activation isolation.
+
+The proposal counters changed from 4/0/0 to 0/4/3: cp-1's counter reset with its
+process; cp-2 and cp-3 accumulated failures. Do not treat that reset as recovery
+of the earlier four failures. WAL fsync p99 over the incident's five-minute
+window was 119–134 ms, and backend commit p99 was 135–293 ms. A later sample was
+29–31 ms and 32–42 ms respectively. The exact writer and cause of the 8.87-second
+delay remain unproven; all control planes share fast-pool with the workers.
+
+Remove the temporary source tag and stage the original worker closure first,
+requiring unchanged guest boot IDs and healthy control-plane APIs. Before the
+restoration restart, capture K3s process restart counts and failed-proposal
+counters as well as VM boot IDs. Evict w-3's non-DaemonSet pods **serially** through
+the native policy/v1 Eviction API, respecting PDB denials and ordinary grace
+periods, with a ten-second interval between evictions. Stop and uncordon on a
+control-plane restart, increased proposal counter or loss of readiness/quorum.
+After the worker-only restart, verify the untagged running closure and unchanged
+peer boot IDs/process restart counts, then observe workload recovery. This
+reduces eviction concurrency; it does not remediate the shared storage domain.
+
+### Serial restoration and monitoring receipt — October 3
+
+- The monitoring filter and its regression check merged in
+  [homelab-gitops PR #163](https://github.com/ErikBPF/homelab-gitops/pull/163)
+  as `e72e226f`. Required CI passed after correcting two stale test expectations
+  to match existing Karakeep and Wazuh storage declarations; no workload storage
+  declaration changed. The owner sync command deployed that reviewed revision
+  to `alloy-metrics`. Prometheus now exports proposal totals for all three
+  control planes; failed totals are 0/4/3. Earlier dropped history is unavailable.
+- Removed the temporary w-3 provenance tag from source. Apollo built the
+  untagged closure; copying it back used authenticated `ssh://erik@apollo:2222`
+  after `ssh-ng` transfers stalled. Pinned deploy-rs confirmed the staged host
+  activation, and the repeated staging gate preserved all six guest boot IDs.
+- Serially evicted twelve managed non-DaemonSet pods through policy/v1,
+  with UID preconditions, ordinary grace periods, PDB enforcement, ten-second
+  intervals and control-plane continuity checks between evictions. Only
+  `microvm@w-3.service` was restarted. w-3 returned Ready and was uncordoned;
+  its K3s service became active at 00:52:20 UTC with no automatic restarts.
+- The running w-3 closure is the intended untagged
+  `db17i3fplclp06h6csfv55indcm227kj-nixos-system-w-3-26.11pre-git`.
+  Its boot ID changed from `97750ae6-5b32-4265-a719-036ba6aa0249` to
+  `0cae16bd-ca04-4863-a91a-17a2c615d912`; every other guest boot ID stayed unchanged.
+  Control-plane K3s restart counts remained 1/0/0, and proposal failures remained
+  0/4/3 throughout the serial evictions, restart and recovery.
+- The orchestration command exceeded its fifteen-minute terminal deadline while
+  awaiting Langfuse, after the worker was already uncordoned. This timeout is
+  not a passed workload gate. Independent follow-up observed ClickHouse finish
+  its volume-permission traversal and start at 00:59:01 UTC; the Langfuse worker
+  recovered from registry HTTP 429 backoff at 01:01:08 UTC. No forced pod deletion,
+  permissions bypass or registry-policy change was used to obtain recovery.
+- Four successful observation samples from 01:02:50 through 01:07:14 UTC checked
+  all six stable boot IDs, persistent `kvm-clock`, synchronized/aligned clocks,
+  wall/monotonic agreement, Ready status and fresh leases. Maximum sampled lease
+  age was 9.6 seconds. No current-boot RCU stall, timer-wakeup or unstable-clock
+  message was found. All three authenticated APIs and etcd quorum remained
+  healthy, with unchanged K3s restart and failed-proposal counters.
+- Independent final verification passed the control-plane continuity assertion,
+  all six Ready nodes and all 27 Argo applications Synced/Healthy. The temporary
+  tag is absent from desired source and the running worker. This proves the
+  bounded **worker-only** closure transition and serial restoration; it does not
+  validate a control-plane version upgrade or full Kepler reboot.
+
+The first concurrent drain's K3s process failure remains a real incident, not a
+clocksource-test pass. Its immediate mechanism was controller leader-lease
+timeouts following etcd delays. Shared fast-pool contention is a supported
+investigation direction, not an attributed writer or a completed storage fix.
+Any further maintenance should retain VM boot-ID, K3s restart-count, proposal
+counter, API/quorum and workload gates, and allow for stateful startup time.
