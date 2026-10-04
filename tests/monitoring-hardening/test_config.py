@@ -44,7 +44,7 @@ def test_kepler_alloy_scrapes_its_local_postgres_exporter():
     config = (ROOT / "modules/hosts/kepler/monitoring.nix").read_text()
 
     assert '"job"         = "postgres-kepler"' in config
-    assert '"__address__" = "100.94.239.46:9187"' in config
+    assert '"__address__" = "100.90.113.117:9187"' in config
 
 
 def test_alloy_pushes_to_kubernetes_backends():
@@ -66,7 +66,7 @@ def test_cluster_log_collector_uses_in_cluster_loki():
     config = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
 
     assert 'http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push' in config
-    assert "100.76.140.121:3100" not in config
+    assert "100.103.52.100:3100" not in config
 
 
 def test_operator_metric_clients_use_kubernetes_prometheus():

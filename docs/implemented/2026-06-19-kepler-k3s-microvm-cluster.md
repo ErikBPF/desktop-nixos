@@ -648,7 +648,7 @@ operator stack. Adopted **push-only, one agent**:
   logs **via the k8s API** (`loki.source.kubernetes` — no hostPath, so it passes
   the PodSecurity **baseline**), keeps only its own node's pods (`NODE_NAME`
   downward-API filter), labels `cluster="pastelariadev"`, and pushes to
-  discovery's Loki (`100.76.140.121:3100`). Chart fetched from the GitHub release
+  discovery's Loki (`100.103.52.100:3100`). Chart fetched from the GitHub release
   tarball (grafana's helm repo doesn't serve tgz at the repo root).
 - **Egress path:** cluster pods are NAT'd to kepler's LAN only, but discovery is
   **tailnet-only**. Added a masquerade of `10.250.0.0/24 → tailscale0` on kepler

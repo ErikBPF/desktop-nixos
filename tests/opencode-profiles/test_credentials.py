@@ -20,5 +20,5 @@ class CredentialProjection(unittest.TestCase):
         self.assertEqual(json.loads(result), [
             {"name": "opencode/" + name, "mode": "0400", "owner": "erik",
              "path": "/run/secrets/opencode/" + name}
-            for name in ("litellm_key", "work_key")
+            for name in ("litellm_key", "work_key", "zen_key")
         ])

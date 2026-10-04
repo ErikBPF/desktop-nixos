@@ -70,7 +70,7 @@ in {
         # (see RFC P3.1b TLS decision); revisit in P3.5 hardening.
         listener.tailnet = {
           type = "tcp";
-          address = "100.76.140.121:8200";
+          address = "100.103.52.100:8200";
           tls_disable = true;
         };
         # SWAG reaches the UI/API through a dedicated internal Docker bridge.

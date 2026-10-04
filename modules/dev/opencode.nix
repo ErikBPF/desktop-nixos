@@ -82,7 +82,9 @@
       model = "litellm/deepseek-v4.1-flash";
       small_model = "litellm/deepseek-v4.1-flash";
       # 1.18.29 still uses this filter; policies cover the newer core path.
-      enabled_providers = ["litellm" "work"];
+      # `opencode-go` is the direct escape hatch when the gateways are down.
+      # `openai` is the Codex/ChatGPT subscription used directly (oauth).
+      enabled_providers = ["litellm" "work" "opencode-go" "openai"];
 
       # Gateway /model/info snapshot, 2026-09-10; costs per million tokens.
       provider = {
@@ -280,6 +282,21 @@
             };
           };
         };
+        # Direct OpenCode Go subscription (models.dev supplies npm/baseURL and
+        # the model catalog); bypasses the LiteLLM pool. `{file:...}` reads the
+        # key at load time so every session works without shell env wiring.
+        opencode-go = {
+          options.apiKey = "{file:/run/secrets/opencode/zen_key}";
+        };
+        # Codex/ChatGPT subscription used directly via oauth (no key file, no
+        # LiteLLM hop). Same account catalog as the litellm codex routes; the
+        # explicit limits keep the client from over-sending context.
+        openai.models = {
+          "gpt-6-astra" = codexModel "Astra" "low";
+          "gpt-5.6-sol" = codexModel "Sol" "low";
+          "gpt-5.6-terra" = codexModel "Terra" "medium";
+          "gpt-5.6-luna" = codexModel "Luna" "medium";
+        };
       };
 
       experimental.policies = [
@@ -297,6 +314,16 @@
           effect = "allow";
           action = "provider.use";
           resource = "work";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "opencode-go";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "openai";
         }
       ];
 

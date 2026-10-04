@@ -60,7 +60,9 @@
           small_model = model;
           # v1.18.29's legacy provider path still needs this allowlist. The late
           # profile directory wins over repository provider/model overrides.
-          enabled_providers = [profile.provider];
+          # `opencode-go` stays selectable as the direct escape hatch; `openai`
+          # is the Codex/ChatGPT subscription used directly.
+          enabled_providers = [profile.provider "opencode-go" "openai"];
         }
         // (
           if profile.omo

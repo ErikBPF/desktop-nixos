@@ -34,7 +34,7 @@ try:
         run('ip', '-n', ns, 'route', 'add', 'default', 'via', router_ip.split('/')[0])
     run('ip', 'link', 'set', 'lo', 'up')
     run('sysctl', '-qw', 'net.ipv4.ip_forward=1')
-    for addr in ('192.168.10.210', '100.76.140.121'):
+    for addr in ('192.168.10.210', '100.103.52.100'):
         run('ip', 'addr', 'add', addr+'/32', 'dev', 'lo')
         for port in ('443', '8443'):
             run('iptables', '-t', 'nat', '-A', 'PREROUTING', '-d', addr, '-p', 'tcp', '--dport', port,
@@ -59,18 +59,18 @@ threading.Event().wait()
     script = ROOT/'modules/hosts/discovery/_preserve-ingress-source.sh'
     if script.exists():
         for _ in range(2):  # installation must be idempotent
-            run('bash',str(script),'add','192.168.10.210','100.76.140.121')
+            run('bash',str(script),'add','192.168.10.210','100.103.52.100')
     def source(addr, port):
         code=f"import urllib.request;print(urllib.request.urlopen('http://{addr}:{port}',timeout=3).read().decode())"
         return run('ip','netns','exec',client,sys.executable,'-c',code)
-    for addr in ('192.168.10.210','100.76.140.121'):
+    for addr in ('192.168.10.210','100.103.52.100'):
         assert source(addr,443) == '100.100.0.2', 'HTTPS client identity lost to SNAT'
         assert source(addr,8443) == '172.18.0.1', 'unrelated port SNAT changed'
     code = "import http.client;c=http.client.HTTPConnection('192.168.10.210',443,timeout=3,source_address=('198.51.100.2',0));c.request('GET','/');print(c.getresponse().read().decode())"
     assert run('ip','netns','exec',client,sys.executable,'-c',code) == '172.18.0.1', 'non-tailnet source matched exception'
     assert source('172.18.0.2',443) == '172.18.0.1', 'direct container SNAT changed'
     for _ in range(2):
-        run('bash',str(script),'remove','192.168.10.210','100.76.140.121')
+        run('bash',str(script),'remove','192.168.10.210','100.103.52.100')
     assert source('192.168.10.210',443) == '172.18.0.1', 'cleanup failed'
     print('PASS: client identity, port scope, destination scope, idempotence, cleanup')
 finally:

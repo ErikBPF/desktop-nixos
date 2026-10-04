@@ -84,7 +84,7 @@ in {
     kepler.k3s.workerVcpu = 4;
     services.harborReader = {
       enable = true;
-      address = "http://100.76.140.121:8200";
+      address = "http://100.103.52.100:8200";
       roleIdFile = config.sops.secrets.openbao-harbor-reader-kepler-role-id.path;
       secretIdFile = config.sops.secrets.openbao-harbor-reader-kepler-secret-id.path;
       format = "k3s";
