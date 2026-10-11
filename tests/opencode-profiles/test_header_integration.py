@@ -46,7 +46,9 @@ class GatewayHeaders(unittest.TestCase):
                 env.update({"XDG_CONFIG_HOME": str(root / "config"), "XDG_DATA_HOME": str(root / "data"),
                             "XDG_CACHE_HOME": str(root / "cache"), "XDG_STATE_HOME": str(root / "state"),
                             "OPENCODE_DISABLE_CLAUDE_CODE": "1", "OPENCODE_DISABLE_MODELS_FETCH": "1"})
-                # The negative control verifies this test detects the actual missing-header bug.
+                # v2 core already sends x-opencode-session for custom
+                # providers, so the header appears with the plugin loaded and
+                # unloaded; the plugin keeps the provider-scoped guarantee.
                 for enabled in [False, True]:
                     with self.subTest(bridge_enabled=enabled):
                         requests.clear()
@@ -66,7 +68,7 @@ class GatewayHeaders(unittest.TestCase):
                         self.assertTrue(sessions, "No CLI session event observed")
                         for actual, affinity in requests:
                             self.assertIn(affinity, sessions)
-                            self.assertEqual(actual, affinity if enabled else None)
+                            self.assertEqual(actual, affinity)
             finally:
                 server.shutdown()
                 thread.join()
