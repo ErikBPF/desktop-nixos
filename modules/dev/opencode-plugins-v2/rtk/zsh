@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# OpenCode scans/authorizes the original command before spawning this shim.
+args=("$@")
+for i in "${!args[@]}"; do
+  if [[ "${args[i]}" == "-c" && $((i + 1)) -lt ${#args[@]} ]]; then
+    if rewritten="$(timeout 5 rtk rewrite "${args[i + 1]}")"; then
+      code=0
+    else
+      code=$?
+    fi
+    if [[ ( "$code" == 0 || "$code" == 3 ) && -n "$rewritten" ]]; then
+      args[i + 1]="$rewritten"
+    fi
+    break
+  fi
+done
+exec "${OPENCODE_RTK_REAL_SHELL:?Missing original shell}" "${args[@]}"

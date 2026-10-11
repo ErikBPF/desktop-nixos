@@ -1,55 +1,48 @@
-# Declarative OpenCode profiles
+# Declarative OpenCode (v2)
 
-**Status:** Activated on Endeavour and Orion; Apollo verified. Pathfinder awaits
-reachability. Latest rollout evidence: [desktop reconciliation](../reference/2026-09-07-desktop-reconciliation.md).
+**Status:** v2 default on all `home.opencode` hosts in source; Endeavour
+activation pending the FlakeHub publish of the packaged v2 binary. The
+filename is historical: per-profile launchers no longer exist.
 
-`modules/dev/opencode.nix` owns the shared Home Manager configuration, plugins,
-provider policy and workflow commands. `modules/dev/_opencode-profiles.nix` owns
-the gateway launchers. Home defaults to **DeepSeek V4.1 Flash** (`litellm/deepseek-flash`, via OpenCode Go); work defaults to **GLM 5.3 Flash**. Helper
-agents inherit the selected gateway and model instead of carrying separate routes.
+`modules/dev/opencode.nix` owns the shared Home Manager configuration,
+provider policy and workflow commands. It imports
+`opencode-flake`'s `homeManagerModules.withPackageV2`, which installs the
+packaged **OpenCode v2** binary as the default `opencode` command
+(`packages/opencode-v2` in `opencode-flake`, official Linux x64 npm release,
+auto-patchelf only). Home and work use one configuration with default model
+**DeepSeek V4.1 Flash** (`litellm/deepseek-v4.1-flash`, via OpenCode Go); the
+`work` provider and its models remain selectable in the same config.
 
-| Command | Gateway | Optional orchestration |
-|---------|---------|------------------------|
-| `opencode-home` | Home LiteLLM | None |
-| `opencode-work` | Work proxy | None |
-| `opencode-home-omo` | Home LiteLLM | Oh My OpenCode |
-| `opencode-work-omo` | Work proxy | Oh My OpenCode |
+## What changed from v1
 
-The baseline loads RTK, Ponytail, `@tarquinen/opencode-dcp@3.1.15`, and a small
-local gateway header hook. The hook forwards the real session ID as
-`x-opencode-session`, required by Go-backed routes behind custom LiteLLM providers.
-RTK itself is also installed declaratively; the plugin alone does not provide its
-executable. OpenCode is pinned to the published 1.18.29 package.
-Oh My OpenCode `5.0.0-beta.43` is explicit opt-in through the `-omo` launchers.
-Memory, quota, ntfy and discovery plugins are outside the baseline. Their local
-data remains available; this change does not migrate or delete it.
+- The v1 profile launchers (`opencode-home`, `opencode-work`, `*-omo`) and the
+  late `OPENCODE_CONFIG_DIR` overlays are gone. v2 reads the same
+  `~/.config/opencode/opencode.json`, so one config serves every directory.
+- `ol`/`ow` are the only shortcuts: they run `opencode <directory>` for the
+  homelab and dataplatform checkouts. No per-project serve backends.
+- Plugins use the v2 API (`plugins`, `file://` entries, `setup(ctx)`):
+  - `modules/dev/opencode-plugins-v2/rtk` — rewrites shell commands through a
+    shim after OpenCode authorises the original (rtk-ai/rtk#4197).
+  - `modules/dev/opencode-plugins-v2/gateway-headers` — stamps
+    `x-opencode-session` on `litellm`/`work` model requests.
+  - `@filecrop/opencode-ponytail-v2@0.1.0` — hash-pinned response-style adapter.
+  The v1 `@tarquinen/opencode-dcp` plugin and the v1 `ponytail.mjs`/`rtk.ts`
+  adapters do not run under v2 and were dropped.
 
-The launchers select a late `OPENCODE_CONFIG_DIR` overlay so project configuration
-cannot accidentally replace the selected default model. `enabled_providers`
-retains compatibility with OpenCode 1.18.29; the provider policy also records the
-allowed gateway. Credentials continue to come from runtime environment values.
-These are workflow profiles, not a security sandbox: repository configuration
-and plugins remain trusted code. Separate credentials and provider-side controls
-remain responsible for trust boundaries.
+## Shared state caveat
 
-The inherited OpenCode module reaches **Endeavour and Pathfinder** through
-`profile-desktop`, and **Orion and Apollo** through explicit imports. Activation
-and verification must be recorded per host; a local source change does not deploy
-all four. Discovery and the other headless hosts do not import this home module.
+v1 and v2 both use `~/.config/opencode/` and `~/.local/share/opencode/`.
+Retiring v1 hands v2 the existing session database; back it up before the
+first v2 run on a host (the previous isolated trial at
+`~/.local/share/opencode-v2/` never touched it).
 
-Endeavour recovery preserves both active JSON files and their existing `.backup`
-files in a unique private archive before Home Manager resumes. Review the candidate
-generation, move only the old backups out of the collision path, and let Home
-Manager perform its normal backup and linking. Never use `force = true` or activate
-the stale failed generation. Verify managed links and service success afterward;
-clear the historical upgrade failure only after its Home Manager cause is resolved.
+## Verification
 
-Verification: `node tests/opencode-profiles/test_headers.mjs` checks header
-forwarding; `python3 -m unittest discover -s tests/opencode-profiles -v`
-evaluates the profile helper and checks repository overrides with the installed
-OpenCode binary. Profile files live under
-`~/.config/opencode/profiles/{home,work,home-omo,work-omo}/`; OmO profiles also own
-`tui.json`. Pinned beta.43 reads agent/category routes from named profiles in
-`~/.omo/omo.jsonc`; launchers set `OMO_PROFILE` explicitly. The legacy
-`oh-my-opencode.json` sidecar is only a migration input. Run dry-build gates before
-activation and verify the installed commands afterward.
+- `nix flake check` in `opencode-flake` builds `packages.opencode-v2` and
+  checks its `--version`.
+- `tests/opencode-profiles/` runs the v2 plugin unit test (`test_headers.mjs`),
+  the live loopback header test (`test_header_integration.py`), and the sops
+  credential-wiring contract (`test_credentials.py`) against the installed
+  binary.
+- Activation and verification are recorded per host; a source change does not
+  deploy Orion, Apollo or Pathfinder until their next Home Manager run.

@@ -50,7 +50,7 @@ class GatewayHeaders(unittest.TestCase):
                 for enabled in [False, True]:
                     with self.subTest(bridge_enabled=enabled):
                         requests.clear()
-                        settings["plugin"] = [(ROOT / "modules/dev/opencode-plugins/gateway-headers.mjs").as_uri()] if enabled else []
+                        settings["plugins"] = [(ROOT / "modules/dev/opencode-plugins-v2/gateway-headers").as_uri()] if enabled else []
                         (config / "opencode.json").write_text(json.dumps(settings))
                         result = subprocess.run(["opencode", "run", "--format", "json", "Return OK."],
                                                 cwd=repo, env=env, capture_output=True, text=True, timeout=90)

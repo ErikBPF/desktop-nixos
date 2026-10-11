@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
-import { GatewayHeaders } from "../../modules/dev/opencode-plugins/gateway-headers.mjs";
+import plugin from "../../modules/dev/opencode-plugins-v2/gateway-headers/index.js";
 
-const hooks = await GatewayHeaders();
-for (const providerID of ["litellm", "work", "other"]) {
+// v2 plugin API: setup(ctx) registers per-provider model.request hooks that
+// stamp OpenCode Go's session routing header onto gateway-bound requests.
+const hooks = [];
+await plugin.setup({ session: { hook: async (...args) => hooks.push(args) } });
+
+assert.equal(hooks.length, 2);
+for (const [name, callback, filter] of hooks) {
+  assert.equal(name, "model.request");
+  assert.ok(["litellm", "work"].includes(filter.providerID));
   for (const sessionID of ["ses_first", "ses_second"]) {
-    const output = { headers: { existing: "preserved" } };
-    await hooks["chat.headers"]({ model: { providerID }, sessionID }, output);
-    assert.deepEqual(output.headers, {
-      existing: "preserved",
-      ...(providerID === "other" ? {} : { "x-opencode-session": sessionID }),
-    });
+    const event = { sessionID, headers: { existing: "preserved" } };
+    callback(event);
+    assert.deepEqual(event.headers, { existing: "preserved", "x-opencode-session": sessionID });
   }
 }
-console.log("Gateway session headers: both gateways, distinct sessions, unrelated provider, preserved headers passed");
+assert.deepEqual(hooks.map((hook) => hook[2].providerID).sort(), ["litellm", "work"]);
+console.log("Gateway session headers: both gateways, distinct sessions, preserved headers passed");

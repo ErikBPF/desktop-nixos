@@ -1,5 +1,14 @@
 {inputs, ...}: {
-  flake.modules.home.opencode = _: let
+  flake.modules.home.opencode = {pkgs, ...}: let
+    # Ponytail response-style adapter for the v2 plugin API, hash-pinned. The
+    # v1 adapter (`inputs.ponytail`) does not run under v2.
+    ponytailV2 = pkgs.runCommand "opencode-ponytail-v2-0.1.0" {} ''
+      mkdir -p "$out"
+      tar -xzf ${pkgs.fetchurl {
+        url = "https://registry.npmjs.org/@filecrop/opencode-ponytail-v2/-/opencode-ponytail-v2-0.1.0.tgz";
+        hash = "sha512-4DgzFxuANIgCDeTOs+Xair7P7mkXNULxClxQANogqyqZBTJK+KuHRKsYZ5VFeuRw2pw1xMEQ62xst+cXXVheAg==";
+      }} --strip-components=1 -C "$out"
+    '';
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -26,9 +35,8 @@
     };
   in {
     imports = [
-      inputs.opencode-flake.homeManagerModules.withPackage
+      inputs.opencode-flake.homeManagerModules.withPackageV2
       inputs.opencode-tui.homeManagerModules.withPackage
-      ./_opencode-profiles.nix
     ];
 
     # Rust/ratatui client that attaches to the local `opencode serve`. It
@@ -57,7 +65,8 @@
     programs.opencode-profile = {
       enable = true;
       tui.enable = true;
-      rtk.enable = true;
+      # v1 rtk plugin; the v2 plugin lane below installs its own shim plugin.
+      rtk.enable = false;
       # Instructions already carry the response style and shared repo policy.
       agents.preamble = "";
       agents.extraText = builtins.readFile ./opencode-agents.md + "\n" + builtins.readFile ./agent-policy.md;
@@ -69,15 +78,15 @@
     # /run/secrets/opencode/*).
     programs.opencode.settings = {
       instructions = ["AGENTS.md"];
-      plugin = [
-        "./plugins/rtk.ts"
-        "${inputs.ponytail}/.opencode/plugins/ponytail.mjs"
-        # Context pruning: dedups tool outputs, purges stale errors, lets the
-        # model compress ranges. Version pinned exactly — floating specs would
-        # trigger the plugin's self-rm-rf auto-update path (audited 2026-09-05).
-        "@tarquinen/opencode-dcp@3.1.15"
-        # Custom providers need Go's session header as well as OpenCode's native headers.
-        "./plugins/gateway-headers.mjs"
+      plugins = [
+        # v2 plugin API. RTK rewrites through a shell shim so OpenCode still
+        # authorizes the original command (rtk-ai/rtk#4197). Gateway headers
+        # keep the LiteLLM/Work routing session header. Ponytail v2 is the
+        # hash-pinned adapter; v1 plugins (dcp, ponytail.mjs, rtk.ts) do not
+        # run under v2.
+        "file://${./opencode-plugins-v2/rtk}"
+        "file://${./opencode-plugins-v2/gateway-headers}"
+        "${ponytailV2}"
       ];
       model = "litellm/deepseek-v4.1-flash";
       small_model = "litellm/deepseek-v4.1-flash";
@@ -403,7 +412,6 @@
           "tdd"
         ]))
       // {
-        "opencode/plugins/gateway-headers.mjs".source = ./opencode-plugins/gateway-headers.mjs;
         # Vendored `graphify install --platform opencode` output (graphifyy
         # uv-tool binary v0.9.53); re-vendor under modules/dev/graphify-skills
         # when the uv tool is bumped.
