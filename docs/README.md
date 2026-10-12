@@ -24,6 +24,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`behaviors/orion-main-guardrails/one-pager.md`](behaviors/orion-main-guardrails/one-pager.md) | Preserve Orion panic recovery and bounded persistent scheduled/catch-up cache builds on main. | Restored-schedule source passes focused tests; publication and update pending |
 | [`reference/2026-10-02-cp1-clocksource-canary.md`](reference/2026-10-02-cp1-clocksource-canary.md) | Kepler guest clocksource, dependency-stop recovery, etcd failure investigation and serial worker update evidence. | Merged and persistent on all six guests; initial phased rollout failed; serial worker restoration verified; storage-delay attribution open |
 | [`behaviors/local-workspace-sessions/opencode-v2-default-one-pager.md`](behaviors/local-workspace-sessions/opencode-v2-default-one-pager.md) | OpenCode v2 as the default: packaged v2 lane in `opencode-flake`, single-config v2 plugins, `ol`/`ow` via the default alias, v1 removal. | Deployed and runtime-verified on Endeavour; fleet rollout pending |
 | [`behaviors/local-workspace-sessions/opencode-backends-one-pager.md`](behaviors/local-workspace-sessions/opencode-backends-one-pager.md) | Endeavour persistent homelab/work backends, attach commands and deployment evidence. | Superseded by the v2 default migration; retained as history |
