@@ -140,6 +140,14 @@ in {
         # BIOS first; software cannot work around the missing MMIO window.
       ];
       kernel.sysctl = {
+        # Reboot after Oops or detected CPU lockups; kernel corruption cannot safely continue.
+        "kernel.panic" = 10;
+        "kernel.panic_on_oops" = 1;
+        "kernel.watchdog" = 1;
+        "kernel.nmi_watchdog" = lib.mkForce 1;
+        "kernel.softlockup_panic" = 1;
+        "kernel.hardlockup_panic" = 1;
+        "kernel.watchdog_thresh" = 30;
         # 62GB RAM + zramSwap disabled below: keep anon pages resident, avoid
         # any swap activity racing with VRAM eviction during long-ctx inference.
         "vm.swappiness" = 1;
@@ -185,6 +193,21 @@ in {
     # static tuning above. Disable on Orion: the swap-avoidance + cache
     # retention invariants must not be re-tuned at runtime during inference.
     services.bpftune.enable = lib.mkForce false;
+
+    # Bound cache warming after allocator corruption under parallel QEMU builds.
+    systemd.services.nix-cache-builder = {
+      environment.NIX_CONFIG = ''
+        max-jobs = 2
+        cores = 2
+      '';
+      serviceConfig = {
+        CPUQuota = "400%";
+        TimeoutStartSec = "89min";
+        TimeoutStopSec = "1min";
+        KillMode = "control-group";
+        SendSIGKILL = true;
+      };
+    };
 
     # Pin all amdgpu IRQs to CPU0 so the 16-thread inference pool on cores
     # 1..15 keeps its L2/L3 hot. IRQ numbers change across reboots so resolve
