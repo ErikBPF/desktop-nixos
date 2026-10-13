@@ -29,14 +29,17 @@ def test_kepler_exposes_buzz_only_on_tailscale():
     assert '"buzz"' in compose
 
 
-def test_kepler_scrapes_buzz_metrics_locally():
+def test_kepler_retires_buzz_scrape_but_keeps_postgres():
     host = (ROOT / "modules/hosts/kepler/default.nix").read_text()
     monitoring = (ROOT / "modules/hosts/kepler/monitoring.nix").read_text()
 
     assert "m.nixos.kepler-monitoring" in host
-    assert 'prometheus.scrape "buzz_relay"' in monitoring
-    assert '"__address__" = "127.0.0.1:9102"' in monitoring
-    assert '"job"         = "buzz-relay"' in monitoring
+    assert 'prometheus.scrape "buzz_relay"' not in monitoring
+    assert "127.0.0.1:9102" not in monitoring
+    assert "buzz-relay" not in monitoring
+    assert 'prometheus.scrape "postgres_kepler"' in monitoring
+    assert '"__address__" = "100.90.113.117:9187"' in monitoring
+    assert '"job"         = "postgres-kepler"' in monitoring
     assert '"host"        = "kepler"' in monitoring
 
 
