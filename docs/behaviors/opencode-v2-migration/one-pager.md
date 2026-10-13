@@ -1,7 +1,7 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** Endeavour activated; live checks pass; CI fixture repair and historical GitGuardian review pending.
-**Stage / revision:** RV second draft / E2E / 10, 2026-10-13.
+**Status:** repository CI passed; historical GitGuardian review and post-restart live plugin drift block final acceptance.
+**Stage / revision:** RV second draft / E2E recheck / 11, 2026-10-13.
 
 ## Outcome and basis
 
@@ -83,6 +83,19 @@ backend behavioral RED. GitGuardian still scans historical commit `1cff636`
 and occurrence `303907955` (incident `38171296`): reported line checks
 generated auth-file mode, not a literal credential. Manual false-positive
 review remains required; no history rewrite or security bypass is applied.
+Q-8: user chose dashboard review of the historical occurrence. Actual
+disposition remains pending; that selection does not clear the security gate.
+On the requested legitimacy check, historical source line 190 was read
+directly: it asserts generated file mode 0600; line 189 assigns a Path,
+not a password value. The reported occurrence is a source-level false
+positive, not evidence of committed credentials. External disposition is
+still pending; current plugin-readiness failure is a separate genuine gate.
+
+[Check run 38456124752](https://github.com/ErikBPF/desktop-nixos/actions/runs/38456124752)
+passed at `3d1d951`: lint job including native/profile/workspace tests,
+all six host evaluations, lock and k3s. Repository Security workflow also
+passed. The CLI watcher timed out reaching GitHub; subsequent direct run
+inspection confirmed success. GitGuardian remains a separate failing check.
 
 ## Limits and recovery
 
@@ -91,8 +104,19 @@ configured Nix returned programs.bash.enable's boolean type/default true
 through a completed execute call and model continuation. Native read/shell
 were denied. Whole-MCP-tool/execute permissions are not argument or network
 isolation. Actual terminal key delivery and optional runtime trials remain
-unverified. Services are active with zero automatic restarts; owning/native
-client PIDs are home `1460762` and Work `1460761`. No extra host activated.
+unverified. At accepted-generation verification, services were active with
+zero automatic restarts; owning/native client PIDs were home `1460762` and
+Work `1460761`. No extra host activated by this task. After the reported
+server restart, a fresh identity check reached 2.0.27 but home plugin
+readiness failed: essential plugin IDs absent, one failed registration.
+Read-only drift diagnosis is ongoing. Earlier model/tool/MCP receipts are
+not claimed as current-health evidence; no automatic restore or unrelated
+user changes have been made.
+Independent source audit confirmed the expected three plugin definitions
+match pinned 2.0.27 loader contracts. A missing RTK executable would not
+remove its inventory ID. Anonymous import failures retain no ID and do not
+alone identify a scan-wide abort. Effective live targets/error source must
+be reconciled before changing valid source or blaming migration behavior.
 No token-saving/quota claim or bound Gherkin completion is asserted.
 Old V1 unit closures and prior HM generation have retained GC roots;
 recovery uses matching source/generation, never history import. Passwords
