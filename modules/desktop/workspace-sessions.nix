@@ -1,7 +1,6 @@
 {
   config,
   inputs,
-  lib,
   ...
 }: let
   flakeConfig = config;
@@ -12,6 +11,7 @@ in {
 
   config.flake.modules.home.desktop-workspaces = {
     config,
+    lib,
     pkgs,
     ...
   }: let
@@ -70,23 +70,109 @@ in {
       '';
     };
     command = "${coordinator}/bin/desktop-workspaces";
+    # User services need the setuid wrappers before profile/system binaries.
+    servicePath = "/run/wrappers/bin:${config.home.profileDirectory}/bin:/run/current-system/sw/bin";
+    stateRoot = project: "${config.xdg.stateHome}/opencode-v2-backends/${project.name}";
+    passwordFile = project: "${stateRoot project}/server-password";
+    legacyHomelabDatabase = "${config.xdg.dataHome}/opencode/opencode-homelab.db";
+    backends =
+      map (workspace: let
+        project =
+          workspace
+          // (
+            if workspace.name == "homelab"
+            then {
+              port = 4096;
+              provider = "litellm";
+              keyFile = "litellm_key";
+              keyVariable = "OPENCODE_LITELLM_KEY";
+            }
+            else {
+              port = 4097;
+              provider = "work";
+              keyFile = "work_key";
+              keyVariable = "OPENCODE_WORK_KEY";
+            }
+          );
+      in {
+        inherit project;
+        package = pkgs.writeShellApplication {
+          name = "opencode-backend-${project.name}";
+          runtimeInputs = [pkgs.coreutils];
+          text = ''
+            umask 077
+            mkdir -p ${lib.escapeShellArg (stateRoot project)}
+            if [[ ! -s ${lib.escapeShellArg (passwordFile project)} ]]; then
+              ${pkgs.openssl}/bin/openssl rand -hex 32 > ${lib.escapeShellArg "${passwordFile project}.tmp"}
+              mv ${lib.escapeShellArg "${passwordFile project}.tmp"} ${lib.escapeShellArg (passwordFile project)}
+            fi
+            OPENCODE_PASSWORD="$(<${lib.escapeShellArg (passwordFile project)})"
+            export OPENCODE_PASSWORD
+            unset OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT
+            unset OPENCODE_LITELLM_KEY OPENCODE_WORK_KEY
+            export OPENCODE_CONFIG_DIR=${lib.escapeShellArg "${config.xdg.configHome}/opencode"}
+            export OPENCODE_CONFIG_CONTENT=${lib.escapeShellArg (builtins.toJSON {
+              model = "${project.provider}/deepseek-v4.1-flash";
+              small_model = "${project.provider}/deepseek-v4.1-flash";
+              default_agent = "build";
+              experimental.policies = [
+                {
+                  action = "provider.use";
+                  resource = "*";
+                  effect = "deny";
+                }
+                {
+                  action = "provider.use";
+                  resource = project.provider;
+                  effect = "allow";
+                }
+                {
+                  action = "provider.use";
+                  resource = "opencode-go";
+                  effect = "allow";
+                }
+                {
+                  action = "provider.use";
+                  resource = "openai";
+                  effect = "allow";
+                }
+              ];
+            })}
+            if [[ -r /run/secrets/opencode/${project.keyFile} ]]; then
+              ${project.keyVariable}="$(</run/secrets/opencode/${project.keyFile})"
+              export ${project.keyVariable}
+            fi
+            exec ${config.programs.opencode.package}/bin/opencode "$@"
+          '';
+        };
+      })
+      projects;
     inherit (lib.generators) mkLuaInline;
   in {
-    home.packages = [
-      coordinator
-      (pkgs.writeShellApplication {
-        name = "ol";
-        text = ''
-          exec ${config.home.profileDirectory}/bin/opencode ${config.home.homeDirectory}/Documents/erik/homelab "$@"
-        '';
-      })
-      (pkgs.writeShellApplication {
-        name = "ow";
-        text = ''
-          exec ${config.home.profileDirectory}/bin/opencode ${config.home.homeDirectory}/Documents/nstech/dataplatform "$@"
-        '';
-      })
-    ];
+    # Permission-only repair: never create, open, or import the preserved V1 DB.
+    home.activation.protectLegacyOpencodeHomelab = lib.hm.dag.entryAfter ["writeBoundary"] ''
+      if [[ -f ${lib.escapeShellArg legacyHomelabDatabase} ]]; then
+        run ${pkgs.coreutils}/bin/chmod 0600 -- ${lib.escapeShellArg legacyHomelabDatabase}
+      fi
+    '';
+
+    home.packages =
+      [coordinator]
+      ++ map (backend: backend.package) backends
+      ++ map ({project, ...}:
+        pkgs.writeShellApplication {
+          name =
+            if project.name == "homelab"
+            then "ol"
+            else "ow";
+          text = ''
+            OPENCODE_PASSWORD="$(<${lib.escapeShellArg (passwordFile project)})"
+            export OPENCODE_PASSWORD
+            unset OPENCODE_SERVER_PASSWORD
+            exec ${config.programs.opencode.package}/bin/opencode --server http://127.0.0.1:${toString project.port} ${lib.escapeShellArg project.directory} "$@"
+          '';
+        })
+      backends;
 
     # Bare w1..w8 / l1..l8 attach this machine's persistent tmux session.
     # Reuses the same exact-name bootstrap the desktop windows use, so a
@@ -119,7 +205,7 @@ in {
             # Restore the last resurrect snapshot before any window unit's
             # bootstrap runs (a unit is only active once ExecStartPost exits).
             ExecStartPost = "-${command} restore";
-            Environment = ["PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"];
+            Environment = ["PATH=${servicePath}"];
             UnsetEnvironment = ["TMUX"];
             Restart = "on-failure";
             RestartSec = 2;
@@ -145,6 +231,31 @@ in {
           Install.WantedBy = ["shutdown.target"];
         };
       }
+      // builtins.listToAttrs (map ({
+        project,
+        package,
+      }:
+        lib.nameValuePair "opencode-${project.name}" {
+          Unit.Description = "Persistent native OpenCode V2 backend for ${project.name}";
+          Service = {
+            # Foreground serve never registers/replaces the shared CLI service.
+            ExecStart = "${package}/bin/opencode-backend-${project.name} serve --hostname 127.0.0.1 --port ${toString project.port}";
+            WorkingDirectory = project.directory;
+            Environment = [
+              "OPENCODE_DISABLE_CLAUDE_CODE=1"
+              "OPENCODE_DB=${config.xdg.dataHome}/opencode-v2-backends/${project.name}/opencode.db"
+              "XDG_DATA_HOME=${config.xdg.dataHome}/opencode-v2-backends/${project.name}"
+              "XDG_STATE_HOME=${stateRoot project}"
+              "XDG_CACHE_HOME=${config.xdg.cacheHome}/opencode-v2-backends/${project.name}"
+              "PATH=${servicePath}"
+            ];
+            Restart = "on-failure";
+            RestartSec = 2;
+            UMask = "0077";
+          };
+          Install.WantedBy = ["default.target"];
+        })
+      backends)
       // builtins.listToAttrs (map (session:
         lib.nameValuePair "desktop-session-${session.name}" {
           # Keep the previous servers alive until their work is explicitly retired.
@@ -154,7 +265,7 @@ in {
           };
           Service = {
             ExecStart = "${herdr}/bin/herdr --session ${session.name} server";
-            Environment = ["PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"];
+            Environment = ["PATH=${servicePath}"];
             UnsetEnvironment = ["HERDR_STARTUP_CWD" "HERDR_SESSION" "HERDR_SOCKET_PATH"];
             Restart = "on-failure";
             RestartSec = 2;

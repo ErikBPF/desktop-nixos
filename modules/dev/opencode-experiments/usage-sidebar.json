@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    {
+      "package": "opencode-plugin-usage@2.0.4",
+      "options": { "default": "none" }
+    }
+  ]
+}

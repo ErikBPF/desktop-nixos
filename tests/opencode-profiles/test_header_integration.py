@@ -14,11 +14,15 @@ ROOT = Path(__file__).resolve().parents[2]
 class GatewayHeaders(unittest.TestCase):
     def test_actual_client_session_header(self):
         requests = []
+        plugins = json.loads(subprocess.check_output([
+            "nix", "eval", "--json",
+            ".#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.settings.plugins",
+        ], cwd=ROOT, text=True))
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
-                self.rfile.read(int(self.headers.get("Content-Length", "0")))
-                requests.append((self.headers.get("x-opencode-session"), self.headers.get("x-session-affinity")))
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+                requests.append((self.headers.get("x-opencode-session"), self.headers.get("x-session-affinity"), body))
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -27,7 +31,8 @@ class GatewayHeaders(unittest.TestCase):
             def log_message(self, *_args):
                 pass
 
-        with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server, tempfile.TemporaryDirectory() as directory:
+        with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server, tempfile.TemporaryDirectory(
+                dir=Path.home() / ".local/share/opencode-v2/tmp/opencode") as directory:
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
@@ -42,7 +47,7 @@ class GatewayHeaders(unittest.TestCase):
                         "options": {"baseURL": f"http://127.0.0.1:{server.server_port}/v1", "apiKey": "synthetic"},
                         "models": {"synthetic": {"name": "Synthetic", "limit": {"context": 10000, "output": 100}}}}},
                 }
-                env = {key: value for key, value in os.environ.items() if not key.startswith("OPENCODE_")}
+                env = {"PATH": os.environ["PATH"], "HOME": str(root)}
                 env.update({"XDG_CONFIG_HOME": str(root / "config"), "XDG_DATA_HOME": str(root / "data"),
                             "XDG_CACHE_HOME": str(root / "cache"), "XDG_STATE_HOME": str(root / "state"),
                             "OPENCODE_DISABLE_CLAUDE_CODE": "1", "OPENCODE_DISABLE_MODELS_FETCH": "1"})
@@ -52,9 +57,11 @@ class GatewayHeaders(unittest.TestCase):
                 for enabled in [False, True]:
                     with self.subTest(bridge_enabled=enabled):
                         requests.clear()
-                        settings["plugins"] = [(ROOT / "modules/dev/opencode-plugins-v2/gateway-headers").as_uri()] if enabled else []
+                        settings["plugins"] = plugins if enabled else []
                         (config / "opencode.json").write_text(json.dumps(settings))
-                        result = subprocess.run(["opencode", "run", "--format", "json", "Return OK."],
+                        result = subprocess.run([os.environ.get("OPENCODE_TEST_BINARY", "opencode"),
+                                                  "run", "--standalone", "--format", "json",
+                                                  "--title", "Synthetic header smoke", "Return OK."],
                                                 cwd=repo, env=env, capture_output=True, text=True, timeout=90)
                         sessions = set()
                         for line in result.stdout.splitlines():
@@ -66,9 +73,11 @@ class GatewayHeaders(unittest.TestCase):
                                 sessions.add(event["sessionID"])
                         self.assertTrue(requests, "No loopback model request observed")
                         self.assertTrue(sessions, "No CLI session event observed")
-                        for actual, affinity in requests:
+                        for actual, affinity, body in requests:
                             self.assertIn(affinity, sessions)
                             self.assertEqual(actual, affinity)
+                            if enabled:
+                                self.assertIn("PONYTAIL MODE ACTIVE", json.dumps(body))
             finally:
                 server.shutdown()
                 thread.join()

@@ -10,10 +10,16 @@
       "*.age": "deny"
     },
     "bash": {
-      "*": "allow",
-      "just *": "allow",
-      "nix build *": "allow",
-      "nix flake *": "allow",
+      "*": "ask",
+      "pwd": "allow",
+      "git status": "allow",
+      "git status --short": "allow",
+      "git diff --stat": "allow",
+      "git diff --name-only": "allow",
+      "rtk git status": "allow",
+      "rtk git status --short": "allow",
+      "rtk git diff --stat": "allow",
+      "rtk git diff --name-only": "allow",
       "rm -rf /*": "deny",
       "rm -rf ~*": "deny",
       "*nixos-rebuild*--target-host*": "deny",
@@ -27,24 +33,6 @@
       "~/Documents/erik/homelab-iac/**": "allow",
       "~/Documents/erik/code/home-assistant-config/**": "allow",
       "~/Documents/erik/klipper-biqu/**": "allow"
-    }
-  },
-  "mcp": {
-    "nix": {
-      "type": "local",
-      "command": ["nix", "run", "github:utensils/mcp-nixos"],
-      "enabled": true
-    },
-    "filesystem": {
-      "type": "local",
-      "command": [
-        "npx", "-y", "@modelcontextprotocol/server-filesystem",
-        "/home/erik/Documents/erik/desktop-nixos",
-        "/home/erik/Documents/erik/servarr",
-        "/home/erik/Documents/erik/hermes-flake",
-        "/home/erik/Documents/erik/homelab-iac"
-      ],
-      "enabled": true
     }
   }
 }
