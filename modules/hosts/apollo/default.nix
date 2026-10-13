@@ -96,6 +96,12 @@ in {
       ${apolloAiPodman}/bin/apollo-ai-podman image exists ${apolloAiImage}
       [[ -r ${apolloAiModel}/config.json ]]
     '';
+    # Adopt any pre-existing container of the same name (e.g. the ad-hoc one
+    # started by the manual launch.sh) so the first start and restarts are clean.
+    apolloAiClean = pkgs.writeShellScript "apollo-ai-clean" ''
+      set -u
+      ${apolloAiPodman}/bin/apollo-ai-podman rm -f apollo-qwen38 >/dev/null 2>&1 || true
+    '';
   in {
     imports = [
       (modulesPath + "/installer/scan/not-detected.nix")
@@ -152,7 +158,10 @@ in {
       unitConfig.RequiresMountsFor = "/mnt/data";
       serviceConfig = {
         Type = "simple";
-        ExecStartPre = "${apolloAiPreflight}";
+        ExecStartPre = [
+          "${apolloAiPreflight}"
+          "${apolloAiClean}"
+        ];
         ExecStart = [
           "${apolloAiPodman}/bin/apollo-ai-podman"
           "run"
