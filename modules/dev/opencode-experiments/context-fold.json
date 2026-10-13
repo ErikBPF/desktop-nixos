@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    {
+      "package": "github:GitMacke/opencode-context-fold#a8347566f996ed51d9d6d06f9f56ae88b6d1f5f4",
+      "options": { "debug": false }
+    }
+  ]
+}
