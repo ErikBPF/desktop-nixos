@@ -268,17 +268,7 @@
               };
               reasoning = true;
               tool_call = true;
-              # LiteLLM 1.98.0's cached OpenRouter capabilities omit effort.
-              options = {
-                reasoningEffort = "max";
-                allowed_openai_params = ["reasoning_effort"];
-              };
-              variants = {
-                low.reasoningEffort = "low";
-                high.reasoningEffort = "high";
-                max.reasoningEffort = "max";
-                medium.disabled = true;
-              };
+              # Work's OpenRouter route rejects reasoning_effort; use its default.
             };
             "glm-5.3-flash" = {
               limit = {

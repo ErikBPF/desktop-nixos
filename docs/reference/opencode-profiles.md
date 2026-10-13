@@ -1,6 +1,6 @@
 # Declarative OpenCode V2
 
-**Status:** two-backend migration candidate; published leaf pinned, local verification passed; Endeavour activation is tracked in the [one-pager](../behaviors/opencode-v2-migration/one-pager.md).
+**Status:** Endeavour user environment activated; native backend identity/security checks passed; live provider/MCP acceptance is tracked in the [one-pager](../behaviors/opencode-v2-migration/one-pager.md).
 
 `modules/dev/opencode.nix` owns shared Home Manager configuration, provider
 policy, essential plugins and global CLI settings. It selects

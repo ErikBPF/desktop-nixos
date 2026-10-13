@@ -1,87 +1,92 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** revised candidate locally GREEN; live-generation review and activation pending.
-**Stage / revision:** RV second draft / 3, 2026-10-13.
+**Status:** Endeavour activated; both live model/tool/MCP content checks pass; refreshed CI acceptance pending.
+**Stage / revision:** RV second draft / E2E / 9, 2026-10-13.
 
 ## Outcome and basis
 
-The candidate restores two explicitly addressed native V2 backends and ol/ow
-clients on Endeavour. New databases, cache and state are separate from V1.
-Original history/schema remain untouched; only the approved homelab V1
-permission change to 0600 is planned. Optional plugins remain off.
+Endeavour now has two authenticated native V2 2.0.27 backends and explicit
+ol/ow clients. Databases/data/state/cache are isolated from V1. History import
+is separate; original V1 inode/size/mtime remain unchanged. Only approved
+homelab chmod changed; both V1 files now have mode 0600.
 
-The verbatim human seed, accepted scenarios and reconciled checks live in
-the owning [leaf migration record](https://github.com/ErikBPF/opencode-flake/tree/5dca70f302d8b8ad5f52feea2c2bac347cd24858/docs/behaviors/opencode-v2-migration).
-[Leaf PR #55](https://github.com/ErikBPF/opencode-flake/pull/55) passed security,
-full checks and both package builds; it merged with Q-6 authorization.
-Main CI published and verified FlakeHub 0.1.54 at the matching revision.
-Only that input changed in the consumer lock; exact consumer 2.0.27 builds.
+The verbatim seed and accepted contract remain in the
+[owning leaf record](https://github.com/ErikBPF/opencode-flake/tree/5dca70f302d8b8ad5f52feea2c2bac347cd24858/docs/behaviors/opencode-v2-migration).
+[Leaf #55](https://github.com/ErikBPF/opencode-flake/pull/55) passed required
+CI, merged with Q-6 authorization and published FlakeHub 0.1.54 at matching
+revision. Only that consumer input changed. [Desktop #373](https://github.com/ErikBPF/desktop-nixos/pull/373)
+is open; initial candidate commit is `1cff636`. No Desktop merge or other
+host activation is authorized or performed.
 
-## Decisions and delivered boundaries
+## Decisions and boundaries
 
-Q-1 selects native backends, not the V1 Rust client. Q-2 keeps Fold/sidebar
-opt-in. Q-3 authorizes Endeavour activation after GREEN. Q-4 authorizes green
-commits/pushes/PRs, not Desktop merge. Q-5 permits legacy chmod only. Q-6
-authorizes leaf merge/publication/pin. Q-7 restores the current pinned
-Ponytail V2 adapter 0.1.0 after upstream 5.1.1 failed native checks; its
-update is explicitly deferred, not silently declared compatible.
+Q-1 selects native V2, not Rust/V1 pairing. Q-2 leaves Fold/sidebar off.
+Q-3 authorizes Endeavour activation after local GREEN. Q-4 permits green
+commits/pushes/PRs. Q-5 allows legacy chmod only. Q-6 permits leaf
+merge/publication/pin. Q-7 retains pinned Ponytail V2 adapter 0.1.0 after
+upstream 5.1.1 failed; that update is explicitly deferred.
 
-Home and work server defaults, including title model, use their own gateway.
-Only the selected scoped sops key is sourced. Servers bind loopback with
-private persistent passwords, UMask 0077 and explicit suppression of legacy
-Claude discovery. Native clients select exact packaged binaries/endpoints.
-Keep-old tmux/Herdr behavior and pending PATH fix are preserved. Independent
-trial MCP work is not replaced by normal-user activation.
+Loopback servers use private persistent passwords, UMask 0077, scoped sops
+keys, home/work gateway and title defaults, and explicit legacy-Claude
+discovery suppression. Native clients select exact binaries/endpoints.
+Keep-old desktop sessions/PATH fix and isolated controlling trial survive.
+Global CLI owns prompted permissions/tabs. Supported compaction uses
+keep.tokens; self-update is disabled. Native `tool.use` policies protect
+secret reads despite overrides. RTK rewrites after original-command approval.
+Donsetch is pinned 4.7.4; packaged Nix MCP replaces unpinned project override.
 
-Global cli.json manages prompt permissions, native tabs and equivalent
-terminal preferences. Native 2.0.27 `tool.use` policies override agent secret
-read allowances; shell commands outside exact inspection rules ask.
-Compaction uses keep.tokens; self-update is disabled. Donsetch is pinned
-4.7.4, Nix MCP inherits the packaged executable, redundant filesystem MCP
-and broad project shell overrides are removed. Duplicate startup prose was
-trimmed without deleting safety constraints.
+## Evidence and repairs
 
-## Evidence, failures and reconciliation
+RED preceded backend isolation, updater/recipe safety, compound-command
+restrictions, policy rename, discovery flag and title routing. Independent
+reviews verified and reconciled those findings. Native readiness requires
+plugins plus probe agent; missing registration cannot falsely prove denial.
+Upstream Ponytail exhausted three hypotheses; approved adapter fallback
+passed unchanged injection assertions. Discovery receipts/first-draft hashes
+are retained outside Git, with no backdated RED or weakened acceptance.
 
-RED assertions preceded backend/configuration changes, updater coverage,
-recipe quoting, compound-command restrictions, version-specific policy,
-systemd discovery flag and title routing. Leaf review's shell-injection
-finding was fixed and verified. Consumer review found policy rename and
-premature plugin readiness; both are corrected. Required plugins and probe
-must register before permission tests can claim success.
+Final local gates passed 28 workspace/backend, 10 profile and five project
+checks; exact native auth/PID/client/401 smoke, synthetic RTK model/tool
+continuation, header/injection and Node checks passed. Inline backend
+provider policies retain global secret denials. Owner lint/fmt/docs and
+four touched-host dry gates passed. Accidental PATH 2.0.21 test failure was
+corrected by selecting exact 2.0.27, without assertion changes.
 
-Five settings and five project checks pass. Backend/workspace checks cover
-isolation, forwarding, routing, chmod fixtures and lifecycle preservation.
-Exact 2.0.27 native auth/PID/client/401 smoke, real RTK model → shell → model
-continuation, header/Ponytail injection and three native plugin/permission
-checks pass. Node checks cover provider filters and adapter transforms.
+Normal-XDG home-switch completed after independent live-generation drift
+review. Both live API/native clients match owning 2.0.27 unit PIDs and reject
+unauthenticated requests. Secret denials survive session overrides; new
+DB/password modes are 0600. All eight original windows and 16 tmux panes/PIDs
+survived; desktop-tmux remains PID `161737`. Both MCPs connected on both
+backends. Home completed real model → approved pwd once → model continuation.
 
-Upstream Ponytail failed after three bounded hypotheses. The explicit
-entrypoint experiment was reverted; accepted Q-7 compatibility fallback then
-passed unchanged native injection assertions. Optional runtime trials were
-cancelled; no quota, saving or compatibility claim is made for them. Static
-settings are not UI/key-delivery evidence. Gherkin has no executable step
-bindings; these receipts do not imply whole-scenario completion.
+Work rejected `reasoning_effort`. Actual managed-model request regression
+failed, then passed after removing only Work DeepSeek effort options/variants.
+First repair activation exposed cached old server config despite updated
+managed file. A config-hash restart-trigger regression observed RED/GREEN;
+final normal-XDG redeploy restarted both backends. Work now completes real
+model → approved exact pwd once → model continuation. Refreshed identity,
+auth, secret-denial, V1 metadata and window/pane checks pass. Home options
+unchanged.
 
-Final rerun passed 28 backend/workspace, 10 profile and five project checks,
-exact-version auth smoke and Node adapter checks. An initial profile rerun
-accidentally used PATH's older 2.0.21 and failed the 2.0.27 policy checks;
-the corrected exact-binary command passed without code or assertion changes.
-Owner lint/fmt/docs and Endeavour/Orion/Apollo/Pathfinder dry gates all pass
-against the published pin. No full-system activation or local flake check ran.
-The native permission fixture also passes with the backend's inline
-provider-policy layer, proving that it retains global secret-read denials.
+Initial CI passed six host evaluations, repository secrets, lock and k3s.
+Lint/format passed; native tests failed missing scratch parent/unrealized
+Ponytail. Fixtures now create parents; CI realizes Ponytail/RTK, exposes RTK
+on PATH and selects exact binary. Fresh-HOME tests and revised workflow
+OpenCode step pass locally. GitGuardian flagged temporary auth-file mode
+fixture; path variable clarified, no exclusion/dismissal. External rerun pending.
 
-## Continuing work and recovery
+## Limits and recovery
 
-Review candidate-versus-live user-generation drift before
-the documented normal-XDG home-switch. No other host activation is approved.
-Verify both live PIDs/versions, authentication, provider/tool/MCP behavior,
-V1 metadata and surviving desktop sessions afterward.
-
-Both old V1 unit closures and previous HM generation have retained GC roots
-in the ignored task receipt directory. Original V1 DBs are still present;
-last pre-activation health was 1.18.31 and metadata unchanged. Recovery uses
-matching retained source/generation, not an unrooted binary or history import.
-The [session guide](../../guides/opencode-v2-sessions.md) records shortcuts,
-privacy limits and disabled experiment fragments.
+Both backends' configured Donsetch returned Example Domain's heading and paragraph;
+configured Nix returned programs.bash.enable's boolean type/default true
+through a completed execute call and model continuation. Native read/shell
+were denied. Whole-MCP-tool/execute permissions are not argument or network
+isolation. Actual terminal key delivery and optional runtime trials remain
+unverified. Services are active with zero automatic restarts; owning/native
+client PIDs are home `1460762` and Work `1460761`. No extra host activated.
+No token-saving/quota claim or bound Gherkin completion is asserted.
+Old V1 unit closures and prior HM generation have retained GC roots;
+recovery uses matching source/generation, never history import. Passwords
+and provider keys stay out of receipts/chat. The
+[session guide](../../guides/opencode-v2-sessions.md) records shortcuts,
+disabled fragments and privacy limits.

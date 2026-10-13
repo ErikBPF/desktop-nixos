@@ -14,10 +14,14 @@ ROOT = Path(__file__).resolve().parents[2]
 class GatewayHeaders(unittest.TestCase):
     def test_actual_client_session_header(self):
         requests = []
-        plugins = json.loads(subprocess.check_output([
+        managed = json.loads(subprocess.check_output([
             "nix", "eval", "--json",
-            ".#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.settings.plugins",
+            ".#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.settings",
+            "--apply", 'settings: { inherit (settings) plugins; workModel = settings.provider.work.models."deepseek-v4.1-flash"; }',
         ], cwd=ROOT, text=True))
+        plugins = managed["plugins"]
+        temporary_parent = Path.home() / ".local/share/opencode-v2/tmp/opencode"
+        temporary_parent.mkdir(parents=True, exist_ok=True)
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
@@ -32,7 +36,7 @@ class GatewayHeaders(unittest.TestCase):
                 pass
 
         with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server, tempfile.TemporaryDirectory(
-                dir=Path.home() / ".local/share/opencode-v2/tmp/opencode") as directory:
+                dir=temporary_parent) as directory:
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
@@ -54,9 +58,16 @@ class GatewayHeaders(unittest.TestCase):
                 # v2 core already sends x-opencode-session for custom
                 # providers, so the header appears with the plugin loaded and
                 # unloaded; the plugin keeps the provider-scoped guarantee.
-                for enabled in [False, True]:
-                    with self.subTest(bridge_enabled=enabled):
+                for enabled, work in [(False, False), (True, False), (True, True)]:
+                    with self.subTest(bridge_enabled=enabled, work_gateway=work):
                         requests.clear()
+                        if work:
+                            settings = {
+                                "model": "work/deepseek-v4.1-flash", "enabled_providers": ["work"],
+                                "provider": {"work": {"npm": "@ai-sdk/openai-compatible",
+                                    "options": {"baseURL": f"http://127.0.0.1:{server.server_port}/v1", "apiKey": "synthetic"},
+                                    "models": {"deepseek-v4.1-flash": managed["workModel"]}}},
+                            }
                         settings["plugins"] = plugins if enabled else []
                         (config / "opencode.json").write_text(json.dumps(settings))
                         result = subprocess.run([os.environ.get("OPENCODE_TEST_BINARY", "opencode"),
@@ -78,6 +89,8 @@ class GatewayHeaders(unittest.TestCase):
                             self.assertEqual(actual, affinity)
                             if enabled:
                                 self.assertIn("PONYTAIL MODE ACTIVE", json.dumps(body))
+                            if work:
+                                self.assertFalse("reasoning_effort" in body, "Work gateway rejects this parameter")
             finally:
                 server.shutdown()
                 thread.join()

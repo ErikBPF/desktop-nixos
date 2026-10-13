@@ -32,6 +32,7 @@ class Configuration(unittest.TestCase):
           yazi = h.wayland.windowManager.hyprland.settings.fileManagerTui;
           tmuxConfig = h.xdg.configFile."tmux/desktop-workspaces.conf".text or "";
           opencode = toString h.programs.opencode.package;
+          opencodeConfig = toString h.xdg.configFile."opencode/opencode.json".source;
           home = h.home.homeDirectory;
           configHome = h.xdg.configHome;
           dataHome = h.xdg.dataHome;
@@ -88,6 +89,7 @@ class Configuration(unittest.TestCase):
             self.assertTrue(name in units, f"native V2 backend missing: {name}")
             unit = units[name]
             self.assertNotEqual(unit["Unit"].get("X-SwitchMethod"), "keep-old")
+            self.assertEqual(unit["Unit"].get("X-Restart-Triggers"), [self.config["opencodeConfig"]])
             self.assertFalse(unit["Unit"].get("PartOf"))
             self.assertFalse(unit["Unit"].get("BindsTo"))
             self.assertEqual(unit["Install"]["WantedBy"], ["default.target"])
@@ -186,13 +188,13 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                     {"action": "provider.use", "resource": "openai", "effect": "allow"}])
                 self.assertEqual(absent["configDir"], self.config["configHome"].replace(self.config["home"], environment["HOME"]) + "/opencode")
                 self.assertTrue(absent["password"])
-                password = Path(environment["HOME"]) / ".local/state/opencode-v2-backends" / project / "server-password"
-                self.assertEqual(password.stat().st_mode & 0o777, 0o600)
-                before = password.read_bytes()
+                auth_file = Path(environment["HOME"]) / ".local/state/opencode-v2-backends" / project / "server-password"
+                self.assertEqual(auth_file.stat().st_mode & 0o777, 0o600)
+                before = auth_file.read_bytes()
                 (secrets / key_file).write_text("fixture-scoped-key\n")
                 present = run(backend, command[1:], service["Environment"])
                 self.assertEqual(present["keys"], {key_variable: True})
-                self.assertEqual(password.read_bytes(), before, "backend restart must retain client authentication")
+                self.assertEqual(auth_file.read_bytes(), before, "backend restart must retain client authentication")
                 (secrets / key_file).unlink()
                 forwarded = run(client, ["--session", "session with spaces", "--model", "custom/model"])
                 self.assertEqual(forwarded["args"], ["--server", f"http://127.0.0.1:{port}",

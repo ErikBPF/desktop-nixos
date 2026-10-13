@@ -236,7 +236,11 @@ in {
         package,
       }:
         lib.nameValuePair "opencode-${project.name}" {
-          Unit.Description = "Persistent native OpenCode V2 backend for ${project.name}";
+          Unit = {
+            Description = "Persistent native OpenCode V2 backend for ${project.name}";
+            # V2 caches config; HM symlink replacement must restart the backend.
+            X-Restart-Triggers = ["${config.xdg.configFile."opencode/opencode.json".source}"];
+          };
           Service = {
             # Foreground serve never registers/replaces the shared CLI service.
             ExecStart = "${package}/bin/opencode-backend-${project.name} serve --hostname 127.0.0.1 --port ${toString project.port}";

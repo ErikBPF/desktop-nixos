@@ -15,6 +15,7 @@ from pathlib import Path
 def main():
     binary, expected_version = sys.argv[1:]
     parent = Path.home() / ".local/share/opencode-v2/tmp/opencode"
+    parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="backend-auth-", dir=parent) as directory:
         root = Path(directory)
         env = {"PATH": os.environ["PATH"], "HOME": directory,

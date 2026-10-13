@@ -34,8 +34,9 @@ class NativeRuntime(unittest.TestCase):
         ponytail = next(p for p in settings["plugins"] if "opencode-ponytail-v2-0.1.0" in p)
         if not Path(ponytail).is_dir():
             raise AssertionError("Realize the managed Ponytail derivation before runtime checks")
-        cls.temporary = tempfile.TemporaryDirectory(
-            dir=Path.home() / ".local/share/opencode-v2/tmp/opencode")
+        temporary_parent = Path.home() / ".local/share/opencode-v2/tmp/opencode"
+        temporary_parent.mkdir(parents=True, exist_ok=True)
+        cls.temporary = tempfile.TemporaryDirectory(dir=temporary_parent)
         cls.addClassCleanup(cls.temporary.cleanup)
         cls.root = Path(cls.temporary.name)
         config = cls.root / "config/opencode"
