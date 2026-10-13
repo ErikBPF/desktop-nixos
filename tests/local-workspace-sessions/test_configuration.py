@@ -3,6 +3,7 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -121,8 +122,7 @@ class Configuration(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="opencode-wrapper-contract-") as temporary:
             root = Path(temporary)
             stub = root / "opencode"
-            stub.write_text('''#!/usr/bin/env python3
-import json, os, sys
+            stub.write_text(f"#!{sys.executable}\n" + '''import json, os, sys
 print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCODE_PASSWORD")),
     "keys": {key: os.environ.get(key) == "fixture-scoped-key" for key in
              ("OPENCODE_LITELLM_KEY", "OPENCODE_WORK_KEY") if key in os.environ},

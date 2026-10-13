@@ -1,7 +1,7 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** Endeavour activated; both live model/tool/MCP content checks pass; refreshed CI acceptance pending.
-**Stage / revision:** RV second draft / E2E / 9, 2026-10-13.
+**Status:** Endeavour activated; live checks pass; CI fixture repair and historical GitGuardian review pending.
+**Stage / revision:** RV second draft / E2E / 10, 2026-10-13.
 
 ## Outcome and basis
 
@@ -73,7 +73,16 @@ Lint/format passed; native tests failed missing scratch parent/unrealized
 Ponytail. Fixtures now create parents; CI realizes Ponytail/RTK, exposes RTK
 on PATH and selects exact binary. Fresh-HOME tests and revised workflow
 OpenCode step pass locally. GitGuardian flagged temporary auth-file mode
-fixture; path variable clarified, no exclusion/dismissal. External rerun pending.
+fixture; path variable clarified, no exclusion/dismissal. Refreshed CI still
+passed ten checks but exposed the wrapper stub's PATH-dependent Python
+shebang on Ubuntu. The fixture now uses absolute sys.executable; service
+PATH and assertions stay unchanged. All 28 workspace tests and owner
+lint/fmt/docs pass again; both wrapper checks also pass with an unavailable
+service PATH, proving interpreter portability. This is runner setup failure, not
+backend behavioral RED. GitGuardian still scans historical commit `1cff636`
+and occurrence `303907955` (incident `38171296`): reported line checks
+generated auth-file mode, not a literal credential. Manual false-positive
+review remains required; no history rewrite or security bypass is applied.
 
 ## Limits and recovery
 
