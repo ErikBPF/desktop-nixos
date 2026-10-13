@@ -52,15 +52,12 @@ at 3 retries; after that, stop and report.
 
 ## Operating principles
 
-- **If it's not documented, the AI doesn't know about it.** CLAUDE.md,
+- **If it's not documented, the AI doesn't know about it.** AGENTS.md,
   PREFERENCES.md, and skills are the AI's interface to the project. Surface
   conventions explicitly; never assume undocumented context.
 - **Bounded iteration.** Design / brainstorm loops run a fixed 2-3 rounds,
   then force a decision. Open-ended AI conversations drift; a fixed round
   count keeps sessions tractable and produces auditable outputs.
-- **Default flow:** `/pl` → `/ip` → implementation → `/rv`, with human-seed
-  integrity throughout. RFC → ADR → spec is an explicitly requested formal
-  feedback flow, not a prerequisite for ordinary tasks.
 - **Two-layer skills:** repo-specific skills live alongside the repo;
   team-wide skills travel via symlinks / global install. Both load through
   `~/.agents/skills/` discovery.
@@ -110,9 +107,6 @@ quote errors verbatim.
   searches through the `explore`/`general` subagent (or
   `cavecrew-investigator`) — only the compressed result returns to main
   context. Single-file peeks stay inline.
-- When the user requests RFC → ADR → spec, prepare the RFC under
-  `docs/proposals/` when ready for feedback, record accepted decisions in an ADR,
-  then derive the spec. Otherwise use the default skill flow.
 
 ## Tone
 
@@ -133,18 +127,12 @@ rule, do not explain the prefix, just emit it.
 
 ## Default workflow
 
-- Unclear or new work → `/pl`: bounded party elicitation, decision map, and
-  a BDD `.feature` behavior contract.
-- Accepted behavior → `/ip`: vertical RED-GREEN slices with test seams,
-  verification commands, rollback gates, and a plan grill before coding.
-- Plans, docs, diffs, PRs → `/rv`: independent conformance, correctness,
-  security (`/codehero`), editorial (`bmad-editorial-review`), adversarial
-  (`bmad-party-mode --party code-review-crew`), and simplicity passes, with
-  verified fixes.
-- Supporting skills: `/party`, `/map`, `/grill`, `/codehero`, `/cr` (human-led
-  tuicr/Neovim handover of diffs and stage documents).
-- Small documentation or wiring changes may start at the first applicable
-  gate; do not invent tests or ceremony.
+Load `/pl` for discovery/BDD, `/ip` for delivery/TDD, `/rv` for review/repair.
+RV includes conformance, correctness, security, editorial, adversarial and
+simplicity passes with verified fixes. Load supporting skills on demand;
+`/cr` provides human-led tuicr/Neovim handover. Small docs or wiring start at
+the first applicable gate; do not invent tests or ceremony. Shared policy
+below owns seed integrity, RFC opt-in, stage evidence and delivery safeguards.
 
 ## Instruction composition
 

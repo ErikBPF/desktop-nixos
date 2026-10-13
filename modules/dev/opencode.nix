@@ -1,7 +1,6 @@
 {inputs, ...}: {
   flake.modules.home.opencode = {pkgs, ...}: let
-    # Ponytail response-style adapter for the v2 plugin API, hash-pinned. The
-    # v1 adapter (`inputs.ponytail`) does not run under v2.
+    # Keep the V2 adapter: upstream 5.1.1 did not load in native runtime checks.
     ponytailV2 = pkgs.runCommand "opencode-ponytail-v2-0.1.0" {} ''
       mkdir -p "$out"
       tar -xzf ${pkgs.fetchurl {
@@ -9,6 +8,21 @@
         hash = "sha512-4DgzFxuANIgCDeTOs+Xair7P7mkXNULxClxQANogqyqZBTJK+KuHRKsYZ5VFeuRw2pw1xMEQ62xst+cXXVheAg==";
       }} --strip-components=1 -C "$out"
     '';
+    protectedReads = [
+      "*.secrets.json"
+      "*.secret.json"
+      "*.env*"
+      ".env*"
+      "*/.env*"
+      "*.age"
+      ".ssh/*"
+      "*/.ssh/*"
+      ".config/sops/age/*"
+      "*/.config/sops/age/*"
+      "/run/secrets/*"
+    ];
+    permissionRules = action: effect: resources:
+      map (resource: {inherit action effect resource;}) resources;
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -36,12 +50,7 @@
   in {
     imports = [
       inputs.opencode-flake.homeManagerModules.withPackageV2
-      inputs.opencode-tui.homeManagerModules.withPackage
     ];
-
-    # Rust/ratatui client that attaches to the local `opencode serve`. It
-    # never starts a server; OPENCODE_URL points at the fleet default.
-    programs.opencode-tui.enable = true;
 
     # rtk comes from modules/dev/codex.nix (hiPrio 0.48.0). Adding pkgs.rtk here
     # too put two different store paths with the same bin/rtk subpath in one
@@ -64,7 +73,9 @@
 
     programs.opencode-profile = {
       enable = true;
-      tui.enable = true;
+      tui.enable = false;
+      # Native ordered V2 rules below replace the profile's V1 yolo defaults.
+      permissions.enable = false;
       # v1 rtk plugin; the v2 plugin lane below installs its own shim plugin.
       rtk.enable = false;
       # Instructions already carry the response style and shared repo policy.
@@ -77,13 +88,14 @@
     # from sops via opencode-client (the zsh snippet above sources
     # /run/secrets/opencode/*).
     programs.opencode.settings = {
+      update = "disable";
       instructions = ["AGENTS.md"];
       plugins = [
         # v2 plugin API. RTK rewrites through a shell shim so OpenCode still
         # authorizes the original command (rtk-ai/rtk#4197). Gateway headers
         # keep the LiteLLM/Work routing session header. Ponytail v2 is the
-        # hash-pinned adapter; v1 plugins (dcp, ponytail.mjs, rtk.ts) do not
-        # run under v2.
+        # hash-pinned native adapter. DCP remains absent: its v2
+        # token-tracking port is not verified; optional experiments are opt-in.
         "file://${./opencode-plugins-v2/rtk}"
         "file://${./opencode-plugins-v2/gateway-headers}"
         "${ponytailV2}"
@@ -256,17 +268,7 @@
               };
               reasoning = true;
               tool_call = true;
-              # LiteLLM 1.98.0's cached OpenRouter capabilities omit effort.
-              options = {
-                reasoningEffort = "max";
-                allowed_openai_params = ["reasoning_effort"];
-              };
-              variants = {
-                low.reasoningEffort = "low";
-                high.reasoningEffort = "high";
-                max.reasoningEffort = "max";
-                medium.disabled = true;
-              };
+              # Work's OpenRouter route rejects reasoning_effort; use its default.
             };
             "glm-5.3-flash" = {
               limit = {
@@ -308,50 +310,57 @@
         };
       };
 
-      experimental.policies = [
-        {
-          effect = "deny";
-          action = "provider.use";
-          resource = "*";
-        }
-        {
-          effect = "allow";
-          action = "provider.use";
-          resource = "litellm";
-        }
-        {
-          effect = "allow";
-          action = "provider.use";
-          resource = "work";
-        }
-        {
-          effect = "allow";
-          action = "provider.use";
-          resource = "opencode-go";
-        }
-        {
-          effect = "allow";
-          action = "provider.use";
-          resource = "openai";
-        }
-      ];
+      experimental.policies =
+        [
+          {
+            effect = "deny";
+            action = "provider.use";
+            resource = "*";
+          }
+          {
+            effect = "allow";
+            action = "provider.use";
+            resource = "litellm";
+          }
+          {
+            effect = "allow";
+            action = "provider.use";
+            resource = "work";
+          }
+          {
+            effect = "allow";
+            action = "provider.use";
+            resource = "opencode-go";
+          }
+          {
+            effect = "allow";
+            action = "provider.use";
+            resource = "openai";
+          }
+        ]
+        # V2 2.0.27 renames this action; keep it aligned with the consumer pin.
+        ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
 
-      # Extends the profile's G1 rules with this host's extra denies and the
-      # bare-glob variants the hand-managed config used.
-      permission = {
-        "*" = "allow";
-        edit = {
-          "*.sops" = "deny";
-          "*.env*" = "deny";
-          "*.age" = "deny";
-        };
-        bash = {
-          "rm -rf /" = "deny";
-          "docker rm -f *" = "deny";
-          "*nixos-rebuild*--target-host*" = "deny";
-          "**ssh*nixos-rebuild*switch*" = "deny";
-        };
-      };
+      # Exact inspection commands only: no glob can admit cat, arbitrary git
+      # arguments, or compound commands. Documented just deploys still ask.
+      permissions =
+        permissionRules "read" "allow" ["*"]
+        ++ permissionRules "read" "deny" protectedReads
+        ++ permissionRules "edit" "allow" ["*"]
+        ++ permissionRules "edit" "ask" ["flake.lock"]
+        ++ permissionRules "edit" "deny" ["*.sops" "*.env*" ".env*" "*/.env*" "*.age" "secrets/*"]
+        ++ permissionRules "shell" "ask" ["*"]
+        ++ permissionRules "shell" "allow" ["pwd" "git status" "git status --short" "git diff --stat" "git diff --name-only"]
+        ++ permissionRules "shell" "deny" [
+          "rm -rf /"
+          "rm -rf /*"
+          "rm -rf ~*"
+          "docker volume rm *"
+          "docker rm -f *"
+          "*nixos-rebuild*--target-host*"
+          "*ssh*nixos-rebuild*switch*"
+          "ssh *docker compose*up*"
+        ];
 
       # Helpers inherit the selected gateway/model. Architect remains read-only.
       agent = {
@@ -371,13 +380,13 @@
 
       mcp.donsetch = {
         type = "local";
-        command = ["npx" "-y" "donsetch@4.2.9" "mcp" "--supervised"];
+        command = ["npx" "-y" "donsetch@4.7.4" "mcp" "--supervised"];
         enabled = true;
       };
 
       compaction = {
         auto = true;
-        tail_turns = 8;
+        keep.tokens = 15000;
       };
       tool_output = {
         max_lines = 200;
@@ -412,6 +421,33 @@
           "tdd"
         ]))
       // {
+        "opencode/cli.json".text = builtins.toJSON {
+          "$schema" = "https://opencode.ai/v2/cli.json";
+          theme = {
+            name = "tokyonight";
+            mode = "system";
+          };
+          mouse = true;
+          scroll = {
+            speed = 3;
+            acceleration = false;
+          };
+          leader.timeout = 2000;
+          diffs.view = "auto";
+          attention = {
+            notifications = true;
+            sound = true;
+            volume = 0.4;
+            sound_pack = "opencode.default";
+          };
+          session.permissions = "prompt";
+          tabs = {
+            mode = "on";
+            scope = "cwd";
+            layout = "horizontal";
+            indicators = "status";
+          };
+        };
         # Vendored `graphify install --platform opencode` output (graphifyy
         # uv-tool binary v0.9.53); re-vendor under modules/dev/graphify-skills
         # when the uv tool is bumped.
