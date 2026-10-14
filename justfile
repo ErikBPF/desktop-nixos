@@ -1717,6 +1717,10 @@ recover-orion-nfs:
 diagnose-orion-nfs:
     ssh -p 2222 erik@{{ip_orion}} "sudo systemctl status mnt-nfs-fast.mount mnt-nfs-bulk.mount mnt-nfs-fast.automount mnt-nfs-bulk.automount --no-pager -l; sudo journalctl -b -u mnt-nfs-fast.mount -u mnt-nfs-bulk.mount --no-pager -n 100; echo ':: tailscale peers'; tailscale status; echo ':: tailscale dns'; tailscale dns status; echo ':: resolve kepler'; getent ahosts kepler || true; resolvectl query kepler || true; echo ':: nfs filesystems'; grep nfs /proc/filesystems || true; echo ':: modules'; lsmod | grep -E '(^nfs|sunrpc|lockd)' || true"
 
+# Read-only acceptance from this client; refuses on-LAN or ambiguous uplinks.
+verify-roaming-dns:
+    python3 scripts/verify-roaming-dns.py --off-lan
+
 diagnose-gateway-reachability target:
     #!/usr/bin/env bash
     set -euo pipefail

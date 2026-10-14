@@ -24,6 +24,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`reference/roaming-dns-probe.md`](reference/roaming-dns-probe.md) | Manual off-LAN acceptance: client routes, Discovery DNS, system resolution, and TLS-verified LiteLLM/AdGuard ingress. | Implemented locally; offline contract and Endeavour roaming probe pass; publication pending |
 | [`behaviors/opencode-v2-migration/one-pager.md`](behaviors/opencode-v2-migration/one-pager.md) · [`session guide`](guides/opencode-v2-sessions.md) | Native two-backend V2 migration, package/plugin checks, preserved V1 state and optional context/quota trials. | Implementation in progress; activation and publication pending |
 | [`behaviors/orion-main-guardrails/one-pager.md`](behaviors/orion-main-guardrails/one-pager.md) | Preserve Orion panic recovery and bounded persistent scheduled/catch-up cache builds on main. | Restored-schedule source passes focused tests; publication and update pending |
 | [`reference/2026-10-02-cp1-clocksource-canary.md`](reference/2026-10-02-cp1-clocksource-canary.md) | Kepler guest clocksource, dependency-stop recovery, etcd failure investigation and serial worker update evidence. | Merged and persistent on all six guests; initial phased rollout failed; serial worker restoration verified; storage-delay attribution open |
