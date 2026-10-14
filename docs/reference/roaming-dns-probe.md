@@ -1,6 +1,6 @@
 # Roaming DNS and ingress probe
 
-**Status:** Consumer source reviewed; roaming probe passes; IaC leaf merged/applied; desktop publication and Discovery deployment pending.
+**Status:** IaC adoption complete; desktop PR #377 merged; candidate built on Orion and delivered through signed cache to Discovery. Host activation remains pending.
 
 ## Outcome and use
 
@@ -96,11 +96,48 @@ executable; advertisements/client preferences remain unchanged.
 
 Same input also supplies Telstar capture code; existing no-restart/no-stop guards
 remain. No Python guard or runtime PATH addition is needed. Admin ACL tightening
-is excluded. Targeted Discovery toplevel dry-build passed with explicit Orion
-Tailscale builder and zero client jobs. Consumer PR and closure/rollback gates
-remain pending; source/eval success is not runtime checker health. Fresh remote
-inspection found system profile changed since the approved baseline review while
-running/booted systems remained unchanged. Host rollout is blocked until that
-concurrent profile change is reconciled; this session has changed no host profile.
-Stopping probe is its recovery. Pin recovery restores prior generation; host
-rollout must preserve explicit rollback baseline and cannot undo mutable data.
+is excluded. Desktop [PR #377](https://github.com/ErikBPF/desktop-nixos/pull/377)
+merged as `2f33efc7990954283aff401f8deef91593b5f000`; eleven CI checks passed.
+Targeted Discovery dry-build passed. Its later client-controlled build timed out;
+the user then specified “build packages on orion and send to discovery. Orion is
+the official cache”. Exact evaluated derivation was transferred to Orion, built
+there with other builders disabled, and rooted at
+`/var/tmp/discovery-tailscale-hardening-2f33efc`. No source or package compilation
+ran on Discovery.
+
+## Official cache delivery receipt
+
+Candidate output:
+`/nix/store/mm8sz6m9qgmcifb7l0yzp3d56zwjs3kv-nixos-system-discovery-26.11.20260922.6774f7b`.
+Orion's [cache module](../../modules/services/nix-cache.nix) serves its signed local
+store directly; there is no separate upload step. Discovery reached the declared
+LAN cache, obtained candidate's `Sig: orion:`, and successfully verified one
+trusted signature before copying the full closure:
+
+```sh
+# Run on Discovery; keep signature verification and existing cache trust.
+nix store verify --store http://192.168.10.220:5000 --no-contents --sigs-needed 1 \
+  /nix/store/mm8sz6m9qgmcifb7l0yzp3d56zwjs3kv-nixos-system-discovery-26.11.20260922.6774f7b
+nix copy --from http://192.168.10.220:5000 --option require-sigs true \
+  --out-link /var/tmp/discovery-tailscale-hardening-2f33efc \
+  /nix/store/mm8sz6m9qgmcifb7l0yzp3d56zwjs3kv-nixos-system-discovery-26.11.20260922.6774f7b
+```
+
+Transfer completed: sixteen missing paths fetched directly from Orion. Both hosts
+have identical complete closure metadata (NAR hashes, sizes and references) for
+all 1,878 paths, and candidate is rooted on both. Discovery's running/profile/
+booted paths remain unchanged after delivery. `nix store diff-closures` against
+running system reports only `source: 190.0 KiB`; this does not replace unit diff
+or activation checks. Fresh comparison of resolved systemd directories found only
+the drift and Home Manager service links differ; their activation effects and
+rollback baseline still need verification. Comparing unresolved directory symlinks
+initially inspected only the root link, not units; no acceptance relied on it.
+Store copies do not activate candidate. Generation 129
+(`v6rpgw`) coincided with a successful
+unattended boot-staging invocation; running (`iacvrg`) and booted (`d8plj2`)
+systems remain distinct. User authorized preserving/superseding 129 and wrapping
+unchanged running OS for rollback, but wrapper preparation was cancelled. Full
+closure/unit diff, exclusive-window and rollback gates still precede activation;
+this task has changed no system profile. Cache delivery is not checker health.
+Stopping probe is its recovery. Pin recovery reverts the input pin; host rollout
+requires an explicit rollback baseline and cannot undo mutable data.
