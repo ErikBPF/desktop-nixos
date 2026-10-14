@@ -94,6 +94,8 @@
     home.file.".agents/skills/party".source = ./codex-skills/party;
     home.file.".agents/skills/pl".source = ./codex-skills/pl;
     home.file.".agents/skills/rv".source = ./codex-skills/rv;
+    # Upstream PR review (someone else's PR) for the homelab component repos.
+    home.file.".agents/skills/pr-review".source = ./codex-skills/pr-review;
 
     home.activation.configureCodexUI = lib.hm.dag.entryAfter ["writeBoundary"] ''
       run ${uiPython}/bin/python ${../../scripts/configure-codex-ui.py} "$HOME/.codex/config.toml"
