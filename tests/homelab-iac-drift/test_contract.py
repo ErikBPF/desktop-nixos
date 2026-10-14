@@ -40,10 +40,20 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
     assert "/home/erik/homelab-iac" not in (Path(__file__).parents[2] / "justfile").read_text()
 
 
-def test_pinned_iac_revision_manages_cognee_repo():
-    flake = (Path(__file__).parents[2] / "flake.nix").read_text()
+def test_pinned_iac_revision_matches_published_discovery_guard():
+    root = Path(__file__).parents[2]
+    flake = (root / "flake.nix").read_text()
+    revision = "d487d53ea4df11765054e13c75b5f41f00ece307"
+    pin = re.search(r"homelab-iac\s*=\s*\{([^}]+)\};", flake)
 
-    assert "50b47432b80ce15fd8e6d27ccbe4763ab558cc7f" in flake
+    assert pin is not None
+    assert f'url = "github:ErikBPF/homelab-iac/{revision}";' in pin.group(1)
+    assert "flake = false;" in pin.group(1)
+    lock = json.loads((root / "flake.lock").read_text())
+    node = lock["nodes"][lock["nodes"][lock["root"]]["inputs"]["homelab-iac"]]
+    assert node["original"]["rev"] == revision
+    assert node["locked"]["rev"] == revision
+    assert node["flake"] is False
 
 
 def test_drift_path_keeps_git_for_terragrunt_repo_root():
