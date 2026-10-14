@@ -1,11 +1,12 @@
 # OpenCode V2 backends: delivery status
 
 **Status:** plugins healthy; external native system activation verified; scoped combined integration pending validation/publication; historical GitGuardian disposition pending.
-**Stage / revision:** RV / plugin repair GREEN / combined-delivery first draft / 15, 2026-10-13.
+**Stage / revision:** RV second draft / combined local GREEN / 17, 2026-10-14.
 
 ## Outcome and why
 
-Both Endeavour backends run native V2 2.0.27 with RTK, gateway headers and
+Earlier plugin-repair receipts showed both Endeavour backends running native
+V2 2.0.27 with RTK, gateway headers and
 Ponytail active, zero failed plugins, authenticated native clients and correct
 gateway defaults. Guarded user activation retired the obsolete HM-owned V1
 RTK symlink into a mode-0600 backup outside plugin discovery. V1 metadata and
@@ -49,6 +50,10 @@ authorizes final Endeavour system build, realized-diff review and owner
 approval. No reboot, rollback or other-host activation. Latest merge request
 supersedes the prior no-Desktop-merge boundary only for work identified in scope;
 it does not authorize merging unknown worktrees or bypassing required checks.
+Q-13 selects RTK retirement, roaming recipe/daemon builders and sudo-PATH
+reconciliation for reviewed PR publication, normal squash merge and Endeavour
+delivery. Existing sudo-PATH source is already on main; no older V1 module is
+copied. Other dirty worktrees and DNS/route approvals remain separate.
 
 ## Evidence and bounded repairs
 
@@ -82,7 +87,7 @@ Nix returned programs.bash.enable type/default through model continuation.
 
 Owner build failed unavailable SSH builders with local jobs disabled. Approved
 candidate was then realized locally with one job. Independent realized review
-against externally advanced current system found unchanged kernel 7.2.6/systemd
+against the then-current externally advanced system found unchanged kernel 7.2.6/systemd
 261.2, all 111 HM package entries identical, no unrelated package-version update
 or new unit, and only approved retirement/triggers plus source-reference rebuilds.
 Six known system-unit differences remain. Both closures already contain native
@@ -90,6 +95,14 @@ V2 and approved Ponytail. This task held its switch on discovery of external
 activation; new user request now requires worktree/merge reconciliation before
 combined deployment. No system switch, reboot or rollback performed by this task.
 Backend unit names remain; V1 executables were replaced, not whole units deleted.
+Fresh combined builder assertions observed RED/GREEN; all 15 focused tests pass.
+Combined 29 workspace, 10 profile and five project tests pass, along with owner
+lint/format/docs/fleet consistency and Endeavour dry build. Independent risk
+review found no new verified defect; editorial review clarified historical
+runtime receipts. These are local/static checks, not combined deployment proof.
+See the [recovery integration record](../opencode-runtime-recovery/one-pager.md)
+for daemon/recipe SSH policy, inherited builder-availability limits and historical
+provider/DNS observations. Combined CI/closure/post-switch claims remain pending.
 
 Q-8 dashboard disposition remains pending. GitGuardian's historical occurrence
 `303907955` flags an auth-file mode assertion, not a literal credential; no

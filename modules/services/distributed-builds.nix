@@ -1,5 +1,6 @@
 {config, ...}: let
   inherit (config) username;
+  inherit (config.fleet) hosts;
 in {
   flake.modules.nixos.distributed-builds = {
     config,
@@ -22,8 +23,11 @@ in {
       ) {
         nix.distributedBuilds = true;
         nix.buildMachines =
-          lib.optional config.nix.distributedBuildsOrion.enable {
-            hostName = "192.168.10.220";
+          lib.optional (
+            config.nix.distributedBuildsOrion.enable
+            && config.networking.hostName != "orion"
+          ) {
+            hostName = hosts.orion.tailscaleIp;
             sshUser = username;
             sshKey = "/home/${username}/.ssh/id_ed25519";
             # aarch64 via orion's binfmt/qemu emulation (Pi hosts: archinaut).
@@ -40,7 +44,7 @@ in {
             config.nix.distributedBuildsKepler.enable
             && config.networking.hostName != "kepler"
           ) {
-            hostName = "192.168.10.230";
+            hostName = hosts.kepler.tailscaleIp;
             sshUser = username;
             sshKey = "/home/${username}/.ssh/id_ed25519";
             systems = ["x86_64-linux"];
@@ -55,10 +59,10 @@ in {
         # nix-daemon SSHes to orion on port 2222 (hardened SSH — see networking/openssh.nix).
         # This replaces the imperative /root/.ssh/config entry used during bootstrap.
         programs.ssh.extraConfig = ''
-          Host 192.168.10.220
+          Host ${hosts.orion.ip} ${hosts.orion.tailscaleIp}
             Port 2222
             StrictHostKeyChecking accept-new
-          Host 192.168.10.230
+          Host ${hosts.kepler.ip} ${hosts.kepler.tailscaleIp}
             Port 2222
             StrictHostKeyChecking accept-new
         '';
