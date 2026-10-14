@@ -15,10 +15,13 @@ ip_vanguard := `jq -r '.hosts.vanguard.ip' fleet.json`
 ip_apollo := `jq -r '.hosts.apollo.ip' fleet.json`
 tailscale_voyager := `jq -r '.hosts.voyager.tailscaleIp' fleet.json`
 tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
+# Builders are reached over Tailscale so a roaming host (Endeavour) can build.
+tailscale_orion := `jq -r '.hosts.orion.tailscaleIp' fleet.json`
+tailscale_kepler := `jq -r '.hosts.kepler.tailscaleIp' fleet.json`
 
 # Build offload to orion (Ryzen 9 5950X) via ssh-ng
-orion_builder := "ssh-ng://erik@" + ip_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,kvm,nixos-test"
-kepler_builder := "ssh-ng://erik@" + ip_kepler + ":2222 x86_64-linux /home/erik/.ssh/id_ed25519 2 1 big-parallel,benchmark"
+orion_builder := "ssh-ng://erik@" + tailscale_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,kvm,nixos-test"
+kepler_builder := "ssh-ng://erik@" + tailscale_kepler + ":2222 x86_64-linux /home/erik/.ssh/id_ed25519 2 1 big-parallel,benchmark"
 
 # Never ask a deployment target to build itself. Other x86_64 targets can use
 # Orion as primary plus Kepler's deliberately constrained spillover capacity.

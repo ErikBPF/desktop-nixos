@@ -148,12 +148,34 @@ in {
       })
       projects;
     inherit (lib.generators) mkLuaInline;
+    retireLegacyRtk = pkgs.writeShellScript "retire-legacy-opencode-rtk" ''
+      set -euo pipefail
+      legacy=${lib.escapeShellArg "${config.xdg.configHome}/opencode/plugins/rtk.ts"}
+      backup=${lib.escapeShellArg "${config.xdg.stateHome}/opencode-v2-migration/rtk-v1.ts"}
+      [[ -L "$legacy" && -f "$legacy" ]] || exit 0
+      case "$(${pkgs.coreutils}/bin/readlink -f -- "$legacy")" in
+        /nix/store/*) ;;
+        *) exit 0 ;;
+      esac
+      # Retire only the verified HM-owned V1 RTK copy; preserve custom files.
+      [[ "$(${pkgs.coreutils}/bin/sha256sum "$legacy" | ${pkgs.coreutils}/bin/cut -d ' ' -f 1)" == 6530c131946c84892f9522abd68d4e513e1e658d8ddbad1f59388c86ebbcb6bb ]] || exit 0
+      [[ ! -L "$backup" ]] || exit 0
+      if [[ ! -e "$backup" ]]; then
+        ${pkgs.coreutils}/bin/install -D -m 0600 -- "$legacy" "$backup"
+      fi
+      [[ "$(${pkgs.coreutils}/bin/stat -c %a -- "$backup")" == 600 ]] || exit 0
+      [[ -f "$backup" ]] && ${pkgs.diffutils}/bin/cmp -s -- "$legacy" "$backup" || exit 0
+      ${pkgs.coreutils}/bin/unlink -- "$legacy"
+    '';
   in {
     # Permission-only repair: never create, open, or import the preserved V1 DB.
     home.activation.protectLegacyOpencodeHomelab = lib.hm.dag.entryAfter ["writeBoundary"] ''
       if [[ -f ${lib.escapeShellArg legacyHomelabDatabase} ]]; then
         run ${pkgs.coreutils}/bin/chmod 0600 -- ${lib.escapeShellArg legacyHomelabDatabase}
       fi
+    '';
+    home.activation.retireLegacyOpencodeRtk = lib.hm.dag.entryBetween ["reloadSystemd"] ["writeBoundary"] ''
+      run ${retireLegacyRtk}
     '';
 
     home.packages =
@@ -239,7 +261,7 @@ in {
           Unit = {
             Description = "Persistent native OpenCode V2 backend for ${project.name}";
             # V2 caches config; HM symlink replacement must restart the backend.
-            X-Restart-Triggers = ["${config.xdg.configFile."opencode/opencode.json".source}"];
+            X-Restart-Triggers = ["${config.xdg.configFile."opencode/opencode.json".source}" "${retireLegacyRtk}"];
           };
           Service = {
             # Foreground serve never registers/replaces the shared CLI service.

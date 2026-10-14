@@ -1,125 +1,117 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** repository CI passed; historical GitGuardian review and post-restart live plugin drift block final acceptance.
-**Stage / revision:** RV second draft / E2E recheck / 11, 2026-10-13.
+**Status:** plugins healthy; external native system activation verified; scoped combined integration pending validation/publication; historical GitGuardian disposition pending.
+**Stage / revision:** RV second draft / combined local GREEN / 17, 2026-10-14.
 
-## Outcome and basis
+## Outcome and why
 
-Endeavour now has two authenticated native V2 2.0.27 backends and explicit
-ol/ow clients. Databases/data/state/cache are isolated from V1. History import
-is separate; original V1 inode/size/mtime remain unchanged. Only approved
-homelab chmod changed; both V1 files now have mode 0600.
+Earlier plugin-repair receipts showed both Endeavour backends running native
+V2 2.0.27 with RTK, gateway headers and
+Ponytail active, zero failed plugins, authenticated native clients and correct
+gateway defaults. Guarded user activation retired the obsolete HM-owned V1
+RTK symlink into a mode-0600 backup outside plugin discovery. V1 metadata and
+all 16 current tmux panes/PIDs remained unchanged. Two windows changed during
+verification; Q-10 confirms user action. The failed window receipt remains,
+not rewritten into a passing whole-desktop assertion.
 
-The verbatim seed and accepted contract remain in the
+Earlier boot invoked pre-V2 system HM while standalone HM installed V2,
+explaining stale startup config despite correct current files. External system
+activation since then installed native V2 system HM successfully. This task
+performed user repair, not that system switch; reboot behavior remains untested.
+
+Verbatim seed and accepted contracts remain in the
 [owning leaf record](https://github.com/ErikBPF/opencode-flake/tree/5dca70f302d8b8ad5f52feea2c2bac347cd24858/docs/behaviors/opencode-v2-migration).
-[Leaf #55](https://github.com/ErikBPF/opencode-flake/pull/55) passed required
-CI, merged with Q-6 authorization and published FlakeHub 0.1.54 at matching
-revision. Only that consumer input changed. [Desktop #373](https://github.com/ErikBPF/desktop-nixos/pull/373)
-is open; initial candidate commit is `1cff636`. No Desktop merge or other
-host activation is authorized or performed.
+[Leaf #55](https://github.com/ErikBPF/opencode-flake/pull/55) merged and published
+FlakeHub 0.1.54. [Desktop #373](https://github.com/ErikBPF/desktop-nixos/pull/373)
+and status [#374](https://github.com/ErikBPF/desktop-nixos/pull/374) are now merged
+externally. User selected RTK retirement, roaming-builder recovery and sudo-PATH
+reconciliation for combined main delivery. Other dirty worktrees stay untouched.
 
-## Decisions and boundaries
+## Changes and decisions
 
-Q-1 selects native V2, not Rust/V1 pairing. Q-2 leaves Fold/sidebar off.
-Q-3 authorizes Endeavour activation after local GREEN. Q-4 permits green
-commits/pushes/PRs. Q-5 allows legacy chmod only. Q-6 permits leaf
-merge/publication/pin. Q-7 retains pinned Ponytail V2 adapter 0.1.0 after
-upstream 5.1.1 failed; that update is explicitly deferred.
+Q-1 selects native servers/clients, not V2-server/V1-Rust pairing. Q-2 keeps
+Fold/sidebar disabled. Q-3/Q-4 permit verified Endeavour user activation and
+publication. Q-5 permits V1 homelab chmod only, never history/schema migration.
+Q-6 permits leaf publication/pin. Q-7 retains hash-pinned Ponytail adapter 0.1.0;
+incompatible upstream 5.1.1 is deferred.
 
-Loopback servers use private persistent passwords, UMask 0077, scoped sops
-keys, home/work gateway and title defaults, and explicit legacy-Claude
-discovery suppression. Native clients select exact binaries/endpoints.
-Keep-old desktop sessions/PATH fix and isolated controlling trial survive.
-Global CLI owns prompted permissions/tabs. Supported compaction uses
-keep.tokens; self-update is disabled. Native `tool.use` policies protect
-secret reads despite overrides. RTK rewrites after original-command approval.
-Donsetch is pinned 4.7.4; packaged Nix MCP replaces unpinned project override.
+Backends isolate databases/data/state/cache and scoped credentials; prompted
+original-command approval precedes RTK execution. Provider-filtered headers,
+title/default routing, native secret-denial policies, disabled updater and
+legacy-discovery suppression remain. Only Work DeepSeek's rejected effort
+options were removed. Config and retirement-script restart triggers refresh
+cached server inventory without restarting persistent desktop tmux.
 
-## Evidence and repairs
+Q-9 approves retirement only for an existing store-backed symlink matching the
+verified V1 RTK hash. Unknown files, non-store links and conflicting/insecure
+backups stay untouched. Retirement runs before systemd reload. Q-11 now
+authorizes final Endeavour system build, realized-diff review and owner
+`just switch endeavour` within inspected scope; unexpected changes reopen
+approval. No reboot, rollback or other-host activation. Latest merge request
+supersedes the prior no-Desktop-merge boundary only for work identified in scope;
+it does not authorize merging unknown worktrees or bypassing required checks.
+Q-13 selects RTK retirement, roaming recipe/daemon builders and sudo-PATH
+reconciliation for reviewed PR publication, normal squash merge and Endeavour
+delivery. Existing sudo-PATH source is already on main; no older V1 module is
+copied. Other dirty worktrees and DNS/route approvals remain separate.
 
-RED preceded backend isolation, updater/recipe safety, compound-command
-restrictions, policy rename, discovery flag and title routing. Independent
-reviews verified and reconciled those findings. Native readiness requires
-plugins plus probe agent; missing registration cannot falsely prove denial.
-Upstream Ponytail exhausted three hypotheses; approved adapter fallback
-passed unchanged injection assertions. Discovery receipts/first-draft hashes
-are retained outside Git, with no backdated RED or weakened acceptance.
+## Evidence and bounded repairs
 
-Final local gates passed 28 workspace/backend, 10 profile and five project
-checks; exact native auth/PID/client/401 smoke, synthetic RTK model/tool
-continuation, header/injection and Node checks passed. Inline backend
-provider policies retain global secret denials. Owner lint/fmt/docs and
-four touched-host dry gates passed. Accidental PATH 2.0.21 test failure was
-corrected by selecting exact 2.0.27, without assertion changes.
+Earlier accepted-generation receipts cover real model → approved pwd → model
+continuation and both configured MCPs on both backends. Those are historical,
+not fresh paid-model/MCP execution after this repair. Repository CI at
+`3d1d951` passed ten checks, including native tests and six host evaluations:
+[run 38456124752](https://github.com/ErikBPF/desktop-nixos/actions/runs/38456124752).
 
-Normal-XDG home-switch completed after independent live-generation drift
-review. Both live API/native clients match owning 2.0.27 unit PIDs and reject
-unauthenticated requests. Secret denials survive session overrides; new
-DB/password modes are 0600. All eight original windows and 16 tmux panes/PIDs
-survived; desktop-tmux remains PID `161737`. Both MCPs connected on both
-backends. Home completed real model → approved pwd once → model continuation.
+Retirement/trigger assertions first failed RED. First implementation exposed
+wrong `cmp` package ownership; corrected to diffutils. Independent review found
+the pre-existing identical 0644-backup edge; assertion RED preceded exact-0600
+guard GREEN. Hook-order assertion likewise failed before DAG correction.
+All 29 workspace/backend tests, lint and formatting pass. Owner dry gate passes
+with NixOS wrapper PATH restored; initial sudo error was executable selection,
+not broken system permissions. No permission repair was attempted.
 
-Work rejected `reasoning_effort`. Actual managed-model request regression
-failed, then passed after removing only Work DeepSeek effort options/variants.
-First repair activation exposed cached old server config despite updated
-managed file. A config-hash restart-trigger regression observed RED/GREEN;
-final normal-XDG redeploy restarted both backends. Work now completes real
-model → approved exact pwd once → model continuation. Refreshed identity,
-auth, secret-denial, V1 metadata and window/pane checks pass. Home options
-unchanged.
+First user activation timed out during package-profile installation; no
+activation process remained. Second owner-recipe attempt completed with longer
+budget. Fresh receipts show both essential inventories active, zero failures,
+matching native/API/unit PIDs, correct routes and unauthenticated 401. Backup
+bytes match known legacy hash; V1 metadata and tmux checks pass. Current PIDs
+are recorded in scratch receipts, not treated as permanent identities.
 
-Initial CI passed six host evaluations, repository secrets, lock and k3s.
-Lint/format passed; native tests failed missing scratch parent/unrealized
-Ponytail. Fixtures now create parents; CI realizes Ponytail/RTK, exposes RTK
-on PATH and selects exact binary. Fresh-HOME tests and revised workflow
-OpenCode step pass locally. GitGuardian flagged temporary auth-file mode
-fixture; path variable clarified, no exclusion/dismissal. Refreshed CI still
-passed ten checks but exposed the wrapper stub's PATH-dependent Python
-shebang on Ubuntu. The fixture now uses absolute sys.executable; service
-PATH and assertions stay unchanged. All 28 workspace tests and owner
-lint/fmt/docs pass again; both wrapper checks also pass with an unavailable
-service PATH, proving interpreter portability. This is runner setup failure, not
-backend behavioral RED. GitGuardian still scans historical commit `1cff636`
-and occurrence `303907955` (incident `38171296`): reported line checks
-generated auth-file mode, not a literal credential. Manual false-positive
-review remains required; no history rewrite or security bypass is applied.
-Q-8: user chose dashboard review of the historical occurrence. Actual
-disposition remains pending; that selection does not clear the security gate.
-On the requested legitimacy check, historical source line 190 was read
-directly: it asserts generated file mode 0600; line 189 assigns a Path,
-not a password value. The reported occurrence is a source-level false
-positive, not evidence of committed credentials. External disposition is
-still pending; current plugin-readiness failure is a separate genuine gate.
+Earlier CI repairs realized missing dependencies, created scratch parents and
+used absolute Python for the wrapper stub; runner failures were not behavioral
+RED. Historical configured Donsetch returned Example Domain's heading/paragraph;
+Nix returned programs.bash.enable type/default through model continuation.
 
-[Check run 38456124752](https://github.com/ErikBPF/desktop-nixos/actions/runs/38456124752)
-passed at `3d1d951`: lint job including native/profile/workspace tests,
-all six host evaluations, lock and k3s. Repository Security workflow also
-passed. The CLI watcher timed out reaching GitHub; subsequent direct run
-inspection confirmed success. GitGuardian remains a separate failing check.
+## Continuing work, limits and recovery
 
-## Limits and recovery
+Owner build failed unavailable SSH builders with local jobs disabled. Approved
+candidate was then realized locally with one job. Independent realized review
+against the then-current externally advanced system found unchanged kernel 7.2.6/systemd
+261.2, all 111 HM package entries identical, no unrelated package-version update
+or new unit, and only approved retirement/triggers plus source-reference rebuilds.
+Six known system-unit differences remain. Both closures already contain native
+V2 and approved Ponytail. This task held its switch on discovery of external
+activation; new user request now requires worktree/merge reconciliation before
+combined deployment. No system switch, reboot or rollback performed by this task.
+Backend unit names remain; V1 executables were replaced, not whole units deleted.
+Fresh combined builder assertions observed RED/GREEN; all 15 focused tests pass.
+Combined 29 workspace, 10 profile and five project tests pass, along with owner
+lint/format/docs/fleet consistency and Endeavour dry build. Independent risk
+review found no new verified defect; editorial review clarified historical
+runtime receipts. These are local/static checks, not combined deployment proof.
+See the [recovery integration record](../opencode-runtime-recovery/one-pager.md)
+for daemon/recipe SSH policy, inherited builder-availability limits and historical
+provider/DNS observations. Combined CI/closure/post-switch claims remain pending.
 
-Both backends' configured Donsetch returned Example Domain's heading and paragraph;
-configured Nix returned programs.bash.enable's boolean type/default true
-through a completed execute call and model continuation. Native read/shell
-were denied. Whole-MCP-tool/execute permissions are not argument or network
-isolation. Actual terminal key delivery and optional runtime trials remain
-unverified. At accepted-generation verification, services were active with
-zero automatic restarts; owning/native client PIDs were home `1460762` and
-Work `1460761`. No extra host activated by this task. After the reported
-server restart, a fresh identity check reached 2.0.27 but home plugin
-readiness failed: essential plugin IDs absent, one failed registration.
-Read-only drift diagnosis is ongoing. Earlier model/tool/MCP receipts are
-not claimed as current-health evidence; no automatic restore or unrelated
-user changes have been made.
-Independent source audit confirmed the expected three plugin definitions
-match pinned 2.0.27 loader contracts. A missing RTK executable would not
-remove its inventory ID. Anonymous import failures retain no ID and do not
-alone identify a scan-wide abort. Effective live targets/error source must
-be reconciled before changing valid source or blaming migration behavior.
-No token-saving/quota claim or bound Gherkin completion is asserted.
-Old V1 unit closures and prior HM generation have retained GC roots;
-recovery uses matching source/generation, never history import. Passwords
-and provider keys stay out of receipts/chat. The
-[session guide](../../guides/opencode-v2-sessions.md) records shortcuts,
-disabled fragments and privacy limits.
+Q-8 dashboard disposition remains pending. GitGuardian's historical occurrence
+`303907955` flags an auth-file mode assertion, not a literal credential; no
+exclusion, dismissal or history rewrite was applied. New-head CI is not claimed.
+Actual shortcut delivery, optional-plugin compatibility/quota/savings and bound
+Gherkin completion remain unverified. MCP permissions are not argument/network
+isolation. Credentials stay out of receipts and Git.
+
+Discovery, first drafts, Q-9/Q-11 handoffs and pre/post receipts remain under
+the approved `opencode-v2-migration-20261012` scratch directory. The
+[session guide](../../guides/opencode-v2-sessions.md) records disabled experiments
+and privacy limits.
