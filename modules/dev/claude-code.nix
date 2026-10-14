@@ -15,6 +15,7 @@
       file.".claude/skills/map".source = ./codex-skills/map;
       file.".claude/skills/party".source = ./codex-skills/party;
       file.".claude/skills/pl".source = ./codex-skills/pl;
+      file.".claude/skills/pr-review".source = ./codex-skills/pr-review;
       file.".claude/skills/rv".source = ./codex-skills/rv;
     };
 
