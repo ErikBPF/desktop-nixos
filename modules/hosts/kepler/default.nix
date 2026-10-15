@@ -105,6 +105,8 @@ in {
     # The root Btrfs currently reports structural corruption in one garbage
     # store path. GC must not walk it again before an offline read-only check.
     nix.gc.automatic = lib.mkForce false;
+    nix.distributedBuildsOrion.enable = true;
+    nix.distributedBuildsApollo.enable = true;
 
     # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
     # module imported above (grub off, panic=10). Migrated GRUB → systemd-boot
@@ -145,9 +147,7 @@ in {
     # (madvise) on this host; the CUDA inference workload that motivated the
     # change is still future, and the ZFS pool is the primary daily driver.
 
-    # Allow the laptop's dedicated root-owned builder key. Client-side
-    # scheduling caps this host at two ordinary x86_64 jobs and excludes
-    # Kepler itself from using Kepler as a remote builder.
+    # Retain existing laptop SSH access; Kepler is no longer a remote builder.
     users.users.${flakeConfig.username}.openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInTVlltDh3Q+FTusCXKsQ4Dr0pzpQHH4dAlcGXj0FPY nix-builder@laptop"
     ];

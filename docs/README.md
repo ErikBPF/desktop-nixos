@@ -24,6 +24,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`behaviors/orion-apollo-builders/one-pager.md`](behaviors/orion-apollo-builders/one-pager.md) | Orion/Apollo build pool, bounded local fallback, dedicated server enrollment and KACE retirement. | Locally verified source; activation and guest removal pending |
 | [`reference/roaming-dns-probe.md`](reference/roaming-dns-probe.md) | Manual off-LAN acceptance: client routes, Discovery DNS, system resolution, and TLS-verified LiteLLM/AdGuard ingress. | Implemented locally; offline contract and Endeavour roaming probe pass; publication pending |
 | [`behaviors/opencode-v2-migration/one-pager.md`](behaviors/opencode-v2-migration/one-pager.md) · [`session guide`](guides/opencode-v2-sessions.md) | Native two-backend V2 migration, package/plugin checks, preserved V1 state and optional context/quota trials. | Implementation in progress; activation and publication pending |
 | [`behaviors/orion-main-guardrails/one-pager.md`](behaviors/orion-main-guardrails/one-pager.md) | Preserve Orion panic recovery and bounded persistent scheduled/catch-up cache builds on main. | Restored-schedule source passes focused tests; publication and update pending |
