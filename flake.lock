@@ -494,16 +494,16 @@
     "hermes-agent-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1789401748,
-        "narHash": "sha256-D1guaUPuOOWZCt8el9+xe4qGlMyd9YR9Aq2adVfqznQ=",
+        "lastModified": 1791775030,
+        "narHash": "sha256-iQV83yt6UXPdN/6D/iea79vb5w1BeSlO+8SQYjUEp84=",
         "owner": "NousResearch",
         "repo": "hermes-agent",
-        "rev": "345cd2b057a452236de401d3534b8502a7465e8d",
+        "rev": "71d34bad1045610252eda02ee79549436896e784",
         "type": "github"
       },
       "original": {
         "owner": "NousResearch",
-        "ref": "v2026.9.14",
+        "ref": "v0.21.7",
         "repo": "hermes-agent",
         "type": "github"
       }
@@ -526,12 +526,12 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1789769916,
-        "narHash": "sha256-CciTjII2RIWybg9Vcce+2T5jS3Q6Zcjgsmpxcp5NvQ8=",
-        "rev": "450bd58ff718e36e8f4ff6c65fe2ba47eefbc5c7",
-        "revCount": 74,
+        "lastModified": 1792001853,
+        "narHash": "sha256-7P7AWeUxyZytuPkW0s/fWf82Xsn//HeIEgGh0+DZu/w=",
+        "rev": "1c28c4953e1a88bd410c0e4bb3cb000162a2b361",
+        "revCount": 77,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/ErikBPF/hermes-flake/0.2.74%2Brev-450bd58ff718e36e8f4ff6c65fe2ba47eefbc5c7/01a0b69f-15a9-7c50-8d0f-36398ae0cfe5/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/ErikBPF/hermes-flake/0.2.77%2Brev-1c28c4953e1a88bd410c0e4bb3cb000162a2b361/01a13ba9-ef94-7b31-ad32-c27f89b3f6aa/source.tar.gz"
       },
       "original": {
         "type": "tarball",

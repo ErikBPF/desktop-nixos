@@ -129,7 +129,7 @@ audit-endeavour-state target="":
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
-    BUILDERS="$(just _builders {{target}})"; \
+    BUILDERS="$(just --set orion_builder '{{orion_builder}}' --set kepler_builder '{{kepler_builder}}' _builders {{target}})"; \
     nix build --no-link \
         .#nixosConfigurations.{{target}}.config.system.build.toplevel \
         --builders "$BUILDERS" \
@@ -383,6 +383,10 @@ check:
 
 eval:
     nix flake check
+
+# Validate current source in Nix sandboxes on Orion only; no host activation.
+validate-hermes-orion:
+    nix build --no-link -L .#checks.x86_64-linux.hermes-plugin-selftests .#checks.x86_64-linux.hermes-plugin-native .#checks.x86_64-linux.hermes-state-backup --builders '{{orion_builder}}' --builders-use-substitutes --max-jobs 0
 
 # Build every flake check except Endeavour from a clean clone on Orion. The ref
 # must already be published on origin/main; dirty local work is never copied.
@@ -1535,7 +1539,7 @@ deploy target ip port="2222" user="erik":
 # selected per host system in the module.
 #   just deploy-rs voyager
 deploy-rs target hostname="":
-    BUILDERS="$(just _builders {{target}})"; \
+    BUILDERS="$(just --set orion_builder '{{orion_builder}}' --set kepler_builder '{{kepler_builder}}' _builders {{target}})"; \
     nix run .#deploy-rs -- --skip-checks {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
@@ -1543,7 +1547,7 @@ deploy-rs target hostname="":
 
 # Build and show activation changes without switching the remote system.
 deploy-rs-preview target hostname="":
-    BUILDERS="$(just _builders {{target}})"; \
+    BUILDERS="$(just --set orion_builder '{{orion_builder}}' --set kepler_builder '{{kepler_builder}}' _builders {{target}})"; \
     nix run .#deploy-rs -- --skip-checks --dry-activate {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
@@ -7793,6 +7797,38 @@ resume-discovery-postrestore-substrates:
     REMOTE
     echo ":: PASS: Docker recovery, unseal, Harbor, libvirt, and HAOS resumed"
 
+# Read only public state fields for the four Hermes writers/timers.
+hermes-agents-state:
+    ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=15 erik@{{ip_discovery}} 'systemctl show docker-hermes-argus.service docker-hermes-agent.service hermes-argus-healthcheck.timer hermes-agent-healthcheck.timer --property=Id --property=LoadState --property=ActiveState --property=SubState --no-pager'
+
+# Read-only engine preflight, using the closure already copied by backup/rehearsal.
+preflight-discovery-hermes-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python=$(nix eval --raw .#nixosConfigurations.discovery.pkgs.python3.outPath)
+    [[ "$python" =~ ^/nix/store/[0-9a-z]{32}-python3-[0-9][0-9A-Za-z.+_-]*$ ]]
+    nix shell --inputs-from . --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 nixpkgs#restic -c bash scripts/hermes-state-backup.sh preflight "{{ip_discovery}}" "{{ip_kepler}}" "$python/bin/python3"
+
+# Scoped private-state backup; no live-restore entry point.
+backup-discovery-hermes-kepler:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python=$(nix build --no-link --print-out-paths .#nixosConfigurations.discovery.pkgs.python3 --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0)
+    [[ "$python" =~ ^/nix/store/[0-9a-z]{32}-python3-[0-9][0-9A-Za-z.+_-]*$ ]] && test -x "$python/bin/python3"
+    nix copy --to "ssh-ng://erik@{{ip_discovery}}:2222" "$python"
+    nix shell --inputs-from . --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 nixpkgs#restic -c bash scripts/hermes-state-backup.sh backup "{{ip_discovery}}" "{{ip_kepler}}" "$python/bin/python3"
+
+# Restore only into helper-created isolation; no writer or timer actions.
+[positional-arguments]
+rehearse-discovery-hermes-kepler SNAPSHOT:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [[ "$1" =~ ^[0-9a-f]{64}$ ]] || { echo 'BLOCKED hermes-state-backup: invalid snapshot ID' >&2; exit 1; }
+    python=$(nix build --no-link --print-out-paths .#nixosConfigurations.discovery.pkgs.python3 --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0)
+    [[ "$python" =~ ^/nix/store/[0-9a-z]{32}-python3-[0-9][0-9A-Za-z.+_-]*$ ]] && test -x "$python/bin/python3"
+    nix copy --to "ssh-ng://erik@{{ip_discovery}}:2222" "$python"
+    nix shell --inputs-from . --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 nixpkgs#restic -c bash scripts/hermes-state-backup.sh rehearse "{{ip_discovery}}" "{{ip_kepler}}" "$python/bin/python3" "$1"
+
 # Encrypt Discovery home/SSH state to Kepler and hash-verify seven restore classes.
 backup-discovery-home-kepler:
     #!/usr/bin/env bash
@@ -8795,4 +8831,3 @@ discovery-activation-diagnostic:
     timeout 15 sudo docker image ls --format "{{"{{"}}.Repository{{"}}"}} {{"{{"}}.ID{{"}}"}}" | grep hermes || true
     df -h /var/lib/docker /nix /home
     REMOTE
-

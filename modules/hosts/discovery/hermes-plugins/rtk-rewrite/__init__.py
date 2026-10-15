@@ -1,11 +1,9 @@
 """rtk-rewrite — compress terminal output by rewriting commands through rtk.
 
 Registers a ``pre_tool_call`` hook that rewrites the terminal tool's
-``command`` to its ``rtk <cmd>`` form via ``rtk rewrite``. The hook receives
-the live ``args`` dict by reference (see
-``hermes_cli.plugins.get_pre_tool_call_block_message`` →
-``invoke_hook("pre_tool_call", args=args, ...)``), so mutating
-``args["command"]`` in place propagates to execution — no return value needed.
+``command`` to its ``rtk <cmd>`` form via ``rtk rewrite``. Returns the native
+``modify`` directive, consumed by ``_dispatch_pre_tool_call_hooks`` in both
+upstream 562ee8ab and v0.21.7. No command text is logged.
 
 ``rtk rewrite`` is the policy engine: it rewrites read-heavy commands
 (git/ls/grep/find/docker/kubectl/cat/log/json/…) and leaves mutating or
@@ -44,16 +42,14 @@ def _rewrite(command: str) -> Optional[str]:
     out = (proc.stdout or "").strip()
     # rtk prints the rewritten command on stdout, or nothing when it declines
     # (mutating/unknown commands). Only accept a real, changed rewrite.
-    if out and out != command.strip():
+    if proc.returncode == 0 and out and out != command.strip():
         return out
     return None
 
 
 def register(ctx: "PluginContext") -> None:
     def pre_tool_call(*, tool_name: str = "", args: Optional[dict] = None, **_kw):
-        # Only the terminal tool carries a shell `command`; execute_code uses
-        # `code` (python) and is correctly skipped.
-        if not isinstance(args, dict):
+        if tool_name != "terminal" or not isinstance(args, dict):
             return None
         command = args.get("command")
         if not isinstance(command, str) or not command.strip():
@@ -62,8 +58,8 @@ def register(ctx: "PluginContext") -> None:
             return None
         rewritten = _rewrite(command)
         if rewritten:
-            args["command"] = rewritten  # in-place → propagates to execution
-            logger.info("[rtk-rewrite] %r -> %r", command, rewritten)
+            logger.info("[rtk-rewrite] terminal command rewritten")
+            return {"action": "modify", "args": {"command": rewritten}}
         # Observer-only: never block.
         return None
 
