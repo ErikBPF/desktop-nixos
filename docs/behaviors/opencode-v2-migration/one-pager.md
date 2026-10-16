@@ -1,7 +1,7 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** plugins healthy; external native system activation verified; scoped combined integration pending validation/publication; historical GitGuardian disposition pending.
-**Stage / revision:** RV second draft / combined local GREEN / 17, 2026-10-14.
+**Status:** plugins healthy; external native system activation verified; PR #375 published; refreshed candidate validation/activation pending; historical GitGuardian disposition pending.
+**Stage / revision:** RV delivery refresh / 18, 2026-10-15.
 
 ## Outcome and why
 
@@ -102,11 +102,19 @@ review found no new verified defect; editorial review clarified historical
 runtime receipts. These are local/static checks, not combined deployment proof.
 See the [recovery integration record](../opencode-runtime-recovery/one-pager.md)
 for daemon/recipe SSH policy, inherited builder-availability limits and historical
-provider/DNS observations. Combined CI/closure/post-switch claims remain pending.
+provider/DNS observations. PR #375's fe3f63e head passed eleven CI checks,
+including GitGuardian. Two combined build attempts failed (timeout, then builder
+transfer `Broken pipe`); refreshed main reconciliation retains #376/#377 and
+both CI suites. One bounded owner-build retry remains. Refreshed-head CI,
+combined realized closure and post-switch claims remain pending.
+Refreshed local gates and 72 focused checks pass. Header-smoke synthetic context
+now matches the existing 100k roundtrip fixture; observed 10k overflow triggered
+compaction, not the intended chat request. Assertions and production settings
+remain unchanged; compaction injection is not claimed.
 
 Q-8 dashboard disposition remains pending. GitGuardian's historical occurrence
 `303907955` flags an auth-file mode assertion, not a literal credential; no
-exclusion, dismissal or history rewrite was applied. New-head CI is not claimed.
+exclusion, dismissal or history rewrite was applied. Refreshed-head CI is not claimed.
 Actual shortcut delivery, optional-plugin compatibility/quota/savings and bound
 Gherkin completion remain unverified. MCP permissions are not argument/network
 isolation. Credentials stay out of receipts and Git.

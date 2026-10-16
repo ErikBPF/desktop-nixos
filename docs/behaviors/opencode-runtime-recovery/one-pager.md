@@ -1,7 +1,7 @@
 # OpenCode runtime recovery and roaming builders
 
-**Status:** combined local gates and independent review pass; publication and Endeavour switch pending. DNS/route approval remains separate.
-**Stage / revision:** RV second draft / combined local GREEN / 5, 2026-10-14.
+**Status:** PR #375 published; latest main reconciled and local gates pass; candidate build/review and Endeavour switch pending. DNS/route approval remains separate.
+**Stage / revision:** RV delivery refresh / 6, 2026-10-15.
 
 ## Outcome and human seeds
 
@@ -53,11 +53,28 @@ preflight tests passed. These checks join existing pinned-Python CI, without
 new dependencies. Combined lint/format/docs/fleet consistency and Endeavour dry
 build pass, as do 29 workspace, 10 profile and five project tests. Fresh source
 risk review found no new verified defect; prose review clarified historical
-runtime/kernel receipts. CI, combined closure and post-switch checks remain
-pending. RTK's separate guarded-backup/order regressions and native runtime
+runtime/kernel receipts. Prior PR head fe3f63e passed all eleven CI checks,
+including GitGuardian; refreshed-head CI, combined closure and post-switch
+checks remain pending. RTK's separate guarded-backup/order regressions and native runtime
 receipts are in the [migration record](../opencode-v2-migration/one-pager.md).
 Owner builder preflight now authenticated to both declared tailnet Nix stores;
 this proves reachability/authentication, not successful workload offload.
+
+Build attempt 1 timed out during closure transfer; attempt 2 failed with
+`Broken pipe` transferring system units to Orion. Partial outputs are not a
+successful toplevel build. One bounded owner-build retry remains. Repository
+refresh found main advanced through #376/#377; reconciliation keeps both IaC
+drift and builder CI suites plus the new roaming-probe index entry. Endeavour
+does not apply the updated IaC artifact or change DNS/ACL/routes. No unrelated
+worktree is imported, and no local-build fallback is added.
+
+Refreshed lint/format/docs and Endeavour dry gates pass; 72 focused checks pass.
+Initial combined pytest collection hit duplicate test-module names; the owning
+separate suites avoid that runner error. Header smoke initially captured an
+unintended compaction POST after its 10k synthetic context overflowed the tool
+catalog. Matching the existing 100k roundtrip fixture restored all ten profile
+checks without changing header/marker assertions or production configuration.
+This does not prove Ponytail injection during compaction.
 
 ## Historical observations, limits and recovery
 
