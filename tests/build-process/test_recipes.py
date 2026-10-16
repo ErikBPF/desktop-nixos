@@ -176,8 +176,8 @@ def test_hermes_sandbox_validation_remains_orion_only(tmp_path):
     }
 
 
-def test_kace_removal_entrypoint_and_obsolete_watchdog_actions():
-    assert "bash scripts/remove-ubuntu-work-kace.sh" in recipe("remove-ubuntu-work-kace")
+def test_no_guest_kace_uninstall_or_obsolete_host_watchdog_actions():
+    assert "remove-ubuntu-work-kace" not in JUSTFILE.read_text()
     assert "ampagent" not in JUSTFILE.read_text()
     assert "KACE stays" not in JUSTFILE.read_text()
     assert "proprietary KACE" not in JUSTFILE.read_text()
