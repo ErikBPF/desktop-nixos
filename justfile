@@ -16,19 +16,19 @@ ip_apollo := `jq -r '.hosts.apollo.ip' fleet.json`
 tailscale_voyager := `jq -r '.hosts.voyager.tailscaleIp' fleet.json`
 tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
 
-# Build offload to orion (Ryzen 9 5950X) via ssh-ng
-orion_builder := "ssh-ng://erik@" + ip_orion + ":2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,kvm,nixos-test"
-kepler_builder := "ssh-ng://erik@" + ip_kepler + ":2222 x86_64-linux /home/erik/.ssh/id_ed25519 2 1 big-parallel,benchmark"
+# Export overrides so nested Just invocations retain the operator's builder pool.
+export orion_builder := env_var_or_default("orion_builder", "ssh-ng://erik@orion-builder:2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test")
+export apollo_builder := env_var_or_default("apollo_builder", "ssh-ng://erik@apollo-builder:2222 i686-linux,x86_64-linux /home/erik/.ssh/id_ed25519 6 1 big-parallel,benchmark,kvm,nixos-test")
 
 # Never ask a deployment target to build itself. Other x86_64 targets can use
-# Orion as primary plus Kepler's deliberately constrained spillover capacity.
+# Orion as primary plus Apollo's deliberately constrained capacity.
 _builders target:
-    @if [ "{{target}}" = kepler ]; then \
+    @if [ "{{target}}" = apollo ]; then \
         printf '%s\n' '{{orion_builder}}'; \
     elif [ "{{target}}" = orion ]; then \
-        printf '%s\n' '{{kepler_builder}}'; \
+        printf '%s\n' '{{apollo_builder}}'; \
     else \
-        printf '%s ; %s\n' '{{orion_builder}}' '{{kepler_builder}}'; \
+        printf '%s ; %s\n' '{{orion_builder}}' '{{apollo_builder}}'; \
     fi
 
 default:
@@ -129,25 +129,26 @@ audit-endeavour-state target="":
 # ── Local System ──────────────────────────────────────────
 
 build target=profile:
-    BUILDERS="$(just --set orion_builder '{{orion_builder}}' --set kepler_builder '{{kepler_builder}}' _builders {{target}})"; \
+    BUILDERS="$(just _builders {{target}})"; \
     nix build --no-link \
         .#nixosConfigurations.{{target}}.config.system.build.toplevel \
         --builders "$BUILDERS" \
-        --builders-use-substitutes --max-jobs 0 --show-trace
+        --builders-use-substitutes --max-jobs 1 --show-trace
 
 switch target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 0
+        --option builders-use-substitutes true --max-jobs 1
 
 # Activate only the declarative user environment; leaves the running OS unchanged.
 home-switch target=profile:
     #!/usr/bin/env bash
     set -euo pipefail
+    BUILDERS="$(just _builders {{target}})"
     activation=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.{{target}}.config.home-manager.users.erik.home.activationPackage \
-      --builders '' --max-jobs 2)
+      --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1)
     HOME_MANAGER_BACKUP_EXT=backup "$activation/activate"
 
 builder-preflight target=profile:
@@ -158,10 +159,14 @@ boot target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild boot --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 0
+        --option builders-use-substitutes true --max-jobs 1
 
 deploy-ubuntu-work-profile:
     ./scripts/deploy-ubuntu-work-profile.sh
+
+# Remove the retired KACE agent from the Ubuntu work guest.
+remove-ubuntu-work-kace:
+    bash scripts/remove-ubuntu-work-kace.sh
 
 sync-ubuntu-work-brave-settings:
     ./scripts/sync-ubuntu-work-brave-settings.sh
@@ -234,7 +239,7 @@ upgrade target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 0
+        --option builders-use-substitutes true --max-jobs 1
 
 # ── Verification ──────────────────────────────────────────
 
@@ -242,7 +247,7 @@ dry target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild dry-build --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 0
+        --option builders-use-substitutes true --max-jobs 1
 
 # Build fleet toplevels in one scheduler invocation so independent host graphs
 # run concurrently and shared derivations are built once. Does not create links.
@@ -252,25 +257,13 @@ build-all:
     configurations=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)
     hosts=$(nix eval .#fleet.hosts --apply "$(< scripts/upgrade-hosts.nix)" --json)
     names=$(jq -er --argjson configurations "$configurations" 'if type == "array" and length > 0 and all(.[]; type == "string" and test("^[A-Za-z0-9_][A-Za-z0-9_-]*$")) and ($configurations | type == "array") and (. - $configurations | length == 0) then .[] else error("invalid or missing fleet NixOS configurations") end' <<<"$hosts")
-    remote=()
-    local_build=false
+    installables=()
     while IFS= read -r host; do
-        if [[ "$host" == endeavour ]]; then
-            local_build=true
-        else
-            remote+=(".#nixosConfigurations.$host.config.system.build.toplevel")
-        fi
+        installables+=(".#nixosConfigurations.$host.config.system.build.toplevel")
     done <<<"$names"
-    if ((${#remote[@]})); then
-        nix build --no-link "${remote[@]}" \
-            --builders '{{orion_builder}} ; {{kepler_builder}}' \
-            --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
-    fi
-    if "$local_build"; then
-        nix build --no-link \
-            .#nixosConfigurations.endeavour.config.system.build.toplevel \
-            --builders '' --show-trace
-    fi
+    nix build --no-link "${installables[@]}" \
+        --builders '{{orion_builder}} ; {{apollo_builder}}' \
+        --builders-use-substitutes --max-jobs 1 --keep-going --show-trace
 
 # Compare evaluated managed-host derivations without building or activating.
 [positional-arguments]
@@ -388,9 +381,9 @@ eval:
 validate-hermes-orion:
     nix build --no-link -L .#checks.x86_64-linux.hermes-plugin-selftests .#checks.x86_64-linux.hermes-plugin-native .#checks.x86_64-linux.hermes-state-backup --builders '{{orion_builder}}' --builders-use-substitutes --max-jobs 0
 
-# Build every flake check except Endeavour from a clean clone on Orion. The ref
+# Build every flake check from a clean clone on Orion. The ref
 # must already be published on origin/main; dirty local work is never copied.
-# Orion evaluates/builds and may offload to Kepler. KACE stays on Endeavour.
+# Orion evaluates/builds and may offload to Apollo.
 check-remote ref="HEAD":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -403,7 +396,7 @@ check-remote ref="HEAD":
     remote_url="https://github.com/ErikBPF/desktop-nixos.git"
     builders="$(just _builders orion)"
     builders_b64="$(printf '%s' "$builders" | base64 -w0)"
-    printf ':: remote non-Endeavour flake checks coordinator=orion commit=%s\n' "$commit"
+    printf ':: remote flake checks coordinator=orion commit=%s\n' "$commit"
     remote_script='set -euo pipefail
     work=$(mktemp -d)
     trap '\''rm -rf "$work"'\'' EXIT
@@ -423,43 +416,21 @@ check-remote ref="HEAD":
       [ -n "$name" ] || continue
       if [ "$name" = "configurations:nixos:endeavour" ]; then
         found_endeavour=true
-        continue
       fi
       installables+=(".#checks.$system.\"$name\"")
     done <<<"$check_map"
     "$found_endeavour"
     test "${#installables[@]}" -gt 0
-    printf ":: building %d non-Endeavour checks\n" "${#installables[@]}"
+    printf ":: building %d checks\n" "${#installables[@]}"
     exec nix build --no-link --show-trace "${installables[@]}" \
       --option builders "$builders" \
-      --option builders-use-substitutes true'
+      --option builders-use-substitutes true --max-jobs 1'
     printf '%s\n' "$remote_script" | ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
       erik@"{{ip_orion}}" bash -s -- "$remote_url" "$commit" "$builders_b64"
 
-# Validate/build Endeavour only on Endeavour, where its proprietary KACE
-# fixed-output is permitted to exist. No evaluation or build occurs here.
+# Compatibility entrypoint: Endeavour now participates in the Orion check batch.
 check-endeavour-remote target="endeavour" ref="HEAD":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    git fetch --quiet origin main
-    commit="$(git rev-parse --verify "{{ref}}^{commit}")"
-    git merge-base --is-ancestor "$commit" refs/remotes/origin/main || {
-      echo ":: BLOCKED: $commit is not published on origin/main" >&2
-      exit 2
-    }
-    remote_url="https://github.com/ErikBPF/desktop-nixos.git"
-    printf ':: remote Endeavour check target=%s commit=%s\n' "{{target}}" "$commit"
-    remote_script='set -euo pipefail
-    work=$(mktemp -d)
-    trap '\''rm -rf "$work"'\'' EXIT
-    git clone --quiet --no-checkout "$1" "$work/repo"
-    git -C "$work/repo" checkout --quiet --detach "$2"
-    test -z "$(git -C "$work/repo" status --porcelain)"
-    cd "$work/repo"
-    exec nix build --no-link --show-trace \
-      .#checks.x86_64-linux.\"configurations:nixos:endeavour\"'
-    printf '%s\n' "$remote_script" | ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
-      erik@"{{target}}" bash -s -- "$remote_url" "$commit"
+    just check-remote {{quote(ref)}}
 
 # ── Remote Deploy ─────────────────────────────────────────
 # Endeavour is Tailscale only (roaming), use: just deploy endeavour <tailscale-ip> 2222
@@ -625,7 +596,7 @@ kepler-esp-graph-proof:
     set -euo pipefail
     script=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.kepler.config.system.build.diskoScript \
-      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 | tail -1)
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 1 | tail -1)
     expected="ata-TOSHIBA_KSG60ZMV256G_M.2_2280_256GB_58SF70G0F5WP"
     grep -Fq "$expected" "$script"
     forbidden=(KINGSTON ST4000DM004 fast-pool bulk-pool /dev/sda /dev/sdb /dev/sdc /dev/sde /dev/sdf /dev/sdg /dev/sdh /dev/sdi /dev/sdj /dev/sdk /dev/sdl)
@@ -665,7 +636,7 @@ deploy-kepler-esp:
     just kepler-esp-live-preflight
     just kepler-esp-graph-proof
     nix build --no-link .#nixosConfigurations.kepler.config.system.build.toplevel \
-      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 --show-trace
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 1 --show-trace
     extra=$(mktemp -d)
     trap 'rm -rf "$extra"' EXIT
     ssh -p 2222 erik@{{ip_kepler}} \
@@ -673,7 +644,7 @@ deploy-kepler-esp:
       | tar -xpf - -C "$extra"
     chmod 600 "$extra"/etc/ssh/ssh_host_*_key "$extra"/var/lib/tailscale/tailscaled.state "$extra"/home/erik/.config/sops/age/keys.txt
     export NIX_CONFIG="builders = {{orion_builder}}
-    max-jobs = 0
+    max-jobs = 1
     builders-use-substitutes = true"
     echo ":: DESTRUCTIVE: wiping only Toshiba OS M.2 serial 58SF70G0F5WP"
     nix run github:nix-community/nixos-anywhere -- \
@@ -709,7 +680,7 @@ backup-kepler-esp-orion:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     hashes=$(mktemp)
     restore=$(mktemp -d)
@@ -775,7 +746,7 @@ verify-kepler-esp-backup-orion:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     hashes=$(mktemp)
     restore=$(mktemp -d)
@@ -820,7 +791,7 @@ restore-kepler-esp-home-orion:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     expected=$(restic dump "$snapshot" kepler-os-state.tar | tar -xOf - "$sample" | sha256sum | awk '{print $1}')
     restic dump "$snapshot" kepler-os-state.tar \
@@ -891,8 +862,10 @@ verify-kepler-after-esp-migration:
 orion-esp-graph-proof:
     #!/usr/bin/env bash
     set -euo pipefail
+    BUILDERS="$(just _builders orion)"
     script=$(nix build --no-link --print-out-paths \
-      .#nixosConfigurations.orion-esp-installer.config.system.build.diskoScript | tail -1)
+      .#nixosConfigurations.orion-esp-installer.config.system.build.diskoScript \
+      --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 | tail -1)
     expected="nvme-Force_MP510_19458242000129183963"
     grep -Fq "$expected" "$script"
     forbidden=(
@@ -940,20 +913,20 @@ deploy-orion-esp:
     age=$(( $(date +%s) - $(stat -c %Y "$marker") ))
     test "$age" -le 86400 || { echo ":: BLOCKED: stale $marker" >&2; exit 1; }
     grep -Eq '^snapshot=[0-9a-f]+$' "$marker"
+    export NIX_CONFIG="builders = {{apollo_builder}}
+    max-jobs = 1
+    builders-use-substitutes = true"
     just orion-esp-live-preflight
     just orion-esp-graph-proof
     nix build --no-link \
       .#nixosConfigurations.orion-esp-installer.config.system.build.toplevel \
-      --builders "{{kepler_builder}}" \
-      --builders-use-substitutes --max-jobs 0 --show-trace
+      --builders "{{apollo_builder}}" \
+      --builders-use-substitutes --max-jobs 1 --show-trace
     extra=$(mktemp -d)
     trap 'rm -rf "$extra"' EXIT
     mkdir -p "$extra/var/lib/sops-staging"
     cp ~/.config/sops/age/keys.txt "$extra/var/lib/sops-staging/age-keys.txt"
     chmod 600 "$extra/var/lib/sops-staging/age-keys.txt"
-    export NIX_CONFIG="builders = {{kepler_builder}}
-    max-jobs = 0
-    builders-use-substitutes = true"
     echo ":: DESTRUCTIVE: wiping only Force MP510 NVMe serial 19458242000129183963"
     nix run github:nix-community/nixos-anywhere -- \
       --force-kexec \
@@ -1095,8 +1068,8 @@ restore-orion-home-kepler:
     export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
-      nix shell --builders "{{kepler_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+      nix shell --builders "{{apollo_builder}}" --builders-use-substitutes \
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic dump "$snapshot" orion-home.tar \
       | ssh -p 2222 erik@"$ORION" 'sudo tar -xpf - -C /home/erik'
@@ -1169,6 +1142,9 @@ pathfinder-installer-preflight:
 deploy-pathfinder-esp mode="installer":
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_CONFIG="builders = $(just _builders pathfinder)
+    max-jobs = 1
+    builders-use-substitutes = true"
     for marker in /tmp/pathfinder-esp-preflight.ok /tmp/pathfinder-esp-backup.ok; do
       test -f "$marker" || { echo ":: BLOCKED: missing $marker" >&2; exit 1; }
       age=$(( $(date +%s) - $(stat -c %Y "$marker") ))
@@ -1227,6 +1203,9 @@ deploy-pathfinder-esp mode="installer":
 deploy-endeavour:
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_CONFIG="builders = $(just _builders endeavour)
+    max-jobs = 1
+    builders-use-substitutes = true"
     target=nixos@192.168.10.99
     disk=/dev/nvme0n1
     key=/tmp/endeavour-luks-password
@@ -1275,6 +1254,7 @@ switch-kepler:
 switch-voyager user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
+    BUILDERS="$(just _builders voyager)"
     if [[ "{{user}}:{{port}}" == "root:22" ]]; then IP="{{ip_voyager}}"; else IP="{{tailscale_voyager}}"; fi
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
@@ -1282,9 +1262,9 @@ switch-voyager user="erik" port="2222":
         'sudo mv /tmp/age-keys.txt /var/lib/sops-staging/age-keys.txt && sudo chmod 600 /var/lib/sops-staging/age-keys.txt'
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#voyager \
         --target-host {{user}}@"$IP" \
-        --option builders "{{orion_builder}}" \
+        --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 0 \
+        --max-jobs 1 \
         --use-substitutes --sudo --show-trace
 
 # Prove Voyager's OCI serial-console recovery path before a tailnet-only switch.
@@ -1370,7 +1350,7 @@ switch-telstar user="erik" port="2222":
         --target-host {{user}}@"$IP" \
         --option builders "{{orion_builder}}" \
         --option builders-use-substitutes true \
-        --max-jobs 0 \
+        --max-jobs 1 \
         --use-substitutes --sudo --show-trace
 
 # vanguard: the 2nd 1 GB x86 Oracle micro (sibling of voyager) — same class, same
@@ -1383,6 +1363,7 @@ switch-telstar user="erik" port="2222":
 switch-vanguard user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
+    BUILDERS="$(just _builders vanguard)"
     if [[ "{{user}}:{{port}}" == "root:22" ]]; then IP="{{ip_vanguard}}"; else IP="{{tailscale_vanguard}}"; fi
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
@@ -1390,9 +1371,9 @@ switch-vanguard user="erik" port="2222":
         'sudo mv /tmp/age-keys.txt /var/lib/sops-staging/age-keys.txt && sudo chmod 600 /var/lib/sops-staging/age-keys.txt'
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild switch --flake .#vanguard \
         --target-host {{user}}@"$IP" \
-        --option builders "{{orion_builder}}" \
+        --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 0 \
+        --max-jobs 1 \
         --use-substitutes --sudo --show-trace
 
 # Force the offsite outage alert once, then restore the healthy state.
@@ -1426,15 +1407,16 @@ test-vanguard-dead-mans-switch:
 boot-vanguard user="root" port="22":
     #!/usr/bin/env bash
     set -euo pipefail
+    BUILDERS="$(just _builders vanguard)"
     IP="{{ip_vanguard}}"
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/var/lib/sops-staging/age-keys.txt
     ssh -p {{port}} {{user}}@"$IP" 'chmod 600 /var/lib/sops-staging/age-keys.txt'
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild boot --flake .#vanguard \
         --target-host {{user}}@"$IP" \
-        --option builders "{{orion_builder}}" \
+        --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 0 \
+        --max-jobs 1 \
         --use-substitutes --show-trace
 
 # Provision vanguard exactly like voyager: nixos-infect the stock Ubuntu cloud
@@ -1519,7 +1501,7 @@ deploy target ip port="2222" user="erik":
         --use-substitutes --sudo --show-trace \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 0
+        --max-jobs 1
 
 # deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
 # auto-revert if the host lost reachability). Uses the target-aware builders and
@@ -1539,16 +1521,16 @@ deploy target ip port="2222" user="erik":
 # selected per host system in the module.
 #   just deploy-rs voyager
 deploy-rs target hostname="":
-    BUILDERS="$(just --set orion_builder '{{orion_builder}}' --set kepler_builder '{{kepler_builder}}' _builders {{target}})"; \
-    nix run .#deploy-rs -- --skip-checks {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
+    BUILDERS="$(just _builders {{target}})"; \
+    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 .#deploy-rs -- --skip-checks {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 1
 
 # Build and show activation changes without switching the remote system.
 deploy-rs-preview target hostname="":
-    BUILDERS="$(just --set orion_builder '{{orion_builder}}' --set kepler_builder '{{kepler_builder}}' _builders {{target}})"; \
-    nix run .#deploy-rs -- --skip-checks --dry-activate {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
+    BUILDERS="$(just _builders {{target}})"; \
+    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 .#deploy-rs -- --skip-checks --dry-activate {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
            --max-jobs 1
@@ -1561,15 +1543,18 @@ deploy-rs-preview target hostname="":
 # reboot deliberately. Follow with: ssh -p 2222 erik@<ip> sudo systemctl reboot
 deploy-rs-boot target:
     BUILDERS="$(just _builders {{target}})"; \
-    nix run .#deploy-rs -- --skip-checks --boot --fast-connection true .#{{target}} \
+    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 .#deploy-rs -- --skip-checks --boot --fast-connection true .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
-           --max-jobs 0
+           --max-jobs 1
 
 deploy-boot target ip port="2222" user="erik":
+    BUILDERS="$(just _builders {{target}})"; \
     NIX_SSHOPTS="-p {{port}}" nixos-rebuild boot --flake .#{{target}} \
         --target-host {{user}}@{{ip}} \
-        --use-substitutes --sudo --show-trace
+        --use-substitutes --sudo --show-trace \
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 1
 
 verify target ip port="2222" user="erik":
     @echo ":: Verifying {{target}}..."
@@ -1912,7 +1897,7 @@ p3-generic-dhcp-client interface="enp0s13f0u1u3":
     command -v dig >/dev/null
     builders=$(just _builders endeavour)
     busybox=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#busybox \
-      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+      --builders "$builders" --builders-use-substitutes --max-jobs 1)
     callback=$(sudo mktemp /run/p3-udhcpc-capture.XXXXXX)
     cleanup() { sudo rm -f "$callback"; }
     trap cleanup EXIT INT TERM
@@ -1936,9 +1921,9 @@ p3-adguard-outage-prepare interface="enp0s13f0u1u3" namespace="p3-dhcp-outage":
     trap cleanup EXIT INT TERM
     builders=$(just _builders endeavour)
     busybox=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#busybox \
-      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+      --builders "$builders" --builders-use-substitutes --max-jobs 1)
     ndisc6=$(nix build --inputs-from . --no-link --print-out-paths nixpkgs#ndisc6 \
-      --builders "$builders" --builders-use-substitutes --max-jobs 0)
+      --builders "$builders" --builders-use-substitutes --max-jobs 1)
     tooling_tmp=$(mktemp "$evidence_dir/.tooling.XXXXXX")
     jq -cnS --arg rdisc6 "$ndisc6/bin/rdisc6" '{rdisc6:$rdisc6,version:1}' >"$tooling_tmp"
     mv "$tooling_tmp" "$evidence_dir/tooling.json"
@@ -2063,9 +2048,10 @@ voyager-vm-test:
 
 # Build the Voyager VM runner locally, offloading compilation to Orion when useful.
 voyager-vm-build:
+    BUILDERS="$(just _builders voyager)"; \
     nix build .#nixosConfigurations.voyager.config.system.build.vm --show-trace \
-        --option builders "{{orion_builder}}" \
-        --option builders-use-substitutes true
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 1
 
 # Start a detached Voyager validation VM on Orion. Disk and logs live in /scratch.
 voyager-vm-start:
@@ -2162,9 +2148,10 @@ voyager-vm-smoke:
 
 # Build the drtest VM on orion (x86_64), copy closure back locally.
 drtest-vm-build:
+    BUILDERS="$(just _builders drtest)"; \
     nix build .#nixosConfigurations.drtest.config.system.build.vm --show-trace \
-        --option builders "{{orion_builder}}" \
-        --option builders-use-substitutes true
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true --max-jobs 1
 
 # Start a detached drtest VM on orion. Disk lives in /scratch/drtest-vm/.
 drtest-vm-start:
@@ -2412,14 +2399,10 @@ bootstrap-apollo-worklab-repositories:
 # archinaut-base (rescue / kernel-direct prototype — flash a SPARE card, boot
 # with the printer ON to prove no-u-boot boot, RFC 2026-06-20).
 build-archinaut-sd target="archinaut":
-    # Builder spec fields: uri system sshkey maxjobs speed features mandatory.
-    # maxjobs=16 is the key one — omitting it defaults to 1 (serial builds on a
-    # single core of orion's 32, the old bottleneck). Redundant once orion has
-    # aarch64 in its persistent buildMachines entry + the laptop is rebuilt, but
-    # harmless and works immediately without a laptop switch.
+    # Only Orion provides aarch64 binfmt capacity; reuse its canonical SSH spec.
     nix build .#nixosConfigurations.{{target}}.config.system.build.sdImage \
-        --builders 'ssh-ng://erik@{{ip_orion}}?ssh-key=/root/.ssh/nix-builder aarch64-linux - 16 4 big-parallel -' \
-        --max-jobs 0 --show-trace --out-link result-{{target}}-sd
+        --builders '{{orion_builder}}' --builders-use-substitutes \
+        --max-jobs 1 --show-trace --out-link result-{{target}}-sd
     @echo ":: image at result-{{target}}-sd/sd-image/ — flash with:"
     @echo "   zstd -dc result-{{target}}-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
 
@@ -2914,7 +2897,6 @@ grafana-alert-diagnostics:
           || true
       fi
     }
-    diagnose endeavour ampagent-watchdog.service
     diagnose endeavour nixos-upgrade.service
     diagnose kepler nixos-upgrade.service
     diagnose orion nix-cache-builder.service
@@ -3004,13 +2986,12 @@ grafana-alert-retry target:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{target}}" in
-      endeavour) host=endeavour; unit=ampagent-watchdog.service; action=start ;;
       endeavour-upgrade) host=endeavour; unit=nixos-upgrade.service; action=reset ;;
       kepler-upgrade) host=kepler; unit=nixos-upgrade.service; action=reset ;;
       orion) host=orion; unit=nixos-upgrade.service; action=reset ;;
       discovery-telstar) host=discovery; unit=telstar-capture.service; action=start-no-block ;;
       discovery-drift) host=discovery; unit=homelab-iac-drift.service; action=start ;;
-      *) echo "target must be endeavour, endeavour-upgrade, kepler-upgrade, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
+      *) echo "target must be endeavour-upgrade, kepler-upgrade, orion, discovery-telstar, or discovery-drift" >&2; exit 2 ;;
     esac
     command="sudo systemctl reset-failed '$unit'"
     [ "$action" = start ] && command="$command && sudo systemctl start '$unit'"
@@ -5094,9 +5075,9 @@ verify-port target ip port:
 #   • Raspberry Pi (archinaut) → SD image: `just build-archinaut-sd`, dd, first boot.
 
 # Provision a NEW remote host: convert a fresh box (cloud Ubuntu entrypoint, or a
-# NixOS-ISO installer) to NixOS via nixos-anywhere. Builds the closure on Orion
-# (--max-jobs 0 → this machine only orchestrates + the target substitutes from
-# Orion's cache), stages the sops age key so first-boot secrets decrypt, and lets
+# NixOS-ISO installer) to NixOS via nixos-anywhere. Prefers remote builders with
+# one local fallback job; targets substitute from Orion's cache. Stages the sops
+# age key so first-boot secrets decrypt, and lets
 # the host's disko config partition the disk. <target> = user@ip[:port] of the
 # installer entrypoint (ubuntu@<ip> for a cloud image, nixos@<ip> for the NixOS
 # ISO). WARNING: wipes the target disk. After it lands: set the host IP in
@@ -5108,8 +5089,8 @@ provision host target:
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-{{host}}/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra-{{host}}/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra-{{host}}' EXIT
-    export NIX_CONFIG="builders = {{orion_builder}}
-    max-jobs = 0
+    export NIX_CONFIG="builders = $(just _builders {{host}})
+    max-jobs = 1
     builders-use-substitutes = true"
     nix run github:nix-community/nixos-anywhere -- \
         --flake .#{{host}} \
@@ -5120,6 +5101,9 @@ provision host target:
 nixos-anywhere target ip luks-pass="" user="nixos":
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_CONFIG="builders = $(just _builders {{target}})
+    max-jobs = 1
+    builders-use-substitutes = true"
     LUKS_PASS="{{luks-pass}}"
     if [ -z "$LUKS_PASS" ]; then
         read -rsp "Enter LUKS password: " LUKS_PASS
@@ -5155,7 +5139,7 @@ deploy-telstar:
     chmod 600 /tmp/nixos-extra-telstar/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra-telstar' EXIT
     export NIX_CONFIG="builders = {{orion_builder}}
-    max-jobs = 0
+    max-jobs = 1
     builders-use-substitutes = true"
     nix run github:nix-community/nixos-anywhere -- \
         --flake .#telstar \
@@ -5166,6 +5150,9 @@ deploy-telstar:
 deploy-orion:
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_CONFIG="builders = $(just _builders orion)
+    max-jobs = 1
+    builders-use-substitutes = true"
     mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
@@ -5186,6 +5173,9 @@ deploy-orion:
 deploy-discovery:
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_CONFIG="builders = $(just _builders discovery)
+    max-jobs = 1
+    builders-use-substitutes = true"
     mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt
@@ -6175,7 +6165,7 @@ discovery-esp-graph-proof:
     set -euo pipefail
     script=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.discovery.config.system.build.diskoScript \
-      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 | tail -1)
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 1 | tail -1)
     primary="ata-KINGSTON_SA400S37480G_AA000000000000000105"
     mirror="ata-KINGSTON_SA400S37480G_AA000000000000000098"
     for expected in "$primary" "$mirror" "$mirror-part1"; do
@@ -7358,7 +7348,7 @@ backup-discovery-identity-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic unlock
     for sample in "${samples[@]}"; do
@@ -7401,7 +7391,7 @@ restore-discovery-identity-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic dump "$snapshot" discovery-host-identity.tar | tar -xpf - -C "$restore"
     test "$(sha256sum "$restore/var/lib/tailscale/tailscaled.state" | awk '{print $1}')" = "$tailscale_sha256"
@@ -7490,7 +7480,7 @@ restore-discovery-home-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic snapshots "$snapshot" >/dev/null
     restic dump "$snapshot" discovery-mutable-state.tar |
@@ -7865,7 +7855,7 @@ backup-discovery-home-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     for sample in "${samples[@]}"; do
       ssh -p 2222 erik@"$DISCOVERY" \
@@ -8327,6 +8317,9 @@ verify-discovery-esp:
 deploy-kepler:
     #!/usr/bin/env bash
     set -euo pipefail
+    export NIX_CONFIG="builders = $(just _builders kepler)
+    max-jobs = 1
+    builders-use-substitutes = true"
     mkdir -p /tmp/nixos-extra-kepler/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt
     chmod 600 /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt

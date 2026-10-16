@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class BuildAll(unittest.TestCase):
     def test_evaluated_host_selection(self):
         for mode in ("all", "only-endeavour", "only-remote", "eval-fail", "empty",
-                     "invalid", "missing-config", "remote-fail", "local-fail"):
+                      "invalid", "missing-config", "build-fail"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 repo = Path(directory)
                 for name in ("justfile", "fleet.json"):
@@ -66,18 +66,17 @@ if args[0] == "eval":
                                  "--no-write-lock-file", "--option",
                                  "allow-import-from-derivation", "false"]).returncode)
 elif args[0] == "build":
-    remote = bool(args[args.index("--builders") + 1])
-    if (remote and mode == "remote-fail") or (not remote and mode == "local-fail"):
+    if mode == "build-fail":
         sys.exit(17)
 else:
     sys.exit(99)
 ''')
                 nix.chmod(0o755)
-                result = subprocess.run([shutil.which("just"), "build-all"], cwd=repo,
+                result = subprocess.run([shutil.which("just"), "--no-dotenv", "build-all"], cwd=repo,
                                         env=env, capture_output=True, timeout=20)
                 calls = [json.loads(line) for line in (repo / "calls.jsonl").read_text().splitlines()]
                 self.assertEqual(calls[0][0], "eval", "enumerate before building")
-                blocked = mode in ("eval-fail", "empty", "invalid", "missing-config", "remote-fail", "local-fail")
+                blocked = mode in ("eval-fail", "empty", "invalid", "missing-config", "build-fail")
                 self.assertEqual(result.returncode != 0, blocked, result.stderr.decode())
                 if mode in ("eval-fail", "empty", "invalid", "missing-config"):
                     self.assertTrue(all(c[0] == "eval" for c in calls),
@@ -86,19 +85,16 @@ else:
                 evaluations = [c for c in calls if c[0] == "eval"]
                 self.assertTrue(any(".#fleet.hosts" in c for c in evaluations))
                 self.assertTrue(any(".#nixosConfigurations" in c for c in evaluations))
-                remote_hosts = sorted(set(hosts) - {"endeavour"})
                 builds = [c for c in calls if c[0] == "build"]
-                if remote_hosts:
-                    remote = builds.pop(0)
-                    self.assertEqual(sorted(a for a in remote if a.startswith(".#")),
-                                     [f".#nixosConfigurations.{h}.config.system.build.toplevel"
-                                      for h in remote_hosts])
-                    self.assertTrue(remote[remote.index("--builders") + 1])
-                    for flag in ("--no-link", "--builders-use-substitutes", "--max-jobs", "--keep-going"):
-                        self.assertIn(flag, remote)
-                if "endeavour" in hosts and mode != "remote-fail":
-                    local = builds.pop(0)
-                    self.assertEqual([a for a in local if a.startswith(".#")],
-                                     [".#nixosConfigurations.endeavour.config.system.build.toplevel"])
-                    self.assertEqual(local[local.index("--builders") + 1], "")
-                self.assertEqual(builds, [])
+                self.assertEqual(len(builds), 1, "one batch; failed compilation is not retried")
+                batch = builds[0]
+                self.assertEqual(sorted(a for a in batch if a.startswith(".#")),
+                                 [f".#nixosConfigurations.{h}.config.system.build.toplevel"
+                                  for h in sorted(hosts)])
+                builders = batch[batch.index("--builders") + 1]
+                self.assertIn("orion-builder:2222", builders)
+                self.assertIn("apollo-builder:2222", builders)
+                self.assertNotIn("kepler", builders)
+                self.assertEqual(batch[batch.index("--max-jobs") + 1], "1")
+                for flag in ("--no-link", "--builders-use-substitutes", "--keep-going"):
+                    self.assertIn(flag, batch)

@@ -10,15 +10,18 @@ import subprocess
 def main():
     root = Path(__file__).resolve().parents[1]
     hosts = json.loads((root / "fleet.json").read_text())["hosts"]
-    orion = f"ssh-ng://erik@{hosts['orion']['ip']}:2222"
-    kepler = f"ssh-ng://erik@{hosts['kepler']['ip']}:2222"
+    orion = "ssh-ng://erik@orion-builder:2222"
+    apollo = "ssh-ng://erik@apollo-builder:2222"
     overlay = hosts["orion"]["tailscaleIp"]
+    overlay_overrides = ["--set", "orion_builder",
+                 f"ssh-ng://erik@{overlay}:2222 x86_64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test",
+                 "--set", "apollo_builder", ""]
     cases = (
-        ("discovery", ["--set", "ip_orion", overlay, "--set", "kepler_builder", ""],
+        ("discovery", overlay_overrides,
          [f"ssh-ng://erik@{overlay}:2222"]),
-        ("discovery", [], [orion, kepler]),
-        ("orion", [], [kepler]),
-        ("kepler", [], [orion]),
+        ("discovery", [], [orion, apollo]),
+        ("orion", [], [apollo]),
+        ("apollo", [], [orion]),
     )
     for target, overrides, expected in cases:
         result = subprocess.run(
@@ -34,10 +37,10 @@ def main():
         actual = [builder.split()[0] for builder in builders.split(";")]
         assert actual == expected, f"{target}: expected {expected}, got {actual}"
         assert argv[0] == "build" and "--no-link" in argv
-        assert argv[argv.index("--max-jobs") + 1] == "0"
+        assert argv[argv.index("--max-jobs") + 1] == "1"
         assert "--builders-use-substitutes" in argv
         assert f".#nixosConfigurations.{target}.config.system.build.toplevel" in argv
-    print("PASS: Orion build overrides and default no-self-build wiring (4 cases)")
+    print("PASS: Orion override, Orion/Apollo defaults and bounded fallback (4 cases)")
     result = subprocess.run(
         ["bash", "--noprofile", "--norc", "-c",
          'ssh() { printf \'%s\\n\' "$@"; }\nexport -f ssh\n'
@@ -62,8 +65,7 @@ def main():
             ["bash", "--noprofile", "--norc", "-c",
              'nix() { printf \'%s\\n\' "$@"; }\nexport -f nix\n'
              'exec just --no-dotenv --shell bash --shell-arg -c "$@"',
-             "hermes-orion-deploy", "--set", "ip_orion", overlay,
-             "--set", "kepler_builder", "", recipe, "discovery",
+              "hermes-orion-deploy", *overlay_overrides, recipe, "discovery",
              hosts["discovery"]["tailscaleIp"]],
             cwd=root, env={"PATH": os.environ["PATH"], "HOME": os.environ["HOME"]},
             check=True, capture_output=True, text=True, timeout=30,
@@ -75,7 +77,9 @@ def main():
         actual = [builder.split()[0] for builder in builders.split(";")]
         expected = [f"ssh-ng://erik@{overlay}:2222"]
         assert actual == expected, f"{recipe}: expected {expected}, got {actual}"
-        assert argv[:3] == ["run", ".#deploy-rs", "--"]
+        assert argv[:2] == ["run", "--builders"]
+        assert argv[2].strip(" ;") == builders
+        assert argv[argv.index(".#deploy-rs") + 1] == "--"
         assert argv[argv.index("--hostname") + 1] == hosts["discovery"]["tailscaleIp"]
         assert ("--dry-activate" in argv) == (recipe == "deploy-rs-preview")
         assert argv[argv.index("--max-jobs") + 1] == "1"
