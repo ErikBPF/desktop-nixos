@@ -1,82 +1,64 @@
-# Orion/Apollo builders and KACE retirement
+# Orion/Apollo builders and guest-only KACE
 
-**Status:** Locally verified source; activation and guest removal pending.
-**Stage:** GREEN and independent RV reconciled, 2026-10-15.
+**Status:** Builder source merged; guest-only KACE correction in progress; waiting for scheduled Orion cache build.
+**Stage:** October 15 scope clarification; follow-up source correction.
 
 ## Outcome and why
 
-The [human seed](behavior.md) selects Orion/Apollo remote builders, permits local
-fallback, enrolls Kepler/Discovery daemons, and retires KACE from Endeavour and its
-Ubuntu guest while retaining the VM. Orion remains the official signed cache.
-This supersedes the unpublished unconditional-Tailscale/Kepler recovery patch;
-older recovery/migration worktrees remain untouched. Prior hardening/delivery
-receipts are merged, not proof this new policy is activated.
+The latest [human seed](behavior.md) clarifies that the Ubuntu work VM is the
+only machine that must keep KACE. Keep its apt-owned `ampagent` package and
+`konea.service` checks, alongside WARP and Trend; do not reintroduce KACE on the
+NixOS host. This supersedes earlier guest-removal instructions, not the selected
+Orion/Apollo builder policy. Merge the correction and wait for Orion's next
+scheduled cache build: no manual cache trigger, host build or activation.
 
-October 15 continuation authorized credential preparation and waived KACE backups
-and extra validations. Removal therefore uses one scoped package command.
+The earlier uninstall attempt never reached the guest: SSH exited 255 with
+`192.168.122.74 port 22: No route to host`. No apt command ran, so this correction
+needs no runtime restoration, additional guest validation, backup or VM start.
+Guest uninstall is cancelled, not pending work.
 
-## Changes and decisions
+## Source changes and boundaries
 
-The [delivery plan](implementation-plan.md) separates recipe, daemon/trust, guest
-and integration ownership. [Scenarios](behavior.feature) are documentary; tests
-cover source and mocked behavior, not every runtime outcome.
+Builder [PR #380](https://github.com/ErikBPF/desktop-nixos/pull/380) merged as
+`22ba5efe2b458c8c2cbb88d365421ca13ea51811`. Orion/Apollo remain the remote pool,
+with symmetric target exclusion, propagated Just overrides and bounded local
+fallback. Kepler/Discovery have distinct encrypted source credentials for native
+restricted, untrusted Nix RPC. No personal private keys were distributed. Orion
+remains the official signed cache; existing automation is unchanged.
 
-Orion/Apollo replace the former pool with symmetric target exclusion. Exported
-Just variables preserve nested overrides. Three consumers receive one local
-fallback job. Native Nix tries remote hooks first for ordinary derivations;
-busy, incompatible or connection-failing capacity can permit local execution.
-`preferLocalBuild` remains an exception; failure after remote acceptance does not
-automatically retry locally. Core settings guide builders, not hard CPU quotas.
+The guest boundary correction restores deployment health requirements, deletes
+the now-inappropriate KACE uninstall helper/recipe, and updates the guide and
+[documentary scenarios](behavior.feature). Source tests require guest checks and
+prohibit removal entry points. The host module remains retired; that pre-existing
+absence is GREEN, not a new RED anchor. The VM, its other agents, credentials and
+data remain untouched.
 
-Apollo is capped at six advertised jobs without aarch64; Orion retains aarch64
-without currently unobserved KVM. Native SSH aliases select LAN by interface
-network, Tailscale otherwise, with authenticated public pins and strict bounded
-connections. This is not health failover: overlapping subnets can select an
-unreachable LAN address. No custom scheduler is needed.
-
-Distinct per-server Ed25519 keys were encrypted through SOPS stdin and internally
-read back; handoff files were removed. Existing ciphertext and recipient envelope
-were unchanged. Shared recipients provide host-specific runtime placement, not
-cryptographic isolation. Restricted native `ssh-ng` RPC remains untrusted: no
-admin shell or root-equivalent trusted-user grant. It is not read-only; unsigned
-inputs can fail. Never silently disable signatures or escalate trust.
-
-KACE requirements/watchdog actions and obsolete build-locality restrictions are
-removed; WARP, Trend and VM remain. The helper removes only `ampagent`, retaining
-configuration. Existing `modules/pre-commit.nix` owns generated hook configuration;
-the declared development shell restores it, including secret scanning. A temporary
-replacement was removed rather than introducing duplicate hook policy.
+Guest KACE is apt-owned, not a Nix fixed-output dependency. Keeping it does not
+justify restoring obsolete Endeavour-only build batches or proprietary host
+build exceptions. The [delivery plan](implementation-plan.md) records this
+supersession explicitly; earlier seeds and failed-attempt receipts remain history.
 
 ## Evidence and review
 
-- Final integrated suites: **73 pytest and nine update-safe unittest cases pass**.
-- Lint, format, docs, whitespace and native hooks (Alejandra, ripsecrets, Statix)
-  pass. Composed dry gates
-  pass for Endeavour, Kepler, Discovery, Orion and Apollo.
-- Guest source RED: two assertion failures, then five passing tests. Host module
-  absence was already GREEN, not invented RED.
-- Recipe RV found Orion recovery graph target-exclusion and three single-builder
-  x86-helper gaps: nine assertion failures preceded repairs, then passed.
-- Independent conformance, correctness, security, operations, adversarial,
-  simplicity and editorial reviews reconciled. Composed settings/effective SSH
-  parsing were checked; permanent module tests remain isolated. Diagnostic
-  preflight failure is not a mandatory functional-build gate.
-- A disposable native Nix build attempted an unavailable loopback remote, then
-  produced expected one-job local output. It does not prove fleet RPC dispatch or
-  recovery after accepted remote compilation fails.
+PR #380 passed 73 pytest cases, nine update-safe unittest cases, five-host dry
+gates and all eleven CI checks. Independent source/security/operations/simplicity
+and editorial findings were reconciled. Native Alejandra/ripsecrets/Statix hooks
+passed. Those receipts establish the earlier builder source, not runtime rollout
+or the new correction's final test result.
 
-First drafts and RED/GREEN receipts remain in OpenCode's task-local evidence
-folder, including `orion-apollo-native-fallback.json`. CI is the separate
-publication gate, tracked by the implementation PR.
+Correction tests must observe missing guest requirements and an unwanted uninstall
+entry point before the source repair, then pass after restoration/removal. Its
+focused and integrated results, docs/lint/format checks and independent review
+will be recorded before publication. No NixOS module, builder credential or cache
+configuration changes; no host closure is built or activated by this follow-up.
 
 ## Waiting work and recovery
 
-Authorized `just --no-dotenv remove-ubuntu-work-kace` exited **255**:
-`192.168.122.74 port 22: No route to host`. No package command ran; no backup,
-extra guest validation or VM start followed. Retry when reachable.
-
-Deploy builders before consumers; verify restricted RPC and secret installation
-before claiming live enrollment. Preserve closure/unit-diff/rollback gates and
-Kepler's supervised stability hold. Source publication is not activation or guest
-uninstall. Revert only task source through normal review; preserve older work,
-unrelated keys/data and immutable history. Stop after three repairs of one failure.
+Publish reviewed source through a follow-up PR, then wait for scheduled Orion
+cache publication. Do not retry guest removal or manually deploy. Future host
+rollout still requires existing closure/unit-diff/rollback gates, restricted-RPC
+and secret-installation evidence, and Kepler's supervised stability window.
+Native fallback can include busy/ineligible remote capacity; `preferLocalBuild`
+and unsigned-input limits remain documented in the delivery plan. Revert only
+task-owned source through normal review; preserve older worktrees, unrelated
+keys/data and immutable history. Stop after three repairs of the same failure.

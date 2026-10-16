@@ -22,6 +22,10 @@ Continuation:
 
 > continue. Kace is no longer active. It can be safely removed without backups or extra validations
 
+Latest scope correction (supersedes guest removal):
+
+> vm guest is the only machine that needs to keep kace. We can merge things to main and wait for next orion cache build
+
 Earlier delivery constraint:
 
 > build packages on orion and send to discovery. Orion is the official cache
