@@ -93,14 +93,14 @@ in {
       gpu_uuids=$(nvidia-smi --query-gpu=uuid --format=csv,noheader)
       [[ $gpu_uuids == *GPU-af808452-3544-e84a-b33a-fc5588ede436* ]]
       [[ $gpu_uuids == *GPU-818843e6-ce30-5d98-a4b4-8d8580aaa049* ]]
-      ${apolloAiPodman}/bin/apollo-ai-podman image exists ${apolloAiImage}
+      ${apolloAiPodman} image exists ${apolloAiImage}
       [[ -r ${apolloAiModel}/config.json ]]
     '';
     # Adopt any pre-existing container of the same name (e.g. the ad-hoc one
     # started by the manual launch.sh) so the first start and restarts are clean.
     apolloAiClean = pkgs.writeShellScript "apollo-ai-clean" ''
       set -u
-      ${apolloAiPodman}/bin/apollo-ai-podman rm -f apollo-qwen38 >/dev/null 2>&1 || true
+      ${apolloAiPodman} rm -f apollo-qwen38 >/dev/null 2>&1 || true
     '';
   in {
     imports = [
@@ -162,35 +162,11 @@ in {
           "${apolloAiPreflight}"
           "${apolloAiClean}"
         ];
-        ExecStart = [
-          "${apolloAiPodman}/bin/apollo-ai-podman"
-          "run"
-          "--rm"
-          "--name"
-          "apollo-qwen38"
-          "--pull=never"
-          "--network=host"
-          "--shm-size=8g"
-          "--user"
-          "1000:100"
-          "--cpus=8"
-          "--memory=80g"
-          "--memory-swap=80g"
-          "--security-opt=no-new-privileges"
-          "--device"
-          "nvidia.com/gpu=all"
-          "--volume"
-          "${apolloAiModel}:/model:ro"
-          "--volume"
-          "/mnt/data/ai/cache:/cache"
-          "--volume"
-          "${apolloAiRuntime}:/trial:ro"
-          "--entrypoint"
-          "/bin/bash"
-          "${apolloAiImage}"
-          "/trial/supervise.sh"
-        ];
-        ExecStop = ["${apolloAiPodman}/bin/apollo-ai-podman" "stop" "-t" "60" "apollo-qwen38"];
+        # One string, not a list: systemd treats every ExecStart= line as its own
+        # command, so a list of flag elements makes the unit fail to load
+        # ("Neither a valid executable name nor an absolute path").
+        ExecStart = "${apolloAiPodman} run --rm --name apollo-qwen38 --pull=never --network=host --shm-size=8g --user 1000:100 --cpus=8 --memory=80g --memory-swap=80g --security-opt=no-new-privileges --device nvidia.com/gpu=all --volume ${apolloAiModel}:/model:ro --volume /mnt/data/ai/cache:/cache --volume ${apolloAiRuntime}:/trial:ro --entrypoint /bin/bash ${apolloAiImage} /trial/supervise.sh";
+        ExecStop = "${apolloAiPodman} stop -t 60 apollo-qwen38";
         Restart = "always";
         RestartSec = 10;
         TimeoutStartSec = "infinity";
