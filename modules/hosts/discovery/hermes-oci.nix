@@ -54,13 +54,13 @@ in {
     # Telegram/Discord stay silent. See the cutover runbook.
     services.hermes-agent-oci = {
       enable = true;
-      enableHealthcheck = false;
+      enableHealthcheck = true;
       backend = "docker";
       # Keep the container name + ports so SWAG (hermes.* → hermes-agent:8642)
       # and the tailnet/host clients keep working unchanged across the cutover.
       containerName = "hermes-agent";
-      # Upstream main 562ee8ab (2026-09-03), including x-opencode-session.
-      image = "nousresearch/hermes-agent@sha256:d7800dcb7fe821ba5fb7ec594724a07d3fa972ee2e37092cc9fb8265185c7868";
+      # Official v0.21.7, embedded commit 71d34bad; verified amd64 manifest index.
+      image = "nousresearch/hermes-agent@sha256:444b42594e7f467425872fc35e077a227d377f0fe0726bc818706d62175fad8b";
       # Reuse the existing live state dir (restic-backed btrfs subvol):
       # memories, sessions, skills, lazy venv survive the Docker→OCI swap.
       hostDataDir = "/home/${username}/homelab/apps/hermes-agent";
@@ -123,6 +123,9 @@ in {
       # guardrails, session_reset, browser, delegation, stt, privacy, agent,
       # terminal, platforms — only the deltas are set here.
       settings = {
+        # Webhook ingress has no interactive approval path. Bot workflows stay unchanged.
+        platform_toolsets.webhook = [];
+
         # Brain: DeepSeek V4.1 Flash via LiteLLM (opencode Go). context_length
         # left unset on purpose — hermes auto-detects each aliased model's
         # window from LiteLLM.

@@ -151,9 +151,29 @@ def test_sd_image_reuses_canonical_orion_endpoint_and_personal_client_key(tmp_pa
 
 def test_no_ordinary_recipe_forbids_local_fallback():
     text = JUSTFILE.read_text()
+    for name in ("validate-hermes-orion", "preflight-discovery-hermes-kepler",
+                 "backup-discovery-hermes-kepler", "rehearse-discovery-hermes-kepler"):
+        body = recipe(name)
+        assert "--builders" in body and "{{orion_builder}}" in body
+        assert "--max-jobs 0" in body
+        text = text.replace(body, "", 1)
     assert "--max-jobs 0" not in text
     assert "max-jobs = 0" not in text
     assert "kepler_builder" not in text
+
+
+def test_hermes_sandbox_validation_remains_orion_only(tmp_path):
+    call = run_recipe(tmp_path, [
+        "orion_builder=ORION_OVERRIDE", "apollo_builder=APOLLO_OVERRIDE",
+        "validate-hermes-orion",
+    ])[0]
+    assert call[call.index("--builders") + 1] == "ORION_OVERRIDE"
+    assert call[call.index("--max-jobs") + 1] == "0"
+    assert {arg for arg in call if arg.startswith(".#checks.")} == {
+        ".#checks.x86_64-linux.hermes-plugin-selftests",
+        ".#checks.x86_64-linux.hermes-plugin-native",
+        ".#checks.x86_64-linux.hermes-state-backup",
+    }
 
 
 def test_kace_removal_entrypoint_and_obsolete_watchdog_actions():
