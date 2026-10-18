@@ -15,6 +15,14 @@ _: {
           ControlPersist no
           SetEnv TERM=xterm-256color
 
+        # Plain github.com resolves to the ErikBPF identity: the personal key is
+        # offered first and the work key stays as a fallback, so a repository on
+        # either account still clones and pushes over a plain github.com URL.
+        Host github.com
+          User git
+          IdentityFile ~/.ssh/id_ed25519
+          IdentityFile ~/.ssh/id_rsa
+
         Host github_erikbpf
           HostName github.com
           User git
