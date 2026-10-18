@@ -1,7 +1,7 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** plugins healthy; external native system activation verified; PR #375 published; Q-14 local gates pass; candidate build/CI/activation pending; historical GitGuardian disposition pending.
-**Stage / revision:** RV policy reconciliation / 19, 2026-10-18.
+**Status:** Earlier native/plugin repair verified; PR #375 merged externally and candidate built/reviewed; Q-16 accepts Hermes scope. GitGuardian false positive resolved by user uninstall. Branch synced through #383; refreshed candidate validation and activation pending.
+**Stage / revision:** Post-merge source/status sync / 20, 2026-10-18.
 
 ## Outcome and why
 
@@ -57,8 +57,10 @@ copied. Other dirty worktrees and DNS/route approvals remain separate.
 Q-14 accepts main #380's superseding Orion/Apollo pool, strict public pins,
 LAN/tailnet aliases and one-job local fallback. Main's builder source/tests/CI
 remain authoritative; this PR retains only independent RTK repair, fixture
-correction and delivery records. One additional thirty-minute candidate build
-is authorized without retries. No guest uninstall or other-host activation.
+correction and delivery records. The single additional thirty-minute candidate
+build succeeded; its allowance is consumed, with no further retry authorized.
+Q-16 accepts the inherited Endeavour Hermes CLI/interpreter/dependency update.
+No guest uninstall or other-host activation.
 
 ## Evidence and bounded repairs
 
@@ -90,7 +92,7 @@ Nix returned programs.bash.enable type/default through model continuation.
 
 ## Continuing work, limits and recovery
 
-Owner build failed unavailable SSH builders with local jobs disabled. Approved
+Earlier retirement-only owner build failed unavailable SSH builders with local jobs disabled. Approved
 candidate was then realized locally with one job. Independent realized review
 against the then-current externally advanced system found unchanged kernel 7.2.6/systemd
 261.2, all 111 HM package entries identical, no unrelated package-version update
@@ -112,20 +114,36 @@ including GitGuardian. Two combined build attempts failed (timeout, then builder
 transfer `Broken pipe`); attempt 3 built fb366a26 successfully. Main then advanced
 through #378/#380/#379; old closure is not latest-main proof. Q-14 reconciliation
 preserves main's replacement builder policy and Hermes source without activating
-other hosts. Reconciled-head CI/build, realized closure and post-switch claims
-remain pending. For fb366a26, local gates and 72 focused checks passed. Header-smoke synthetic context
+other hosts. For fb366a26, local gates and 72 focused checks passed. Header-smoke synthetic context
 now matches the existing 100k roundtrip fixture; observed 10k overflow triggered
 compaction, not the intended chat request. Assertions and production settings
 remain unchanged; compaction injection is not claimed.
-Current Q-14 reconciliation passes 131 focused checks, lint/format/docs/fleet
-and Endeavour dry. Independent review confirms main-owned builder source/tests
-and CI are exact, with only six intended PR paths differing from main. Installed
-aliases are not yet active; accepted native local fallback can bootstrap the
-owner build. Candidate CI/realized review and live post-switch checks remain gates.
+Q-14 head ddd8d0df passed 131 focused checks, lint/format/docs/fleet and Endeavour
+dry. Its single authorized build realized system 80ikxlkix5dmmb5gywzw5h9y9fp6swl9
+and HM 7drcpc1d1ivzv7kg9gxmy25p2nxm35gd. Head CI finished ten successful checks,
+one skipped notification and one GitGuardian failure. External squash 80dafc8a
+has exactly the built candidate tree; this task did not perform that merge.
+Independent realized review confirmed builder/RTK scope and unchanged kernel/systemd,
+but identified Hermes package metadata 0.21.3 to 0.0.0 (pinned source v0.21.7)
+and Hermes Python 3.13.15 to 3.14.7. Q-16 accepts that additional local runtime
+scope; compatibility is not proven by build success.
 
-Q-8 dashboard disposition remains pending. GitGuardian's historical occurrence
+Branch sync now includes main through 264f8b66: #382 retains Ubuntu guest KACE
+and removes its obsolete uninstall entry point; #383 changes Apollo supervision.
+No host was activated here. Last observed running/booted Endeavour system remains
+x7vf18qsd08slr05amqvpakb016y8ldj. Refresh candidate identity, dry validation,
+realized scope and V1/session/window baseline before any future Endeavour switch.
+Old 131-check/build receipts do not validate the newly synced head or live runtime.
+
+Q-8's historical dashboard disposition remains unconfirmed. GitGuardian's occurrence
 `303907955` flags an auth-file mode assertion, not a literal credential; no
-exclusion, dismissal or history rewrite was applied. Refreshed-head CI is not claimed.
+exclusion, dismissal or history rewrite was applied. New incident 38245533 /
+occurrence 304898809 was independently verified as a false positive at
+`scripts/hermes-state-backup.sh:357` (temporary-file size check, not a secret).
+User uninstalled GitGuardian; residual checks found no operational wiring in
+inspected owners. Native Gitleaks/ripsecrets/secret scanning/push protection remain.
+Historical failures remain records, not current deployment blockers. New sync-head
+CI and post-switch behavior are not claimed.
 Actual shortcut delivery, optional-plugin compatibility/quota/savings and bound
 Gherkin completion remain unverified. MCP permissions are not argument/network
 isolation. Credentials stay out of receipts and Git.
