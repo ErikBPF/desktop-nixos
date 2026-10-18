@@ -1,4 +1,4 @@
-Feature: Orion and Apollo build placement and KACE retirement
+Feature: Orion and Apollo build placement and guest-only KACE
   # Documentary scenarios; runner mappings below are intended, not full coverage claims.
   # Intended mapping: distributed-builds, build-process, update-safe suites.
   Scenario: Deployments use only eligible remote builders
@@ -27,17 +27,21 @@ Feature: Orion and Apollo build placement and KACE retirement
     And unknown or changed SSH host keys never authenticate
     And personal SSH private keys are not copied to the servers
 
-  # KACE retirement from Endeavour and its Ubuntu guest.
-  # Intended mapping: work-profile tests and guest-removal workflow checks.
-  Scenario: Active configuration no longer requires KACE
+  # Latest clarification retains KACE only in the Ubuntu work guest.
+  # Intended mapping: work-profile and work-vm source tests.
+  Scenario: KACE remains required only inside the Ubuntu work guest
     When Endeavour source and guest deployment are checked
-    Then no active KACE package or watchdog is declared or required
+    Then no KACE package or watchdog is declared on the NixOS host
+    And the guest still verifies its apt-owned ampagent package and konea service
     And Cloudflare WARP and Trend Micro guest checks remain
     And the Ubuntu work VM remains configured
 
-  Scenario: Guest removal targets only the retired agent package
-    Given the Ubuntu work guest owns the retired ampagent package
-    When the documented removal workflow is authorized and run
-    Then the agent package is removed without purging unrelated data
-    And no backup or extra pre-removal validation is required
-    And historical receipts and immutable rollback generations remain
+  Scenario: Guest KACE is not removed
+    Given the Ubuntu work guest still needs KACE
+    When the repository's operational entry points are inspected
+    Then no guest KACE uninstall helper or recipe is provided
+    And no live guest mutation is requested
+
+  Scenario: Published source waits for scheduled cache publication
+    When the reviewed correction is merged to main
+    Then no manual Orion cache build or host activation is triggered

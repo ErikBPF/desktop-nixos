@@ -230,10 +230,7 @@ or deploying. A few install-time specifics:
 - **Local junk is gitignored and safe to delete** — it regenerates on demand:
   `.direnv/`, `.ruff_cache/`, `result`/`result-*` symlinks, and agent runtime
   state (`.ralph/`, `.bg-shell/`, `_bmad-output/`, `logs/`).
-- **Work agents belong only to the Ubuntu work VM.** Cloudflare WARP and
+- **Work agents belong only to the Ubuntu work VM.** KACE, Cloudflare WARP, and
   Trend Micro are apt/dpkg-owned inside that guest; NixOS hosts do not package
   them or open their service ports. Run `just deploy-ubuntu-work-profile` to
   refresh the guest's Nix tools and verify the vendor packages and services.
-  KACE is retired from both host and guest. Run `just remove-ubuntu-work-kace`
-  to remove the guest's `ampagent` package without purging configuration or
-  taking backups; the VM, WARP, and Trend Micro remain in place.

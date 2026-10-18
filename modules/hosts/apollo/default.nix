@@ -25,6 +25,11 @@ in {
     # (0.90 OOMs its registration). The image is a local patched build, pinned by id.
     apolloAiModel = "/mnt/data/ai/models/gittensor/Qwen3.8-27B-NVFP4-RTX5090-0cc2795";
     apolloAiImage = "sha256:dce379422d6420af4006eacb78c677d2e864446858ab6b31b28aad2e86c6a7bf";
+    # pqnld (typed-decision sidecar) runs inside the same container so it is
+    # supervised with the engine. The binary is a host-side cargo build; re-pin
+    # the build directory when pqnld is rebuilt.
+    apolloPqnldBin = "/mnt/data/ai/validation/decision-index-2026-10-01/cargo-target/release/pqnld-rs";
+    apolloPqnldDesc = "/mnt/data/ai/validation/decision-index-2026-10-01/desc";
     apolloAiPodman = pkgs.writeShellScript "apollo-ai-podman" ''
       set -euo pipefail
       bin=${pkgs.podman}/bin/podman
@@ -41,6 +46,15 @@ in {
           --chunk-size 864 --separate-object-groups \
           --l1-size-gb 8 --l1-init-size-gb 8 --eviction-policy LRU \
           --max-gpu-workers 2 --max-cpu-workers 2
+      '';
+      # Typed-decision sidecar. It probes the engine at startup and exits if the
+      # engine is not ready, so supervise.sh waits for /health first. Port 11560
+      # is the firewall-exposed endpoint.
+      servePqnld = pkgs.writeShellScript "serve-pqnld.sh" ''
+        set -euo pipefail
+        exec /trial/pqnld-rs --uds /tmp/pqnld.sock --vllm-url http://127.0.0.1:11542 \
+          --model qwen38-27b-nvfp4 --descriptor qwen38-27b-nvfp4 --models-dir /trial/desc \
+          --host 127.0.0.1 --port 11560
       '';
       serveVllm = pkgs.writeShellScript "serve-vllm.sh" ''
         set -euo pipefail
@@ -68,6 +82,14 @@ in {
         bash /trial/serve-lmcache.sh & children+=("$!")
         sleep 8
         bash /trial/serve-vllm.sh & children+=("$!")
+        # pqnld probes the engine at startup and exits if it is not ready yet.
+        ready=0
+        for _ in $(seq 1 240); do
+          if python3 -c 'import sys,urllib.request as u; sys.exit(0 if u.urlopen("http://127.0.0.1:11542/health", timeout=3).status == 200 else 1)' 2>/dev/null; then ready=1; break; fi
+          sleep 5
+        done
+        [ "$ready" = 1 ] || { echo "engine did not become ready" >&2; exit 1; }
+        bash /trial/serve-pqnld.sh & children+=("$!")
         wait -n "''${children[@]}"
         exit 1
       '';
@@ -76,6 +98,7 @@ in {
         mkdir -p $out
         cp ${serveLmcache} $out/serve-lmcache.sh
         cp ${serveVllm} $out/serve-vllm.sh
+        cp ${servePqnld} $out/serve-pqnld.sh
         cp ${supervise} $out/supervise.sh
       '';
     apolloAiPreflight = pkgs.writeShellScript "apollo-ai-preflight" ''
@@ -185,6 +208,10 @@ in {
           "/mnt/data/ai/cache:/cache"
           "--volume"
           "${apolloAiRuntime}:/trial:ro"
+          "--volume"
+          "${apolloPqnldBin}:/trial/pqnld-rs:ro"
+          "--volume"
+          "${apolloPqnldDesc}:/trial/desc:ro"
           "--entrypoint"
           "/bin/bash"
           "${apolloAiImage}"

@@ -164,10 +164,6 @@ boot target=profile:
 deploy-ubuntu-work-profile:
     ./scripts/deploy-ubuntu-work-profile.sh
 
-# Remove the retired KACE agent from the Ubuntu work guest.
-remove-ubuntu-work-kace:
-    bash scripts/remove-ubuntu-work-kace.sh
-
 sync-ubuntu-work-brave-settings:
     ./scripts/sync-ubuntu-work-brave-settings.sh
 

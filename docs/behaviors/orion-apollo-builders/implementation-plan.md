@@ -1,6 +1,6 @@
-# Builder placement and KACE removal — delivery plan
+# Builder placement and guest-only KACE — delivery plan
 
-**Status:** Accepted scope; credential creation authorized and completed; implementation in progress.
+**Status:** Builder source merged in PR #380; guest-only KACE correction locally verified.
 
 ## Constraints and decisions
 
@@ -17,6 +17,8 @@ not advertise aarch64 on Apollo or currently unobserved KVM on Orion. Native SSH
 aliases select LAN by local network and Tailscale otherwise, with authenticated
 public pins and strict noninteractive checking. This does not guarantee LAN
 health fallback; failed remote capacity can permit bounded local execution.
+Untrusted RPC can reject unsigned inputs. Do not disable signature checks or
+grant trusted-user authority silently to bypass that failure.
 
 ## Slices, ownership and gates
 
@@ -34,14 +36,13 @@ health fallback; failed remote capacity can permit bounded local execution.
    Credential generation and host activation require explicit authority. Verify
    evaluated pools, identity paths, permissions, restricted endpoint and job caps;
    targeted dry gates on every affected host. No local full-flake check.
-3. **KACE — guest writer owns script/work-profile tests/install guide, not Just.**
-   RED: guest deploy still requires ampagent/konea. GREEN: remove requirements,
-   preserve other agents and VM, add reviewed owner removal workflow targeting
-   only the retired package, without backups or extra pre-removal checks, per the
-   October 15 clarification. Test script command behavior with
-   isolated mocked SSH, not a real guest mutation. Existing host module absence
-   is already GREEN, not invented test-first evidence. Runtime uninstall is a
-   separate authorized step; source change alone cannot establish runtime absence.
+3. **KACE — latest correction retains the guest agent.** The user subsequently
+   clarified that the VM is the only machine that must keep KACE. This supersedes
+   the former guest-removal slice. RED: guest deployment lacks ampagent/konea
+   checks and still exposes an uninstall helper. GREEN: restore apt-package/service
+   checks, delete the helper and recipe, preserve host retirement, WARP, Trend
+   and VM. Run work-profile/work-vm source regressions; no live guest operation.
+   Existing host module absence is already GREEN, not invented test-first evidence.
 4. **RV and merge — parent owns artifacts, integration and CI.** Preserve RED
    output and first draft; independent reviewers read source, then reconcile and
    rewrite summary from observed outcome. Lint/fmt/docs and affected dry gates
@@ -54,10 +55,11 @@ Revert only this task's source through normal git review; never discard older
 dirty recovery/migration work. No secret/key rotation, forced pushes, guest data
 purges or silent remote edits. Activation uses documented recipes and reviewed
 rollback gates. Stop after three repairs of one failure and report evidence.
-Source merge is authorized; tests/mock SSH are not proof of deployed credentials,
-real remote execution, local fallback under outage, or guest uninstall.
+Source merge is authorized; source tests are not proof of deployed credentials,
+real remote execution or local fallback under outage. Guest uninstall is no longer
+requested.
 
-## October 15 continuation
+## October 15 continuation (historical; superseded for the guest below)
 
 The user authorized continuation and explicitly waived KACE backups/extra
 validations. This supersedes the earlier guest identity/absence-check machinery;
@@ -67,3 +69,23 @@ stdin, and read back internally. Private plaintext files were deleted afterward;
 only encrypted values and public keys remain. No recipient rotation or trusted-user
 escalation occurred. Host activation and representative untrusted-RPC build evidence
 remain separate from encrypted source enrollment.
+
+## Latest boundary correction and delivery hold
+
+The final October 15 clarification requires guest-only KACE and explicitly says
+to merge source, then wait for the next Orion cache build. The prior failed
+removal connection never ran apt; no runtime repair or further uninstall attempt
+is needed. Restore only the guest source contract and remove obsolete removal
+entry points. Keep Orion/Apollo policy, dedicated keys and host cleanup unchanged.
+Do not manually trigger cache warming, build host closures or activate hosts.
+
+The October 16 continuation preserved newer Hermes main changes while rebasing
+this unpublished correction. Final source verification passed 74 pytest and nine
+unittest cases; focused retention RED/GREEN was two failures followed by 19 passes.
+No runtime guest repair was needed or attempted. Publish only after correction CI
+passes, then leave scheduled Orion cache publication to existing automation.
+
+October 18 main advanced to `80dafc8a` during #381 CI. The same correction was
+carried onto a new branch and its 83 integrated tests rechecked, preserving native
+plugin/workspace changes without force-pushing the published branch. No manual
+runtime or cache-build action follows publication.
