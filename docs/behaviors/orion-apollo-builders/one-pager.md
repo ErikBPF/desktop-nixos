@@ -1,7 +1,7 @@
 # Orion/Apollo builders and guest-only KACE
 
-**Status:** Builder source merged; guest-only KACE correction in progress; waiting for scheduled Orion cache build.
-**Stage:** October 15 scope clarification; follow-up source correction.
+**Status:** Guest-only KACE source verified; waiting for scheduled Orion cache build.
+**Stage:** October 16 correction GREEN and independent review reconciled.
 
 ## Outcome and why
 
@@ -46,11 +46,18 @@ and editorial findings were reconciled. Native Alejandra/ripsecrets/Statix hooks
 passed. Those receipts establish the earlier builder source, not runtime rollout
 or the new correction's final test result.
 
-Correction tests must observe missing guest requirements and an unwanted uninstall
-entry point before the source repair, then pass after restoration/removal. Its
-focused and integrated results, docs/lint/format checks and independent review
-will be recorded before publication. No NixOS module, builder credential or cache
-configuration changes; no host closure is built or activated by this follow-up.
+Correction RED observed two failures for missing guest requirements and an unwanted
+uninstall entry point; focused GREEN passed 19 tests. After rebasing onto current
+main `cebf11d0`, integrated verification passed 74 pytest and nine unittest cases,
+plus lint, formatting, docs links, shell syntax and whitespace checks. Independent
+security/correctness/editorial/simplicity review found no blocker; its missing
+unsigned-input caveat was restored in the delivery plan. The rebase preserves
+upstream Hermes index rows and its Orion-only validation regression.
+
+NixOS modules, encrypted credentials and cache configuration match current main;
+no host closure is built or activated by this follow-up. Garbage-collected hook
+tooling was restored through the declared dev shell, not bypassed. CI remains the
+publication gate; its result belongs to the correction PR, not the older #380 run.
 
 ## Waiting work and recovery
 

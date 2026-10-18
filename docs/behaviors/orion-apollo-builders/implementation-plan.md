@@ -1,6 +1,6 @@
 # Builder placement and guest-only KACE — delivery plan
 
-**Status:** Builder source merged in PR #380; guest-only KACE correction in progress.
+**Status:** Builder source merged in PR #380; guest-only KACE correction locally verified.
 
 ## Constraints and decisions
 
@@ -78,3 +78,9 @@ removal connection never ran apt; no runtime repair or further uninstall attempt
 is needed. Restore only the guest source contract and remove obsolete removal
 entry points. Keep Orion/Apollo policy, dedicated keys and host cleanup unchanged.
 Do not manually trigger cache warming, build host closures or activate hosts.
+
+The October 16 continuation preserved newer Hermes main changes while rebasing
+this unpublished correction. Final source verification passed 74 pytest and nine
+unittest cases; focused retention RED/GREEN was two failures followed by 19 passes.
+No runtime guest repair was needed or attempted. Publish only after correction CI
+passes, then leave scheduled Orion cache publication to existing automation.
