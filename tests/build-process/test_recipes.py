@@ -40,6 +40,14 @@ def run_recipe(tmp_path, arguments, env=None):
     sudo = mock_bin / "sudo"
     sudo.write_text('#!/usr/bin/env bash\nexec "$@"\n')
     sudo.chmod(0o755)
+    # `switch`/`boot`/`home-switch` refuse a target that is not the local host,
+    # so the sandbox reports the harness hostname. Override with
+    # HOSTNAME_UNDER_TEST to exercise the foreign-host path.
+    hostname = mock_bin / "hostname"
+    hostname.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "${HOSTNAME_UNDER_TEST:-endeavour}"\n'
+    )
+    hostname.chmod(0o755)
     for name in ("ssh", "scp"):
         transport = mock_bin / name
         transport.write_text(
