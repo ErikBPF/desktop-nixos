@@ -102,6 +102,9 @@ jobs:
       - name: OpenBao authenticated probe contract
         run: nix develop -c python -m unittest discover -s tests/openbao-probe -p 'test_*.py'
 
+      - name: Harbor publisher bootstrap contract
+        run: nix develop -c python -m unittest discover -s tests/harbor-publisher-bootstrap -p 'test_*.py'
+
       - name: OpenBao ingress and audit regressions
         run: |
           sudo unshare --net python3 tests/openbao-ingress/test_network.py

@@ -4479,6 +4479,10 @@ capture-harbor-project-iam-approle-secrets:
 
 # Rotate the fleet-reader publisher plus each projected host's exact-read
 # AppRole directly into Sops. Harbor robot values remain OpenBao-only.
+# Capture only the existing IaC publisher's SecretID; never rotate fleet readers.
+capture-harbor-fleet-publisher-secret-id:
+    @python3 scripts/capture-harbor-fleet-publisher-secret-id.py
+
 capture-harbor-fleet-reader-approle-secrets:
     #!/usr/bin/env bash
     set -euo pipefail
