@@ -105,6 +105,9 @@ jobs:
       - name: Harbor publisher bootstrap contract
         run: nix develop -c python -m unittest discover -s tests/harbor-publisher-bootstrap -p 'test_*.py'
 
+      - name: HA Harbor managed-reader entrypoint (offline)
+        run: nix develop -c just --no-dotenv test-ha-harbor-reader
+
       - name: OpenBao ingress and audit regressions
         run: |
           sudo unshare --net python3 tests/openbao-ingress/test_network.py

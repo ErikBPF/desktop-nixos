@@ -42,6 +42,12 @@ _host-ip target:
     if [ -z "$ip" ]; then echo "Unknown target or no IP: {{target}}" >&2; exit 1; fi
     echo "$ip"
 
+# Pull one pinned private HA image on Discovery through the managed reader config.
+[positional-arguments]
+verify-ha-harbor-reader image:
+    #!/usr/bin/env bash
+    exec bash scripts/verify-ha-harbor-reader.sh "$1"
+
 # Regenerate fleet.json from the flake SSOT (modules/meta.nix). Run after editing
 # fleet.hosts; commit the result. Consumers (justfile ip_*, homelab-iac) read it.
 fleet-json:
@@ -281,6 +287,9 @@ fmt-check:
 
 test-kindle-release-agent:
     python -m unittest tests/kindle-release-agent/test_agent.py
+
+test-ha-harbor-reader:
+    python3 -m unittest discover -s tests/ha-harbor-reader -p 'test_*.py'
 
 # Verify every in-repo markdown link under docs/ (plus the root README/INSTALL)
 # resolves to a real file. Fails on any broken link — keeps the docs index honest.
