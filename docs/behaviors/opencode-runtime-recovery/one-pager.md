@@ -1,7 +1,7 @@
 # OpenCode runtime recovery and roaming builders
 
-**Status:** PR #375 merged externally; Q-14 candidate built/reviewed and Q-16 Hermes scope accepted; GitGuardian false positive verified and app uninstalled by user. Branch synced through #383; refreshed candidate validation and Endeavour switch pending.
-**Stage / revision:** Post-merge source/status sync / 8, 2026-10-18.
+**Status:** PR #375 merged externally; Q-14 candidate built/reviewed and Q-16 Hermes scope accepted; GitGuardian false positive verified and app uninstalled by user. Synced through #385; local/dry gates pass; refreshed realized review and Endeavour switch pending.
+**Stage / revision:** Post-merge source/status sync / 9, 2026-10-18.
 
 ## Outcome and human seeds
 
@@ -99,12 +99,22 @@ workflow, required context, webhook or IaC attachment in the inspected owners.
 Gitleaks, ripsecrets and native secret scanning/push protection remain intact;
 historical failed check records are retained, not rewritten as successes.
 
-This branch now includes main through 264f8b66: #382 retains guest KACE and
-removes the obsolete uninstall path; #383 changes Apollo supervision only.
-Neither activates a host here. The last observed running/booted Endeavour system
+This branch now includes main through 6272d133: #382 retains guest KACE and
+removes the obsolete uninstall path; #383 changes Apollo supervision only;
+#384 isolates publisher-secret capture; #385 permits editing `.env.example`
+templates while retaining runtime-secret denials. No capture helper or host
+activation was run here. The last observed running/booted Endeavour system
 remains x7vf18qsd08slr05amqvpakb016y8ldj, not the reviewed candidate.
 Refresh candidate identity, dry checks, scope and preservation baseline before
 any future switch; no live new-pool RPC or combined-generation behavior is claimed.
+
+The sync through #385 passes lint/format/docs and 61 focused checks: 45
+build-process/work-profile, 11 isolated publisher-capture and five project-policy
+tests. Publisher tests intercept Sops/HTTP with fixtures; no real capture ran.
+Endeavour and Apollo owner dry gates also pass. Existing rofi rename warnings,
+ignored busy eval-cache warning and temporary-directory ResourceWarnings remain;
+no unrelated repair was attempted. These checks do not realize or activate the
+synced candidate.
 
 ## Historical observations, limits and recovery
 

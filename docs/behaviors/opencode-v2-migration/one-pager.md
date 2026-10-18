@@ -1,7 +1,7 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** Earlier native/plugin repair verified; PR #375 merged externally and candidate built/reviewed; Q-16 accepts Hermes scope. GitGuardian false positive resolved by user uninstall. Branch synced through #383; refreshed candidate validation and activation pending.
-**Stage / revision:** Post-merge source/status sync / 20, 2026-10-18.
+**Status:** Earlier native/plugin repair verified; PR #375 merged externally and candidate built/reviewed; Q-16 accepts Hermes scope. GitGuardian false positive resolved by user uninstall. Synced through #385; local/dry gates pass; refreshed realized review and activation pending.
+**Stage / revision:** Post-merge source/status sync / 21, 2026-10-18.
 
 ## Outcome and why
 
@@ -128,12 +128,18 @@ but identified Hermes package metadata 0.21.3 to 0.0.0 (pinned source v0.21.7)
 and Hermes Python 3.13.15 to 3.14.7. Q-16 accepts that additional local runtime
 scope; compatibility is not proven by build success.
 
-Branch sync now includes main through 264f8b66: #382 retains Ubuntu guest KACE
-and removes its obsolete uninstall entry point; #383 changes Apollo supervision.
-No host was activated here. Last observed running/booted Endeavour system remains
+Branch sync now includes main through 6272d133: #382 retains Ubuntu guest KACE
+and removes its obsolete uninstall entry point; #383 changes Apollo supervision;
+#384 isolates publisher-secret capture; #385 permits editing `.env.example`
+templates without removing runtime-secret denials. No capture helper or host
+activation ran here. Last observed running/booted Endeavour system remains
 x7vf18qsd08slr05amqvpakb016y8ldj. Refresh candidate identity, dry validation,
 realized scope and V1/session/window baseline before any future Endeavour switch.
 Old 131-check/build receipts do not validate the newly synced head or live runtime.
+The sync through #385 passes lint/format/docs and 61 focused checks, including
+isolated publisher-capture and project-policy regressions; no real capture ran.
+Endeavour/Apollo owner dry gates pass with known warnings recorded in the recovery
+record. Fresh realized-candidate review and post-switch checks remain separate gates.
 
 Q-8's historical dashboard disposition remains unconfirmed. GitGuardian's occurrence
 `303907955` flags an auth-file mode assertion, not a literal credential; no
