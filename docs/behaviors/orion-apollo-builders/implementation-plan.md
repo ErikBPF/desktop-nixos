@@ -84,3 +84,8 @@ this unpublished correction. Final source verification passed 74 pytest and nine
 unittest cases; focused retention RED/GREEN was two failures followed by 19 passes.
 No runtime guest repair was needed or attempted. Publish only after correction CI
 passes, then leave scheduled Orion cache publication to existing automation.
+
+October 18 main advanced to `80dafc8a` during #381 CI. The same correction was
+carried onto a new branch and its 83 integrated tests rechecked, preserving native
+plugin/workspace changes without force-pushing the published branch. No manual
+runtime or cache-build action follows publication.

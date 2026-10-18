@@ -47,12 +47,15 @@ passed. Those receipts establish the earlier builder source, not runtime rollout
 or the new correction's final test result.
 
 Correction RED observed two failures for missing guest requirements and an unwanted
-uninstall entry point; focused GREEN passed 19 tests. After rebasing onto current
-main `cebf11d0`, integrated verification passed 74 pytest and nine unittest cases,
+uninstall entry point; focused GREEN passed 19 tests. Integrated verification on
+`cebf11d0` and again on October 18 main `80dafc8a` passed 74 pytest and nine unittest cases,
 plus lint, formatting, docs links, shell syntax and whitespace checks. Independent
 security/correctness/editorial/simplicity review found no blocker; its missing
 unsigned-input caveat was restored in the delivery plan. The rebase preserves
-upstream Hermes index rows and its Orion-only validation regression.
+upstream Hermes index rows and its Orion-only validation regression. The latest
+main update also preserves native-plugin/workspace-session changes. Because #381
+fell behind during CI, publication uses a replacement branch without force-pushing
+or changing the already-published branch.
 
 NixOS modules, encrypted credentials and cache configuration match current main;
 no host closure is built or activated by this follow-up. Garbage-collected hook
