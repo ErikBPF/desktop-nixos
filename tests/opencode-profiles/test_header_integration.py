@@ -49,7 +49,7 @@ class GatewayHeaders(unittest.TestCase):
                     "model": "litellm/synthetic", "enabled_providers": ["litellm"],
                     "provider": {"litellm": {"npm": "@ai-sdk/openai-compatible",
                         "options": {"baseURL": f"http://127.0.0.1:{server.server_port}/v1", "apiKey": "synthetic"},
-                        "models": {"synthetic": {"name": "Synthetic", "limit": {"context": 10000, "output": 100}}}}},
+                        "models": {"synthetic": {"name": "Synthetic", "limit": {"context": 100000, "output": 100}}}}},
                 }
                 env = {"PATH": os.environ["PATH"], "HOME": str(root)}
                 env.update({"XDG_CONFIG_HOME": str(root / "config"), "XDG_DATA_HOME": str(root / "data"),

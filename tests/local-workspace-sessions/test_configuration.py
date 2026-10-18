@@ -40,6 +40,7 @@ class Configuration(unittest.TestCase):
           stateHome = h.xdg.stateHome;
           cacheHome = h.xdg.cacheHome;
           legacyPrivacy = h.home.activation.protectLegacyOpencodeHomelab or null;
+          legacyRtkRetirement = h.home.activation.retireLegacyOpencodeRtk or null;
           wrappers = map (p: { name = p.name; path = toString p; drv = p.drvPath; })
             (builtins.filter (p: builtins.elem p.name ["ol" "ow" "opencode-backend-homelab" "opencode-backend-dataplatform"])
               h.home.packages);
@@ -90,7 +91,10 @@ class Configuration(unittest.TestCase):
             self.assertTrue(name in units, f"native V2 backend missing: {name}")
             unit = units[name]
             self.assertNotEqual(unit["Unit"].get("X-SwitchMethod"), "keep-old")
-            self.assertEqual(unit["Unit"].get("X-Restart-Triggers"), [self.config["opencodeConfig"]])
+            triggers = unit["Unit"].get("X-Restart-Triggers")
+            self.assertEqual(triggers[0], self.config["opencodeConfig"])
+            self.assertEqual(len(triggers), 2, "legacy retirement must refresh cached plugin inventory")
+            self.assertEqual(triggers[1], shlex.split(self.config["legacyRtkRetirement"]["data"])[1])
             self.assertFalse(unit["Unit"].get("PartOf"))
             self.assertFalse(unit["Unit"].get("BindsTo"))
             self.assertEqual(unit["Install"]["WantedBy"], ["default.target"])
@@ -109,6 +113,81 @@ class Configuration(unittest.TestCase):
             for existing in ("desktop-tmux", "desktop-session-homelab-code", "desktop-session-dataplatform-code"):
                 self.assertTrue(units[existing]["Service"]["Environment"][0].startswith("PATH=/run/wrappers/bin:"))
         self.assertEqual(len(roots), 6)
+
+    def test_legacy_rtk_retirement_preserves_unknown_files_and_backup(self):
+        activation = self.config["legacyRtkRetirement"]
+        self.assertIsNotNone(activation, "guarded legacy RTK retirement missing")
+        self.assertIn("writeBoundary", activation["after"])
+        self.assertIn("reloadSystemd", activation["before"], "retire legacy before refreshing backend inventory")
+        script_path = Path(shlex.split(activation["data"])[1])
+        build = subprocess.run(["nix", "build", "--no-link", "--impure", "--expr",
+            '''let f = builtins.getFlake (toString ./.); in builtins.elemAt
+            f.nixosConfigurations.endeavour.config.home-manager.users.erik.systemd.user.services.opencode-homelab.Unit.X-Restart-Triggers 1''',
+            "--builders", ""], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(build.returncode, 0, build.stderr)
+        original = Path(subprocess.check_output(["nix", "eval", "--raw", "--impure", "--expr",
+            'let f = builtins.getFlake (toString ./.); in toString (f.inputs.opencode-flake + "/plugins/rtk.ts")'],
+            cwd=ROOT, text=True).strip())
+        known = original.read_bytes()
+        with tempfile.TemporaryDirectory(prefix="opencode-legacy-plugin-") as temporary:
+            home = Path(temporary) / "home"
+            legacy = Path(self.config["configHome"].replace(self.config["home"], str(home))) / "opencode/plugins/rtk.ts"
+            backup = Path(self.config["stateHome"].replace(self.config["home"], str(home))) / "opencode-v2-migration/rtk-v1.ts"
+            script = script_path.read_text().replace(self.config["home"], str(home))
+            # Substitute only the immutable-store guard prefix for disposable fixture targets.
+            store = Path(temporary) / "store"
+            store.mkdir()
+            script = script.replace("/nix/store/*", str(store) + "/*")
+            known_target = store / "known-rtk.ts"
+            known_target.write_bytes(known)
+            unknown_target = store / "custom-rtk.ts"
+            unknown_target.write_text("custom plugin")
+            def activate():
+                result = subprocess.run(["bash", "-euc", script], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "", "retirement must not hide a failed command")
+            activate()
+            self.assertFalse(backup.exists())
+            legacy.parent.mkdir(parents=True)
+            legacy.write_bytes(known)
+            activate()
+            self.assertTrue(legacy.is_file(), "regular files must be left untouched")
+            legacy.unlink()
+            legacy.symlink_to(unknown_target)
+            activate()
+            self.assertTrue(legacy.is_symlink(), "unknown symlink contents must be left untouched")
+            legacy.unlink()
+            outside_store = Path(temporary) / "known-rtk.ts"
+            outside_store.write_bytes(known)
+            legacy.symlink_to(outside_store)
+            activate()
+            self.assertTrue(legacy.is_symlink(), "non-store symlink must be left untouched")
+            legacy.unlink()
+            legacy.symlink_to(known_target)
+            backup.parent.mkdir(parents=True)
+            backup.symlink_to(unknown_target)
+            activate()
+            self.assertTrue(legacy.is_symlink())
+            self.assertEqual(unknown_target.read_text(), "custom plugin")
+            backup.unlink()
+            backup.write_text("existing recovery data")
+            backup.chmod(0o600)
+            activate()
+            self.assertTrue(legacy.is_symlink())
+            self.assertEqual(backup.read_text(), "existing recovery data")
+            backup.unlink()
+            backup.write_bytes(known)
+            backup.chmod(0o644)
+            activate()
+            self.assertTrue(legacy.is_symlink(), "insecure existing backup must preserve legacy")
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o644)
+            backup.unlink()
+            activate()
+            self.assertFalse(legacy.is_symlink())
+            self.assertEqual(backup.read_bytes(), known)
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+            activate()
+            self.assertEqual(backup.read_bytes(), known)
 
     def test_backend_credentials_routing_and_native_client_forwarding(self):
         for project in ("homelab", "dataplatform"):
