@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Refresh only the existing Harbor fleet-publisher bootstrap SecretID."""
 
+import fcntl
 import json
 import os
 import ssl
@@ -49,24 +50,33 @@ def extract(key, store=STORE):
 
 
 def main():
-    if len(sys.argv) != 1:
-        print("This controller-only capture accepts no arguments", file=sys.stderr)
+    if sys.argv[1:] != ["--exclusive-secret-store"]:
+        print("Requires --exclusive-secret-store after an approved single-writer window; no other arguments accepted", file=sys.stderr)
         return 64
     os.umask(0o077)
     staged = None
+    lock_fd = None
     issuance_attempted = False
     try:
         if not STORE.is_file() or STORE.is_symlink():
             raise ValueError("Sops store missing or symlinked")
+        # All writers must honor this stable side lock; never unlink its inode.
+        lock_fd = os.open(STORE.with_name(".secrets.yaml.harbor-publisher.lock"),
+                          os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        os.fchmod(lock_fd, 0o600)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if b"--value-stdin" not in sops("set", "--help"):
             raise ValueError("Sops stdin capture unsupported")
         original = STORE.read_bytes()  # Encrypted bytes only.
+        literal(json.loads(sops("--decrypt", "--extract", SECRET_KEY,
+                                "--output-type", "json", str(STORE))))
         root = extract('["vault_root_token"]')
         role_id = extract(ROLE_KEY)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         context.load_default_certs()
         opener = urllib.request.build_opener(
-            urllib.request.HTTPSHandler(context=context), NoRedirect()
+            urllib.request.HTTPSHandler(context=context), NoRedirect(),
+            urllib.request.ProxyHandler({}),
         )
 
         def request(path, payload=None):
@@ -112,6 +122,8 @@ def main():
     finally:
         if staged is not None:
             staged.unlink(missing_ok=True)
+        if lock_fd is not None:
+            os.close(lock_fd)
 
 
 if __name__ == "__main__":
