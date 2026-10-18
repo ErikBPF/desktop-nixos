@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import shutil
@@ -14,10 +15,22 @@ ROLE = "svc-homelab-iac-openbao-harbor-fleet-readers-publisher"
 PREFIX = "/v1/auth/approle/role/" + ROLE
 FIELD = '["homelab_iac"]["openbao_harbor_fleet_readers_publisher_secret_id"]'
 
+
+def encrypted(value):
+    if isinstance(value, dict):
+        return {key: encrypted(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [encrypted(item) for item in value]
+    if value is None or value == "":
+        return value
+    kind = "bool" if isinstance(value, bool) else "int" if isinstance(value, int) else "str"
+    data = base64.b64encode(json.dumps(value).encode()).decode()
+    return f"ENC[AES256_GCM,data:{data},iv:fixture,tag:fixture,type:{kind}]"
+
 # This child intercepts every Sops command and HTTP request before running the
 # real owner helper through Just. No real secret store or network is consulted.
 HARNESS = r'''
-import fcntl, json, os, pathlib, runpy, ssl, subprocess, sys, urllib.error, urllib.request
+import base64, fcntl, json, os, pathlib, runpy, ssl, subprocess, sys, urllib.error, urllib.request
 from types import SimpleNamespace
 
 mode = os.environ["CAPTURE_TEST_CASE"]
@@ -65,8 +78,7 @@ def sops(args, **kwargs):
         return SimpleNamespace(returncode=0, stdout=b"unsupported" if mode == "unsupported" else b"--value-stdin", stderr=b"")
     if args[1:3] == ["--decrypt", "--extract"]:
         key = args[3]
-        json_output = args[4:6] == ["--output-type", "json"]
-        source = args[6] if json_output else args[4]
+        source = args[6] if args[4:6] == ["--output-type", "json"] else args[4]
         if key == '["vault_root_token"]':
             value = root + ("\n" if mode == "whitespace" else "")
         elif key == '["homelab_iac"]["openbao_harbor_fleet_readers_publisher_role_id"]':
@@ -77,7 +89,10 @@ def sops(args, **kwargs):
             if "openbao_harbor_fleet_readers_publisher_secret_id" not in data:
                 return SimpleNamespace(returncode=1, stdout=b"", stderr=b"missing field")
             value = data["openbao_harbor_fleet_readers_publisher_secret_id"]
-        return SimpleNamespace(returncode=0, stdout=(json.dumps(value) if json_output else value).encode(), stderr=b"")
+            if isinstance(value, str) and value.startswith("ENC["):
+                value = json.loads(base64.b64decode(value.split("data:", 1)[1].split(",", 1)[0]))
+        # Native Sops emits string scalars unquoted, even with --output-type json.
+        return SimpleNamespace(returncode=0, stdout=(value if isinstance(value, str) else json.dumps(value)).encode(), stderr=b"")
     assert args[:3] == ["sops", "set", "--value-stdin"]
     assert args[4] == field and len(args) == 5
     assert json.loads(kwargs["input"]) == replacement
@@ -87,7 +102,8 @@ def sops(args, **kwargs):
     if mode == "persist-failure":
         return SimpleNamespace(returncode=1, stdout=replacement.encode(), stderr=root.encode())
     data = json.loads(staged.read_text())
-    data["homelab_iac"]["openbao_harbor_fleet_readers_publisher_secret_id"] = replacement
+    encoded = base64.b64encode(json.dumps(replacement).encode()).decode()
+    data["homelab_iac"]["openbao_harbor_fleet_readers_publisher_secret_id"] = f"ENC[AES256_GCM,data:{encoded},iv:fixture,tag:fixture,type:str]"
     staged.write_text(json.dumps(data))
     if mode == "concurrent-change":
         original = json.loads(store.read_text())
@@ -185,6 +201,7 @@ class CaptureTests(unittest.TestCase):
                     "mapping": {"unexpected": "value"}, "list": ["value"], "null": None,
                     "number": 7, "boolean": True, "empty": "", "whitespace": " value ",
                 }[case.removeprefix("invalid-target-")]
+            original = encrypted(original)
             store.write_text(json.dumps(original))
             harness = sandbox / "harness.py"
             harness.write_text(HARNESS)
@@ -244,8 +261,8 @@ class CaptureTests(unittest.TestCase):
         ))):
             with self.subTest(case=case):
                 result, events, original, after, _ = self.run_capture(case)
-                self.assertFalse(any(e.get("method") == "POST" for e in events),
-                                 "Invalid existing target must fail before irreversible SecretID POST")
+                self.assertFalse(any(e["kind"] == "api" for e in events),
+                                 "Invalid existing target must fail before any HTTP request")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(after, original)
 
