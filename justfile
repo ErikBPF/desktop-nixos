@@ -4477,6 +4477,11 @@ capture-harbor-project-iam-approle-secrets:
     unset token
     echo ":: Harbor project-IAM AppRole credentials rotated into sops"
 
+# Capture only the existing IaC publisher's SecretID; never rotate fleet readers.
+[positional-arguments]
+capture-harbor-fleet-publisher-secret-id confirmation="":
+    @python3 scripts/capture-harbor-fleet-publisher-secret-id.py "$1"
+
 # Rotate the fleet-reader publisher plus each projected host's exact-read
 # AppRole directly into Sops. Harbor robot values remain OpenBao-only.
 capture-harbor-fleet-reader-approle-secrets:
