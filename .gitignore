@@ -76,6 +76,7 @@ haos-backup/
 ampagent*
 data/
 /worktrees/
+.builder-credentials/
 
 # git-hooks.nix generated (symlink to nix store)
 .pre-commit-config.yaml

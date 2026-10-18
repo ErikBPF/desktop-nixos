@@ -1,71 +1,126 @@
-{config, ...}: let
-  inherit (config) username;
-  inherit (config.fleet) hosts;
+{
+  config,
+  self,
+  ...
+}: let
+  flakeConfig = config;
+  inherit (flakeConfig) username;
+  inherit (flakeConfig.flake.fleet) hosts;
+  serverKeys = {
+    kepler = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINSN7mhPQHSpTqO3+P0aHQqKQppNM5g3P3/9iS+9vFa4 nix-builder@kepler";
+    discovery = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE0321n0iMNbD6lmtYo8UpNa/7Ebm1tgsHqYhldC0BY6 nix-builder@discovery";
+  };
+  hostKeys = {
+    orion = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAdaVn+4eIM6ogsg5KsMbhCXAX7fK5n1xoqMEl6endXh";
+    apollo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgV3yaYhtTk4F3qNyMnfDsFFcbnLuCnZaU9XaHfHQm2";
+  };
 in {
   flake.modules.nixos.distributed-builds = {
     config,
     lib,
     ...
-  }: {
-    # Opt-in per host. Requires:
-    #   1. Home Manager has materialized the SOPS-managed user SSH key
-    #   2. Corresponding public key in each builder's authorizedKeys
-    #      (see hosts/{orion,kepler}/default.nix)
+  }: let
+    host = config.networking.hostName;
+    enabled = config.nix.distributedBuildsOrion.enable || config.nix.distributedBuildsApollo.enable;
+    server = builtins.hasAttr host serverKeys;
+    builder = builtins.hasAttr host hostKeys;
+    secretName = "nix-builders/${host}/ssh-key";
+    identity = {
+      sshUser =
+        if server
+        then "nix-ssh"
+        else username;
+      sshKey =
+        if server
+        then config.sops.secrets.${secretName}.path
+        else "/home/${username}/.ssh/id_ed25519";
+      protocol = "ssh-ng";
+    };
+  in {
+    # Explicit client enrollment; builders also expose the restricted server endpoint.
     options.nix.distributedBuildsOrion.enable =
       lib.mkEnableOption "offload nix builds to orion via ssh-ng";
-    options.nix.distributedBuildsKepler.enable =
-      lib.mkEnableOption "offload ordinary nix builds to kepler via ssh-ng";
+    options.nix.distributedBuildsApollo.enable =
+      lib.mkEnableOption "offload nix builds to apollo via ssh-ng";
 
-    config =
-      lib.mkIf (
-        config.nix.distributedBuildsOrion.enable
-        || config.nix.distributedBuildsKepler.enable
-      ) {
+    config = lib.mkMerge [
+      (lib.mkIf enabled {
         nix.distributedBuilds = true;
         nix.buildMachines =
-          lib.optional (
-            config.nix.distributedBuildsOrion.enable
-            && config.networking.hostName != "orion"
-          ) {
-            hostName = hosts.orion.tailscaleIp;
-            sshUser = username;
-            sshKey = "/home/${username}/.ssh/id_ed25519";
-            # aarch64 via orion's binfmt/qemu emulation (Pi hosts: archinaut).
-            # Emulation is slower per-build than native, but registering it here
-            # lets aarch64 jobs run at maxJobs parallelism instead of the serial
-            # default-1 you get from an ad-hoc --builders override.
-            systems = ["x86_64-linux" "aarch64-linux"];
-            protocol = "ssh-ng";
-            maxJobs = 16;
-            speedFactor = 4;
-            supportedFeatures = ["nixos-test" "benchmark" "big-parallel" "kvm"];
-          }
+          lib.optional (config.nix.distributedBuildsOrion.enable && host != "orion")
+          (identity
+            // {
+              hostName = "orion-builder";
+              # aarch64 via Orion's binfmt/qemu; no observed /dev/kvm on Orion.
+              systems = ["i686-linux" "x86_64-linux" "aarch64-linux"];
+              maxJobs = 16;
+              speedFactor = 4;
+              supportedFeatures = ["nixos-test" "benchmark" "big-parallel"];
+            })
           ++ lib.optional (
-            config.nix.distributedBuildsKepler.enable
-            && config.networking.hostName != "kepler"
-          ) {
-            hostName = hosts.kepler.tailscaleIp;
-            sshUser = username;
-            sshKey = "/home/${username}/.ssh/id_ed25519";
-            systems = ["x86_64-linux"];
-            protocol = "ssh-ng";
-            # Keep capacity for ZFS, AI serving, and k3s microVMs. Kepler is a
-            # spillover builder, not a target for VM tests or privileged builds.
-            maxJobs = 2;
-            speedFactor = 1;
-            supportedFeatures = ["benchmark" "big-parallel"];
-          };
+            config.nix.distributedBuildsApollo.enable && host != "apollo"
+          ) (identity
+            // {
+              hostName = "apollo-builder";
+              systems = ["i686-linux" "x86_64-linux"];
+              maxJobs = 6;
+              speedFactor = 1;
+              supportedFeatures = ["nixos-test" "benchmark" "big-parallel" "kvm"];
+            });
+      })
 
-        # nix-daemon SSHes to orion on port 2222 (hardened SSH — see networking/openssh.nix).
-        # This replaces the imperative /root/.ssh/config entry used during bootstrap.
-        programs.ssh.extraConfig = ''
-          Host ${hosts.orion.ip} ${hosts.orion.tailscaleIp}
-            Port 2222
-            StrictHostKeyChecking accept-new
-          Host ${hosts.kepler.ip} ${hosts.kepler.tailscaleIp}
-            Port 2222
-            StrictHostKeyChecking accept-new
-        '';
-      };
+      (lib.mkIf (enabled && builtins.elem host ["endeavour" "kepler" "discovery"]) {
+        # Native remote hooks run first for ordinary derivations; one local job
+        # remains when remote capacity is unavailable. cores is guidance, not quota.
+        nix.settings = {
+          max-jobs = lib.mkForce 1;
+          cores = lib.mkForce 1;
+        };
+      })
+
+      (lib.mkIf (enabled && server) {
+        sops.secrets.${secretName} = {
+          sopsFile = self + "/secrets/sops/secrets.yaml";
+          owner = "root";
+          group = "root";
+          mode = "0400";
+        };
+      })
+
+      (lib.mkIf builder {
+        # Native forced nix-daemon --stdio endpoint, not an administrative shell.
+        # Keep signature checks: trustless builds may reject unsigned local inputs.
+        nix.sshServe = {
+          enable = true;
+          protocol = "ssh-ng";
+          trusted = false;
+          keys = builtins.attrValues serverKeys;
+        };
+      })
+
+      (lib.mkIf (enabled || builder) {
+        programs.ssh.knownHosts =
+          lib.mapAttrs (name: publicKey: {
+            hostNames = ["[${hosts.${name}.ip}]:2222"];
+            inherit publicKey;
+          })
+          hostKeys;
+        # OpenSSH takes the first value: select LAN on local network, tailnet
+        # otherwise. This is interface selection, not a LAN-health failover probe.
+        programs.ssh.extraConfig =
+          lib.concatMapStringsSep "\n" (name: ''
+            Match originalhost ${name}-builder localnetwork 192.168.10.0/24
+              HostName ${hosts.${name}.ip}
+            Host ${name}-builder
+              HostName ${hosts.${name}.tailscaleIp}
+              Port 2222
+              HostKeyAlias [${hosts.${name}.ip}]:2222
+              StrictHostKeyChecking yes
+              BatchMode yes
+              ConnectTimeout 8
+          '') ["orion" "apollo"]
+          + "\nHost *\n";
+      })
+    ];
   };
 }

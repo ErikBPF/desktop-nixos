@@ -1,7 +1,7 @@
 # OpenCode V2 backends: delivery status
 
-**Status:** plugins healthy; external native system activation verified; PR #375 published; refreshed candidate validation/activation pending; historical GitGuardian disposition pending.
-**Stage / revision:** RV delivery refresh / 18, 2026-10-15.
+**Status:** plugins healthy; external native system activation verified; PR #375 published; Q-14 local gates pass; candidate build/CI/activation pending; historical GitGuardian disposition pending.
+**Stage / revision:** RV policy reconciliation / 19, 2026-10-18.
 
 ## Outcome and why
 
@@ -54,6 +54,11 @@ Q-13 selects RTK retirement, roaming recipe/daemon builders and sudo-PATH
 reconciliation for reviewed PR publication, normal squash merge and Endeavour
 delivery. Existing sudo-PATH source is already on main; no older V1 module is
 copied. Other dirty worktrees and DNS/route approvals remain separate.
+Q-14 accepts main #380's superseding Orion/Apollo pool, strict public pins,
+LAN/tailnet aliases and one-job local fallback. Main's builder source/tests/CI
+remain authoritative; this PR retains only independent RTK repair, fixture
+correction and delivery records. One additional thirty-minute candidate build
+is authorized without retries. No guest uninstall or other-host activation.
 
 ## Evidence and bounded repairs
 
@@ -95,7 +100,7 @@ V2 and approved Ponytail. This task held its switch on discovery of external
 activation; new user request now requires worktree/merge reconciliation before
 combined deployment. No system switch, reboot or rollback performed by this task.
 Backend unit names remain; V1 executables were replaced, not whole units deleted.
-Fresh combined builder assertions observed RED/GREEN; all 15 focused tests pass.
+Pre-reconciliation builder assertions observed RED/GREEN; all 15 focused tests passed.
 Combined 29 workspace, 10 profile and five project tests pass, along with owner
 lint/format/docs/fleet consistency and Endeavour dry build. Independent risk
 review found no new verified defect; editorial review clarified historical
@@ -104,13 +109,19 @@ See the [recovery integration record](../opencode-runtime-recovery/one-pager.md)
 for daemon/recipe SSH policy, inherited builder-availability limits and historical
 provider/DNS observations. PR #375's fe3f63e head passed eleven CI checks,
 including GitGuardian. Two combined build attempts failed (timeout, then builder
-transfer `Broken pipe`); refreshed main reconciliation retains #376/#377 and
-both CI suites. One bounded owner-build retry remains. Refreshed-head CI,
-combined realized closure and post-switch claims remain pending.
-Refreshed local gates and 72 focused checks pass. Header-smoke synthetic context
+transfer `Broken pipe`); attempt 3 built fb366a26 successfully. Main then advanced
+through #378/#380/#379; old closure is not latest-main proof. Q-14 reconciliation
+preserves main's replacement builder policy and Hermes source without activating
+other hosts. Reconciled-head CI/build, realized closure and post-switch claims
+remain pending. For fb366a26, local gates and 72 focused checks passed. Header-smoke synthetic context
 now matches the existing 100k roundtrip fixture; observed 10k overflow triggered
 compaction, not the intended chat request. Assertions and production settings
 remain unchanged; compaction injection is not claimed.
+Current Q-14 reconciliation passes 131 focused checks, lint/format/docs/fleet
+and Endeavour dry. Independent review confirms main-owned builder source/tests
+and CI are exact, with only six intended PR paths differing from main. Installed
+aliases are not yet active; accepted native local fallback can bootstrap the
+owner build. Candidate CI/realized review and live post-switch checks remain gates.
 
 Q-8 dashboard disposition remains pending. GitGuardian's historical occurrence
 `303907955` flags an auth-file mode assertion, not a literal credential; no
