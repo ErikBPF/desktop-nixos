@@ -80,3 +80,5 @@ data/
 
 # git-hooks.nix generated (symlink to nix store)
 .pre-commit-config.yaml
+# Stable advisory-lock inode for the controller-only Sops transaction.
+/secrets/sops/.secrets.yaml.harbor-publisher.lock
