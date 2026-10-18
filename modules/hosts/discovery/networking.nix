@@ -52,7 +52,12 @@ in {
         ];
         allowedUDPPorts = [
           53 # DNS
+          5353 # mDNS — Plex GDM advertisement
           21027 # syncthing discovery
+          32410 # Plex GDM discovery
+          32412 # Plex GDM discovery
+          32413 # Plex GDM discovery
+          32414 # Plex GDM discovery
         ];
       };
     };
