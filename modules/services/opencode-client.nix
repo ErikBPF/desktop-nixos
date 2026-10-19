@@ -43,5 +43,17 @@
       mode = "0400";
       path = "/run/secrets/opencode/zen_key";
     };
+    # token = ErikBPF GitHub CLI credential, exported as GH_TOKEN by the zsh
+    # snippet in modules/dev/opencode.nix. gh resolves its hosts.yml under
+    # $XDG_CONFIG_HOME, which opencode rewrites for its children, so the
+    # login stored by `gh auth login` is invisible inside a session. GH_TOKEN
+    # outranks hosts.yml, so this makes ErikBPF the account in every session.
+    sops.secrets."github/token" = {
+      sopsFile = self + "/secrets/sops/secrets.yaml";
+      key = "github/token";
+      owner = "erik";
+      mode = "0400";
+      path = "/run/secrets/github/token";
+    };
   };
 }

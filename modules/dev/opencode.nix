@@ -69,6 +69,14 @@
       if [[ -r /run/secrets/opencode/work_key ]]; then
         export OPENCODE_WORK_KEY="$(</run/secrets/opencode/work_key)"
       fi
+      # gh reads $XDG_CONFIG_HOME/gh/hosts.yml, which opencode rewrites to its
+      # own config root for every child process — the keyring login is then
+      # invisible and gh reports "not logged into any GitHub hosts". GH_TOKEN
+      # outranks hosts.yml and carries no XDG dependency, so the ErikBPF
+      # credential from sops is used instead.
+      if [[ -r /run/secrets/github/token ]]; then
+        export GH_TOKEN="$(</run/secrets/github/token)"
+      fi
     '';
 
     programs.opencode-profile = {
