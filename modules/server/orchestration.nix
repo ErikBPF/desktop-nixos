@@ -79,6 +79,25 @@ in {
         '';
       };
 
+      healthGateTimeoutSeconds = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 180;
+        description = ''
+          Seconds a stack's targeted health gate waits for every declared health
+          container to report `healthy` before the stack unit fails. Size from
+          the slowest service's `start_period + interval × retries`; the
+          previous fixed 120 s budget was shorter than hermes' observed start.
+        '';
+      };
+
+      healthGateTimeoutOverrides = lib.mkOption {
+        type = lib.types.attrsOf lib.types.ints.positive;
+        default = {};
+        description = ''
+          Per-stack overrides for healthGateTimeoutSeconds, keyed by stack name.
+        '';
+      };
+
       secretSpecRuntimeSourceConfigNames = lib.mkOption {
         type = lib.types.attrsOf (lib.types.listOf lib.types.str);
         default = {};
@@ -161,6 +180,7 @@ in {
       makeService = idx: name: let
         secretSpecProfile = cfg.secretSpecRuntimeProfiles.${name} or null;
         secretSpecHealthContainers = cfg.secretSpecRuntimeHealthContainers.${name} or [];
+        healthGateTimeout = cfg.healthGateTimeoutOverrides.${name} or cfg.healthGateTimeoutSeconds;
         secretSpecSourceConfigNames = cfg.secretSpecRuntimeSourceConfigNames.${name} or [];
         secretSpecIgnoredSourceNames = cfg.secretSpecRuntimeIgnoredSourceNames.${name} or [];
         secretSpecLegacySecretNames = cfg.secretSpecRuntimeLegacySecretNames.${name} or [];
@@ -195,8 +215,11 @@ in {
           else
             pkgs.writeShellScript "secretspec-${name}-health" ''
               set -euo pipefail
+              # Bash SECONDS counts whole seconds since the script started; the
+              # budget is the stack's declared health gate timeout.
               health_containers=(${lib.escapeShellArgs secretSpecHealthContainers})
-              for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+              budget=${toString healthGateTimeout}
+              while [ "$SECONDS" -lt "$budget" ]; do
                 all_healthy=1
                 for health_container in "''${health_containers[@]}"; do
                   status="$(${pkgs.docker}/bin/docker inspect --format '{{.State.Health.Status}}' "$health_container" 2>/dev/null || true)"
@@ -206,6 +229,7 @@ in {
                 [ "$all_healthy" -eq 1 ] && exit 0
                 ${pkgs.coreutils}/bin/sleep 2
               done
+              echo "health gate for ${name} exceeded ''${budget}s" >&2
               exit 1
             '';
         stopStack = pkgs.writeShellScript "stop-compose-${name}" ''
