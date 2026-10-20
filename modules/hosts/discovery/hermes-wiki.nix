@@ -141,19 +141,37 @@ _: {
     };
 
     # Seed the daily consolidation cron into the running container (idempotent).
+    #
+    # Deliberately NOT part of the activation transaction: a seed that cannot
+    # reach the container must never fail a host deployment. Observed
+    # 2026-10-19: activation restarted docker-hermes-agent, the container needed
+    # ~3 min to be ready, the 120 s readiness gate below expired, and the
+    # resulting failed unit aborted `switch-to-configuration` — deploy-rs magic
+    # rollback then discarded an otherwise good generation. The timer owns
+    # retries and the re-seed after a container recreate that activation used to
+    # trigger implicitly.
     systemd.services.hermes-wiki-cron-seed = {
       description = "Seed the wiki-consolidate cron job";
-      wantedBy = ["multi-user.target"];
       after = ["docker-hermes-agent.service"];
       requires = ["docker-hermes-agent.service"];
       startLimitIntervalSec = 300;
       startLimitBurst = 5;
       serviceConfig = {
         Type = "oneshot";
-        RemainAfterExit = true;
-        Restart = "on-failure";
-        RestartSec = "30s";
         ExecStart = "${seedScript}/bin/hermes-wiki-cron-seed";
+      };
+    };
+
+    systemd.timers.hermes-wiki-cron-seed = {
+      description = "Re-seed the wiki-consolidate cron job after boot and on drift";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        # OnBootSec covers a reprovision or state wipe; OnUnitActiveSec retries a
+        # run that found the container down and propagates prompt/schedule edits
+        # from Nix without waiting for a reboot.
+        OnBootSec = "5min";
+        OnUnitActiveSec = "1h";
+        Unit = "hermes-wiki-cron-seed.service";
       };
     };
   };
