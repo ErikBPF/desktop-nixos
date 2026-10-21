@@ -74,6 +74,13 @@ in {
       inputs.hermes-flake.nixosModules.hermes-agent-oci-argus
     ];
 
+    # Hackerman reviews Erik's Comet PRs from host-collected bundles. The host
+    # poster owns the bot token; the agent never receives it.
+    services.hermes-pr-review = {
+      enable = true;
+      botLogin = "hermes-comet-reviewer";
+    };
+
     assertions = [
       {
         assertion = builtins.match "^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$" config.services.hermes-agent-oci-daedalus.image != null;
