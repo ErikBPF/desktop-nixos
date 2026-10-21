@@ -7,6 +7,13 @@ _: {
   }: let
     cfg = config.services.hermes-pr-review;
     python = pkgs.python3;
+    tokenGate = pkgs.writeShellScript "hermes-pr-review-token-gate" ''
+      set -eu
+      set -a
+      . ${cfg.tokenFile}
+      set +a
+      test -n "''${GH_REVIEW_BOT_TOKEN:-}"
+    '';
     collect = pkgs.writeShellApplication {
       name = "hermes-pr-review-collect";
       runtimeInputs = [python pkgs.gh pkgs.git pkgs.curl pkgs.coreutils];
@@ -105,7 +112,7 @@ _: {
         serviceConfig = {
           Type = "oneshot";
           EnvironmentFile = "-${cfg.tokenFile}";
-          ExecCondition = "${pkgs.bash}/bin/bash -c 'test -s ${cfg.tokenFile}'";
+          ExecCondition = "${tokenGate}";
           ExecStart = "${bootstrap}/bin/hermes-pr-review-bootstrap";
         };
       };
@@ -129,7 +136,7 @@ _: {
           Type = "oneshot";
           StateDirectory = "hermes-pr-review";
           EnvironmentFile = "-${cfg.tokenFile}";
-          ExecCondition = "${pkgs.bash}/bin/bash -c 'test -s ${cfg.tokenFile}'";
+          ExecCondition = "${tokenGate}";
           ExecStartPre = [
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
@@ -147,7 +154,7 @@ _: {
           Type = "oneshot";
           StateDirectory = "hermes-pr-review";
           EnvironmentFile = "-${cfg.tokenFile}";
-          ExecCondition = "${pkgs.bash}/bin/bash -c 'test -s ${cfg.tokenFile}'";
+          ExecCondition = "${tokenGate}";
           ExecStartPre = [
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
