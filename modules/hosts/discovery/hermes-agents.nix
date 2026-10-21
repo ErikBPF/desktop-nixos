@@ -79,6 +79,9 @@ in {
     services.hermes-pr-review = {
       enable = true;
       botLogin = "hermes-comet-reviewer";
+      # Human gate: review packets accumulate until this is flipped after a
+      # dry-run packet is approved.
+      allowPublish = false;
     };
 
     assertions = [

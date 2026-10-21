@@ -101,6 +101,11 @@ _: {
         type = lib.types.str;
         default = "5min";
       };
+      allowPublish = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Post bot comments. Keep false until a human has approved a dry-run packet.";
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -146,7 +151,7 @@ _: {
         };
       };
 
-      systemd.services.hermes-pr-review-publish = {
+      systemd.services.hermes-pr-review-publish = lib.mkIf cfg.allowPublish {
         description = "Publish Hermes PR reviews as bot comments";
         after = ["vault-agent.service"];
         wants = ["vault-agent.service"];
@@ -175,7 +180,7 @@ _: {
         };
       };
 
-      systemd.timers.hermes-pr-review-publish = {
+      systemd.timers.hermes-pr-review-publish = lib.mkIf cfg.allowPublish {
         description = "Publish Hermes PR reviews periodically";
         wantedBy = ["timers.target"];
         timerConfig = {
