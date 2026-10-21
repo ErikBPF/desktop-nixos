@@ -10,7 +10,7 @@ _: {
     tokenGate = pkgs.writeShellScript "hermes-pr-review-token-gate" ''
       set -eu
       if [ -s ${cfg.appCredentialFile} ] && ${pkgs.jq}/bin/jq -e \
-        '.app_id and .installation_id and .private_key' \
+        '.app_id and (.installation_id|tostring|length>0) and (.private_key|length>0)' \
         ${cfg.appCredentialFile} >/dev/null 2>&1; then
         exit 0
       fi
