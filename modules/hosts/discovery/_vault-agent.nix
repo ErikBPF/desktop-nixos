@@ -151,11 +151,16 @@ in {
           destination = "/run/vault-agent/hermes-daedalus.env"
           perms = "0400"
         }
-        # Host-only credential for the PR review poster. Never mounted into the
+        # Host-only credentials for the PR review poster. Never mounted into the
         # agent container; Hackerman writes JSON and this process owns GitHub.
         template {
-          contents = "${renderedAt}{{ with secret \"secret/data/home/hermes\" }}GH_REVIEW_BOT_TOKEN={{ .Data.data.GH_REVIEW_BOT_TOKEN }}\n{{ end }}"
-          destination = "/run/vault-agent/hermes-pr-review.env"
+          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.GH_REVIEW_APP_JSON }}{{ end }}"
+          destination = "/run/vault-agent/hermes-pr-review-app.json"
+          perms = "0400"
+        }
+        template {
+          contents = "${renderedAt}{{ with secret \"secret/data/home/hermes\" }}GH_REVIEW_UPSTREAM_TOKEN={{ .Data.data.GH_REVIEW_UPSTREAM_TOKEN }}\n{{ end }}"
+          destination = "/run/vault-agent/hermes-pr-review-upstream.env"
           perms = "0400"
         }
         template {

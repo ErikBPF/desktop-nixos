@@ -78,10 +78,50 @@ in {
     # poster owns the bot token; the agent never receives it.
     services.hermes-pr-review = {
       enable = true;
-      botLogin = "hermes-comet-reviewer";
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = false;
+      # App-installed repos comment as `<slug>[bot]`. Upstream repos outside
+      # the account's admin use the dedicated bot account and classic token.
+      repos = [
+        {
+          repo = "apache/datafusion-comet";
+          credential = "upstream";
+          botLogin = "hermes-comet-reviewer";
+        }
+        {
+          repo = "ErikBPF/aster";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/desktop-nixos";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/homelab";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/homelab-iac";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/homelab-gitops";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/servarr";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/hermes-flake";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+        {
+          repo = "ErikBPF/hermes-skills";
+          botLogin = "hermes-pr-reviewer[bot]";
+        }
+      ];
     };
 
     assertions = [

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Publish Hermes cr-pr review bundles as one bot comment per Comet PR.
+"""Publish Hermes cr-pr review bundles as one bot comment per PR.
 
-The bot token lives only in this host process. Hackerman writes JSON and never
-sees the credential. Posting is an issue comment, never an approval or a
+The posting credential lives only in this host process. Hackerman writes JSON
+and never sees it. Posting is an issue comment, never an approval or a
 request-changes review.
 """
 
@@ -14,9 +14,10 @@ import json
 import re
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+import tokens
 
 GH = "gh"
 MARKER = "<!-- hermes-pr-review:"
@@ -30,12 +31,15 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(args, check=check, capture_output=True, text=True)
-
-
-def gh_json(args: list[str]) -> object:
-    return json.loads(run([GH, *args]).stdout)
+def gh_json(args: list[str], token: str) -> object:
+    proc = subprocess.run(
+        [GH, *args], capture_output=True, text=True, env=tokens.gh_env(token)
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"gh {' '.join(args)} failed ({proc.returncode}): {proc.stderr.strip()}"
+        )
+    return json.loads(proc.stdout)
 
 
 def clean(value: object, limit: int = 4000) -> str:
@@ -100,8 +104,14 @@ def validate(review: dict) -> tuple[dict, list[str]]:
             continue
         finding = dict(finding)
         finding.update(
-            {"file": file, "line": line, "title": title, "body": body,
-             "evidence": evidence, "action": action}
+            {
+                "file": file,
+                "line": line,
+                "title": title,
+                "body": body,
+                "evidence": evidence,
+                "action": action,
+            }
         )
         accepted.append(finding)
     review = dict(review)
@@ -127,7 +137,7 @@ def evidence_in_bundle(evidence: str, bundle: Path) -> bool:
     return False
 
 
-def render(review: dict, limit: int = MAX_FINDINGS) -> str:
+def render(review: dict, repo: str, limit: int = MAX_FINDINGS) -> str:
     findings = sorted(
         review["findings"], key=lambda item: (item["severity"] != "P1",)
     )
@@ -136,7 +146,7 @@ def render(review: dict, limit: int = MAX_FINDINGS) -> str:
     short = head[:7]
     routed = [clean(item, 100) for item in review.get("routed_skills", [])]
     lines = [
-        f"## Automated Comet review — `{short}`",
+        f"## Automated review — `{repo}` — `{short}`",
         "",
         f"Reviewed `{head}` against `{clean(review.get('base'), 40)}`.",
     ]
@@ -166,9 +176,14 @@ def render(review: dict, limit: int = MAX_FINDINGS) -> str:
         )
     if len(findings) > limit:
         lines.extend(
-            ["", f"{len(findings) - limit} further finding(s) omitted from this comment."]
+            [
+                "",
+                f"{len(findings) - limit} further finding(s) omitted from this comment.",
+            ]
         )
-    validation = [clean(item, 500) for item in review.get("validation", []) if clean(item, 500)]
+    validation = [
+        clean(item, 500) for item in review.get("validation", []) if clean(item, 500)
+    ]
     limits = [clean(item, 500) for item in review.get("limits", []) if clean(item, 500)]
     if validation or limits:
         lines.extend(["", "---", "", "**Validation**"])
@@ -194,14 +209,15 @@ def render(review: dict, limit: int = MAX_FINDINGS) -> str:
     return body[:MAX_BODY]
 
 
-def find_comment(repo: str, pr: int, bot_login: str) -> dict | None:
+def find_comment(repo: str, pr: int, bot_login: str, token: str) -> dict | None:
     pages = gh_json(
         [
             "api",
             "--paginate",
             "--slurp",
             f"repos/{repo}/issues/{pr}/comments?per_page=100",
-        ]
+        ],
+        token,
     )
     comments = [item for page in pages for item in page]
     for comment in reversed(comments):
@@ -211,11 +227,13 @@ def find_comment(repo: str, pr: int, bot_login: str) -> dict | None:
     return None
 
 
-def upsert_comment(repo: str, pr: int, body: str, bot_login: str, dry_run: bool) -> str:
+def upsert_comment(
+    repo: str, pr: int, body: str, bot_login: str, token: str, dry_run: bool
+) -> str:
     if dry_run:
         print(body)
         return "DRY-RUN"
-    existing = find_comment(repo, pr, bot_login)
+    existing = find_comment(repo, pr, bot_login, token)
     if existing:
         if (existing.get("body") or "").strip() == body.strip():
             return "UNCHANGED"
@@ -233,6 +251,7 @@ def upsert_comment(repo: str, pr: int, body: str, bot_login: str, dry_run: bool)
             check=True,
             capture_output=True,
             text=True,
+            env=tokens.gh_env(token),
         )
         return json.loads(proc.stdout).get("html_url", "UPDATED")
     proc = subprocess.run(
@@ -249,12 +268,15 @@ def upsert_comment(repo: str, pr: int, body: str, bot_login: str, dry_run: bool)
         check=True,
         capture_output=True,
         text=True,
+        env=tokens.gh_env(token),
     )
     return json.loads(proc.stdout).get("html_url", "POSTED")
 
 
-def current_head(repo: str, pr: int) -> tuple[str, str]:
-    data = gh_json(["pr", "view", str(pr), "--repo", repo, "--json", "headRefOid,state"])
+def current_head(repo: str, pr: int, token: str) -> tuple[str, str]:
+    data = gh_json(
+        ["pr", "view", str(pr), "--repo", repo, "--json", "headRefOid,state"], token
+    )
     return data["headRefOid"], data["state"]
 
 
@@ -267,14 +289,17 @@ def mark_bundle(bundle: Path, outcome: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True)
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--state-dir", required=True)
-    parser.add_argument("--bot-login", default="")
+    parser.add_argument("--app-credential", required=True)
+    parser.add_argument("--app-token-cache", required=True)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--post-empty", action="store_true")
     parser.add_argument("--no-strict-evidence", dest="strict_evidence", action="store_false")
     args = parser.parse_args()
 
+    entries = {entry["repo"]: entry for entry in tokens.load_config(args.config)}
     state_dir = Path(args.state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
     state_path = state_dir / "state.json"
@@ -286,7 +311,6 @@ def main() -> int:
     for directory in (out_dir, done_dir, stale_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
-    bot_login = args.bot_login or gh_json(["api", "user"])["login"]
     published = 0
     for path in sorted(out_dir.glob("*.json")):
         try:
@@ -297,13 +321,22 @@ def main() -> int:
                     path.replace(stale_dir / path.name)
                 continue
             repo, pr, head = review["repo"], review["pr"], review["head"]
+            entry = entries.get(repo)
+            if entry is None:
+                print(f"REPO-NOT-CONFIGURED {path.name}", file=sys.stderr)
+                if not args.dry_run:
+                    path.replace(stale_dir / path.name)
+                continue
             bundle = in_dir / path.stem
             if not bundle.exists():
                 print(f"NO-BUNDLE {path.name}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
                 continue
-            live_head, pr_state = current_head(repo, pr)
+            token = tokens.token_for(
+                entry, args.app_credential, args.app_token_cache
+            )
+            live_head, pr_state = current_head(repo, pr, token)
             if pr_state != "OPEN" or live_head != head:
                 print(f"STALE {path.name}: {head} != {live_head}")
                 if not args.dry_run:
@@ -327,15 +360,24 @@ def main() -> int:
                     path.replace(done_dir / path.name)
                 print(f"NO-FINDINGS {path.name}")
                 continue
-            body = render(review)
-            url = upsert_comment(repo, pr, body, bot_login, args.dry_run)
+            body = render(review, repo)
+            url = upsert_comment(
+                repo,
+                pr,
+                body,
+                entry["bot_login"],
+                token,
+                args.dry_run,
+            )
             if args.dry_run:
                 published += 1
                 continue
             key = f"{repo}#{pr}"
-            entry = state["prs"].get(key, {})
-            entry.update({"posted_head": head, "posted_at": now(), "url": url})
-            state["prs"][key] = entry
+            entry_state = state["prs"].get(key, {})
+            entry_state.update(
+                {"posted_head": head, "posted_at": now(), "url": url}
+            )
+            state["prs"][key] = entry_state
             mark_bundle(bundle, "posted")
             path.replace(done_dir / path.name)
             published += 1

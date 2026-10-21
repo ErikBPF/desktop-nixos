@@ -9,22 +9,30 @@ _: {
     python = pkgs.python3;
     tokenGate = pkgs.writeShellScript "hermes-pr-review-token-gate" ''
       set -eu
-      set -a
-      . ${cfg.tokenFile}
-      set +a
-      test -n "''${GH_REVIEW_BOT_TOKEN:-}"
+      if [ -s ${cfg.appCredentialFile} ] && ${pkgs.jq}/bin/jq -e \
+        '.app_id and .installation_id and .private_key' \
+        ${cfg.appCredentialFile} >/dev/null 2>&1; then
+        exit 0
+      fi
+      if [ -s ${cfg.upstreamTokenFile} ] && \
+        grep -q '^GH_REVIEW_UPSTREAM_TOKEN=..*' ${cfg.upstreamTokenFile}; then
+        exit 0
+      fi
+      exit 1
     '';
     collect = pkgs.writeShellApplication {
       name = "hermes-pr-review-collect";
-      runtimeInputs = [python pkgs.gh pkgs.git pkgs.curl pkgs.coreutils];
+      runtimeInputs = [python pkgs.gh pkgs.git pkgs.curl pkgs.openssl pkgs.coreutils];
       text = ''
+        export PYTHONPATH=${../../../scripts/pr-review}
         exec ${python}/bin/python3 ${../../../scripts/pr-review/collect.py} "$@"
       '';
     };
     publish = pkgs.writeShellApplication {
       name = "hermes-pr-review-publish";
-      runtimeInputs = [python pkgs.gh pkgs.coreutils];
+      runtimeInputs = [python pkgs.gh pkgs.openssl pkgs.coreutils];
       text = ''
+        export PYTHONPATH=${../../../scripts/pr-review}
         exec ${python}/bin/python3 ${../../../scripts/pr-review/publish.py} "$@"
       '';
     };
@@ -43,27 +51,69 @@ _: {
         exec ${pkgs.bash}/bin/bash ${../../../scripts/pr-review/bootstrap-cron.sh}
       '';
     };
+    configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
+      repos =
+        map (entry: {
+          repo = entry.repo;
+          author = entry.author;
+          credential = entry.credential;
+          bot_login = entry.botLogin;
+        })
+        cfg.repos;
+    });
   in {
     options.services.hermes-pr-review = {
-      enable = lib.mkEnableOption "Collect, review, and publish Comet PR reviews with Hackerman";
+      enable = lib.mkEnableOption "Collect, review, and publish PR reviews with Hackerman";
 
-      repo = lib.mkOption {
-        type = lib.types.str;
-        default = "apache/datafusion-comet";
+      repos = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            repo = lib.mkOption {
+              type = lib.types.str;
+              description = "owner/name";
+            };
+            author = lib.mkOption {
+              type = lib.types.str;
+              default = "ErikBPF";
+            };
+            credential = lib.mkOption {
+              type = lib.types.enum ["app" "upstream"];
+              default = "app";
+              description = "app for repos where the GitHub App is installed; upstream for public repos outside the account's admin.";
+            };
+            botLogin = lib.mkOption {
+              type = lib.types.str;
+              description = "Login that owns the bot comment. App installations use '<slug>[bot]'.";
+            };
+          };
+        });
+        default = [
+          {
+            repo = "apache/datafusion-comet";
+            credential = "upstream";
+            botLogin = "hermes-comet-reviewer";
+          }
+        ];
       };
-      author = lib.mkOption {
+
+      appCredentialFile = lib.mkOption {
         type = lib.types.str;
-        default = "ErikBPF";
+        default = "/run/vault-agent/hermes-pr-review-app.json";
+        description = "JSON with app_id, installation_id, and private_key.";
       };
-      botLogin = lib.mkOption {
+      upstreamTokenFile = lib.mkOption {
         type = lib.types.str;
-        default = "hermes-comet-reviewer";
-        description = "Dedicated bot account login that owns the published comments.";
+        default = "/run/vault-agent/hermes-pr-review-upstream.env";
+        description = "EnvironmentFile with GH_REVIEW_UPSTREAM_TOKEN.";
       };
-      tokenFile = lib.mkOption {
+      appTokenCache = lib.mkOption {
         type = lib.types.str;
-        default = "/run/vault-agent/hermes-pr-review.env";
-        description = "EnvironmentFile with GH_REVIEW_BOT_TOKEN. Read only by the host poster.";
+        default = "/var/lib/hermes-pr-review/app-token.json";
+      };
+      allowPublish = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Post bot comments. Keep false until a human has approved a dry-run packet.";
       };
       dataDir = lib.mkOption {
         type = lib.types.str;
@@ -101,11 +151,6 @@ _: {
         type = lib.types.str;
         default = "5min";
       };
-      allowPublish = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Post bot comments. Keep false until a human has approved a dry-run packet.";
-      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -116,7 +161,6 @@ _: {
         wantedBy = ["multi-user.target"];
         serviceConfig = {
           Type = "oneshot";
-          EnvironmentFile = "-${cfg.tokenFile}";
           ExecCondition = "${tokenGate}";
           ExecStart = "${bootstrap}/bin/hermes-pr-review-bootstrap";
         };
@@ -134,20 +178,20 @@ _: {
       };
 
       systemd.services.hermes-pr-review-collect = {
-        description = "Collect Comet PR review bundles";
+        description = "Collect PR review bundles";
         after = ["vault-agent.service" "docker-${cfg.containerName}.service"];
         wants = ["vault-agent.service"];
         serviceConfig = {
           Type = "oneshot";
           StateDirectory = "hermes-pr-review";
-          EnvironmentFile = "-${cfg.tokenFile}";
+          EnvironmentFile = "-${cfg.upstreamTokenFile}";
           ExecCondition = "${tokenGate}";
           ExecStartPre = [
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
           ];
-          ExecStart = "${collect}/bin/hermes-pr-review-collect --repo ${cfg.repo} --author ${cfg.author} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review";
-          TimeoutStartSec = "10min";
+          ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
+          TimeoutStartSec = "15min";
         };
       };
 
@@ -158,19 +202,19 @@ _: {
         serviceConfig = {
           Type = "oneshot";
           StateDirectory = "hermes-pr-review";
-          EnvironmentFile = "-${cfg.tokenFile}";
+          EnvironmentFile = "-${cfg.upstreamTokenFile}";
           ExecCondition = "${tokenGate}";
           ExecStartPre = [
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
           ];
-          ExecStart = "${publish}/bin/hermes-pr-review-publish --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --bot-login ${cfg.botLogin}";
+          ExecStart = "${publish}/bin/hermes-pr-review-publish --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
           TimeoutStartSec = "5min";
         };
       };
 
       systemd.timers.hermes-pr-review-collect = {
-        description = "Collect Comet PR review bundles periodically";
+        description = "Collect PR review bundles periodically";
         wantedBy = ["timers.target"];
         timerConfig = {
           OnBootSec = "5min";

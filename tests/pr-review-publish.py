@@ -5,14 +5,20 @@ Synthetic only. No GitHub calls, tokens, or host state.
 """
 
 import importlib.util
+import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLISH = ROOT / "scripts/pr-review/publish.py"
-READY = ROOT / "scripts/pr-review/ready.py"
+SCRIPTS = ROOT / "scripts/pr-review"
+PUBLISH = SCRIPTS / "publish.py"
+READY = SCRIPTS / "ready.py"
+sys.path.insert(0, str(SCRIPTS))
+
+import tokens  # noqa: E402
 
 
 def load(path: Path, name: str):
@@ -74,8 +80,8 @@ with tempfile.TemporaryDirectory() as tmp:
 
     parsed, errors = pub.validate(review())
     assert not errors, errors
-    body = pub.render(parsed)
-    assert body.startswith("## Automated Comet review"), body[:60]
+    body = pub.render(parsed, parsed["repo"])
+    assert body.startswith("## Automated review"), body[:60]
     assert "### P1" in body and body.index("### P1") < body.index("### P2")
     assert "let value = 1;" in body
     assert f"{pub.MARKER}{'a' * 40}:" in body
@@ -97,7 +103,7 @@ with tempfile.TemporaryDirectory() as tmp:
     empty = review(findings=[])
     parsed, errors = pub.validate(empty)
     assert not errors, errors
-    assert "No new P1/P2 findings" in pub.render(parsed)
+    assert "No new P1/P2 findings" in pub.render(parsed, parsed["repo"])
 
     review_in = tmp / "in"
     review_out = tmp / "out"
@@ -120,5 +126,38 @@ with tempfile.TemporaryDirectory() as tmp:
         [str(READY)], env=env, text=True, capture_output=True, check=True
     ).stdout.strip()
     assert posted == "NO_READY", posted
+
+    config_path = tmp / "repos.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "repos": [
+                    {
+                        "repo": "ErikBPF/aster",
+                        "bot_login": "hermes-pr-reviewer[bot]",
+                    }
+                ]
+            }
+        )
+    )
+    entries = tokens.load_config(str(config_path))
+    assert entries[0]["credential"] == "app"
+    assert entries[0]["author"] == "ErikBPF"
+
+    os.environ["GH_REVIEW_UPSTREAM_TOKEN"] = "test-token"
+    assert (
+        tokens.token_for({"credential": "upstream"}, "", "")
+        == "test-token"
+    )
+    del os.environ["GH_REVIEW_UPSTREAM_TOKEN"]
+
+    bad_config = tmp / "bad.json"
+    bad_config.write_text(json.dumps({"repos": [{"repo": "ErikBPF/aster"}]}))
+    try:
+        tokens.load_config(str(bad_config))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("missing bot_login must be rejected")
 
 print("pr-review-publish: ok")
