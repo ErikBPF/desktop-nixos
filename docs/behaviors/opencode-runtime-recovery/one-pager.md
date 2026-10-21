@@ -1,7 +1,7 @@
 # OpenCode runtime recovery and roaming builders
 
-**Status:** PR #375 published; Q-14 main-policy reconciliation and local gates pass; candidate build/CI/realized review and Endeavour switch pending. DNS/route mutation remains separate.
-**Stage / revision:** RV policy reconciliation / 7, 2026-10-18.
+**Status:** PR #375 merged externally; Q-14 candidate built/reviewed and Q-16 Hermes scope accepted; GitGuardian false positive verified and app uninstalled by user. Synced through #385; local/dry gates pass; refreshed realized review and Endeavour switch pending.
+**Stage / revision:** Post-merge source/status sync / 9, 2026-10-18.
 
 ## Outcome and human seeds
 
@@ -55,8 +55,8 @@ new dependencies. Combined lint/format/docs/fleet consistency and Endeavour dry
 build pass, as do 29 workspace, 10 profile and five project tests. Fresh source
 risk review found no new verified defect; prose review clarified historical
 runtime/kernel receipts. Prior PR head fe3f63e passed all eleven CI checks,
-including GitGuardian; refreshed-head CI, combined closure and post-switch
-checks remain pending. RTK's separate guarded-backup/order regressions and native runtime
+including GitGuardian; those checks cover that historical head only.
+RTK's separate guarded-backup/order regressions and native runtime
 receipts are in the [migration record](../opencode-v2-migration/one-pager.md).
 Earlier builder preflight authenticated to both former tailnet Nix stores;
 this proves reachability/authentication, not successful workload offload.
@@ -64,8 +64,10 @@ this proves reachability/authentication, not successful workload offload.
 Build attempt 1 timed out during closure transfer; attempt 2 failed with
 `Broken pipe` transferring system units to Orion. Attempt 3 succeeded for
 fb366a26, producing system 6g4br71zw2kkrq7f06bnsc88mwd1iap5. That older
-candidate does not cover #380 or subsequent main. Q-14 authorizes one additional
-thirty-minute build, no retries, for the reconciled latest-main candidate.
+candidate does not cover #380 or subsequent main. Q-14's single additional
+thirty-minute build succeeded for ddd8d0df, producing system
+80ikxlkix5dmmb5gywzw5h9y9fp6swl9 and HM 7drcpc1d1ivzv7kg9gxmy25p2nxm35gd.
+That build allowance is consumed; no further build or retry is implied.
 Main through cebf11d0 also carries #378's signed-cache receipt and #379's Hermes
 source; preserving merged source does not activate Discovery or other hosts.
 
@@ -77,13 +79,42 @@ catalog. Matching the existing 100k roundtrip fixture restored all ten profile
 checks without changing header/marker assertions or production configuration.
 This does not prove Ponytail injection during compaction.
 
-Current Q-14 reconciliation passes lint/format/docs/fleet and Endeavour dry;
-131 focused checks pass (86 builder/tooling/work-profile, 29 workspace, ten
-profiles, five project and one roaming). Independent review confirms main's
-four conflicting files are byte-identical and only six intended PR paths
-differ from main. Installed builder aliases are not active yet; the owner
-recipe's accepted one-job fallback can bootstrap without temporary SSH edits.
-No live new-pool RPC or new-generation behavior is claimed before activation.
+For ddd8d0df, lint/format/docs/fleet, Endeavour dry and 131 focused checks passed
+(86 builder/tooling/work-profile, 29 workspace, ten profiles, five project and
+one roaming). Head CI finished with ten successes, one skipped notification and
+one GitGuardian failure. PR #375 merged externally as 80dafc8a; its tree exactly
+matches the built candidate. These results are not fresh validation of later main.
+
+Independent realized review confirmed approved builders/RTK and unchanged kernel
+7.2.6/systemd 261.2. It also found Endeavour's inherited Hermes CLI/dependency
+replacement: package metadata 0.21.3 to 0.0.0 despite pinned upstream v0.21.7,
+and Hermes Python 3.13.15 to 3.14.7. Q-16 explicitly accepts this local runtime
+scope; runtime compatibility remains untested. No new or removed service was found.
+
+GitGuardian incident 38245533/occurrence 304898809 points to
+`scripts/hermes-state-backup.sh:357`, a temporary-file size check, not a secret.
+Full-script review verified the false positive; the same script was flagged in
+PR #379. User uninstalled the external app. Residual checks found no operational
+workflow, required context, webhook or IaC attachment in the inspected owners.
+Gitleaks, ripsecrets and native secret scanning/push protection remain intact;
+historical failed check records are retained, not rewritten as successes.
+
+This branch now includes main through 6272d133: #382 retains guest KACE and
+removes the obsolete uninstall path; #383 changes Apollo supervision only;
+#384 isolates publisher-secret capture; #385 permits editing `.env.example`
+templates while retaining runtime-secret denials. No capture helper or host
+activation was run here. The last observed running/booted Endeavour system
+remains x7vf18qsd08slr05amqvpakb016y8ldj, not the reviewed candidate.
+Refresh candidate identity, dry checks, scope and preservation baseline before
+any future switch; no live new-pool RPC or combined-generation behavior is claimed.
+
+The sync through #385 passes lint/format/docs and 61 focused checks: 45
+build-process/work-profile, 11 isolated publisher-capture and five project-policy
+tests. Publisher tests intercept Sops/HTTP with fixtures; no real capture ran.
+Endeavour and Apollo owner dry gates also pass. Existing rofi rename warnings,
+ignored busy eval-cache warning and temporary-directory ResourceWarnings remain;
+no unrelated repair was attempted. These checks do not realize or activate the
+synced candidate.
 
 ## Historical observations, limits and recovery
 
