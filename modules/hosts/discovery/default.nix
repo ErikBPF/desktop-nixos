@@ -59,6 +59,7 @@ in {
       m.nixos.swag-cert-monitor
       m.nixos.discovery-vault
       m.nixos.discovery-runtime-health
+      m.nixos.discovery-container-health
       m.nixos.pangolin-newt
     ];
 
