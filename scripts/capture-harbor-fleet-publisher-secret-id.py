@@ -12,6 +12,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import yaml
+
 ROLE = "svc-homelab-iac-openbao-harbor-fleet-readers-publisher"
 URL = "https://openbao.homelab.pastelariadev.com/v1/auth/approle/role/" + ROLE
 ROLE_KEY = '["homelab_iac"]["openbao_harbor_fleet_readers_publisher_role_id"]'
@@ -68,8 +70,12 @@ def main():
         if b"--value-stdin" not in sops("set", "--help"):
             raise ValueError("Sops stdin capture unsupported")
         original = STORE.read_bytes()  # Encrypted bytes only.
-        literal(json.loads(sops("--decrypt", "--extract", SECRET_KEY,
-                                "--output-type", "json", str(STORE))))
+        # Sops emits raw scalars even with JSON output, erasing scalar types.
+        # Owner-declared type only: Sops MAC does not authenticate this marker.
+        target = yaml.safe_load(original)["homelab_iac"]["openbao_harbor_fleet_readers_publisher_secret_id"]
+        if not isinstance(target, str) or not target.startswith("ENC[AES256_GCM,") or not target.endswith(",type:str]"):
+            raise ValueError("Existing SecretID must be an encrypted string")
+        extract(SECRET_KEY)
         root = extract('["vault_root_token"]')
         role_id = extract(ROLE_KEY)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
