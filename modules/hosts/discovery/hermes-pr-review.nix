@@ -15,7 +15,7 @@ _: {
         exit 0
       fi
       if [ -s ${cfg.upstreamTokenFile} ] && \
-        grep -q '^GH_REVIEW_UPSTREAM_TOKEN=..*' ${cfg.upstreamTokenFile}; then
+        ${pkgs.gnugrep}/bin/grep -q '^GH_REVIEW_UPSTREAM_TOKEN=..*' ${cfg.upstreamTokenFile}; then
         exit 0
       fi
       exit 1
