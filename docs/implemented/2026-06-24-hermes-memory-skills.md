@@ -6,6 +6,10 @@ corrected record** of what shipped (OCI cutover, skills `external_dirs`, SOUL
 Everything still open was re-tracked in
 [`../proposals/2026-06-29-hermes-deferred-improvements.md`](../proposals/2026-06-29-hermes-deferred-improvements.md)
 (P1–P7) and superseded plans; this doc is kept as the shipped record.
+
+**Supersession (2026-10-21):** GLM-5.2 (`glm-5`) was retired from LiteLLM after
+the duplicated wiki cron was fixed; current agents default to
+`deepseek-v4.1-flash`.
 **Date:** 2026-06-24 (proposal); 2026-06-25 (implementation + corrections)
 **Scope:** the live discovery hermes-agent + the flake cutover target.
 Touches `servarr` (config), `desktop-nixos` (SOUL canonical + OCI host module),
