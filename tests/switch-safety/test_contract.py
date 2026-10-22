@@ -19,6 +19,36 @@ class SwitchSafetyTests(unittest.TestCase):
         self.assertIn("restartIfChanged = false;", capture)
         self.assertIn("stopIfChanged = false;", capture)
 
+    def test_local_activation_recipes_refuse_a_foreign_host(self):
+        guard = subprocess.run(
+            ["just", "_host-guard", "not-this-host"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(guard.returncode, 2, guard.stdout + guard.stderr)
+        self.assertIn(
+            "BLOCKED: not-this-host is not this host", guard.stdout + guard.stderr
+        )
+
+        for recipe in ("switch", "boot", "upgrade", "home-switch"):
+            result = subprocess.run(
+                ["just", "--show", recipe],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = result.stdout
+            self.assertIn(
+                "just _host-guard {{ target }}", rendered, recipe
+            )
+            self.assertLess(
+                rendered.index("_host-guard"),
+                rendered.index("BUILDERS="),
+                recipe,
+            )
+
     def test_klipper_accepts_large_gcode_uploads(self):
         module = (ROOT / "modules/services/klipper-host.nix").read_text()
         self.assertIn('services.nginx.clientMaxBodySize = "1024m";', module)

@@ -134,6 +134,15 @@ audit-endeavour-state target="":
 
 # ── Local System ──────────────────────────────────────────
 
+# `switch`, `boot`, `upgrade` and `home-switch` run nixos-rebuild against THIS
+# machine, so a foreign target installs that host's configuration here:
+# `just switch apollo` on endeavour replaced SDDM/Hyprland with Apollo's server
+# configuration, tore down the graphical session, and froze systemd. Remote
+# targets deploy with `just deploy-rs <host>`. `build` and `dry` stay open for
+# cross-host validation because they never activate anything.
+_host-guard target:
+    test "$(hostname)" = "{{target}}" || { echo "BLOCKED: {{target}} is not this host ($(hostname)); run it on {{target}}, or use 'just deploy-rs {{target}}'" >&2; exit 2; }
+
 build target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     nix build --no-link \
@@ -142,7 +151,8 @@ build target=profile:
         --builders-use-substitutes --max-jobs 1 --show-trace
 
 switch target=profile:
-    BUILDERS="$(just _builders {{target}})"; \
+    just _host-guard {{target}} && \
+    BUILDERS="$(just _builders {{target}})" && \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 1
@@ -151,6 +161,7 @@ switch target=profile:
 home-switch target=profile:
     #!/usr/bin/env bash
     set -euo pipefail
+    just _host-guard {{target}}
     BUILDERS="$(just _builders {{target}})"
     activation=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.{{target}}.config.home-manager.users.erik.home.activationPackage \
@@ -162,7 +173,8 @@ builder-preflight target=profile:
     sudo ./scripts/builder-preflight.sh "$BUILDERS"
 
 boot target=profile:
-    BUILDERS="$(just _builders {{target}})"; \
+    just _host-guard {{target}} && \
+    BUILDERS="$(just _builders {{target}})" && \
     sudo nixos-rebuild boot --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 1
@@ -237,8 +249,9 @@ update-input input:
     nix flake update {{ input }}
 
 upgrade target=profile:
+    just _host-guard {{target}} && \
     nix flake update
-    BUILDERS="$(just _builders {{target}})"; \
+    BUILDERS="$(just _builders {{target}})" && \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true --max-jobs 1

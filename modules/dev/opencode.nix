@@ -349,6 +349,10 @@
         ++ permissionRules "edit" "allow" ["*"]
         ++ permissionRules "edit" "ask" ["flake.lock"]
         ++ permissionRules "edit" "deny" ["*.sops" "*.env*" ".env*" "*/.env*" "*.age" "secrets/*"]
+        # Later rules win, so this re-admits the env *template* the deny above
+        # catches: .env.example enumerates keys and holds no values, while the
+        # secrets-bearing .env / .env.<name> files stay denied.
+        ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "ask" ["*"]
         ++ permissionRules "shell" "allow" ["pwd" "git status" "git status --short" "git diff --stat" "git diff --name-only"]
         ++ permissionRules "shell" "deny" [
