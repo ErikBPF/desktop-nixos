@@ -34,7 +34,7 @@ Two distinct agent roles so base sessions stay fully capable and consolidation s
 ```
 BASE sessions (ALL 31 tools)         DAILY agent: `wiki-consolidate` cron
   · keep built-in memory accurate      · minimal toolset = [terminal] only (~1.9k vs 15.5k tools)
-  · RETRIEVE: read /opt/wiki to recall · glm-5, schedule 0 4 * * *, cwd /opt/wiki
+  · RETRIEVE: read /opt/wiki to recall · deepseek-v4.1-flash, schedule 0 4 * * *, cwd /opt/wiki
   · (optional) drop 1 line to inbox.md · source = /opt/data/memories/{MEMORY,USER}.md (distilled,
   · do NOT consolidate inline            small) — NEVER raw session logs
                                         · promote → wiki/ pages + index + log, lint, commit+push
@@ -64,7 +64,7 @@ vs ~3–4k terminal-only.)
 | 4 | RW mount `/opt/wiki` + ro key `/opt/wiki-key` | `hermes-oci.nix` | **DEPLOYED** |
 | 5 | **SOUL directive** — "## Your knowledge wiki" (retrieve-only) | `homelab-SOUL.md` | **DEPLOYED** |
 | 6 | **`wiki-curator` skill** | `hermes-skills/meta/wiki-curator/` | **DEPLOYED** (synced) |
-| 7 | **Daily `wiki-consolidate` cron** (glm-5, `[terminal]`, 04:00) + seed oneshot | `hermes-wiki.nix` | **DEPLOYED + running** |
+| 7 | **Daily `wiki-consolidate` cron** (deepseek-v4.1-flash, `[terminal]`, 04:00) + seed oneshot | `hermes-wiki.nix` | **DEPLOYED + running** |
 
 **Validated end-to-end, unattended:** the 04:00 cron fired on its own
 (`2026-06-29T04:02`, status ok), processed an `inbox.md` capture into a wiki page,
@@ -115,7 +115,7 @@ The whole wiki now survives a reprovision — no manual host state. Module
   prompt/schedule/toolset edits propagate on every deploy.
 - OCI mounts repointed → `/var/lib/hermes-wiki:/opt/wiki:rw` + the sops key.
 
-`wiki-consolidate`: glm-5, `enabled_toolsets=[terminal]`, `0 4 * * *`, cwd
+`wiki-consolidate`: deepseek-v4.1-flash, `enabled_toolsets=[terminal]`, `0 4 * * *`, cwd
 `/opt/wiki`. Sources = `/opt/data/memories/{MEMORY,USER}.md` + `/opt/wiki/inbox.md`
 (processed+cleared) — never raw sessions. Posts an ntfy summary; ~one tight pass.
 Per-call base ~3–4k (vs 17k base sessions). **Validated** (`a15f5be`: 2 pages,
