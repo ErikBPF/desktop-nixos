@@ -8,7 +8,6 @@ _: {
           wheel
           virtualenv
           pip-tools
-          pipenv
           pytest
           pytest-cov
           black
@@ -18,8 +17,6 @@ _: {
           pylint
           autopep8
           bandit
-          safety
-          pre-commit
           jupyter
           ipython
           notebook
@@ -48,6 +45,7 @@ _: {
       uv
       pyright
       ruff
+      pre-commit
     ];
 
     systemd.user.services."uv-tool-specify-cli" = {

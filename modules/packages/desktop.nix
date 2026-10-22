@@ -46,7 +46,6 @@ _: {
       procs # modern ps
       bandwhich # live per-process network usage
       glow # render markdown in the terminal
-      azure-cli
       wl-screenrec # screen recording (Wayland, hw-encoded)
       satty # screenshot annotation
 
