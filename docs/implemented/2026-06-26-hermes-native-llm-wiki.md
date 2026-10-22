@@ -14,6 +14,10 @@ agentmemory later once the wiki structure is comfortable.
 **Supersedes (for now):** `2026-06-25-hermes-agentmemory-integration.md` (parked
 for the later "unified approach"; the research there stays valid).
 
+**Supersession (2026-10-21):** GLM-5.2 (`glm-5`) was retired from LiteLLM after
+the duplicated wiki cron was fixed; `wiki-consolidate` now runs on
+`deepseek-v4.1-flash`.
+
 ## Why native-only first
 The party grill flagged the agentmemory write-back as the risky part:
 multi-writer conflict (Erik + agentmemory export + hermes) on one syncthing+rebase
