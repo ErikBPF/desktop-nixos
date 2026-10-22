@@ -74,53 +74,47 @@ in {
       inputs.hermes-flake.nixosModules.hermes-agent-oci-argus
     ];
 
-    # Hackerman reviews Erik's Comet PRs from host-collected bundles. The host
+    # Hackerman reviews Erik's PRs from host-collected bundles. The host
     # poster owns the bot token; the agent never receives it.
     services.hermes-pr-review = {
       enable = true;
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = false;
-      # App-installed repos comment as `<slug>[bot]`. Upstream repos outside
-      # the account's admin use the dedicated bot account and classic token.
+      # App-installed repos comment as `<slug>[bot]`. Upstream public repos
+      # outside the account's admin use the dedicated bot account and classic
+      # token. The App installation is the real scope; remove entries here if a
+      # repository should not be reviewed.
       repos = [
         {
           repo = "apache/datafusion-comet";
           credential = "upstream";
           botLogin = "hermes-comet-reviewer";
         }
-        {
-          repo = "ErikBPF/aster";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/desktop-nixos";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/homelab";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/homelab-iac";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/homelab-gitops";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/servarr";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/hermes-flake";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
-        {
-          repo = "ErikBPF/hermes-skills";
-          botLogin = "hermes-pr-reviewer[bot]";
-        }
+        {repo = "ErikBPF/agent-evals";}
+        {repo = "ErikBPF/aster";}
+        {repo = "ErikBPF/buzz-flake";}
+        {repo = "ErikBPF/codex-flake";}
+        {repo = "ErikBPF/cognee-homelab";}
+        {repo = "ErikBPF/cosmo-notes";}
+        {repo = "ErikBPF/deepseek-harness-flake";}
+        {repo = "ErikBPF/desktop-nixos";}
+        {repo = "ErikBPF/ha-harness";}
+        {repo = "ErikBPF/hermes-flake";}
+        {repo = "ErikBPF/hermes-skills";}
+        {repo = "ErikBPF/home-assistant-config";}
+        {repo = "ErikBPF/homelab";}
+        {repo = "ErikBPF/homelab-gitops";}
+        {repo = "ErikBPF/homelab-iac";}
+        {repo = "ErikBPF/kindle-dash";}
+        {repo = "ErikBPF/klipper-biqu";}
+        {repo = "ErikBPF/ndc";}
+        {repo = "ErikBPF/opencode-flake";}
+        {repo = "ErikBPF/pqnld";}
+        {repo = "ErikBPF/renovate-config";}
+        {repo = "ErikBPF/servarr";}
+        {repo = "ErikBPF/spicyphus";}
+        {repo = "ErikBPF/vault";}
       ];
     };
 
