@@ -104,6 +104,58 @@ directive in `servarr` `config/swag/nginx/proxy-confs/harbor.subdomain.conf`
   (`docker/metadata-action` drops the `v`). Run on discovery (reaches GHCR + the
   LAN-only Harbor); public GH runners can't, so CI publishes GHCR only.
 
+## Private HA managed-reader verification (source-only, 2026-10-18)
+
+Owner entrypoint: `just --no-dotenv verify-ha-harbor-reader "$image"`, with
+`image` taken from the publisher's actual digest receipt. Only
+`harbor.homelab.pastelariadev.com/ha-harness/ha-harness@sha256:` followed by
+64 lowercase hexadecimal characters is accepted; tags and other repositories
+are rejected before SSH. Do not substitute a guessed digest.
+
+Run only within separately authorized publication verification. Preconditions:
+Discovery's managed reader render already exists, passwordless sudo and the
+verified SSH host key are available, and the rootful Docker daemon resolves and
+trusts Harbor over HTTPS (no insecure-registry bypass). This recipe neither
+provisions nor inspects those preconditions. It resolves Discovery through owner
+`fleet.json`, uses port 2222 with strict host-key checking and no agent forwarding,
+then runs Docker in a clean root environment with explicit
+`--config /run/harbor-reader --host unix:///run/docker.sock`. Docker internally
+consumes the existing managed `config.json`; the script never reads, exports,
+parses, or logs credentials and never logs in. Bare `sudo docker pull` is not
+equivalent: root's default auth path is not wired to this render.
+
+Every invocation pulls, including cached images, then requires the exact pinned
+reference in `RepoDigests`. Pull plus inspect have a remote 300-second limit;
+the SSH session has a local 315-second ceiling. Child output is suppressed;
+failure returns a generic diagnostic. Successful stdout contains only
+`imageDigest=<pinned reference>` and
+`pulled using configured managed-reader auth path`. This proves use of the
+configured auth path, **not** the actual robot username/runtime identity binding,
+nor full release completion. No service lifecycle or image removal occurs.
+
+Source verification: `just --no-dotenv test-ha-harbor-reader` runs the actual
+Just entrypoint and remote shell with local SSH/sudo/Docker fakes. Initial RED:
+six assertion failures for the missing recipe. A later registry-lookalike RED
+caught Bash replacement escaping; the fixed literal regex rejects it before SSH.
+GREEN: six tests passed, covering exact digest, rejection/injection, clean managed
+rootful argv, pull/inspect failures, wrong digest, and mandatory cached re-pulls.
+No live SSH, image pull, credential inspection, or runtime identity verification
+was performed for this source change. Parent review, publication, and execution
+authorization remain separate.
+
+Source review P2 disposition (2026-10-18): fixed test-fixture portability only.
+An Ubuntu-like absent system-profile PATH regression first failed with
+`grep: command not found` while local grep was available (7 tests, 1 failure).
+The fake-sudo boundary now binds grep to the shell-quoted executable resolved by
+`shutil.which`, like its other host executable substitutions. GREEN: 7 tests
+passed in 5.096 seconds, including the new regression, through the already-wired
+offline CI test recipe. Production helper, clean environment and original argv
+assertions remain unchanged. Actual Ubuntu CI was not run; no real image digest
+or live pull evidence exists from this source work. Fresh independent final review
+resolved the portability P2, reran all seven tests and found no new issue. Source
+publication/hosted CI and execution against an actual published digest remain
+separate gates; no live credential read or image pull has occurred.
+
 ## Follow-ups
 
 - **Robot secret sealed (DONE 2026-06-30).** `HARBOR_ROBOT_USER`/`HARBOR_ROBOT_SECRET`
