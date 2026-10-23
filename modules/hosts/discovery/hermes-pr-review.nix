@@ -83,7 +83,7 @@ _: {
             };
             botLogin = lib.mkOption {
               type = lib.types.str;
-              default = "hermes-pr-reviewer[bot]";
+              default = "hackerman-cr[bot]";
               description = "Login that owns the bot comment. App installations use '<slug>[bot]'.";
             };
           };
