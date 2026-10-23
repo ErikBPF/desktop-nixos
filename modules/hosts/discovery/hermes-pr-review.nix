@@ -83,7 +83,7 @@ _: {
             };
             botLogin = lib.mkOption {
               type = lib.types.str;
-              default = "hackerman[bot]";
+              default = "hackerman-cr[bot]";
               description = "Login that owns the bot comment. App installations use '<slug>[bot]'.";
             };
           };

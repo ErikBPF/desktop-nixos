@@ -82,8 +82,9 @@ in {
       # dry-run packet is approved.
       allowPublish = false;
       # Personal repos only for now. The App is installed on all ErikBPF
-      # repositories and comments as `hackerman[bot]`. The upstream credential
-      # path remains in the module for public repos outside the account later.
+      # repositories and comments as `hackerman-cr[bot]`. The upstream
+      # credential path remains in the module for public repos outside the
+      # account later.
       repos = [
         {repo = "ErikBPF/agent-evals";}
         {repo = "ErikBPF/aster";}
