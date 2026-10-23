@@ -6,9 +6,7 @@ _: {
       dotnet-aspnetcore_10
       dotnet-ef
       dotnet-outdated
-      msbuild
       nuget
-      omnisharp-roslyn
       csharp-ls
     ];
 
