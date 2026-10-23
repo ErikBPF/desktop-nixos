@@ -154,7 +154,7 @@ in {
         # Host-only credentials for the PR review poster. Never mounted into the
         # agent container; Hackerman writes JSON and this process owns GitHub.
         template {
-          contents = "{{ with secret \"secret/data/home/hermes\" }}{{ .Data.data.GH_REVIEW_APP_JSON }}{{ end }}"
+          contents = "{{ with secret \"secret/data/home/github-app-management\" }}{{ .Data.data.GH_REVIEW_APP_JSON }}{{ end }}"
           destination = "/run/vault-agent/hermes-pr-review-app.json"
           perms = "0400"
         }
