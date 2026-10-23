@@ -54,9 +54,7 @@ _: {
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
       repos =
         map (entry: {
-          repo = entry.repo;
-          author = entry.author;
-          credential = entry.credential;
+          inherit (entry) repo author credential;
           bot_login = entry.botLogin;
         })
         cfg.repos;
