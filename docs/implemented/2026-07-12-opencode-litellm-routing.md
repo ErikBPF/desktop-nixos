@@ -3,6 +3,9 @@
 **Status:** Implemented — DeepSeek default live on Endeavour and Discovery as
 of 2026-08-02; Pathfinder activation is pending while the host is offline.
 
+**Supersession (2026-10-21):** the GLM-5.2 (`glm-5`) architect/plan route was
+retired from LiteLLM; all agent defaults are `deepseek-v4.1-flash`.
+
 ## Decision
 
 New sessions start with `litellm/deepseek-v4-flash`. DeepSeek orchestrates;

@@ -6,6 +6,9 @@ routes live on discovery LiteLLM and wired end-to-end into opencode (§8), valid
 account; the design, decision gates, and Ph1/Ph2/Ph3 plan below stand as the record for
 that follow-on. The as-built free-tier delivery is §8 "Ph1-lite".
 
+**Supersession (2026-10-21):** the GLM-5.2 (`glm-5`) route was retired from
+LiteLLM; callers now use `deepseek-v4.1-flash`.
+
 > Scaffold for human judgment. The as-built inventory and the plan/vendor facts
 > below are **researched** (a read-only recon pass over `servarr/machines/discovery`
 > + `desktop-nixos/modules/dev`, and the OpenCode Zen/Go docs + community tooling,
