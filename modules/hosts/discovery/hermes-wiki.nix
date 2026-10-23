@@ -36,10 +36,14 @@ _: {
       sys.path.insert(0, "/opt/hermes")
       from cron.jobs import load_jobs, save_jobs, create_job
       PROMPT = """${cronPrompt}"""
-      jobs = [j for j in load_jobs() if j.get("name") != "wiki-consolidate"]
-      save_jobs(jobs)
+      jobs = load_jobs()
+      # save_jobs merges disk jobs missing from the payload unless they are
+      # named in removed_ids; filtering alone resurrected them and added one
+      # more job per hourly seed run.
+      stale = [j["id"] for j in jobs if j.get("name") == "wiki-consolidate"]
+      save_jobs([j for j in jobs if j["id"] not in stale], removed_ids=stale)
       create_job(prompt=PROMPT, schedule="0 4 * * *", name="wiki-consolidate",
-                 model="glm-5", enabled_toolsets=["terminal"], workdir="/opt/wiki")
+                 model="deepseek-v4.1-flash", enabled_toolsets=["terminal"], workdir="/opt/wiki")
       print("seeded wiki-consolidate")
     '';
 

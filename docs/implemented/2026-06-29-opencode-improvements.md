@@ -4,6 +4,10 @@
 **Late edit 2026-06-30:** Nix flake scope changed — items 2+4 land a NixOS
 opencode-client sops module in this flake (§ Implemented items). All claims
 verified against docs.opencode.ai (Jun 29 2026 build).
+
+**Supersession (2026-10-21):** GLM-5.2 (`glm-5`) was retired from LiteLLM;
+current agents default to `deepseek-v4.1-flash`.
+
 **Scope:** two-layer opencode config — **global** (`~/.config/opencode/`, user
 scope, follows you across machines) + **per-repo** (`opencode.json` at each
 sister-repo root, project scope, ships in git). Plus durable sops-decrypted

@@ -51,11 +51,6 @@ in {
           provider = "opencode-go";
           base_url = litellmUrl;
         };
-        glm = {
-          model = "glm-5";
-          provider = "opencode-go";
-          base_url = litellmUrl;
-        };
         kimi = {
           model = "kimi-k2-code";
           provider = "opencode-go";
