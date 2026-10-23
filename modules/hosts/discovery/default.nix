@@ -48,6 +48,7 @@ in {
       # Cutover history: docs/implemented/2026-06-24-hermes-memory-skills.md §8.
       m.nixos.discovery-hermes-oci
       m.nixos.discovery-hermes-agents
+      m.nixos.discovery-hermes-pr-review
       # Declarative bootstrap for the hermes native LLM wiki (sops deploy key +
       # vault.git@hermes clone oneshot + daily wiki-consolidate cron seed) so the
       # wiki survives a reprovision. See docs/hermes-llm-wiki.md.

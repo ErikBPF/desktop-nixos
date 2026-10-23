@@ -77,6 +77,9 @@ jobs:
           python3 -m unittest discover -s tests/roaming-dns -v
           python3 -m unittest discover -s tests/github-fork-sync -v
 
+      - name: PR review publisher contract
+        run: python3 tests/pr-review-publish.py
+
       - name: Tooling and fleet contracts
         run: |
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.tomlkit p.pytest])')
