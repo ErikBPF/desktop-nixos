@@ -81,16 +81,10 @@ in {
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = false;
-      # App-installed repos comment as `<slug>[bot]`. Upstream public repos
-      # outside the account's admin use the dedicated bot account and classic
-      # token. The App installation is the real scope; remove entries here if a
-      # repository should not be reviewed.
+      # Personal repos only for now. The App is installed on all ErikBPF
+      # repositories and comments as `hackerman[bot]`. The upstream credential
+      # path remains in the module for public repos outside the account later.
       repos = [
-        {
-          repo = "apache/datafusion-comet";
-          credential = "upstream";
-          botLogin = "hermes-comet-reviewer";
-        }
         {repo = "ErikBPF/agent-evals";}
         {repo = "ErikBPF/aster";}
         {repo = "ErikBPF/buzz-flake";}

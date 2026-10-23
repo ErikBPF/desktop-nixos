@@ -83,18 +83,12 @@ _: {
             };
             botLogin = lib.mkOption {
               type = lib.types.str;
-              default = "hackerman-cr[bot]";
+              default = "hackerman[bot]";
               description = "Login that owns the bot comment. App installations use '<slug>[bot]'.";
             };
           };
         });
-        default = [
-          {
-            repo = "apache/datafusion-comet";
-            credential = "upstream";
-            botLogin = "hermes-comet-reviewer";
-          }
-        ];
+        default = [];
       };
 
       appCredentialFile = lib.mkOption {
@@ -155,6 +149,13 @@ _: {
     };
 
     config = lib.mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = cfg.repos != [];
+          message = "services.hermes-pr-review.repos must not be empty";
+        }
+      ];
+
       systemd.services.hermes-pr-review-bootstrap = {
         description = "Install the Hermes PR review cron job";
         after = ["vault-agent.service" "docker-${cfg.containerName}.service"];
