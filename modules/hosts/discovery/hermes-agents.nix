@@ -74,6 +74,45 @@ in {
       inputs.hermes-flake.nixosModules.hermes-agent-oci-argus
     ];
 
+    # Hackerman reviews Erik's PRs from host-collected bundles. The host
+    # poster owns the bot token; the agent never receives it.
+    services.hermes-pr-review = {
+      enable = true;
+      # Human gate: review packets accumulate until this is flipped after a
+      # dry-run packet is approved.
+      allowPublish = false;
+      # Personal repos only for now. The App is installed on all ErikBPF
+      # repositories and comments as `hackerman-cr[bot]`. The upstream
+      # credential path remains in the module for public repos outside the
+      # account later.
+      repos = [
+        {repo = "ErikBPF/agent-evals";}
+        {repo = "ErikBPF/aster";}
+        {repo = "ErikBPF/buzz-flake";}
+        {repo = "ErikBPF/codex-flake";}
+        {repo = "ErikBPF/cognee-homelab";}
+        {repo = "ErikBPF/cosmo-notes";}
+        {repo = "ErikBPF/deepseek-harness-flake";}
+        {repo = "ErikBPF/desktop-nixos";}
+        {repo = "ErikBPF/ha-harness";}
+        {repo = "ErikBPF/hermes-flake";}
+        {repo = "ErikBPF/hermes-skills";}
+        {repo = "ErikBPF/home-assistant-config";}
+        {repo = "ErikBPF/homelab";}
+        {repo = "ErikBPF/homelab-gitops";}
+        {repo = "ErikBPF/homelab-iac";}
+        {repo = "ErikBPF/kindle-dash";}
+        {repo = "ErikBPF/klipper-biqu";}
+        {repo = "ErikBPF/ndc";}
+        {repo = "ErikBPF/opencode-flake";}
+        {repo = "ErikBPF/pqnld";}
+        {repo = "ErikBPF/renovate-config";}
+        {repo = "ErikBPF/servarr";}
+        {repo = "ErikBPF/spicyphus";}
+        {repo = "ErikBPF/vault";}
+      ];
+    };
+
     assertions = [
       {
         assertion = builtins.match "^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$" config.services.hermes-agent-oci-daedalus.image != null;
