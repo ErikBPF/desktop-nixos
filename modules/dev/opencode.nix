@@ -8,6 +8,68 @@
         hash = "sha512-4DgzFxuANIgCDeTOs+Xair7P7mkXNULxClxQANogqyqZBTJK+KuHRKsYZ5VFeuRw2pw1xMEQ62xst+cXXVheAg==";
       }} --strip-components=1 -C "$out"
     '';
+
+    # graphifyy with the MCP extra. Upstream's tree-sitter grammar set is not
+    # packaged in nixpkgs, so the wheels are pinned as a fixed-output
+    # derivation and installed offline. Bump the version and wheels hash
+    # together. The wheels output must stay free of store references, hence
+    # the throwaway seed venv in $TMPDIR rather than a venv in $out.
+    graphifyWheels = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+      pname = "graphify-wheels";
+      version = "0.9.53";
+
+      nativeBuildInputs = [pkgs.uv];
+
+      buildPhase = ''
+        runHook preBuild
+        export HOME="$TMPDIR"
+        export UV_CACHE_DIR="$TMPDIR/uv-cache"
+        export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+        export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
+        export UV_NATIVE_TLS=1
+        ${pkgs.uv}/bin/uv venv --seed --python ${pkgs.python3}/bin/python "$TMPDIR/download"
+        "$TMPDIR/download/bin/pip" download --only-binary=:all: \
+          --dest "$out" 'graphifyy[mcp]==${finalAttrs.version}'
+        runHook postBuild
+      '';
+
+      dontFixup = true;
+      dontUnpack = true;
+      installPhase = "true";
+
+      outputHashMode = "recursive";
+      outputHashAlgo = "sha256";
+      outputHash = "sha256-cUoVxfQ9yvY6n38IOjizM/+6uO91dLgkWokj2VWh9s0=";
+    });
+
+    graphify = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+      pname = "graphify";
+      version = "0.9.53";
+
+      nativeBuildInputs = [pkgs.uv];
+
+      buildPhase = ''
+        runHook preBuild
+        export HOME="$TMPDIR"
+        export UV_CACHE_DIR="$TMPDIR/uv-cache"
+        ${pkgs.uv}/bin/uv venv --python ${pkgs.python3}/bin/python --no-seed "$out"
+        ${pkgs.uv}/bin/uv pip install --python "$out/bin/python" --no-index \
+          --find-links ${graphifyWheels} 'graphifyy[mcp]==${finalAttrs.version}'
+        runHook postBuild
+      '';
+
+      dontFixup = true;
+      dontUnpack = true;
+      installPhase = "true";
+
+      meta = {
+        description = "Knowledge graph builder and MCP server for repositories";
+        homepage = "https://pypi.org/project/graphifyy/";
+        license = pkgs.lib.licenses.mit;
+        mainProgram = "graphify";
+        platforms = ["x86_64-linux"];
+      };
+    });
     protectedReads = [
       "*.secrets.json"
       "*.secret.json"
@@ -51,6 +113,8 @@
     imports = [
       inputs.opencode-flake.homeManagerModules.withPackageV2
     ];
+
+    home.packages = [graphify];
 
     # rtk comes from modules/dev/codex.nix (hiPrio 0.48.0). Adding pkgs.rtk here
     # too put two different store paths with the same bin/rtk subpath in one
@@ -388,11 +452,11 @@
         enabled = true;
       };
 
-      # Imperative graphify uv tool (`uv tool install 'graphifyy[mcp]'`); serve
-      # reads graphify-out/graph.json relative to the session working directory.
+      # Serve reads graphify-out/graph.json relative to the session working
+      # directory.
       mcp.graphify = {
         type = "local";
-        command = ["graphify-mcp"];
+        command = ["${graphify}/bin/graphify-mcp"];
         enabled = true;
       };
 
