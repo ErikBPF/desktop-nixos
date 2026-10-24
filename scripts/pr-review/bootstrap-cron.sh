@@ -48,7 +48,7 @@ If the script output is NO_READY, respond with exactly [SILENT].'
 docker exec -u "$AGENT_UID:$AGENT_GID" -e HOME=/opt/data "$HERMES_CONTAINER" "$HERMES_CLI" cron create "$SCHEDULE" "$prompt" \
   --name "$JOB_NAME" \
   --skill cr-pr \
-  --script /opt/data/scripts/pr-review-ready.py \
+  --script pr-review-ready.py \
   --deliver local \
   --failure-deliver local \
   --reasoning-effort high
