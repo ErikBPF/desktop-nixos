@@ -81,5 +81,34 @@
         Persistent = true;
       };
     };
+
+    # nix-serve (starman) can end up with every worker blocked on clients from
+    # aborted builds: the process stays "active" while new requests time out,
+    # which then wedges every host's switch for hours. A cheap liveness probe
+    # restarts it before that becomes an outage.
+    systemd.services.nix-serve-health = {
+      description = "Restart nix-serve when it stops answering";
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+      };
+      script = ''
+        if ! ${pkgs.curl}/bin/curl -fsS --max-time 10 \
+          http://127.0.0.1:5000/nix-cache-info >/dev/null; then
+          echo "nix-serve did not answer; restarting" >&2
+          systemctl restart nix-serve.service
+        fi
+      '';
+    };
+
+    systemd.timers.nix-serve-health = {
+      description = "Probe nix-serve liveness";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnBootSec = "10min";
+        OnUnitActiveSec = "5min";
+        Persistent = false;
+      };
+    };
   };
 }

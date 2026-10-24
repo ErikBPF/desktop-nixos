@@ -17,6 +17,14 @@
       then "/run/harbor-reader/config.json"
       else "/run/harbor-reader/registries.yaml";
     auth = ''{{ printf "%s:%s" .Data.data.HARBOR_READER_USERNAME .Data.data.HARBOR_READER_SECRET | base64Encode }}'';
+    # k3s consumes the rendered file during boot, so it keeps the longer
+    # window. Docker consumers only need it at pull time; bounding the wait
+    # there keeps a broken credential from holding multi-user.target (and the
+    # graphical session) for a minute.
+    startupWait =
+      if cfg.format == "k3s"
+      then 60
+      else 10;
     template =
       if cfg.format == "docker"
       then ''
@@ -83,7 +91,11 @@
       systemd.services.harbor-reader = {
         description = "Render this host's Harbor pull credential from OpenBao";
         wantedBy = ["multi-user.target"];
-        after = ["network-online.target" "sops-nix.service" "tailscaled-autoconnect.service"];
+        # Do not serialize on tailscaled-autoconnect: it can wait minutes for a
+        # tailnet route, and this unit is ordered before multi-user.target, so a
+        # slow tailnet used to hold the graphical session back with it. The
+        # agent retries its own auth after the route appears.
+        after = ["network-online.target" "sops-nix.service"];
         wants = ["network-online.target" "tailscaled-autoconnect.service"];
         path = [pkgs.bash];
         serviceConfig =
@@ -119,7 +131,11 @@
                 perms = "0400"
               }
             ''}";
-            ExecStartPost = "${pkgs.bash}/bin/bash -c 'for _ in {1..60}; do [[ -s ${destination} ]] && exit 0; ${pkgs.coreutils}/bin/sleep 1; done; exit 1'";
+            # k3s consumes the rendered file during boot, so keep its longer
+            # window. Docker consumers only need it at pull time; bounding the
+            # wait there keeps a broken credential from holding multi-user.target
+            # (and the graphical session) for a minute.
+            ExecStartPost = "${pkgs.bash}/bin/bash -c 'for _ in {1..${toString startupWait}}; do [[ -s ${destination} ]] && exit 0; ${pkgs.coreutils}/bin/sleep 1; done; exit 1'";
           }
           // lib.optionalAttrs (cfg.user != null) {
             User = cfg.user;
