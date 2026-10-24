@@ -388,6 +388,14 @@
         enabled = true;
       };
 
+      # Imperative graphify uv tool (`uv tool install 'graphifyy[mcp]'`); serve
+      # reads graphify-out/graph.json relative to the session working directory.
+      mcp.graphify = {
+        type = "local";
+        command = ["graphify-mcp"];
+        enabled = true;
+      };
+
       compaction = {
         auto = true;
         keep.tokens = 15000;
@@ -454,7 +462,8 @@
         };
         # Vendored `graphify install --platform opencode` output (graphifyy
         # uv-tool binary v0.9.53); re-vendor under modules/dev/graphify-skills
-        # when the uv tool is bumped.
+        # when the uv tool is bumped. v2 reads this same ~/.config/opencode
+        # tree, so no separate v2 skill path is needed.
         "opencode/skills/graphify".source = ./graphify-skills/opencode;
       };
   };
