@@ -34,5 +34,13 @@ in {
         programs.home-manager.enable = true;
       };
     };
+
+    # Activation fetches plugins over the network. A slow tailnet made it hit
+    # the default start limit before DNS recovered, leaving the user env
+    # failed until a manual restart. Retry until the network is actually up.
+    systemd.services."home-manager-${config.username}" = {
+      startLimitIntervalSec = 0;
+      serviceConfig.RestartSec = "30s";
+    };
   };
 }
