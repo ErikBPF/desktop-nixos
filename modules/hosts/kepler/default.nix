@@ -102,9 +102,11 @@ in {
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.amd.updateMicrocode = true;
 
-    # The root Btrfs currently reports structural corruption in one garbage
-    # store path. GC must not walk it again before an offline read-only check.
-    nix.gc.automatic = lib.mkForce false;
+    # GC was disabled while the root Btrfs reported structural corruption in a
+    # garbage store path. Re-enabled deliberately on 2026-10-24 with the
+    # fleet-wide daily 3d policy; a GC that hits the corrupt path fails loudly
+    # in nix-gc.service rather than silently deleting live data. If it does,
+    # disable this again and run the offline `btrfs check --readonly` first.
     nix.distributedBuildsOrion.enable = true;
     nix.distributedBuildsApollo.enable = true;
 

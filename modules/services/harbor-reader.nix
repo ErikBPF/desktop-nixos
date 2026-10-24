@@ -90,12 +90,16 @@
 
       systemd.services.harbor-reader = {
         description = "Render this host's Harbor pull credential from OpenBao";
-        wantedBy = ["multi-user.target"];
-        # Do not serialize on tailscaled-autoconnect: it can wait minutes for a
-        # tailnet route, and this unit is ordered before multi-user.target, so a
-        # slow tailnet used to hold the graphical session back with it. The
-        # agent retries its own auth after the route appears.
-        after = ["network-online.target" "sops-nix.service"];
+        # Pull the unit in through tailscaled instead of multi-user.target: a
+        # start job wanted by multi-user holds that target until it completes,
+        # and waiting for a slow tailnet there delayed graphical.target.
+        # Starting tailscaled does not make multi-user wait for its wants, so
+        # harbor-reader can wait for the route without delaying the session.
+        wantedBy = ["tailscaled.service"];
+        # Serialize on the tailnet here, not in the boot target: the agent has a
+        # reachable OpenBao only after the route exists, so this avoids the
+        # failed-start loop without putting that wait in front of the login.
+        after = ["network-online.target" "sops-nix.service" "tailscaled-autoconnect.service"];
         wants = ["network-online.target" "tailscaled-autoconnect.service"];
         path = [pkgs.bash];
         serviceConfig =

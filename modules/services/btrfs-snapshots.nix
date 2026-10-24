@@ -12,7 +12,10 @@ _: {
       SUBVOLUME = "/home";
       TIMELINE_CREATE = true;
       TIMELINE_CLEANUP = true;
-      TIMELINE_LIMIT_HOURLY = 24;
+      # Six hourly snapshots still cover a working day of undo, while letting
+      # deleted bulk (agent scratch, caches, containers) actually free space
+      # instead of being pinned for 24h. Daily/weekly rollback is unchanged.
+      TIMELINE_LIMIT_HOURLY = 6;
       TIMELINE_LIMIT_DAILY = 7;
       TIMELINE_LIMIT_WEEKLY = 4;
       TIMELINE_LIMIT_MONTHLY = 0;
