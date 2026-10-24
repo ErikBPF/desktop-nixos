@@ -66,7 +66,19 @@ def fetch_file(
 
 
 def fetch_skills(repo: str, base: str, dest: Path, token: str) -> int:
-    entries = gh_json(["api", f"repos/{repo}/contents/.ai/skills?ref={base}"], token)
+    proc = subprocess.run(
+        ["gh", "api", f"repos/{repo}/contents/.ai/skills?ref={base}"],
+        capture_output=True,
+        text=True,
+        env=tokens.gh_env(token),
+    )
+    if proc.returncode != 0:
+        if "HTTP 404" in proc.stderr or "Not Found" in proc.stderr:
+            return 0
+        raise RuntimeError(
+            f"gh api .ai/skills failed ({proc.returncode}): {proc.stderr.strip()}"
+        )
+    entries = json.loads(proc.stdout)
     count = 0
     for entry in entries:
         if entry.get("type") != "dir":
