@@ -28,7 +28,14 @@
         export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
         export UV_NATIVE_TLS=1
         ${pkgs.uv}/bin/uv venv --seed --python ${pkgs.python3}/bin/python "$TMPDIR/download"
+        # Fix the platform tags: pip otherwise picks wheels from the build
+        # host's glibc, which made the hash differ between builders.
         "$TMPDIR/download/bin/pip" download --only-binary=:all: \
+          --platform manylinux_2_28_x86_64 \
+          --platform manylinux2014_x86_64 \
+          --platform linux_x86_64 \
+          --python-version 3.14 --implementation cp \
+          --abi cp314 --abi abi3 --abi none \
           --dest "$out" 'graphifyy[mcp]==${finalAttrs.version}'
         runHook postBuild
       '';
@@ -39,7 +46,7 @@
 
       outputHashMode = "recursive";
       outputHashAlgo = "sha256";
-      outputHash = "sha256-cUoVxfQ9yvY6n38IOjizM/+6uO91dLgkWokj2VWh9s0=";
+      outputHash = "sha256-nso8eqFN6Xh5zhxMKH8xRSVRD56yOZV8CdWZyG7ylMA=";
     });
 
     graphify = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
