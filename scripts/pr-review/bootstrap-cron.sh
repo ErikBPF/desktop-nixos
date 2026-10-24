@@ -33,6 +33,12 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
+if ! docker exec -u "$AGENT_UID:$AGENT_GID" "$HERMES_CONTAINER" \
+  test -r /opt/skills-development/cr-pr/SKILL.md; then
+  echo "cr-pr skill is not mounted; run: just sync-hermes-skills discovery" >&2
+  exit 1
+fi
+
 if grep -Fq "$JOB_NAME" "$list_file"; then
   exit 0
 fi
