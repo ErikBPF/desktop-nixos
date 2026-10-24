@@ -188,7 +188,7 @@ def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path |
         )
 
         checks = subprocess.run(
-            ["pr", "checks", str(number), "--repo", repo],
+            [GH, "pr", "checks", str(number), "--repo", repo],
             capture_output=True,
             text=True,
             env=tokens.gh_env(token),

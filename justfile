@@ -2883,8 +2883,10 @@ sync-hermes-skills target:
     echo ":: Syncing $SRC → erik@$IP:/home/erik/hermes-skills/"
     ssh -p 2222 erik@$IP 'mkdir -p /home/erik/hermes-skills'
     rsync -azv --delete \
-        --no-perms --no-owner --no-group --no-times \
+        --no-owner --no-group --no-times \
+        --chmod=D755,F644 \
         --exclude '.git' --exclude '__pycache__' --exclude '.DS_Store' \
+        --exclude 'worktrees' --exclude 'graphify-out' \
         -e "ssh -p 2222" \
         "$SRC/" \
         "erik@$IP:/home/erik/hermes-skills/"
