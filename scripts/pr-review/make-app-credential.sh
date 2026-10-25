@@ -33,7 +33,7 @@ report() {
   local src=$2
   printf 'wrote %s (mode 600)\n' "$out"
   printf 'store it with:\n'
-  printf '  bao kv patch secret/home/github-app-management GH_REVIEW_APP_JSON=@%s\n' "$out"
+  printf '  bao kv patch secret/home/hermes-pr-review GH_REVIEW_APP_JSON=@%s\n' "$out"
   printf 'then remove the local copy and the handoff:\n'
   printf '  shred -u %s %s\n' "$out" "$src"
 }
