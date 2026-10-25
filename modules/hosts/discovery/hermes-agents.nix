@@ -228,13 +228,14 @@ in {
         plugins.enabled = ["toolcall-leak-guard"];
         # Backfill re-injects the agent's own prior thread replies; the leaked
         # tool-call blocks were prime examples, so the model kept reproducing
-        # the pattern. Off for the alert channels.
-        discord.history_backfill = false;
-        # Grafana repeats a firing alert on its own schedule; auto-threading
-        # each mention produced one thread per repeat (497 active threads in
-        # 17 days, 2026-10-25) and split dedupe memory per thread. Keep alert
-        # replies in the channel, where one session sees the earlier ones.
-        discord.auto_thread = false;
+        # the pattern. The toolcall-leak-guard plugin now strips those, so
+        # backfill is safe and gives continuation inside a thread.
+        discord.history_backfill = true;
+        # One thread per alert post (Grafana repeats are limited by the 12 h
+        # warning policy). Fresh auto-threads skip backfill by upstream design,
+        # so repeat detection across threads is best-effort; the SOUL must not
+        # claim "first sighting" without evidence.
+        discord.auto_thread = true;
         # Structured Grafana ingest. Hermes authenticates every route with its
         # native WEBHOOK_SECRET rendered by Vault Agent at runtime.
         platforms.webhook.extra.routes.grafana-alerts = {
