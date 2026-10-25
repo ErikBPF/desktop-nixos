@@ -176,6 +176,14 @@
               ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops
               cat ${lib.escapeShellArg cfg.githubAppManagementEnvFile}
             )
+            # GitHub provider token: homelab-iac retired the .env.sops copy
+            # (#139) and keeps the only copy in OpenBao secret/iac/github.
+            # Resolve it with the reader AppRole that .env.sops already holds.
+            bao_token="$(BAO_ADDR=http://127.0.0.1:8200 ${pkgs.openbao}/bin/bao write -field=token \
+              auth/approle/login role_id="$VAULT_ROLE_ID" secret_id="$VAULT_SECRET_ID")"
+            export GITHUB_TOKEN="$(BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$bao_token" \
+              ${pkgs.openbao}/bin/bao kv get -field=token -mount=secret iac/github)"
+            unset bao_token
             export BAO_ADDR=http://127.0.0.1:8200
             export BAO_TOKEN="$(cat /run/vault-agent/token)"
             export GITHUB_APP_MANAGEMENT_REFRESH_TOKEN="$(${pkgs.openbao}/bin/bao kv get -field=GITHUB_APP_MANAGEMENT_REFRESH_TOKEN -mount=secret home/github-app-management)"

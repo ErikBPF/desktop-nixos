@@ -64,6 +64,16 @@ def test_drift_path_keeps_git_for_terragrunt_repo_root():
     assert "\n          git\n" in module
 
 
+def test_github_provider_token_is_resolved_from_openbao():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    assert "auth/approle/login" in module
+    assert "role_id=\"$VAULT_ROLE_ID\" secret_id=\"$VAULT_SECRET_ID\"" in module
+    assert "-mount=secret iac/github" in module
+
+
 def test_pinned_source_gets_local_git_metadata_for_terragrunt():
     module = (
         Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
