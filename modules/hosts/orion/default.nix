@@ -195,6 +195,9 @@ in {
     services.bpftune.enable = lib.mkForce false;
 
     # Bound cache warming after allocator corruption under parallel QEMU builds.
+    # The 2026-10-25 run was killed at the previous 89 min ceiling (27.7 G peak)
+    # before it finished the 8 closures; keep a ceiling, but leave room for a
+    # full-rebuild day.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 2
@@ -202,7 +205,7 @@ in {
       '';
       serviceConfig = {
         CPUQuota = "400%";
-        TimeoutStartSec = "89min";
+        TimeoutStartSec = "179min";
         TimeoutStopSec = "1min";
         KillMode = "control-group";
         SendSIGKILL = true;

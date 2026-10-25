@@ -230,6 +230,11 @@ in {
         # tool-call blocks were prime examples, so the model kept reproducing
         # the pattern. Off for the alert channels.
         discord.history_backfill = false;
+        # Grafana repeats a firing alert on its own schedule; auto-threading
+        # each mention produced one thread per repeat (497 active threads in
+        # 17 days, 2026-10-25) and split dedupe memory per thread. Keep alert
+        # replies in the channel, where one session sees the earlier ones.
+        discord.auto_thread = false;
         # Structured Grafana ingest. Hermes authenticates every route with its
         # native WEBHOOK_SECRET rendered by Vault Agent at runtime.
         platforms.webhook.extra.routes.grafana-alerts = {

@@ -150,9 +150,15 @@ class ArgusSecurityContract(unittest.TestCase):
         )[1].split("};", 1)[0]
 
         self.assertIn('field = "payload.status";', route)
-        self.assertIn('equals = "firing";', route)
+        self.assertIn('"in" = ["firing" "resolved"];', route)
         self.assertIn('deliver = "discord";', route)
         self.assertIn('chat_id = incidentsChannel;', route)
+
+    def test_cleytin_replies_in_channel_without_thread_per_repeat(self):
+        source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+        argus = source.split("services.hermes-agent-oci-argus = {", 1)[1]
+
+        self.assertIn("discord.auto_thread = false;", argus)
 
 
 if __name__ == "__main__":
