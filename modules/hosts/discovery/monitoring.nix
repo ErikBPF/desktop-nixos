@@ -1,8 +1,8 @@
 _: {
-  flake.modules.nixos.discovery-monitoring = { pkgs, ... }: {
+  flake.modules.nixos.discovery-monitoring = {pkgs, ...}: {
     systemd.services.alloy = {
-      after = [ "vault-agent.service" ];
-      wants = [ "vault-agent.service" ];
+      after = ["vault-agent.service"];
+      wants = ["vault-agent.service"];
     };
 
     environment.etc."alloy/discovery-apps.alloy".text = ''
@@ -122,7 +122,7 @@ _: {
     };
 
     systemd.timers.strata-chat-health-probe = {
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnBootSec = "2m";
         OnUnitActiveSec = "30s";
