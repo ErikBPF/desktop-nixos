@@ -154,11 +154,12 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn('deliver = "discord";', route)
         self.assertIn('chat_id = incidentsChannel;', route)
 
-    def test_cleytin_replies_in_channel_without_thread_per_repeat(self):
+    def test_cleytin_keeps_threads_with_backfill_for_repeats(self):
         source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
         argus = source.split("services.hermes-agent-oci-argus = {", 1)[1]
 
-        self.assertIn("discord.auto_thread = false;", argus)
+        self.assertIn("discord.auto_thread = true;", argus)
+        self.assertIn("discord.history_backfill = true;", argus)
 
 
 if __name__ == "__main__":
