@@ -80,7 +80,7 @@ in {
       enable = true;
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
-      allowPublish = false;
+      allowPublish = true;
       # Personal repos only for now. The App is installed on all ErikBPF
       # repositories and comments as `hackerman-cr[bot]`. The upstream
       # credential path remains in the module for public repos outside the
