@@ -27,13 +27,16 @@ thread, deterministically, and answered with one line.*
 token (D4) + honest SOUL wording ("likely repeat"), with dedupe recorded as
 *not deterministic*. Documented degradation, never a silent one.
 
-## D2 — Where the plugin gets its context (the one open technical fact)
+## D2 — Where the plugin gets its context (resolved 2026-10-26)
 
-`transform_llm_output` is verified to receive `response_text`
-(`tests/hermes-agent-runtime.py:138`) and to run after the tool loop
-(`toolcall-leak-guard/__init__.py:9-11`). Whether it also receives session id,
-chat id, or inbound message text is **UNVERIFIED** — container inspection was
-not possible in this session.
+Source inspection of the pinned image settled it: `transform_llm_output` gets
+`response_text`, `session_id`, `turn_id`, `model`, `platform`
+(`agent/turn_finalizer.py:505-515`) — **no inbound text**. But `pre_llm_call`
+gets `session_id`, `turn_id`, `user_message`, `conversation_history`, `platform`
+(`agent/turn_context.py:800-810`) and its return value is injected into the user
+message. So the input layer exists and is the primary seam; the output hook only
+needs the verdict stashed per `(session_id, turn_id)`. A `state.db` read-only
+lookup supplies the current thread id. No probe container and no Slice 0 gate.
 
 Design is therefore layered, and the probe (Slice 0) selects the variant without
 changing observable behavior:

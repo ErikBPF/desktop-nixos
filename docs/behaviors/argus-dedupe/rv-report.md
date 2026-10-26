@@ -89,3 +89,11 @@ needed in every variant, and the only variant that reaches a reused thread is an
 upstream adapter patch (image build + publish + pin bump + unarchive handling +
 migration). Grafana cannot address an existing thread, and giving Argus Discord
 tools would break the zero-tool boundary. Chosen design unchanged.
+
+## Addendum — hook surface resolved (2026-10-26)
+
+Read the pinned image instead of probing a container: `pre_llm_call` receives the
+inbound `user_message` and can inject context; `transform_llm_output` receives
+only `response_text`/`session_id`/`turn_id`. The ledger verdict is therefore
+computed at input time and stashed per turn for the output marker. Slice 0 is
+closed without a probe.

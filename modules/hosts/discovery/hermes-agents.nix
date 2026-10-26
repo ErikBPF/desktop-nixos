@@ -200,6 +200,10 @@ in {
         # posted it verbatim — the 2026-09 Cleytin triage regression). Enabled
         # via settings.plugins.enabled below.
         "${./hermes-plugins/toolcall-leak-guard}:/opt/data/plugins/toolcall-leak-guard:ro"
+        # Deterministic repeat recognition. Annotate-only and fail-open; it
+        # grants no tool, so the empty platform toolsets below stay empty.
+        # Ledger lives on the writable data volume (ALERT_DEDUPE_LEDGER).
+        "${./hermes-plugins/alert-dedupe}:/opt/data/plugins/alert-dedupe:ro"
       ];
       extraEnvironment = {
         # N0 channel scoping. Deliberately NO DISCORD_ALLOWED_USERS: with a
@@ -213,6 +217,9 @@ in {
         # Alert publishers mention Cleytin explicitly. Accept only mentioned
         # bot/webhook posts so unrelated automation cannot trigger the agent.
         DISCORD_ALLOW_BOTS = "mentions";
+        # Dedupe: annotate-only (never suppress); ledger on the data volume.
+        ALERT_DEDUPE_MODE = "annotate";
+        ALERT_DEDUPE_LEDGER = "/opt/data/state/alert-dedupe/ledger.json";
       };
       settings = lib.recursiveUpdate commonSettings {
         # Channel messages and alert payloads are untrusted input. Hermes has
@@ -225,7 +232,7 @@ in {
         };
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
         # Opt-in the leak guard mounted at /opt/data/plugins above.
-        plugins.enabled = ["toolcall-leak-guard"];
+        plugins.enabled = ["alert-dedupe" "toolcall-leak-guard"];
         # Backfill re-injects the agent's own prior thread replies; the leaked
         # tool-call blocks were prime examples, so the model kept reproducing
         # the pattern. The toolcall-leak-guard plugin now strips those, so
@@ -289,7 +296,7 @@ in {
 
     systemd.services.hermes-argus-healthcheck.serviceConfig.ExecStart = lib.mkForce (pkgs.writeShellScript "hermes-argus-healthcheck" ''
       for attempt in $(${pkgs.coreutils}/bin/seq 1 30); do
-        if output="$(${pkgs.docker}/bin/docker exec hermes-argus /opt/hermes/.venv/bin/python -c 'import json,time; from ruamel.yaml import YAML; from hermes_cli.tools_config import _get_platform_tools; cfg=YAML(typ="safe").load(open("/opt/data/config.yaml")); assert "terminal" in cfg["agent"]["disabled_toolsets"]; assert "kanban" in cfg["agent"]["disabled_toolsets"]; assert not _get_platform_tools(cfg,"discord"); assert not _get_platform_tools(cfg,"webhook"); state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
+        if output="$(${pkgs.docker}/bin/docker exec hermes-argus /opt/hermes/.venv/bin/python /opt/data/plugins/alert-dedupe/selftest.py 2>&1 && ${pkgs.docker}/bin/docker exec hermes-argus /opt/hermes/.venv/bin/python -c 'import json,time; from ruamel.yaml import YAML; from hermes_cli.tools_config import _get_platform_tools; cfg=YAML(typ="safe").load(open("/opt/data/config.yaml")); assert "terminal" in cfg["agent"]["disabled_toolsets"]; assert "kanban" in cfg["agent"]["disabled_toolsets"]; assert not _get_platform_tools(cfg,"discord"); assert not _get_platform_tools(cfg,"webhook"); assert "alert-dedupe" in cfg["plugins"]["enabled"]; state=json.load(open("/opt/data/gateway_state.json")); assert state["gateway_state"] == "running"; assert state["platforms"]["discord"]["state"] == "connected"; heartbeat=json.load(open("/opt/data/state/gateway.heartbeat")); age=time.monotonic() - heartbeat["monotonic"]; assert 0 <= age < 120' 2>&1)"; then
           exit 0
         fi
         if [ "$attempt" -eq 30 ]; then

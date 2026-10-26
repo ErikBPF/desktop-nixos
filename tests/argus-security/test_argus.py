@@ -154,6 +154,21 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn('deliver = "discord";', route)
         self.assertIn('chat_id = incidentsChannel;', route)
 
+    def test_alert_dedupe_is_wired_without_granting_tools(self):
+        source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+        argus = source.split("services.hermes-agent-oci-argus = {", 1)[1]
+        healthcheck = source.split(
+            "systemd.services.hermes-argus-healthcheck", 1
+        )[1]
+
+        self.assertIn(
+            '"${./hermes-plugins/alert-dedupe}:/opt/data/plugins/alert-dedupe:ro"',
+            argus,
+        )
+        self.assertIn('plugins.enabled = ["alert-dedupe" "toolcall-leak-guard"];', argus)
+        self.assertIn('ALERT_DEDUPE_MODE = "annotate";', argus)
+        self.assertIn("/opt/data/plugins/alert-dedupe/selftest.py", healthcheck)
+
     def test_cleytin_keeps_threads_with_backfill_for_repeats(self):
         source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
         argus = source.split("services.hermes-agent-oci-argus = {", 1)[1]

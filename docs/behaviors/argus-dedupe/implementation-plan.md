@@ -22,13 +22,17 @@ network. `tests/argus-security/test_argus.py` grades the Nix config textually.
 Native behavior is proven once per image change with the existing fixture
 pattern (`tests/hermes-agent-runtime.py:172-185`), not per slice.
 
-## Slice 0 — capability probe (read-only, gates the variant)
+## Slice 0 — capability probe — **resolved by source inspection (2026-10-26)**
+
+`pre_llm_call` exists, receives `user_message` + `session_id` + `turn_id`, and
+injects returned context into the user message; `transform_llm_output` receives
+`session_id`/`turn_id` and returns replacement text. Both are used, so no probe
+container is needed. The step below is historical.
 
 **Observable result:** a printed inventory of the plugin hook registry and the
 kwargs each outbound hook receives, for the pinned Argus image.
 
-- RED: `python3 tests/argus-dedupe-probe.py` exits non-zero — the probe does not
-  exist.
+- ~~RED: `python3 tests/argus-dedupe-probe.py` exits non-zero~~ — not needed.
 - GREEN: new `tests/argus-dedupe-probe.py` following the existing fixture shape:
   `docker run --rm --network none --read-only --tmpfs /tmp -e HOME=/tmp/known
   -e HERMES_HOME=/tmp/known --entrypoint /opt/hermes/.venv/bin/python <pinned
