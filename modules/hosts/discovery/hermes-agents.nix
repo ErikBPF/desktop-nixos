@@ -239,6 +239,12 @@ in {
           discord = ["ops_fix"];
           webhook = [];
         };
+        # Plugin toolsets default to every platform; keep the action tool off
+        # the webhook and telegram surfaces explicitly.
+        known_plugin_toolsets = {
+          webhook = ["ops_fix"];
+          telegram = ["ops_fix"];
+        };
         skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research"];
         # Opt-in the leak guard mounted at /opt/data/plugins above.
         plugins.enabled = ["alert-dedupe" "ops-fix" "toolcall-leak-guard"];
