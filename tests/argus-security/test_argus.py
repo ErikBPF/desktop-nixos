@@ -168,6 +168,8 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn('plugins.enabled = ["alert-dedupe" "toolcall-leak-guard"];', argus)
         self.assertIn('ALERT_DEDUPE_MODE = "annotate";', argus)
         self.assertIn("/opt/data/plugins/alert-dedupe/selftest.py", healthcheck)
+        self.assertIn('iter_hook_callbacks("pre_llm_call")', healthcheck)
+        self.assertIn('"alert_dedupe" in getattr(_cb, "__module__", "")', healthcheck)
 
     def test_cleytin_keeps_threads_with_backfill_for_repeats(self):
         source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
