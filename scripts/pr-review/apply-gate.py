@@ -94,7 +94,7 @@ def apply(repo: str, payload: dict, apply_changes: bool) -> str:
     if not apply_changes:
         return "UPDATE" if existing else "CREATE"
     if existing:
-        gh_api("PATCH", f"repos/{repo}/rulesets/{existing['id']}", payload)
+        gh_api("PUT", f"repos/{repo}/rulesets/{existing['id']}", payload)
         return "UPDATED"
     gh_api("POST", f"repos/{repo}/rulesets", payload)
     return "CREATED"
@@ -104,7 +104,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("repos", nargs="*", help="owner/name entries")
     parser.add_argument("--config", help="repos JSON with a repos list")
-    parser.add_argument("--required-approvals", type=int, default=1)
+    parser.add_argument(
+        "--required-approvals",
+        type=int,
+        default=0,
+        help="Approvals required in addition to the check. GitHub does not count "
+        "App approvals, so the default is check-only.",
+    )
     parser.add_argument("--integration-id", type=int, default=APP_ID)
     parser.add_argument(
         "--include-private",
