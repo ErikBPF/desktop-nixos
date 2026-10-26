@@ -1,0 +1,13 @@
+name: alert-dedupe
+version: 0.1.0
+description: >-
+  Deterministic recognition of repeated Grafana alert episodes in Discord
+  threads. Parses the rendered alert message, keeps a small JSON ledger per
+  family/episode, injects a repeat note into the prompt and prefixes the reply
+  with a repeat/new-episode/resolved marker. Annotates only; never suppresses.
+license: MIT
+author: Erik
+kind: standalone
+provides_hooks:
+  - pre_llm_call
+  - transform_llm_output
