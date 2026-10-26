@@ -180,3 +180,12 @@ in `hermes-agents.nix:234-237`. Do not duplicate that work here.
 
 No scenario in `argus-dedupe.feature` may be reported as passing until the
 binding command prints its marker.
+
+## Slice 5 outcome (2026-10-26)
+
+Implemented as **instance counts on the omission line** only. The proposed
+`key <family> @ <unix>` token was rejected: the parser already gets the stable
+rule UID from the Rule URL Grafana appends, while a token built from
+`alertname|host|unit` would create a second key namespace for the same alert
+during rollout. The unit blind spot is covered by the plugin's
+`systemd unit <name>` extraction, verified against real payloads.
