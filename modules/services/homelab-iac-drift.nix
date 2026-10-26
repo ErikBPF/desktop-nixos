@@ -289,9 +289,12 @@
             ${providerEnv}
             rc=0
             # Same lock as the daily plan: wait for it instead of killing it.
-            flock -w 900 "$CACHE_DIRECTORY/run.lock" bash bin/iac-apply.sh || rc=$?
+            # -E 75 keeps "lock busy" distinct from a real apply failure (1);
+            # a wait is not a verdict on the revision, so retry next poll.
+            flock -w 900 -E 75 "$CACHE_DIRECTORY/run.lock" bash bin/iac-apply.sh || rc=$?
             case "$rc" in
               0) printf '%s' "$sha" > "$STATE_DIRECTORY/applied-sha" ;;
+              75) echo "homelab-iac apply: plan lock busy, retrying next poll" ;;
               3) printf '%s' "$sha" > "$STATE_DIRECTORY/refused-sha" ;;
               *)
                 printf '%s' "$sha" > "$STATE_DIRECTORY/failed-sha"

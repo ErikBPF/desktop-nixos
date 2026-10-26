@@ -90,7 +90,8 @@ def test_merged_main_apply_is_guarded_and_has_no_remote_trigger():
     assert "systemctl start" not in service
     assert "curl" not in service.split("serviceConfig", 1)[1]
     assert 'CacheDirectory = "homelab-iac-tf-plugin-cache";' in service
-    assert 'flock -w 900 "$CACHE_DIRECTORY/run.lock"' in service
+    assert 'flock -w 900 -E 75 "$CACHE_DIRECTORY/run.lock"' in service
+    assert "75)" in service, "a busy lock must retry, not fail the revision"
     assert "failed-sha" in service
     assert "conflicts" not in service
     assert 'TF_PLUGIN_CACHE_DIR = "/var/lib/homelab-iac-drift/plugin-cache"' not in module
