@@ -195,20 +195,22 @@ in {
     services.bpftune.enable = lib.mkForce false;
 
     # Cache warming is the only sustained multi-hour build on an inference host.
-    # History: 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the 179 min
-    # ceiling killed the 2026-10-26 run at exactly 05:59. A full 8-closure rebuild
-    # therefore needs both a longer window and more concurrency.
-    # Trade-off: the old max-jobs=2/cores=2 guard followed allocator corruption
-    # under parallel QEMU builds. Four single-core jobs keep the same 4-thread CPU
-    # budget while leaving per-job memory lower; the ceiling is the rollback knob
-    # (revert to 2/2 and 179min if the allocator or OOM regression returns).
+    # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
+    # 179 min ceiling killed the 2026-10-26 run at 05:59 before the 8 closures
+    # finished. The 179 min result is a lower bound, not proof that 359 min
+    # finishes it, so keep the old 2/2 concurrency guard and change only the
+    # window. The memory bound keeps an aggregate overshoot inside the unit
+    # instead of pressuring the inference host; the ceiling is the rollback knob
+    # (revert to 179 min if the longer window causes a regression).
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
-        max-jobs = 4
-        cores = 1
+        max-jobs = 2
+        cores = 2
       '';
       serviceConfig = {
         CPUQuota = "400%";
+        MemoryHigh = "40G";
+        MemoryMax = "48G";
         TimeoutStartSec = "359min";
         TimeoutStopSec = "1min";
         KillMode = "control-group";
