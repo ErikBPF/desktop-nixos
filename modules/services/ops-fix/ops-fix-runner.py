@@ -17,6 +17,7 @@ import sys
 import time
 
 SOCKET = os.environ.get("OPS_FIX_SOCKET", "/run/ops-fix/ops.sock")
+DOCKER = os.environ.get("OPS_FIX_DOCKER", "docker")
 ALLOWLIST = os.environ.get("OPS_FIX_ALLOWLIST", "/etc/ops-fix/allowlist.json")
 STATE_DIR = pathlib.Path(os.environ.get("OPS_FIX_STATE", "/var/lib/ops-fix"))
 MIN_INTERVAL = int(os.environ.get("OPS_FIX_MIN_INTERVAL", "1800"))
@@ -83,13 +84,13 @@ def _run(argv: list[str], timeout: int = 30) -> str:
 
 def container_status(target: str) -> str:
     return _run([
-        "docker", "inspect", "-f",
+        DOCKER, "inspect", "-f",
         "{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}", target,
     ])
 
 
 def restart_container(target: str) -> str:
-    _run(["docker", "restart", target], timeout=90)
+    _run([DOCKER, "restart", target], timeout=90)
     deadline = time.time() + VERIFY_SECONDS
     status = ""
     while time.time() < deadline:

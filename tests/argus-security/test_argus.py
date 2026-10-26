@@ -174,6 +174,7 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn("m.nixos.ops-fix", host)
         self.assertIn('containers = {prowlarr = "discovery";};', host)
         self.assertIn("OPS_FIX_MIN_INTERVAL", module)
+        self.assertIn("OPS_FIX_DOCKER", module)
         self.assertIn("rate_limited", runner)
         self.assertNotIn("shell=True", runner)
         self.assertIn('"enum": list(ACTIONS)', tool)

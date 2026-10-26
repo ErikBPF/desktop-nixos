@@ -44,6 +44,9 @@
           OPS_FIX_ALLOWLIST = "/etc/ops-fix/allowlist.json";
           OPS_FIX_STATE = "/var/lib/ops-fix";
           OPS_FIX_MIN_INTERVAL = toString cfg.minIntervalSeconds;
+          # System units get a minimal PATH; name the CLI explicitly.
+          OPS_FIX_DOCKER = "${pkgs.docker}/bin/docker";
+          PATH = lib.makeBinPath [pkgs.docker pkgs.coreutils];
         };
       };
     };
