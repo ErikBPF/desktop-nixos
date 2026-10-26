@@ -282,8 +282,6 @@ def main() -> int:
                     "list",
                     "--repo",
                     repo,
-                    "--author",
-                    entry["author"],
                     "--state",
                     "open",
                     "--limit",

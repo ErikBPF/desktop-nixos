@@ -18,12 +18,12 @@ class ArgusSecurityContract(unittest.TestCase):
             "systemd.services.hermes-argus-healthcheck", 1
         )[1]
         self.assertIn('agent.disabled_toolsets = ["terminal" "kanban"];', argus)
-        self.assertIn("discord = [];", argus)
+        self.assertIn('discord = ["ops_fix"];', argus)
         self.assertIn("webhook = [];", argus)
         self.assertNotIn("terminal = false;", argus)
         self.assertIn("/opt/hermes/.venv/bin/python", healthcheck)
         self.assertIn('"terminal" in cfg["agent"]["disabled_toolsets"]', healthcheck)
-        self.assertIn('not _get_platform_tools(cfg,"discord")', healthcheck)
+        self.assertIn('_get_platform_tools(cfg,"discord") == {"ops_fix"}', healthcheck)
         self.assertIn('not _get_platform_tools(cfg,"webhook")', healthcheck)
 
     def test_homelab_agent_identity_is_cleytin(self):
@@ -153,6 +153,53 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn('"in" = ["firing" "resolved"];', route)
         self.assertIn('deliver = "discord";', route)
         self.assertIn('chat_id = incidentsChannel;', route)
+
+    def test_ops_fix_is_narrow_and_allowlisted(self):
+        source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+        host = (ROOT / "modules/hosts/discovery/default.nix").read_text()
+        module = (ROOT / "modules/services/ops-fix.nix").read_text()
+        runner = (ROOT / "modules/services/ops-fix/ops-fix-runner.py").read_text()
+        tool = (
+            ROOT / "modules/hosts/discovery/hermes-plugins/ops-fix/__init__.py"
+        ).read_text()
+        argus = source.split("services.hermes-agent-oci-argus = {", 1)[1]
+
+        self.assertIn('"${./hermes-plugins/ops-fix}:/opt/data/plugins/ops-fix:ro"', argus)
+        self.assertIn('"/run/ops-fix:/run/ops-fix:ro"', argus)
+        self.assertIn('OPS_FIX_MODE = "execute";', argus)
+        self.assertIn(
+            'plugins.enabled = ["alert-dedupe" "ops-fix" "toolcall-leak-guard"];',
+            argus,
+        )
+        self.assertIn("m.nixos.ops-fix", host)
+        self.assertIn('containers = {prowlarr = "discovery";};', host)
+        self.assertIn("OPS_FIX_MIN_INTERVAL", module)
+        self.assertIn("OPS_FIX_DOCKER", module)
+        self.assertIn('webhook = ["ops_fix"];', argus)
+        self.assertIn("rate_limited", runner)
+        self.assertNotIn("shell=True", runner)
+        self.assertIn('"enum": list(ACTIONS)', tool)
+        self.assertNotIn("subprocess", tool)
+
+    def test_alert_dedupe_is_wired_without_granting_tools(self):
+        source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+        argus = source.split("services.hermes-agent-oci-argus = {", 1)[1]
+        healthcheck = source.split(
+            "systemd.services.hermes-argus-healthcheck", 1
+        )[1]
+
+        self.assertIn(
+            '"${./hermes-plugins/alert-dedupe}:/opt/data/plugins/alert-dedupe:ro"',
+            argus,
+        )
+        self.assertIn(
+            'plugins.enabled = ["alert-dedupe" "ops-fix" "toolcall-leak-guard"];',
+            argus,
+        )
+        self.assertIn('ALERT_DEDUPE_MODE = "annotate";', argus)
+        self.assertIn("/opt/data/plugins/alert-dedupe/selftest.py", healthcheck)
+        self.assertIn('iter_hook_callbacks("pre_llm_call")', healthcheck)
+        self.assertIn('"alert_dedupe" in getattr(_cb, "__module__", "")', healthcheck)
 
     def test_cleytin_keeps_threads_with_backfill_for_repeats(self):
         source = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()

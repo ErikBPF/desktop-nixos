@@ -54,7 +54,7 @@ _: {
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
       repos =
         map (entry: {
-          inherit (entry) repo author credential;
+          inherit (entry) repo credential;
           bot_login = entry.botLogin;
         })
         cfg.repos;
@@ -69,10 +69,6 @@ _: {
             repo = lib.mkOption {
               type = lib.types.str;
               description = "owner/name";
-            };
-            author = lib.mkOption {
-              type = lib.types.str;
-              default = "ErikBPF";
             };
             credential = lib.mkOption {
               type = lib.types.enum ["app" "upstream"];
@@ -106,7 +102,7 @@ _: {
       allowPublish = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "Post bot comments. Keep false until a human has approved a dry-run packet.";
+        description = "Post comments, submit approving or changes-requested reviews, and publish the gate check run. Keep false until a human has approved a dry-run packet.";
       };
       dataDir = lib.mkOption {
         type = lib.types.str;

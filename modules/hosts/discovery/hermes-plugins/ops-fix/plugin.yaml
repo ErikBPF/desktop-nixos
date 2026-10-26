@@ -1,0 +1,11 @@
+name: ops-fix
+version: 0.1.0
+description: >-
+  Narrow host-action tool for Argus. Exposes status and an allowlisted,
+  rate-limited container restart through the host ops-fix runner. No shell, no
+  arbitrary target, no network.
+license: MIT
+author: Erik
+kind: standalone
+provides_tools:
+  - ops_fix
