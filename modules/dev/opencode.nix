@@ -527,9 +527,8 @@
             volume = 0.4;
             sound_pack = "opencode.default";
           };
-          # Backend clients (ol/ow) run auto-accept; sidebar is visible when
-          # space permits ("hide" is the only other schema value).
-          session.permissions = "autoaccept";
+          # ol/ow opt into auto-accept with --auto; other clients keep asking.
+          session.permissions = "prompt";
           session.sidebar = "auto";
           tabs = {
             mode = "on";

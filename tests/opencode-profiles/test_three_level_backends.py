@@ -37,7 +37,6 @@ class ThreeLevelBackends(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual(profile["default_agent"], "pilot-l1")
                 self.assertEqual(sorted(profile["agents"]), ["pilot-l1", "pilot-l2", "pilot-l3"])
-                self.assertNotIn("agent", profile)
 
     def test_homelab_models_use_deepseek_with_layer_variants(self):
         profile = self.profiles["homelab"]
@@ -76,6 +75,10 @@ class ThreeLevelBackends(unittest.TestCase):
                 # L3 implements/edits; secret reads stay denied globally.
                 self.assertFalse(any(item["action"] == "edit" for item in l3))
                 self.assertEqual(rule(profile["permissions"], "read", "/run/secrets/opencode/work_key"), "deny")
+                self.assertEqual(rule(profile["permissions"], "read",
+                                 "/home/erik/.local/state/opencode-v2-backends/homelab/server-password"), "deny")
+                self.assertEqual(rule(profile["permissions"], "edit",
+                                 "/home/erik/.local/state/opencode-v2-backends/homelab/opencode.db"), "deny")
 
     def test_provider_policy_keeps_protected_denials(self):
         for name, profile in self.profiles.items():

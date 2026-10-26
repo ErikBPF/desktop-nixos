@@ -92,28 +92,46 @@ test("variant-less provider models are passed through unchanged", async () => {
   });
 });
 
-test("without an override the OpenAI pilot default is kept", async () => {
+test("without an override dispatch fails closed", async () => {
   await withL2Model(undefined, async () => {
     const f = fixture();
     const cleanup = await plugin.setup(f.ctx);
-    await f.tools.get("dispatch_slice").execute({ title: "Slice", task: "work" }, caller);
-    assert.deepEqual(f.sessions.get("l2-1").model, { providerID: "openai", id: "gpt-6.1-sol", variant: "high" });
+    await assert.rejects(
+      f.tools.get("dispatch_slice").execute({ title: "Slice", task: "work" }, caller),
+      /OPENCODE_THREE_LEVEL_L2_MODEL is required/);
+    assert.equal(f.prompts.length, 0);
     await cleanup();
   });
 });
 
+test("malformed model overrides are rejected", async () => {
+  for (const raw of ("missing-slash", "litellm/", "litellm/deepseek#", "a/b#high#extra")) {
+    await withL2Model(raw, async () => {
+      const f = fixture();
+      const cleanup = await plugin.setup(f.ctx);
+      await assert.rejects(
+        f.tools.get("dispatch_slice").execute({ title: "Slice", task: "work" }, caller),
+        /Invalid OPENCODE_THREE_LEVEL_L2_MODEL/);
+      assert.equal(f.prompts.length, 0);
+      await cleanup();
+    });
+  }
+});
+
 test("only invoking L1 can dispatch or inspect its associated L2 sessions", async () => {
-  const f = fixture();
-  const cleanup = await plugin.setup(f.ctx);
-  assert.ok(f.tools.has("dispatch_slice"));
-  await assert.rejects(f.tools.get("dispatch_slice").execute({ title: "Bad", task: "work" }, { ...caller, agent: "pilot-l3" }));
-  assert.equal(f.prompts.length, 0);
-  const result = await f.tools.get("dispatch_slice").execute({ title: "Slice", task: "work" }, caller);
-  const { sessionID } = JSON.parse(result.content);
-  f.sessions.set("other-l1", { ...f.sessions.get("l1"), id: "other-l1" });
-  assert.ok(f.tools.has("slice_status"));
-  await assert.rejects(f.tools.get("slice_status").execute({ sessionID }, { ...caller, sessionID: "other-l1" }));
-  const status = await f.tools.get("slice_status").execute({ sessionID }, caller);
-  assert.equal(JSON.parse(status.content).sessionID, sessionID);
-  await cleanup();
+  await withL2Model("litellm/deepseek-v4.1-flash#high", async () => {
+    const f = fixture();
+    const cleanup = await plugin.setup(f.ctx);
+    assert.ok(f.tools.has("dispatch_slice"));
+    await assert.rejects(f.tools.get("dispatch_slice").execute({ title: "Bad", task: "work" }, { ...caller, agent: "pilot-l3" }));
+    assert.equal(f.prompts.length, 0);
+    const result = await f.tools.get("dispatch_slice").execute({ title: "Slice", task: "work" }, caller);
+    const { sessionID } = JSON.parse(result.content);
+    f.sessions.set("other-l1", { ...f.sessions.get("l1"), id: "other-l1" });
+    assert.ok(f.tools.has("slice_status"));
+    await assert.rejects(f.tools.get("slice_status").execute({ sessionID }, { ...caller, sessionID: "other-l1" }));
+    const status = await f.tools.get("slice_status").execute({ sessionID }, caller);
+    assert.equal(JSON.parse(status.content).sessionID, sessionID);
+    await cleanup();
+  });
 });

@@ -35,7 +35,7 @@ class ManagedSettings(unittest.TestCase):
     def test_native_global_cli(self):
         cli = json.loads(self.home["cli"])
         self.assertEqual(cli.get("theme"), {"name": "tokyonight", "mode": "system"})
-        self.assertEqual(cli.get("session", {}).get("permissions"), "autoaccept")
+        self.assertEqual(cli.get("session", {}).get("permissions"), "prompt")
         self.assertEqual(cli.get("session", {}).get("sidebar"), "auto")
         self.assertEqual(cli.get("tabs", {}).get("mode"), "on")
         self.assertNotIn("keybinds", cli)

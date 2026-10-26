@@ -1,10 +1,10 @@
-// L2 runs on the backend's own provider, not the OpenAI pilot default.
+// L2 runs on the backend's own provider, supplied by the backend wrapper.
 function l2Model() {
   const raw = process.env.OPENCODE_THREE_LEVEL_L2_MODEL?.trim();
-  if (!raw) return { providerID: "openai", id: "gpt-6.1-sol", variant: "high" };
-  const [head, variant] = raw.split("#");
+  if (!raw) throw new Error("OPENCODE_THREE_LEVEL_L2_MODEL is required for dispatch_slice");
+  const [head, variant, extra] = raw.split("#");
   const split = head.indexOf("/");
-  if (split < 1 || split === head.length - 1) {
+  if (split < 1 || split === head.length - 1 || (raw.includes("#") && !variant) || extra !== undefined) {
     throw new Error(`Invalid OPENCODE_THREE_LEVEL_L2_MODEL: ${raw}`);
   }
   return {
@@ -21,7 +21,7 @@ export default {
 
     async function authorize(context) {
       const origin = await ctx.session.get({ sessionID: context.sessionID });
-      if (context.agent !== "pilot-l1" || origin.agent !== "pilot-l1") {
+      if (!origin || context.agent !== "pilot-l1" || origin.agent !== "pilot-l1") {
         throw new Error("Only L1 may coordinate independent slices");
       }
       return origin;
@@ -29,7 +29,7 @@ export default {
 
     async function status(sessionID, originID) {
       const session = await ctx.session.get({ sessionID });
-      if (session.agent !== "pilot-l2" || session.metadata?.threeLevelOrigin !== originID) {
+      if (!session || session.agent !== "pilot-l2" || session.metadata?.threeLevelOrigin !== originID) {
         throw new Error("Slice does not belong to this L1 session");
       }
       const messages = await ctx.session.context({ sessionID });
