@@ -122,6 +122,46 @@ def bundle_id(repo: str, pr: int, head: str) -> str:
     return f"{owner}__{name}__{pr}__{head[:12]}"
 
 
+def prune_repo_bundles(
+    in_dir: Path,
+    repo: str,
+    heads: dict[int, str],
+    claim_ttl: int,
+) -> int:
+    """Drop bundles whose PR closed, or whose head a newer bundle superseded.
+
+    Reviewed heads are already skipped by the collector state; this only cleans
+    the inbox so a long-lived checkout does not accumulate one directory per
+    head it ever saw. A fresh claim is never removed (a worker may be reading).
+    """
+    owner, name = repo.split("/", 1)
+    prefix = f"{owner}__{name}__"
+    removed = 0
+    for bundle in in_dir.iterdir():
+        if not bundle.is_dir() or not bundle.name.startswith(prefix):
+            continue
+        parts = bundle.name.split("__")
+        if len(parts) != 4:
+            continue
+        try:
+            number = int(parts[2])
+        except ValueError:
+            continue
+        current = heads.get(number)
+        keep = current is not None and current.startswith(parts[3])
+        if keep:
+            continue
+        claim = bundle / ".claim"
+        try:
+            if claim.exists() and time.time() - claim.stat().st_mtime < claim_ttl:
+                continue
+        except FileNotFoundError:
+            pass
+        shutil.rmtree(bundle, ignore_errors=True)
+        removed += 1
+    return removed
+
+
 def load_state(path: Path) -> dict:
     if not path.exists():
         return {"version": 1, "prs": {}}
@@ -270,6 +310,8 @@ def main() -> int:
     (Path(args.data_dir) / "review-out").mkdir(parents=True, exist_ok=True)
 
     requested = 0
+    pruned = 0
+    in_dir = Path(args.data_dir) / "review-in"
     for entry in config:
         repo = entry["repo"]
         try:
@@ -297,6 +339,11 @@ def main() -> int:
             print(f"ERROR {repo}: {exc}", file=sys.stderr)
             continue
 
+        heads = {item["number"]: item["headRefOid"] for item in prs}
+        pruned += prune_repo_bundles(
+            in_dir, repo, heads, args.retry_after_minutes * 60
+        )
+
         for pr in prs:
             key = f"{repo}#{pr['number']}"
             entry_state = state["prs"].get(key, {})
@@ -321,7 +368,7 @@ def main() -> int:
 
     save_state(state_path, state)
     lock.close()
-    print(f"requested={requested}")
+    print(f"requested={requested} pruned={pruned}")
     return 0
 
 

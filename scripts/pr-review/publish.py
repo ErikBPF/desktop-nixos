@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -285,6 +286,18 @@ def mark_bundle(bundle: Path, outcome: str) -> None:
     ready = bundle / ".ready"
     if ready.exists():
         ready.unlink()
+    # Release the worker claim on every terminal outcome.
+    (bundle / ".claim").unlink(missing_ok=True)
+
+
+def retire_bundle(bundle: Path, target: Path) -> None:
+    """Move a finished bundle out of the inbox so it stops looking queued."""
+    if not bundle.exists():
+        return
+    destination = target / bundle.name
+    if destination.exists():
+        shutil.rmtree(destination, ignore_errors=True)
+    shutil.move(str(bundle), str(destination))
 
 
 def main() -> int:
@@ -342,6 +355,7 @@ def main() -> int:
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
                     mark_bundle(bundle, "stale")
+                    retire_bundle(bundle, stale_dir)
                 continue
             if args.strict_evidence:
                 kept = []
@@ -358,6 +372,7 @@ def main() -> int:
                 if not args.dry_run:
                     mark_bundle(bundle, "no-findings")
                     path.replace(done_dir / path.name)
+                    retire_bundle(bundle, done_dir)
                 print(f"NO-FINDINGS {path.name}")
                 continue
             body = render(review, repo)
@@ -380,6 +395,7 @@ def main() -> int:
             state["prs"][key] = entry_state
             mark_bundle(bundle, "posted")
             path.replace(done_dir / path.name)
+            retire_bundle(bundle, done_dir)
             published += 1
             print(f"PUBLISHED {path.name} {url}")
         except Exception as exc:

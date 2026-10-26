@@ -41,13 +41,14 @@ _: {
       runtimeInputs = [pkgs.docker pkgs.coreutils pkgs.gnugrep pkgs.bash];
       text = ''
         export DATA_DIR=${lib.escapeShellArg cfg.dataDir}
-        export READY_SCRIPT=${lib.escapeShellArg "${../../../scripts/pr-review/ready.py}"}
+        export CLAIM_SCRIPT=${lib.escapeShellArg "${../../../scripts/pr-review/claim.py}"}
         export HERMES_CONTAINER=${lib.escapeShellArg cfg.containerName}
         export HERMES_CLI=${lib.escapeShellArg cfg.hermesCli}
         export AGENT_UID=${toString cfg.agentUid}
         export AGENT_GID=${toString cfg.agentGid}
         export JOB_NAME=${lib.escapeShellArg cfg.jobName}
         export SCHEDULE=${lib.escapeShellArg cfg.schedule}
+        export PARALLELISM=${toString cfg.parallelism}
         exec ${pkgs.bash}/bin/bash ${../../../scripts/pr-review/bootstrap-cron.sh}
       '';
     };
@@ -131,6 +132,11 @@ _: {
       jobName = lib.mkOption {
         type = lib.types.str;
         default = "hermes-pr-review";
+      };
+      parallelism = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 1;
+        description = "Number of concurrent review workers; each claims one bundle atomically.";
       };
       schedule = lib.mkOption {
         type = lib.types.str;

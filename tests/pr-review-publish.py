@@ -15,7 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts/pr-review"
 PUBLISH = SCRIPTS / "publish.py"
-READY = SCRIPTS / "ready.py"
 sys.path.insert(0, str(SCRIPTS))
 
 import tokens  # noqa: E402
@@ -109,23 +108,71 @@ with tempfile.TemporaryDirectory() as tmp:
     review_out = tmp / "out"
     review_in.mkdir()
     review_out.mkdir()
-    ready_bundle = review_in / "one"
-    ready_bundle.mkdir()
-    env = dict(os.environ, HERMES_REVIEW_IN=str(review_in), HERMES_REVIEW_OUT=str(review_out))
-    denied = subprocess.run(
-        [str(READY)], env=env, text=True, capture_output=True, check=True
-    ).stdout.strip()
-    assert denied == "NO_READY", denied
-    (ready_bundle / ".ready").write_text("now\n")
-    allowed = subprocess.run(
-        [str(READY)], env=env, text=True, capture_output=True, check=True
-    ).stdout.strip()
-    assert allowed == "READY one", allowed
-    (ready_bundle / ".posted").write_text("posted\n")
-    posted = subprocess.run(
-        [str(READY)], env=env, text=True, capture_output=True, check=True
-    ).stdout.strip()
-    assert posted == "NO_READY", posted
+    claim_script = SCRIPTS / "claim.py"
+
+    def claim(*extra):
+        result = subprocess.run(
+            [str(claim_script), "--worker", "w1", *extra],
+            env=dict(
+                os.environ,
+                HERMES_REVIEW_IN=str(review_in),
+                HERMES_REVIEW_OUT=str(review_out),
+            ),
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    older = review_in / "older"
+    newer = review_in / "newer"
+    for bundle, mtime in ((older, 1_000_000), (newer, 2_000_000)):
+        bundle.mkdir()
+        os.utime(bundle, (mtime, mtime))
+
+    assert claim() == "NO_CLAIM", "a bundle without .ready is not reviewable"
+    (older / ".ready").write_text("now\n")
+    (newer / ".ready").write_text("now\n")
+    assert claim() == "CLAIM older", "oldest bundle must claim first"
+    assert claim() == "CLAIM newer", "a fresh claim must not be stolen"
+    assert claim() == "NO_CLAIM", "each worker gets a distinct bundle"
+
+    # A claimed bundle whose review already landed is not re-issued.
+    (older / ".claim").unlink()
+    (review_out / "older.json").write_text("{}")
+    assert claim() == "NO_CLAIM"
+
+    # An abandoned claim is reclaimable after the TTL.
+    (review_out / "older.json").unlink()
+    (older / ".ready").unlink()
+    (newer / ".claim").unlink()
+    (newer / ".claim").write_text("dead worker\n")
+    os.utime(newer / ".claim", (0, 0))
+    assert claim("--claim-ttl", "1") == "CLAIM newer"
+    (newer / ".posted").write_text("posted\n")
+    (newer / ".claim").unlink()
+    assert claim() == "NO_CLAIM"
+
+    # Publishing releases the claim marker.
+    (newer / ".claim").write_text("w1\n")
+    pub.mark_bundle(newer, "posted")
+    assert not (newer / ".claim").exists()
+
+    # Superseded and closed-PR bundles are pruned; a fresh claim is preserved.
+    collect = load(SCRIPTS / "collect.py", "pr_review_collect")
+    keep = review_in / "ErikBPF__aster__1__aaaaaaaaaaaa"
+    superseded = review_in / "ErikBPF__aster__1__bbbbbbbbbbbb"
+    closed = review_in / "ErikBPF__aster__2__cccccccccccc"
+    busy = review_in / "ErikBPF__aster__1__dddddddddddd"
+    for bundle in (keep, superseded, closed, busy):
+        bundle.mkdir()
+    (busy / ".claim").write_text("w2\n")
+    removed = collect.prune_repo_bundles(
+        review_in, "ErikBPF/aster", {1: "a" * 40}, 3600
+    )
+    assert removed == 2, removed
+    assert keep.exists() and busy.exists()
+    assert not superseded.exists() and not closed.exists()
 
     config_path = tmp / "repos.json"
     config_path.write_text(

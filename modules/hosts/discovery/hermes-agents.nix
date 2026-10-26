@@ -78,6 +78,9 @@ in {
     # poster owns the bot token; the agent never receives it.
     services.hermes-pr-review = {
       enable = true;
+      # Five workers, each claiming one bundle; a single turn cannot keep up
+      # with a merge burst, and unclaimed bundles just queue.
+      parallelism = 5;
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;
