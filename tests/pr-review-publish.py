@@ -167,6 +167,17 @@ with tempfile.TemporaryDirectory() as tmp:
     pub.mark_bundle(newer, "posted", claims)
     assert not (claims / "newer.claim").exists()
 
+    # A packet rejected before the GitHub call must release its claim too,
+    # otherwise the bundle is invisible to every worker until the TTL.
+    orphan = review_in / "orphan"
+    orphan.mkdir()
+    (claims / "orphan.claim").write_text("w1\n")
+    pub.release_claim(orphan, claims)
+    assert not (claims / "orphan.claim").exists()
+    publish_src = (SCRIPTS / "publish.py").read_text()
+    assert publish_src.count("release_claim(in_dir / path.stem, claims_dir)") == 2
+    assert "release_claim(bundle, claims_dir)" in publish_src
+
     # Superseded and closed-PR bundles are pruned; a fresh claim is preserved.
     collect = load(SCRIPTS / "collect.py", "pr_review_collect")
     keep = review_in / "ErikBPF__aster__1__aaaaaaaaaaaa"

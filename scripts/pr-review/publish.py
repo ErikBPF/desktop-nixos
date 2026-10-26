@@ -387,13 +387,17 @@ def current_head(repo: str, pr: int, token: str) -> tuple[str, str]:
     return data["headRefOid"], data["state"]
 
 
+def release_claim(bundle: Path, claims_dir: Path) -> None:
+    """Drop the worker claim so the bundle can be claimed again."""
+    (claims_dir / f"{bundle.name}.claim").unlink(missing_ok=True)
+
+
 def mark_bundle(bundle: Path, outcome: str, claims_dir: Path) -> None:
     (bundle / ".posted").write_text(f"{outcome} {now()}\n")
     ready = bundle / ".ready"
     if ready.exists():
         ready.unlink()
-    # Release the worker claim; claims live in an agent-writable directory.
-    (claims_dir / f"{bundle.name}.claim").unlink(missing_ok=True)
+    release_claim(bundle, claims_dir)
 
 
 def retire_bundle(bundle: Path, target: Path) -> None:
@@ -439,6 +443,7 @@ def main() -> int:
                 print(f"INVALID {path.name}: {'; '.join(errors)}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
+                    release_claim(in_dir / path.stem, claims_dir)
                 continue
             repo, pr, head = review["repo"], review["pr"], review["head"]
             entry = entries.get(repo)
@@ -446,12 +451,14 @@ def main() -> int:
                 print(f"REPO-NOT-CONFIGURED {path.name}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
+                    release_claim(in_dir / path.stem, claims_dir)
                 continue
             bundle = in_dir / path.stem
             if not bundle.exists():
                 print(f"NO-BUNDLE {path.name}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
+                    release_claim(bundle, claims_dir)
                 continue
             token = tokens.token_for(
                 entry, args.app_credential, args.app_token_cache
