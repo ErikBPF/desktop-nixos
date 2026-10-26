@@ -174,6 +174,36 @@ with tempfile.TemporaryDirectory() as tmp:
     assert keep.exists() and busy.exists()
     assert not superseded.exists() and not closed.exists()
 
+    # Cross-PR background is scoped to the same repository, never another one.
+    done = tmp / "review-done"
+    done.mkdir()
+
+    def write_review(name, repo, pr, summary):
+        (done / name).write_text(
+            json.dumps(
+                {
+                    "repo": repo,
+                    "pr": pr,
+                    "head": "a" * 40,
+                    "summary": summary,
+                    "findings": [
+                        {"severity": "P2", "file": "x.rs", "line": 1, "title": "t"}
+                    ],
+                }
+            )
+        )
+
+    write_review("x1.json", "ErikBPF/aster", 1, "aster earlier")
+    write_review("y1.json", "ErikBPF/desktop-nixos", 7, "desktop secret")
+    write_review("x2.json", "ErikBPF/aster", 2, "aster current")
+    ctx = collect.repo_context(tmp, "ErikBPF/aster", 2)
+    assert "aster earlier" in ctx
+    assert "PR #1" in ctx
+    assert "desktop secret" not in ctx
+    assert "PR #2" not in ctx, "the PR under review must not come from history"
+    empty = collect.repo_context(tmp, "ErikBPF/servarr", 1)
+    assert "No earlier published review" in empty
+
     config_path = tmp / "repos.json"
     config_path.write_text(
         json.dumps(

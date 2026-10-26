@@ -162,6 +162,53 @@ def prune_repo_bundles(
     return removed
 
 
+def repo_context(data_dir: Path, repo: str, current_pr: int, keep: int = 10) -> str:
+    """Earlier reviews from this repository and no other.
+
+    Hermes' built-in memory and session_search are container-wide, so they
+    cannot be scoped to a repository. This file is the scoped substitute: the
+    collector builds it from published reviews whose `repo` field matches.
+    """
+    done = data_dir / "review-done"
+    entries = []
+    if done.is_dir():
+        for path in done.glob("*.json"):
+            try:
+                review = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            if review.get("repo") != repo or review.get("pr") == current_pr:
+                continue
+            entries.append((path.stat().st_mtime, review))
+    entries.sort(key=lambda item: item[0], reverse=True)
+
+    lines = [
+        f"# Earlier reviews in {repo}",
+        "",
+        "Background only: other PRs in the same repository. Do not treat them "
+        "as findings about the current diff, and do not infer anything from "
+        "any other repository.",
+        "",
+    ]
+    for _, review in entries[:keep]:
+        summary = str(review.get("summary", "")).strip().replace("\n", " ")[:300]
+        lines.append(
+            f"- PR #{review.get('pr')} ({str(review.get('head', ''))[:12]}): {summary}"
+        )
+        for finding in review.get("findings", [])[:5]:
+            lines.append(
+                "  - {severity} {file}:{line} {title}".format(
+                    severity=finding.get("severity", "?"),
+                    file=finding.get("file", "?"),
+                    line=finding.get("line", "?"),
+                    title=str(finding.get("title", "")).strip(),
+                )
+            )
+    if not entries:
+        lines.append("- No earlier published review for this repository.")
+    return "\n".join(lines) + "\n"
+
+
 def load_state(path: Path) -> dict:
     if not path.exists():
         return {"version": 1, "prs": {}}
@@ -244,6 +291,9 @@ def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path |
         (tmp / "files.txt").write_text(
             "".join(f"{item['path']}\n" for item in files)
         )
+        (tmp / "repo-context.md").write_text(
+            repo_context(Path(args.data_dir), repo, number)
+        )
 
         skills = fetch_skills(repo, base, tmp / "skills", token)
         docs = fetch_docs(repo, base, tmp / "docs", token)
@@ -261,6 +311,7 @@ def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path |
                     f"Docs fetched: {docs}",
                     "",
                     "Use the `cr-pr` skill.",
+                    "Read `repo-context.md` for earlier reviews of this repository only.",
                     f"Write the review JSON to `/opt/data/review-out/{bid}.json`.",
                     "Do not post to GitHub. Do not modify the PR or the bundle.",
                     "",

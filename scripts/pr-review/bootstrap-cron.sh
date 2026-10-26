@@ -45,8 +45,9 @@ For the claimed bundle:
 1. Read /opt/data/review-in/<id>/request.md and meta.json.
 2. Load the base-pinned skills in /opt/data/review-in/<id>/skills/ and route by the changed files.
 3. Read the prior reviews and comments in the bundle. Do not duplicate an open finding.
-4. Write /opt/data/review-out/<id>.json using the exact schema in the cr-pr skill.
-5. Do not post to GitHub, do not modify the PR, and do not read credentials.
+4. Read repo-context.md for earlier reviews in the same repository. It is the only cross-PR background you may use; ignore anything from another repository.
+5. Write /opt/data/review-out/<id>.json using the exact schema in the cr-pr skill.
+6. Do not post to GitHub, do not modify the PR, and do not read credentials.
 Review only that one bundle and finish; other workers own the rest.'
 
 job_id() {
