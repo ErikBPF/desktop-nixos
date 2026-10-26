@@ -15,7 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts/pr-review"
 PUBLISH = SCRIPTS / "publish.py"
-READY = SCRIPTS / "ready.py"
 GATE = SCRIPTS / "apply-gate.py"
 sys.path.insert(0, str(SCRIPTS))
 
@@ -111,27 +110,108 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not errors, errors
     assert "No new P1/P2 findings" in pub.render(parsed, parsed["repo"])
 
+    # Claims live outside the root-owned inbox: the agent must be able to
+    # write them without owning review-in.
     review_in = tmp / "in"
     review_out = tmp / "out"
+    claims = tmp / "claims"
     review_in.mkdir()
     review_out.mkdir()
-    ready_bundle = review_in / "one"
-    ready_bundle.mkdir()
-    env = dict(os.environ, HERMES_REVIEW_IN=str(review_in), HERMES_REVIEW_OUT=str(review_out))
-    denied = subprocess.run(
-        [str(READY)], env=env, text=True, capture_output=True, check=True
-    ).stdout.strip()
-    assert denied == "NO_READY", denied
-    (ready_bundle / ".ready").write_text("now\n")
-    allowed = subprocess.run(
-        [str(READY)], env=env, text=True, capture_output=True, check=True
-    ).stdout.strip()
-    assert allowed == "READY one", allowed
-    (ready_bundle / ".posted").write_text("posted\n")
-    posted = subprocess.run(
-        [str(READY)], env=env, text=True, capture_output=True, check=True
-    ).stdout.strip()
-    assert posted == "NO_READY", posted
+    claim_script = SCRIPTS / "claim.py"
+
+    def claim(*extra):
+        result = subprocess.run(
+            [str(claim_script), "--worker", "w1", *extra],
+            env=dict(
+                os.environ,
+                HERMES_REVIEW_IN=str(review_in),
+                HERMES_REVIEW_OUT=str(review_out),
+                HERMES_REVIEW_CLAIMS=str(claims),
+            ),
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    older = review_in / "older"
+    newer = review_in / "newer"
+    for bundle, mtime in ((older, 1_000_000), (newer, 2_000_000)):
+        bundle.mkdir()
+        os.utime(bundle, (mtime, mtime))
+
+    assert claim() == "NO_CLAIM", "a bundle without .ready is not reviewable"
+    (older / ".ready").write_text("now\n")
+    (newer / ".ready").write_text("now\n")
+    assert claim() == "CLAIM older", "oldest bundle must claim first"
+    assert not (review_in / ".claim.lock").exists(), "lock must not be in review-in"
+    assert (claims / "older.claim").exists(), "claim must be in the claims dir"
+    assert claim() == "CLAIM newer", "a fresh claim must not be stolen"
+    assert claim() == "NO_CLAIM", "each worker gets a distinct bundle"
+
+    (review_out / "older.json").write_text("{}")
+    assert claim() == "NO_CLAIM"
+
+    (review_out / "older.json").unlink()
+    (older / ".ready").unlink()
+    (claims / "newer.claim").unlink()
+    (claims / "newer.claim").write_text("dead worker\n")
+    os.utime(claims / "newer.claim", (0, 0))
+    assert claim("--claim-ttl", "1") == "CLAIM newer"
+    (newer / ".posted").write_text("posted\n")
+    (claims / "newer.claim").unlink()
+    assert claim() == "NO_CLAIM"
+
+    # Publishing releases the claim marker.
+    (claims / "newer.claim").write_text("w1\n")
+    pub.mark_bundle(newer, "posted", claims)
+    assert not (claims / "newer.claim").exists()
+
+    # Superseded and closed-PR bundles are pruned; a fresh claim is preserved.
+    collect = load(SCRIPTS / "collect.py", "pr_review_collect")
+    keep = review_in / "ErikBPF__aster__1__aaaaaaaaaaaa"
+    superseded = review_in / "ErikBPF__aster__1__bbbbbbbbbbbb"
+    closed = review_in / "ErikBPF__aster__2__cccccccccccc"
+    busy = review_in / "ErikBPF__aster__1__dddddddddddd"
+    for bundle in (keep, superseded, closed, busy):
+        bundle.mkdir()
+    (claims / f"{busy.name}.claim").write_text("w2\n")
+    removed = collect.prune_repo_bundles(
+        review_in, claims, "ErikBPF/aster", {1: "a" * 40}, 3600
+    )
+    assert removed == 2, removed
+    assert keep.exists() and busy.exists()
+    assert not superseded.exists() and not closed.exists()
+
+    # Cross-PR background is scoped to the same repository, never another one.
+    done = tmp / "review-done"
+    done.mkdir()
+
+    def write_review(name, repo, pr, summary):
+        (done / name).write_text(
+            json.dumps(
+                {
+                    "repo": repo,
+                    "pr": pr,
+                    "head": "a" * 40,
+                    "summary": summary,
+                    "findings": [
+                        {"severity": "P2", "file": "x.rs", "line": 1, "title": "t"}
+                    ],
+                }
+            )
+        )
+
+    write_review("x1.json", "ErikBPF/aster", 1, "aster earlier")
+    write_review("y1.json", "ErikBPF/desktop-nixos", 7, "desktop secret")
+    write_review("x2.json", "ErikBPF/aster", 2, "aster current")
+    ctx = collect.repo_context(tmp, "ErikBPF/aster", 2)
+    assert "aster earlier" in ctx
+    assert "PR #1" in ctx
+    assert "desktop secret" not in ctx
+    assert "PR #2" not in ctx, "the PR under review must not come from history"
+    empty = collect.repo_context(tmp, "ErikBPF/servarr", 1)
+    assert "No earlier published review" in empty
 
     config_path = tmp / "repos.json"
     config_path.write_text(
@@ -241,5 +321,18 @@ with tempfile.TemporaryDirectory() as tmp:
         ]
         == 0
     )
+
+# Review isolation invariants: a fresh session per run, no cross-PR recall,
+# and no stale pre-parallel job left behind.
+bootstrap = (SCRIPTS / "bootstrap-cron.sh").read_text()
+assert bootstrap.count("--no-continuity") == 2, "create and edit must disable continuity"
+assert "--script pr-review-claim.py" in bootstrap
+assert 'rm -f "$DATA_DIR/scripts/pr-review-ready.py"' in bootstrap
+assert 'if [ -n "$old_id" ]; then' in bootstrap, "legacy job must be retired unconditionally"
+
+agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+assert 'agent.disabled_toolsets = ["memory" "session_search"];' in agents
+assert "memory_enabled = false;" in agents
+assert "user_profile_enabled = false;" in agents
 
 print("pr-review-publish: ok")

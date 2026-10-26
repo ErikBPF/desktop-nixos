@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -386,11 +387,23 @@ def current_head(repo: str, pr: int, token: str) -> tuple[str, str]:
     return data["headRefOid"], data["state"]
 
 
-def mark_bundle(bundle: Path, outcome: str) -> None:
+def mark_bundle(bundle: Path, outcome: str, claims_dir: Path) -> None:
     (bundle / ".posted").write_text(f"{outcome} {now()}\n")
     ready = bundle / ".ready"
     if ready.exists():
         ready.unlink()
+    # Release the worker claim; claims live in an agent-writable directory.
+    (claims_dir / f"{bundle.name}.claim").unlink(missing_ok=True)
+
+
+def retire_bundle(bundle: Path, target: Path) -> None:
+    """Move a finished bundle out of the inbox so it stops looking queued."""
+    if not bundle.exists():
+        return
+    destination = target / bundle.name
+    if destination.exists():
+        shutil.rmtree(destination, ignore_errors=True)
+    shutil.move(str(bundle), str(destination))
 
 
 def main() -> int:
@@ -414,6 +427,7 @@ def main() -> int:
     in_dir = Path(args.data_dir) / "review-in"
     done_dir = Path(args.data_dir) / "review-done"
     stale_dir = Path(args.data_dir) / "review-stale"
+    claims_dir = Path(args.data_dir) / "review-claims"
     for directory in (out_dir, done_dir, stale_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -447,7 +461,8 @@ def main() -> int:
                 print(f"STALE {path.name}: {head} != {live_head}")
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
-                    mark_bundle(bundle, "stale")
+                    mark_bundle(bundle, "stale", claims_dir)
+                    retire_bundle(bundle, stale_dir)
                 continue
             if args.strict_evidence:
                 kept = []
@@ -532,8 +547,10 @@ def main() -> int:
             mark_bundle(
                 bundle,
                 "approved" if not review["findings"] else "changes-requested",
+                claims_dir,
             )
             path.replace(done_dir / path.name)
+            retire_bundle(bundle, done_dir)
             published += 1
             print(
                 f"PUBLISHED {path.name} {url or 'no-comment'} "

@@ -122,6 +122,94 @@ def bundle_id(repo: str, pr: int, head: str) -> str:
     return f"{owner}__{name}__{pr}__{head[:12]}"
 
 
+def prune_repo_bundles(
+    in_dir: Path,
+    claims_dir: Path,
+    repo: str,
+    heads: dict[int, str],
+    claim_ttl: int,
+) -> int:
+    """Drop bundles whose PR closed, or whose head a newer bundle superseded.
+
+    Reviewed heads are already skipped by the collector state; this only cleans
+    the inbox so a long-lived checkout does not accumulate one directory per
+    head it ever saw. A fresh claim is never removed (a worker may be reading).
+    """
+    owner, name = repo.split("/", 1)
+    prefix = f"{owner}__{name}__"
+    removed = 0
+    for bundle in in_dir.iterdir():
+        if not bundle.is_dir() or not bundle.name.startswith(prefix):
+            continue
+        parts = bundle.name.split("__")
+        if len(parts) != 4:
+            continue
+        try:
+            number = int(parts[2])
+        except ValueError:
+            continue
+        current = heads.get(number)
+        keep = current is not None and current.startswith(parts[3])
+        if keep:
+            continue
+        claim = claims_dir / f"{bundle.name}.claim"
+        try:
+            if claim.exists() and time.time() - claim.stat().st_mtime < claim_ttl:
+                continue
+        except FileNotFoundError:
+            pass
+        shutil.rmtree(bundle, ignore_errors=True)
+        removed += 1
+    return removed
+
+
+def repo_context(data_dir: Path, repo: str, current_pr: int, keep: int = 10) -> str:
+    """Earlier reviews from this repository and no other.
+
+    Hermes' built-in memory and session_search are container-wide, so they
+    cannot be scoped to a repository. This file is the scoped substitute: the
+    collector builds it from published reviews whose `repo` field matches.
+    """
+    done = data_dir / "review-done"
+    entries = []
+    if done.is_dir():
+        for path in done.glob("*.json"):
+            try:
+                review = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            if review.get("repo") != repo or review.get("pr") == current_pr:
+                continue
+            entries.append((path.stat().st_mtime, review))
+    entries.sort(key=lambda item: item[0], reverse=True)
+
+    lines = [
+        f"# Earlier reviews in {repo}",
+        "",
+        "Background only: other PRs in the same repository. Do not treat them "
+        "as findings about the current diff, and do not infer anything from "
+        "any other repository.",
+        "",
+    ]
+    for _, review in entries[:keep]:
+        summary = str(review.get("summary", "")).strip().replace("\n", " ")[:300]
+        lines.append(
+            f"- PR #{review.get('pr')} ({str(review.get('head', ''))[:12]}): {summary}"
+        )
+        for finding in review.get("findings", [])[:5]:
+            lines.append(
+                "  - {severity} {file}:{line} {title}".format(
+                    severity=finding.get("severity", "?"),
+                    file=finding.get("file", "?"),
+                    line=finding.get("line", "?"),
+                    title=str(finding.get("title", "")).strip(),
+                )
+            )
+    if not entries:
+        lines.append("- No earlier published review for this repository.")
+    return "\n".join(lines) + "\n"
+
+
 def load_state(path: Path) -> dict:
     if not path.exists():
         return {"version": 1, "prs": {}}
@@ -204,6 +292,9 @@ def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path |
         (tmp / "files.txt").write_text(
             "".join(f"{item['path']}\n" for item in files)
         )
+        (tmp / "repo-context.md").write_text(
+            repo_context(Path(args.data_dir), repo, number)
+        )
 
         skills = fetch_skills(repo, base, tmp / "skills", token)
         docs = fetch_docs(repo, base, tmp / "docs", token)
@@ -221,6 +312,7 @@ def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path |
                     f"Docs fetched: {docs}",
                     "",
                     "Use the `cr-pr` skill.",
+                    "Read `repo-context.md` for earlier reviews of this repository only.",
                     f"Write the review JSON to `/opt/data/review-out/{bid}.json`.",
                     "Do not post to GitHub. Do not modify the PR or the bundle.",
                     "",
@@ -270,6 +362,8 @@ def main() -> int:
     (Path(args.data_dir) / "review-out").mkdir(parents=True, exist_ok=True)
 
     requested = 0
+    pruned = 0
+    in_dir = Path(args.data_dir) / "review-in"
     for entry in config:
         repo = entry["repo"]
         try:
@@ -295,6 +389,15 @@ def main() -> int:
             print(f"ERROR {repo}: {exc}", file=sys.stderr)
             continue
 
+        heads = {item["number"]: item["headRefOid"] for item in prs}
+        pruned += prune_repo_bundles(
+            in_dir,
+            Path(args.data_dir) / "review-claims",
+            repo,
+            heads,
+            args.retry_after_minutes * 60,
+        )
+
         for pr in prs:
             key = f"{repo}#{pr['number']}"
             entry_state = state["prs"].get(key, {})
@@ -319,7 +422,7 @@ def main() -> int:
 
     save_state(state_path, state)
     lock.close()
-    print(f"requested={requested}")
+    print(f"requested={requested} pruned={pruned}")
     return 0
 
 

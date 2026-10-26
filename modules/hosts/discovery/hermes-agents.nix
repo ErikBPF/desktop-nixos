@@ -78,6 +78,8 @@ in {
     # poster owns the bot token; the agent never receives it.
     services.hermes-pr-review = {
       enable = true;
+      # Five workers, each claiming one bundle atomically.
+      parallelism = 5;
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;
@@ -148,6 +150,14 @@ in {
       settings =
         commonSettings
         // {
+          # Review isolation. A review must not see another PR's context:
+          # memory persists across sessions and session_search reads the shared
+          # session DB, so both are contamination channels between reviews.
+          agent.disabled_toolsets = ["memory" "session_search"];
+          memory = {
+            memory_enabled = false;
+            user_profile_enabled = false;
+          };
           skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research" "/opt/skills-development"];
           mcp_servers = {
             docs_search = {
