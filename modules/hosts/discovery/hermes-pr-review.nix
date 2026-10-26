@@ -38,7 +38,7 @@ _: {
     };
     bootstrap = pkgs.writeShellApplication {
       name = "hermes-pr-review-bootstrap";
-      runtimeInputs = [pkgs.docker pkgs.coreutils pkgs.gnugrep pkgs.bash];
+      runtimeInputs = [pkgs.docker pkgs.coreutils pkgs.gnugrep pkgs.gawk pkgs.bash];
       text = ''
         export DATA_DIR=${lib.escapeShellArg cfg.dataDir}
         export CLAIM_SCRIPT=${lib.escapeShellArg "${../../../scripts/pr-review/claim.py}"}
