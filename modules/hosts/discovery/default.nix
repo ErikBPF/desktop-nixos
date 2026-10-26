@@ -62,6 +62,7 @@ in {
       m.nixos.discovery-runtime-health
       m.nixos.discovery-container-health
       m.nixos.pangolin-newt
+      m.nixos.ops-fix
     ];
 
     homelab.alloy = {
@@ -72,6 +73,13 @@ in {
     services.pangolinNewt = {
       enable = true;
       siteName = "home-discovery";
+    };
+
+    # Argus may restart only these containers, once per 30 minutes, through the
+    # ops-fix runner. Everything else stays recommend-only.
+    services.opsFix = {
+      enable = true;
+      containers = {prowlarr = "discovery";};
     };
 
     services.kindleReleaseAgent = {
