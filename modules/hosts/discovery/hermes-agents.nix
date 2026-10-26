@@ -82,9 +82,11 @@ in {
       # dry-run packet is approved.
       allowPublish = true;
       # Personal repos only for now. The App is installed on all ErikBPF
-      # repositories and comments as `hackerman-cr[bot]`. The upstream
-      # credential path remains in the module for public repos outside the
-      # account later.
+      # repositories and reviews every author as `hackerman-cr[bot]`. Public
+      # repos enforce the required check and approval; private repos receive
+      # the same comment, review, and check but cannot enforce on GitHub Free.
+      # The upstream credential path remains in the module for public repos
+      # outside the account later.
       repos = [
         {repo = "ErikBPF/agent-evals";}
         {repo = "ErikBPF/aster";}
