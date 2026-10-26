@@ -342,6 +342,7 @@ assert bootstrap.count("--no-continuity") == 1, "only edit may pass --no-continu
 create_call = bootstrap.split("cron create", 1)[1].split("done", 1)[0]
 assert "--no-continuity" not in create_call
 assert "Retire workers above the configured parallelism" in bootstrap
+assert "refusing to mutate jobs" in bootstrap, "failed cron list must not create workers"
 module = (ROOT / "modules/hosts/discovery/hermes-pr-review.nix").read_text()
 assert "pkgs.gawk" in module, "bootstrap parses cron list with awk; it must ship"
 assert 'max="$PARALLELISM"' in bootstrap

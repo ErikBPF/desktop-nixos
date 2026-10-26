@@ -26,13 +26,21 @@ done
 list_file="$(mktemp)"
 trap 'rm -f "$list_file"' EXIT
 
+listed=0
 for _ in $(seq 1 60); do
   if docker exec -u "$AGENT_UID:$AGENT_GID" -e HOME=/opt/data "$HERMES_CONTAINER" "$HERMES_CLI" cron list --all \
     >"$list_file" 2>/dev/null; then
+    listed=1
     break
   fi
   sleep 2
 done
+if [ "$listed" -ne 1 ]; then
+  # An unreadable job store looks exactly like "no jobs", which would create a
+  # fresh worker set on every timer tick. Refuse to mutate anything.
+  echo "hermes-pr-review-bootstrap: cron list did not succeed; refusing to mutate jobs" >&2
+  exit 1
+fi
 
 if ! docker exec -u "$AGENT_UID:$AGENT_GID" "$HERMES_CONTAINER" \
   test -r /opt/skills-development/cr-pr/SKILL.md; then
