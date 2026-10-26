@@ -29,6 +29,7 @@ from alert text. Those stay T2 (human) or T3 (never) per the one-pager.
 | Control | Where |
 |---|---|
 | Action enum | plugin schema (`ops_fix`) |
+| Platform scope | `known_plugin_toolsets` keeps it off webhook/telegram |
 | Target allowlist | `/etc/ops-fix/allowlist.json` from Nix |
 | Rate limit | runner state, 1800 s per target |
 | Audit | `/var/lib/ops-fix/audit.jsonl` |
