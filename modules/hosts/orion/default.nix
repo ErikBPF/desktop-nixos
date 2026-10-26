@@ -194,18 +194,22 @@ in {
     # retention invariants must not be re-tuned at runtime during inference.
     services.bpftune.enable = lib.mkForce false;
 
-    # Bound cache warming after allocator corruption under parallel QEMU builds.
-    # The 2026-10-25 run was killed at the previous 89 min ceiling (27.7 G peak)
-    # before it finished the 8 closures; keep a ceiling, but leave room for a
-    # full-rebuild day.
+    # Cache warming is the only sustained multi-hour build on an inference host.
+    # History: 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the 179 min
+    # ceiling killed the 2026-10-26 run at exactly 05:59. A full 8-closure rebuild
+    # therefore needs both a longer window and more concurrency.
+    # Trade-off: the old max-jobs=2/cores=2 guard followed allocator corruption
+    # under parallel QEMU builds. Four single-core jobs keep the same 4-thread CPU
+    # budget while leaving per-job memory lower; the ceiling is the rollback knob
+    # (revert to 2/2 and 179min if the allocator or OOM regression returns).
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
-        max-jobs = 2
-        cores = 2
+        max-jobs = 4
+        cores = 1
       '';
       serviceConfig = {
         CPUQuota = "400%";
-        TimeoutStartSec = "179min";
+        TimeoutStartSec = "359min";
         TimeoutStopSec = "1min";
         KillMode = "control-group";
         SendSIGKILL = true;
