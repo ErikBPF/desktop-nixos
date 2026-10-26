@@ -141,6 +141,9 @@ in {
       ociSshPubKeyFile = "/home/${flakeConfig.username}/telstar-ssh-key.pub";
       ociConsoleSshPubKeyFile = "${./oci-console-rsa.pub}";
       litellmContainer = "litellm";
+      # Merged main is planned and applied by a 5-minute poll; a plan with
+      # destroys or a tailscale/acl diff is refused and alerted instead.
+      applyMergedMain = true;
     };
 
     # Rollback guard: docker runs the compose stacks, libvirtd runs HAOS.

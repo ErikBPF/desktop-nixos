@@ -61,7 +61,45 @@ def test_drift_path_keeps_git_for_terragrunt_repo_root():
         Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
     ).read_text()
 
-    assert "\n          git\n" in module
+    assert re.search(r"\n\s+git\n", module)
+
+
+def test_merged_main_apply_is_opt_in_and_evaluates_the_merged_revision():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    assert "applyMergedMain = lib.mkEnableOption" in module
+    assert "OnUnitActiveSec = cfg.mainPollInterval;" in module
+
+    service = module.split("systemd.services.homelab-iac-main-apply", 1)[1]
+    assert "https://github.com/ErikBPF/homelab-iac" in service
+    assert "bin/iac-apply.sh" in service
+    assert "applied-sha" in service
+    assert "refused-sha" in service
+
+
+def test_merged_main_apply_is_guarded_and_has_no_remote_trigger():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    service = module.split("systemd.services.homelab-iac-main-apply", 1)[1].split(
+        "systemd.timers.homelab-iac-main-apply", 1
+    )[0]
+    assert "systemctl start" not in service
+    assert "curl" not in service.split("serviceConfig", 1)[1]
+    assert 'conflicts = ["homelab-iac-drift.service"];' in module
+    assert 'default = ["tailscale/acl"];' in module
+    assert "IAC_APPLY_DENYLIST" in module
+
+
+def test_discovery_enables_the_merged_main_apply():
+    host = (
+        Path(__file__).parents[2] / "modules/hosts/discovery/default.nix"
+    ).read_text()
+
+    assert "applyMergedMain = true;" in host
 
 
 def test_github_provider_token_is_resolved_from_openbao():
