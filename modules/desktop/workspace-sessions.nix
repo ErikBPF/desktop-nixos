@@ -75,47 +75,162 @@ in {
     stateRoot = project: "${config.xdg.stateHome}/opencode-v2-backends/${project.name}";
     passwordFile = project: "${stateRoot project}/server-password";
     legacyHomelabDatabase = "${config.xdg.dataHome}/opencode/opencode-homelab.db";
-    backends =
-      map (workspace: let
-        project =
-          workspace
-          // (
-            if workspace.name == "homelab"
-            then {
-              port = 4096;
-              provider = "litellm";
-              keyFile = "litellm_key";
-              keyVariable = "OPENCODE_LITELLM_KEY";
+    base = config.programs.opencode.settings;
+    # Three-level agent framework: L1 plans, L2 coordinates a slice, L3 executes.
+    # Backend profiles replace the plain build agent with this hierarchy.
+    threeLevelPlugin = ../dev/opencode-plugins-v2/three-level;
+    planning = [
+      {
+        action = "edit";
+        resource = "*";
+        effect = "deny";
+      }
+      {
+        action = "edit";
+        resource = "docs/*";
+        effect = "ask";
+      }
+    ];
+    protected = builtins.filter (rule: rule.effect == "deny") base.permissions;
+    mkProfile = project: let
+      model = "${project.provider}/deepseek-v4.1-flash";
+      # Work's OpenRouter route rejects reasoning_effort and exposes no variants.
+      variant = name:
+        if project.variants
+        then "#${name}"
+        else "";
+      agents = {
+        pilot-l1 = {
+          mode = "primary";
+          model = "${model}${variant "max"}";
+          description = "L1 orchestrator: program plan, independent slice coordinators and resources.";
+          system = ''
+            You are L1, the program orchestrator. Keep the main plan, resource budgets,
+            dependencies and final status. Use dispatch_slice to assign concrete slices
+            to independent L2 sessions. Supply scope, acceptance criteria, relevant
+            paths, resource limits and the expected report location. Independent slices
+            may run concurrently; do not assign overlapping writers.
+            Completion notices return to you while this instance runs. After restarting,
+            inspect previously returned session IDs with slice_status before redispatching.
+            Delegate implementation. Read the project's env_config.yaml and compute
+            inventory when present. Hardware totals are not available resource grants.
+            Use the repository's coordination templates. Summarize accepted outcomes,
+            verification, unresolved decisions and blockers; never manufacture evidence.
+          '';
+          permissions =
+            planning
+            ++ [
+              {
+                action = "shell";
+                resource = "*";
+                effect = "deny";
+              }
+              {
+                action = "subagent";
+                resource = "*";
+                effect = "deny";
+              }
+              {
+                action = "dispatch_slice";
+                resource = "*";
+                effect = "allow";
+              }
+              {
+                action = "slice_status";
+                resource = "*";
+                effect = "allow";
+              }
+            ]
+            ++ protected;
+        };
+        pilot-l2 = {
+          mode = "primary";
+          model = "${model}${variant "high"}";
+          description = "L2 slice coordinator: PL/IP/RV, task acceptance and delegated execution.";
+          system = ''
+            You are L2, an independent slice coordinator. Own the /pl -> /ip -> /rv
+            workflow and canonical task ledger. Read source and run verification as
+            needed, but delegate implementation to native subagent pilot-l3.
+            Define dependencies and parallel tasks before dispatch. Include paths,
+            concrete acceptance criteria and resource limits in every handover.
+            Accept exact result revisions before dependent work. After rejection,
+            dispatch a fresh fixer; obtain a fresh pilot-l3 whole-slice review before
+            final acceptance. Keep the slice one-pager current. Your final report must
+            state outcome, changed files, verification evidence, decisions, remaining
+            work and blockers. A tool returning is not proof of accepted work.
+          '';
+          permissions =
+            planning
+            ++ [
+              {
+                action = "subagent";
+                resource = "*";
+                effect = "deny";
+              }
+              {
+                action = "subagent";
+                resource = "pilot-l3";
+                effect = "allow";
+              }
+              {
+                action = "dispatch_slice";
+                resource = "*";
+                effect = "deny";
+              }
+              {
+                action = "slice_status";
+                resource = "*";
+                effect = "deny";
+              }
+            ]
+            ++ protected;
+        };
+        pilot-l3 = {
+          mode = "subagent";
+          model = "${model}${variant "high"}";
+          description = "L3 task executor or fresh reviewer; reports to its slice coordinator.";
+          system = ''
+            Execute only your assigned task and paths. Follow repository instructions
+            and its verification recipes. For review assignments, inspect the complete
+            slice and downstream effects without editing implementation. Report exact
+            changed files, commands/results, assumptions and blockers to L2. Never
+            claim a test or deployment ran without evidence. Do not create more agents
+            or allocate remote compute beyond the grant in your handover.
+          '';
+          permissions = [
+            {
+              action = "subagent";
+              resource = "*";
+              effect = "deny";
             }
-            else {
-              port = 4097;
-              provider = "work";
-              keyFile = "work_key";
-              keyVariable = "OPENCODE_WORK_KEY";
+            {
+              action = "dispatch_slice";
+              resource = "*";
+              effect = "deny";
             }
-          );
-      in {
-        inherit project;
-        package = pkgs.writeShellApplication {
-          name = "opencode-backend-${project.name}";
-          runtimeInputs = [pkgs.coreutils];
-          text = ''
-            umask 077
-            mkdir -p ${lib.escapeShellArg (stateRoot project)}
-            if [[ ! -s ${lib.escapeShellArg (passwordFile project)} ]]; then
-              ${pkgs.openssl}/bin/openssl rand -hex 32 > ${lib.escapeShellArg "${passwordFile project}.tmp"}
-              mv ${lib.escapeShellArg "${passwordFile project}.tmp"} ${lib.escapeShellArg (passwordFile project)}
-            fi
-            OPENCODE_PASSWORD="$(<${lib.escapeShellArg (passwordFile project)})"
-            export OPENCODE_PASSWORD
-            unset OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT
-            unset OPENCODE_LITELLM_KEY OPENCODE_WORK_KEY
-            export OPENCODE_CONFIG_DIR=${lib.escapeShellArg "${config.xdg.configHome}/opencode"}
-            export OPENCODE_CONFIG_CONTENT=${lib.escapeShellArg (builtins.toJSON {
-              model = "${project.provider}/deepseek-v4.1-flash";
-              small_model = "${project.provider}/deepseek-v4.1-flash";
-              default_agent = "build";
-              experimental.policies = [
+            {
+              action = "slice_status";
+              resource = "*";
+              effect = "deny";
+            }
+          ];
+        };
+      };
+    in
+      builtins.removeAttrs base ["agent" "agents" "default_agent" "model" "small_model"]
+      // {
+        model = model;
+        small_model = model;
+        default_agent = "pilot-l1";
+        inherit agents;
+        plugins = base.plugins ++ ["file://${threeLevelPlugin}"];
+        skills = ["${config.home.homeDirectory}/.agents/skills"];
+        experimental =
+          base.experimental
+          // {
+            policies =
+              builtins.filter (rule: rule.action != "provider.use") base.experimental.policies
+              ++ [
                 {
                   action = "provider.use";
                   resource = "*";
@@ -137,7 +252,58 @@ in {
                   effect = "allow";
                 }
               ];
-            })}
+          };
+      };
+    routedProjects =
+      map (workspace:
+        workspace
+        // (
+          if workspace.name == "homelab"
+          then {
+            port = 4096;
+            provider = "litellm";
+            keyFile = "litellm_key";
+            keyVariable = "OPENCODE_LITELLM_KEY";
+            variants = true;
+          }
+          else {
+            port = 4097;
+            provider = "work";
+            keyFile = "work_key";
+            keyVariable = "OPENCODE_WORK_KEY";
+            variants = false;
+          }
+        ))
+      projects;
+    profiles =
+      builtins.listToAttrs (map (project: {
+          name = project.name;
+          value = mkProfile project;
+        })
+        routedProjects);
+    profileFile = project:
+      pkgs.writeText "opencode-three-level-${project.name}.json"
+      (builtins.toJSON profiles.${project.name});
+    backends =
+      map (project: {
+        inherit project;
+        package = pkgs.writeShellApplication {
+          name = "opencode-backend-${project.name}";
+          runtimeInputs = [pkgs.coreutils];
+          text = ''
+            umask 077
+            mkdir -p ${lib.escapeShellArg (stateRoot project)}
+            if [[ ! -s ${lib.escapeShellArg (passwordFile project)} ]]; then
+              ${pkgs.openssl}/bin/openssl rand -hex 32 > ${lib.escapeShellArg "${passwordFile project}.tmp"}
+              mv ${lib.escapeShellArg "${passwordFile project}.tmp"} ${lib.escapeShellArg (passwordFile project)}
+            fi
+            OPENCODE_PASSWORD="$(<${lib.escapeShellArg (passwordFile project)})"
+            export OPENCODE_PASSWORD
+            unset OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT
+            unset OPENCODE_LITELLM_KEY OPENCODE_WORK_KEY
+            export OPENCODE_CONFIG_DIR=${lib.escapeShellArg "${config.xdg.configHome}/opencode"}
+            export OPENCODE_CONFIG=${lib.escapeShellArg (profileFile project)}
+            export OPENCODE_THREE_LEVEL_L2_MODEL=${lib.escapeShellArg profiles.${project.name}.agents.pilot-l2.model}
             if [[ -r /run/secrets/opencode/${project.keyFile} ]]; then
               ${project.keyVariable}="$(</run/secrets/opencode/${project.keyFile})"
               export ${project.keyVariable}
@@ -146,7 +312,7 @@ in {
           '';
         };
       })
-      projects;
+      routedProjects;
     inherit (lib.generators) mkLuaInline;
     retireLegacyRtk = pkgs.writeShellScript "retire-legacy-opencode-rtk" ''
       set -euo pipefail
@@ -168,7 +334,15 @@ in {
       ${pkgs.coreutils}/bin/unlink -- "$legacy"
     '';
   in {
-    # Permission-only repair: never create, open, or import the preserved V1 DB.
+    # Inspectable projection of the generated backend profiles (tests and ops).
+    options.programs.opencode-backends.profiles = lib.mkOption {
+      type = lib.types.attrsOf lib.types.raw;
+      default = {};
+      description = "Generated three-level OpenCode profiles per workspace backend.";
+    };
+    config = {
+      programs.opencode-backends.profiles = profiles;
+      # Permission-only repair: never create, open, or import the preserved V1 DB.
     home.activation.protectLegacyOpencodeHomelab = lib.hm.dag.entryAfter ["writeBoundary"] ''
       if [[ -f ${lib.escapeShellArg legacyHomelabDatabase} ]]; then
         run ${pkgs.coreutils}/bin/chmod 0600 -- ${lib.escapeShellArg legacyHomelabDatabase}
@@ -353,6 +527,7 @@ in {
           ];
         }
       ];
+    };
     };
   };
 }
