@@ -25,6 +25,7 @@
       openssh
       docker
       openbao
+      util-linux
       gnugrep
       gnused
       coreutils
@@ -180,8 +181,8 @@
             TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
             SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
             # Without a shared plugin cache, `run --all` re-downloads every
-            # provider (4 × tens of MB) for all 9 units on every scheduled run.
-            TF_PLUGIN_CACHE_DIR = "/var/lib/homelab-iac-drift/plugin-cache";
+            # provider for all units on every run. The cache directory is a
+            # systemd CacheDirectory in ExecStart, shared with the apply unit.
           }
           // lib.optionalAttrs (cfg.ociSshPubKeyFile != "") {
             OCI_SSH_PUBKEY_FILE = cfg.ociSshPubKeyFile;
@@ -196,6 +197,7 @@
           User = cfg.user;
           StateDirectory = "homelab-iac-drift";
           StateDirectoryMode = "0700";
+          CacheDirectory = "homelab-iac-tf-plugin-cache";
           WorkingDirectory = "/var/lib/homelab-iac-drift";
           # Load the repo's secrets into the environment, then plan all units.
           # `sops exec-env` can't be used: it has no --input-type flag and
@@ -207,10 +209,13 @@
             rm -rf "$STATE_DIRECTORY/source"
             cp -R --no-preserve=mode ${inputs.homelab-iac} "$STATE_DIRECTORY/source"
             git -c init.defaultBranch=main init --quiet "$STATE_DIRECTORY/source"
+            export TF_PLUGIN_CACHE_DIR="$CACHE_DIRECTORY"
             mkdir -p "$TF_PLUGIN_CACHE_DIR"
             cd "$STATE_DIRECTORY/source"
             ${providerEnv}
-            exec bash bin/drift-check.sh
+            # Serialize with the apply poller instead of killing it: both take
+            # this lock, so an apply waits for an in-flight plan.
+            exec flock -w 900 "$CACHE_DIRECTORY/run.lock" bash bin/drift-check.sh
           '';
         };
       };
@@ -236,8 +241,6 @@
           "vault-agent.service"
         ];
         wants = ["network-online.target"];
-        # A plan and an apply must not contend for the same remote state locks.
-        conflicts = ["homelab-iac-drift.service"];
 
         path = unitPath;
 
@@ -245,7 +248,6 @@
           {
             TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
             SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
-            TF_PLUGIN_CACHE_DIR = "/var/lib/homelab-iac-drift/plugin-cache";
             IAC_APPLY_DENYLIST = lib.concatStringsSep " " cfg.applyDenylist;
           }
           // lib.optionalAttrs (cfg.ociSshPubKeyFile != "") {
@@ -260,6 +262,7 @@
           User = cfg.user;
           StateDirectory = "homelab-iac-main-apply";
           StateDirectoryMode = "0700";
+          CacheDirectory = "homelab-iac-tf-plugin-cache";
           WorkingDirectory = "/var/lib/homelab-iac-main-apply";
           ExecStart = pkgs.writeShellScript "homelab-iac-main-apply" ''
             set -euo pipefail
@@ -272,23 +275,28 @@
             fi
             cd "$repo"
             sha="$(git rev-parse HEAD)"
-            # One evaluation per merged revision. A refusal is recorded too, so
-            # a rejected plan does not re-alert every poll; delete
-            # $STATE_DIRECTORY/refused-sha after applying it by hand.
-            for marker in applied-sha refused-sha; do
+            # One evaluation per merged revision. A refusal or failure is
+            # recorded too, so a bad revision does not re-alert every poll;
+            # delete $STATE_DIRECTORY/{refused,failed}-sha to retry by hand.
+            for marker in applied-sha refused-sha failed-sha; do
               if [ "$sha" = "$(cat "$STATE_DIRECTORY/$marker" 2>/dev/null || true)" ]; then
                 echo "homelab-iac apply: $sha already handled ($marker)"
                 exit 0
               fi
             done
+            export TF_PLUGIN_CACHE_DIR="$CACHE_DIRECTORY"
             mkdir -p "$TF_PLUGIN_CACHE_DIR"
             ${providerEnv}
             rc=0
-            bash bin/iac-apply.sh || rc=$?
+            # Same lock as the daily plan: wait for it instead of killing it.
+            flock -w 900 "$CACHE_DIRECTORY/run.lock" bash bin/iac-apply.sh || rc=$?
             case "$rc" in
               0) printf '%s' "$sha" > "$STATE_DIRECTORY/applied-sha" ;;
               3) printf '%s' "$sha" > "$STATE_DIRECTORY/refused-sha" ;;
-              *) exit "$rc" ;;
+              *)
+                printf '%s' "$sha" > "$STATE_DIRECTORY/failed-sha"
+                exit "$rc"
+                ;;
             esac
           '';
         };

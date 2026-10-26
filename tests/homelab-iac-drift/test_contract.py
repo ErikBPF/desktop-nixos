@@ -89,7 +89,11 @@ def test_merged_main_apply_is_guarded_and_has_no_remote_trigger():
     )[0]
     assert "systemctl start" not in service
     assert "curl" not in service.split("serviceConfig", 1)[1]
-    assert 'conflicts = ["homelab-iac-drift.service"];' in module
+    assert 'CacheDirectory = "homelab-iac-tf-plugin-cache";' in service
+    assert 'flock -w 900 "$CACHE_DIRECTORY/run.lock"' in service
+    assert "failed-sha" in service
+    assert "conflicts" not in service
+    assert 'TF_PLUGIN_CACHE_DIR = "/var/lib/homelab-iac-drift/plugin-cache"' not in module
     assert 'default = ["tailscale/acl"];' in module
     assert "IAC_APPLY_DENYLIST" in module
 
