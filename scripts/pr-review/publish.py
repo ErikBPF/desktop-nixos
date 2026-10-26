@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Publish Hermes cr-pr review bundles as one bot comment per PR.
+"""Publish Hermes cr-pr review bundles as a gate check, a review, and a comment.
 
 The posting credential lives only in this host process. Hackerman writes JSON
-and never sees it. Posting is an issue comment, never an approval or a
-request-changes review.
+and never sees it. A clean packet submits APPROVE and a successful check run; a
+packet with findings submits REQUEST_CHANGES and a failing check run.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ import tokens
 
 GH = "gh"
 MARKER = "<!-- hermes-pr-review:"
+CHECK_NAME = "hackerman-cr/evaluation"
 MAX_FINDINGS = 5
 MAX_BODY = 60_000
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -40,6 +41,30 @@ def gh_json(args: list[str], token: str) -> object:
             f"gh {' '.join(args)} failed ({proc.returncode}): {proc.stderr.strip()}"
         )
     return json.loads(proc.stdout)
+
+
+def gh_api(method: str, endpoint: str, token: str, payload: dict) -> object:
+    proc = subprocess.run(
+        [GH, "api", "--method", method, endpoint, "--input", "-"],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=tokens.gh_env(token),
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"gh api {method} {endpoint} failed ({proc.returncode}): "
+            f"{proc.stderr.strip()}"
+        )
+    return json.loads(proc.stdout)
+
+
+def verdict(findings: list[dict]) -> str:
+    return "failure" if findings else "success"
+
+
+def review_event(findings: list[dict]) -> str:
+    return "REQUEST_CHANGES" if findings else "APPROVE"
 
 
 def clean(value: object, limit: int = 4000) -> str:
@@ -201,7 +226,8 @@ def render(review: dict, repo: str, limit: int = MAX_FINDINGS) -> str:
         [
             "",
             "<sub>Automated review. Findings are candidates for human confirmation. "
-            "This bot does not approve or request changes.</sub>",
+            "Hackerman approves only when it found no P1/P2 issues; it does not "
+            "replace human review of design or intent.</sub>",
             f"{MARKER}{head}:{digest} -->",
         ]
     )
@@ -271,6 +297,86 @@ def upsert_comment(
         env=tokens.gh_env(token),
     )
     return json.loads(proc.stdout).get("html_url", "POSTED")
+
+
+def publish_check(
+    repo: str,
+    head: str,
+    findings: list[dict],
+    token: str,
+    dry_run: bool,
+) -> str:
+    conclusion = verdict(findings)
+    short = head[:7]
+    if findings:
+        title = f"{len(findings)} P1/P2 finding(s)"
+        summary = (
+            f"Hackerman requested changes at `{short}`. "
+            "See the review comment for evidence and required action."
+        )
+    else:
+        title = "No P1/P2 findings"
+        summary = f"Hackerman found no P1/P2 issues at `{short}`."
+    payload = {
+        "name": CHECK_NAME,
+        "status": "completed",
+        "conclusion": conclusion,
+        "output": {"title": title, "summary": summary},
+    }
+    if dry_run:
+        print(f"CHECK {repo}@{short} {conclusion} {title}")
+        return "DRY-RUN"
+    query = f"repos/{repo}/commits/{head}/check-runs?check_name={CHECK_NAME}&per_page=100"
+    runs = gh_json(["api", query], token).get("check_runs", [])
+    existing = next((run for run in runs if run.get("name") == CHECK_NAME), None)
+    if existing and existing.get("conclusion") == conclusion:
+        return "UNCHANGED"
+    if existing:
+        gh_api("PATCH", f"repos/{repo}/check-runs/{existing['id']}", token, payload)
+        return "UPDATED"
+    payload["head_sha"] = head
+    gh_api("POST", f"repos/{repo}/check-runs", token, payload)
+    return "CREATED"
+
+
+def publish_review(
+    repo: str,
+    pr: int,
+    head: str,
+    findings: list[dict],
+    bot_login: str,
+    token: str,
+    dry_run: bool,
+) -> str:
+    event = review_event(findings)
+    wanted = "APPROVED" if event == "APPROVE" else "CHANGES_REQUESTED"
+    short = head[:7]
+    if findings:
+        body = (
+            f"Automated review at `{short}`: {len(findings)} P1/P2 finding(s). "
+            "See the review comment for evidence and required action."
+        )
+    else:
+        body = f"Automated review at `{short}`: no P1/P2 findings."
+    body += "\n\n<!-- hermes-pr-review-gate -->"
+    if dry_run:
+        print(f"REVIEW {repo}#{pr}@{short} {event}")
+        return "DRY-RUN"
+    reviews = gh_json(["api", f"repos/{repo}/pulls/{pr}/reviews?per_page=100"], token)
+    for review in reviews:
+        if (
+            review.get("user", {}).get("login") == bot_login
+            and review.get("commit_id") == head
+            and review.get("state") == wanted
+        ):
+            return "UNCHANGED"
+    gh_api(
+        "POST",
+        f"repos/{repo}/pulls/{pr}/reviews",
+        token,
+        {"commit_id": head, "event": event, "body": body},
+    )
+    return "POSTED"
 
 
 def current_head(repo: str, pr: int, token: str) -> tuple[str, str]:
@@ -355,33 +461,84 @@ def main() -> int:
                         )
                 review["findings"] = kept
             if not review["findings"] and not args.post_empty:
-                if not args.dry_run:
-                    mark_bundle(bundle, "no-findings")
-                    path.replace(done_dir / path.name)
-                print(f"NO-FINDINGS {path.name}")
-                continue
-            body = render(review, repo)
-            url = upsert_comment(
-                repo,
-                pr,
-                body,
-                entry["bot_login"],
-                token,
-                args.dry_run,
-            )
+                if args.dry_run:
+                    body = None
+                    url = None
+                else:
+                    existing = find_comment(
+                        repo, pr, entry["bot_login"], token
+                    )
+                    if existing:
+                        body = render(review, repo)
+                        url = upsert_comment(
+                            repo,
+                            pr,
+                            body,
+                            entry["bot_login"],
+                            token,
+                            False,
+                        )
+                    else:
+                        body = None
+                        url = None
+            else:
+                body = render(review, repo)
+                url = upsert_comment(
+                    repo,
+                    pr,
+                    body,
+                    entry["bot_login"],
+                    token,
+                    args.dry_run,
+                )
             if args.dry_run:
+                publish_review(
+                    repo,
+                    pr,
+                    head,
+                    review["findings"],
+                    entry["bot_login"],
+                    token,
+                    True,
+                )
+                publish_check(repo, head, review["findings"], token, True)
                 published += 1
                 continue
+            review_outcome = publish_review(
+                repo,
+                pr,
+                head,
+                review["findings"],
+                entry["bot_login"],
+                token,
+                False,
+            )
+            check_outcome = publish_check(
+                repo, head, review["findings"], token, False
+            )
             key = f"{repo}#{pr}"
             entry_state = state["prs"].get(key, {})
             entry_state.update(
-                {"posted_head": head, "posted_at": now(), "url": url}
+                {
+                    "posted_head": head,
+                    "posted_at": now(),
+                    "url": url,
+                    "verdict": verdict(review["findings"]),
+                    "review": review_outcome,
+                    "check": check_outcome,
+                }
             )
             state["prs"][key] = entry_state
-            mark_bundle(bundle, "posted")
+            mark_bundle(
+                bundle,
+                "approved" if not review["findings"] else "changes-requested",
+            )
             path.replace(done_dir / path.name)
             published += 1
-            print(f"PUBLISHED {path.name} {url}")
+            print(
+                f"PUBLISHED {path.name} {url or 'no-comment'} "
+                f"{entry_state['verdict']} {review_outcome}/{check_outcome}"
+            )
         except Exception as exc:
             print(f"ERROR {path.name}: {exc}", file=sys.stderr)
 

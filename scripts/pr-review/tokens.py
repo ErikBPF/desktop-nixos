@@ -36,7 +36,6 @@ def load_config(path: str) -> list[dict]:
         if repo in seen:
             raise ValueError(f"duplicate repo: {repo}")
         seen.add(repo)
-        entry.setdefault("author", "ErikBPF")
         entry.setdefault("credential", "app")
         if entry["credential"] not in ("app", "upstream"):
             raise ValueError(f"{repo}: credential must be app or upstream")

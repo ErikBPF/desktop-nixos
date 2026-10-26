@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts/pr-review"
 PUBLISH = SCRIPTS / "publish.py"
 READY = SCRIPTS / "ready.py"
+GATE = SCRIPTS / "apply-gate.py"
 sys.path.insert(0, str(SCRIPTS))
 
 import tokens  # noqa: E402
@@ -29,6 +30,7 @@ def load(path: Path, name: str):
 
 
 pub = load(PUBLISH, "pr_review_publish")
+gate = load(GATE, "pr_review_gate")
 
 
 def review(**overrides):
@@ -85,7 +87,11 @@ with tempfile.TemporaryDirectory() as tmp:
     assert "### P1" in body and body.index("### P1") < body.index("### P2")
     assert "let value = 1;" in body
     assert f"{pub.MARKER}{'a' * 40}:" in body
-    assert "does not approve or request changes" in body
+    assert "approves only when it found no P1/P2" in body
+    assert pub.verdict(parsed["findings"]) == "failure"
+    assert pub.review_event(parsed["findings"]) == "REQUEST_CHANGES"
+    assert pub.verdict([]) == "success"
+    assert pub.review_event([]) == "APPROVE"
 
     _, errors = pub.validate(review(findings=[
         dict(review()["findings"][0], severity="P3")
@@ -142,7 +148,7 @@ with tempfile.TemporaryDirectory() as tmp:
     )
     entries = tokens.load_config(str(config_path))
     assert entries[0]["credential"] == "app"
-    assert entries[0]["author"] == "ErikBPF"
+    assert "author" not in entries[0]
 
     os.environ["GH_REVIEW_UPSTREAM_TOKEN"] = "test-token"
     assert (
@@ -159,5 +165,81 @@ with tempfile.TemporaryDirectory() as tmp:
         pass
     else:
         raise AssertionError("missing bot_login must be rejected")
+
+    # Gate publishing: verdict drives the check run and the review.
+    head = "c" * 40
+    captured = []
+    pub.gh_json = lambda args, token: (
+        {"check_runs": [{"id": 9, "name": pub.CHECK_NAME, "conclusion": "success"}]}
+        if "check-runs" in args[1]
+        else []
+    )
+    pub.gh_api = lambda method, endpoint, token, payload: captured.append(
+        (method, endpoint, payload)
+    ) or {}
+    assert pub.publish_check("ErikBPF/aster", head, [], "token", False) == "UNCHANGED"
+    assert (
+        pub.publish_check(
+            "ErikBPF/aster", head, review()["findings"][:1], "token", False
+        )
+        == "UPDATED"
+    )
+    assert captured[-1][0] == "PATCH"
+    assert captured[-1][2]["conclusion"] == "failure"
+
+    captured.clear()
+    assert (
+        pub.publish_review(
+            "ErikBPF/aster", 1, head, [], "hackerman-cr[bot]", "token", False
+        )
+        == "POSTED"
+    )
+    assert captured[0][2]["event"] == "APPROVE"
+    assert captured[0][2]["commit_id"] == head
+
+    captured.clear()
+    assert (
+        pub.publish_review(
+            "ErikBPF/aster",
+            1,
+            head,
+            review()["findings"][:1],
+            "hackerman-cr[bot]",
+            "token",
+            False,
+        )
+        == "POSTED"
+    )
+    assert captured[0][2]["event"] == "REQUEST_CHANGES"
+
+    captured.clear()
+    pub.gh_json = lambda args, token: [
+        {"user": {"login": "hackerman-cr[bot]"}, "commit_id": head, "state": "APPROVED"}
+    ]
+    assert (
+        pub.publish_review(
+            "ErikBPF/aster", 1, head, [], "hackerman-cr[bot]", "token", False
+        )
+        == "UNCHANGED"
+    )
+    assert not captured
+
+    pub.gh_json = lambda args, token: {"check_runs": []}
+    assert pub.publish_check("ErikBPF/aster", head, [], "token", False) == "CREATED"
+    assert captured[-1][2]["head_sha"] == head
+    assert captured[-1][2]["name"] == pub.CHECK_NAME
+
+    payload = gate.ruleset_payload(1)
+    checks = payload["rules"][1]["parameters"]["required_status_checks"]
+    assert checks[0]["context"] == "hackerman-cr/evaluation"
+    assert checks[0]["integration_id"] == 5434668
+    assert payload["rules"][0]["parameters"]["required_approving_review_count"] == 1
+    assert payload["bypass_actors"] == []
+    assert (
+        gate.ruleset_payload(0)["rules"][0]["parameters"][
+            "required_approving_review_count"
+        ]
+        == 0
+    )
 
 print("pr-review-publish: ok")
