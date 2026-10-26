@@ -38,16 +38,17 @@ _: {
     };
     bootstrap = pkgs.writeShellApplication {
       name = "hermes-pr-review-bootstrap";
-      runtimeInputs = [pkgs.docker pkgs.coreutils pkgs.gnugrep pkgs.bash];
+      runtimeInputs = [pkgs.docker pkgs.coreutils pkgs.gnugrep pkgs.gawk pkgs.bash];
       text = ''
         export DATA_DIR=${lib.escapeShellArg cfg.dataDir}
-        export READY_SCRIPT=${lib.escapeShellArg "${../../../scripts/pr-review/ready.py}"}
+        export CLAIM_SCRIPT=${lib.escapeShellArg "${../../../scripts/pr-review/claim.py}"}
         export HERMES_CONTAINER=${lib.escapeShellArg cfg.containerName}
         export HERMES_CLI=${lib.escapeShellArg cfg.hermesCli}
         export AGENT_UID=${toString cfg.agentUid}
         export AGENT_GID=${toString cfg.agentGid}
         export JOB_NAME=${lib.escapeShellArg cfg.jobName}
         export SCHEDULE=${lib.escapeShellArg cfg.schedule}
+        export PARALLELISM=${toString cfg.parallelism}
         exec ${pkgs.bash}/bin/bash ${../../../scripts/pr-review/bootstrap-cron.sh}
       '';
     };
@@ -128,6 +129,11 @@ _: {
         type = lib.types.str;
         default = "hermes-pr-review";
       };
+      parallelism = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 1;
+        description = "Number of concurrent review workers; each claims one bundle atomically.";
+      };
       schedule = lib.mkOption {
         type = lib.types.str;
         default = "*/10 * * * *";
@@ -185,6 +191,7 @@ _: {
           ExecStartPre = [
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
+            "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-claims"
           ];
           ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
           TimeoutStartSec = "15min";
@@ -203,6 +210,7 @@ _: {
           ExecStartPre = [
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
+            "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-claims"
           ];
           ExecStart = "${publish}/bin/hermes-pr-review-publish --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
           TimeoutStartSec = "5min";
