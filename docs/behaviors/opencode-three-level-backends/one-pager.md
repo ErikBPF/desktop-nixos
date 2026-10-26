@@ -1,7 +1,7 @@
 # Three-level agents on the workspace backends
 
-**Status:** Implemented and statically verified; host activation and live
-model-inference acceptance pending.
+**Status:** Activated on Endeavour; live agent hierarchy verified. Model
+inference and a real `dispatch_slice` run remain unverified.
 **Checkout:** `worktrees/opencode-three-level-backends-20261026`, branch
 `feat/opencode-three-level-backends`.
 **Seed:** "lets use 3-layer on ol and ow. on ol use deepseek 4.1 flash next on
@@ -43,29 +43,39 @@ schema value).
 
 - `python3 -m unittest discover -s tests/opencode-profiles -p 'test_*.py'` —
   17 pass, including 7 backend-profile assertions and the settings contract.
-- `node --test tests/opencode-profiles/test_three_level_dispatch.mjs` — 5 pass
-  (dispatch, env model, variant-less pass-through, fail-closed, authorization).
-- `python3 -m unittest discover -s tests/local-workspace-sessions` — wrapper
-  contract updated for the inline profile, `--auto`, disabled project config
-  and L2 model export.
-- A disposable 2.0.27 server loaded the generated homelab profile and listed
-  `pilot-l1`, `pilot-l2` and `pilot-l3` through `/api/agent`.
-- Not yet observed: live model inference through each layer, `dispatch_slice`
-  against a real provider, and host activation.
+- `node --test tests/opencode-profiles/test_three_level_dispatch.mjs` — 6 pass
+  (dispatch, env model, variant-less pass-through, fail-closed, malformed input,
+  authorization).
+- `python3 -m unittest discover -s tests/local-workspace-sessions -p 'test_*.py'`
+  — 29 pass; wrapper contract covers the inline profile, `--auto`, disabled
+  project config, L2 model export and backend password retention.
+- `just home-switch endeavour` activated the generation; both units restarted.
+- Live `/api/agent` on 4096 and 4097 lists `pilot-l1`, `pilot-l2`, `pilot-l3`;
+  homelab reports `#max`/`#high`/`#high`, dataplatform reports no variants.
+  Both backends log donsetch, nix and graphify MCP connections; the
+  `three-level` plugin is active.
+- The generated homelab profile loaded in a disposable 2.0.27 server with a
+  hostile project `opencode.json`; `pilot-l1` still resolved shell/edit to
+  `deny`, and `OPENCODE_DISABLE_PROJECT_CONFIG=1` removes the project rules.
+- Not yet observed: live model inference through each layer and a real
+  `dispatch_slice` against either provider.
 
 ## Decisions
 
 - Keep the unmerged pilot branch's `op` launcher out of scope; the framework is
-  delivered through the workspace backends instead, so no launcher or trial
-  configuration is required.
+  delivered through the workspace backends instead. The stale manually installed
+  `~/.local/bin/op` link and the hand-written `opencode-v2` wrapper were removed.
 - Inline config over a custom config file: project config is merged after the
-  custom file, which could override role permissions; inline wins and project
+  custom file and could override role permissions; inline wins and project
   config is disabled outright.
 - The work gateway stays variant-less until its DeepSeek route is qualified
-  with reasoning effort.
+  with reasoning effort; its existing model definition rejects
+  `reasoning_effort`.
 
 ## Remaining work
 
-Activate the Home Manager generation, restart both backends, confirm the live
-`/api/agent` hierarchy and one dispatch per backend, then retire the isolated
-trial client and its hand-written cleanup script.
+Quit the isolated trial client, then remove
+`~/.local/share/opencode-v2` and the hand-written
+`~/.local/bin/cleanup-opencode-v2-trial`; the running review session still owns
+that directory. Smoke-test one inference per backend and one `dispatch_slice`.
+
