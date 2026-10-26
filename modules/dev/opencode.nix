@@ -467,6 +467,10 @@
         enabled = true;
       };
 
+      # Search goes through the donsetch MCP server; the built-in provider
+      # picker (exa/firecrawl/parallel/tavily/tinyfish) has no such backend.
+      websearch = false;
+
       compaction = {
         auto = true;
         keep.tokens = 15000;
