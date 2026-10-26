@@ -325,7 +325,13 @@ with tempfile.TemporaryDirectory() as tmp:
 # Review isolation invariants: a fresh session per run, no cross-PR recall,
 # and no stale pre-parallel job left behind.
 bootstrap = (SCRIPTS / "bootstrap-cron.sh").read_text()
-assert bootstrap.count("--no-continuity") == 2, "create and edit must disable continuity"
+# cron create has no --no-continuity flag; continuity is off by default there
+# and the edit path enforces it for pre-existing workers.
+assert bootstrap.count("--no-continuity") == 1, "only edit may pass --no-continuity"
+create_call = bootstrap.split("cron create", 1)[1].split("done", 1)[0]
+assert "--no-continuity" not in create_call
+assert "Retire workers above the configured parallelism" in bootstrap
+assert 'max="$PARALLELISM"' in bootstrap
 assert "--script pr-review-claim.py" in bootstrap
 assert 'rm -f "$DATA_DIR/scripts/pr-review-ready.py"' in bootstrap
 assert 'if [ -n "$old_id" ]; then' in bootstrap, "legacy job must be retired unconditionally"

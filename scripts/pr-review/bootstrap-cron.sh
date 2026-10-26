@@ -73,7 +73,6 @@ for i in $(seq 1 "$PARALLELISM"); do
     --name "$name" \
     --skill cr-pr \
     --script pr-review-claim.py \
-    --no-continuity \
     --deliver local \
     --failure-deliver local \
     --reasoning-effort high
@@ -89,3 +88,17 @@ fi
 
 # The legacy script would let a resurrected job review without claims.
 rm -f "$DATA_DIR/scripts/pr-review-ready.py"
+
+# Retire workers above the configured parallelism, so lowering the option does
+# not leave orphan jobs claiming bundles.
+awk -v base="$JOB_NAME" -v max="$PARALLELISM" '
+  $1 == "Name:" && $2 ~ ("^" base "-[0-9]+$") {
+    n = $2
+    sub("^" base "-", "", n)
+    if (n + 0 > max) print id
+  }
+  /^[[:space:]]*[0-9a-f]+[[:space:]]+\[/ { id = $1 }
+' "$list_file" | while read -r orphan; do
+  [ -n "$orphan" ] || continue
+  docker exec -u "$AGENT_UID:$AGENT_GID" -e HOME=/opt/data "$HERMES_CONTAINER" "$HERMES_CLI" cron remove "$orphan" || true
+done
