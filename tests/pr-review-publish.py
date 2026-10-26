@@ -207,4 +207,14 @@ with tempfile.TemporaryDirectory() as tmp:
     else:
         raise AssertionError("missing bot_login must be rejected")
 
+# Review isolation invariants: a fresh session per run, and no cross-PR recall.
+bootstrap = (SCRIPTS / "bootstrap-cron.sh").read_text()
+assert bootstrap.count("--no-continuity") == 2, "create and edit must disable continuity"
+assert "--script pr-review-claim.py" in bootstrap
+
+agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+assert 'agent.disabled_toolsets = ["memory" "session_search"];' in agents
+assert "memory_enabled = false;" in agents
+assert "user_profile_enabled = false;" in agents
+
 print("pr-review-publish: ok")

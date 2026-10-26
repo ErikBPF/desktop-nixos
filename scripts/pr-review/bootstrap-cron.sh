@@ -64,13 +64,15 @@ for i in $(seq 1 "$PARALLELISM"); do
     docker exec -u "$AGENT_UID:$AGENT_GID" -e HOME=/opt/data "$HERMES_CONTAINER" "$HERMES_CLI" cron edit "$id" \
       --schedule "$SCHEDULE" \
       --prompt "$prompt" \
-      --script pr-review-claim.py >/dev/null
+      --script pr-review-claim.py \
+      --no-continuity >/dev/null
     continue
   fi
   docker exec -u "$AGENT_UID:$AGENT_GID" -e HOME=/opt/data "$HERMES_CONTAINER" "$HERMES_CLI" cron create "$SCHEDULE" "$prompt" \
     --name "$name" \
     --skill cr-pr \
     --script pr-review-claim.py \
+    --no-continuity \
     --deliver local \
     --failure-deliver local \
     --reasoning-effort high
