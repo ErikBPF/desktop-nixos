@@ -62,6 +62,9 @@ def test_drift_path_keeps_git_for_terragrunt_repo_root():
     ).read_text()
 
     assert re.search(r"\n\s+git\n", module)
+    # bin/drift-check.sh and bin/iac-apply.sh build their summaries with awk;
+    # `path` replaces PATH, so the unit must ship it.
+    assert re.search(r"\n\s+gawk\n", module)
 
 
 def test_merged_main_apply_is_opt_in_and_evaluates_the_merged_revision():
