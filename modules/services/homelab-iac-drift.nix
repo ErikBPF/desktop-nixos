@@ -29,7 +29,6 @@
       gawk
       gnugrep
       gnused
-      gawk
       coreutils
       bash
     ];
