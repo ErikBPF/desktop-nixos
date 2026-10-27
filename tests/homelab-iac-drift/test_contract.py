@@ -43,7 +43,7 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
 def test_pinned_iac_revision_matches_published_discovery_guard():
     root = Path(__file__).parents[2]
     flake = (root / "flake.nix").read_text()
-    revision = "1706b2868656a3a2430958a32638bc8e862670d1"
+    revision = "19a6def2a8f4673b11b971ab2b3feae661eab5ca"
     pin = re.search(r"homelab-iac\s*=\s*\{([^}]+)\};", flake)
 
     assert pin is not None
@@ -62,6 +62,9 @@ def test_drift_path_keeps_git_for_terragrunt_repo_root():
     ).read_text()
 
     assert re.search(r"\n\s+git\n", module)
+    # bin/drift-check.sh and bin/iac-apply.sh build their summaries with awk;
+    # `path` replaces PATH, so the unit must ship it.
+    assert re.search(r"\n\s+gawk\n", module)
 
 
 def test_merged_main_apply_is_opt_in_and_evaluates_the_merged_revision():
@@ -105,6 +108,16 @@ def test_discovery_enables_the_merged_main_apply():
     ).read_text()
 
     assert "applyMergedMain = true;" in host
+
+
+def test_apply_attribution_has_awk():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    # bin/iac-apply.sh attributes plan lines with awk; without it every changed
+    # unit looks unattributed and the applier refuses every revision.
+    assert "\n      gawk\n" in module
 
 
 def test_github_provider_token_is_resolved_from_openbao():

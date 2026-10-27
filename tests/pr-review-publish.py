@@ -324,6 +324,10 @@ with tempfile.TemporaryDirectory() as tmp:
     checks = payload["rules"][1]["parameters"]["required_status_checks"]
     assert checks[0]["context"] == "hackerman-cr/evaluation"
     assert checks[0]["integration_id"] == 5434668
+    assert (
+        payload["rules"][1]["parameters"]["strict_required_status_checks_policy"]
+        is False
+    )
     assert payload["rules"][0]["parameters"]["required_approving_review_count"] == 1
     assert payload["bypass_actors"] == []
     assert (
