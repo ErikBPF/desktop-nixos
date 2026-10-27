@@ -26,9 +26,9 @@
       docker
       openbao
       util-linux
+      gawk
       gnugrep
       gnused
-      gawk
       coreutils
       bash
     ];
