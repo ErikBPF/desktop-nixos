@@ -28,6 +28,7 @@
       util-linux
       gnugrep
       gnused
+      gawk
       coreutils
       bash
     ];
