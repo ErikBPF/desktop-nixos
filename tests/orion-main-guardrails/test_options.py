@@ -119,7 +119,7 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             with self.subTest(property=name):
                 self.assertEqual(builder["serviceConfig"].get(name), value)
         settings = builder["environment"].get("NIX_CONFIG", "").splitlines()
-        for name, expected in (("max-jobs", "2"), ("cores", "10")):
+        for name, expected in (("max-jobs", "1"), ("cores", "10")):
             with self.subTest(nix_setting=name):
                 values = [line.split("=", 1)[1].strip() for line in settings
                           if "=" in line and line.split("=", 1)[0].strip() == name]

@@ -206,7 +206,7 @@ in {
     # leave headroom for the wider build; measure the next run and re-baseline.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
-        max-jobs = 2
+        max-jobs = 1
         cores = 10
       '';
       serviceConfig = {
