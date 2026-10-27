@@ -198,8 +198,8 @@ in {
     # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
     # 179 min ceiling killed the 2026-10-26 run at 05:59 before the 8 closures
     # finished. The 179 min result is a lower bound, not proof that 359 min
-    # finishes it, so keep the 2-job concurrency guard (allocator history) and
-    # spend the extra CPU on width inside each job instead.
+    # finishes it, so serialize derivations (allocator history) and spend the
+    # extra CPU on width inside the one job.
     # CPU is not the scarce resource; memory is. A 2-job run measured 53.6 GiB
     # peak, above this host's realistic headroom next to the 60 GiB model
     # service, so run ONE derivation at a time and widen it instead:
