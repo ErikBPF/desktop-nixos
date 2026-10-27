@@ -49,12 +49,12 @@ in {
       '';
       # Typed-decision sidecar. It probes the engine at startup and exits if the
       # engine is not ready, so supervise.sh waits for /health first. Port 11560
-      # is the firewall-exposed endpoint.
+      # is tailnet-bound; the firewall chain admits only the discovery peer.
       servePqnld = pkgs.writeShellScript "serve-pqnld.sh" ''
         set -euo pipefail
         exec /pqnld/pqnld-rs --uds /tmp/pqnld.sock --vllm-url http://127.0.0.1:11542 \
           --model qwen38-27b-nvfp4 --descriptor qwen38-27b-nvfp4 --models-dir /pqnld/desc \
-          --host 127.0.0.1 --port 11560
+          --host 100.77.14.27 --port 11560
       '';
       serveVllm = pkgs.writeShellScript "serve-vllm.sh" ''
         set -euo pipefail
