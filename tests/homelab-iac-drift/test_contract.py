@@ -107,6 +107,16 @@ def test_discovery_enables_the_merged_main_apply():
     assert "applyMergedMain = true;" in host
 
 
+def test_apply_attribution_has_awk():
+    module = (
+        Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
+    ).read_text()
+
+    # bin/iac-apply.sh attributes plan lines with awk; without it every changed
+    # unit looks unattributed and the applier refuses every revision.
+    assert "\n      gawk\n" in module
+
+
 def test_github_provider_token_is_resolved_from_openbao():
     module = (
         Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
