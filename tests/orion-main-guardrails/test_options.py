@@ -109,8 +109,8 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
         self.assertEqual(builder["serviceConfig"]["Type"], "oneshot")
         for name, value in {
             "CPUQuota": "2100%",
-            "MemoryHigh": "40G",
-            "MemoryMax": "48G",
+            "MemoryHigh": "60G",
+            "MemoryMax": "68G",
             "TimeoutStartSec": "359min",
             "TimeoutStopSec": "1min",
             "KillMode": "control-group",

@@ -201,8 +201,9 @@ in {
     # finishes it, so keep the 2-job concurrency guard (allocator history) and
     # spend the extra CPU on width inside each job instead.
     # Orion has 32 cores; this allows ~2/3 (21 cores, 20 build threads), while
-    # inference keeps its own unpinned affinity. Memory bounds keep an aggregate
-    # overshoot inside the unit; the ceiling is the rollback knob.
+    # inference keeps its own unpinned affinity. The previous 2/2 run recorded a
+    # 53.6 GiB MemoryPeak at 2/2, above the old 48G cap, so raise the bounds to
+    # leave headroom for the wider build; measure the next run and re-baseline.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 2
@@ -210,8 +211,8 @@ in {
       '';
       serviceConfig = {
         CPUQuota = "2100%";
-        MemoryHigh = "40G";
-        MemoryMax = "48G";
+        MemoryHigh = "60G";
+        MemoryMax = "68G";
         TimeoutStartSec = "359min";
         TimeoutStopSec = "1min";
         KillMode = "control-group";
