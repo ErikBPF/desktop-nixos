@@ -54,7 +54,7 @@ in {
         set -euo pipefail
         exec /pqnld/pqnld-rs --uds /tmp/pqnld.sock --vllm-url http://127.0.0.1:11542 \
           --model qwen38-27b-nvfp4 --descriptor qwen38-27b-nvfp4 --models-dir /pqnld/desc \
-          --host 127.0.0.1 --port 11560
+          --host 100.77.14.27 --port 11560
       '';
       serveVllm = pkgs.writeShellScript "serve-vllm.sh" ''
         set -euo pipefail
