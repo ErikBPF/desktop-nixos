@@ -54,7 +54,7 @@ in {
         set -euo pipefail
         exec /pqnld/pqnld-rs --uds /tmp/pqnld.sock --vllm-url http://127.0.0.1:11542 \
           --model qwen38-27b-nvfp4 --descriptor qwen38-27b-nvfp4 --models-dir /pqnld/desc \
-          --host 127.0.0.1 --port 11560
+          --host ${config.flake.fleet.hosts.apollo.tailscaleIp} --port 11560
       '';
       serveVllm = pkgs.writeShellScript "serve-vllm.sh" ''
         set -euo pipefail
@@ -106,11 +106,11 @@ in {
       export PATH=/run/current-system/sw/bin:/run/wrappers/bin:/usr/bin:/bin
       input_rules=$(iptables -S INPUT)
       chain_rules=$(iptables -S apollo-qwen-litellm)
-      grep -qxF -- '-A INPUT -d 100.77.14.27/32 -p tcp -m tcp --dport 11542 -j apollo-qwen-litellm' <<<"$input_rules"
-      grep -qxF -- '-A INPUT -d 100.77.14.27/32 -p tcp -m tcp --dport 11560 -j apollo-qwen-litellm' <<<"$input_rules"
+      grep -qxF -- '-A INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11542 -j apollo-qwen-litellm' <<<"$input_rules"
+      grep -qxF -- '-A INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11560 -j apollo-qwen-litellm' <<<"$input_rules"
       [[ $chain_rules == '-N apollo-qwen-litellm
       -A apollo-qwen-litellm -i lo -j ACCEPT
-      -A apollo-qwen-litellm -s 100.103.52.100/32 -i tailscale0 -p tcp -m multiport --dports 11542,11560 -j ACCEPT
+      -A apollo-qwen-litellm -s ${config.flake.fleet.hosts.discovery.tailscaleIp}/32 -i tailscale0 -p tcp -m multiport --dports 11542,11560 -j ACCEPT
       -A apollo-qwen-litellm -j REJECT --reject-with icmp-port-unreachable' ]]
       [[ $(findmnt -n -o SOURCE /mnt/data) == /dev/sdc1 ]]
       gpu_uuids=$(nvidia-smi --query-gpu=uuid --format=csv,noheader)
@@ -175,8 +175,8 @@ in {
     systemd.services.apollo-ai = {
       description = "Apollo Qwen3.8-27B NVFP4 vLLM + LMCache runtime";
       wantedBy = ["multi-user.target"];
-      after = ["network-online.target" "apollo-ai-storage.service"];
-      wants = ["network-online.target"];
+      after = ["network-online.target" "apollo-ai-storage.service" "tailscaled.service"];
+      wants = ["network-online.target" "tailscaled.service"];
       requires = ["apollo-ai-storage.service"];
       unitConfig.RequiresMountsFor = "/mnt/data";
       serviceConfig = {
