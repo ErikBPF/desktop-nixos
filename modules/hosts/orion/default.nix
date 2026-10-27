@@ -198,17 +198,18 @@ in {
     # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
     # 179 min ceiling killed the 2026-10-26 run at 05:59 before the 8 closures
     # finished. The 179 min result is a lower bound, not proof that 359 min
-    # finishes it, so keep the old 2/2 concurrency guard and change only the
-    # window. The memory bound keeps an aggregate overshoot inside the unit
-    # instead of pressuring the inference host; the ceiling is the rollback knob
-    # (revert to 179 min if the longer window causes a regression).
+    # finishes it, so keep the 2-job concurrency guard (allocator history) and
+    # spend the extra CPU on width inside each job instead.
+    # Orion has 32 cores; this allows ~2/3 (21 cores, 20 build threads), while
+    # inference keeps its own unpinned affinity. Memory bounds keep an aggregate
+    # overshoot inside the unit; the ceiling is the rollback knob.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 2
-        cores = 2
+        cores = 10
       '';
       serviceConfig = {
-        CPUQuota = "400%";
+        CPUQuota = "2100%";
         MemoryHigh = "40G";
         MemoryMax = "48G";
         TimeoutStartSec = "359min";
