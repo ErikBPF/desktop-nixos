@@ -200,10 +200,14 @@ in {
     # finished. The 179 min result is a lower bound, not proof that 359 min
     # finishes it, so keep the 2-job concurrency guard (allocator history) and
     # spend the extra CPU on width inside each job instead.
-    # Orion has 32 cores; this allows ~2/3 (21 cores, 20 build threads), while
-    # inference keeps its own unpinned affinity. The previous 2/2 run recorded a
-    # 53.6 GiB MemoryPeak at 2/2, above the old 48G cap, so raise the bounds to
-    # leave headroom for the wider build; measure the next run and re-baseline.
+    # CPU is not the scarce resource; memory is. A 2-job run measured 53.6 GiB
+    # peak, above this host's realistic headroom next to the 60 GiB model
+    # service, so run ONE derivation at a time and widen it instead:
+    # 1 job x 10 threads = 10 build threads under a 2100% (21-core) quota.
+    # That is 2.5x the four threads of the runs that timed out, which is what
+    # the 359 min window is sized for; halving concurrency keeps the peak down.
+    # The 2026-10-27 run also consumed the full 359 min at 2x2, so the window
+    # itself is evidence that more width per job is needed.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 1
@@ -211,8 +215,8 @@ in {
       '';
       serviceConfig = {
         CPUQuota = "2100%";
-        MemoryHigh = "60G";
-        MemoryMax = "68G";
+        MemoryHigh = "40G";
+        MemoryMax = "48G";
         TimeoutStartSec = "359min";
         TimeoutStopSec = "1min";
         KillMode = "control-group";
