@@ -109,7 +109,9 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
         self.assertEqual(builder["serviceConfig"]["Type"], "oneshot")
         for name, value in {
             "CPUQuota": "400%",
-            "TimeoutStartSec": "89min",
+            "MemoryHigh": "40G",
+            "MemoryMax": "48G",
+            "TimeoutStartSec": "359min",
             "TimeoutStopSec": "1min",
             "KillMode": "control-group",
             "SendSIGKILL": True,
@@ -117,12 +119,12 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             with self.subTest(property=name):
                 self.assertEqual(builder["serviceConfig"].get(name), value)
         settings = builder["environment"].get("NIX_CONFIG", "").splitlines()
-        for name in ("max-jobs", "cores"):
+        for name, expected in (("max-jobs", "2"), ("cores", "2")):
             with self.subTest(nix_setting=name):
                 values = [line.split("=", 1)[1].strip() for line in settings
                           if "=" in line and line.split("=", 1)[0].strip() == name]
                 self.assertTrue(values)
-                self.assertEqual(set(values), {"2"})
+                self.assertEqual(set(values), {expected})
 
     def test_scheduled_and_catch_up_builds_are_restored(self):
         self.assertNotIn("nix-cache-builder.timer", self.options["suppressedUnits"])
