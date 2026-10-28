@@ -148,7 +148,7 @@ in {
         "kernel.softlockup_panic" = 1;
         "kernel.hardlockup_panic" = 1;
         "kernel.watchdog_thresh" = 30;
-        # 62GB RAM + zramSwap disabled below: keep anon pages resident, avoid
+        # 125 GiB RAM + zramSwap disabled below: keep anon pages resident, avoid
         # any swap activity racing with VRAM eviction during long-ctx inference.
         "vm.swappiness" = 1;
         # Steam games hit AC-locked atomics; default split-lock penalty
@@ -197,15 +197,23 @@ in {
     # Cache warming is the only sustained multi-hour build on an inference host.
     # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
     # 179 min ceiling killed the 2026-10-26 run at 05:59; the 359 min ceiling
-    # killed the 2026-10-28 run at 08:59 after 3h49m CPU time and a 17.2 G
-    # memory peak. The last two runs were still building, so widen the build
-    # and keep the window bounded:
-    # 1 job x 10 threads = 10 build threads under a 2100% (21-core) quota.
-    # Orion has 125 GiB. The measured 2x2 build peak is 17.2 GiB; the
-    # 10-thread per-derivation peak is unmeasured, so the existing 40G/48G
-    # bounds stay and tonight's run re-baselines them. max-jobs = 1 preserves
-    # the allocator guard. The 359 min window is the outer bound, not a claim
-    # that it fits.
+    # killed both the 2026-10-27 and the 2026-10-28 runs at 08:59 with
+    # Result=timeout, still building.
+    #
+    # Neither timed-out run saturated the 2x2 shape's four-thread budget
+    # (systemd unit accounting, CPU time over wall clock):
+    #   2026-10-27: 6h52m CPU / 5h59m wall ~= 1.15 cores, 37.8 G memory peak
+    #   2026-10-28: 3h49m CPU / 5h59m wall ~= 0.64 cores, 17.2 G memory peak
+    # So the bottleneck is inside a single derivation, not the job count, and
+    # more jobs would only add memory. Raise the per-derivation thread budget
+    # instead: 1 job x 10 threads under a 2100% (21-core) quota, which is a
+    # ceiling, not a reservation.
+    #
+    # The 37.8 G peak came from two concurrent jobs; the 10-thread
+    # per-derivation peak is unmeasured, so the 40G/48G bounds stay and
+    # tonight's run re-baselines them. The 359 min window is the outer bound,
+    # not a claim that it fits: if tonight still averages ~1 core, threads are
+    # not the constraint either and this shape needs revisiting.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 1
