@@ -196,18 +196,16 @@ in {
 
     # Cache warming is the only sustained multi-hour build on an inference host.
     # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
-    # 179 min ceiling killed the 2026-10-26 run at 05:59 before the 8 closures
-    # finished. The 179 min result is a lower bound, not proof that 359 min
-    # finishes it, so serialize derivations (allocator history) and spend the
-    # extra CPU on width inside the one job.
-    # CPU is not the scarce resource; memory is. A 2-job run measured 53.6 GiB
-    # peak, above this host's realistic headroom next to the 60 GiB model
-    # service, so run ONE derivation at a time and widen it instead:
+    # 179 min ceiling killed the 2026-10-26 run at 05:59; the 359 min ceiling
+    # killed the 2026-10-28 run at 08:59 after 3h49m CPU time and a 17.2 G
+    # memory peak. The last two runs were still building, so widen the build
+    # and keep the window bounded:
     # 1 job x 10 threads = 10 build threads under a 2100% (21-core) quota.
-    # That is 2.5x the four threads of the runs that timed out, which is what
-    # the 359 min window is sized for; halving concurrency keeps the peak down.
-    # The 2026-10-27 run also consumed the full 359 min at 2x2, so the window
-    # itself is evidence that more width per job is needed.
+    # Orion has 125 GiB. The measured 2x2 build peak is 17.2 GiB; the cgroup
+    # MemoryPeak (53.6 GiB) includes page cache. The 10-thread per-derivation
+    # peak is unmeasured, so the existing 40G/48G bounds stay and tonight's
+    # run re-baselines them. max-jobs = 1 preserves the allocator guard.
+    # The broader 359 min window is the outer bound, not a claim that it fits.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 1
