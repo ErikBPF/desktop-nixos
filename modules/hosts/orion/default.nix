@@ -201,19 +201,21 @@ in {
     # Result=timeout, still building.
     #
     # Neither timed-out run saturated the 2x2 shape's four-thread budget
-    # (systemd unit accounting, CPU time over wall clock):
-    #   2026-10-27: 6h52m CPU / 5h59m wall ~= 1.15 cores, 37.8 G memory peak
-    #   2026-10-28: 3h49m CPU / 5h59m wall ~= 0.64 cores, 17.2 G memory peak
+    # (systemd unit CPU time over wall clock):
+    #   2026-10-27: 6h52m CPU / 5h59m wall ~= 1.15 cores
+    #   2026-10-28: 3h49m CPU / 5h59m wall ~= 0.64 cores
     # So the bottleneck is inside a single derivation, not the job count, and
     # more jobs would only add memory. Raise the per-derivation thread budget
     # instead: 1 job x 10 threads under a 2100% (21-core) quota, which is a
     # ceiling, not a reservation.
     #
-    # The 37.8 G peak came from two concurrent jobs; the 10-thread
-    # per-derivation peak is unmeasured, so the 40G/48G bounds stay and
-    # tonight's run re-baselines them. The 359 min window is the outer bound,
-    # not a claim that it fits: if tonight still averages ~1 core, threads are
-    # not the constraint either and this shape needs revisiting.
+    # The cgroup MemoryPeak is the only memory figure the cap governs; the
+    # 10-thread per-derivation peak is unmeasured, so keep the existing
+    # 40G/48G bounds and re-baseline them from the next run. If MemoryMax
+    # binds, the cgroup OOM-kills the build, not the inference service, and
+    # the timer retries. The 359 min window is the outer bound, not a claim
+    # that it fits: if tonight still averages ~1 core, threads are not the
+    # constraint either and this shape needs revisiting.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 1
