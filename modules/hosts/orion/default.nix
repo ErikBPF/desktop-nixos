@@ -174,15 +174,15 @@ in {
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
     ];
 
-    # zramSwap intentionally disabled: 62GB host RAM is enough for the 21GB
-    # GGUF + CPU-side MoE shards + containers. vm.swappiness=1 above assumes
+    # zramSwap intentionally disabled: 125 GiB host RAM covers the model
+    # service + CPU-side MoE shards + containers. vm.swappiness=1 above assumes
     # no swap competes with VRAM eviction during long-context inference.
     zramSwap.enable = false;
 
     # earlyoom from m.nixos.maintenance sets freeSwapThreshold=10. earlyoom
     # 1.9 refuses any non-zero swap threshold when swap_total=0 ("value X
     # exceeds limit 0") and the NixOS option clamps to 1..100, so we cannot
-    # zero it. Just disable earlyoom on Orion: 62GB RAM + no swap + kernel
+    # zero it. Just disable earlyoom on Orion: 125 GiB RAM + no swap + kernel
     # OOM killer covers the residual risk, and freeMemThreshold=5 isn't
     # load-bearing on a single-purpose inference host.
     services.earlyoom.enable = lib.mkForce false;
@@ -201,11 +201,11 @@ in {
     # memory peak. The last two runs were still building, so widen the build
     # and keep the window bounded:
     # 1 job x 10 threads = 10 build threads under a 2100% (21-core) quota.
-    # Orion has 125 GiB. The measured 2x2 build peak is 17.2 GiB; the cgroup
-    # MemoryPeak (53.6 GiB) includes page cache. The 10-thread per-derivation
-    # peak is unmeasured, so the existing 40G/48G bounds stay and tonight's
-    # run re-baselines them. max-jobs = 1 preserves the allocator guard.
-    # The broader 359 min window is the outer bound, not a claim that it fits.
+    # Orion has 125 GiB. The measured 2x2 build peak is 17.2 GiB; the
+    # 10-thread per-derivation peak is unmeasured, so the existing 40G/48G
+    # bounds stay and tonight's run re-baselines them. max-jobs = 1 preserves
+    # the allocator guard. The 359 min window is the outer bound, not a claim
+    # that it fits.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
         max-jobs = 1
