@@ -1,9 +1,11 @@
 # Shared sccache compiler cache on orion (tailnet)
 
-**Status:** ✅ Implemented (2026-06-30) — disk-backed sccache WebDAV cache live on
-orion, reachable fleet-wide over the tailnet; client opt-in shipped and enabled on
-laptop. Cache mode only (compiles stay local); `sccache-dist` CPU offload is the
-deferred upgrade below.
+**Status:** The original cache was observed live on 2026-06-30. The accepted
+2026-10-29 follow-up restricts remote writers to Endeavour, laptop and Kepler;
+source and disposable HTTP verification are prepared, deployment unverified.
+Current source enables the client on Endeavour. The June observations below
+remain historical. Cache mode keeps compilation local; `sccache-dist` remains
+deferred.
 
 ## Problem
 
@@ -30,16 +32,19 @@ the Nix path.
    `allowedTCPPorts`). Binding `0.0.0.0` rather than orion's tailnet IP sidesteps
    the tailscale0 IP-assignment boot race that forced the retry loop in
    `discovery/vault.nix`. The trust boundary is the tailnet.
-4. **No app auth.** Matches repo posture (vault binds the tailnet, ACL-gated). Add
-   `SCCACHE_WEBDAV_TOKEN` later if wanted.
+4. **Server-side writer authorization.** Nginx permits mutations only from the
+   fleet addresses of Endeavour and Kepler and the existing legacy laptop
+   identity pinned from the IaC tailnet ACL, plus trusted local loopback
+   maintenance. GET/HEAD retain existing read reachability. There is no
+   application token; the writer boundary depends on tailnet source identity.
 5. **Endpoint = orion tailnet IP from the fleet SSOT** (`http://100.72.85.73:4321/`),
    pulled from `fleet.hosts.orion.tailscaleIp` in `modules/meta.nix` — no DNS
    dependency, single source.
-6. **Servers may share the cache too.** The tailnet ACL grant is broad
-   (`src ["*"] → orion:4321`); actual use stays opt-in per host via
-   `programs.sccacheClient.enable`.
+6. **Client use remains opt-in** via `programs.sccacheClient.enable`. Broad
+   tailnet reachability does not grant writes: the method restriction is at
+   the server, including when Discovery reaches it through a wildcard grant.
 
-## What shipped
+## What shipped on 2026-06-30
 
 - `modules/services/sccache.nix` — two dendritic modules:
   - `sccache-cache` (server): nginx WebDAV vhost on `0.0.0.0:4321`, root
@@ -58,7 +63,7 @@ the Nix path.
 builds, so the Nix build-offload path is untouched — only interactive cargo hits
 the cache.
 
-## Verification
+## Historical verification on 2026-06-30
 
 - orion: `nginx` active, `0.0.0.0:4321`, `/var/cache/sccache-shared` present
   (`nginx:nginx 0750`); host firewall rule `nixos-fw -i tailscale0 --dport 4321
@@ -68,6 +73,24 @@ the cache.
   confirming the ACL (not the host firewall) was the gate.
 - End-to-end cache write (a real `cargo build` populating the cache) pends a build
   in a fresh login shell — `sessionVariables` apply on next login.
+
+## Writer restriction follow-up on 2026-10-29
+
+The [accepted behavior](../behaviors/sccache-writers/behavior.md) and
+[test contract](../behaviors/sccache-writers/test-contract.md) preserve reads,
+endpoint, firewall port and local maintenance. An isolated Nix evaluation
+renders the actual module with synthetic fleet addresses. A disposable Nginx
+fixture checks permitted DAV operations, rejected remote mutations and rejected
+forwarding-header spoofing. These checks are wired into `check.yml`.
+
+No live cache, deployment, real Cargo build or host firewall was exercised by
+this follow-up. All accepted writers share one trusted cache namespace; one
+compromised writer can still poison entries read by other consumers. Tailnet
+address changes require the corresponding fleet update and Nginx deployment.
+The legacy laptop is no longer a managed fleet host; its separate pinned
+address must be reconciled with the IaC identity before rollout.
+If writer authorization breaks, compile locally while correcting the mapping;
+do not automatically reopen remote writes.
 
 ## Deferred — `sccache-dist` (CPU offload)
 
