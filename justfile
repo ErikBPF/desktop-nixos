@@ -248,6 +248,11 @@ update-safe:
 update-input input:
     nix flake update {{ input }}
 
+# Resolve a reviewed Graphify wheel-lock update; never runs during a build.
+[positional-arguments]
+update-graphify version:
+    python3 scripts/update-graphify-lock.py "$1"
+
 upgrade target=profile:
     just _host-guard {{target}} && \
     nix flake update

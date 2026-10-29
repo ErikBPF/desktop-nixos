@@ -207,6 +207,8 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
              ("OPENCODE_LITELLM_KEY", "OPENCODE_WORK_KEY") if key in os.environ},
     "config": json.loads(os.environ.get("OPENCODE_CONFIG_CONTENT", "{}")),
     "configDir": os.environ.get("OPENCODE_CONFIG_DIR"),
+    "projectDisabled": os.environ.get("OPENCODE_DISABLE_PROJECT_CONFIG"),
+    "l2Model": os.environ.get("OPENCODE_THREE_LEVEL_L2_MODEL"),
     "db": os.environ.get("OPENCODE_DB")}))
 ''')
             stub.chmod(0o700)
@@ -259,12 +261,22 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                 self.assertEqual(absent["args"], ["serve", "--hostname", "127.0.0.1", "--port", str(port)])
                 self.assertEqual(absent["config"]["model"], provider + "/deepseek-v4.1-flash")
                 self.assertEqual(absent["config"].get("small_model"), provider + "/deepseek-v4.1-flash")
-                self.assertEqual(absent["config"]["default_agent"], "build")
-                self.assertEqual(absent["config"]["experimental"]["policies"], [
+                self.assertEqual(absent["config"]["default_agent"], "pilot-l1")
+                self.assertEqual(sorted(absent["config"]["agents"]), ["pilot-l1", "pilot-l2", "pilot-l3"])
+                self.assertEqual(absent["config"]["agents"]["pilot-l1"]["model"],
+                                 provider + "/deepseek-v4.1-flash" + ("#max" if project == "homelab" else ""))
+                self.assertEqual(absent["config"]["agents"]["pilot-l2"]["model"],
+                                 provider + "/deepseek-v4.1-flash" + ("#high" if project == "homelab" else ""))
+                self.assertEqual(absent["l2Model"], absent["config"]["agents"]["pilot-l2"]["model"])
+                provider_rules = [rule for rule in absent["config"]["experimental"]["policies"]
+                                  if rule["action"] == "provider.use"]
+                self.assertEqual(provider_rules, [
                     {"action": "provider.use", "resource": "*", "effect": "deny"},
                     {"action": "provider.use", "resource": provider, "effect": "allow"},
                     {"action": "provider.use", "resource": "opencode-go", "effect": "allow"},
                     {"action": "provider.use", "resource": "openai", "effect": "allow"}])
+                self.assertTrue(any("three-level" in plugin for plugin in absent["config"]["plugins"]))
+                self.assertEqual(absent["projectDisabled"], "1")
                 self.assertEqual(absent["configDir"], self.config["configHome"].replace(self.config["home"], environment["HOME"]) + "/opencode")
                 self.assertTrue(absent["password"])
                 auth_file = Path(environment["HOME"]) / ".local/state/opencode-v2-backends" / project / "server-password"
@@ -276,7 +288,7 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                 self.assertEqual(auth_file.read_bytes(), before, "backend restart must retain client authentication")
                 (secrets / key_file).unlink()
                 forwarded = run(client, ["--session", "session with spaces", "--model", "custom/model"])
-                self.assertEqual(forwarded["args"], ["--server", f"http://127.0.0.1:{port}",
+                self.assertEqual(forwarded["args"], ["--auto", "--server", f"http://127.0.0.1:{port}",
                     environment["HOME"] + "/" + directory, "--session", "session with spaces", "--model", "custom/model"])
                 self.assertTrue(forwarded["password"])
 

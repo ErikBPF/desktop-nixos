@@ -21,12 +21,48 @@ service or replace the isolated trial controlling this task.
 | `ow` | `opencode-dataplatform.service` | 4097 | `work/deepseek-v4.1-flash` |
 
 Native clients use the exact packaged executable and explicit `--server`
-URLs. Routing is applied on the server, not guessed from the client's
+URLs. `ol`/`ow` add `--auto`; every other client keeps permission prompts.
+Routing is applied on the server, not guessed from the client's
 directory. Only the selected gateway's sanctioned runtime key is sourced;
 no administrator fallback is used. Direct Go and OpenAI remain separate
 provider choices, subject to available credentials. Fresh database
 namespaces do not imply that direct OAuth credentials were copied; use
 `/connect` in the relevant client if authentication is required.
+
+## Three-level agents
+
+Both backends replace the default `build` agent with the repository's
+three-level hierarchy: `pilot-l1` (plan and dispatch independent slices),
+`pilot-l2` (slice coordinator) and `pilot-l3` (executor/reviewer). The
+`three-level` plugin supplies `dispatch_slice` and `slice_status`; L2 model
+selection comes from `OPENCODE_THREE_LEVEL_L2_MODEL`, which the backend
+wrapper derives from the generated profile.
+
+| Backend | L1 | L2 and L3 |
+|---|---|---|
+| `ol` | `litellm/deepseek-v4.1-flash#max` | `litellm/deepseek-v4.1-flash#high` |
+| `ow` | `work/deepseek-v4.1-flash` | `work/deepseek-v4.1-flash` |
+
+The work gateway's DeepSeek entry exposes no reasoning variants, so `ow`
+carries no `#variant` suffix; the model definition still rejects
+`reasoning_effort`. Each profile is injected inline through
+`OPENCODE_CONFIG_CONTENT` (highest precedence) and
+`OPENCODE_DISABLE_PROJECT_CONFIG=1` prevents a repository `opencode.json`
+or `.opencode/opencode.json` from widening role permissions. Backend state,
+which holds the server password, is denied to role agents for read and edit.
+
+L1 keeps `edit` denied outside `docs/*` but follows the global shell policy
+(`ask`, auto-approved by `ol`/`ow`). Credential validation and documentation
+therefore work without a slice; implementation still goes through L2/L3.
+
+`OPENCODE_DISABLE_PROJECT_CONFIG=1` also disables project `AGENTS.md`
+discovery. Each generated profile therefore appends the workspace `AGENTS.md`
+by absolute path; nested `AGENTS.md` files are not discovered by these
+backends.
+
+The generated profiles are exposed read-only as
+`programs.opencode-backends.profiles` for tests; do not hand-edit a running
+backend.
 
 Each server has its own data, cache and state namespace. New databases are
 `~/.local/share/opencode-v2-backends/{homelab,dataplatform}/opencode.db`.
@@ -56,7 +92,10 @@ hook scopes `x-opencode-session` to the intended provider and actual
 session. Plugin loading alone is not proof that either behavior works.
 
 One global `cli.json` owns terminal settings, permission prompts and native
-tabs. Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
+tabs. It keeps `session.permissions = "prompt"` and sets
+`session.sidebar = "auto"`; `ol`/`ow` opt into auto-accept with `--auto`
+instead of changing the global prompt default. Supported compaction uses
+`keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
 Global permission checks protect direct secret reads and ask before shell
 commands outside narrow inspection allowances. Shell is not a sandbox;
