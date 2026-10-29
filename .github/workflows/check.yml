@@ -2,8 +2,7 @@ name: Check
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  pull_request: {}
 
 permissions:
   contents: read
@@ -41,6 +40,9 @@ jobs:
 
       - name: Safe lock update contract
         run: nix develop -c python -m unittest discover -s tests/update-safe -p 'test_*.py'
+
+      - name: Graphify wheel-lock contract
+        run: python3 -m unittest discover -s tests/graphify-lock -v
 
       - name: Authentik backup staging
         run: nix develop -c python -m unittest discover -s tests/authentik-backup -p 'test_*.py'
@@ -92,6 +94,11 @@ jobs:
         run: python3 -m unittest discover -s tests/syncthing-conflicts
       - name: Syncthing ignore activation
         run: python3 -m unittest discover -s tests/syncthing-ignore
+      - name: Shared compiler-cache writer boundary
+        run: |
+          python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v
+          package=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.nginx')
+          python3 tests/sccache-security/verify_http.py --nginx "$package/bin/nginx"
       - name: GPU exchange effective options
         run: nix develop -c python -m unittest discover -s tests/gpu-exchange -p 'test_*.py'
 
