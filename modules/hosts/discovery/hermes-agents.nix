@@ -154,6 +154,10 @@ in {
           # memory persists across sessions and session_search reads the shared
           # session DB, so both are contamination channels between reviews.
           agent.disabled_toolsets = ["memory" "session_search"];
+          # A full multi-commit review exhausts the bundled 60-turn default
+          # after tool retries; the earlier cap produced no review and left
+          # the required gate check unpublished.
+          agent.max_turns = 120;
           memory = {
             memory_enabled = false;
             user_profile_enabled = false;
