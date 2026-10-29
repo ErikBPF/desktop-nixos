@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -74,7 +75,7 @@ def test_vault_concerns_are_split():
 def test_pre_commit_hook_enforces_fmt_lint_and_secret_scan():
     hooks = read("modules/pre-commit.nix")
     assert "alejandra.enable = true;" in hooks
-    assert "statix = {" in hooks
+    assert re.search(r"statix\s*=\s*\{\s*enable\s*=\s*true;", hooks)
     assert "ripsecrets.enable = true;" in hooks
 
     dev_shell = read("modules/dev-shell.nix")
