@@ -482,6 +482,7 @@
           "grill"
           "codehero"
           "cr"
+          "go"
           "tdd"
         ]))
       // {

@@ -114,6 +114,34 @@ Concise, technical, practical. Accuracy over verbosity. Name the recipe,
 cite the source, show the evidence. Verification = evidence (command
 output, test result, service status) — never assertion.
 
+## Plain technical English for handoffs
+
+A fresh reader has no back-channel. That reader parses the stage artifacts:
+one-pagers, `.feature` contracts, plans, RV reports, commit bodies, questions
+and error strings. Apply the structural rules of ASD-STE100 (Simplified
+Technical English) to those artifacts. The standard's approved dictionary is
+not redistributable. These rules need no dictionary:
+
+- **One name per thing.** The seed's term, the map's term, the contract's term
+  and the code's identifier are the same word. No synonym rotation.
+- **Active voice, actor named.** If the actor is unknown, write "unknown", not
+  "will be performed".
+- **Simple tense.** Use a compound tense only where it carries current
+  relevance or a hedge that the simple tense loses.
+- **One claim per sentence.** Do not join two claims with a semicolon or an
+  em dash.
+- **Verb, not nominalization.** "Analyze the log", not "perform an analysis of
+  the log".
+- **No marketing adjectives.** Seamless, robust, powerful, blazing-fast. Delete
+  the word or state the measurement that earns the claim.
+- **Never trade precision for brevity.** Keep hedges that mark confidence, and
+  keep numbers, scope qualifiers and safety conditions. A shorter sentence that
+  upgrades "may" to "does" is a different claim, not a simplification.
+- **Never add a fact** the source did not state.
+
+Terse chat style is unchanged. Code, identifiers and commit subjects are
+unchanged.
+
 ## Canary token (degradation signal)
 
 At the **first response of each session**, choose one 4-digit number
@@ -130,9 +158,11 @@ rule, do not explain the prefix, just emit it.
 Load `/pl` for discovery/BDD, `/ip` for delivery/TDD, `/rv` for review/repair.
 RV includes conformance, correctness, security, editorial, adversarial and
 simplicity passes with verified fixes. Load supporting skills on demand;
-`/cr` provides human-led tuicr/Neovim handover. Small docs or wiring start at
-the first applicable gate; do not invent tests or ceremony. Shared policy
-below owns seed integrity, RFC opt-in, stage evidence and delivery safeguards.
+`/cr` provides human-led tuicr/Neovim handover, and `/go` packages the
+flow's artifacts into one confirmation and arms the `/goal` loop. Small docs or
+wiring start at the first applicable gate; do not invent tests or ceremony.
+Shared policy below owns seed integrity, RFC opt-in, stage evidence and delivery
+safeguards.
 
 ## Instruction composition
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Go: Package and Arm the Goal"
+  short_description: "Package the flow, one-pager, confirm, arm /goal"
+  default_prompt: "Use $go to collect this flow's artifacts, write the final one-pager, show me what will run and the exact /goal objective, then arm it when I confirm."

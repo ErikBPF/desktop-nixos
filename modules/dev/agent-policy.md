@@ -46,6 +46,34 @@ Autonomous campaigns additionally require a mechanical metric, explicit budget/s
 
 Use Ponytail to remove unnecessary machinery and Caveman to shorten prose without losing evidence, qualifications, security, or agreed behavior.
 
+### Goal handoff (`/goal`)
+
+`/goal <objective>` keeps the session working between turns until a reviewer
+model reads the session's own evidence and confirms the objective is met. It is
+a client command, so you cannot run it. Print the exact line for the human.
+
+Hand off one goal at the end of `/rv`, and after `/cr` feedback reconciliation,
+when a required gate is still unmet and the remainder is mechanical. Use
+`/go` when the flow has artifacts worth packaging; otherwise print the
+line. Do not offer a goal when the gate passed, or when the remainder needs a
+decision, a credential, an authorization, or a live target you do not have.
+
+The objective is one sentence with three parts: the end state, the command that
+proves it, and the stop condition.
+
+    /goal make `just test` pass in this worktree, run it, fix one root cause per
+    attempt, and stop after three failed repairs to report the blocker
+
+- Name the verification command. The reviewer sees only what the session ran,
+  so "make it work" is not checkable.
+- Restate the unmet gate. Do not widen the goal to escape a failing check.
+- Keep secrets, credentials, hosts and deployment authority out of the
+  objective.
+- A met goal is not approval. The RV report still lands, and `/cr` still runs
+  when the user asked for it.
+- A harness without `/goal` (Codex, or OpenCode older than 2.2.1) skips the
+  handoff without comment.
+
 ### Review safeguards
 
 For any review, compare the human seed, accepted behavior and current source;
