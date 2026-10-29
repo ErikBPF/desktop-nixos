@@ -46,7 +46,7 @@
 
       outputHashMode = "recursive";
       outputHashAlgo = "sha256";
-      outputHash = "sha256-nso8eqFN6Xh5zhxMKH8xRSVRD56yOZV8CdWZyG7ylMA=";
+      outputHash = "sha256-4M6Z+YRlYJBY+y/TI1o3c21ZV2QxrSvzYrxZQtZM+y8=";
     });
 
     graphify = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
@@ -467,6 +467,10 @@
         enabled = true;
       };
 
+      # Search goes through the donsetch MCP server; the built-in provider
+      # picker (exa/firecrawl/parallel/tavily/tinyfish) has no such backend.
+      websearch = false;
+
       compaction = {
         auto = true;
         keep.tokens = 15000;
@@ -523,7 +527,9 @@
             volume = 0.4;
             sound_pack = "opencode.default";
           };
+          # ol/ow opt into auto-accept with --auto; other clients keep asking.
           session.permissions = "prompt";
+          session.sidebar = "auto";
           tabs = {
             mode = "on";
             scope = "cwd";

@@ -53,6 +53,7 @@ jobs:
           rtk_package=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in builtins.filter (p: (p.pname or "") == "rtk") f.nixosConfigurations.endeavour.config.home-manager.users.erik.home.packages')
           export PATH="$rtk_package/bin:$PATH"
           node tests/opencode-profiles/test_plugins.mjs "$ponytail"
+          node --test tests/opencode-profiles/test_three_level_dispatch.mjs
           OPENCODE_TEST_BINARY="$package/bin/opencode" python3 -m unittest discover -s tests/opencode-profiles -v
           python3 tests/opencode-project/smoke_auth.py "$package/bin/opencode" "$(nix eval --raw .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package.version)"
 

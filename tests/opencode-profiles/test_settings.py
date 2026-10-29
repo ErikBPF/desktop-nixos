@@ -36,6 +36,7 @@ class ManagedSettings(unittest.TestCase):
         cli = json.loads(self.home["cli"])
         self.assertEqual(cli.get("theme"), {"name": "tokyonight", "mode": "system"})
         self.assertEqual(cli.get("session", {}).get("permissions"), "prompt")
+        self.assertEqual(cli.get("session", {}).get("sidebar"), "auto")
         self.assertEqual(cli.get("tabs", {}).get("mode"), "on")
         self.assertNotIn("keybinds", cli)
         self.assertFalse(self.home["legacyTui"])
@@ -48,6 +49,9 @@ class ManagedSettings(unittest.TestCase):
     def test_pinned_integrations_and_optional_plugins_absent(self):
         self.assertEqual(self.settings["mcp"]["donsetch"]["command"],
                          ["npx", "-y", "donsetch@4.7.4", "mcp", "--supervised"])
+        # Search runs through donsetch; the built-in provider picker has no
+        # donsetch backend and would otherwise win by being directly callable.
+        self.assertIs(self.settings["websearch"], False)
         plugins = self.settings["plugins"]
         self.assertTrue(any("opencode-ponytail-v2-0.1.0" in p for p in plugins))
         self.assertFalse(any("dcp" in p or "context-fold" in p or "sidebar" in p for p in plugins))
