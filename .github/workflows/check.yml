@@ -83,6 +83,12 @@ jobs:
       - name: PR review publisher contract
         run: python3 tests/pr-review-publish.py
 
+      - name: Discovery Vault export and projection contracts
+        run: |
+          python3 -m unittest discover -s tests/discovery-secret-contract -p test_export_evaluation.py -v
+          python3 -m unittest discover -s tests/discovery-secret-contract -p test_vault_surface.py -v
+          python3 -m unittest discover -s tests/discovery-secret-contract -p test_runtime_projection.py -v
+
       - name: Tooling and fleet contracts
         run: |
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.tomlkit p.pytest])')
