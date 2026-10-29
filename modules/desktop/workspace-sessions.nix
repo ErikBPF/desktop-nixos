@@ -233,7 +233,7 @@ in {
         "small_model"
       ]
       // {
-        model = model;
+        inherit model;
         small_model = model;
         default_agent = "pilot-l1";
         inherit agents;
@@ -304,7 +304,7 @@ in {
       ))
     projects;
     profiles = builtins.listToAttrs (map (project: {
-        name = project.name;
+        inherit (project) name;
         value = mkProfile project;
       })
       routedProjects);
