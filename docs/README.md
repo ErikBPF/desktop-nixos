@@ -24,6 +24,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Covers | Status |
 |-----|--------|--------|
+| [`reference/graphify-package.md`](reference/graphify-package.md) | Exact Graphify wheel artifacts, offline builds and explicit dependency updates. | Local package/native/workspace/four-host dry checks pass; hosted validation pending |
 | [`reference/hermes-state-backup-one-pager.md`](reference/hermes-state-backup-one-pager.md) · [`behavior contract`](behaviors/hermes-state-backup.feature) | Optional encrypted two-agent backup/isolated restore helpers and retained attempt history. | User waived backup/rehearsal rollout gate; no further backup/restore/deletions; live protection unproved, helpers retained |
 | [`reference/hermes-agent-runtime-one-pager.md`](reference/hermes-agent-runtime-one-pager.md) · [`behavior contract`](behaviors/hermes-agent-runtime.feature) | Verified image pins, Argus lifecycle/dedup and synthetic state roundtrip. | Backup gate waived; fixtures/earlier Orion closure pass; latest build, Desktop publication/CI, drift and rollout checks pending |
 | [`reference/hermes-agent-hardening-one-pager.md`](reference/hermes-agent-hardening-one-pager.md) · [`behavior contract`](behaviors/hermes-agent-hardening.feature) | Argus evidence/leak boundaries, terminal-only RTK rewriting, and Romozinha health/webhook scope. | Backup gate waived; guard proof retained; consumer publication/CI, latest build, drift and post-activation checks pending |

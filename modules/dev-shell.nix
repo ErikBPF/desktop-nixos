@@ -13,7 +13,7 @@
         pkgs.shellcheck
         pkgs.sops
         pkgs.age
-        (pkgs.python3.withPackages (p: [p.pyyaml]))
+        (pkgs.python3.withPackages (p: [p.pyyaml p.pip]))
       ];
       # Installs the git pre-commit hook (see modules/pre-commit.nix) on entry.
       shellHook = config.pre-commit.installationScript;
