@@ -102,6 +102,8 @@ _: {
       # --- GUI Applications ---
       lens
       postman
+      yaak # API client (nixpkgs)
+      dbx # database client (overlay in modules/overlays.nix)
       dbeaver-bin
       moonlight-qt
       chromium
