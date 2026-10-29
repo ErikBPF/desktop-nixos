@@ -38,6 +38,17 @@ class ThreeLevelBackends(unittest.TestCase):
                 self.assertEqual(profile["default_agent"], "pilot-l1")
                 self.assertEqual(sorted(profile["agents"]), ["pilot-l1", "pilot-l2", "pilot-l3"])
 
+    def test_profiles_load_workspace_agents_md_by_absolute_path(self):
+        # OPENCODE_DISABLE_PROJECT_CONFIG hides project config *and* project
+        # AGENTS.md discovery, so each profile must carry the absolute path.
+        expected = {
+            "homelab": "/home/erik/Documents/erik/homelab/AGENTS.md",
+            "dataplatform": "/home/erik/Documents/nstech/dataplatform/AGENTS.md",
+        }
+        for name, profile in self.profiles.items():
+            with self.subTest(name):
+                self.assertIn(expected[name], profile["instructions"])
+
     def test_homelab_models_use_deepseek_with_layer_variants(self):
         profile = self.profiles["homelab"]
         self.assertEqual(profile["agents"]["pilot-l1"]["model"], "litellm/deepseek-v4.1-flash#max")

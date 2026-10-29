@@ -237,6 +237,10 @@ in {
         small_model = model;
         default_agent = "pilot-l1";
         inherit agents;
+        # OPENCODE_DISABLE_PROJECT_CONFIG also skips project AGENTS.md
+        # discovery, so load the workspace instructions by absolute path.
+        # Nested AGENTS.md discovery does not apply to these backends.
+        instructions = base.instructions ++ ["${project.directory}/AGENTS.md"];
         # Backend state holds the server password; role agents must not read it.
         permissions =
           builtins.filter (rule: rule.action != "provider.use") base.permissions
