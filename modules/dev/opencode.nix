@@ -46,7 +46,7 @@
 
       outputHashMode = "recursive";
       outputHashAlgo = "sha256";
-      outputHash = "sha256-nso8eqFN6Xh5zhxMKH8xRSVRD56yOZV8CdWZyG7ylMA=";
+      outputHash = "sha256-4M6Z+YRlYJBY+y/TI1o3c21ZV2QxrSvzYrxZQtZM+y8=";
     });
 
     graphify = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
