@@ -2,6 +2,13 @@
   inherit (config) fleet;
   orionTs = fleet.hosts.orion.tailscaleIp;
   cachePort = 4321;
+  writerRules = builtins.concatStringsSep "\n" (
+    map (address: "allow ${address};") [
+      fleet.hosts.endeavour.tailscaleIp
+      fleet.tailnetPeers.laptop
+      fleet.hosts.kepler.tailscaleIp
+    ]
+  );
 in {
   # Shared sccache compiler cache for dev-loop `cargo build`, disk-backed on
   # orion and reached over the tailnet. Server = nginx WebDAV; clients set
@@ -44,6 +51,13 @@ in {
               dav_access user:rw group:rw all:r;
               create_full_put_path on;
               autoindex off;
+              # Enforce writes here: broad tailnet grants also reach this port.
+              limit_except GET {
+                allow 127.0.0.1;
+                allow ::1;
+                ${writerRules}
+                deny all;
+              }
             '';
           };
         };
