@@ -69,3 +69,13 @@ def test_vault_concerns_are_split():
     vault = read("modules/hosts/discovery/vault.nix")
     assert "./_vault-agent.nix" in vault
     assert (ROOT / "modules/hosts/discovery/_vault-agent.nix").exists()
+
+
+def test_pre_commit_hook_enforces_fmt_lint_and_secret_scan():
+    hooks = read("modules/pre-commit.nix")
+    assert "alejandra.enable = true;" in hooks
+    assert "statix = {" in hooks
+    assert "ripsecrets.enable = true;" in hooks
+
+    dev_shell = read("modules/dev-shell.nix")
+    assert "config.pre-commit.installationScript" in dev_shell
