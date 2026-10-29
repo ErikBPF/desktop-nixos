@@ -143,6 +143,16 @@
       };
     };
 
+    fleet.tailnetPeers = lib.mkOption {
+      type = lib.types.attrsOf lib.types.singleLineStr;
+      description = "Named tailnet addresses outside the host inventory; not deployment targets.";
+      default = {
+        # Accepted legacy peer from homelab-iac tailscale/acl/policy.hujson.
+        # Source reconciled 2026-10-29; live ownership must be checked before rollout.
+        laptop = "100.74.137.124";
+      };
+    };
+
     # Domains/hostnames SSOT (RFC 2026-06-29 P2) — the DNS/edge layer only.
     # Per-service SWAG routes (container backends on discovery) stay servarr-owned
     # (SRP D1/D2); lab *.k8s hostnames live in homelab-gitops. This source covers
@@ -251,5 +261,5 @@
   # Publish the fleet table as a flake output so it can be pinned to disk:
   #   nix eval .#fleet --json | jq . > fleet.json   (`just fleet-json`)
   # Vendored by homelab-iac (jsondecode) on a deliberate bump — never read live.
-  config.flake.fleet = {inherit (config.fleet) hosts ingress services overlays;};
+  config.flake.fleet = {inherit (config.fleet) hosts ingress services overlays tailnetPeers;};
 }
