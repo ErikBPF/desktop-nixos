@@ -235,9 +235,9 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                 result = subprocess.run([str(candidate), *args], env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)
-            for project, client, port, provider, key_file, key_variable, directory in (
-                ("homelab", "ol", 4096, "litellm", "litellm_key", "OPENCODE_LITELLM_KEY", "Documents/erik/homelab"),
-                ("dataplatform", "ow", 4097, "work", "work_key", "OPENCODE_WORK_KEY", "Documents/nstech/dataplatform")):
+            for project, client, port, provider, key_file, key_variable in (
+                ("homelab", "ol", 4096, "litellm", "litellm_key", "OPENCODE_LITELLM_KEY"),
+                ("dataplatform", "ow", 4097, "work", "work_key", "OPENCODE_WORK_KEY")):
                 service = self.config["units"][f"opencode-{project}"]["Service"]
                 native_env = dict(environment)
                 native_env.update(item.replace(self.config["home"], environment["HOME"]).split("=", 1)
@@ -289,7 +289,7 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                 (secrets / key_file).unlink()
                 forwarded = run(client, ["--session", "session with spaces", "--model", "custom/model"])
                 self.assertEqual(forwarded["args"], ["--auto", "--server", f"http://127.0.0.1:{port}",
-                    environment["HOME"] + "/" + directory, "--session", "session with spaces", "--model", "custom/model"])
+                    "--session", "session with spaces", "--model", "custom/model"])
                 self.assertTrue(forwarded["password"])
 
     def test_default_layout_and_monitor_rules_are_preserved(self):

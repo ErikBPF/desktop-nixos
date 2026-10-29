@@ -399,7 +399,9 @@ in {
               unset OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT
               unset OPENCODE_CONFIG_DIR OPENCODE_THREE_LEVEL_L2_MODEL OPENCODE_DISABLE_PROJECT_CONFIG
               # Auto-approve only this workspace client; other clients stay prompt.
-              exec ${config.programs.opencode.package}/bin/opencode --auto --server http://127.0.0.1:${toString project.port} ${lib.escapeShellArg project.directory} "$@"
+              # No directory argument: the session starts in the caller's cwd so
+              # it can run from a branch worktree instead of the project root.
+              exec ${config.programs.opencode.package}/bin/opencode --auto --server http://127.0.0.1:${toString project.port} "$@"
             '';
           })
         backends;
