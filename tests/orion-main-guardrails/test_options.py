@@ -108,7 +108,7 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
         self.assertTrue(builder["enable"])
         self.assertEqual(builder["serviceConfig"]["Type"], "oneshot")
         for name, value in {
-            "CPUQuota": "400%",
+            "CPUQuota": "2100%",
             "MemoryHigh": "40G",
             "MemoryMax": "48G",
             "TimeoutStartSec": "359min",
@@ -119,7 +119,7 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             with self.subTest(property=name):
                 self.assertEqual(builder["serviceConfig"].get(name), value)
         settings = builder["environment"].get("NIX_CONFIG", "").splitlines()
-        for name, expected in (("max-jobs", "2"), ("cores", "2")):
+        for name, expected in (("max-jobs", "1"), ("cores", "10")):
             with self.subTest(nix_setting=name):
                 values = [line.split("=", 1)[1].strip() for line in settings
                           if "=" in line and line.split("=", 1)[0].strip() == name]

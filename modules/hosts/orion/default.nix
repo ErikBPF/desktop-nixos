@@ -148,7 +148,7 @@ in {
         "kernel.softlockup_panic" = 1;
         "kernel.hardlockup_panic" = 1;
         "kernel.watchdog_thresh" = 30;
-        # 62GB RAM + zramSwap disabled below: keep anon pages resident, avoid
+        # 125 GiB RAM + zramSwap disabled below: keep anon pages resident, avoid
         # any swap activity racing with VRAM eviction during long-ctx inference.
         "vm.swappiness" = 1;
         # Steam games hit AC-locked atomics; default split-lock penalty
@@ -174,15 +174,15 @@ in {
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHzKv0yi/MC6TpRB3w2BAGYJw1gELHQSJuna9r8d0j8/"
     ];
 
-    # zramSwap intentionally disabled: 62GB host RAM is enough for the 21GB
-    # GGUF + CPU-side MoE shards + containers. vm.swappiness=1 above assumes
+    # zramSwap intentionally disabled: 125 GiB host RAM covers the model
+    # service + CPU-side MoE shards + containers. vm.swappiness=1 above assumes
     # no swap competes with VRAM eviction during long-context inference.
     zramSwap.enable = false;
 
     # earlyoom from m.nixos.maintenance sets freeSwapThreshold=10. earlyoom
     # 1.9 refuses any non-zero swap threshold when swap_total=0 ("value X
     # exceeds limit 0") and the NixOS option clamps to 1..100, so we cannot
-    # zero it. Just disable earlyoom on Orion: 62GB RAM + no swap + kernel
+    # zero it. Just disable earlyoom on Orion: 125 GiB RAM + no swap + kernel
     # OOM killer covers the residual risk, and freeMemThreshold=5 isn't
     # load-bearing on a single-purpose inference host.
     services.earlyoom.enable = lib.mkForce false;
@@ -196,19 +196,33 @@ in {
 
     # Cache warming is the only sustained multi-hour build on an inference host.
     # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
-    # 179 min ceiling killed the 2026-10-26 run at 05:59 before the 8 closures
-    # finished. The 179 min result is a lower bound, not proof that 359 min
-    # finishes it, so keep the old 2/2 concurrency guard and change only the
-    # window. The memory bound keeps an aggregate overshoot inside the unit
-    # instead of pressuring the inference host; the ceiling is the rollback knob
-    # (revert to 179 min if the longer window causes a regression).
+    # 179 min ceiling killed the 2026-10-26 run at 05:59; the 359 min ceiling
+    # killed both the 2026-10-27 and the 2026-10-28 runs at 08:59 with
+    # Result=timeout, still building.
+    #
+    # Neither timed-out run saturated the 2x2 shape's four-thread budget
+    # (systemd unit CPU time over wall clock):
+    #   2026-10-27: 6h52m CPU / 5h59m wall ~= 1.15 cores
+    #   2026-10-28: 3h49m CPU / 5h59m wall ~= 0.64 cores
+    # So the bottleneck is inside a single derivation, not the job count, and
+    # more jobs would only add memory. Raise the per-derivation thread budget
+    # instead: 1 job x 10 threads under a 2100% (21-core) quota, which is a
+    # ceiling, not a reservation.
+    #
+    # The cgroup MemoryPeak is the only memory figure the cap governs; the
+    # 10-thread per-derivation peak is unmeasured, so keep the existing
+    # 40G/48G bounds and re-baseline them from the next run. If MemoryMax
+    # binds, the cgroup OOM-kills the build, not the inference service, and
+    # the timer retries. The 359 min window is the outer bound, not a claim
+    # that it fits: if tonight still averages ~1 core, threads are not the
+    # constraint either and this shape needs revisiting.
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
-        max-jobs = 2
-        cores = 2
+        max-jobs = 1
+        cores = 10
       '';
       serviceConfig = {
-        CPUQuota = "400%";
+        CPUQuota = "2100%";
         MemoryHigh = "40G";
         MemoryMax = "48G";
         TimeoutStartSec = "359min";
