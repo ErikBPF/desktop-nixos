@@ -16,11 +16,15 @@ tailnet-specific firewall port, and deny other mutation sources:
 python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v
 ```
 
-The native HTTP fixture renders that same module with synthetic fleet addresses,
-then maps the separately pinned legacy laptop allow directive to loopback.
-An additional regression renders the current `fleet.json`: laptop is absent
-there, so its existing IaC tailnet identity is explicitly pinned in the server
-module. The build never reads a sibling working tree. The fixture
+The native HTTP fixture renders that same module with synthetic host and peer
+addresses. The legacy laptop address belongs to `fleet.tailnetPeers` in
+`modules/meta.nix`, exported by `just fleet-json`; it is not a `fleet.hosts`
+entry or a deployment target. The source contract renders the current exported
+artifact and verifies that changing the named peer changes its writer address
+without granting writes to other metadata peers. Before that repair, three
+assertions failed: the peer map was absent and the service ignored both default
+and replacement synthetic peer addresses. The build never reads a sibling
+working tree. The fixture
 runs Nginx on an ephemeral loopback port, and verifies successful writes/deletes,
 unchanged GET/HEAD reads, denied PUT/DELETE/MKCOL/COPY/MOVE, and rejected forwarding
 header spoofing. It uses no real cache, tailnet address or credential:

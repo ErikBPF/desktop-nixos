@@ -34,7 +34,7 @@ the Nix path.
    `discovery/vault.nix`. The trust boundary is the tailnet.
 4. **Server-side writer authorization.** Nginx permits mutations only from the
    fleet addresses of Endeavour and Kepler and the existing legacy laptop
-   identity pinned from the IaC tailnet ACL, plus trusted local loopback
+   identity in `fleet.tailnetPeers`, plus trusted local loopback
    maintenance. GET/HEAD retain existing read reachability. There is no
    application token; the writer boundary depends on tailnet source identity.
 5. **Endpoint = orion tailnet IP from the fleet SSOT** (`http://100.72.85.73:4321/`),
@@ -87,8 +87,13 @@ No live cache, deployment, real Cargo build or host firewall was exercised by
 this follow-up. All accepted writers share one trusted cache namespace; one
 compromised writer can still poison entries read by other consumers. Tailnet
 address changes require the corresponding fleet update and Nginx deployment.
-The legacy laptop is no longer a managed fleet host; its separate pinned
-address must be reconciled with the IaC identity before rollout.
+The legacy laptop is no longer a managed fleet host. Its accepted IaC address
+is declared once in `modules/meta.nix` under `fleet.tailnetPeers` and exported
+in `fleet.json`; updating it requires `just fleet-json`. This keeps
+`fleet.hosts`, upgrade targets and the physical inventory unchanged. The cache
+selects the laptop peer by name, so adding another peer does not grant writes.
+Static metadata does not prove live ownership; reconcile effective identities
+before rollout.
 If writer authorization breaks, compile locally while correcting the mapping;
 do not automatically reopen remote writes.
 

@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import time
 
-from test_contract import LEGACY_LAPTOP, WRITERS, cache_config
+from test_contract import WRITERS, cache_config
 
 
 def main():
@@ -19,9 +19,6 @@ def main():
     parser.add_argument("--module", type=Path)
     args = parser.parse_args()
     extra = cache_config(args.module)["extra"]
-    # This legacy identity is pinned outside managed fleet metadata. Map only
-    # its exact allow directive to loopback; all access/method rules stay intact.
-    extra = extra.replace(f"allow {LEGACY_LAPTOP};", f"allow {WRITERS['laptop']};")
     with tempfile.TemporaryDirectory(prefix="sccache-writers-") as folder:
         root = Path(folder)
         cache = root / "cache"

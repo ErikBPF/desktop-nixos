@@ -5,9 +5,7 @@
   writerRules = builtins.concatStringsSep "\n" (
     map (address: "allow ${address};") [
       fleet.hosts.endeavour.tailscaleIp
-      # Legacy peer, absent from the managed fleet. Pinned from the accepted
-      # homelab-iac tailscale/acl/policy.hujson laptop identity on 2026-10-29.
-      "100.74.137.124"
+      fleet.tailnetPeers.laptop
       fleet.hosts.kepler.tailscaleIp
     ]
   );

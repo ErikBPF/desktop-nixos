@@ -9,14 +9,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 WRITERS = {"endeavour": "127.0.0.2", "laptop": "127.0.0.3", "kepler": "127.0.0.4"}
-LEGACY_LAPTOP = "100.74.137.124"  # Accepted peer retained in the IaC tailnet ACL.
 
 
-def cache_config(module=None, hosts=None):
+def cache_config(module=None, fleet=None):
     module = Path(module or ROOT / "modules/services/sccache.nix").resolve()
-    if hosts is None:
-        hosts = {name: {"tailscaleIp": address} for name, address in WRITERS.items()}
+    if fleet is None:
+        hosts = {name: {"tailscaleIp": WRITERS[name]} for name in ("endeavour", "kepler")}
         hosts["orion"] = {"tailscaleIp": "127.0.0.5"}
+        fleet = {"hosts": hosts, "tailnetPeers": {"laptop": WRITERS["laptop"]}}
     # Only the leaf's enable/description helpers are needed here. Effective
     # NixOS option merging and the host closure have a separate native gate.
     expression = """
@@ -33,7 +33,7 @@ def cache_config(module=None, hosts=None):
         listen = leaf.config.services.nginx.virtualHosts.sccache-cache.listen;
         ports = leaf.config.networking.firewall.interfaces.tailscale0.allowedTCPPorts;
       }
-    """ % (json.dumps(json.dumps({"hosts": hosts})), json.dumps(str(module)))
+    """ % (json.dumps(json.dumps(fleet)), json.dumps(str(module)))
     result = subprocess.run(
         ["nix-instantiate", "--eval", "--strict", "--json", "--expr", expression],
         check=False, capture_output=True, text=True,
@@ -53,7 +53,7 @@ class CacheWriterContract(unittest.TestCase):
         self.assertIsNotNone(block, "cache mutations have no server-side writer boundary")
         allowed = set(re.findall(r"allow\s+([^;]+);", block[1]))
         self.assertEqual(allowed, {WRITERS["endeavour"], WRITERS["kepler"],
-                                  LEGACY_LAPTOP, "127.0.0.1", "::1"})
+                                  WRITERS["laptop"], "127.0.0.1", "::1"})
         self.assertRegex(block[1], r"deny\s+all;")
         self.assertTrue(block[1].strip().endswith("deny all;"))
 
@@ -64,12 +64,27 @@ class CacheWriterContract(unittest.TestCase):
         self.assertEqual(self.config["ports"], [4321])
 
     def test_current_fleet_resolves_accepted_legacy_writer(self):
-        hosts = json.loads((ROOT / "fleet.json").read_text())["hosts"]
-        rendered = cache_config(hosts=hosts)["extra"]
+        fleet = json.loads((ROOT / "fleet.json").read_text())
+        self.assertIn("tailnetPeers", fleet, "legacy peer addressing is not exported")
+        self.assertIn("laptop", fleet["tailnetPeers"])
+        hosts = fleet["hosts"]
+        self.assertNotIn("laptop", hosts, "legacy peer must not become a host target")
+        rendered = cache_config(fleet=fleet)["extra"]
         allowed = set(re.findall(r"allow\s+([^;]+);", rendered))
         self.assertEqual(allowed, {hosts["endeavour"]["tailscaleIp"],
                                   hosts["kepler"]["tailscaleIp"],
-                                  LEGACY_LAPTOP, "127.0.0.1", "::1"})
+                                  fleet["tailnetPeers"]["laptop"], "127.0.0.1", "::1"})
+
+    def test_peer_address_update_changes_only_the_named_writer(self):
+        fleet = {
+            "hosts": {name: {"tailscaleIp": WRITERS[name]}
+                      for name in ("endeavour", "kepler")},
+            "tailnetPeers": {"laptop": "127.0.0.9", "other": "127.0.0.10"},
+        }
+        fleet["hosts"]["orion"] = {"tailscaleIp": "127.0.0.5"}
+        allowed = set(re.findall(r"allow\s+([^;]+);", cache_config(fleet=fleet)["extra"]))
+        self.assertEqual(allowed, {WRITERS["endeavour"], WRITERS["kepler"],
+                                  "127.0.0.9", "127.0.0.1", "::1"})
 
 
 if __name__ == "__main__":
