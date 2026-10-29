@@ -9,74 +9,51 @@
       }} --strip-components=1 -C "$out"
     '';
 
-    # graphifyy with the MCP extra. Upstream's tree-sitter grammar set is not
-    # packaged in nixpkgs, so the wheels are pinned as a fixed-output
-    # derivation and installed offline. Bump the version and wheels hash
-    # together. The wheels output must stay free of store references, hence
-    # the throwaway seed venv in $TMPDIR rather than a venv in $out.
-    graphifyWheels = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
-      pname = "graphify-wheels";
-      version = "0.9.53";
+    # Exact wheel URLs and hashes keep new index releases out of builds.
+    # Refresh explicitly with `just update-graphify <version>`.
+    graphifyLock = builtins.fromJSON (builtins.readFile ./graphify-lock.json);
+    graphifyWheels = pkgs.linkFarm "graphify-wheels-${graphifyLock.version}" (map (wheel: {
+        name = wheel.filename;
+        path = pkgs.fetchurl {inherit (wheel) url sha256;};
+      })
+      graphifyLock.wheels);
 
-      nativeBuildInputs = [pkgs.uv];
+    graphify = assert pkgs.lib.assertMsg (pkgs.python3.pythonVersion == graphifyLock.pythonVersion)
+    "Refresh the Graphify wheel lock before changing its Python version";
+      pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+        pname = "graphify";
+        inherit (graphifyLock) version;
 
-      buildPhase = ''
-        runHook preBuild
-        export HOME="$TMPDIR"
-        export UV_CACHE_DIR="$TMPDIR/uv-cache"
-        export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-        export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
-        export UV_NATIVE_TLS=1
-        ${pkgs.uv}/bin/uv venv --seed --python ${pkgs.python3}/bin/python "$TMPDIR/download"
-        # Fix the platform tags: pip otherwise picks wheels from the build
-        # host's glibc, which made the hash differ between builders.
-        "$TMPDIR/download/bin/pip" download --only-binary=:all: \
-          --platform manylinux_2_28_x86_64 \
-          --platform manylinux2014_x86_64 \
-          --platform linux_x86_64 \
-          --python-version 3.14 --implementation cp \
-          --abi cp314 --abi abi3 --abi none \
-          --dest "$out" 'graphifyy[mcp]==${finalAttrs.version}'
-        runHook postBuild
-      '';
+        nativeBuildInputs = [pkgs.uv pkgs.autoPatchelfHook];
+        buildInputs = [pkgs.stdenv.cc.cc.lib pkgs.zlib];
 
-      dontFixup = true;
-      dontUnpack = true;
-      installPhase = "true";
+        buildPhase = ''
+          runHook preBuild
+          export HOME="$TMPDIR"
+          export UV_CACHE_DIR="$TMPDIR/uv-cache"
+          ${pkgs.uv}/bin/uv venv --python ${pkgs.python3}/bin/python --no-seed "$out"
+          ${pkgs.uv}/bin/uv pip install --python "$out/bin/python" --no-index \
+            --find-links ${graphifyWheels} 'graphifyy[mcp]==${finalAttrs.version}'
+          runHook postBuild
+        '';
 
-      outputHashMode = "recursive";
-      outputHashAlgo = "sha256";
-      outputHash = "sha256-4M6Z+YRlYJBY+y/TI1o3c21ZV2QxrSvzYrxZQtZM+y8=";
-    });
+        dontUnpack = true;
+        installPhase = "true";
+        doInstallCheck = true;
+        installCheckPhase = ''
+          runHook preInstallCheck
+          ${pkgs.python3}/bin/python ${../../tests/graphify-lock/runtime.py} "$out"
+          runHook postInstallCheck
+        '';
 
-    graphify = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
-      pname = "graphify";
-      version = "0.9.53";
-
-      nativeBuildInputs = [pkgs.uv];
-
-      buildPhase = ''
-        runHook preBuild
-        export HOME="$TMPDIR"
-        export UV_CACHE_DIR="$TMPDIR/uv-cache"
-        ${pkgs.uv}/bin/uv venv --python ${pkgs.python3}/bin/python --no-seed "$out"
-        ${pkgs.uv}/bin/uv pip install --python "$out/bin/python" --no-index \
-          --find-links ${graphifyWheels} 'graphifyy[mcp]==${finalAttrs.version}'
-        runHook postBuild
-      '';
-
-      dontFixup = true;
-      dontUnpack = true;
-      installPhase = "true";
-
-      meta = {
-        description = "Knowledge graph builder and MCP server for repositories";
-        homepage = "https://pypi.org/project/graphifyy/";
-        license = pkgs.lib.licenses.mit;
-        mainProgram = "graphify";
-        platforms = ["x86_64-linux"];
-      };
-    });
+        meta = {
+          description = "Knowledge graph builder and MCP server for repositories";
+          homepage = "https://pypi.org/project/graphifyy/";
+          license = pkgs.lib.licenses.mit;
+          mainProgram = "graphify";
+          platforms = ["x86_64-linux"];
+        };
+      });
     protectedReads = [
       "*.secrets.json"
       "*.secret.json"
