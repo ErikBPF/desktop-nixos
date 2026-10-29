@@ -21,6 +21,10 @@ Auto-accept is scoped: the `ol`/`ow` clients pass `--auto`, while the shared
 `cli.json` stays `prompt`. `session.sidebar` is `auto` (the only non-hidden
 schema value).
 
+L1 carries an explicit `shell: ask` rule so it can validate credentials and
+write documentation; `edit` stays denied outside `docs/*`, and protected
+destructive commands stay denied, so implementation still goes through L2/L3.
+
 ## Changes
 
 - `modules/desktop/workspace-sessions.nix` generates one profile per backend:
@@ -55,8 +59,10 @@ schema value).
   Both backends log donsetch, nix and graphify MCP connections; the
   `three-level` plugin is active.
 - The generated homelab profile loaded in a disposable 2.0.27 server with a
-  hostile project `opencode.json`; `pilot-l1` still resolved shell/edit to
-  `deny`, and `OPENCODE_DISABLE_PROJECT_CONFIG=1` removes the project rules.
+  hostile project `opencode.json`; `pilot-l1` then resolved shell/edit to
+  `deny`. The role now carries an explicit `shell: ask` rule, unit-tested
+  alongside the protected destructive denies, and
+  `OPENCODE_DISABLE_PROJECT_CONFIG=1` still removes the project rules.
 - Not yet observed: live model inference through each layer and a real
   `dispatch_slice` against either provider.
 

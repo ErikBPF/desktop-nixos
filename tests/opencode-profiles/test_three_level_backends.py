@@ -67,7 +67,10 @@ class ThreeLevelBackends(unittest.TestCase):
                 l3 = profile["agents"]["pilot-l3"]["permissions"]
                 self.assertEqual(rule(l1, "edit", "src/main.py"), "deny")
                 self.assertEqual(rule(l1, "edit", "docs/plan.md"), "ask")
-                self.assertEqual(rule(l1, "shell", "git status"), "deny")
+                # L1 may validate credentials and write docs via shell; global
+                # asks apply, while protected destructive commands stay denied.
+                self.assertEqual(rule(l1, "shell", "git status"), "ask")
+                self.assertEqual(rule(l1, "shell", "rm -rf /"), "deny")
                 self.assertEqual(rule(l1, "dispatch_slice", "*"), "allow")
                 self.assertEqual(rule(l2, "subagent", "pilot-l3"), "allow")
                 self.assertEqual(rule(l2, "subagent", "*"), "deny")

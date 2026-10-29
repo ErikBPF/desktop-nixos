@@ -116,14 +116,19 @@ in {
             inventory when present. Hardware totals are not available resource grants.
             Use the repository's coordination templates. Summarize accepted outcomes,
             verification, unresolved decisions and blockers; never manufacture evidence.
+            Validate credentials and create or update documentation directly; delegate
+            implementation to L2 slices.
           '';
           permissions =
             planning
             ++ [
+              # Credential validation and docs creation need a shell. Explicit
+              # ask (not implicit global merge) keeps it independent of the
+              # engine default; protected destructive denies still follow.
               {
                 action = "shell";
                 resource = "*";
-                effect = "deny";
+                effect = "ask";
               }
               {
                 action = "subagent";

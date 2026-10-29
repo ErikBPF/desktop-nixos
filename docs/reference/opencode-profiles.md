@@ -51,6 +51,10 @@ carries no `#variant` suffix; the model definition still rejects
 or `.opencode/opencode.json` from widening role permissions. Backend state,
 which holds the server password, is denied to role agents for read and edit.
 
+L1 keeps `edit` denied outside `docs/*` but follows the global shell policy
+(`ask`, auto-approved by `ol`/`ow`). Credential validation and documentation
+therefore work without a slice; implementation still goes through L2/L3.
+
 The generated profiles are exposed read-only as
 `programs.opencode-backends.profiles` for tests; do not hand-edit a running
 backend.
