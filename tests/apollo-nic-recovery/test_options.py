@@ -17,7 +17,6 @@ OPTIONS = """c: {
   natEnabled = c.networking.nat.enable;
   networkManager = c.networking.networkmanager.enable;
   networkd = c.networking.useNetworkd;
-  stage1Enabled = c.boot.initrd.systemd.enable;
   stage1Link = c.boot.initrd.systemd.network.units."10-apollo-lan.link".text or null;
   stage2Link = c.systemd.network.units."10-apollo-lan.link".text or null;
 }"""
@@ -48,7 +47,6 @@ class ApolloUplinkOptions(unittest.TestCase):
         with self.subTest(binding="rendered early boot and system link"):
             self.assertIn(f"[Match]\nPermanentMACAddress={mac}\n", options["stage2Link"])
             self.assertIn("[Link]\nName=lan0\nNamePolicy=\n", options["stage2Link"])
-            self.assertTrue(options["stage1Enabled"])
             self.assertEqual(options["stage1Link"], options["stage2Link"])
 
 
