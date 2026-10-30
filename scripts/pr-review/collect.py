@@ -210,7 +210,9 @@ def migrate_markers(marker_dir: Path) -> int:
             continue
         target = marker_dir / f"{head}.json"
         if target != path:
-            target.write_text(path.read_text())
+            if not target.exists():
+                target.write_text(path.read_text())
+            path.unlink(missing_ok=True)
             moved += 1
     return moved
 
