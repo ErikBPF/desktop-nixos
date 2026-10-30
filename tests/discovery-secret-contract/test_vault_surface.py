@@ -11,7 +11,8 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "modules/hosts/discovery/vault.nix"
+SOURCE = ROOT / "modules/hosts/discovery/_vault-agent.nix"
+VAULT = ROOT / "modules/hosts/discovery/vault.nix"
 EXPORTER = ROOT / "scripts/export-discovery-vault-contract.py"
 ARTIFACT = ROOT / "modules/hosts/discovery/vault-env-contract.json"
 JUSTFILE = ROOT / "justfile"
@@ -22,7 +23,7 @@ DISCOVERY = ROOT / "modules/hosts/discovery/default.nix"
 class DiscoveryVaultSurfaceTest(unittest.TestCase):
     def test_backblaze_b2_backup_contract(self):
         tofu = TOFU_BACKUP.read_text()
-        vault = SOURCE.read_text()
+        vault = VAULT.read_text()
         discovery = DISCOVERY.read_text()
 
         self.assertIn('sops.templates."restic-b2.env"', tofu)
@@ -58,15 +59,16 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertEqual(contract, json.loads(ARTIFACT.read_text()))
             self.assertEqual(contract["schema_version"], 1)
             self.assertEqual(contract["owner"], "desktop-nixos")
-            self.assertEqual(contract["source"], "modules/hosts/discovery/vault.nix")
-            self.assertEqual(len(contract["names"]), 50)
+            self.assertEqual(contract["source"], "modules/hosts/discovery/_vault-agent.nix")
+            self.assertEqual(len(contract["names"]), 51)
+            self.assertIn("GH_REVIEW_UPSTREAM_TOKEN", contract["names"])
             self.assertIn("ADGUARD_PASSWORD", contract["names"])
             self.assertEqual(contract["names"], sorted(contract["names"]))
             self.assertIn("CLOUDFLARE_API_TOKEN", contract["names"])
             self.assertIn("HARBOR_ROBOT_SECRET", contract["names"])
             self.assertEqual(
                 contract["service_identity"],
-                {"group": "root", "runtime_directory": "/run/vault-agent", "unit": "vault-agent.service", "user": "root"},
+                {"group": "vault-consumers", "runtime_directory": "/run/vault-agent", "unit": "vault-agent.service", "user": "root"},
             )
             self.assertTrue(all("perms" in render for render in contract["renders"]))
             tools = next(
@@ -82,6 +84,13 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             )
             self.assertEqual(ha_harness["perms"], "0440")
             self.assertEqual(ha_harness["group"], "docker")
+            tunneling = next(
+                render for render in contract["renders"]
+                if render["destination"] == "/run/vault-agent/tunneling.env"
+            )
+            self.assertEqual(tunneling["perms"], "0440")
+            self.assertEqual(tunneling["group"], "vault-consumers")
+            self.assertFalse(any(int(render["perms"], 8) & 4 for render in contract["renders"]))
             rendered = generated.read_text()
             self.assertNotIn(".Data.data", rendered)
             self.assertNotIn("{{", rendered)
@@ -183,7 +192,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn('[ -s ${keyPath} ] && [ -r ${keyPath} ]', wiki)
 
     def test_openbao_restore_drill_is_isolated_and_quarterly(self):
-        vault = SOURCE.read_text()
+        vault = VAULT.read_text()
         justfile = JUSTFILE.read_text()
         self.assertIn("systemd.services.openbao-restore-drill", vault)
         drill = vault.split("systemd.services.openbao-restore-drill", 1)[1].split(

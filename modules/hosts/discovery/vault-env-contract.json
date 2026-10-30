@@ -6,21 +6,24 @@
     "CLOUDFLARE_TUNNEL_TOKEN",
     "DISCORD_WEBHOOK_DEPLOYS",
     "DISCORD_WEBHOOK_INCIDENTS",
+    "GH_REVIEW_UPSTREAM_TOKEN",
+    "GITHUB_APP_MANAGEMENT_REFRESH_TOKEN",
     "GRAFANA_ADMIN_PASSWORD",
     "GRAFANA_ADMIN_USER",
-    "GRAFANA_SECRET_KEY",
     "HARBOR_ADMIN_PASSWORD",
     "HARBOR_DB_PASSWORD",
+    "HARBOR_PUBLISHER_SECRET",
+    "HARBOR_PUBLISHER_USERNAME",
     "HARBOR_ROBOT_SECRET",
     "HARBOR_ROBOT_USER",
     "HA_HARNESS_TOKEN",
-    "HEALTHCHECKS_SECRET_KEY",
-    "HEALTHCHECKS_SUPERUSER_PASSWORD",
     "JELLYSTAT_JWT_SECRET",
     "KINDLE_DASH_CLAUDE_REFRESH_TOKEN",
     "KINDLE_DASH_CODEX_REFRESH_TOKEN",
     "KINDLE_DASH_HA_TOKEN",
     "KINDLE_DASH_OPENCODE_AUTH_COOKIE",
+    "KINDLE_RELEASE_CLIENT_ID",
+    "KINDLE_RELEASE_CLIENT_SECRET",
     "LANGFUSE_INIT_USER_PASSWORD",
     "LANGFUSE_PUBLIC_KEY",
     "LANGFUSE_SALT",
@@ -40,47 +43,45 @@
     "QBITTORRENT_USER",
     "RADARR_API_KEY",
     "REDIS_PASSWORD",
-    "SCRUTINY_INFLUXDB_PASSWORD",
-    "SCRUTINY_INFLUXDB_TOKEN",
     "SCRUTINY_NOTIFY_URLS",
     "SEARXNG_SECRET_KEY",
     "SONARR_API_KEY",
-    "TELEGRAM_BOT_TOKEN",
     "UI_PASSWORD",
     "VAULTWARDEN_ADMIN_TOKEN",
     "VAULT_DEV_ROOT_TOKEN",
-    "WEBHOOK_GRAFANA_ALERTS_SECRET"
+    "WEBHOOK_GRAFANA_ALERTS_SECRET",
+    "WEBHOOK_SECRET"
   ],
   "owner": "desktop-nixos",
   "renders": [
     {
+      "destination": "/run/vault-agent/github-app-management.env",
+      "group": "vault-consumers",
+      "names": [
+        "GITHUB_APP_MANAGEMENT_REFRESH_TOKEN",
+        "KINDLE_RELEASE_CLIENT_ID",
+        "KINDLE_RELEASE_CLIENT_SECRET"
+      ],
+      "perms": "0440"
+    },
+    {
       "destination": "/run/vault-agent/discord.env",
+      "group": "vault-consumers",
       "names": [
         "DISCORD_WEBHOOK_DEPLOYS",
         "DISCORD_WEBHOOK_INCIDENTS",
         "SCRUTINY_NOTIFY_URLS",
         "WEBHOOK_GRAFANA_ALERTS_SECRET"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/tunneling.env",
+      "group": "vault-consumers",
       "names": [
         "CLOUDFLARE_TUNNEL_TOKEN"
       ],
       "perms": "0440"
-    },
-    {
-      "destination": "/run/vault-agent/monitoring.env",
-      "names": [
-        "GRAFANA_SECRET_KEY",
-        "HEALTHCHECKS_SECRET_KEY",
-        "HEALTHCHECKS_SUPERUSER_PASSWORD",
-        "SCRUTINY_INFLUXDB_PASSWORD",
-        "SCRUTINY_INFLUXDB_TOKEN",
-        "TELEGRAM_BOT_TOKEN"
-      ],
-      "perms": "0444"
     },
     {
       "destination": "/run/vault-agent/shared-db.env",
@@ -93,27 +94,30 @@
     },
     {
       "destination": "/run/vault-agent/shared-arr.env",
+      "group": "vault-consumers",
       "names": [
         "LIDARR_API_KEY",
         "RADARR_API_KEY",
         "SONARR_API_KEY"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/shared-grafana.env",
+      "group": "vault-consumers",
       "names": [
         "GRAFANA_ADMIN_PASSWORD",
         "GRAFANA_ADMIN_USER"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/media-server.env",
+      "group": "vault-consumers",
       "names": [
         "JELLYSTAT_JWT_SECRET"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/tools.env",
@@ -125,16 +129,18 @@
     },
     {
       "destination": "/run/vault-agent/media.env",
+      "group": "vault-consumers",
       "names": [
         "NORDVPN_PASSWORD",
         "NORDVPN_USER",
         "QBITTORRENT_PASSWORD",
         "QBITTORRENT_USER"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/ai-serving.env",
+      "group": "vault-consumers",
       "names": [
         "CLICKHOUSE_PASSWORD",
         "LANGFUSE_INIT_USER_PASSWORD",
@@ -148,7 +154,7 @@
         "OPENCODE_ZEN_KEY",
         "UI_PASSWORD"
       ],
-      "perms": "0444"
+      "perms": "0440"
     },
     {
       "destination": "/run/vault-agent/networking.env",
@@ -158,6 +164,22 @@
         "CLOUDFLARE_API_TOKEN"
       ],
       "perms": "0440"
+    },
+    {
+      "destination": "/run/vault-agent/hermes-pr-review-upstream.env",
+      "group": "vault-consumers",
+      "names": [
+        "GH_REVIEW_UPSTREAM_TOKEN"
+      ],
+      "perms": "0400"
+    },
+    {
+      "destination": "/run/vault-agent/hermes-argus.env",
+      "group": "vault-consumers",
+      "names": [
+        "WEBHOOK_SECRET"
+      ],
+      "perms": "0400"
     },
     {
       "destination": "/run/vault-agent/infra.env",
@@ -171,11 +193,21 @@
     },
     {
       "destination": "/run/vault-agent/harbor.env",
+      "group": "vault-consumers",
       "names": [
         "HARBOR_ADMIN_PASSWORD",
         "HARBOR_DB_PASSWORD",
         "HARBOR_ROBOT_SECRET",
         "HARBOR_ROBOT_USER"
+      ],
+      "perms": "0400"
+    },
+    {
+      "destination": "/run/vault-agent/cognee-harbor-publisher.env",
+      "group": "vault-consumers",
+      "names": [
+        "HARBOR_PUBLISHER_SECRET",
+        "HARBOR_PUBLISHER_USERNAME"
       ],
       "perms": "0400"
     },
@@ -202,11 +234,11 @@
   ],
   "schema_version": 1,
   "service_identity": {
-    "group": "root",
+    "group": "vault-consumers",
     "runtime_directory": "/run/vault-agent",
     "unit": "vault-agent.service",
     "user": "root"
   },
-  "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "6dcb012b01f706f7844345081696a20b163eb6d845483019f272655ca3d69411"
+  "source": "modules/hosts/discovery/_vault-agent.nix",
+  "source_sha256": "058f4665d48da4f9077cf7a2b36a7680b5293d379658cf965099690365aa642f"
 }
