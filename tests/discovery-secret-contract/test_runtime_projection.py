@@ -225,7 +225,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         )
         self.assertIn("verify-tunneling-secret-render:", justfile)
         self.assertIn('test "$actual" = CLOUDFLARE_TUNNEL_TOKEN', justfile)
-        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]', vault)
+        self.assertNotIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]', vault)
         tunneling = next(row for row in contract["renders"] if row["destination"].endswith("/tunneling.env"))
         self.assertEqual(tunneling["perms"], "0440")
 

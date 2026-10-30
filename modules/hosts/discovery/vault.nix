@@ -277,9 +277,6 @@ in {
             contents = "${renderedAt}CLOUDFLARE_TUNNEL_TOKEN={{ with secret \"secret/data/home/tunneling\" }}{{ .Data.data.CLOUDFLARE_TUNNEL_TOKEN }}{{ end }}\n"
             destination = "/run/vault-agent/tunneling.env"
             perms = "0440"
-            exec {
-              command = ["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]
-            }
           }
           # P3.3: monitoring stack-local secrets (grafana/healthchecks/scrutiny).
           # GRAFANA_ADMIN_{USER,PASSWORD} are shared with homepage → in the
