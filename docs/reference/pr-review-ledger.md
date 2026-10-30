@@ -57,9 +57,10 @@ expired leases an open head becomes `failed`; the collector retries it after
 the same commit is revived on the next collect.
 
 `published` needs both the ledger row and the root-only marker
-`/var/lib/hermes-pr-review/published/<bundle>.json`. The marker directory is
-not mounted into the agent container, so a forged ledger state alone cannot
-silence the gate.
+`/var/lib/hermes-pr-review/published/<head>.json` whose recorded head matches
+the row. The marker directory is not mounted into the agent container, so a
+forged ledger state alone cannot silence the gate. The publisher also rejects a
+packet whose bundle name does not match the packet's repo, PR and head.
 
 `claim.py` leases atomically with `BEGIN IMMEDIATE`. File claims under
 `review-claims/` are no longer used.
@@ -103,8 +104,8 @@ sudo systemctl start hermes-pr-review-publish.service
   discards the packet.
 - Closed or merged PRs: the next collect marks any queued, failed, or expired
   leased head `stale`, so merged heads are not retried.
-- A `published` row without its root-only marker (forged or lost state) is
-  requeued and reviewed again.
+- A `published` row without a matching root-only marker (forged or lost state)
+  is requeued and reviewed again.
 - Collector errors are per repository and do not stop the other repositories.
 
 ## Migration and rollback

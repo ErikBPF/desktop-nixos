@@ -73,21 +73,26 @@ _: {
         db = ledger.connect(sys.argv[1])
         print(ledger.claimable_count(db))
         ' "$ledger")" || exit $?
-                [ "$count" -gt 0 ] || exit 0
-                [ "$count" -le ${toString cfg.parallelism} ] || count=${toString cfg.parallelism}
-                for i in $(${pkgs.coreutils}/bin/seq 1 "$count"); do
-                  unit="hermes-pr-review-trigger-$i"
-                  if ${pkgs.systemd}/bin/systemctl is-active --quiet "$unit"; then
-                    continue
-                  fi
-                  ${pkgs.systemd}/bin/systemd-run --quiet --collect --unit="$unit" \
-                    ${pkgs.docker}/bin/docker exec \
-                    -u ${toString cfg.agentUid}:${toString cfg.agentGid} \
-                    -e HOME=/opt/data ${lib.escapeShellArg cfg.containerName} \
-                    ${lib.escapeShellArg cfg.hermesCli} \
-                    cron run "${cfg.jobName}-$i" \
-                    || echo "dispatch: worker $i did not start" >&2
-                done
+        [ "$count" -gt 0 ] || exit 0
+        [ "$count" -le ${toString cfg.parallelism} ] || count=${toString cfg.parallelism}
+        started=0
+        for i in $(${pkgs.coreutils}/bin/seq 1 ${toString cfg.parallelism}); do
+          [ "$started" -lt "$count" ] || break
+          unit="hermes-pr-review-trigger-$i"
+          if ${pkgs.systemd}/bin/systemctl is-active --quiet "$unit"; then
+            continue
+          fi
+          if ${pkgs.systemd}/bin/systemd-run --quiet --collect --unit="$unit" \
+            ${pkgs.docker}/bin/docker exec \
+            -u ${toString cfg.agentUid}:${toString cfg.agentGid} \
+            -e HOME=/opt/data ${lib.escapeShellArg cfg.containerName} \
+            ${lib.escapeShellArg cfg.hermesCli} \
+            cron run "${cfg.jobName}-$i"; then
+            started=$((started + 1))
+          else
+            echo "dispatch: worker $i did not start" >&2
+          fi
+        done
       '';
     };
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {

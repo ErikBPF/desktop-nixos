@@ -193,6 +193,15 @@ def reconcile_closed(db, repo: str, open_numbers: set[int]) -> int:
     return marked
 
 
+def marker_matches(marker_dir: Path, head: str) -> bool:
+    path = marker_dir / f"{head}.json"
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return False
+    return data.get("head") == head
+
+
 def backfill_markers(db, marker_dir: Path, state_path: Path) -> int:
     """Create publication markers once from the root-owned pre-ledger record.
 
@@ -220,7 +229,7 @@ def backfill_markers(db, marker_dir: Path, state_path: Path) -> int:
         row = ledger.get(db, repo, pr, head)
         if row is None or row["state"] != "published":
             continue
-        (marker_dir / f"{row['bundle']}.json").write_text(
+        (marker_dir / f"{row['head']}.json").write_text(
             json.dumps(
                 {"repo": row["repo"], "pr": row["pr"], "head": row["head"]},
                 indent=2,
@@ -506,7 +515,7 @@ def main() -> int:
             row = ledger.get(db, repo, pr["number"], head)
             if row is not None:
                 if row["state"] == "published":
-                    if (marker_dir / f"{row['bundle']}.json").exists():
+                    if marker_matches(marker_dir, row["head"]):
                         continue
                     ledger.requeue(db, repo, pr["number"], head)
                     row = ledger.get(db, repo, pr["number"], head)

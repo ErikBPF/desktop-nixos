@@ -383,11 +383,11 @@ def mark_bundle(bundle: Path, outcome: str) -> None:
         ready.unlink()
 
 
-def write_marker(state_dir: Path, bundle: str, review: dict, url: str | None) -> None:
-    """Record publication outside the agent-writable data mount."""
+def write_marker(state_dir: Path, head: str, review: dict, url: str | None) -> None:
+    """Record publication outside the agent-writable data mount, keyed by head."""
     published = state_dir / "published"
     published.mkdir(parents=True, exist_ok=True)
-    (published / f"{bundle}.json").write_text(
+    (published / f"{head}.json").write_text(
         json.dumps(
             {
                 "repo": review["repo"],
@@ -463,6 +463,19 @@ def main() -> int:
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
                     ledger.finish_bundle(db, path.stem, "failed", "bundle missing")
+                continue
+            row = ledger.get_bundle(db, path.stem)
+            if row is None or (
+                row["repo"],
+                row["pr"],
+                row["head"],
+            ) != (repo, pr, head):
+                print(f"IDENTITY-MISMATCH {path.name}", file=sys.stderr)
+                if not args.dry_run:
+                    path.replace(stale_dir / path.name)
+                    ledger.finish(
+                        db, repo, pr, head, "failed", "packet identity mismatch"
+                    )
                 continue
             token = tokens.token_for(
                 entry, args.app_credential, args.app_token_cache
@@ -543,7 +556,7 @@ def main() -> int:
             check_outcome = publish_check(
                 repo, head, review["findings"], token, False
             )
-            write_marker(Path(args.state_dir), path.stem, review, url)
+            write_marker(Path(args.state_dir), head, review, url)
             ledger.finish(db, repo, pr, head, "published")
             mark_bundle(
                 bundle,
