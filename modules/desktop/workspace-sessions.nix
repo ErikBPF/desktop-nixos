@@ -393,15 +393,25 @@ in {
               if project.name == "homelab"
               then "ol"
               else "ow";
+            runtimeInputs = [pkgs.git];
             text = ''
               OPENCODE_PASSWORD="$(<${lib.escapeShellArg (passwordFile project)})"
               export OPENCODE_PASSWORD
               unset OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT
               unset OPENCODE_CONFIG_DIR OPENCODE_THREE_LEVEL_L2_MODEL OPENCODE_DISABLE_PROJECT_CONFIG
+              # Keep this auto-approving client inside its own repository.
+              # Branch worktrees share the git common dir and stay usable; a
+              # foreign checkout falls back to the project directory.
+              caller="$(pwd -P)"
+              caller_common="$(git -C "$caller" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+              project_common="$(git -C ${lib.escapeShellArg project.directory} rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+              if [[ -n "$caller_common" && "$caller_common" == "$project_common" ]]; then
+                directory="$caller"
+              else
+                directory=${lib.escapeShellArg project.directory}
+              fi
               # Auto-approve only this workspace client; other clients stay prompt.
-              # No directory argument: the session starts in the caller's cwd so
-              # it can run from a branch worktree instead of the project root.
-              exec ${config.programs.opencode.package}/bin/opencode --auto --server http://127.0.0.1:${toString project.port} "$@"
+              exec ${config.programs.opencode.package}/bin/opencode --auto --server http://127.0.0.1:${toString project.port} "$directory" "$@"
             '';
           })
         backends;
