@@ -65,7 +65,6 @@
     },
     {
       "destination": "/run/vault-agent/tunneling.env",
-      "group": "docker",
       "names": [
         "CLOUDFLARE_TUNNEL_TOKEN"
       ],
@@ -209,5 +208,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/vault.nix",
-  "source_sha256": "7012fa54ecba2cf39c72aba47239466d4356d585a08f185636d0200be8296d72"
+  "source_sha256": "6dcb012b01f706f7844345081696a20b163eb6d845483019f272655ca3d69411"
 }
