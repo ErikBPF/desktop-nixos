@@ -83,11 +83,9 @@ jobs:
       - name: PR review publisher contract
         run: python3 tests/pr-review-publish.py
 
-      - name: Discovery Vault export and projection contracts
+      - name: Discovery secret contracts
         run: |
-          python3 -m unittest discover -s tests/discovery-secret-contract -p test_export_evaluation.py -v
-          python3 -m unittest discover -s tests/discovery-secret-contract -p test_vault_surface.py -v
-          python3 -m unittest discover -s tests/discovery-secret-contract -p test_runtime_projection.py -v
+          python3 -m unittest discover -s tests/discovery-secret-contract -v
 
       - name: Tooling and fleet contracts
         run: |
