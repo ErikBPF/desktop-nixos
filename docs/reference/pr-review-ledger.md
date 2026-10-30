@@ -113,6 +113,7 @@ sudo systemctl start hermes-pr-review-publish.service
 The first collector run after activation imports the old
 `/var/lib/hermes-pr-review/state.json` once. Published heads become
 `published`; requested heads are imported only when their bundle still exists.
+Legacy bundle-named publication markers are renamed to their recorded head.
 The ledger is a cache of queue state, not review content; bundles and published
 packets remain the audit trail.
 

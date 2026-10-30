@@ -272,6 +272,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert collect.marker_matches(marker_dir, "1" * 40)
     (marker_dir / "spoofed.json").write_text(json.dumps({"head": "0" * 40}))
     assert not collect.marker_matches(marker_dir, "spoofed")
+    (marker_dir / "legacy.json").write_text(json.dumps({"head": "9" * 40}))
+    assert collect.migrate_markers(marker_dir) == 2
+    assert collect.marker_matches(marker_dir, "9" * 40)
     migrated_db.close()
 
     # Cross-PR background is scoped to the same repository, never another one.

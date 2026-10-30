@@ -193,6 +193,28 @@ def reconcile_closed(db, repo: str, open_numbers: set[int]) -> int:
     return marked
 
 
+def migrate_markers(marker_dir: Path) -> int:
+    """Rename pre-head marker files to their recorded head."""
+    if not marker_dir.is_dir():
+        return 0
+    moved = 0
+    for path in marker_dir.glob("*.json"):
+        if len(path.stem) == 40:
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        head = data.get("head")
+        if not head:
+            continue
+        target = marker_dir / f"{head}.json"
+        if target != path:
+            target.write_text(path.read_text())
+            moved += 1
+    return moved
+
+
 def marker_matches(marker_dir: Path, head: str) -> bool:
     path = marker_dir / f"{head}.json"
     try:
@@ -472,6 +494,7 @@ def main() -> int:
     db = ledger.connect(ledger_path)
     migrated = migrate_state(db, state_path, in_dir)
     marker_dir = state_dir / "published"
+    marker_moves = migrate_markers(marker_dir)
     markers = backfill_markers(db, marker_dir, state_path)
     in_dir.mkdir(parents=True, exist_ok=True)
     (Path(args.data_dir) / "review-out").mkdir(parents=True, exist_ok=True)
@@ -540,7 +563,10 @@ def main() -> int:
 
     db.close()
     lock.close()
-    print(f"requested={requested} pruned={pruned} closed={closed} markers={markers} migrated={migrated}")
+    print(
+        f"requested={requested} pruned={pruned} closed={closed} "
+        f"markers={markers} moved={marker_moves} migrated={migrated}"
+    )
     return 0
 
 
