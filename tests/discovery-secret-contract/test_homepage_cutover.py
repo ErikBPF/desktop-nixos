@@ -19,7 +19,7 @@ class HomepageCutoverTest(unittest.TestCase):
             'secretSpecRuntimeSourceConfigNames.homepage = ["GRAFANA_ADMIN_USER"];',
             source,
         )
-        self.assertIn('secretSpecRuntimeHealthContainers.homepage = "homepage";', source)
+        self.assertIn('secretSpecRuntimeHealthContainers.homepage = ["homepage"];', source)
         self.assertIn('homepage = ["shared-arr" "shared-grafana"];', source)
 
 
