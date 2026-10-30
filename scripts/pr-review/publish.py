@@ -18,6 +18,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import ledger
 import tokens
 
 GH = "gh"
@@ -76,18 +77,6 @@ def clean(value: object, limit: int = 4000) -> str:
     if len(text) > limit:
         text = text[: limit - 1].rstrip() + "…"
     return text
-
-
-def load_state(path: Path) -> dict:
-    if not path.exists():
-        return {"version": 1, "prs": {}}
-    return json.loads(path.read_text())
-
-
-def save_state(path: Path, state: dict) -> None:
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
-    tmp.replace(path)
 
 
 def validate(review: dict) -> tuple[dict, list[str]]:
@@ -387,17 +376,30 @@ def current_head(repo: str, pr: int, token: str) -> tuple[str, str]:
     return data["headRefOid"], data["state"]
 
 
-def release_claim(bundle: Path, claims_dir: Path) -> None:
-    """Drop the worker claim so the bundle can be claimed again."""
-    (claims_dir / f"{bundle.name}.claim").unlink(missing_ok=True)
-
-
-def mark_bundle(bundle: Path, outcome: str, claims_dir: Path) -> None:
+def mark_bundle(bundle: Path, outcome: str) -> None:
     (bundle / ".posted").write_text(f"{outcome} {now()}\n")
     ready = bundle / ".ready"
     if ready.exists():
         ready.unlink()
-    release_claim(bundle, claims_dir)
+
+
+def write_marker(state_dir: Path, bundle: str, review: dict, url: str | None) -> None:
+    """Record publication outside the agent-writable data mount."""
+    published = state_dir / "published"
+    published.mkdir(parents=True, exist_ok=True)
+    (published / f"{bundle}.json").write_text(
+        json.dumps(
+            {
+                "repo": review["repo"],
+                "pr": review["pr"],
+                "head": review["head"],
+                "url": url,
+                "published_at": now(),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
 
 
 def retire_bundle(bundle: Path, target: Path) -> None:
@@ -414,24 +416,24 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
     parser.add_argument("--data-dir", required=True)
-    parser.add_argument("--state-dir", required=True)
+    parser.add_argument("--state-dir", default="/var/lib/hermes-pr-review")
     parser.add_argument("--app-credential", required=True)
     parser.add_argument("--app-token-cache", required=True)
+    parser.add_argument("--ledger", default=None)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--post-empty", action="store_true")
     parser.add_argument("--no-strict-evidence", dest="strict_evidence", action="store_false")
     args = parser.parse_args()
 
     entries = {entry["repo"]: entry for entry in tokens.load_config(args.config)}
-    state_dir = Path(args.state_dir)
-    state_dir.mkdir(parents=True, exist_ok=True)
-    state_path = state_dir / "state.json"
-    state = load_state(state_path)
+    ledger_path = args.ledger or str(
+        Path(args.data_dir) / "review-ledger" / "ledger.db"
+    )
+    db = ledger.connect(ledger_path)
     out_dir = Path(args.data_dir) / "review-out"
     in_dir = Path(args.data_dir) / "review-in"
     done_dir = Path(args.data_dir) / "review-done"
     stale_dir = Path(args.data_dir) / "review-stale"
-    claims_dir = Path(args.data_dir) / "review-claims"
     for directory in (out_dir, done_dir, stale_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -443,7 +445,9 @@ def main() -> int:
                 print(f"INVALID {path.name}: {'; '.join(errors)}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
-                    release_claim(in_dir / path.stem, claims_dir)
+                    ledger.finish_bundle(
+                        db, path.stem, "failed", "invalid review packet"
+                    )
                 continue
             repo, pr, head = review["repo"], review["pr"], review["head"]
             entry = entries.get(repo)
@@ -451,14 +455,14 @@ def main() -> int:
                 print(f"REPO-NOT-CONFIGURED {path.name}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
-                    release_claim(in_dir / path.stem, claims_dir)
+                    ledger.finish_bundle(db, path.stem, "stale", "repo not configured")
                 continue
             bundle = in_dir / path.stem
             if not bundle.exists():
                 print(f"NO-BUNDLE {path.name}", file=sys.stderr)
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
-                    release_claim(bundle, claims_dir)
+                    ledger.finish_bundle(db, path.stem, "failed", "bundle missing")
                 continue
             token = tokens.token_for(
                 entry, args.app_credential, args.app_token_cache
@@ -468,7 +472,8 @@ def main() -> int:
                 print(f"STALE {path.name}: {head} != {live_head}")
                 if not args.dry_run:
                     path.replace(stale_dir / path.name)
-                    mark_bundle(bundle, "stale", claims_dir)
+                    ledger.finish(db, repo, pr, head, "stale", "head moved")
+                    mark_bundle(bundle, "stale")
                     retire_bundle(bundle, stale_dir)
                 continue
             if args.strict_evidence:
@@ -538,35 +543,23 @@ def main() -> int:
             check_outcome = publish_check(
                 repo, head, review["findings"], token, False
             )
-            key = f"{repo}#{pr}"
-            entry_state = state["prs"].get(key, {})
-            entry_state.update(
-                {
-                    "posted_head": head,
-                    "posted_at": now(),
-                    "url": url,
-                    "verdict": verdict(review["findings"]),
-                    "review": review_outcome,
-                    "check": check_outcome,
-                }
-            )
-            state["prs"][key] = entry_state
+            write_marker(Path(args.state_dir), path.stem, review, url)
+            ledger.finish(db, repo, pr, head, "published")
             mark_bundle(
                 bundle,
                 "approved" if not review["findings"] else "changes-requested",
-                claims_dir,
             )
             path.replace(done_dir / path.name)
             retire_bundle(bundle, done_dir)
             published += 1
             print(
                 f"PUBLISHED {path.name} {url or 'no-comment'} "
-                f"{entry_state['verdict']} {review_outcome}/{check_outcome}"
+                f"{verdict(review['findings'])} {review_outcome}/{check_outcome}"
             )
         except Exception as exc:
             print(f"ERROR {path.name}: {exc}", file=sys.stderr)
 
-    save_state(state_path, state)
+    db.close()
     print(f"published={published}")
     return 0
 

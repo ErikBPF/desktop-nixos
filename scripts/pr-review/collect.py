@@ -17,6 +17,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import ledger
 import tokens
 
 GH = "gh"
@@ -124,43 +125,110 @@ def bundle_id(repo: str, pr: int, head: str) -> str:
 
 def prune_repo_bundles(
     in_dir: Path,
-    claims_dir: Path,
+    db,
     repo: str,
     heads: dict[int, str],
-    claim_ttl: int,
 ) -> int:
     """Drop bundles whose PR closed, or whose head a newer bundle superseded.
 
-    Reviewed heads are already skipped by the collector state; this only cleans
-    the inbox so a long-lived checkout does not accumulate one directory per
-    head it ever saw. A fresh claim is never removed (a worker may be reading).
+    The ledger owns the head state, so this only cleans the inbox. A live lease
+    is never removed: a worker may still be reading that bundle.
     """
     owner, name = repo.split("/", 1)
     prefix = f"{owner}__{name}__"
     removed = 0
+    now = time.time()
     for bundle in in_dir.iterdir():
         if not bundle.is_dir() or not bundle.name.startswith(prefix):
             continue
         parts = bundle.name.split("__")
-        if len(parts) != 4:
+        if len(parts) < 4:
             continue
         try:
-            number = int(parts[2])
+            number = int(parts[-2])
         except ValueError:
             continue
         current = heads.get(number)
-        keep = current is not None and current.startswith(parts[3])
+        row = ledger.get_bundle(db, bundle.name)
+        if row is not None and row["repo"] != repo:
+            row = None
+        if row is not None:
+            current = heads.get(row["pr"])
+        keep = current is not None and current.startswith(parts[-1])
         if keep:
             continue
-        claim = claims_dir / f"{bundle.name}.claim"
-        try:
-            if claim.exists() and time.time() - claim.stat().st_mtime < claim_ttl:
+        if row is not None and row["state"] == "leased":
+            if (row["lease_expires"] or 0) > now:
                 continue
-        except FileNotFoundError:
-            pass
+        if row is not None and row["state"] not in ("published", "stale"):
+            ledger.finish(
+                db, row["repo"], row["pr"], row["head"], "stale", "bundle pruned"
+            )
         shutil.rmtree(bundle, ignore_errors=True)
         removed += 1
     return removed
+
+
+def reconcile_closed(db, repo: str, open_numbers: set[int]) -> int:
+    """Mark heads of closed or merged PRs stale.
+
+    The collector only lists open PRs, so this is the only place a terminal
+    row can learn that its PR will never be reviewed again. Live leases are
+    left alone until they expire.
+    """
+    now = time.time()
+    marked = 0
+    for row in db.execute(
+        "SELECT * FROM reviews WHERE repo = ? AND state IN ('queued', 'failed', 'leased')",
+        (repo,),
+    ).fetchall():
+        if row["pr"] in open_numbers:
+            continue
+        if row["state"] == "leased" and (row["lease_expires"] or 0) > now:
+            continue
+        ledger.finish(
+            db, row["repo"], row["pr"], row["head"], "stale", "PR closed or merged"
+        )
+        marked += 1
+    return marked
+
+
+def backfill_markers(db, marker_dir: Path, state_path: Path) -> int:
+    """Create publication markers once from the root-owned pre-ledger record.
+
+    The ledger lives on the agent-writable data mount, so it cannot mint its
+    own proof of publication. Only heads recorded as posted in the root-only
+    ``state.json`` get a marker; rows planted in the ledger are ignored.
+    """
+    if marker_dir.exists():
+        return 0
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        state = json.loads(state_path.read_text())
+    except (OSError, ValueError):
+        return 0
+    written = 0
+    for key, entry in state.get("prs", {}).items():
+        repo, _, number = key.rpartition("#")
+        try:
+            pr = int(number)
+        except ValueError:
+            continue
+        head = entry.get("posted_head")
+        if not repo or not head:
+            continue
+        row = ledger.get(db, repo, pr, head)
+        if row is None or row["state"] != "published":
+            continue
+        (marker_dir / f"{row['bundle']}.json").write_text(
+            json.dumps(
+                {"repo": row["repo"], "pr": row["pr"], "head": row["head"]},
+                indent=2,
+            )
+            + "\n"
+        )
+        written += 1
+    return written
 
 
 def repo_context(data_dir: Path, repo: str, current_pr: int, keep: int = 10) -> str:
@@ -172,8 +240,9 @@ def repo_context(data_dir: Path, repo: str, current_pr: int, keep: int = 10) -> 
     """
     done = data_dir / "review-done"
     entries = []
+    prefix = repo.replace("/", "__", 1) + "__"
     if done.is_dir():
-        for path in done.glob("*.json"):
+        for path in done.glob(f"{prefix}*.json"):
             try:
                 review = json.loads(path.read_text())
             except (OSError, ValueError):
@@ -210,32 +279,63 @@ def repo_context(data_dir: Path, repo: str, current_pr: int, keep: int = 10) -> 
     return "\n".join(lines) + "\n"
 
 
-def load_state(path: Path) -> dict:
-    if not path.exists():
-        return {"version": 1, "prs": {}}
-    return json.loads(path.read_text())
+def migrate_state(db, state_path: Path, in_dir: Path) -> int:
+    """Import the pre-ledger state file once, so live heads are not re-reviewed.
+
+    Requested heads whose bundle was already pruned are skipped: the collector
+    rebuilds them only while the PR is still open and its head unchanged.
+    """
+    if ledger.count(db) or not state_path.exists():
+        return 0
+    try:
+        state = json.loads(state_path.read_text())
+    except (OSError, ValueError):
+        return 0
+    imported = 0
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        for key, entry in state.get("prs", {}).items():
+            repo, _, number = key.rpartition("#")
+            try:
+                pr = int(number)
+            except ValueError:
+                continue
+            posted = entry.get("posted_head")
+            head = posted or entry.get("requested_head")
+            if not repo or not head:
+                continue
+            bundle = bundle_id(repo, pr, head)
+            if not posted and not (in_dir / bundle / ".ready").exists():
+                continue
+            ledger.record(db, repo, pr, head, entry.get("base", ""), bundle)
+            if posted == head:
+                ledger.finish(db, repo, pr, head, "published")
+            imported += 1
+        db.execute("COMMIT")
+    except Exception:
+        db.execute("ROLLBACK")
+        raise
+    return imported
 
 
-def save_state(path: Path, state: dict) -> None:
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
-    tmp.replace(path)
-
-
-def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path | None:
+def build_bundle(
+    args, entry: dict, pr: dict, db, token: str
+) -> Path | None:
     repo = entry["repo"]
     number = pr["number"]
     head = pr["headRefOid"]
     base = pr["baseRefOid"]
     bid = bundle_id(repo, number, head)
     target = Path(args.data_dir) / "review-in" / bid
-    key = f"{repo}#{number}"
+    row = ledger.get(db, repo, number, head)
+    if row is not None and row["state"] in ("published", "stale", "failed"):
+        return None
     if target.exists():
-        entry_state = state["prs"].get(key, {})
-        entry_state["requested_head"] = head
-        entry_state["requested_at"] = now()
-        state["prs"][key] = entry_state
-        return target
+        if row is None:
+            ledger.record(db, repo, number, head, base, bid)
+            print(f"REQUESTED {bid}")
+            return target
+        return None
 
     tmp = target.with_name(target.name + ".tmp")
     if tmp.exists():
@@ -325,10 +425,8 @@ def build_bundle(args, entry: dict, pr: dict, state: dict, token: str) -> Path |
         shutil.rmtree(tmp, ignore_errors=True)
         raise
 
-    entry_state = state["prs"].get(key, {})
-    entry_state["requested_head"] = head
-    entry_state["requested_at"] = now()
-    state["prs"][key] = entry_state
+    ledger.record(db, repo, number, head, base, bid)
+    ledger.supersede(db, repo, number, head)
     print(f"REQUESTED {bid}")
     return target
 
@@ -340,6 +438,7 @@ def main() -> int:
     parser.add_argument("--state-dir", required=True)
     parser.add_argument("--app-credential", required=True)
     parser.add_argument("--app-token-cache", required=True)
+    parser.add_argument("--ledger", default=None)
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--retry-after-minutes", type=int, default=45)
     args = parser.parse_args()
@@ -357,13 +456,20 @@ def main() -> int:
         lock.close()
         return 0
 
-    state = load_state(state_path)
-    (Path(args.data_dir) / "review-in").mkdir(parents=True, exist_ok=True)
+    in_dir = Path(args.data_dir) / "review-in"
+    ledger_path = args.ledger or str(
+        Path(args.data_dir) / "review-ledger" / "ledger.db"
+    )
+    db = ledger.connect(ledger_path)
+    migrated = migrate_state(db, state_path, in_dir)
+    marker_dir = state_dir / "published"
+    markers = backfill_markers(db, marker_dir, state_path)
+    in_dir.mkdir(parents=True, exist_ok=True)
     (Path(args.data_dir) / "review-out").mkdir(parents=True, exist_ok=True)
 
     requested = 0
     pruned = 0
-    in_dir = Path(args.data_dir) / "review-in"
+    closed = 0
     for entry in config:
         repo = entry["repo"]
         try:
@@ -390,39 +496,42 @@ def main() -> int:
             continue
 
         heads = {item["number"]: item["headRefOid"] for item in prs}
-        pruned += prune_repo_bundles(
-            in_dir,
-            Path(args.data_dir) / "review-claims",
-            repo,
-            heads,
-            args.retry_after_minutes * 60,
-        )
+        if len(prs) < args.limit:
+            pruned += prune_repo_bundles(in_dir, db, repo, heads)
+            closed += reconcile_closed(db, repo, set(heads))
 
         for pr in prs:
             key = f"{repo}#{pr['number']}"
-            entry_state = state["prs"].get(key, {})
             head = pr["headRefOid"]
-            if entry_state.get("posted_head") == head:
-                continue
-            if entry_state.get("requested_head") == head:
-                requested_at = entry_state.get("requested_at", "")
-                try:
-                    age = time.time() - datetime.fromisoformat(
-                        requested_at
-                    ).timestamp()
-                except ValueError:
-                    age = 0
-                if age < args.retry_after_minutes * 60:
-                    continue
+            row = ledger.get(db, repo, pr["number"], head)
+            if row is not None:
+                if row["state"] == "published":
+                    if (marker_dir / f"{row['bundle']}.json").exists():
+                        continue
+                    ledger.requeue(db, repo, pr["number"], head)
+                    row = ledger.get(db, repo, pr["number"], head)
+                if row["state"] == "stale":
+                    # Closed/reopened PRs and false stale marks are safe to
+                    # revive: nothing was published for this head.
+                    ledger.requeue(db, repo, pr["number"], head)
+                    row = ledger.get(db, repo, pr["number"], head)
+                if row is not None and row["state"] == "leased":
+                    if (row["lease_expires"] or 0) > time.time():
+                        continue
+                if row is not None and row["state"] == "failed":
+                    age = time.time() - row["updated_at"]
+                    if age < args.retry_after_minutes * 60:
+                        continue
+                    ledger.requeue(db, repo, pr["number"], head)
             try:
-                if build_bundle(args, entry, pr, state, token):
+                if build_bundle(args, entry, pr, db, token):
                     requested += 1
             except Exception as exc:  # keep the other PRs moving
                 print(f"ERROR {key}: {exc}", file=sys.stderr)
 
-    save_state(state_path, state)
+    db.close()
     lock.close()
-    print(f"requested={requested} pruned={pruned}")
+    print(f"requested={requested} pruned={pruned} closed={closed} markers={markers} migrated={migrated}")
     return 0
 
 

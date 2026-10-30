@@ -5,8 +5,9 @@ Public repositories can enforce the gate on GitHub Free. Private repositories
 need GitHub Pro, so they are skipped unless --include-private is passed.
 
 The ruleset requires the App's check run and one approving review, with stale
-approvals dismissed on push. It has no bypass actors. Run with --apply to write;
-the default is a dry run.
+approvals dismissed on push. The repository owner bypasses the ruleset so a
+slow or unavailable review cannot block the owner's merge. Run with --apply to
+write; the default is a dry run.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ GH = "gh"
 RULE_NAME = "hackerman-cr gate"
 CHECK_NAME = "hackerman-cr/evaluation"
 APP_ID = 5434668
+BYPASS_USER_ID = 26701869  # ErikBPF
 
 
 def gh_json(args: list[str]) -> object:
@@ -57,7 +59,13 @@ def ruleset_payload(
         "conditions": {
             "ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}
         },
-        "bypass_actors": [],
+        "bypass_actors": [
+            {
+                "actor_id": BYPASS_USER_ID,
+                "actor_type": "User",
+                "bypass_mode": "pull_request",
+            }
+        ],
         "rules": [
             {
                 "type": "pull_request",

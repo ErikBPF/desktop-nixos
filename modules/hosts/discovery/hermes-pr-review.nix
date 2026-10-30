@@ -7,6 +7,14 @@ _: {
   }: let
     cfg = config.services.hermes-pr-review;
     python = pkgs.python3;
+    ledgerDir = "${cfg.dataDir}/review-ledger";
+    ensureLedger = pkgs.writeShellScript "hermes-pr-review-ledger" ''
+      set -eu
+      ${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0775 ${lib.escapeShellArg ledgerDir}
+      if [ ! -e ${lib.escapeShellArg "${ledgerDir}/ledger.db"} ]; then
+        ${pkgs.coreutils}/bin/install -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0664 /dev/null ${lib.escapeShellArg "${ledgerDir}/ledger.db"}
+      fi
+    '';
     tokenGate = pkgs.writeShellScript "hermes-pr-review-token-gate" ''
       set -eu
       if [ -s ${cfg.appCredentialFile} ] && ${pkgs.jq}/bin/jq -e \
@@ -42,6 +50,7 @@ _: {
       text = ''
         export DATA_DIR=${lib.escapeShellArg cfg.dataDir}
         export CLAIM_SCRIPT=${lib.escapeShellArg "${../../../scripts/pr-review/claim.py}"}
+        export LEDGER_MODULE=${lib.escapeShellArg "${../../../scripts/pr-review/ledger.py}"}
         export HERMES_CONTAINER=${lib.escapeShellArg cfg.containerName}
         export HERMES_CLI=${lib.escapeShellArg cfg.hermesCli}
         export AGENT_UID=${toString cfg.agentUid}
@@ -50,6 +59,35 @@ _: {
         export SCHEDULE=${lib.escapeShellArg cfg.schedule}
         export PARALLELISM=${toString cfg.parallelism}
         exec ${pkgs.bash}/bin/bash ${../../../scripts/pr-review/bootstrap-cron.sh}
+      '';
+    };
+    dispatch = pkgs.writeShellApplication {
+      name = "hermes-pr-review-dispatch";
+      runtimeInputs = [python pkgs.docker pkgs.systemd pkgs.coreutils];
+      text = ''
+                export PYTHONPATH=${../../../scripts/pr-review}
+                ledger=${lib.escapeShellArg "${ledgerDir}/ledger.db"}
+                count="$(${python}/bin/python3 -c '
+        import sys
+        import ledger
+        db = ledger.connect(sys.argv[1])
+        print(ledger.claimable_count(db))
+        ' "$ledger")" || exit $?
+                [ "$count" -gt 0 ] || exit 0
+                [ "$count" -le ${toString cfg.parallelism} ] || count=${toString cfg.parallelism}
+                for i in $(${pkgs.coreutils}/bin/seq 1 "$count"); do
+                  unit="hermes-pr-review-trigger-$i"
+                  if ${pkgs.systemd}/bin/systemctl is-active --quiet "$unit"; then
+                    continue
+                  fi
+                  ${pkgs.systemd}/bin/systemd-run --quiet --collect --unit="$unit" \
+                    ${pkgs.docker}/bin/docker exec \
+                    -u ${toString cfg.agentUid}:${toString cfg.agentGid} \
+                    -e HOME=/opt/data ${lib.escapeShellArg cfg.containerName} \
+                    ${lib.escapeShellArg cfg.hermesCli} \
+                    cron run "${cfg.jobName}-$i" \
+                    || echo "dispatch: worker $i did not start" >&2
+                done
       '';
     };
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
@@ -140,11 +178,11 @@ _: {
       };
       collectInterval = lib.mkOption {
         type = lib.types.str;
-        default = "10min";
+        default = "2min";
       };
       publishInterval = lib.mkOption {
         type = lib.types.str;
-        default = "5min";
+        default = "2min";
       };
     };
 
@@ -186,14 +224,17 @@ _: {
         serviceConfig = {
           Type = "oneshot";
           StateDirectory = "hermes-pr-review";
+          Group = toString cfg.agentGid;
+          UMask = "0002";
           EnvironmentFile = "-${cfg.upstreamTokenFile}";
           ExecCondition = "${tokenGate}";
           ExecStartPre = [
+            ensureLedger
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
-            "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-claims"
           ];
-          ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
+          ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
+          ExecStartPost = "${dispatch}/bin/hermes-pr-review-dispatch";
           TimeoutStartSec = "15min";
         };
       };
@@ -205,14 +246,16 @@ _: {
         serviceConfig = {
           Type = "oneshot";
           StateDirectory = "hermes-pr-review";
+          Group = toString cfg.agentGid;
+          UMask = "0002";
           EnvironmentFile = "-${cfg.upstreamTokenFile}";
           ExecCondition = "${tokenGate}";
           ExecStartPre = [
+            ensureLedger
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
-            "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-claims"
           ];
-          ExecStart = "${publish}/bin/hermes-pr-review-publish --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
+          ExecStart = "${publish}/bin/hermes-pr-review-publish --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
           TimeoutStartSec = "5min";
         };
       };

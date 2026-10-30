@@ -1,76 +1,53 @@
 #!/usr/bin/env python3
-"""Claim exactly one ready review bundle for a cron worker.
+"""Lease exactly one queued review head from the ledger.
 
-Prints ``CLAIM <bundle>`` or ``NO_CLAIM``. Claiming is atomic across workers:
-a global flock serialises the scan and one claim file per bundle is created in
-the agent-writable ``review-claims`` directory — the inbox itself is root-owned
-and must stay that way.
-
-Oldest bundle first, so a backlog drains instead of starving. A claim older
-than ``--claim-ttl`` is treated as abandoned (the reviewing turn died) and may
-be taken over.
+Prints ``CLAIM <bundle>`` or ``NO_CLAIM``. The lease is atomic across workers:
+SQLite's immediate transaction serialises the scan and the update. An expired
+lease may be taken over, so a worker that dies mid-review does not block the
+head for the full claim TTL.
 """
 
 from __future__ import annotations
 
 import argparse
-import fcntl
 import os
-import time
 from pathlib import Path
+
+import ledger
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--worker", default="worker")
-    parser.add_argument("--claim-ttl", type=int, default=3600)
+    parser.add_argument("--worker", default=f"worker-{os.getpid()}")
+    parser.add_argument("--claim-ttl", type=int, default=1800)
+    parser.add_argument("--max-attempts", type=int, default=3)
     args = parser.parse_args()
 
-    root = Path(os.environ.get("HERMES_REVIEW_IN", "/opt/data/review-in"))
-    out = Path(os.environ.get("HERMES_REVIEW_OUT", "/opt/data/review-out"))
-    claims = Path(
-        os.environ.get("HERMES_REVIEW_CLAIMS", "/opt/data/review-claims")
+    path = os.environ.get(
+        "HERMES_REVIEW_LEDGER", "/opt/data/review-ledger/ledger.db"
     )
+    root = Path(os.environ.get("HERMES_REVIEW_IN", "/opt/data/review-in"))
     if not root.is_dir():
         print("NO_CLAIM")
         return 0
-    claims.mkdir(parents=True, exist_ok=True)
-
-    with (claims / ".claim.lock").open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        now = time.time()
-        candidates = []
-        for bundle in root.iterdir():
-            if not bundle.is_dir():
-                continue
-            if not (bundle / ".ready").exists():
-                continue
-            if (bundle / ".posted").exists():
-                continue
-            if (out / f"{bundle.name}.json").exists():
-                continue
-            claim = claims / f"{bundle.name}.claim"
-            if claim.exists():
-                try:
-                    if now - claim.stat().st_mtime < args.claim_ttl:
-                        continue
-                except FileNotFoundError:
-                    pass
-                claim.unlink(missing_ok=True)
-            try:
-                candidates.append((bundle.stat().st_mtime, bundle.name, bundle))
-            except FileNotFoundError:
-                continue
-
-        if not candidates:
-            print("NO_CLAIM")
-            return 0
-
-        candidates.sort()
-        _, name, _bundle = candidates[0]
-        (claims / f"{name}.claim").write_text(f"{args.worker} {int(now)}\n")
-        print(f"CLAIM {name}")
-    return 0
+    db = ledger.connect(path)
+    try:
+        for _ in range(50):
+            row = ledger.claim(db, args.worker, args.claim_ttl, args.max_attempts)
+            if row is None:
+                print("NO_CLAIM")
+                return 0
+            bundle = row["bundle"]
+            if (root / bundle / ".ready").exists():
+                print(f"CLAIM {bundle}")
+                return 0
+            ledger.finish(
+                db, row["repo"], row["pr"], row["head"], "stale", "bundle missing"
+            )
+        print("NO_CLAIM")
+        return 0
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
