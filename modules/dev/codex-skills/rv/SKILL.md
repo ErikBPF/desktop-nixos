@@ -71,3 +71,8 @@ the RV one-pager; when human feedback is needed, hand it and the affected diff t
 `/cr` (task-bound tuicr/Neovim handover). Reconcile returned points by artifact
 revision and record each disposition, then report the feedback stage. A report
 or closed review window is not approval.
+
+Close with a goal handoff from the shared policy when a required gate is still
+unmet and the remainder is mechanical. Print one `/goal` line, never a menu of
+options, and omit it when the gate passed or the remainder needs a human
+decision.

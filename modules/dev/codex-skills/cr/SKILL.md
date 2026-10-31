@@ -82,6 +82,10 @@ Record each point's disposition (fixed, declined with reason, answered) in the
 stage one-pager or the canonical question ledger, bound to the reviewed artifact
 revision. A closed review window is not approval.
 
+When reconciliation leaves a required gate unmet and the remainder is
+mechanical, close with the one `/goal` line from the shared policy. Otherwise
+omit it.
+
 ## 5. Empty or missing sessions
 
 If comments come back empty after the TUI exits, ask whether the user saved
