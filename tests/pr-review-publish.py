@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +19,8 @@ PUBLISH = SCRIPTS / "publish.py"
 GATE = SCRIPTS / "apply-gate.py"
 sys.path.insert(0, str(SCRIPTS))
 
-import tokens  # noqa: E402
+import ledger
+import tokens
 
 
 def load(path: Path, name: str):
@@ -110,14 +112,14 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not errors, errors
     assert "No new P1/P2 findings" in pub.render(parsed, parsed["repo"])
 
-    # Claims live outside the root-owned inbox: the agent must be able to
-    # write them without owning review-in.
+    # Leases live in a ledger; the agent never needs write access to review-in.
     review_in = tmp / "in"
     review_out = tmp / "out"
-    claims = tmp / "claims"
+    ledger_path = tmp / "ledger.db"
     review_in.mkdir()
     review_out.mkdir()
     claim_script = SCRIPTS / "claim.py"
+    db = ledger.connect(ledger_path)
 
     def claim(*extra):
         result = subprocess.run(
@@ -126,7 +128,7 @@ with tempfile.TemporaryDirectory() as tmp:
                 os.environ,
                 HERMES_REVIEW_IN=str(review_in),
                 HERMES_REVIEW_OUT=str(review_out),
-                HERMES_REVIEW_CLAIMS=str(claims),
+                HERMES_REVIEW_LEDGER=str(ledger_path),
             ),
             text=True,
             capture_output=True,
@@ -138,61 +140,154 @@ with tempfile.TemporaryDirectory() as tmp:
     newer = review_in / "newer"
     for bundle, mtime in ((older, 1_000_000), (newer, 2_000_000)):
         bundle.mkdir()
+        (bundle / ".ready").write_text("now\n")
         os.utime(bundle, (mtime, mtime))
+    ledger.record(db, "ErikBPF/aster", 1, "a" * 40, "", "older")
+    ledger.record(db, "ErikBPF/aster", 1, "b" * 40, "", "newer")
 
-    assert claim() == "NO_CLAIM", "a bundle without .ready is not reviewable"
-    (older / ".ready").write_text("now\n")
-    (newer / ".ready").write_text("now\n")
-    assert claim() == "CLAIM older", "oldest bundle must claim first"
-    assert not (review_in / ".claim.lock").exists(), "lock must not be in review-in"
-    assert (claims / "older.claim").exists(), "claim must be in the claims dir"
-    assert claim() == "CLAIM newer", "a fresh claim must not be stolen"
-    assert claim() == "NO_CLAIM", "each worker gets a distinct bundle"
+    assert claim() == "CLAIM older", "oldest head must lease first"
+    assert claim() == "CLAIM newer", "a fresh lease must not be stolen"
+    assert claim() == "NO_CLAIM", "each worker gets a distinct head"
 
-    (review_out / "older.json").write_text("{}")
+    db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'newer'")
+    assert claim("--claim-ttl", "1") == "CLAIM newer", "expired lease is reclaimable"
+
+    # A head is never reviewed twice after it published.
+    ledger.finish(db, "ErikBPF/aster", 1, "a" * 40, "published")
+    ledger.finish(db, "ErikBPF/aster", 1, "b" * 40, "published")
     assert claim() == "NO_CLAIM"
 
-    (review_out / "older.json").unlink()
-    (older / ".ready").unlink()
-    (claims / "newer.claim").unlink()
-    (claims / "newer.claim").write_text("dead worker\n")
-    os.utime(claims / "newer.claim", (0, 0))
-    assert claim("--claim-ttl", "1") == "CLAIM newer"
-    (newer / ".posted").write_text("posted\n")
-    (claims / "newer.claim").unlink()
-    assert claim() == "NO_CLAIM"
+    # Repeated expired leases stop after max attempts instead of retrying forever.
+    capped = review_in / "capped"
+    capped.mkdir()
+    (capped / ".ready").write_text("now\n")
+    ledger.record(db, "ErikBPF/aster", 2, "c" * 40, "", "capped")
+    assert claim("--claim-ttl", "1") == "CLAIM capped"
+    for _ in range(2):
+        db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'capped'")
+        assert claim("--claim-ttl", "1") == "CLAIM capped"
+    db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'capped'")
+    assert claim("--claim-ttl", "1") == "NO_CLAIM"
+    row = db.execute("SELECT state FROM reviews WHERE bundle = 'capped'").fetchone()
+    assert row["state"] == "failed"
 
-    # Publishing releases the claim marker.
-    (claims / "newer.claim").write_text("w1\n")
-    pub.mark_bundle(newer, "posted", claims)
-    assert not (claims / "newer.claim").exists()
+    # A retry resets the attempt budget; without that the 45-minute requeue
+    # oscillates failed -> queued -> failed and never reviews the head.
+    ledger.requeue(db, "ErikBPF/aster", 2, "c" * 40)
+    row = ledger.get(db, "ErikBPF/aster", 2, "c" * 40)
+    assert row["state"] == "queued" and row["attempts"] == 0
+    assert claim() == "CLAIM capped", "a requeued head must be claimable again"
 
-    # A packet rejected before the GitHub call must release its claim too,
-    # otherwise the bundle is invisible to every worker until the TTL.
-    orphan = review_in / "orphan"
-    orphan.mkdir()
-    (claims / "orphan.claim").write_text("w1\n")
-    pub.release_claim(orphan, claims)
-    assert not (claims / "orphan.claim").exists()
-    publish_src = (SCRIPTS / "publish.py").read_text()
-    assert publish_src.count("release_claim(in_dir / path.stem, claims_dir)") == 2
-    assert "release_claim(bundle, claims_dir)" in publish_src
+    # Published is terminal: a late duplicate packet cannot downgrade it.
+    ledger.finish(db, "ErikBPF/aster", 2, "c" * 40, "published")
+    ledger.finish(db, "ErikBPF/aster", 2, "c" * 40, "failed", "late packet")
+    row = ledger.get(db, "ErikBPF/aster", 2, "c" * 40)
+    assert row["state"] == "published"
 
-    # Superseded and closed-PR bundles are pruned; a fresh claim is preserved.
+    # A stale head that is still open at the same commit can be revived.
+    ledger.record(db, "ErikBPF/aster", 3, "d" * 40, "", "revive")
+    ledger.finish(db, "ErikBPF/aster", 3, "d" * 40, "stale", "closed")
+    ledger.requeue(db, "ErikBPF/aster", 3, "d" * 40)
+    row = ledger.get(db, "ErikBPF/aster", 3, "d" * 40)
+    assert row["state"] == "queued" and row["attempts"] == 0
+
+    # A published head whose root-only marker went missing is reviewable again.
+    ledger.record(db, "ErikBPF/aster", 4, "e" * 40, "", "missing-marker")
+    ledger.finish(db, "ErikBPF/aster", 4, "e" * 40, "published")
+    ledger.requeue(db, "ErikBPF/aster", 4, "e" * 40)
+    row = ledger.get(db, "ErikBPF/aster", 4, "e" * 40)
+    assert row["state"] == "queued" and row["attempts"] == 0
+
+    # A missing inbox must not stale the whole queue.
+    missing = subprocess.run(
+        [str(claim_script), "--worker", "w1"],
+        env=dict(
+            os.environ,
+            HERMES_REVIEW_IN=str(tmp / "absent"),
+            HERMES_REVIEW_LEDGER=str(ledger_path),
+        ),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert missing.stdout.strip() == "NO_CLAIM"
+
+    # Superseded and closed-PR bundles are pruned; a live lease is preserved.
     collect = load(SCRIPTS / "collect.py", "pr_review_collect")
     keep = review_in / "ErikBPF__aster__1__aaaaaaaaaaaa"
-    superseded = review_in / "ErikBPF__aster__1__bbbbbbbbbbbb"
+    superseded = review_in / "ErikBPF__aster__1__eeeeeeeeeeee"
     closed = review_in / "ErikBPF__aster__2__cccccccccccc"
     busy = review_in / "ErikBPF__aster__1__dddddddddddd"
     for bundle in (keep, superseded, closed, busy):
         bundle.mkdir()
-    (claims / f"{busy.name}.claim").write_text("w2\n")
+    ledger.record(db, "ErikBPF/aster", 1, "e" * 40, "", superseded.name)
+    ledger.record(db, "ErikBPF/aster", 2, "c" * 40, "", closed.name)
+    ledger.record(db, "ErikBPF/aster", 1, "d" * 40, "", busy.name)
+    db.execute(
+        "UPDATE reviews SET state = 'leased', lease_expires = ? WHERE bundle = ?",
+        (time.time() + 3600, busy.name),
+    )
     removed = collect.prune_repo_bundles(
-        review_in, claims, "ErikBPF/aster", {1: "a" * 40}, 3600
+        review_in, db, "ErikBPF/aster", {1: "a" * 40}
     )
     assert removed == 2, removed
     assert keep.exists() and busy.exists()
     assert not superseded.exists() and not closed.exists()
+
+    # A failed head whose PR merged or closed becomes stale, not retried.
+    ledger.record(db, "ErikBPF/aster", 99, "f" * 40, "", "gone")
+    ledger.finish(db, "ErikBPF/aster", 99, "f" * 40, "failed", "bundle missing")
+    assert collect.reconcile_closed(db, "ErikBPF/aster", {1, 2, 3, 4}) == 1
+    row = db.execute("SELECT state FROM reviews WHERE pr = 99").fetchone()
+    assert row["state"] == "stale"
+    db.close()
+
+    # Bundles are root-only evidence: the agent must not rewrite its inputs.
+    hard = tmp / "hard"
+    hard.mkdir(mode=0o775)
+    (hard / "diff.patch").write_text("x\n")
+    os.chmod(hard / "diff.patch", 0o664)
+    collect.harden_bundle(hard)
+    assert hard.stat().st_mode & 0o022 == 0
+    assert (hard / "diff.patch").stat().st_mode & 0o022 == 0
+
+    # Migration imports published heads and only requested heads with a bundle.
+    state_path = tmp / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "prs": {
+                    "ErikBPF/aster#5": {"posted_head": "1" * 40},
+                    "ErikBPF/aster#6": {"requested_head": "2" * 40},
+                    "ErikBPF/aster#7": {"requested_head": "3" * 40},
+                }
+            }
+        )
+    )
+    existing = review_in / f"ErikBPF__aster__6__{'2' * 12}"
+    existing.mkdir()
+    (existing / ".ready").write_text("now\n")
+    migrated_db = ledger.connect(tmp / "migrated.db")
+    assert collect.migrate_state(migrated_db, state_path, review_in) == 2
+    assert ledger.get(migrated_db, "ErikBPF/aster", 5, "1" * 40)["state"] == "published"
+    assert ledger.get(migrated_db, "ErikBPF/aster", 6, "2" * 40)["state"] == "queued"
+    assert ledger.get(migrated_db, "ErikBPF/aster", 7, "3" * 40) is None
+    marker_dir = tmp / "markers"
+    ledger.record(migrated_db, "ErikBPF/aster", 8, "8" * 40, "", "forged")
+    ledger.finish(migrated_db, "ErikBPF/aster", 8, "8" * 40, "published")
+    assert collect.backfill_markers(migrated_db, marker_dir, state_path) == 1
+    assert collect.backfill_markers(migrated_db, marker_dir, state_path) == 0
+    assert (marker_dir / f"{'1' * 40}.json").exists()
+    assert (marker_dir / f"{'1' * 40}.json").stat().st_mode & 0o077 == 0
+    assert not (marker_dir / f"{'8' * 40}.json").exists()
+    assert collect.marker_matches(marker_dir, "1" * 40)
+    (marker_dir / "spoofed.json").write_text(json.dumps({"head": "0" * 40}))
+    assert not collect.marker_matches(marker_dir, "spoofed")
+    (marker_dir / "legacy.json").write_text(json.dumps({"head": "9" * 40}))
+    assert collect.migrate_markers(marker_dir) == 2
+    assert collect.marker_matches(marker_dir, "9" * 40)
+    assert not (marker_dir / "legacy.json").exists()
+    migrated_db.close()
 
     # Cross-PR background is scoped to the same repository, never another one.
     done = tmp / "review-done"
@@ -213,9 +308,9 @@ with tempfile.TemporaryDirectory() as tmp:
             )
         )
 
-    write_review("x1.json", "ErikBPF/aster", 1, "aster earlier")
-    write_review("y1.json", "ErikBPF/desktop-nixos", 7, "desktop secret")
-    write_review("x2.json", "ErikBPF/aster", 2, "aster current")
+    write_review("ErikBPF__aster__1__aaaaaaaaaaaa.json", "ErikBPF/aster", 1, "aster earlier")
+    write_review("ErikBPF__desktop-nixos__7__aaaaaaaaaaaa.json", "ErikBPF/desktop-nixos", 7, "desktop secret")
+    write_review("ErikBPF__aster__2__aaaaaaaaaaaa.json", "ErikBPF/aster", 2, "aster current")
     ctx = collect.repo_context(tmp, "ErikBPF/aster", 2)
     assert "aster earlier" in ctx
     assert "PR #1" in ctx
@@ -320,6 +415,15 @@ with tempfile.TemporaryDirectory() as tmp:
     assert captured[-1][2]["head_sha"] == head
     assert captured[-1][2]["name"] == pub.CHECK_NAME
 
+    marker_state = tmp / "state"
+    pub.write_marker(marker_state, review()["head"], review(), "https://example.test")
+    marker = json.loads(
+        (marker_state / "published" / f"{review()['head']}.json").read_text()
+    )
+    assert marker["head"] == review()["head"] and marker["url"] == "https://example.test"
+    assert (marker_state / "published").stat().st_mode & 0o077 == 0
+    assert (marker_state / "published" / f"{review()['head']}.json").stat().st_mode & 0o077 == 0
+
     payload = gate.ruleset_payload(1)
     checks = payload["rules"][1]["parameters"]["required_status_checks"]
     assert checks[0]["context"] == "hackerman-cr/evaluation"
@@ -329,7 +433,9 @@ with tempfile.TemporaryDirectory() as tmp:
         is False
     )
     assert payload["rules"][0]["parameters"]["required_approving_review_count"] == 1
-    assert payload["bypass_actors"] == []
+    assert payload["bypass_actors"] == [
+        {"actor_id": 26701869, "actor_type": "User", "bypass_mode": "pull_request"}
+    ]
     assert (
         gate.ruleset_payload(0)["rules"][0]["parameters"][
             "required_approving_review_count"
@@ -349,6 +455,10 @@ assert "Retire workers above the configured parallelism" in bootstrap
 assert "refusing to mutate jobs" in bootstrap, "failed cron list must not create workers"
 module = (ROOT / "modules/hosts/discovery/hermes-pr-review.nix").read_text()
 assert "pkgs.gawk" in module, "bootstrap parses cron list with awk; it must ship"
+assert "ledgerDir" in module, "reviews are leased in the ledger"
+assert 'ExecStartPost = "${dispatch}' in module, "new bundles dispatch workers immediately"
+assert "review-claims" not in module, "file claims are replaced by ledger leases"
+assert 'collectInterval = lib.mkOption {' in module and 'default = "2min";' in module
 assert 'max="$PARALLELISM"' in bootstrap
 assert "--script pr-review-claim.py" in bootstrap
 assert 'rm -f "$DATA_DIR/scripts/pr-review-ready.py"' in bootstrap

@@ -12,9 +12,11 @@ set -euo pipefail
 : "${SCHEDULE:=*/10 * * * *}"
 : "${PARALLELISM:=1}"
 
-install -d -o "$AGENT_UID" -g "$AGENT_GID" -m 0755 "$DATA_DIR/scripts" "$DATA_DIR/review-claims"
+install -d -o "$AGENT_UID" -g "$AGENT_GID" -m 0755 "$DATA_DIR/scripts"
 install -m 0755 -o "$AGENT_UID" -g "$AGENT_GID" "$CLAIM_SCRIPT" \
   "$DATA_DIR/scripts/pr-review-claim.py"
+install -m 0644 -o "$AGENT_UID" -g "$AGENT_GID" "$LEDGER_MODULE" \
+  "$DATA_DIR/scripts/ledger.py"
 
 for _ in $(seq 1 60); do
   if docker inspect -f '{{.State.Running}}' "$HERMES_CONTAINER" 2>/dev/null | grep -qx true; then
