@@ -57,21 +57,17 @@ to step 2 or 3. Never arm on an assumed answer.
 
 ## 5. Arm
 
-After confirmation, use the first path that exists:
+After confirmation, first confirm the client parses `/goal`: OpenCode 2.2.1 or
+later. When support is absent (Codex, or OpenCode older than 2.2.1), skip the
+handoff without comment and leave the paragraph in the one-pager.
 
-1. **Goal tool.** A harness tool that arms a goal in this session. Pass the
-   paragraph and the artifact paths.
-2. **Client command.** OpenCode 2.2.1 and later parse `/goal` in the TUI and the
-   Desktop. The agent cannot type into the client, so print the line and hand it
-   over:
+With support present, print the line and hand it over:
 
-       /goal <paragraph>
+    /goal <paragraph>
 
-   Scripted arming through `opencode run --command goal --file <path> ...` is not
-   the default. The CLI targeting the live session is unverified, and an
-   unverified command can open a second session.
-3. **No goal loop.** State that the harness has none, and leave the paragraph in
-   the one-pager.
+Scripted arming through `opencode run --command goal --file <path> ...` is not
+the default. The CLI targeting the live session is unverified, and an unverified
+command can open a second session.
 
 Report the armed objective, its status, and the artifact paths the loop carries.
 A met goal is not approval of a deploy.
