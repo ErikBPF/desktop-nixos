@@ -60,9 +60,10 @@ the same commit is revived on the next collect.
 
 `published` needs both the ledger row and the root-only marker
 `/var/lib/hermes-pr-review/published/<head>.json` whose recorded head matches
-the row. The marker directory is not mounted into the agent container, so a
-forged ledger state alone cannot silence the gate. The publisher also rejects a
-packet whose bundle name does not match the packet's repo, PR and head.
+the row. The directory is mode `0700` and each marker `0600`; it is not mounted
+into the agent container, so a forged ledger state alone cannot silence the
+gate. The publisher also rejects a packet whose bundle name does not match the
+packet's repo, PR and head.
 
 `claim.py` leases atomically with `BEGIN IMMEDIATE`. File claims under
 `review-claims/` are no longer used.

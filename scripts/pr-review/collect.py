@@ -195,13 +195,12 @@ def reconcile_closed(db, repo: str, open_numbers: set[int]) -> int:
 
 
 def migrate_markers(marker_dir: Path) -> int:
-    """Rename pre-head marker files to their recorded head."""
+    """Rename pre-head marker files to their recorded head and lock modes."""
     if not marker_dir.is_dir():
         return 0
     moved = 0
+    marker_dir.chmod(0o700)
     for path in marker_dir.glob("*.json"):
-        if len(path.stem) == 40:
-            continue
         try:
             data = json.loads(path.read_text())
         except (OSError, ValueError):
@@ -215,6 +214,7 @@ def migrate_markers(marker_dir: Path) -> int:
                 target.write_text(path.read_text())
             path.unlink(missing_ok=True)
             moved += 1
+        target.chmod(0o600)
     return moved
 
 
@@ -234,13 +234,14 @@ def backfill_markers(db, marker_dir: Path, state_path: Path) -> int:
     own proof of publication. Only heads recorded as posted in the root-only
     ``state.json`` get a marker; rows planted in the ledger are ignored.
     """
-    if marker_dir.exists():
+    if not state_path.exists():
         return 0
-    marker_dir.mkdir(parents=True, exist_ok=True)
     try:
         state = json.loads(state_path.read_text())
     except (OSError, ValueError):
         return 0
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    marker_dir.chmod(0o700)
     written = 0
     for key, entry in state.get("prs", {}).items():
         repo, _, number = key.rpartition("#")
@@ -254,13 +255,17 @@ def backfill_markers(db, marker_dir: Path, state_path: Path) -> int:
         row = ledger.get(db, repo, pr, head)
         if row is None or row["state"] != "published":
             continue
-        (marker_dir / f"{row['head']}.json").write_text(
+        target = marker_dir / f"{row['head']}.json"
+        if target.exists():
+            continue
+        target.write_text(
             json.dumps(
                 {"repo": row["repo"], "pr": row["pr"], "head": row["head"]},
                 indent=2,
             )
             + "\n"
         )
+        target.chmod(0o600)
         written += 1
     return written
 

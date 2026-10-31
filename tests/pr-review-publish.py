@@ -276,7 +276,9 @@ with tempfile.TemporaryDirectory() as tmp:
     ledger.record(migrated_db, "ErikBPF/aster", 8, "8" * 40, "", "forged")
     ledger.finish(migrated_db, "ErikBPF/aster", 8, "8" * 40, "published")
     assert collect.backfill_markers(migrated_db, marker_dir, state_path) == 1
+    assert collect.backfill_markers(migrated_db, marker_dir, state_path) == 0
     assert (marker_dir / f"{'1' * 40}.json").exists()
+    assert (marker_dir / f"{'1' * 40}.json").stat().st_mode & 0o077 == 0
     assert not (marker_dir / f"{'8' * 40}.json").exists()
     assert collect.marker_matches(marker_dir, "1" * 40)
     (marker_dir / "spoofed.json").write_text(json.dumps({"head": "0" * 40}))
@@ -419,6 +421,8 @@ with tempfile.TemporaryDirectory() as tmp:
         (marker_state / "published" / f"{review()['head']}.json").read_text()
     )
     assert marker["head"] == review()["head"] and marker["url"] == "https://example.test"
+    assert (marker_state / "published").stat().st_mode & 0o077 == 0
+    assert (marker_state / "published" / f"{review()['head']}.json").stat().st_mode & 0o077 == 0
 
     payload = gate.ruleset_payload(1)
     checks = payload["rules"][1]["parameters"]["required_status_checks"]

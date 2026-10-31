@@ -387,7 +387,9 @@ def write_marker(state_dir: Path, head: str, review: dict, url: str | None) -> N
     """Record publication outside the agent-writable data mount, keyed by head."""
     published = state_dir / "published"
     published.mkdir(parents=True, exist_ok=True)
-    (published / f"{head}.json").write_text(
+    published.chmod(0o700)
+    target = published / f"{head}.json"
+    target.write_text(
         json.dumps(
             {
                 "repo": review["repo"],
@@ -400,6 +402,7 @@ def write_marker(state_dir: Path, head: str, review: dict, url: str | None) -> N
         )
         + "\n"
     )
+    target.chmod(0o600)
 
 
 def retire_bundle(bundle: Path, target: Path) -> None:
