@@ -9,8 +9,9 @@ Last gate of `/pl` → `/ip` → implementation → `/rv` → (optional `/cr`). 
 `/goal` loop with the artifacts this flow produced, after one explicit
 confirmation.
 
-This skill never starts work. If a required stage is missing or a gate is unmet,
-name the stage and the gate, then stop.
+This skill never starts work. If a required stage artifact is missing — no seed,
+no contract, no RV report — name the stage and stop. An unmet verification gate
+is the case this skill arms, not a reason to stop.
 
 ## 1. Collect
 
@@ -45,7 +46,12 @@ hostnames and deployment authority out. Do not restate finished work.
 
 ## 4. Confirm
 
-Send one message with exactly two parts:
+First confirm the client parses `/goal`: OpenCode 2.2.1 or later. When support
+is absent, send the one-pager and say once that this client cannot parse
+`/goal`, so nothing was armed, then end. Automatic `/rv` and `/cr` handoffs stay
+silent instead.
+
+With support present, send one message with exactly two parts:
 
 1. **What will run** — the objective, the round and stall limits, and the
    evidence the reviewer will accept as done.
@@ -57,11 +63,7 @@ to step 2 or 3. Never arm on an assumed answer.
 
 ## 5. Arm
 
-After confirmation, first confirm the client parses `/goal`: OpenCode 2.2.1 or
-later. When support is absent (Codex, or OpenCode older than 2.2.1), skip the
-handoff without comment and leave the paragraph in the one-pager.
-
-With support present, print the line and hand it over:
+Print the line and hand it over:
 
     /goal <paragraph>
 

@@ -159,7 +159,8 @@ Load `/pl` for discovery/BDD, `/ip` for delivery/TDD, `/rv` for review/repair.
 RV includes conformance, correctness, security, editorial, adversarial and
 simplicity passes with verified fixes. Load supporting skills on demand;
 `/cr` provides human-led tuicr/Neovim handover, and `/go` packages the
-flow's artifacts into one confirmation and arms the `/goal` loop. Small docs or
+flow's artifacts into one confirmation and arms the `/goal` loop when the client
+parses it. Small docs or
 wiring start at the first applicable gate; do not invent tests or ceremony.
 Shared policy below owns seed integrity, RFC opt-in, stage evidence and delivery
 safeguards.
