@@ -12,8 +12,8 @@ leases, and how new heads dispatch workers.
 1. `hermes-pr-review-collect.timer` runs every 2 minutes.
 2. The collector lists open PRs, writes one immutable bundle per new
    `(repo, pr, head)` under `review-in/`, and queues a ledger row. Bundles are
-   root-owned and group/world-write stripped, so the reviewing agent cannot
-   rewrite its own diff or evidence.
+   created under `umask 022` and hardened again before the rename, so the
+   reviewing agent cannot rewrite its own diff or evidence.
 3. If any row is claimable, the collector's `ExecStartPost` runs
    `hermes-pr-review-dispatch`.
 4. Dispatch starts up to `parallelism` transient `systemd-run` units, one per

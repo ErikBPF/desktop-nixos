@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -379,9 +380,9 @@ def build_bundle(
     tmp = target.with_name(target.name + ".tmp")
     if tmp.exists():
         shutil.rmtree(tmp)
-    tmp.mkdir(parents=True)
-
+    old_umask = os.umask(0o022)
     try:
+        tmp.mkdir(parents=True)
         view = gh_json(
             [
                 "pr",
@@ -464,6 +465,8 @@ def build_bundle(
     except Exception:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
+    finally:
+        os.umask(old_umask)
 
     ledger.record(db, repo, number, head, base, bid)
     ledger.supersede(db, repo, number, head)
