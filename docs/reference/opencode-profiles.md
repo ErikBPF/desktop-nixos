@@ -91,11 +91,12 @@ command, rather than mutating tool input before permissions. The gateway
 hook scopes `x-opencode-session` to the intended provider and actual
 session. Plugin loading alone is not proof that either behavior works.
 
-One global `cli.json` owns terminal settings, permission prompts and native
-tabs. It keeps `session.permissions = "prompt"` and sets
-`session.sidebar = "auto"`; `ol`/`ow` opt into auto-accept with `--auto`
-instead of changing the global prompt default. Supported compaction uses
-`keep.tokens`, not ignored `tail_turns`.
+One global `cli.json` owns terminal settings and permission prompts. Tabs are
+off so tmux owns window switching; `ol`/`ow` opt into auto-accept with `--auto`
+instead of changing the global prompt default, and stay inside their own
+repository (branch worktrees included) so the personal/work split holds. It
+keeps `session.permissions = "prompt"` and sets `session.sidebar = "auto"`.
+Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
 Global permission checks protect direct secret reads and ask before shell
 commands outside narrow inspection allowances. Shell is not a sandbox;

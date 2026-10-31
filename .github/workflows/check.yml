@@ -83,9 +83,14 @@ jobs:
       - name: PR review publisher contract
         run: python3 tests/pr-review-publish.py
 
+      - name: Discovery secret contracts
+        run: |
+          python3 -m unittest discover -s tests/discovery-secret-contract -v
+
       - name: Tooling and fleet contracts
         run: |
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.tomlkit p.pytest])')
+          "$python/bin/python" -m pytest -q tests/security-maintainability
           "$python/bin/python" -m pytest -q tests/codex-ui tests/codex-skills tests/homelab-iac-drift tests/discovery-seed-timer tests/compose-health-gate tests/hermes-healthchecks tests/container-health-probe modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
           nix develop -c "$python/bin/python" -m pytest -q tests/distributed-builds tests/build-process tests/builder-preflight tests/work-profile tests/work-vm
 

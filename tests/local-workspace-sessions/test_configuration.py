@@ -219,7 +219,7 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
             environment["HOME"] = str(root / "home")
             environment["OPENCODE_LITELLM_KEY"] = "inherited-not-sanctioned"
             environment["OPENCODE_WORK_KEY"] = "inherited-not-sanctioned"
-            def run(name, args=(), service_environment=()):
+            def run(name, args=(), service_environment=(), cwd=None):
                 script = Path(wrappers[name]["path"]) / "bin" / name
                 text = script.read_text()
                 self.assertIn(self.config["opencode"] + "/bin/opencode", text)
@@ -232,7 +232,7 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                 env = dict(environment)
                 env.update(item.replace(self.config["home"], environment["HOME"]).split("=", 1)
                            for item in service_environment)
-                result = subprocess.run([str(candidate), *args], env=env, capture_output=True, text=True)
+                result = subprocess.run([str(candidate), *args], env=env, cwd=cwd, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)
             for project, client, port, provider, key_file, key_variable, directory in (
@@ -291,6 +291,19 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
                 self.assertEqual(forwarded["args"], ["--auto", "--server", f"http://127.0.0.1:{port}",
                     environment["HOME"] + "/" + directory, "--session", "session with spaces", "--model", "custom/model"])
                 self.assertTrue(forwarded["password"])
+                repo = Path(environment["HOME"]) / directory
+                repo.mkdir(parents=True)
+                subprocess.run(["git", "init", "-q", str(repo)], check=True)
+                subprocess.run(["git", "-C", str(repo), "-c", "user.email=test@example.invalid",
+                                "-c", "user.name=test", "commit", "-q", "--allow-empty", "-m", "init"], check=True)
+                worktree = root / f"worktree-{project}"
+                subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", str(worktree)], check=True)
+                foreign = root / f"foreign-{project}"
+                subprocess.run(["git", "init", "-q", str(foreign)], check=True)
+                inside = run(client, cwd=worktree)
+                self.assertEqual(inside["args"][3], str(worktree), "same-repository worktree must stay usable")
+                outside = run(client, cwd=foreign)
+                self.assertEqual(outside["args"][3], str(repo), "foreign checkout must fall back to the project")
 
     def test_default_layout_and_monitor_rules_are_preserved(self):
         rules = self.config["workspaceRules"]

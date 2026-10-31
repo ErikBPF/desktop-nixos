@@ -216,7 +216,7 @@ class RuntimeProjectionTest(unittest.TestCase):
     def test_tunneling_cutover_has_exact_gate_and_value_free_render_check(self):
         compose = COMPOSE.read_text()
         justfile = JUSTFILE.read_text()
-        vault = VAULT.read_text()
+        vault = VAULT_AGENT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
         self.assertIn('secretSpecRuntimeProfiles.tunneling = "tunneling";', compose)
         self.assertIn(
@@ -225,9 +225,11 @@ class RuntimeProjectionTest(unittest.TestCase):
         )
         self.assertIn("verify-tunneling-secret-render:", justfile)
         self.assertIn('test "$actual" = CLOUDFLARE_TUNNEL_TOKEN', justfile)
-        self.assertIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]', vault)
+        self.assertNotIn('["${pkgs.coreutils}/bin/chgrp", "docker", "/run/vault-agent/tunneling.env"]', vault)
+        self.assertIn('440 root vault-consumers', justfile)
         tunneling = next(row for row in contract["renders"] if row["destination"].endswith("/tunneling.env"))
         self.assertEqual(tunneling["perms"], "0440")
+        self.assertEqual(tunneling["group"], "vault-consumers")
 
     def test_networking_cutover_has_exact_sources_gates_and_render_check(self):
         compose = COMPOSE.read_text()

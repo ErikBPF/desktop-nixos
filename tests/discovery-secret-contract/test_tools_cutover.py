@@ -16,7 +16,7 @@ class ToolsCutoverTest(unittest.TestCase):
     def test_discovery_enables_only_tools_runtime_profile(self):
         source = COMPOSE.read_text()
         self.assertIn('secretSpecRuntimeProfiles.tools = "tools";', source)
-        self.assertIn('secretSpecRuntimeHealthContainers.tools = "searxng";', source)
+        self.assertIn('secretSpecRuntimeHealthContainers.tools = ["searxng" "cyberchef"];', source)
 
     def test_runtime_wrapper_is_fail_closed_and_removes_direct_provider_flag(self):
         source = ORCHESTRATION.read_text()
@@ -30,7 +30,9 @@ class ToolsCutoverTest(unittest.TestCase):
         self.assertIn("up -d --remove-orphans", source)
         self.assertIn("ExecStartPost = lib.optional", source)
         self.assertIn("/bin/docker inspect --format '{{.State.Health.Status}}'", source)
-        self.assertIn('health_container="${secretSpecHealthContainer}"', source)
+        self.assertIn('health_containers=(${lib.escapeShellArgs secretSpecHealthContainers})', source)
+        self.assertIn('for health_container in "\'\'${health_containers[@]}"', source)
+        self.assertIn('[ "$all_healthy" -eq 1 ] && exit 0', source)
 
 
 if __name__ == "__main__":
