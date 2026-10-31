@@ -351,6 +351,12 @@ def migrate_state(db, state_path: Path, in_dir: Path) -> int:
     return imported
 
 
+def harden_bundle(root: Path) -> None:
+    """Strip group/other write so the reviewed agent cannot edit its own inputs."""
+    for path in [root, *root.rglob("*")]:
+        path.chmod(0o755 if path.is_dir() else 0o644)
+
+
 def build_bundle(
     args, entry: dict, pr: dict, db, token: str
 ) -> Path | None:
@@ -453,6 +459,7 @@ def build_bundle(
             )
         )
         (tmp / ".ready").write_text(now() + "\n")
+        harden_bundle(tmp)
         tmp.replace(target)
     except Exception:
         shutil.rmtree(tmp, ignore_errors=True)

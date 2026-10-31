@@ -242,6 +242,15 @@ with tempfile.TemporaryDirectory() as tmp:
     assert row["state"] == "stale"
     db.close()
 
+    # Bundles are root-only evidence: the agent must not rewrite its inputs.
+    hard = tmp / "hard"
+    hard.mkdir(mode=0o775)
+    (hard / "diff.patch").write_text("x\n")
+    os.chmod(hard / "diff.patch", 0o664)
+    collect.harden_bundle(hard)
+    assert hard.stat().st_mode & 0o022 == 0
+    assert (hard / "diff.patch").stat().st_mode & 0o022 == 0
+
     # Migration imports published heads and only requested heads with a bundle.
     state_path = tmp / "state.json"
     state_path.write_text(
