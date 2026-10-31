@@ -7,6 +7,7 @@
     nixos.hyprland = _: {
       programs = {
         hyprland.enable = true;
+        hyprland.withUWSM = true;
         hyprlock.enable = true;
         uwsm.enable = true;
       };
