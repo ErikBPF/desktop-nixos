@@ -507,8 +507,10 @@
           # ol/ow opt into auto-accept with --auto; other clients keep asking.
           session.permissions = "prompt";
           session.sidebar = "auto";
+          # tmux owns windowing; per-cwd tab pools leak sessions across
+          # panes that share a checkout.
           tabs = {
-            mode = "on";
+            mode = "off";
             scope = "cwd";
             layout = "horizontal";
             indicators = "status";

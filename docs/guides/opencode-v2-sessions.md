@@ -5,9 +5,10 @@
 ## Native session management
 
 `ol` and `ow` are intended to connect native V2 clients explicitly to the
-homelab and dataplatform backends. Tabs belong to the connected backend;
-they do not combine sessions from two different servers. Keep both clients
-available when switching between home and work.
+homelab and dataplatform backends. Tabs are off (`tabs.mode = "off"`): tmux
+owns window and session switching, and per-cwd tab pools leaked conversations
+between panes sharing a checkout. Each client shows one session; use the session
+list to switch.
 
 The default leader is **Ctrl+X**, released before the following key:
 
@@ -16,12 +17,6 @@ The default leader is **Ctrl+X**, released before the following key:
 | Ctrl+X, N | New session |
 | Ctrl+X, L | Session list |
 | Ctrl+O | Recent sessions and projects |
-| Ctrl+1 … Ctrl+9; Ctrl+0 | Select tabs 1–10 |
-| Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |
-| Alt+Down / Alt+Up | Alternative next / previous tab |
-| Alt+Shift+Down / Alt+Shift+Up | Next / previous unread tab |
-| Ctrl+X, W | Close current tab |
-| Ctrl+Shift+T | Reopen last closed tab |
 | Ctrl+R | Rename session |
 | Ctrl+B | Background blocking session tools |
 | Escape | Interrupt session |
@@ -29,10 +24,10 @@ The default leader is **Ctrl+X**, released before the following key:
 | Ctrl+P | Command palette and settings |
 
 Inside the diff viewer, Alt+Up/Down navigates files instead. Terminal or
-tmux bindings can intercept Ctrl+Tab and Ctrl+number; the leader-number
-alternatives and Alt bindings provide fallbacks. Verify delivery in the
-actual terminal before changing bindings. Defaults above are documented,
-not evidence that every terminal emits distinct key sequences.
+tmux bindings can intercept Ctrl+number; the leader alternatives provide
+fallbacks. Verify delivery in the actual terminal before changing bindings.
+Defaults above are documented, not evidence that every terminal emits distinct
+key sequences.
 
 V2 has one global `~/.config/opencode/cli.json`, managed through Home
 Manager. Server/project config and legacy layered `tui.json` are not the

@@ -37,7 +37,7 @@ class ManagedSettings(unittest.TestCase):
         self.assertEqual(cli.get("theme"), {"name": "tokyonight", "mode": "system"})
         self.assertEqual(cli.get("session", {}).get("permissions"), "prompt")
         self.assertEqual(cli.get("session", {}).get("sidebar"), "auto")
-        self.assertEqual(cli.get("tabs", {}).get("mode"), "on")
+        self.assertEqual(cli.get("tabs", {}).get("mode"), "off")
         self.assertNotIn("keybinds", cli)
         self.assertFalse(self.home["legacyTui"])
         self.assertFalse(self.home["rustClient"])

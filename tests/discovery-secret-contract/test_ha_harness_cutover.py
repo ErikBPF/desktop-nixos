@@ -15,7 +15,7 @@ class HaHarnessCutoverTest(unittest.TestCase):
     def test_discovery_enables_ha_harness_profile_and_targeted_health(self):
         source = COMPOSE.read_text()
         self.assertIn('secretSpecRuntimeProfiles.ha-harness = "ha-harness";', source)
-        self.assertIn('secretSpecRuntimeHealthContainers.ha-harness = "ha-harness";', source)
+        self.assertIn('secretSpecRuntimeHealthContainers.ha-harness = ["ha-harness"];', source)
 
 
 if __name__ == "__main__":
