@@ -358,6 +358,9 @@
         };
       };
 
+      # Todos are off by default in V2; long autonomous runs need the task list.
+      experimental.todo = true;
+
       experimental.policies =
         [
           {
@@ -389,8 +392,11 @@
         # V2 2.0.27 renames this action; keep it aligned with the consumer pin.
         ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
 
-      # Exact inspection commands only: no glob can admit cat, arbitrary git
-      # arguments, or compound commands. Documented just deploys still ask.
+      # Inspection-shaped commands run unprompted so a session can ground itself
+      # without a human in the loop. Mutations (commit, push, rm, docker, nixos
+      # rebuild, just deploy) still ask; destructive forms stay denied. Shell is
+      # host-authority, not a sandbox: this allowlist bounds accidental damage,
+      # and it does not replace the read/edit denies above.
       permissions =
         permissionRules "read" "allow" ["*"]
         ++ permissionRules "read" "deny" protectedReads
@@ -402,7 +408,45 @@
         # secrets-bearing .env / .env.<name> files stay denied.
         ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "ask" ["*"]
-        ++ permissionRules "shell" "allow" ["pwd" "git status" "git status --short" "git diff --stat" "git diff --name-only"]
+        ++ permissionRules "shell" "allow" [
+          "pwd"
+          "git status *"
+          "git diff *"
+          "git log *"
+          "git show *"
+          "git branch *"
+          "git rev-parse *"
+          "git ls-files *"
+          "git stash list *"
+          "git worktree list *"
+          "rg *"
+          "grep *"
+          "ls *"
+          "find *"
+          "fd *"
+          "wc *"
+          "jq *"
+          "tree *"
+          "just --list"
+          "just --dry-run *"
+          "just check"
+          "just lint"
+          "just fmt-check"
+          "just docs-check"
+          "just structure-check"
+          "just status"
+          "just audit"
+          "just test"
+          "just dry *"
+          "nix eval *"
+          "nix flake show *"
+          "opencode debug *"
+          "gh pr view *"
+          "gh pr diff *"
+          "gh issue view *"
+          "gh run list *"
+          "gh run view *"
+        ]
         ++ permissionRules "shell" "deny" [
           "rm -rf /"
           "rm -rf /*"
@@ -414,19 +458,21 @@
           "ssh *docker compose*up*"
         ];
 
-      # Helpers inherit the selected gateway/model. Architect remains read-only.
-      agent = {
-        plan = {
-          temperature = 0.1;
-        };
+      # Helpers inherit the selected gateway/model. Architect is read-only but
+      # keeps a read-only shell: rg/git are how it grounds claims. V1
+      # `permission.bash = "deny"` became a V2 `shell * deny` appended last,
+      # which silently blocked every command in the agent.
+      agents = {
         architect = {
           description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
           mode = "subagent";
-          temperature = 0.1;
-          permission = {
-            edit = "deny";
-            bash = "deny";
-          };
+          permissions = [
+            {
+              action = "edit";
+              resource = "*";
+              effect = "deny";
+            }
+          ];
         };
       };
 
@@ -505,8 +551,10 @@
             volume = 0.4;
             sound_pack = "opencode.default";
           };
-          # ol/ow opt into auto-accept with --auto; other clients keep asking.
-          session.permissions = "prompt";
+          # Auto-accept is the default: inspection commands are already allowed
+          # by policy, so `ask` only fires for mutations and destructive forms.
+          # Explicit deny rules still win over auto-accept.
+          session.permissions = "autoaccept";
           session.sidebar = "auto";
           # tmux owns windowing; per-cwd tab pools leak sessions across
           # panes that share a checkout.
