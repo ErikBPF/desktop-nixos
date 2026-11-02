@@ -87,11 +87,23 @@ class ManagedSettings(unittest.TestCase):
                 self.assertEqual(decision(policies, "tool.use", "read:" + path, "allow"), "deny")
         self.assertEqual(decision(rules, "read", "modules/dev/opencode.nix"), "allow")
 
+    def test_architect_shell_is_read_only(self):
+        rules = self.settings["agents"]["architect"]["permissions"]
+        for command in ["git commit -m x", "git push origin main", "rm -rf build",
+                        "nixos-rebuild switch", "just deploy kepler"]:
+            with self.subTest(command=command):
+                self.assertEqual(shell_decision(rules, command), "deny")
+        for command in ["git status --short", "rg --files", "git log --oneline"]:
+            with self.subTest(command=command):
+                self.assertEqual(shell_decision(rules, command), "allow")
+        self.assertEqual(decision(rules, "edit", "modules/dev/opencode.nix"), "deny")
+
     def test_shell_default_ask_and_preserved_denies(self):
         rules = self.settings.get("permissions", [])
         for command in ["cat .env", "cat README.md", "git status; cat .env",
                         "git status && cat .env", "git diff --no-index /dev/null .env",
-                        "git show HEAD:.env", "find . -exec cat .env +",
+                        "jq . .env", "fd -x cat .env",
+                        "find . -exec cat .env +",
                         "rg --pre cat pattern", "nix eval --impure --expr 'builtins.readFile \"/etc/passwd\"'",
                         "git branch -D main", "just home-switch", "just switch endeavour"]:
             with self.subTest(command=command):
@@ -99,9 +111,11 @@ class ManagedSettings(unittest.TestCase):
         for command in ["git status --short", "git diff --stat", "git branch --list", "rg --files"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        for command in ["rm -rf /", "rm -rf /etc", "docker volume rm db",
+        for command in ["git show HEAD:.env", "git show --stat HEAD:.env",
+                        "rm -rf /", "rm -rf /etc", "docker volume rm db",
                         "docker rm -f db", "git push --force origin main",
-                        "git push -f origin main",
+                        "git push -f origin main", "git log --oneline -p",
+                        "git diff --stat --patch",
                         "nixos-rebuild switch --target-host kepler",
                         "ssh kepler nixos-rebuild switch", "ssh kepler docker compose up -d"]:
             with self.subTest(command=command):

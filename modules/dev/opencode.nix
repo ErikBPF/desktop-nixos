@@ -69,6 +69,52 @@
     ];
     permissionRules = action: effect: resources:
       map (resource: {inherit action effect resource;}) resources;
+    # Inspection-only shell surface shared by the global policy and the
+    # architect subagent. Nothing here may execute code or print file contents:
+    # `find -exec`, `rg --pre`, `fd -x`, `jq . .env`, `git diff --no-index` and
+    # `git show <rev>:<path>` all bypass the read denies because the shell rule
+    # only sees the command string.
+    inspectionShell = [
+      "pwd"
+      "git status *"
+      # Filename- and count-only diffs.
+      "git diff --stat *"
+      "git diff --name-only *"
+      "git diff --numstat *"
+      "git log --oneline *"
+      "git show --stat"
+      # Read-only ref queries; plain `git branch *` also admits -D, -f and -m.
+      "git branch --list*"
+      "git for-each-ref *"
+      "git rev-parse *"
+      "git ls-files *"
+      "git stash list *"
+      "git worktree list *"
+      # Filenames only. `rg <pattern>` prints matches and `rg --pre` runs a
+      # command; the `grep` tool covers content search under read denies.
+      "rg --files *"
+      "ls *"
+      "wc *"
+      "tree *"
+      "just --list"
+      "just --dry-run *"
+      "just check"
+      "just lint"
+      "just fmt-check"
+      "just docs-check"
+      "just structure-check"
+      "just status"
+      "just audit"
+      "just test"
+      "just dry *"
+      "nix flake show *"
+      "opencode debug *"
+      "gh pr view *"
+      "gh pr diff *"
+      "gh issue view *"
+      "gh run list *"
+      "gh run view *"
+    ];
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -409,50 +455,7 @@
         # secrets-bearing .env / .env.<name> files stay denied.
         ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "ask" ["*"]
-        ++ permissionRules "shell" "allow" [
-          "pwd"
-          "git status *"
-          # Filename- and count-only diffs: `git diff --no-index /dev/null .env`
-          # would otherwise print a denied file's contents.
-          "git diff --stat *"
-          "git diff --name-only *"
-          "git diff --numstat *"
-          "git log --oneline *"
-          "git show --stat *"
-          # Read-only ref queries; plain `git branch *` also admits -D, -f and -m.
-          "git branch --list*"
-          "git for-each-ref *"
-          "git rev-parse *"
-          "git ls-files *"
-          "git stash list *"
-          "git worktree list *"
-          # Filenames only. `rg <pattern>` prints matches and `rg --pre` runs a
-          # command; the `grep` tool covers content search under read denies.
-          "rg --files *"
-          "ls *"
-          "fd *"
-          "wc *"
-          "jq *"
-          "tree *"
-          "just --list"
-          "just --dry-run *"
-          "just check"
-          "just lint"
-          "just fmt-check"
-          "just docs-check"
-          "just structure-check"
-          "just status"
-          "just audit"
-          "just test"
-          "just dry *"
-          "nix flake show *"
-          "opencode debug *"
-          "gh pr view *"
-          "gh pr diff *"
-          "gh issue view *"
-          "gh run list *"
-          "gh run view *"
-        ]
+        ++ permissionRules "shell" "allow" inspectionShell
         ++ permissionRules "shell" "deny" [
           "rm -rf /"
           "rm -rf /*"
@@ -462,26 +465,37 @@
           # Never force-push, even under auto-accept.
           "git push --force*"
           "git push -f *"
+          # Patch and blob forms of otherwise stat-only git reads.
+          "git diff *-p*"
+          "git diff *--patch*"
+          "git log *-p*"
+          "git log *--patch*"
+          "git show *:*"
           "*nixos-rebuild*--target-host*"
           "*ssh*nixos-rebuild*switch*"
           "ssh *docker compose*up*"
         ];
 
-      # Helpers inherit the selected gateway/model. Architect is read-only but
-      # keeps a read-only shell: rg/git are how it grounds claims. V1
-      # `permission.bash = "deny"` became a V2 `shell * deny` appended last,
+      # Helpers inherit the selected gateway/model. Architect is strictly
+      # read-only: its own shell rule denies everything first, then re-admits
+      # the inspection list. Inheriting the global policy would not hold under
+      # auto-accept, where the global `shell *` ask is accepted automatically.
+      # V1 `permission.bash = "deny"` became a V2 `shell * deny` appended last,
       # which silently blocked every command in the agent.
       agents = {
         architect = {
           description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
           mode = "subagent";
-          permissions = [
-            {
-              action = "edit";
-              resource = "*";
-              effect = "deny";
-            }
-          ];
+          permissions =
+            [
+              {
+                action = "edit";
+                resource = "*";
+                effect = "deny";
+              }
+            ]
+            ++ permissionRules "shell" "deny" ["*"]
+            ++ permissionRules "shell" "allow" inspectionShell;
         };
       };
 
