@@ -532,37 +532,43 @@
           "tdd"
         ]))
       // {
-        "opencode/cli.json".text = builtins.toJSON {
-          "$schema" = "https://opencode.ai/v2/cli.json";
-          theme = {
-            name = "tokyonight";
-            mode = "system";
-          };
-          mouse = true;
-          scroll = {
-            speed = 3;
-            acceleration = false;
-          };
-          leader.timeout = 2000;
-          diffs.view = "auto";
-          attention = {
-            notifications = true;
-            sound = true;
-            volume = 0.4;
-            sound_pack = "opencode.default";
-          };
-          # Auto-accept is the default: inspection commands are already allowed
-          # by policy, so `ask` only fires for mutations and destructive forms.
-          # Explicit deny rules still win over auto-accept.
-          session.permissions = "autoaccept";
-          session.sidebar = "auto";
-          # tmux owns windowing; per-cwd tab pools leak sessions across
-          # panes that share a checkout.
-          tabs = {
-            mode = "off";
-            scope = "cwd";
-            layout = "horizontal";
-            indicators = "status";
+        # The V2 client rewrites cli.json when its own settings change, which
+        # replaces the HM symlink with a regular file. `force` keeps activation
+        # idempotent instead of failing on the clobbered target.
+        "opencode/cli.json" = {
+          force = true;
+          text = builtins.toJSON {
+            "$schema" = "https://opencode.ai/v2/cli.json";
+            theme = {
+              name = "tokyonight";
+              mode = "system";
+            };
+            mouse = true;
+            scroll = {
+              speed = 3;
+              acceleration = false;
+            };
+            leader.timeout = 2000;
+            diffs.view = "auto";
+            attention = {
+              notifications = true;
+              sound = true;
+              volume = 0.4;
+              sound_pack = "opencode.default";
+            };
+            # Auto-accept is the default: inspection commands are already
+            # allowed by policy, so `ask` only fires for mutations and
+            # destructive forms. Explicit deny rules still win.
+            session.permissions = "autoaccept";
+            session.sidebar = "auto";
+            # tmux owns windowing; per-cwd tab pools leak sessions across
+            # panes that share a checkout.
+            tabs = {
+              mode = "off";
+              scope = "cwd";
+              layout = "horizontal";
+              indicators = "status";
+            };
           };
         };
         # Vendored `graphify install --platform opencode` output (graphifyy
