@@ -519,4 +519,16 @@ with tempfile.TemporaryDirectory() as raw:
     assert new["state"] == "leased", dict(new)
     db.close()
 
+    # A revived current head must outrank a published newer head; otherwise
+    # collect's requeue + claim cycle livelocks after a force-push back.
+    db = ledger.connect(db_path)
+    ledger.finish(db, "owner/repo", 1, new_head, "published")
+    ledger.requeue(db, "owner/repo", 1, old_head)
+    revived = ledger.get(db, "owner/repo", 1, old_head)
+    assert revived["state"] == "queued", dict(revived)
+    db.close()
+
+    claimed = run_claim(db_path, review_in)
+    assert claimed == ["CLAIM old-bundle"], claimed
+
 print("pr-review-publish: ok")

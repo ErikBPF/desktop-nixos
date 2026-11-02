@@ -143,15 +143,18 @@ def requeue(db: sqlite3.Connection, repo: str, pr: int, head: str) -> None:
     A valid packet that exhausted its attempts, or a head staled by a closed
     PR or a misread open-PR list, must be reviewable again at the same commit.
     """
+    # A revival is a new request. Without this, has_newer_head keeps staling a
+    # current head against a published sibling after a force-push back.
+    now = time.time()
     db.execute(
         """
         UPDATE reviews
         SET state = 'queued', attempts = 0, lease_owner = NULL,
-            lease_expires = NULL, updated_at = ?, error = NULL
+            lease_expires = NULL, requested_at = ?, updated_at = ?, error = NULL
         WHERE repo = ? AND pr = ? AND head = ?
           AND state IN ('failed', 'stale', 'published')
         """,
-        (time.time(), repo, pr, head),
+        (now, now, repo, pr, head),
     )
 
 
