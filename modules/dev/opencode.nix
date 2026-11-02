@@ -392,11 +392,12 @@
         # V2 2.0.27 renames this action; keep it aligned with the consumer pin.
         ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
 
-      # Inspection-shaped commands run unprompted so a session can ground itself
-      # without a human in the loop. Mutations (commit, push, rm, docker, nixos
-      # rebuild, just deploy) still ask; destructive forms stay denied. Shell is
-      # host-authority, not a sandbox: this allowlist bounds accidental damage,
-      # and it does not replace the read/edit denies above.
+      # Inspection-shaped commands run unprompted. The CLI defaults to
+      # auto-accept, so this list and the deny list below are the whole gate:
+      # every other `ask` is accepted without a human. Nothing here may execute
+      # or dump arbitrary file contents — `find -exec`, `rg --pre` and
+      # `git diff --no-index` all read or run through a shell argument the
+      # read denies cannot inspect. Shell is host-authority, not a sandbox.
       permissions =
         permissionRules "read" "allow" ["*"]
         ++ permissionRules "read" "deny" protectedReads
@@ -411,18 +412,24 @@
         ++ permissionRules "shell" "allow" [
           "pwd"
           "git status *"
-          "git diff *"
-          "git log *"
-          "git show *"
-          "git branch *"
+          # Filename- and count-only diffs: `git diff --no-index /dev/null .env`
+          # would otherwise print a denied file's contents.
+          "git diff --stat *"
+          "git diff --name-only *"
+          "git diff --numstat *"
+          "git log --oneline *"
+          "git show --stat *"
+          # Read-only ref queries; plain `git branch *` also admits -D, -f and -m.
+          "git branch --list*"
+          "git for-each-ref *"
           "git rev-parse *"
           "git ls-files *"
           "git stash list *"
           "git worktree list *"
-          "rg *"
-          "grep *"
+          # Filenames only. `rg <pattern>` prints matches and `rg --pre` runs a
+          # command; the `grep` tool covers content search under read denies.
+          "rg --files *"
           "ls *"
-          "find *"
           "fd *"
           "wc *"
           "jq *"
@@ -438,7 +445,6 @@
           "just audit"
           "just test"
           "just dry *"
-          "nix eval *"
           "nix flake show *"
           "opencode debug *"
           "gh pr view *"
@@ -453,6 +459,9 @@
           "rm -rf ~*"
           "docker volume rm *"
           "docker rm -f *"
+          # Never force-push, even under auto-accept.
+          "git push --force*"
+          "git push -f *"
           "*nixos-rebuild*--target-host*"
           "*ssh*nixos-rebuild*switch*"
           "ssh *docker compose*up*"
@@ -556,9 +565,10 @@
               volume = 0.4;
               sound_pack = "opencode.default";
             };
-            # Auto-accept is the default: inspection commands are already
-            # allowed by policy, so `ask` only fires for mutations and
-            # destructive forms. Explicit deny rules still win.
+            # Auto-accept is the default: `ask` never reaches a human, so the
+            # allow and deny lists above are the whole gate. Inspection is
+            # allowed explicitly; everything else is auto-accepted except the
+            # deny patterns. `ol`/`ow` pass --auto for the same effect.
             session.permissions = "autoaccept";
             session.sidebar = "auto";
             # tmux owns windowing; per-cwd tab pools leak sessions across
