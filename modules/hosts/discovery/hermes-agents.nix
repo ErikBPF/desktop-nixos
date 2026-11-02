@@ -165,6 +165,19 @@ in {
           };
           skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research" "/opt/skills-development"];
           mcp_servers = {
+            docs_search = {
+              url = "http://kepler:8765/mcp";
+              headers.Authorization = "Bearer \${DOCS_SEARCH_API_KEY}";
+              connect_timeout = 30;
+              timeout = 120;
+              supports_parallel_tool_calls = true;
+              tools = {
+                include = ["search_docs" "fetch_chunk" "source_status"];
+                resources = false;
+                prompts = false;
+              };
+              sampling.enabled = false;
+            };
             context7 = {
               url = "https://mcp.context7.com/mcp";
               connect_timeout = 30;
