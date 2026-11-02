@@ -33,7 +33,6 @@ in {
       m.nixos.kepler-nfs
       m.nixos.discovery-containers
       m.nixos.discovery-compose
-      m.nixos.discovery-stateful-stack-ops
       m.nixos.discovery-kindle-release-agent
       m.nixos.discovery-harbor
       m.nixos.harbor-reader

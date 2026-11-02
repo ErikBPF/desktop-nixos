@@ -42,7 +42,7 @@ preservation snapshot. Stashes remain intact; none was applied wholesale.
 | `a8aca81d` | Alloy NFS exclusion already present; SBX has newer upstream packaging and tests; Gemini aliases retired. | Already delivered or superseded; no older package/alias overlay. |
 | `f216a075`, `4daeb7ea` | Ubuntu-work already includes the clipboard, keyboard and audio intent, with a newer private PulseAudio setup. | Retain the current implementation and its passing contracts. |
 | `62bf51ae`, `ec569f06`, `49025c8f` | Existing system-key persistence precedes secret activation. Old login/host-key changes conflict with current policy; the key-rotation runbook still described the old single-store model. | Integrate the corrected [rotation procedure](key-rotation.md), not the stale authentication or bootstrap changes. |
-| `b2ac927c` | NetBird server work predates retirement; Kepler parallel-control-plane assertions already exist in `tests/kepler-fast-state`. | Superseded or already covered. |
+| `b2ac927c` | NetBird server work predates retirement; Kepler parallel-control-plane assertions were retired with the fast-state migration. | Superseded or already covered. |
 
 `ec569f06` also retains 252 generated Graphify files. Those caches are not
 implementation source and remain excluded from publication.
@@ -53,7 +53,7 @@ new-key proof and data-key retirement sequence. The isolated SOPS exercise used
 only disposable synthetic keys; it was not a fleet rotation.
 
 Verification: 26 existing pytest checks passed across `login-startup`,
-`kepler-fast-state`, `work-vm`, `work-profile`, and `sbx` in the repository-pinned
+`work-vm`, `work-profile`, and `sbx` in the repository-pinned
 Python environment. Documentation checks passed. No host activation, login
 policy change, key distribution, or real credential operation occurred.
 

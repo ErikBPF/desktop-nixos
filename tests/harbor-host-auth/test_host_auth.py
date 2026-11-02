@@ -9,7 +9,7 @@ USER = ROOT / "modules/user.nix"
 KEPLER = ROOT / "modules/hosts/kepler/default.nix"
 K3S = ROOT / "modules/hosts/kepler/k3s-cluster.nix"
 DISCOVERY_VAULT = ROOT / "modules/hosts/discovery/vault.nix"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_reader_credentials_are_runtime_only_and_host_scoped():
@@ -88,7 +88,7 @@ def test_docker_auth_is_owned_by_the_runtime_principal():
 
 
 def test_fleet_reader_approles_rotate_directly_into_sops():
-    recipe = JUSTFILE.read_text().split(
+    recipe = JUSTFILE.split(
         "capture-harbor-fleet-reader-approle-secrets:", 1
     )[1].split("\n# ", 1)[0]
 

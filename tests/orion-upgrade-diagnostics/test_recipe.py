@@ -1,8 +1,11 @@
 from pathlib import Path
 
 
+ROOT = Path(__file__).parents[2]
+
+
 def test_orion_upgrade_diagnostics_cover_network_and_generation_state():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("diagnose-gateway-reachability target:", 1)[1].split(
         "\n\n", 1
     )[0]
@@ -20,7 +23,7 @@ def test_orion_upgrade_diagnostics_cover_network_and_generation_state():
 
 
 def test_orion_route_recovery_disables_subnet_routes_and_verifies_physical_path():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("recover-orion-tailscale-routes:", 1)[1].split(
         "\n\n", 1
     )[0]
@@ -42,7 +45,7 @@ def test_orion_does_not_accept_subnet_routes():
 
 
 def test_retired_gemini_has_no_operational_recipes():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     for retired in ("ssh gemini", "--machine=gemini", "restart-gemini-herdr:",
                     "verify-gemini-herdr:", "kubeconfig-pastelariadev:",
                     "diagnose-pastelariadev:"):

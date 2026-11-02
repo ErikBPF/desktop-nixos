@@ -159,26 +159,6 @@ in {
       magicRollback = true;
       activationTimeout = 600;
     };
-
-    # drtest: THROWAWAY deploy-rs proof-of-concept VM running on orion.
-    # NOT a real fleet host — no sops, no tailscale, no fleet IP.
-    # QEMU usermode hostfwd maps orion:2224 → VM:2222 (sshd).
-    # deploy-rs targets orion's LAN IP at port 2224; magicRollback=true so a
-    # generation that breaks SSH auto-reverts — that's the test.
-    # Lifecycle: start with `just drtest-vm-start`, remove with `just drtest-vm-stop`.
-    drtest = let
-      nixos = config.flake.nixosConfigurations.drtest;
-      system = nixos.pkgs.stdenv.hostPlatform.system;
-    in {
-      hostname = fleet.hosts.orion.ip; # reach via orion (VM hostfwd'd there)
-      sshUser = "erik";
-      user = "root";
-      sshOpts = ["-p" "2224"]; # orion:2224 → VM:2222 via QEMU hostfwd
-      magicRollback = true;
-      activationTimeout = 120;
-      confirmTimeout = 30;
-      profiles.system.path = inputs.deploy-rs.lib.${system}.activate.nixos nixos;
-    };
   };
 
   # Opt-in only — NOT wired into perSystem.checks (would build every host's full

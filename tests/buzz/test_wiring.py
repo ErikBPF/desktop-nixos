@@ -45,7 +45,7 @@ def test_kepler_retires_buzz_scrape_but_keeps_postgres():
 
 def test_buzz_owner_key_uses_openbao_runtime_projection():
     agent = (ROOT / "modules/hosts/discovery/_vault-agent.nix").read_text()
-    recipes = (ROOT / "justfile").read_text()
+    recipes = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
     assert 'secret/data/home/buzz' in agent
     assert 'destination = "/run/vault-agent/buzz-owner.key"' in agent

@@ -4,7 +4,7 @@
 corrected record** of what shipped (OCI cutover, skills `external_dirs`, SOUL
 `:ro`) and what was invalidated (rtk never fires under `execute_code`).
 Everything still open was re-tracked in
-[`../proposals/2026-06-29-hermes-deferred-improvements.md`](../proposals/2026-06-29-hermes-deferred-improvements.md)
+[`../proposals/2026-06-29-hermes-deferred-improvements.md`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-06-29-hermes-deferred-improvements.md)
 (P1–P7) and superseded plans; this doc is kept as the shipped record.
 
 **Supersession (2026-10-21):** GLM-5.2 (`glm-5`) was retired from LiteLLM after

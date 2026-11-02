@@ -18,7 +18,7 @@ ORCHESTRATION = ROOT / "modules/server/orchestration.nix"
 VAULT = ROOT / "modules/hosts/discovery/vault.nix"
 VAULT_AGENT = ROOT / "modules/hosts/discovery/_vault-agent.nix"
 COMPOSE = ROOT / "modules/hosts/discovery/compose.nix"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 class RuntimeProjectionTest(unittest.TestCase):
@@ -215,7 +215,7 @@ class RuntimeProjectionTest(unittest.TestCase):
 
     def test_tunneling_cutover_has_exact_gate_and_value_free_render_check(self):
         compose = COMPOSE.read_text()
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         vault = VAULT_AGENT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
         self.assertIn('secretSpecRuntimeProfiles.tunneling = "tunneling";', compose)
@@ -233,7 +233,7 @@ class RuntimeProjectionTest(unittest.TestCase):
 
     def test_networking_cutover_has_exact_sources_gates_and_render_check(self):
         compose = COMPOSE.read_text()
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         vault = VAULT.read_text()
         vault_agent = VAULT_AGENT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())
@@ -253,7 +253,7 @@ class RuntimeProjectionTest(unittest.TestCase):
 
     def test_infra_cutover_has_exact_sources_gates_and_render_check(self):
         compose = COMPOSE.read_text()
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         vault = VAULT.read_text()
         vault_agent = VAULT_AGENT.read_text()
         contract = json.loads((ROOT / "modules/hosts/discovery/vault-env-contract.json").read_text())

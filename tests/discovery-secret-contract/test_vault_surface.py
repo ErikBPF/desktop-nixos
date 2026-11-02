@@ -15,7 +15,7 @@ SOURCE = ROOT / "modules/hosts/discovery/_vault-agent.nix"
 VAULT = ROOT / "modules/hosts/discovery/vault.nix"
 EXPORTER = ROOT / "scripts/export-discovery-vault-contract.py"
 ARTIFACT = ROOT / "modules/hosts/discovery/vault-env-contract.json"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 TOFU_BACKUP = ROOT / "modules/services/restic-tofu-state.nix"
 DISCOVERY = ROOT / "modules/hosts/discovery/default.nix"
 
@@ -39,7 +39,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertIn("restic-backups-vault-b2.onFailure", vault)
         self.assertIn('endpoint = "https://', discovery)
         self.assertIn('bucket = "homelab-vault"', discovery)
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         self.assertIn("verify-b2-backups:", justfile)
         self.assertGreaterEqual(justfile.count("check --read-data"), 2)
         self.assertGreaterEqual(justfile.count("dump latest"), 2)
@@ -96,7 +96,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             self.assertNotIn("{{", rendered)
 
     def test_tools_render_has_value_free_live_verification_recipe(self):
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         self.assertIn("verify-tools-secret-render:", justfile)
         self.assertIn("sudo -u erik head -c0 /run/vault-agent/tools.env", justfile)
         self.assertIn("sudo -u nobody head -c0 /run/vault-agent/tools.env", justfile)
@@ -105,7 +105,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertGreaterEqual(justfile.count("grep -v '^#'"), 2)
 
     def test_ha_harness_render_has_value_free_live_verification_recipe(self):
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         self.assertIn("verify-ha-harness-secret-render:", justfile)
         self.assertIn("seed-kindle-dash-vault:", justfile)
         self.assertIn("verify-kindle-dash-secret-render:", justfile)
@@ -149,7 +149,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
             source = (ROOT / relative).read_text()
             self.assertIn("LITELLM_MASTER_KEY={{ .Data.data.LITELLM_MASTER_KEY }}", source)
             self.assertIn("OPENCODE_ZEN_KEY={{ .Data.data.OPENCODE_ZEN_KEY }}", source)
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         self.assertIn("seed-ai-serving-vault:", justfile)
         self.assertIn('echo "ai_serving_vault=seeded keys_added=2"', justfile)
         self.assertIn("verify-ai-serving-secret-render:", justfile)
@@ -174,7 +174,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
         self.assertNotIn('sops.secrets."hermes_agent/server_env"', primary)
         self.assertNotIn('sops.secrets."hermes_agents/daedalus_env"', agents)
         self.assertNotIn('sops.secrets."hermes_agents/argus_env"', agents)
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         self.assertIn("seed-hermes-vault:", justfile)
         self.assertIn("verify-hermes-secret-renders:", justfile)
 
@@ -193,7 +193,7 @@ class DiscoveryVaultSurfaceTest(unittest.TestCase):
 
     def test_openbao_restore_drill_is_isolated_and_quarterly(self):
         vault = VAULT.read_text()
-        justfile = JUSTFILE.read_text()
+        justfile = JUSTFILE
         self.assertIn("systemd.services.openbao-restore-drill", vault)
         drill = vault.split("systemd.services.openbao-restore-drill", 1)[1].split(
             "systemd.timers.openbao-restore-drill", 1

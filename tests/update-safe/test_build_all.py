@@ -21,6 +21,7 @@ class BuildAll(unittest.TestCase):
                 repo = Path(directory)
                 for name in ("justfile", "fleet.json"):
                     shutil.copy2(ROOT / name, repo / name)
+                shutil.copytree(ROOT / "just", repo / "just")
                 (repo / "bin").mkdir()
                 (repo / "scripts").mkdir()
                 selector = ROOT / "scripts" / "upgrade-hosts.nix"

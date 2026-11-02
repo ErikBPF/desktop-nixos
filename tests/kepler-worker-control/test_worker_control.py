@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_stop_worker_is_allowlisted_and_verified() -> None:
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("stop-k3s-worker target:", 1)[1].split(
         "\nrestart-k3s-worker target:", 1
     )[0]
@@ -22,7 +22,7 @@ def test_stop_worker_is_allowlisted_and_verified() -> None:
 
 
 def test_restart_worker_uncordons_after_ready() -> None:
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("restart-k3s-worker target:", 1)[1].split(
         "\n# Read-only proof", 1
     )[0]

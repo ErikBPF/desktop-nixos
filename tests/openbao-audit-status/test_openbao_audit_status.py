@@ -1,7 +1,8 @@
 from pathlib import Path
 
 
-JUSTFILE = (Path(__file__).parents[2] / "justfile").read_text()
+ROOT = Path(__file__).parents[2]
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_audit_status_never_prints_token_or_payloads():

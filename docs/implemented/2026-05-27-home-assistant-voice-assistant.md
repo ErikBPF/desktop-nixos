@@ -7,7 +7,7 @@ LLM brain via custom-conversation `3230105` then extended_openai_conversation
 for web search `a53c175`, openWakeWord + Atom Echo live). §6 synergies
 (camera vision, hermes MCP bridge, f5-tts clone, RAG memory, Alexa
 announcements) are future enhancements — tracked as backlog decision A12 in
-[`../proposals/2026-07-02-open-decisions-and-work.md`](../proposals/2026-07-02-open-decisions-and-work.md).
+[`../proposals/2026-07-02-open-decisions-and-work.md`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-07-02-open-decisions-and-work.md).
 **Owner:** erik
 **Target hosts:** `discovery` (HAOS + LiteLLM), `kepler` (STT/TTS/vision), `orion` (reasoning LLM)
 **Related:** [`2026-05-23-home-assistant-declarative.md`](2026-05-23-home-assistant-declarative.md) — this proposal's config changes land in the `home-assistant-config` repo per that doc's implemented Phase 1 workflow.

@@ -8,7 +8,7 @@ server sudo tightening waits until after the deploy-recipe sudo path is proven
 stable (deploy recipes depend on passwordless wheel). P1 "adopt a deploy layer"
 has since been satisfied by the deploy-rs adoption (`modules/deploy-rs.nix`).
 Remaining host decisions are tracked as H1–H4 in
-[`open-decisions-and-work`](../proposals/2026-07-02-open-decisions-and-work.md);
+[`open-decisions-and-work`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-07-02-open-decisions-and-work.md);
 this broad review is closed.
 **Audience:** Maintainers of `desktop-nixos`
 **Post-read action:** Pick the next security, performance, and usability improvements per host, with external references for the recommendations.
