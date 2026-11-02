@@ -20,13 +20,14 @@ leases, and how new heads dispatch workers.
    claimable row (`hermes cron run hermes-pr-review-N`). Each worker's claim
    script leases exactly one row.
 5. The agent writes `review-out/<bundle>.json`.
-6. `hermes-pr-review-publish.timer` runs every 2 minutes, posts the comment,
+6. `hermes-pr-review-publish.timer` runs every 30 seconds, posts the comment,
    review verdict, and gate check, writes a root-only publication marker under
    `/var/lib/hermes-pr-review/published/`, then marks the row `published`.
 
-A new head is normally visible as a check within review time plus about four
-minutes. Workers still have their own 10-minute cron fallback; dispatch just
-removes the wait for the next shared tick.
+A new head is normally visible as a check within review time plus about one
+minute. Workers still have their own 10-minute cron fallback; dispatch just
+removes the wait for the next shared tick. An idle worker prints the Hermes
+`{"wakeAgent": false}` gate and exits without invoking the model.
 
 ## Ledger
 
@@ -65,8 +66,12 @@ into the agent container, so a forged ledger state alone cannot silence the
 gate. The publisher also rejects a packet whose bundle name does not match the
 packet's repo, PR and head.
 
-`claim.py` leases atomically with `BEGIN IMMEDIATE`. File claims under
-`review-claims/` are no longer used.
+`claim.py` leases atomically with `BEGIN IMMEDIATE`. Before reviewing, it marks
+the claimed head `stale` when a newer head for the same PR is queued, leased, or
+published, so a fast push does not spend a worker on an obsolete commit. An
+idle worker prints `{"wakeAgent": false}` as its last stdout line, which Hermes
+uses to skip the agent run entirely. File claims under `review-claims/` are no
+longer used.
 
 ## Operations
 
@@ -101,6 +106,8 @@ sudo systemctl start hermes-pr-review-publish.service
 
 - Missing bundle: the claim loop marks the row `stale` and tries the next row;
   it does not burn the worker's turn.
+- Superseded head: the claim loop marks the older head `stale` and tries the
+  newer head before starting a review.
 - Invalid review JSON: publish marks it `failed` and moves the packet to
   `review-stale/`.
 - Head moved or PR merged before publish: publish marks the row `stale` and

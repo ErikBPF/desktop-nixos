@@ -207,6 +207,28 @@ def claim(
         raise
 
 
+def has_newer_head(
+    db: sqlite3.Connection, repo: str, pr: int, head: str, requested_at: float
+) -> bool:
+    """True when a later-requested head for the same PR is still live.
+
+    A worker that claimed an older head would spend a full review on a commit
+    the publisher will reject as stale. Skip it before reading the bundle.
+    """
+    return (
+        db.execute(
+            """
+            SELECT 1 FROM reviews
+            WHERE repo = ? AND pr = ? AND head != ? AND requested_at > ?
+              AND state IN ('queued', 'leased', 'published')
+            LIMIT 1
+            """,
+            (repo, pr, head, requested_at),
+        ).fetchone()
+        is not None
+    )
+
+
 def has_claimable(db: sqlite3.Connection) -> bool:
     now = time.time()
     return (

@@ -134,7 +134,7 @@ with tempfile.TemporaryDirectory() as tmp:
             capture_output=True,
             check=True,
         )
-        return result.stdout.strip()
+        return result.stdout.strip().splitlines()[0]
 
     older = review_in / "older"
     newer = review_in / "newer"
@@ -145,8 +145,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ledger.record(db, "ErikBPF/aster", 1, "a" * 40, "", "older")
     ledger.record(db, "ErikBPF/aster", 1, "b" * 40, "", "newer")
 
-    assert claim() == "CLAIM older", "oldest head must lease first"
-    assert claim() == "CLAIM newer", "a fresh lease must not be stolen"
+    assert claim() == "CLAIM newer", "a newer head supersedes the older one"
     assert claim() == "NO_CLAIM", "each worker gets a distinct head"
 
     db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'newer'")
@@ -210,7 +209,9 @@ with tempfile.TemporaryDirectory() as tmp:
         capture_output=True,
         check=True,
     )
-    assert missing.stdout.strip() == "NO_CLAIM"
+    missing_lines = missing.stdout.strip().splitlines()
+    assert missing_lines[0] == "NO_CLAIM"
+    assert missing_lines[-1] == '{"wakeAgent": false}'
 
     # Superseded and closed-PR bundles are pruned; a live lease is preserved.
     collect = load(SCRIPTS / "collect.py", "pr_review_collect")
@@ -468,5 +469,54 @@ agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
 assert 'agent.disabled_toolsets = ["memory" "session_search"];' in agents
 assert "memory_enabled = false;" in agents
 assert "user_profile_enabled = false;" in agents
+
+# Claim worker contract: an idle worker must emit the Hermes wake gate, and a
+# worker that claimed an older head must skip it when a newer head is live.
+claim_script = SCRIPTS / "claim.py"
+
+
+def run_claim(ledger_path, review_in):
+    env = dict(os.environ)
+    env["HERMES_REVIEW_LEDGER"] = str(ledger_path)
+    env["HERMES_REVIEW_IN"] = str(review_in)
+    proc = subprocess.run(
+        [sys.executable, str(claim_script)],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    )
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+with tempfile.TemporaryDirectory() as raw:
+    tmp = Path(raw)
+    review_in = tmp / "review-in"
+    review_in.mkdir()
+    db_path = tmp / "ledger.db"
+
+    idle = run_claim(db_path, review_in)
+    assert idle[-2:] == ["NO_CLAIM", '{"wakeAgent": false}'], idle
+
+    old_head, new_head = "a" * 40, "c" * 40
+    db = ledger.connect(db_path)
+    ledger.record(db, "owner/repo", 1, old_head, "b" * 40, "old-bundle")
+    ledger.record(db, "owner/repo", 1, new_head, "b" * 40, "new-bundle")
+    db.execute("UPDATE reviews SET requested_at = 1000 WHERE head = ?", (old_head,))
+    db.execute("UPDATE reviews SET requested_at = 2000 WHERE head = ?", (new_head,))
+    db.commit()
+    db.close()
+    for bundle in ("old-bundle", "new-bundle"):
+        (review_in / bundle).mkdir()
+        (review_in / bundle / ".ready").write_text("ready\n")
+
+    claimed = run_claim(db_path, review_in)
+    assert claimed == ["CLAIM new-bundle"], claimed
+    db = ledger.connect(db_path)
+    old = ledger.get(db, "owner/repo", 1, old_head)
+    new = ledger.get(db, "owner/repo", 1, new_head)
+    assert old["state"] == "stale" and old["error"] == "superseded before review", dict(old)
+    assert new["state"] == "leased", dict(new)
+    db.close()
 
 print("pr-review-publish: ok")
