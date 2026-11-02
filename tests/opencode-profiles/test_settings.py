@@ -90,7 +90,10 @@ class ManagedSettings(unittest.TestCase):
     def test_architect_shell_is_read_only(self):
         rules = self.settings["agents"]["architect"]["permissions"]
         for command in ["git commit -m x", "git push origin main", "rm -rf build",
-                        "nixos-rebuild switch", "just deploy kepler"]:
+                        "nixos-rebuild switch", "just deploy kepler",
+                        "git log --oneline -p", "git log --oneline -U2",
+                        "git diff --stat -p", "git diff --stat -U5",
+                        "cat .env"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "deny")
         for command in ["git status --short", "rg --files", "git log --oneline"]:
@@ -100,22 +103,22 @@ class ManagedSettings(unittest.TestCase):
 
     def test_shell_default_ask_and_preserved_denies(self):
         rules = self.settings.get("permissions", [])
-        for command in ["cat .env", "cat README.md", "git status; cat .env",
-                        "git status && cat .env", "git diff --no-index /dev/null .env",
-                        "jq . .env", "fd -x cat .env",
-                        "find . -exec cat .env +",
-                        "rg --pre cat pattern", "nix eval --impure --expr 'builtins.readFile \"/etc/passwd\"'",
-                        "git branch -D main", "just home-switch", "just switch endeavour"]:
+        for command in ["cat README.md", "just home-switch", "just switch endeavour"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "ask")
         for command in ["git status --short", "git diff --stat", "git branch --list", "rg --files"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        for command in ["git show HEAD:.env", "git show --stat HEAD:.env",
+        for command in ["cat .env", "git status; cat .env", "git status && cat .env",
+                        "git diff --no-index /dev/null .env", "jq . .env", "fd -x cat .env",
+                        "find . -exec cat .env +", "rg --pre cat pattern",
+                        "nix eval --impure --expr 'builtins.readFile \"/etc/passwd\"'",
+                        "git branch -D main", "git show HEAD:.env", "git show --stat HEAD:.env",
                         "rm -rf /", "rm -rf /etc", "docker volume rm db",
                         "docker rm -f db", "git push --force origin main",
                         "git push -f origin main", "git log --oneline -p",
-                        "git diff --stat --patch",
+                        "git log --oneline -U2", "git diff --stat --patch",
+                        "git diff --stat -U5",
                         "nixos-rebuild switch --target-host kepler",
                         "ssh kepler nixos-rebuild switch", "ssh kepler docker compose up -d"]:
             with self.subTest(command=command):

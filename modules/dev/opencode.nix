@@ -115,6 +115,48 @@
       "gh run list *"
       "gh run view *"
     ];
+    # Appended after the allow list in every policy that uses inspectionShell,
+    # so a deny is always the last word. Auto-accept turns `ask` into an
+    # approval, so protected paths are denied by argument substring here: the
+    # shell rule sees the command string, not the file the command opens.
+    shellDenies = [
+      "rm -rf /"
+      "rm -rf /*"
+      "rm -rf ~*"
+      "docker volume rm *"
+      "docker rm -f *"
+      # Never force-push, even under auto-accept.
+      "git push --force*"
+      "git push -f *"
+      "git branch -D*"
+      "git branch -f*"
+      "git branch -m*"
+      # Patch and blob forms of the otherwise stat-only git reads.
+      "git diff *-p*"
+      "git diff *--patch*"
+      "git diff *-U*"
+      "git diff *--unified*"
+      "git log *-p*"
+      "git log *--patch*"
+      "git log *-U*"
+      "git log *--unified*"
+      "git show *:*"
+      # Execution vectors a prefix glob would otherwise admit.
+      "rg *--pre*"
+      "* -exec *"
+      "nix eval *"
+      # Protected content, matched wherever it appears in the command.
+      "*.env*"
+      "*.secrets.json*"
+      "*.secret.json*"
+      "*.age*"
+      "*secrets/*"
+      "*/.ssh/*"
+      "*/.config/sops/age/*"
+      "*nixos-rebuild*--target-host*"
+      "*ssh*nixos-rebuild*switch*"
+      "ssh *docker compose*up*"
+    ];
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -439,11 +481,11 @@
         ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
 
       # Inspection-shaped commands run unprompted. The CLI defaults to
-      # auto-accept, so this list and the deny list below are the whole gate:
-      # every other `ask` is accepted without a human. Nothing here may execute
-      # or dump arbitrary file contents — `find -exec`, `rg --pre` and
-      # `git diff --no-index` all read or run through a shell argument the
-      # read denies cannot inspect. Shell is host-authority, not a sandbox.
+      # auto-accept, so every `ask` is approved without a human: the deny tail
+      # is the real gate, and it blocks protected paths by argument substring
+      # because the shell rule cannot see inside a command's arguments. Shell is
+      # host-authority, not a sandbox; globs that expand to a protected path
+      # (for example `cat ~/.e??`) still defeat the substring match.
       permissions =
         permissionRules "read" "allow" ["*"]
         ++ permissionRules "read" "deny" protectedReads
@@ -456,25 +498,7 @@
         ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "ask" ["*"]
         ++ permissionRules "shell" "allow" inspectionShell
-        ++ permissionRules "shell" "deny" [
-          "rm -rf /"
-          "rm -rf /*"
-          "rm -rf ~*"
-          "docker volume rm *"
-          "docker rm -f *"
-          # Never force-push, even under auto-accept.
-          "git push --force*"
-          "git push -f *"
-          # Patch and blob forms of otherwise stat-only git reads.
-          "git diff *-p*"
-          "git diff *--patch*"
-          "git log *-p*"
-          "git log *--patch*"
-          "git show *:*"
-          "*nixos-rebuild*--target-host*"
-          "*ssh*nixos-rebuild*switch*"
-          "ssh *docker compose*up*"
-        ];
+        ++ permissionRules "shell" "deny" shellDenies;
 
       # Helpers inherit the selected gateway/model. Architect is strictly
       # read-only: its own shell rule denies everything first, then re-admits
@@ -495,7 +519,8 @@
               }
             ]
             ++ permissionRules "shell" "deny" ["*"]
-            ++ permissionRules "shell" "allow" inspectionShell;
+            ++ permissionRules "shell" "allow" inspectionShell
+            ++ permissionRules "shell" "deny" shellDenies;
         };
       };
 
