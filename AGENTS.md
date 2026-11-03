@@ -95,8 +95,8 @@ locally; full flake checks belong in CI or the documented remote-check flow.
 
 ## Docs map
 
-`docs/README.md` is the index. Operational truth lives in `justfile`
-recipes; `docs/` explains why. If doc and recipe disagree, the recipe wins.
+`docs/README.md` is the index. Operational truth lives in the `justfile` and
+`just/*.just` recipes; `docs/` explains why. If doc and recipe disagree, the recipe wins.
 Layout is typed:
 
 - `docs/guides/` — how-to walkthroughs (`install.md`, `obsidian.md`).
@@ -105,7 +105,8 @@ Layout is typed:
 - `docs/implemented/` — shipped designs, kept as the record.
 - `docs/proposals/` — active RFCs only (`YYYY-MM-DD-<slug>.md`); finished ones
   graduate to `implemented/` or are deleted. Every doc carries a `**Status:**`
-  line; the README index mirrors it. Run `just docs-check` after doc edits.
+  line; the README index names purpose only and never restates status. Run
+  `just docs-check` after doc edits.
 
 ## Commit policy
 

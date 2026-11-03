@@ -21,7 +21,7 @@ that fails if any of them returns.
 | Recipes | 374 → 293; 82 deleted (62 finished phases, 20 one-offs) |
 | Moved modules | 55 transition recipes, 16 AdGuard, 7 Docker, 2 ESP, 2 audits, 7 P3, 20 one-offs |
 | Split | Root keeps variables, `default`, 3 private helpers, 15 `import` lines; 15 `just/*.just` files hold bodies verbatim |
-| Tests | 115 → 107 directories; 9 deleted, 36 static suites added to CI, 32 runtime suites in `tests/MANUAL.md` |
+| Tests | 115 → 107 directories; 9 deleted, 36 static suites added to CI, 31 runtime suites in `tests/MANUAL.md` |
 | Scripts | 5 P3 scripts and `_p3-observation-recover.py` deleted |
 | Modules | Discovery stateful-stack package and 15 helpers deleted; `drtest` throwaway VM and its deploy node deleted |
 | Docs | 22 `# Moved` stubs deleted; index 36 KB → 13.7 KB with no status restatement |
@@ -39,7 +39,7 @@ invocation. `import` preserves `just deploy-rs`, `just check`, and CI calls.
 | Nix formatting and lint | `just fmt-check`, `just lint` | Pass |
 | Structure contract | `just structure-check` | Pass (advisory warnings only) |
 | Discovery evaluates | `just dry discovery` | Exit 0 |
-| 32 static suites | `pytest -q` per directory | All pass |
+| 36 static suites | `pytest -q --import-mode=importlib` | All pass |
 | Affected gated suites | `build-process`, `update-safe`, `ha-harbor-reader`, `discovery-secret-contract`, `dendritic-structure`, `homelab-iac-drift`, `servarr*`, `cognee-*`, `orion-upgrade-diagnostics` | Pass after reader updates |
 | Full `just check` | not run | `dry-all` builds five host closures; CI covers it |
 | Live behavior | not observed | No host was switched or deployed |
