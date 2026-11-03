@@ -1,8 +1,9 @@
 # Shared sccache compiler cache on orion (tailnet)
 
 **Status:** The original cache was observed live on 2026-06-30. The accepted
-2026-10-29 follow-up restricts remote writers to Endeavour, laptop and Kepler;
-source and disposable HTTP verification are prepared, deployment unverified.
+2026-10-29 follow-up restricts remote writers to Endeavour and Kepler (the
+legacy laptop peer retired 2026-11-01); source and disposable HTTP verification
+are prepared, deployment unverified.
 Current source enables the client on Endeavour. The June observations below
 remain historical. Cache mode keeps compilation local; `sccache-dist` remains
 deferred.
