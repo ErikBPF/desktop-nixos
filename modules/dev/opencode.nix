@@ -402,9 +402,11 @@
                 input = ["text" "image"];
                 output = ["text"];
               };
-              reasoning = true;
+              # Work's OpenRouter route rejects reasoning_effort outright, so the
+              # client must not send it. `reasoning = false` also keeps effort
+              # variants out of the picker; a stored variant would 400 again.
+              reasoning = false;
               tool_call = true;
-              # Work's OpenRouter route rejects reasoning_effort; use its default.
             };
             "glm-5.3-flash" = {
               limit = {
@@ -416,16 +418,10 @@
                 input = 0.075;
                 output = 0.25;
               };
-              reasoning = true;
-              options = {
-                reasoningEffort = "max";
-                allowed_openai_params = ["reasoning_effort"];
-              };
-              variants = {
-                low.reasoningEffort = "low";
-                high.reasoningEffort = "high";
-                max.reasoningEffort = "max";
-              };
+              # Same Work gateway constraint as deepseek-v4.1-flash: sending
+              # reasoning_effort returns 400, so no options.reasoningEffort,
+              # no allowed_openai_params and no effort variants.
+              reasoning = false;
             };
           };
         };
