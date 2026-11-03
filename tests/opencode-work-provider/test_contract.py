@@ -15,19 +15,26 @@ def test_reasoning_controls_match_gateway_models():
     providers = json.loads(subprocess.check_output(
         ["nix", "eval", "--impure", "--json", "--expr", expression], text=True
     ))
-    for provider in ("litellm", "work"):
-        for name in ("glm-5.3-flash", "deepseek-v4.1-flash"):
-            model = providers[provider]["models"][name]
-            assert model.get("reasoning") is True, (provider, name)
-            variants = model.get("variants", {})
-            assert {k for k, v in variants.items() if not v.get("disabled")} == {"low", "high", "max"}
-            for effort in ("low", "high", "max"):
-                assert variants[effort]["reasoningEffort"] == effort
-            assert model["options"]["reasoningEffort"] == "max"
-            if name.startswith("deepseek"):
-                assert variants["medium"]["disabled"] is True
-            if provider == "work":
-                assert "reasoning_effort" in model["options"]["allowed_openai_params"]
+    # litellm routes through OpenCode Go, which accepts reasoning_effort.
+    for name in ("glm-5.3-flash", "deepseek-v4.1-flash"):
+        model = providers["litellm"]["models"][name]
+        assert model.get("reasoning") is True, name
+        variants = model.get("variants", {})
+        assert {k for k, v in variants.items() if not v.get("disabled")} == {"low", "high", "max"}
+        for effort in ("low", "high", "max"):
+            assert variants[effort]["reasoningEffort"] == effort
+        assert model["options"]["reasoningEffort"] == "max"
+        if name.startswith("deepseek"):
+            assert variants["medium"]["disabled"] is True
+    # The Work gateway's OpenRouter route rejects reasoning_effort with 400
+    # UnsupportedParamsError, so the client must never send it for these models.
+    for name in ("deepseek-v4.1-flash", "glm-5.3-flash"):
+        model = providers["work"]["models"][name]
+        assert model.get("reasoning") is False, name
+        variants = model.get("variants", {})
+        assert not [k for k, v in variants.items() if not v.get("disabled")], name
+        assert "reasoningEffort" not in model.get("options", {}), name
+        assert "allowed_openai_params" not in model.get("options", {}), name
     for name in ("chatgpt-5.6-luna", "chatgpt-5.6-sol", "chatgpt-5.6-terra"):
         model = providers["work"]["models"][name]
         assert model["reasoning"] is True
