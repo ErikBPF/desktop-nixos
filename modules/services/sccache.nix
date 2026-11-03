@@ -5,7 +5,6 @@
   writerRules = builtins.concatStringsSep "\n" (
     map (address: "allow ${address};") [
       fleet.hosts.endeavour.tailscaleIp
-      fleet.tailnetPeers.laptop
       fleet.hosts.kepler.tailscaleIp
     ]
   );

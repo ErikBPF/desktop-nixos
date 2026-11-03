@@ -51,15 +51,7 @@
   # share the user folders with it.
   hosts = {
     pathfinder = {
-      devices = ["discovery" "laptop" "orion"];
-      folderPaths = {
-        "ndykv-cjhly" = "/home/${u}/Downloads/";
-        "ykxhp-khmz2" = "/home/${u}/Documents/";
-        "xbwsp-zwvsr" = "/home/${u}/.kube/";
-      };
-    };
-    laptop = {
-      devices = ["discovery" "pathfinder" "orion"];
+      devices = ["discovery" "orion"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/Documents/";
@@ -67,14 +59,14 @@
       };
     };
     orion = {
-      devices = ["discovery" "laptop" "pathfinder" "kepler" "apollo"];
-      shareWith = ["discovery" "laptop" "pathfinder"];
+      devices = ["discovery" "pathfinder" "kepler" "apollo"];
+      shareWith = ["discovery" "pathfinder"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = {
           path = "/home/${u}/Documents/";
           syncAll = false;
-          devices = ["discovery" "laptop" "pathfinder" "apollo"];
+          devices = ["discovery" "pathfinder" "apollo"];
           ignoreFile = ../common/stignore-orion-retained;
         };
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
@@ -90,8 +82,8 @@
     discovery = {
       # kepler is in `devices` (connection) but NOT `shareWith`: only the
       # tofu-state folder reaches it, the user backup folders do not.
-      devices = ["laptop" "pathfinder" "orion" "kepler"];
-      shareWith = ["laptop" "pathfinder" "orion"];
+      devices = ["pathfinder" "orion" "kepler"];
+      shareWith = ["pathfinder" "orion"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/backup/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/backup/Documents/";
