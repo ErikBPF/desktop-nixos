@@ -147,20 +147,21 @@ public recipes and 6,884 lines before the split.
 ### M2 — tests: ungated directories
 
 No gate ran 75 of the 115 directories: 61 had no reference at all, and 14 were
-referenced only by docs or modules. The delivery deletes 10 and gives every
+referenced only by docs or modules. The delivery deletes 9 and gives every
 survivor a gate or a manual row:
 
 - Deleted with their subject: the 7 migration suites (`p1-swag-preflight`,
   `p1-swag-transition`, `p1-swag-transition-amendment`, `p2-adguard-preflight`,
-  `p3-adguard-outage`, `p3-generic-dhcp-client`,
-  `discovery-esp-scratch-restore`), `orion-owner-cutover`, and the 2 static
+  `p3-adguard-outage`, `p3-generic-dhcp-client`), `orion-owner-cutover`, and
+  the 2 static
   suites whose assertions name moved configuration (`kepler-crash-monitoring`,
   `postgres-exporter-firewall`).
 - Reduced rather than deleted: `orchestration` keeps its unit-lifecycle test,
-  `kepler-fast-state` keeps its microvm-layout and resize tests, and
-  `dead-mans-switch` keeps the probe-procedure test. Only assertions whose
-  subject was deleted are removed.
-- 35 static suites are bound to the `Static contracts and repository hygiene`
+  `kepler-fast-state` keeps its microvm-layout and resize tests,
+  `dead-mans-switch` keeps the probe-procedure test, and
+  `discovery-esp-scratch-restore` keeps the 34 restore-drill assertions whose
+  recipes survive. Only assertions whose subject was deleted are removed.
+- 36 static suites are bound to the `Static contracts and repository hygiene`
   CI step.
 - 32 runtime suites are declared in `tests/MANUAL.md` with command and
   prerequisite.

@@ -8,7 +8,7 @@
 ## Outcome and why it matters
 
 The repository now runs one executable path per live operation: 82 recipes,
-10 test directories, five scripts, one helper tree, and 22 pointer stubs are
+9 test directories, five scripts, one helper tree, and 22 pointer stubs are
 gone; the justfile is split into fifteen imported files; every test directory is
 either gated or declared manual. The seed's three complaints — one-off tests,
 unnecessary just commands, situational files — are answered by a hygiene test
@@ -21,7 +21,7 @@ that fails if any of them returns.
 | Recipes | 374 → 293; 82 deleted (62 finished phases, 20 one-offs) |
 | Moved modules | 55 transition recipes, 16 AdGuard, 7 Docker, 2 ESP, 2 audits, 7 P3, 20 one-offs |
 | Split | Root keeps variables, `default`, 3 private helpers, 15 `import` lines; 15 `just/*.just` files hold bodies verbatim |
-| Tests | 115 → 106 directories; 10 deleted, 35 static suites added to CI, 32 runtime suites in `tests/MANUAL.md` |
+| Tests | 115 → 107 directories; 9 deleted, 36 static suites added to CI, 32 runtime suites in `tests/MANUAL.md` |
 | Scripts | 5 P3 scripts and `_p3-observation-recover.py` deleted |
 | Modules | Discovery stateful-stack package and 15 helpers deleted; `drtest` throwaway VM and its deploy node deleted |
 | Docs | 22 `# Moved` stubs deleted; index 36 KB → 13.7 KB with no status restatement |

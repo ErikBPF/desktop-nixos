@@ -140,6 +140,14 @@ The deletion count is corrected from 13 to 10 directories, and the restored file
 bring the static CI set from 32 to 35 suites. `just hygiene-check` and the full
 static invocation pass at this head.
 
+## Revision 7 finding (third PR review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F22 | `tests/discovery-esp-scratch-restore/test_recipe.py` was deleted whole, but 34 of its 42 assertions cover retained restore-drill recipes (Harbor, HAOS, AdGuard, OpenBao, identity, home, Postgres, Redis, SWAG). | The restored file passes against the split tree after the union-read change. | File restored; only the 8 assertions for deleted recipes and one pre-existing stale skopeo assertion were removed; added to CI. |
+
+Corrections: deleted directories 10 → 9, total 106 → 107, static CI set 35 → 36.
+
 ## Residual risks
 
 - The 32 static suites pass under the host Python; the dev-shell pytest
