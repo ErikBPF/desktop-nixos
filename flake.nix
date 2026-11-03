@@ -2,9 +2,12 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    # GPU exchange: preserve the already-running host/guest kernels only.
+    # GPU exchange: preserve the already-running 7.2 kernel series only.
     # Keep the fleet package baseline unchanged during the hardware move.
-    nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/c043004d1c6985732bcc1cbc5a9c9aecbbb4e0f0";
+    # c043004 (2026-09-05) shipped linux 7.2.3, whose linux-modules build fails
+    # on `cp modules.cer` and breaks the orion cache builder. This rev still
+    # tracks 7.2 without moving the hosts off the series.
+    nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/d3b13ad75cc492690728f9307e443dec9ef9a20e";
 
     # Kepler recovery tooling is reviewed against SecretSpec 0.13.0.
     nixpkgs-secretspec.url = "github:nixos/nixpkgs/e7a3ca8092b61ff85b6a45bf863ea2b2d6a661b3";
