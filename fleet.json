@@ -102,7 +102,5 @@
       "scope": "public"
     }
   },
-  "tailnetPeers": {
-    "laptop": "100.74.137.124"
-  }
+  "tailnetPeers": {}
 }

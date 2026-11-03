@@ -1,8 +1,9 @@
 # Shared sccache compiler cache on orion (tailnet)
 
 **Status:** The original cache was observed live on 2026-06-30. The accepted
-2026-10-29 follow-up restricts remote writers to Endeavour, laptop and Kepler;
-source and disposable HTTP verification are prepared, deployment unverified.
+2026-10-29 follow-up restricts remote writers to Endeavour and Kepler (the
+legacy laptop peer retired 2026-11-01); source and disposable HTTP verification
+are prepared, deployment unverified.
 Current source enables the client on Endeavour. The June observations below
 remain historical. Cache mode keeps compilation local; `sccache-dist` remains
 deferred.
@@ -33,8 +34,7 @@ the Nix path.
    the tailscale0 IP-assignment boot race that forced the retry loop in
    `discovery/vault.nix`. The trust boundary is the tailnet.
 4. **Server-side writer authorization.** Nginx permits mutations only from the
-   fleet addresses of Endeavour and Kepler and the existing legacy laptop
-   identity in `fleet.tailnetPeers`, plus trusted local loopback
+   fleet addresses of Endeavour and Kepler, plus trusted local loopback
    maintenance. GET/HEAD retain existing read reachability. There is no
    application token; the writer boundary depends on tailnet source identity.
 5. **Endpoint = orion tailnet IP from the fleet SSOT** (`http://100.72.85.73:4321/`),
@@ -87,11 +87,10 @@ No live cache, deployment, real Cargo build or host firewall was exercised by
 this follow-up. All accepted writers share one trusted cache namespace; one
 compromised writer can still poison entries read by other consumers. Tailnet
 address changes require the corresponding fleet update and Nginx deployment.
-The legacy laptop is no longer a managed fleet host. Its accepted IaC address
-is declared once in `modules/meta.nix` under `fleet.tailnetPeers` and exported
-in `fleet.json`; updating it requires `just fleet-json`. This keeps
-`fleet.hosts`, upgrade targets and the physical inventory unchanged. The cache
-selects the laptop peer by name, so adding another peer does not grant writes.
+The laptop retired on 2026-11-01 and left the tailnet. `fleet.tailnetPeers` is
+empty, and the cache allowlist reads only `fleet.hosts.endeavour` and
+`fleet.hosts.kepler`, so the two named hosts are the accepted writers. Kepler is
+an unattended server, which widens the writer set beyond the workstation.
 Static metadata does not prove live ownership; reconcile effective identities
 before rollout.
 If writer authorization breaks, compile locally while correcting the mapping;

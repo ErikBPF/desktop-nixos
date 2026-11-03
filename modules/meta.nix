@@ -146,11 +146,8 @@
     fleet.tailnetPeers = lib.mkOption {
       type = lib.types.attrsOf lib.types.singleLineStr;
       description = "Named tailnet addresses outside the host inventory; not deployment targets.";
-      default = {
-        # Accepted legacy peer from homelab-iac tailscale/acl/policy.hujson.
-        # Source reconciled 2026-10-29; live ownership must be checked before rollout.
-        laptop = "100.74.137.124";
-      };
+      # Empty since laptop retired 2026-11-01; kept for named non-host peers.
+      default = {};
     };
 
     # Domains/hostnames SSOT (RFC 2026-06-29 P2) — the DNS/edge layer only.
