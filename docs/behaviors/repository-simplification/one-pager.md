@@ -1,7 +1,7 @@
 # Repository simplification: GREEN
 
-**Stage / revision:** GREEN / 3
-**Status:** Implemented on the task branch — pending review and publication
+**Stage / revision:** RV / 4
+**Status:** Reviewed and published as PR #454 — awaiting human merge
 **Owner / date:** desktop-nixos / 2026-11-01
 **Basis:** PL/2 proposal and contract, IP plan, keep/rebuild audit
 
