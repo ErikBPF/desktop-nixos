@@ -118,6 +118,16 @@ between recipe spans.
 - CI static list with `--import-mode=importlib`: 72 passed.
 - `just hygiene-check`, `docs-check`, `fmt-check`, `lint`, `structure-check`: pass.
 
+## Revision 5 findings (documentation sweep)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F18 | After the phase tooling was deleted, the AdGuard adoption contract still described itself as a draft with "mutation remains blocked", and the index repeated the same claim. | Read of both contracts and the index rows against the homelab execution plan, which records P2 complete. | Both statuses now record the completed phase and the 2026-11-01 tooling retirement; the index rows describe purpose only. |
+
+The sweep also confirmed that no document references a deleted recipe by name,
+a deleted script, a deleted test directory, or a deleted document path outside
+the canonical homelab URLs.
+
 ## Residual risks
 
 - The 32 static suites pass under the host Python; the dev-shell pytest
