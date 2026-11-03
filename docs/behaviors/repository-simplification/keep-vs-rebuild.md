@@ -136,7 +136,7 @@ The first pass counted 54 test directories as wired because it treated any
 reference as a gate. Run by an actual gate (CI or `justfile`): **40**. Another
 **14** are referenced only by docs or modules (`apollo-host`,
 `apollo-worklab`, `argus-security`, `dendritic-structure`, `grafana-alert-ops`,
-`herdr-worklab`, `kepler-fast-state`, `orion-main-guardrails`, `public-host-ssh`,
+`herdr-worklab`, `orion-main-guardrails`, `public-host-ssh`,
 `servarr`, `servarr-exact-revision`, `tmux-persistence`, `tuicr`,
 `wazuh-agent-canary`). **75 of 115** directories are not executed by any gate.
 

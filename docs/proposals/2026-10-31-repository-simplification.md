@@ -146,19 +146,24 @@ public recipes and 6,884 lines before the split.
 
 ### M2 — tests: ungated directories
 
-No gate runs 75 of the 115 directories: 61 have no reference at all, and 14 are
-referenced only by docs or modules. Delete with the migration (8 directories,
-~32 files): `p1-swag-preflight`, `p1-swag-transition`,
-`p1-swag-transition-amendment`, `p2-adguard-preflight`, `p3-adguard-outage`,
-`p3-generic-dhcp-client`, `discovery-esp-scratch-restore`, `orchestration`.
+No gate ran 75 of the 115 directories: 61 had no reference at all, and 14 were
+referenced only by docs or modules. The delivery deletes 10 and gives every
+survivor a gate or a manual row:
 
-For the other 67, IP records a one-line decision per directory and applies R3.
-Expected shape: 32 static suites that pass today are bound to one static-contract
-CI job; 18 runtime suites are declared in `tests/MANUAL.md` with their command;
-the 14 docs-only directories are either bound or declared manual; the three
-static suites that fail today (`dead-mans-switch`, `kepler-crash-monitoring`,
-`postgres-exporter-firewall`) are deleted because their assertions name moved
-configuration and the live intent is owned elsewhere.
+- Deleted with their subject: the 7 migration suites (`p1-swag-preflight`,
+  `p1-swag-transition`, `p1-swag-transition-amendment`, `p2-adguard-preflight`,
+  `p3-adguard-outage`, `p3-generic-dhcp-client`,
+  `discovery-esp-scratch-restore`), `orion-owner-cutover`, and the 2 static
+  suites whose assertions name moved configuration (`kepler-crash-monitoring`,
+  `postgres-exporter-firewall`).
+- Reduced rather than deleted: `orchestration` keeps its unit-lifecycle test,
+  `kepler-fast-state` keeps its microvm-layout and resize tests, and
+  `dead-mans-switch` keeps the probe-procedure test. Only assertions whose
+  subject was deleted are removed.
+- 35 static suites are bound to the `Static contracts and repository hygiene`
+  CI step.
+- 32 runtime suites are declared in `tests/MANUAL.md` with command and
+  prerequisite.
 
 ### M2b — justfile split by domain
 

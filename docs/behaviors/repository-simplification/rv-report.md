@@ -128,6 +128,18 @@ The sweep also confirmed that no document references a deleted recipe by name,
 a deleted script, a deleted test directory, or a deleted document path outside
 the canonical homelab URLs.
 
+## Revision 6 findings (second PR review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F19 | `tests/orchestration` was deleted as one bucket, but only two of its three files had a deleted subject. `test_unit_lifecycle.py` guards `modules/server/orchestration.nix` and Kepler's compose unit order, both untouched. | Restored file passes against the current tree. | File restored and added to the static CI step. |
+| F20 | `tests/kepler-fast-state` was deleted whole, but only the migration test lost its subject. The microvm layout and grow-only resize assertions still guard live configuration. | Restored file minus the migration test: 3 passed. | Directory restored, migration test removed, added to CI. |
+| F21 | `tests/dead-mans-switch` was deleted whole, but the probe-procedure test guards `test-vanguard-dead-mans-switch`, which this change keeps. | Restored probe test plus the notification test pass; the host-endpoint assertion still names moved config. | Probe and notification tests restored, the stale endpoint test removed, directory added to CI. |
+
+The deletion count is corrected from 13 to 10 directories, and the restored files
+bring the static CI set from 32 to 35 suites. `just hygiene-check` and the full
+static invocation pass at this head.
+
 ## Residual risks
 
 - The 32 static suites pass under the host Python; the dev-shell pytest
