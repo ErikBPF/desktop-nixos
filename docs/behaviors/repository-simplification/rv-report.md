@@ -77,6 +77,29 @@ recipes, 1,976 deleted lines, 292 recipes and 6,884 lines remaining. The split
 map sums to 6,861 attributed lines; the difference is blank and comment lines
 between recipe spans.
 
+## Revision 3 findings (implementation review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F11 | `hygiene-check` showed no description in `just --list`: it moved into `just/fleet.just` during the split, so the comment added to the root justfile matched nothing. | `just --list \| grep hygiene-check` | Comment added in `just/fleet.just`. |
+| F12 | `docs/implemented/2026-06-30-deploy-rs-as-deploy-standard.md` claimed `drtest` was retained as the sanctioned deploy-rs smoke test after the VM and its recipes were deleted. | `grep drtest docs/implemented` | Rewritten to record the removal. |
+| F13 | The keep/rebuild totals table said 292 recipes remain; the new `hygiene-check` guard makes 293. | `just --summary \| wc -w` | Corrected with the reason. |
+
+### Verified before accepting the branch
+
+- Body parity: all 295 recipes shared with the pre-split tree have identical body lines; only `check` differs, by the added hygiene call.
+- `just --summary` set equals the post-deletion set plus `hygiene-check`.
+- Attribute lines (`[positional-arguments]`) and list comments survived the move.
+- Backtick variables interpolate across files (`diagnose-kepler-disk` renders the fleet IP lookup).
+- `check.yml` parses as YAML; no workflow references a deleted test directory.
+- `tests/MANUAL.md` has no stale directory row.
+- `nix eval .#nixosConfigurations` lists 12 configurations and no `drtest`.
+
+### Discarded findings
+
+- *"Secret-shaped additions in the diff."* The added lines are moved recipe bodies that reference `sops`, `jq`, and `BAO_TOKEN` variables. No value, key, or credential was added; the text moved from `justfile` to `just/secrets.just`.
+- *"96 recipes have no `just --list` comment."* Pre-existing; the split preserved every comment it found, and the count is unchanged from the baseline.
+
 ## Residual risks
 
 - The 32 static suites pass under the host Python; the dev-shell pytest
@@ -87,6 +110,9 @@ between recipe spans.
 - `tests/harbor-version-reconcile` references a moved script path; S4 must
   repair or delete it rather than declare it manual unchanged.
 - Worktree and branch cleanup (M7) is deferred and needs its own inspection.
+- 34 test files carry the same inline justfile-join expression. A shared helper
+  would need a sys.path shim that breaks `python -m unittest discover`; the
+  duplication is accepted until the test layout changes.
 
 ## Not found
 
