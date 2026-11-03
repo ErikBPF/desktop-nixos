@@ -80,6 +80,7 @@ in {
       enable = true;
       # Five workers, each claiming one bundle atomically.
       parallelism = 5;
+      publishInterval = "30s";
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;
@@ -138,7 +139,7 @@ in {
       openBindAddress = "0.0.0.0";
       publishPorts = false;
       openaiBaseUrl = litellmUrl;
-      memoryMax = "2g";
+      memoryMax = "4g";
       networks = ["homelab-net"];
       soulFile = ./daedalus-SOUL.md;
       extraVolumes = [
