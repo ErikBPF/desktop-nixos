@@ -423,7 +423,7 @@ Kubernetes user journey and rollback gate pass.
   LiteLLM alias/key. Training runs on **orion** (RX
   9070 XT, fp16 LoRA only — no bnb on gfx1201) and **Kaggle** (big models).
   Iterate-small-then-big loop + all training gotchas:
-  `ha-agent/docs/LOOP-improve-4b.md` and `docs/RUNBOOK-corpus-and-train.md`.
+  `ha-agent/docs/LOOP-improve-4b.md` and `ha-agent/docs/RUNBOOK-corpus-and-train.md`.
 
 ### `cosmo-notes` — private ESP32 voice-recorder firmware
 

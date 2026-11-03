@@ -3,7 +3,7 @@
 **Status:** Authorized U2 continuation; implementation pending.
 
 Source: homelab's accepted fleet-upgrade proposal and
-`docs/behaviors/fleet-upgrade/upgrade.feature`. The September 12 continuation
+[homelab upgrade contract](https://github.com/ErikBPF/homelab/blob/main/docs/behaviors/fleet-upgrade/upgrade.feature). The September 12 continuation
 implements the evaluated-identity seam before the separately gated ESP check.
 The historical human-authored upgrade seed is not modified.
 
