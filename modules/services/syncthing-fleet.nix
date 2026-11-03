@@ -51,14 +51,16 @@
   # share the user folders with it.
   hosts = {
     pathfinder = {
-      devices = ["discovery" "laptop" "orion"];
+      devices = ["discovery" "endeavour" "orion"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/Documents/";
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
       };
     };
-    laptop = {
+    # Endeavour keeps the Syncthing identity the retired laptop used, so the
+    # device-ID key is endeavour_id while the peer set is unchanged.
+    endeavour = {
       devices = ["discovery" "pathfinder" "orion"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
@@ -67,14 +69,14 @@
       };
     };
     orion = {
-      devices = ["discovery" "laptop" "pathfinder" "kepler" "apollo"];
-      shareWith = ["discovery" "laptop" "pathfinder"];
+      devices = ["discovery" "endeavour" "pathfinder" "kepler" "apollo"];
+      shareWith = ["discovery" "endeavour" "pathfinder"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = {
           path = "/home/${u}/Documents/";
           syncAll = false;
-          devices = ["discovery" "laptop" "pathfinder" "apollo"];
+          devices = ["discovery" "endeavour" "pathfinder" "apollo"];
           ignoreFile = ../common/stignore-orion-retained;
         };
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
@@ -90,8 +92,8 @@
     discovery = {
       # kepler is in `devices` (connection) but NOT `shareWith`: only the
       # tofu-state folder reaches it, the user backup folders do not.
-      devices = ["laptop" "pathfinder" "orion" "kepler"];
-      shareWith = ["laptop" "pathfinder" "orion"];
+      devices = ["endeavour" "pathfinder" "orion" "kepler"];
+      shareWith = ["endeavour" "pathfinder" "orion"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/backup/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/backup/Documents/";

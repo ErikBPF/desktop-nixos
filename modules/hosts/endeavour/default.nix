@@ -50,7 +50,7 @@ in {
       m.nixos.endeavour-always-on
       m.nixos.netbird-client
       m.nixos.endeavour-ubuntu-work
-      m.nixos.laptop-syncthing
+      m.nixos.endeavour-syncthing
       m.nixos.first-boot
       m.nixos.pangolin-newt
       m.nixos.alloy

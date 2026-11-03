@@ -8,7 +8,7 @@ cannot override Discovery's independent wildcard grant, so enforce mutation at
 the HTTP server while preserving read reachability and existing client settings.
 
 The isolated Nix leaf contract must first fail because mutations have no writer
-boundary. It must then allow exactly the three accepted synthetic remote
+boundary. It must then allow exactly the two accepted synthetic remote
 identities and local loopback maintenance, preserve DAV methods and the
 tailnet-specific firewall port, and deny other mutation sources:
 
@@ -16,15 +16,15 @@ tailnet-specific firewall port, and deny other mutation sources:
 python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v
 ```
 
-The native HTTP fixture renders that same module with synthetic host and peer
-addresses. The legacy laptop address belongs to `fleet.tailnetPeers` in
-`modules/meta.nix`, exported by `just fleet-json`; it is not a `fleet.hosts`
-entry or a deployment target. The source contract renders the current exported
-artifact and verifies that changing the named peer changes its writer address
-without granting writes to other metadata peers. Before that repair, three
-assertions failed: the peer map was absent and the service ignored both default
-and replacement synthetic peer addresses. The build never reads a sibling
-working tree. The fixture
+The native HTTP fixture renders that same module with synthetic host addresses.
+The writer allowlist comes from `fleet.hosts.endeavour` and `fleet.hosts.kepler`
+only. `fleet.tailnetPeers` is empty since the laptop retired on 2026-11-01, and
+no writer reads it. The source contract renders the current exported artifact
+and verifies that the allowlist matches those two addresses plus loopback, and
+that no retired peer address is accepted. Before that repair, three assertions
+failed: the peer map was absent and the service ignored both default and
+replacement synthetic peer addresses. The build never reads a sibling working
+tree. The fixture
 runs Nginx on an ephemeral loopback port, and verifies successful writes/deletes,
 unchanged GET/HEAD reads, denied PUT/DELETE/MKCOL/COPY/MOVE, and rejected forwarding
 header spoofing. It uses no real cache, tailnet address or credential:
