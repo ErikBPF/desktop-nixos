@@ -116,7 +116,8 @@ def test_every_test_directory_is_gated_or_manual():
         for p in (ROOT / "tests").iterdir()
         if p.is_dir() and not p.name.startswith("__")
     )
-    unlisted = [d for d in dirs if f"tests/{d}" not in gated]
+    referenced = set(re.findall(r"tests/([\w.-]+)", gated))
+    unlisted = [d for d in dirs if d not in referenced]
     assert unlisted == []
 
 

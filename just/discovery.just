@@ -115,9 +115,7 @@ recover-discovery-reboot-blockers:
     test -z "$(systemctl --failed --no-legend)"
     REMOTE
 
-# Reboot Discovery and prove the host transitioned down then up. The separate
-# `just discovery-swag-transition-amendment-execute ...` repeats the exact P1
-# SWAG gates after this returns.
+# Reboot Discovery and prove the host transitioned down then up.
 reboot-discovery:
     #!/usr/bin/env bash
     set -euo pipefail
