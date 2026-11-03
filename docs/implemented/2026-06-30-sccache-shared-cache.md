@@ -33,8 +33,7 @@ the Nix path.
    the tailscale0 IP-assignment boot race that forced the retry loop in
    `discovery/vault.nix`. The trust boundary is the tailnet.
 4. **Server-side writer authorization.** Nginx permits mutations only from the
-   fleet addresses of Endeavour and Kepler and the existing legacy laptop
-   identity in `fleet.tailnetPeers`, plus trusted local loopback
+   fleet addresses of Endeavour and Kepler, plus trusted local loopback
    maintenance. GET/HEAD retain existing read reachability. There is no
    application token; the writer boundary depends on tailnet source identity.
 5. **Endpoint = orion tailnet IP from the fleet SSOT** (`http://100.72.85.73:4321/`),
