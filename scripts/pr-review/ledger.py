@@ -143,15 +143,18 @@ def requeue(db: sqlite3.Connection, repo: str, pr: int, head: str) -> None:
     A valid packet that exhausted its attempts, or a head staled by a closed
     PR or a misread open-PR list, must be reviewable again at the same commit.
     """
+    # A revival is a new request. Without this, has_newer_head keeps staling a
+    # current head against a published sibling after a force-push back.
+    now = time.time()
     db.execute(
         """
         UPDATE reviews
         SET state = 'queued', attempts = 0, lease_owner = NULL,
-            lease_expires = NULL, updated_at = ?, error = NULL
+            lease_expires = NULL, requested_at = ?, updated_at = ?, error = NULL
         WHERE repo = ? AND pr = ? AND head = ?
           AND state IN ('failed', 'stale', 'published')
         """,
-        (time.time(), repo, pr, head),
+        (now, now, repo, pr, head),
     )
 
 
@@ -205,6 +208,28 @@ def claim(
     except Exception:
         db.execute("ROLLBACK")
         raise
+
+
+def has_newer_head(
+    db: sqlite3.Connection, repo: str, pr: int, head: str, requested_at: float
+) -> bool:
+    """True when a later-requested head for the same PR is still live.
+
+    A worker that claimed an older head would spend a full review on a commit
+    the publisher will reject as stale. Skip it before reading the bundle.
+    """
+    return (
+        db.execute(
+            """
+            SELECT 1 FROM reviews
+            WHERE repo = ? AND pr = ? AND head != ? AND requested_at > ?
+              AND state IN ('queued', 'leased', 'published')
+            LIMIT 1
+            """,
+            (repo, pr, head, requested_at),
+        ).fetchone()
+        is not None
+    )
 
 
 def has_claimable(db: sqlite3.Connection) -> bool:

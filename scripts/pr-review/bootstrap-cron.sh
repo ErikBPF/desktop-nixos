@@ -50,8 +50,10 @@ if ! docker exec -u "$AGENT_UID:$AGENT_GID" "$HERMES_CONTAINER" \
   exit 1
 fi
 
-prompt='The script output is either NO_CLAIM or CLAIM <id>. If NO_CLAIM, respond with exactly [SILENT] and do nothing else.
-For the claimed bundle:
+# The claim script prints a Hermes wake gate on NO_CLAIM, so the agent normally
+# never starts without a leased bundle. Keep the fallback for older runtimes.
+prompt='If the script output is NO_CLAIM, respond with exactly [SILENT] and do nothing else.
+Otherwise a bundle was leased. For the claimed bundle:
 1. Read /opt/data/review-in/<id>/request.md and meta.json.
 2. Load the base-pinned skills in /opt/data/review-in/<id>/skills/ and route by the changed files.
 3. Read the prior reviews and comments in the bundle. Do not duplicate an open finding.

@@ -69,6 +69,94 @@
     ];
     permissionRules = action: effect: resources:
       map (resource: {inherit action effect resource;}) resources;
+    # Inspection-only shell surface shared by the global policy and the
+    # architect subagent. Nothing here may execute code or print file contents:
+    # `find -exec`, `rg --pre`, `fd -x`, `jq . .env`, `git diff --no-index` and
+    # `git show <rev>:<path>` all bypass the read denies because the shell rule
+    # only sees the command string.
+    inspectionShell = [
+      "pwd"
+      "git status *"
+      # Filename- and count-only diffs.
+      "git diff --stat *"
+      "git diff --name-only *"
+      "git diff --numstat *"
+      "git log --oneline *"
+      "git show --stat"
+      # Read-only ref queries; plain `git branch *` also admits -D, -f and -m.
+      "git branch --list*"
+      "git for-each-ref *"
+      "git rev-parse *"
+      "git ls-files *"
+      "git stash list *"
+      "git worktree list *"
+      # Filenames only. `rg <pattern>` prints matches and `rg --pre` runs a
+      # command; the `grep` tool covers content search under read denies.
+      "rg --files *"
+      "ls *"
+      "wc *"
+      "tree *"
+      "just --list"
+      "just --dry-run *"
+      "just check"
+      "just lint"
+      "just fmt-check"
+      "just docs-check"
+      "just structure-check"
+      "just status"
+      "just audit"
+      "just test"
+      "just dry *"
+      "nix flake show *"
+      "opencode debug *"
+      "gh pr view *"
+      "gh pr diff *"
+      "gh issue view *"
+      "gh run list *"
+      "gh run view *"
+    ];
+    # Appended after the allow list in every policy that uses inspectionShell,
+    # so a deny is always the last word. Auto-accept turns `ask` into an
+    # approval, so protected paths are denied by argument substring here: the
+    # shell rule sees the command string, not the file the command opens.
+    shellDenies = [
+      "rm -rf /"
+      "rm -rf /*"
+      "rm -rf ~*"
+      "docker volume rm *"
+      "docker rm -f *"
+      # Never force-push, even under auto-accept.
+      "git push --force*"
+      "git push -f *"
+      "git branch -D*"
+      "git branch -f*"
+      "git branch -m*"
+      # Patch and blob forms of the otherwise stat-only git reads.
+      "git diff *-p*"
+      "git diff *--patch*"
+      "git diff *-U*"
+      "git diff *--unified*"
+      "git log *-p*"
+      "git log *--patch*"
+      "git log *-U*"
+      "git log *--unified*"
+      "git show *:*"
+      # Execution vectors a prefix glob would otherwise admit.
+      "rg *--pre*"
+      "* -exec *"
+      "nix eval *"
+      # Protected content, matched wherever it appears in the command.
+      "*.env*"
+      "*.secrets.json*"
+      "*.secret.json*"
+      "*.age*"
+      "*secrets/*"
+      "*/.ssh/*"
+      "*/.config/sops/age/*"
+      "*nixos-rebuild*--target-host*"
+      "*ssh*nixos-rebuild*switch*"
+      "ssh *docker compose*up*"
+    ];
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -314,9 +402,11 @@
                 input = ["text" "image"];
                 output = ["text"];
               };
-              reasoning = true;
+              # Work's OpenRouter route rejects reasoning_effort outright, so the
+              # client must not send it. `reasoning = false` also keeps effort
+              # variants out of the picker; a stored variant would 400 again.
+              reasoning = false;
               tool_call = true;
-              # Work's OpenRouter route rejects reasoning_effort; use its default.
             };
             "glm-5.3-flash" = {
               limit = {
@@ -328,16 +418,10 @@
                 input = 0.075;
                 output = 0.25;
               };
-              reasoning = true;
-              options = {
-                reasoningEffort = "max";
-                allowed_openai_params = ["reasoning_effort"];
-              };
-              variants = {
-                low.reasoningEffort = "low";
-                high.reasoningEffort = "high";
-                max.reasoningEffort = "max";
-              };
+              # Same Work gateway constraint as deepseek-v4.1-flash: sending
+              # reasoning_effort returns 400, so no options.reasoningEffort,
+              # no allowed_openai_params and no effort variants.
+              reasoning = false;
             };
           };
         };
@@ -357,6 +441,9 @@
           "gpt-5.6-luna" = codexModel "Luna" "medium";
         };
       };
+
+      # Todos are off by default in V2; long autonomous runs need the task list.
+      experimental.todo = true;
 
       experimental.policies =
         [
@@ -389,8 +476,12 @@
         # V2 2.0.27 renames this action; keep it aligned with the consumer pin.
         ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
 
-      # Exact inspection commands only: no glob can admit cat, arbitrary git
-      # arguments, or compound commands. Documented just deploys still ask.
+      # Inspection-shaped commands run unprompted. The CLI defaults to
+      # auto-accept, so every `ask` is approved without a human: the deny tail
+      # is the real gate, and it blocks protected paths by argument substring
+      # because the shell rule cannot see inside a command's arguments. Shell is
+      # host-authority, not a sandbox; globs that expand to a protected path
+      # (for example `cat ~/.e??`) still defeat the substring match.
       permissions =
         permissionRules "read" "allow" ["*"]
         ++ permissionRules "read" "deny" protectedReads
@@ -402,31 +493,30 @@
         # secrets-bearing .env / .env.<name> files stay denied.
         ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "ask" ["*"]
-        ++ permissionRules "shell" "allow" ["pwd" "git status" "git status --short" "git diff --stat" "git diff --name-only"]
-        ++ permissionRules "shell" "deny" [
-          "rm -rf /"
-          "rm -rf /*"
-          "rm -rf ~*"
-          "docker volume rm *"
-          "docker rm -f *"
-          "*nixos-rebuild*--target-host*"
-          "*ssh*nixos-rebuild*switch*"
-          "ssh *docker compose*up*"
-        ];
+        ++ permissionRules "shell" "allow" inspectionShell
+        ++ permissionRules "shell" "deny" shellDenies;
 
-      # Helpers inherit the selected gateway/model. Architect remains read-only.
-      agent = {
-        plan = {
-          temperature = 0.1;
-        };
+      # Helpers inherit the selected gateway/model. Architect is strictly
+      # read-only: its own shell rule denies everything first, then re-admits
+      # the inspection list. Inheriting the global policy would not hold under
+      # auto-accept, where the global `shell *` ask is accepted automatically.
+      # V1 `permission.bash = "deny"` became a V2 `shell * deny` appended last,
+      # which silently blocked every command in the agent.
+      agents = {
         architect = {
           description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
           mode = "subagent";
-          temperature = 0.1;
-          permission = {
-            edit = "deny";
-            bash = "deny";
-          };
+          permissions =
+            [
+              {
+                action = "edit";
+                resource = "*";
+                effect = "deny";
+              }
+            ]
+            ++ permissionRules "shell" "deny" ["*"]
+            ++ permissionRules "shell" "allow" inspectionShell
+            ++ permissionRules "shell" "deny" shellDenies;
         };
       };
 
@@ -486,35 +576,44 @@
           "tdd"
         ]))
       // {
-        "opencode/cli.json".text = builtins.toJSON {
-          "$schema" = "https://opencode.ai/v2/cli.json";
-          theme = {
-            name = "tokyonight";
-            mode = "system";
-          };
-          mouse = true;
-          scroll = {
-            speed = 3;
-            acceleration = false;
-          };
-          leader.timeout = 2000;
-          diffs.view = "auto";
-          attention = {
-            notifications = true;
-            sound = true;
-            volume = 0.4;
-            sound_pack = "opencode.default";
-          };
-          # ol/ow opt into auto-accept with --auto; other clients keep asking.
-          session.permissions = "prompt";
-          session.sidebar = "auto";
-          # tmux owns windowing; per-cwd tab pools leak sessions across
-          # panes that share a checkout.
-          tabs = {
-            mode = "off";
-            scope = "cwd";
-            layout = "horizontal";
-            indicators = "status";
+        # The V2 client rewrites cli.json when its own settings change, which
+        # replaces the HM symlink with a regular file. `force` keeps activation
+        # idempotent instead of failing on the clobbered target.
+        "opencode/cli.json" = {
+          force = true;
+          text = builtins.toJSON {
+            "$schema" = "https://opencode.ai/v2/cli.json";
+            theme = {
+              name = "tokyonight";
+              mode = "system";
+            };
+            mouse = true;
+            scroll = {
+              speed = 3;
+              acceleration = false;
+            };
+            leader.timeout = 2000;
+            diffs.view = "auto";
+            attention = {
+              notifications = true;
+              sound = true;
+              volume = 0.4;
+              sound_pack = "opencode.default";
+            };
+            # Auto-accept is the default: `ask` never reaches a human, so the
+            # allow and deny lists above are the whole gate. Inspection is
+            # allowed explicitly; everything else is auto-accepted except the
+            # deny patterns. `ol`/`ow` pass --auto for the same effect.
+            session.permissions = "autoaccept";
+            session.sidebar = "auto";
+            # tmux owns windowing; per-cwd tab pools leak sessions across
+            # panes that share a checkout.
+            tabs = {
+              mode = "off";
+              scope = "cwd";
+              layout = "horizontal";
+              indicators = "status";
+            };
           };
         };
         # Vendored `graphify install --platform opencode` output (graphifyy

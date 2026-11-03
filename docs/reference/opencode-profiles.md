@@ -21,7 +21,8 @@ service or replace the isolated trial controlling this task.
 | `ow` | `opencode-dataplatform.service` | 4097 | `work/deepseek-v4.1-flash` |
 
 Native clients use the exact packaged executable and explicit `--server`
-URLs. `ol`/`ow` add `--auto`; every other client keeps permission prompts.
+URLs. `ol`/`ow` add `--auto`; the global default is auto-accept as well, so
+every client approves `ask` rules without a human.
 Routing is applied on the server, not guessed from the client's
 directory. Only the selected gateway's sanctioned runtime key is sourced;
 no administrator fallback is used. Direct Go and OpenAI remain separate
@@ -92,15 +93,19 @@ hook scopes `x-opencode-session` to the intended provider and actual
 session. Plugin loading alone is not proof that either behavior works.
 
 One global `cli.json` owns terminal settings and permission prompts. Tabs are
-off so tmux owns window switching; `ol`/`ow` opt into auto-accept with `--auto`
-instead of changing the global prompt default, and stay inside their own
-repository (branch worktrees included) so the personal/work split holds. It
-keeps `session.permissions = "prompt"` and sets `session.sidebar = "auto"`.
+off so tmux owns window switching; the global default is auto-accept, and
+`ol`/`ow` pass `--auto` as well, so the permission prompt is never a gate.
+Both stay inside their own repository (branch worktrees included) so the
+personal/work split holds. It sets `session.permissions = "autoaccept"` and
+`session.sidebar = "auto"`.
 Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
-Global permission checks protect direct secret reads and ask before shell
-commands outside narrow inspection allowances. Shell is not a sandbox;
-authorized deployment still needs approval rather than a permanent deny.
+The deny tail in `modules/dev/opencode.nix` is the gate: it blocks protected
+paths by argument substring, patch and blob git forms, force-push, branch
+mutation, `find -exec`, `rg --pre` and `nix eval`. Inspection commands are
+allowlisted, but under auto-accept an allow only skips the prompt path.
+Shell is not a sandbox, and a deployment command is approved without a human,
+so the deny tail is what holds.
 
 The project config inherits the packaged Nix MCP. Native file tools replace
 the former unversioned filesystem MCP. The isolated trial's independent
