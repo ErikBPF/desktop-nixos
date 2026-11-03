@@ -5,10 +5,10 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
 grep -q '^profile := "endeavour"$' justfile
+grep -q 'row endeavour ' justfile just/*.just
 jq -e '.hosts.endeavour.tailscaleIp == "100.107.225.13"' fleet.json >/dev/null
 jq -e '.hosts | has("laptop") | not' fleet.json >/dev/null
-grep -q 'row endeavour ' justfile
-if grep -Fq 'nixosConfigurations.laptop.config.system.build.toplevel' justfile; then
+if grep -Fq 'nixosConfigurations.laptop.config.system.build.toplevel' justfile just/*.just; then
     exit 1
 fi
 

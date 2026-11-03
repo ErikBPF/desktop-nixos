@@ -1,6 +1,6 @@
 # Discovery AdGuard in-place adoption test contract
 
-**Status:** Draft; fixtures and read-only preflight precede live approval
+**Status:** Implemented — P2 in-place adoption is complete; the transition tooling was retired on 2026-11-01
 
 ## Test boundary
 

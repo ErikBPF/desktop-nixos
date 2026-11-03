@@ -28,7 +28,7 @@ def test_vendored_harbor_source_pins_the_leaf_revision():
 
 
 def test_restore_recipes_follow_the_active_installer_link():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     preflight = justfile.split("discovery-harbor-restore-preflight:", 1)[1].split(
         "\n# ", 1
     )[0]

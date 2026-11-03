@@ -4,7 +4,7 @@ import textwrap
 
 
 ROOT = Path(__file__).resolve().parents[2]
-JUSTFILE = (ROOT / "justfile").read_text()
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def read(relative: str) -> str:

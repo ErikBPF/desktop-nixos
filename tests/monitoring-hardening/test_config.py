@@ -80,7 +80,7 @@ def test_cluster_log_collector_uses_in_cluster_loki():
 
 def test_operator_metric_clients_use_kubernetes_prometheus():
     terminal = (ROOT / "modules/terminal/grafatui.nix").read_text()
-    recipes = (ROOT / "justfile").read_text()
+    recipes = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
     for config in (terminal, recipes):
         assert "http://discovery:9090" not in config

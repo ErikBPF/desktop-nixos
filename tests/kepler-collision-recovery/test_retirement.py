@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "modules/hosts/kepler/_collision_recovery_retirement.py"
 FIXTURE = pathlib.Path(__file__).parent / "fixtures/retirement-evidence.json"
 INVENTORY = ROOT / ".gsd/evidence/kepler-k1/inventory.json"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def load_module():
@@ -80,7 +80,7 @@ class RetirementPlannerTest(unittest.TestCase):
             reference["sha256"] = self.module.digest(reference["envelope"])
 
     def test_remote_executor_receives_validated_literal_bindings(self):
-        recipe = JUSTFILE.read_text()
+        recipe = JUSTFILE
         self.assertIn(
             '--manifest-sha256 "{{manifest_sha256}}" --inventory-sha256 "{{inventory_sha256}}"',
             recipe,
@@ -88,7 +88,7 @@ class RetirementPlannerTest(unittest.TestCase):
         self.assertIn('"{{manifest_sha256}}" =~ ^[0-9a-f]{64}$', recipe)
 
     def test_remote_verify_omits_execute_flag(self):
-        recipe = JUSTFILE.read_text()
+        recipe = JUSTFILE
         start = recipe.index("kepler-recovery-retirement-remote-verify ")
         end = recipe.index("\n# Execute one reviewed retirement manifest", start)
         remote_verify = recipe[start:end]
@@ -96,7 +96,7 @@ class RetirementPlannerTest(unittest.TestCase):
         self.assertNotIn("--execute", remote_verify)
 
     def test_remote_execute_uses_persistent_declared_job(self):
-        recipe = JUSTFILE.read_text()
+        recipe = JUSTFILE
         start = recipe.index("kepler-recovery-retirement-execute ")
         end = recipe.index("\n# Rebuild the locally-owned docs-search image", start)
         remote_execute = recipe[start:end]

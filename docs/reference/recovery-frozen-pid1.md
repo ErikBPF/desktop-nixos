@@ -64,6 +64,5 @@ is in flight, prefer SysRq S+U first.
 ## Prevention (the real fix)
 
 `boot`+reboot on fragile hosts dodges the live re-exec entirely — that is P4's
-per-host activation policy in the fleet-upgrade-hardening RFC
-(`../proposals/2026-07-12-fleet-upgrade-hardening.md`). This tape is the net for
-when it happens anyway.
+per-host activation policy in the [fleet-upgrade-hardening RFC](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-07-12-fleet-upgrade-hardening.md).
+This tape is the net for when it happens anyway.

@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "modules/hosts/kepler/compose.nix"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_enabled_stacks_include_backup_and_exclude_empty_profile():
@@ -30,7 +30,7 @@ def test_esp_verifier_checks_exact_declared_units_individually():
         line for line in stacks.splitlines() if not line.lstrip().startswith("#")
     )
     declared = re.findall(r'"([^"]+)"', stacks)
-    recipe = JUSTFILE.read_text().split(
+    recipe = JUSTFILE.split(
         "verify-kepler-after-esp-migration:", 1
     )[1].split("\n\n", 1)[0]
 

@@ -17,7 +17,11 @@ assert len(audit) == 1, 'exactly one declarative audit device required'
 assert settings.get('unsafe_allow_api_audit_creation') is False
 options = audit[0]['file']['host-file']['options']
 assert options == {'file_path':'/var/log/openbao/audit.json','mode':'0600','log_raw':'false','hmac_accessor':'true'}
-recipe = (Path(__file__).resolve().parents[2]/'justfile').read_text()
+root = Path(__file__).resolve().parents[2]
+recipe = "\n".join(
+    p.read_text()
+    for p in [root / 'justfile', *sorted((root / 'just').glob('*.just'))]
+)
 recovery = recipe.split('repair-openbao-empty-audit-owner:', 1)[1].split('\nverify-openbao-hardening:', 1)[0]
 # LogsDirectory points through /var/log/private; inspecting the symlink's
 # root owner rejected the real recovery before its guarded chown.

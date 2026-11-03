@@ -1,6 +1,6 @@
 # Discovery AdGuard in-place adoption
 
-**Status:** Draft P2 contract; read-only preparation only
+**Status:** Implemented — P2 in-place adoption is complete; the transition tooling was retired on 2026-11-01 and its outcome remains in the homelab execution plan
 
 ## Outcome
 

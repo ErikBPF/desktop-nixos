@@ -9,7 +9,7 @@ brick something (the OpenBao root-token brick — `implemented/2026-06-30-openba
 **rotate on triggers, not on a blind calendar**, and weight effort by blast
 radius.
 
-Related: `implemented/2026-06-30-offsite-dr-crown-jewels.md` (the DR anchor these
+Related: [the offsite DR decision](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-30-offsite-dr-crown-jewels.md) (the DR anchor these
 keys protect), `disaster-recovery.md` in `homelab-iac` (state DR),
 `reference/vault-disaster-recovery.md` (OpenBao DR).
 

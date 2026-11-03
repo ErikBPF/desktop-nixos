@@ -32,9 +32,6 @@ jobs:
           nix build .#sbx --no-link
           nix run .#sbx -- version
 
-      - name: Orion owner migration contract
-        run: nix develop -c python -m unittest discover -s tests/orion-owner-cutover -p 'test_*.py'
-
       - name: Switch safety contracts
         run: nix develop -c python -m unittest discover -s tests/switch-safety -p 'test_*.py'
 
@@ -93,6 +90,24 @@ jobs:
           "$python/bin/python" -m pytest -q tests/security-maintainability
           "$python/bin/python" -m pytest -q tests/codex-ui tests/codex-skills tests/homelab-iac-drift tests/discovery-seed-timer tests/compose-health-gate tests/hermes-healthchecks tests/container-health-probe modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
           nix develop -c "$python/bin/python" -m pytest -q tests/distributed-builds tests/build-process tests/builder-preflight tests/work-profile tests/work-vm
+
+      - name: Static contracts and repository hygiene
+        run: |
+          python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
+          nix develop -c "$python/bin/python" -m pytest -q --import-mode=importlib \
+            tests/repository-hygiene \
+            tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
+            tests/buzz tests/cognee-signing tests/deepseek-harness tests/deprecations \
+            tests/endeavour-luks tests/endeavour-touchpad tests/gtk-icons \
+            tests/hermes-wiki-deploy tests/hypridle tests/hyprland-navigation \
+            tests/hyprland-startup tests/kepler-disk tests/kepler-k3s-dns \
+            tests/kepler-k3s-identity tests/kepler-k3s-transport tests/kepler-k8s-capacity \
+            tests/kepler-vault-lanes tests/kepler-wazuh-firewall tests/kepler-wazuh-k8s \
+            tests/kepler-worker-control tests/kepler-zfs-mount tests/login-startup \
+            tests/dead-mans-switch tests/kepler-fast-state tests/orchestration \
+            tests/discovery-esp-scratch-restore \
+            tests/monitoring-hardening tests/nanokvm-route tests/openbao-audit-status \
+            tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
 
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts

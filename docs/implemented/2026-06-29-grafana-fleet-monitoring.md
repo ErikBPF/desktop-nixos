@@ -8,7 +8,7 @@ rules tuned against 7d of alert history, and four Alloy pipeline fixes (hwmon
 amdgpu exclusion, baked journal host label, i686 builder, OpenBao boot-unseal).
 Remaining scope (k8s alert rules, cadvisor name-label gap, unpoller, compose
 logs → Loki, …) graduated to
-`proposals/2026-07-03-observability-continuation.md`.
+[the homelab observability proposal](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-07-03-observability-continuation.md).
 **Date:** 2026-06-29
 **Audience:** Maintainers of `desktop-nixos` + `servarr`
 

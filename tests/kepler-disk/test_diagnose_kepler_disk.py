@@ -1,11 +1,12 @@
 from pathlib import Path
 
 
-JUSTFILE = Path(__file__).parents[2] / "justfile"
+ROOT = Path(__file__).parents[2]
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_kepler_disk_diagnostic_is_read_only():
-    recipe = JUSTFILE.read_text()
+    recipe = JUSTFILE
 
     assert "diagnose-kepler-disk:" in recipe
     assert "btrfs filesystem usage /" in recipe
@@ -22,7 +23,7 @@ def test_kepler_disk_diagnostic_is_read_only():
 
 
 def test_model_cache_cleanup_has_exact_targets():
-    recipe = JUSTFILE.read_text()
+    recipe = JUSTFILE
 
     assert "clean-kepler-model-cache:" in recipe
     assert "rm -rf -- /home/erik/ha-hf /home/erik/hf-cache" in recipe

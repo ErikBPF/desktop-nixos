@@ -45,9 +45,10 @@ in {
       cp ${../tests/hermes-state-backup.py} tests/hermes-state-backup.py
       cp ${../scripts/hermes-state-backup.sh} scripts/hermes-state-backup.sh
       cp ${../justfile} justfile
+      cp -r ${../just} just
       cp ${../fleet.json} fleet.json
       # Just recipes contain embedded shebangs; sandbox has no /usr/bin/env.
-      substituteInPlace justfile --replace-fail '#!/usr/bin/env bash' '#!${pkgs.bash}/bin/bash'
+      substituteInPlace justfile just/*.just --replace-fail '#!/usr/bin/env bash' '#!${pkgs.bash}/bin/bash'
       python3 -B tests/hermes-state-backup.py
       echo 'PASS hermes-state-backup (synthetic real-Restic check)' | tee "$out"
     '';

@@ -23,6 +23,13 @@ MODULE_PATH = ROOT / "modules/hosts/discovery/kindle-release-agent.nix"
 JUSTFILE_PATH = ROOT / "justfile"
 
 
+def justfile_text():
+    return "\n".join(
+        p.read_text()
+        for p in [JUSTFILE_PATH, *sorted((ROOT / "just").glob("*.just"))]
+    )
+
+
 def load_agent():
     spec = importlib.util.spec_from_file_location("kindle_release_agent", AGENT_PATH)
     module = importlib.util.module_from_spec(spec)
@@ -67,7 +74,7 @@ class PinContract(unittest.TestCase):
     def test_harbor_runtime_callers_share_one_pinned_servarr_input(self):
         revision = "bda18b9b5201d574952f4f486166d84448bbaf56"
         harbor = (ROOT / "modules/hosts/discovery/harbor.nix").read_text()
-        justfile = JUSTFILE_PATH.read_text()
+        justfile = justfile_text()
         snapshot = ROOT / "modules/hosts/discovery/servarr-harbor"
         expected = {
             "scripts/harbor-setup.sh": "21c4789b0226716062a46b431d91756c37ee1e98a32b8c206368565967a0363a",
@@ -3055,7 +3062,7 @@ class EntrypointContract(unittest.TestCase):
 
 class NixModuleContract(unittest.TestCase):
     def test_reporting_provision_adds_dedicated_policy_without_replacing_shared(self):
-        source = JUSTFILE_PATH.read_text()
+        source = justfile_text()
         recipe = source.split("provision-kindle-release-reporting:", 1)[1].split(
             "diagnose-kindle-claude-usage:", 1
         )[0]

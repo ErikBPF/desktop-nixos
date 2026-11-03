@@ -1,38 +1,18 @@
 from pathlib import Path
 
 
-def test_live_preflight_does_not_pin_volatile_device_names():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-esp-live-preflight:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "primary_boot=" in recipe
-    assert "primary_root=" in recipe
-    assert "mirror_part=" in recipe
-    assert "vault_part=" in recipe
-    assert 'test "$(findmnt -nro SOURCE /boot)" = "$primary_boot"' in recipe
-    assert "/dev/sda" not in recipe
-    assert "/dev/sdb" not in recipe
-    assert "/dev/sdc" not in recipe
+ROOT = Path(__file__).parents[2]
 
 
-def test_docker_finalize_does_not_pin_volatile_device_names():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-docker-mirror-finalize:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "ata-KINGSTON_SA400S37480G_AA000000000000000105-part2" in recipe
-    assert "ata-ST4000DM004-2CV104_ZTT25R4M-part1" in recipe
-    assert 'findmnt -nro SOURCE -T "$source"' in recipe
-    assert "/dev/sda" not in recipe
-    assert "/dev/sdb" not in recipe
-    assert "/dev/sdc" not in recipe
+def justfile_text():
+    return "\n".join(
+        p.read_text()
+        for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]
+    )
 
 
 def test_openbao_d4_backup_refreshes_every_existing_tier():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("backup-discovery-openbao-d4:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -53,7 +33,7 @@ def test_openbao_d4_backup_refreshes_every_existing_tier():
 
 
 def test_identity_backup_covers_tailscale_ssh_and_sops():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("backup-discovery-identity-kepler:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -67,7 +47,7 @@ def test_identity_backup_covers_tailscale_ssh_and_sops():
 
 
 def test_identity_restore_is_pinned_and_verified_before_service_restart():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("restore-discovery-identity-kepler:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -82,7 +62,7 @@ def test_identity_restore_is_pinned_and_verified_before_service_restart():
 
 
 def test_postinstall_storage_check_binds_raid_esp_and_vault():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("verify-discovery-postinstall-storage:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -96,7 +76,7 @@ def test_postinstall_storage_check_binds_raid_esp_and_vault():
 
 
 def test_home_restore_is_pinned_quiesced_and_runs_home_manager():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("restore-discovery-home-kepler:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -112,7 +92,7 @@ def test_home_restore_is_pinned_quiesced_and_runs_home_manager():
 
 
 def test_restore_quiesce_runtime_masks_stateful_substrates():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("quiesce-discovery-restore:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -131,7 +111,7 @@ def test_restore_quiesce_runtime_masks_stateful_substrates():
 
 
 def test_openbao_restore_pins_snapshot_hash_and_verifies_metadata():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("restore-discovery-openbao:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -152,7 +132,7 @@ def test_openbao_restore_pins_snapshot_hash_and_verifies_metadata():
 
 
 def test_openbao_restore_resumes_after_snapshot_import_without_reading_root_secrets_as_erik():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("restore-discovery-openbao:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -173,7 +153,7 @@ def test_openbao_restore_resumes_after_snapshot_import_without_reading_root_secr
 
 
 def test_openbao_throwaway_reset_is_guarded_recoverable_and_non_deleting():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("quarantine-discovery-openbao-throwaway:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -186,7 +166,7 @@ def test_openbao_throwaway_reset_is_guarded_recoverable_and_non_deleting():
 
 
 def test_docker_restore_retains_fresh_root_and_proves_exact_cold_mirror():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("restore-discovery-docker:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -230,7 +210,7 @@ def test_docker_restore_retains_fresh_root_and_proves_exact_cold_mirror():
 
 
 def test_postrestore_resume_starts_declarative_owners_and_proves_harbor_haos():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("resume-discovery-postrestore-substrates:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -253,7 +233,7 @@ def test_postrestore_resume_starts_declarative_owners_and_proves_harbor_haos():
 
 
 def test_final_gate_checks_openbao_unseal_oneshot_via_timer_and_result():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("verify-discovery-esp:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -267,109 +247,8 @@ def test_final_gate_checks_openbao_unseal_oneshot_via_timer_and_result():
         assert f"stage={stage}" in recipe
 
 
-def test_kindle_mirror_passes_pinned_skopeo_and_cosign_path_to_remote_script():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("mirror-kindle version digest:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "pkgs.skopeo.outPath" in recipe
-    assert "pkgs.cosign.outPath" in recipe
-    assert "TOOLS_PATH=" in recipe
-    assert 'export PATH="$TOOLS_PATH:$PATH"' in recipe
-
-
-def test_scratch_restore_preflight_is_read_only_and_targets_orion_projects():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-docker-scratch-preflight:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert 'scratch=/projects/recovery/discovery-esp/docker-root' in recipe
-    assert 'test "$available" -ge "$required"' in recipe
-    assert "test ! -e \"$scratch\"" in recipe
-    assert "ssh -p 2222 erik@{{ip_orion}}" in recipe
-    assert "| cut -f1" in recipe
-    assert "mkdir" not in recipe
-    assert "rsync" not in recipe
-
-
-def test_scratch_restore_runs_root_rsync_with_erik_ssh():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-docker-scratch-restore:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "just discovery-docker-scratch-preflight" in recipe
-    assert "sudo install -d -m 0700 -o root -g root" in recipe
-    assert "sudo rsync -aHAXx --numeric-ids --delete --stats" in recipe
-    assert "--rsync-path='sudo rsync'" in recipe
-    assert "sudo -H -u erik ssh -p 2222" in recipe
-    assert "ssh-keyscan -p 2222" in recipe
-    assert "SHA256:Y+aJii1TUFtxSY7+LGT0hVBzEatKss/wDHBLFFXk0HE" in recipe
-    assert "UserKnownHostsFile=$known_hosts" in recipe
-    assert "erik@{{ip_discovery}}:/home/erik/vault/migration/discovery-docker-root/" in recipe
-    assert "sudo rsync -aHAXxni --numeric-ids --delete" in recipe
-
-
-def test_scratch_refresh_unpublishes_until_zero_drift():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-docker-scratch-refresh:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert 'if sudo test -e "$scratch"; then' in recipe
-    assert 'sudo test ! -e "$pending"' in recipe
-    assert 'sudo test -d "$pending"' in recipe
-    assert 'sudo mv "$scratch" "$pending"' in recipe
-    assert "sudo rsync -aHAXx --numeric-ids --delete --stats" in recipe
-    assert "sudo rsync -aHAXxni --numeric-ids --delete" in recipe
-    assert 'test -z "$drift"' in recipe
-    assert 'sudo mv "$pending" "$scratch"' in recipe
-
-
-def test_scratch_daemon_is_network_isolated_and_always_stopped():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-docker-scratch-verify:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "--property=PrivateNetwork=yes" in recipe
-    assert "--property=IPAddressDeny=any" in recipe
-    assert "--bridge=none" in recipe
-    assert "--iptables=false" in recipe
-    assert "--ip-forward=false" in recipe
-    assert "--ip-masq=false" in recipe
-    assert "config.virtualisation.docker.package.outPath" in recipe
-    assert '"$DOCKERD"' in recipe
-    assert '--unix-socket "$socket"' in recipe
-    assert "api /_ping" in recipe
-    assert "api '/containers/json?all=1'" in recipe
-    assert "api /images/json" in recipe
-    assert "api /volumes" in recipe
-    assert 'sudo journalctl -u "$unit" -n 80 --no-pager' in recipe
-    assert recipe.count('sudo systemctl stop "$unit" >/dev/null 2>&1 || true') == 2
-    assert 'trap \'sudo systemctl stop "$unit" >/dev/null 2>&1 || true\' EXIT' in recipe
-    assert 'test "$(systemctl is-active "$unit" 2>/dev/null || true)" = inactive' in recipe
-
-
-def test_scratch_quiesce_archives_metadata_before_disabling_restart():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-docker-scratch-quiesce:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "docker-container-metadata-" in recipe
-    assert "config.v2.json" in recipe
-    assert "hostconfig.json" in recipe
-    assert '.RestartPolicy = {"Name":"no","MaximumRetryCount":0}' in recipe
-    assert ".State.Running = false" in recipe
-    assert ".HasBeenManuallyStopped = true" in recipe
-    assert 'test "$config_count" = "$host_count"' in recipe
-
-
 def test_postgres_drill_is_full_cluster_isolated_and_value_free():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-postgres-restore-drill:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -389,7 +268,7 @@ def test_postgres_drill_is_full_cluster_isolated_and_value_free():
 
 
 def test_redis_drill_proves_empty_networkless_cold_start():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-redis-cold-start-drill:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -402,7 +281,7 @@ def test_redis_drill_proves_empty_networkless_cold_start():
 
 
 def test_swag_drill_copies_config_and_validates_without_network_or_ports():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-swag-restore-drill:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -418,7 +297,7 @@ def test_swag_drill_copies_config_and_validates_without_network_or_ports():
 
 
 def test_harbor_preflight_binds_vault_state_and_orion_capacity():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-harbor-restore-preflight:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -432,7 +311,7 @@ def test_harbor_preflight_binds_vault_state_and_orion_capacity():
 
 
 def test_harbor_seed_uses_root_rsync_and_pinned_host_key():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-harbor-restore-seed:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -448,7 +327,7 @@ def test_harbor_seed_uses_root_rsync_and_pinned_host_key():
 
 
 def test_harbor_finalize_always_restarts_and_proves_zero_drift():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-harbor-restore-finalize:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -462,7 +341,7 @@ def test_harbor_finalize_always_restarts_and_proves_zero_drift():
 
 
 def test_harbor_inspect_exposes_topology_without_environment():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-harbor-restore-inspect:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -476,7 +355,7 @@ def test_harbor_inspect_exposes_topology_without_environment():
 
 
 def test_harbor_drill_rebuilds_scratch_and_exercises_registry():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-harbor-restore-drill:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -496,7 +375,7 @@ def test_harbor_drill_rebuilds_scratch_and_exercises_registry():
 
 
 def test_haos_preflight_binds_live_disk_vault_and_orion_capacity():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-haos-restore-preflight:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -510,7 +389,7 @@ def test_haos_preflight_binds_live_disk_vault_and_orion_capacity():
 
 
 def test_haos_seed_uses_pinned_host_key_and_root_rsync():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-haos-restore-seed:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -523,7 +402,7 @@ def test_haos_seed_uses_pinned_host_key_and_root_rsync():
 
 
 def test_haos_finalize_always_restarts_and_checks_clone():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-haos-restore-finalize:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -538,7 +417,7 @@ def test_haos_finalize_always_restarts_and_checks_clone():
 
 
 def test_haos_result_checks_clone_and_production_without_mutation():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-haos-restore-result:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -551,7 +430,7 @@ def test_haos_result_checks_clone_and_production_without_mutation():
 
 
 def test_haos_boot_drill_is_networkless_snapshot_and_pid_scoped():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-haos-boot-drill:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -566,7 +445,7 @@ def test_haos_boot_drill_is_networkless_snapshot_and_pid_scoped():
 
 
 def test_home_preflight_finds_required_restore_classes_and_capacity():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-home-restore-preflight:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -581,7 +460,7 @@ def test_home_preflight_finds_required_restore_classes_and_capacity():
 
 
 def test_home_backup_is_encrypted_and_selectively_verified():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("backup-discovery-home-kepler:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -600,7 +479,7 @@ def test_home_backup_is_encrypted_and_selectively_verified():
 
 
 def test_adguard_restore_preflight_reads_live_mounts_without_environment():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-adguard-restore-preflight:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -615,7 +494,7 @@ def test_adguard_restore_preflight_reads_live_mounts_without_environment():
 
 
 def test_adguard_seed_copies_live_mounts_with_pinned_host_key():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-adguard-restore-seed:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -633,7 +512,7 @@ def test_adguard_seed_copies_live_mounts_with_pinned_host_key():
 
 
 def test_adguard_finalize_bounds_dns_downtime_and_restores_exact_containers():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-adguard-restore-finalize:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -657,7 +536,7 @@ def test_adguard_finalize_bounds_dns_downtime_and_restores_exact_containers():
 
 
 def test_adguard_drill_uses_copied_state_and_loopback_dns_only():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("discovery-adguard-restore-drill:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -679,7 +558,7 @@ def test_adguard_drill_uses_copied_state_and_loopback_dns_only():
 
 
 def test_discovery_gpu_diagnostic_is_read_only_and_boot_scoped():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("diagnose-discovery-gpu:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -716,7 +595,7 @@ def test_telstar_capture_executes_the_pinned_iac_artifact_without_git():
 
 
 def test_telstar_pause_stops_only_the_retry_unit():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("pause-discovery-telstar:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -728,7 +607,7 @@ def test_telstar_pause_stops_only_the_retry_unit():
 
 
 def test_hermes_wiki_diagnostic_is_read_only():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("diagnose-hermes-wiki:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -751,23 +630,8 @@ def test_hermes_wiki_keeps_host_keys_outside_the_checkout():
     assert "${wikiDir}/.known_hosts" not in host_git
 
 
-def test_telstar_state_inventory_is_value_free_and_read_only():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
-    recipe = justfile.split("discovery-telstar-state-inventory:", 1)[1].split(
-        "\n# ", 1
-    )[0]
-
-    assert "tofu-state-export/oracle/compute-telstar/terraform.tfstate" in recipe
-    assert "tofu-state-backup/oracle/compute-telstar/terraform.tfstate" in recipe
-    assert "stat -c" in recipe
-    assert "sha256sum" in recipe
-    assert "cat " not in recipe
-    assert "cp " not in recipe
-    assert "rm " not in recipe
-
-
 def test_discovery_gpu_load_is_bounded_and_reports_telemetry():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("test-discovery-gpu-load duration=", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -787,7 +651,7 @@ def test_discovery_gpu_load_is_bounded_and_reports_telemetry():
 
 
 def test_discovery_gpu_fan_test_is_bounded_and_restores_auto_control():
-    justfile = (Path(__file__).parents[2] / "justfile").read_text()
+    justfile = justfile_text()
     recipe = justfile.split("test-discovery-gpu-fan percent=", 1)[1].split(
         "\n# ", 1
     )[0]

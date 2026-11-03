@@ -19,7 +19,7 @@ DOCKER = "/run/current-system/sw/bin/docker"
 
 class ReaderProof(unittest.TestCase):
     def setUp(self):
-        self.assertIn("\nverify-ha-harbor-reader image:", (ROOT / "justfile").read_text())
+        self.assertIn("\nverify-ha-harbor-reader image:", ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))])))
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -27,6 +27,7 @@ class ReaderProof(unittest.TestCase):
         self.bin.mkdir()
         (self.root / "scripts").mkdir()
         shutil.copy(ROOT / "justfile", self.root / "justfile")
+        shutil.copytree(ROOT / "just", self.root / "just")
         shutil.copy(ROOT / "scripts/verify-ha-harbor-reader.sh", self.root / "scripts")
         (self.root / "fleet.json").write_text(json.dumps({"hosts": {"discovery": {"ip": "192.0.2.42"}}}))
         (self.root / ".env").write_text("DO_NOT_LOAD=owner-reader-test\n")

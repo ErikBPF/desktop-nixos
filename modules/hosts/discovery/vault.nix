@@ -3,7 +3,7 @@
 # the SSOT/SRP plan): runtime-secret SSOT for home docker (vault-agent), lab k8s
 # (ESO), and iac (provider). sops stays the root-of-trust/bootstrap. Lives on
 # discovery (not the disposable lab cluster) so tearing down the lab never
-# touches secrets. See docs/proposals/2026-06-29-vault-secrets-platform.md (P3)
+# touches secrets. See homelab decisions/2026-06-29-vault-secrets-platform.md (P3)
 # and -vault-backup-plan.md (P3.0).
 #
 # OpenBao over Vault: nixpkgs `vault` is BUSL/unfree; OpenBao is API-compatible.

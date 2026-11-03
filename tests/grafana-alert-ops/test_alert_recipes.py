@@ -5,17 +5,8 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
-def test_alert_status_points_to_the_gitops_owner():
-    justfile = (ROOT / "justfile").read_text()
-    recipe = justfile.split("grafana-alert-status:", 1)[1].split("\n# ", 1)[0]
-
-    assert "Moved to homelab-gitops: just grafana-alert-status" in recipe
-    assert "kubectl" not in recipe
-    assert "api/alertmanager" not in recipe
-
-
 def test_endeavour_upgrade_has_diagnostics_and_retry_target():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     assert "diagnose endeavour nixos-upgrade.service" in justfile
     assert (
         "endeavour-upgrade) host=endeavour; "
@@ -24,7 +15,7 @@ def test_endeavour_upgrade_has_diagnostics_and_retry_target():
 
 
 def test_kepler_upgrade_has_read_only_diagnostics():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     assert "diagnose kepler nixos-upgrade.service" in justfile
     assert (
         "kepler-upgrade) host=kepler; "
@@ -33,7 +24,7 @@ def test_kepler_upgrade_has_read_only_diagnostics():
 
 
 def test_failed_unit_diagnostics_cannot_hang_after_ssh_connects():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("grafana-alert-diagnostics:", 1)[1].split("\n# ", 1)[0]
 
     assert "-o ServerAliveInterval=3" in recipe
@@ -41,7 +32,7 @@ def test_failed_unit_diagnostics_cannot_hang_after_ssh_connects():
 
 
 def test_kepler_kernel_diagnostics_are_bounded_and_read_only():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("diagnose-kepler-kernel:", 1)[1].split("\n# ", 1)[0]
 
     for value in (
@@ -60,7 +51,7 @@ def test_kepler_kernel_diagnostics_are_bounded_and_read_only():
 
 
 def test_kepler_io_diagnostics_are_bounded_read_only_and_value_safe():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("diagnose-kepler-io:", 1)[1].split("\n# ", 1)[0]
 
     for value in (
@@ -77,7 +68,7 @@ def test_kepler_io_diagnostics_are_bounded_read_only_and_value_safe():
 
 
 def test_kepler_reboot_dispatch_fails_fast_when_ssh_is_unavailable():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("reboot-kepler:", 1)[1].split("\n# ", 1)[0]
 
     assert "-o BatchMode=yes" in recipe
@@ -93,7 +84,7 @@ def test_tailscale_enrollment_allows_slow_boot_networks():
 
 
 def test_argus_stop_is_scoped_and_verified():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("stop-hermes-argus:", 1)[1].split("\n# ", 1)[0]
 
     assert "hermes-argus-healthcheck.timer" in recipe
@@ -105,7 +96,7 @@ def test_argus_stop_is_scoped_and_verified():
 
 
 def test_argus_start_is_scoped_and_verified():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("start-hermes-argus:", 1)[1].split("\n# ", 1)[0]
 
     assert "docker-hermes-argus.service" in recipe
@@ -149,7 +140,7 @@ def test_telstar_capture_retires_after_instance_creation():
 
 
 def test_telstar_lock_recovery_is_exact_and_guarded():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("recover-discovery-telstar-lock lock_id:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -161,7 +152,7 @@ def test_telstar_lock_recovery_is_exact_and_guarded():
 
 
 def test_airflow_pull_robot_delegates_to_servarr_without_printing_secrets():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("provision-airflow-harbor-pull-robot:", 1)[1].split(
         "\n# ", 1
     )[0]

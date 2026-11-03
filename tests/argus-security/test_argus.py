@@ -64,7 +64,7 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn("You are Hackerman,", soul)
 
     def test_health_recipe_rejects_argus_without_runtime_credentials(self):
-        justfile = (ROOT / "justfile").read_text()
+        justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
         for evidence in (
             "require_env hermes-argus DISCORD_BOT_TOKEN",
@@ -99,7 +99,7 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn("for attempt in $(${pkgs.coreutils}/bin/seq 1 30); do", healthcheck)
 
     def test_grafana_hmac_sync_uses_runtime_secret_without_plaintext_file(self):
-        justfile = (ROOT / "justfile").read_text()
+        justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
         recipe = justfile.split("sync-cleytin-grafana-hmac:", 1)[1].split(
             "\n\n", 1
         )[0]
@@ -110,7 +110,7 @@ class ArgusSecurityContract(unittest.TestCase):
         self.assertIn("hmac=matched", recipe)
 
     def test_grafana_route_canary_signs_without_secret_in_arguments(self):
-        justfile = (ROOT / "justfile").read_text()
+        justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
         recipe = justfile.split("test-cleytin-grafana-route:", 1)[1].split(
             "\n\n", 1
         )[0]

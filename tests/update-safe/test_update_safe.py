@@ -24,6 +24,7 @@ class UpdateSafe(unittest.TestCase):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 repo = Path(directory)
                 (repo / "justfile").write_bytes((ROOT / "justfile").read_bytes())
+                shutil.copytree(ROOT / "just", repo / "just")
                 (repo / "fleet.json").write_bytes((ROOT / "fleet.json").read_bytes())
                 (repo / "scripts").mkdir()
                 shutil.copy2(ROOT / "scripts" / "upgrade-candidate-evidence.py", repo / "scripts")
@@ -51,6 +52,7 @@ class UpdateSafe(unittest.TestCase):
                     git("worktree", "add", "-q", "--detach", str(linked), "HEAD")
                     for name in ("justfile", "fleet.json"):
                         shutil.copy2(repo / name, linked / name)
+                    shutil.copytree(repo / "just", linked / "just")
                     shutil.copytree(repo / "scripts", linked / "scripts")
                     (linked / "bin").mkdir()
                     (linked / "tmp").mkdir()

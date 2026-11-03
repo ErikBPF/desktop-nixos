@@ -8,7 +8,7 @@ KEPLER = ROOT / "modules/hosts/kepler/default.nix"
 KEPLER_COMPOSE = ROOT / "modules/hosts/kepler/compose.nix"
 ORION = ROOT / "modules/hosts/orion/default.nix"
 ORION_COMPOSE = ROOT / "modules/hosts/orion/compose.nix"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_container_metrics_cover_rootless_podman_and_docker():
@@ -33,7 +33,7 @@ def test_docker_container_metrics_wait_for_docker_without_requiring_it():
 
 
 def test_container_name_labels_have_a_live_verification_recipe():
-    recipe = JUSTFILE.read_text()
+    recipe = JUSTFILE
 
     assert "verify-container-metrics:" in recipe
     assert "query=container_last_seen or podman_container_info" in recipe
@@ -46,7 +46,7 @@ def test_container_name_labels_have_a_live_verification_recipe():
 
 
 def test_container_and_cache_diagnostics_preserve_startup_evidence():
-    recipe = JUSTFILE.read_text()
+    recipe = JUSTFILE
 
     assert "systemctl show alloy docker" in recipe
     assert "ActiveState,SubState,Result,ActiveEnterTimestamp" in recipe

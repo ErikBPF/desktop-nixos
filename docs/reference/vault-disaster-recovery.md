@@ -172,5 +172,5 @@ and AppRole material; it does not prove independent cold-bootstrap custody.
   protection is sops + the age key.
 - A snapshot needs the corresponding unseal material for recovery. Do not infer
   host separation from SOPS recipient names; verify key distribution separately.
-- Design: `docs/implemented/2026-06-29-vault-secrets-platform.md`,
+- Design: [homelab decision](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-29-vault-secrets-platform.md),
   `…-vault-backup-plan.md`. Memory: `openbao-platform-vault`.

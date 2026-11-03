@@ -325,8 +325,9 @@ check`/CI cost is unchanged.
 activated cleanly; a deliberately-broken generation
 (`firewall.allowedTCPPorts = mkForce []`, blocking SSH) activated, the
 post-activation reachability re-check timed out, and deploy-rs **auto-reverted
-v2→v1**, restoring SSH. `drtest` (`modules/hosts/drtest/` + `drtest-vm-*`
-recipes) is retained as the sanctioned deploy-rs smoke test.
+v2→v1**, restoring SSH. `drtest` was the throwaway VM used for that proof. It and
+its lifecycle recipes were removed on 2026-11-01; the deployed fleet now carries
+the standard.
 
 ### Shared OCI-guest profile
 

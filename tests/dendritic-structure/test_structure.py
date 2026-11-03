@@ -74,7 +74,7 @@ def test_orion_installer_has_its_own_flake_parts_module():
 
 
 def test_structure_check_guards_semantic_placement():
-    recipe = read("justfile")
+    recipe = read("just/fleet.just")
     assert ":: reusable names under host directories" in recipe
     assert ":: host-prefixed leaves in profiles" in recipe
 

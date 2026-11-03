@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/hosts/orion/wazuh-agent.nix"
-JUSTFILE = (ROOT / "justfile").read_text()
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_orion_canary_uses_fresh_vault_enrollment():

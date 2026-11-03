@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "modules/networking/pangolin-newt.nix"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_newt_release_is_checksum_pinned():
@@ -61,7 +61,7 @@ def test_discovery_and_kepler_run_independent_sites():
 
 
 def test_remote_verification_checks_persisted_credentials_health_and_metrics():
-    justfile = JUSTFILE.read_text()
+    justfile = JUSTFILE
 
     for value in (
         "verify-pangolin-newt target:",
@@ -80,7 +80,7 @@ def test_remote_verification_checks_persisted_credentials_health_and_metrics():
 
 
 def test_boot_deploy_copies_directly_on_the_lan():
-    recipe = JUSTFILE.read_text().split("deploy-rs-boot target:", 1)[1].split(
+    recipe = JUSTFILE.split("deploy-rs-boot target:", 1)[1].split(
         "deploy-boot target", 1
     )[0]
 

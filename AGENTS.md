@@ -95,8 +95,8 @@ locally; full flake checks belong in CI or the documented remote-check flow.
 
 ## Docs map
 
-`docs/README.md` is the index. Operational truth lives in `justfile`
-recipes; `docs/` explains why. If doc and recipe disagree, the recipe wins.
+`docs/README.md` is the index. Operational truth lives in the `justfile` and
+`just/*.just` recipes; `docs/` explains why. If doc and recipe disagree, the recipe wins.
 Layout is typed:
 
 - `docs/guides/` — how-to walkthroughs (`install.md`, `obsidian.md`).
@@ -105,7 +105,8 @@ Layout is typed:
 - `docs/implemented/` — shipped designs, kept as the record.
 - `docs/proposals/` — active RFCs only (`YYYY-MM-DD-<slug>.md`); finished ones
   graduate to `implemented/` or are deleted. Every doc carries a `**Status:**`
-  line; the README index mirrors it. Run `just docs-check` after doc edits.
+  line; the README index names purpose only and never restates status. Run
+  `just docs-check` after doc edits.
 
 ## Commit policy
 
@@ -201,7 +202,7 @@ Three clean layers: **network/physical** (`homelab-iac`) → **host/cluster
 substrate** (`desktop-nixos`, incl. k3s microvms) → **workloads** (`servarr`
 media Compose and `homelab-gitops` Kubernetes home-services/lab lanes). Full
 rationale + original decisions D1–D9 live in
-`docs/implemented/2026-06-29-repo-ssot-srp.md` (and the P3 secrets sub-RFC). One
+the [homelab decision record](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-29-repo-ssot-srp.md) (and the P3 secrets sub-RFC). One
 owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 
 | Concern | Owner (SSOT) |

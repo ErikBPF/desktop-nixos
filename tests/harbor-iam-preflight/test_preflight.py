@@ -173,7 +173,7 @@ def test_preflight_uses_user_detail_to_identify_oidc_users(tmp_path):
 
 
 def test_recipe_runs_the_redacting_wrapper_on_discovery():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split('harbor-iam-preflight source="vault":', 1)[1].split(
         "\n# ", 1
     )[0]
@@ -185,7 +185,7 @@ def test_recipe_runs_the_redacting_wrapper_on_discovery():
 
 
 def test_harbor_diagnostic_is_read_only_and_value_free():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("harbor-iam-diagnostic:", 1)[1].split("\n# ", 1)[0]
 
     assert "systemctl status harbor.service" in recipe
@@ -197,7 +197,7 @@ def test_harbor_diagnostic_is_read_only_and_value_free():
 
 
 def test_harbor_admin_credential_diagnostic_is_read_only_and_value_free():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("harbor-admin-credential-diagnostic:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -212,7 +212,7 @@ def test_harbor_admin_credential_diagnostic_is_read_only_and_value_free():
 
 
 def test_harbor_admin_recovery_is_snapshot_and_confirmation_gated():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split(
         'harbor-admin-password-recover snapshot_id confirmation="":', 1
     )[1].split("\n# ", 1)[0]
@@ -306,7 +306,7 @@ def test_authentik_iac_token_rotation_is_service_scoped_and_direct_to_sops():
 
 
 def test_harbor_project_iam_approle_credentials_are_rotated_directly_to_sops():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("capture-harbor-project-iam-approle-secrets:", 1)[1].split(
         "\n# ", 1
     )[0]
@@ -324,7 +324,7 @@ def test_harbor_project_iam_approle_credentials_are_rotated_directly_to_sops():
 
 
 def test_authentik_iac_token_rotation_has_a_documented_entrypoint():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("rotate-authentik-iac-token:", 1)[1].split("\n\n", 1)[0]
     assert "scripts/rotate-authentik-iac-token.sh" in recipe
 
@@ -392,7 +392,7 @@ def test_harbor_provider_handoff_rejects_unignored_destination(tmp_path):
 
 
 def test_harbor_provider_handoff_has_a_documented_entrypoint():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("harbor-iam-bootstrap-provider-handoff ", 1)[1].split(
         "\n\n", 1
     )[0]
@@ -516,7 +516,7 @@ def test_authentik_password_hash_matches_django_format(tmp_path):
 
 
 def test_authentik_bootstrap_has_a_documented_entrypoint():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("bootstrap-authentik ", 1)[1].split("\n\n", 1)[0]
     assert "scripts/bootstrap-authentik.sh" in recipe
 
@@ -556,13 +556,13 @@ def test_authentik_retirement_removes_bootstrap_material():
 
 
 def test_authentik_retirement_has_a_documented_entrypoint():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("retire-authentik-bootstrap ", 1)[1].split("\n\n", 1)[0]
     assert "scripts/retire-authentik-bootstrap.sh" in recipe
 
 
 def test_harbor_iam_snapshot_is_unique_private_and_off_host():
-    justfile = (ROOT / "justfile").read_text()
+    justfile = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
     recipe = justfile.split("harbor-iam-snapshot:", 1)[1].split("\n# ", 1)[0]
 
     assert "pg_dumpall -U postgres" in recipe

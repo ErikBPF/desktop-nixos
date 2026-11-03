@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 MODULE = ROOT / "modules/hosts/kepler/k3s-cluster.nix"
 HARDWARE = ROOT / "modules/hosts/kepler/hardware.nix"
-JUSTFILE = ROOT / "justfile"
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_microvms_use_fast_pool_with_mount_ordering():
@@ -27,7 +27,7 @@ def test_existing_etcd_members_start_in_parallel():
 
 
 def test_disk_resize_is_grow_only_and_offline():
-    justfile = JUSTFILE.read_text()
+    justfile = JUSTFILE
     hardware = HARDWARE.read_text()
 
     recipe = justfile.split("resize-kepler-k3s-disks:", 1)[1]
@@ -39,11 +39,3 @@ def test_disk_resize_is_grow_only_and_offline():
     assert "current > wanted" in recipe
     assert "current == wanted" not in recipe
 
-
-def test_migration_is_copy_verify_switch_finalize():
-    justfile = JUSTFILE.read_text()
-
-    assert "prepare-kepler-fast-state:" in justfile
-    assert "rsync -aHAXS --numeric-ids --checksum --dry-run" in justfile
-    assert "finalize-kepler-fast-state:" in justfile
-    assert 'test "$state_dir" = /fast/microvms' in justfile

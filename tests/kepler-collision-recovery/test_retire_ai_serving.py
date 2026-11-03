@@ -120,7 +120,7 @@ class RetireAiServingTests(unittest.TestCase):
         self.assertIn('["podman", "image", "rm", "--force", *second["images"]]', source)
 
     def test_remote_recipe_uses_declarative_python_interpreter(self):
-        recipe = (ROOT / "justfile").read_text()
+        recipe = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
         line = next(line for line in recipe.splitlines()
                     if "_retire_ai_serving.py" in line)
         self.assertIn("kepler-collision-recovery-inventory", line)

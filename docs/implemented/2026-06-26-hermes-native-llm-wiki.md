@@ -7,7 +7,7 @@ branch scaffold, scoped deploy key, declarative clone
 directive, `wiki-curator` skill, daily `wiki-consolidate` cron. As-built
 record: [`../hermes-llm-wiki.md`](../hermes-llm-wiki.md). Remaining follow-ups
 (merge cadence, hard ingest trigger, token budget) are tracked in
-[`2026-06-29-hermes-deferred-improvements.md`](../proposals/2026-06-29-hermes-deferred-improvements.md)
+[`2026-06-29-hermes-deferred-improvements.md`](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-06-29-hermes-deferred-improvements.md)
 P2–P4. **Pivot 2026-06-26:** drop agentmemory for now; hermes
 maintains a Karpathy LLM Wiki natively (its own tools, no MCP). Unify with
 agentmemory later once the wiki structure is comfortable.

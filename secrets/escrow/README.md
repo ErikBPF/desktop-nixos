@@ -1,7 +1,7 @@
 # age-key escrow
 
 Off-fleet, off-premise escrow of the **sops age key** — the fleet's single
-root of trust. See `docs/proposals/2026-06-30-offsite-dr-crown-jewels.md` §4b
+root of trust. See [the offsite DR decision](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-30-offsite-dr-crown-jewels.md) §4b
 and `docs/reference/key-rotation.md`.
 
 ## What lives here

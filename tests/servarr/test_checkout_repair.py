@@ -1,11 +1,12 @@
 from pathlib import Path
 
 
-JUSTFILE = Path(__file__).parents[2] / "justfile"
+ROOT = Path(__file__).parents[2]
+JUSTFILE = "\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))])
 
 
 def test_checkout_repair_excludes_untracked_runtime_state():
-    recipes = JUSTFILE.read_text()
+    recipes = JUSTFILE
     start = recipes.index("repair-servarr-checkout target:")
     block = recipes[start : recipes.index("\n\n", start)]
 

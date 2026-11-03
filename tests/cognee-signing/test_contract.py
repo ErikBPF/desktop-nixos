@@ -17,7 +17,7 @@ def test_discovery_renders_scoped_cognee_signing_material() -> None:
 
 
 def test_signing_bootstrap_uses_stdin_and_exact_vault_path() -> None:
-    source = (ROOT / "justfile").read_text()
+    source = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
     assert "bootstrap-cognee-signing private_key password_file:" in source
     assert "secret/home/cognee-signing" in source

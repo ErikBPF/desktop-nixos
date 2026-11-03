@@ -12,7 +12,7 @@ configuration in a small VM on `orion`.
 
 The **goal** — Oracle `voyager` as the fleet's off-premise append-only restic
 receiver — **shipped** and is the as-built record in
-[`../implemented/2026-06-30-offsite-dr-crown-jewels.md`](2026-06-30-offsite-dr-crown-jewels.md)
+[`../implemented/2026-06-30-offsite-dr-crown-jewels.md`](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-30-offsite-dr-crown-jewels.md)
 (voyager receives tofu-state, the `.env.sops` bundle, and the OpenBao snapshot).
 
 The **method** in this doc did **not** survive contact:
@@ -136,10 +136,7 @@ New host modules staged under `modules/hosts/voyager/`:
 | `_host-ip voyager` | Allows fleet recipes to resolve Voyager. |
 | `switch-voyager` | Future deploy after NixOS is installed. |
 | `deploy-voyager` | Future `nixos-anywhere` install path from Ubuntu `ubuntu@129.148.45.145`. Destructive. |
-| `voyager-vm-build` | Builds `.#nixosConfigurations.voyager.config.system.build.vm`. |
-| `voyager-vm-start` | Starts the validation VM on Orion under `/scratch/voyager-vm`. |
-| `voyager-vm-stop` | Stops the validation VM and removes temporary tap/NAT rules. |
-| `voyager-vm-smoke` | Intended smoke test for SSH + `podman-compose-offsite.service` + restic REST. |
+| `voyager-vm-*` | Retired in the 2026-11-01 repository simplification. The build and VM-test commands remain below; the start/stop/smoke bodies stay in git history at `d091d982`. |
 
 `README.md` has a draft host row for `voyager`.
 
@@ -167,7 +164,7 @@ Result: Nix reported the VM derivations to build/fetch, not an evaluation error.
 VM runner builds:
 
 ```bash
-just voyager-vm-build
+nix build .#nixosConfigurations.voyager.config.system.build.vm
 ```
 
 Result: build succeeded.
@@ -190,7 +187,7 @@ disko layout. To validate the real `/dev/sda` partitioning + install — the sam
 path `deploy-voyager` runs on Oracle — without touching Oracle:
 
 ```bash
-just voyager-vm-test   # nixos-anywhere --vm-test --flake .#voyager
+nix run github:nix-community/nixos-anywhere -- --vm-test --flake .#voyager
 ```
 
 Result: passed. The test partitioned the disk per disko, installed, booted, and
@@ -335,10 +332,9 @@ destructive Oracle target — an accepted residual risk recorded in the gate.
 2. From Orion, verify whether the guest sees `eth0` and owns `10.88.0.2`.
 3. If needed, adjust the VM variant interface name away from `eth0` or pass a
    predictable MAC/link rule.
-4. Once SSH works, run:
-   ```bash
-   just voyager-vm-smoke
-   ```
+4. Once SSH works, repeat the smoke checks from step 5 against `10.88.0.2`:
+   the rootless `podman-compose-offsite.service` state and the restic REST
+   endpoint. The retired `voyager-vm-smoke` recipe ran exactly these two checks.
 5. Verify the offsite compose unit specifically:
    ```bash
    ssh -p 2222 erik@10.88.0.2 'systemctl --user status servarr-pull.service podman-compose-offsite.service --no-pager'
@@ -352,8 +348,8 @@ destructive Oracle target — an accepted residual risk recorded in the gate.
 
 Do not run `just deploy-voyager` until all are true:
 
-- `just voyager-vm-test` passes (disko `/dev/sda` install path boots).
-- `just voyager-vm-smoke` passes.
+- The disko `/dev/sda` VM install path boots (command in §5).
+- The guest answers on `10.88.0.2:8000` with the offsite unit active.
 - A restic client can initialize and write to the VM receiver.
 - The receiver enforces auth and `--private-repos` layout.
 - The offsite scope is confirmed as config-only.

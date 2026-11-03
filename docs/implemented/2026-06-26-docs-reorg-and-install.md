@@ -56,6 +56,8 @@ Concrete problems:
   `2026-06-22-harbor-declarative`, `2026-06-22-harbor-pullthrough-mirror`,
   `2026-06-24-hermes-memory-skills`, `2026-06-25-hermes-agentmemory-integration`,
   `2026-06-25-hermes-deferred-plans`.
+  Documents later moved to `homelab` are canonical there; see its proposal
+  index for current copies.
 - **Status exists in-file but not in the index.** 17 of 19 design docs already
   declare a `**Status:**` line; the two without one are
   `2026-06-22-declarative-implementation-plan.md` and

@@ -94,4 +94,4 @@ health gate. Never inspect or compare the value in terminal output.
 - [Fleet key rotation](../reference/key-rotation.md)
 - [Frozen PID1 recovery](../reference/recovery-frozen-pid1.md)
 - [Vault backup implementation](../implemented/2026-06-29-vault-backup-plan.md)
-- [Offsite crown-jewel recovery](../implemented/2026-06-30-offsite-dr-crown-jewels.md)
+- [Offsite crown-jewel recovery](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-30-offsite-dr-crown-jewels.md)

@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = (ROOT / "modules/hosts/kepler/k3s-cluster.nix").read_text()
-JUSTFILE = (ROOT / "justfile").read_text()
+JUSTFILE = ("\n".join(p.read_text() for p in [ROOT / "justfile", *sorted((ROOT / "just").glob("*.just"))]))
 
 
 def test_cp1_reconciles_role_and_secret_ids_for_each_lane():

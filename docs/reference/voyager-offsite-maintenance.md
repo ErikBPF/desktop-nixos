@@ -1,7 +1,7 @@
 # Voyager offsite maintenance — retention, prune window, integrity
 
 **Status:** As-built reference (2026-07-01). Closes the
-[`offsite-dr-crown-jewels`](../implemented/2026-06-30-offsite-dr-crown-jewels.md)
+[`offsite-dr-crown-jewels`](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-30-offsite-dr-crown-jewels.md)
 §11 follow-ups: disk-usage alert, scheduled `restic check`, documented prune
 window.
 

@@ -177,6 +177,7 @@ class CaptureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             sandbox = Path(temporary)
             shutil.copyfile(ROOT / "justfile", sandbox / "justfile")
+            shutil.copytree(ROOT / "just", sandbox / "just")
             shutil.copyfile(ROOT / "fleet.json", sandbox / "fleet.json")
             script = ROOT / SCRIPT
             if script.exists():

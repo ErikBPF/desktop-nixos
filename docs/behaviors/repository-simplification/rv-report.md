@@ -1,0 +1,171 @@
+# RV report: repository simplification plan
+
+**Date:** 2026-10-31, revision 2 2026-11-01
+**Scope:** PL proposal, behavior contract, IP plan, PL one-pager. Planning
+artifacts only; no source, recipe, or host change.
+**Method:** independent read of the artifacts against current source, with each
+figure re-measured and each verification command executed on the pre-change tree.
+
+## Verdict
+
+The plan is internally consistent and executable. Ten defects were found and
+fixed across two revisions; no finding changed the accepted policy (D-1 to D-3).
+Ready to start S1.
+
+## Passes
+
+### Conformance
+
+- Contract scenarios map to slices: S1 (hygiene), S2 (recipes), S3 (module),
+  S4 (tests), S5 (docs), S6 (split). No scenario lacks an owner.
+- Proposal M1 to M6 map to slices; M7 is explicitly out of scope.
+- Non-goals are consistent with the keep list: DR drills, Kepler recovery,
+  receipts, and the work VM are untouched.
+
+### Correctness (figures re-measured at `d091d982`)
+
+| Figure | Artifact said | Re-measured | Fixed |
+|---|---|---|---|
+| Recipe count | 375 | 374 (`just --summary`, `just --list`) | Yes |
+| Justfile lines | 8,861 | 8,860 (`wc -l`) | Yes |
+| Deleted recipes | 56 | 55 (28 SWAG + 16 AdGuard + 7 Docker + 2 ESP + 2 audits) | Yes |
+| Deleted recipe lines | not stated | 1,211 → file lands at ~7,649 | Added |
+| CI test directories | 39 | 38 plus one file target | Yes |
+| Unwired test directories | 61 of 115 | 61 of 115 | No |
+| `# Moved` stubs | 22 | 22 (18 proposals, 4 implemented) | No |
+| Stateful helpers | 15 / 234,150 B | 15 / 234,150 B | No |
+| Unreferenced asset | 819,500 B | 819,500 B | No |
+| Static suites passing | 32 of 35 | 32 passed, 3 failed | No |
+
+### Security and blast radius
+
+- Deleting `discovery-stateful-stack-ops` removes host packages. Verified it is
+  not called by any sibling repository, retained recipe, or unit.
+- The only host-side side effect is removal of system packages, a never-enabled
+  oneshot unit, and tmpfiles entries; no runtime state is deleted.
+- No secret, credential, or path with credential content is touched.
+
+### Simplification
+
+- No new abstraction is introduced: one test file, one recipe, one CI step.
+- The conditional justfile split is gated on a measurement, not performed by
+  assumption.
+- The 4,000-line gate is arbitrary but explicit and cheap to revise.
+
+## Findings and fixes
+
+| ID | Finding | Fix |
+|---|---|---|
+| F1 | Recipe/line/CI counts were copied from an earlier pass and off by one. | Re-measured with `just --summary`, `wc -l`, and a directory-existence filter. |
+| F2 | Deletion count did not match the per-cluster breakdown (28+16+7+2+2 = 55). | Corrected in proposal, one-pager, and plan. |
+| F3 | S3 would have failed evaluation: `modules/hosts/discovery/default.nix:36` imports `m.nixos.discovery-stateful-stack-ops`. | Added the import removal and an eval gate to S3. |
+| F4 | S2's verification regex missed `discovery-swag-result`, `discovery-swag-amendment-metadata-diagnostic`, and `discovery-adguard-inventory-raw`, so it would pass with leftovers. | Replaced with a prefix rule plus an explicit six-name allowlist; ran the pipeline on the pre-change tree and confirmed it fails. |
+| F5 | The 12 KB README target was unrealistic: about 120 rows at roughly 150 B already exceed it. | Raised to 20 KB (from 36 KB). |
+| F6 | `just hygiene-check` was not wired into the local gate, so `just check` would not match CI. | Added the call to `just check` in S4. |
+| F7 | The proposal implied module dead code might be a deletion category while the scan was still outstanding. | Ran the scan: 199 registered names, 0 unreferenced. Stated as a closed non-category. |
+
+## Revision 2 findings (keep/rebuild audit)
+
+| ID | Finding | Fix |
+|---|---|---|
+| F8 | The plan deleted the P3 test and script family but left the seven `p3-adguard-outage-*` / `p3-generic-dhcp-client` recipes that call them, so the deletion would have left recipes pointing at missing files. | Added M1b and S2 scope; retained `p3-dns-preflight` and `p3-dns-verify` because `recover-kepler-dns` calls them. |
+| F9 | The first audit counted 54 test directories as "wired" because any reference counted, including docs and modules. Run by an actual gate: 40. Fourteen are docs-only, so 75 are unexecuted. | Corrected the proposal, plan, and one-pager; the hygiene assertion uses CI/justfile/`tests/MANUAL.md` only. |
+| F10 | Treating "reference exists" as "keep" hid 20 one-off recipes with no gate, no runtime consumer, and no safety token. | Added M1c with a rebuild source per recipe; each deleted one-off names the doc or runbook that keeps its command. |
+
+Three figures were re-measured after the P3 and one-off additions: 82 deleted
+recipes, 1,976 deleted lines, 292 recipes and 6,884 lines remaining. The split
+map sums to 6,861 attributed lines; the difference is blank and comment lines
+between recipe spans.
+
+## Revision 3 findings (implementation review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F11 | `hygiene-check` showed no description in `just --list`: it moved into `just/fleet.just` during the split, so the comment added to the root justfile matched nothing. | `just --list \| grep hygiene-check` | Comment added in `just/fleet.just`. |
+| F12 | `docs/implemented/2026-06-30-deploy-rs-as-deploy-standard.md` claimed `drtest` was retained as the sanctioned deploy-rs smoke test after the VM and its recipes were deleted. | `grep drtest docs/implemented` | Rewritten to record the removal. |
+| F13 | The keep/rebuild totals table said 292 recipes remain; the new `hygiene-check` guard makes 293. | `just --summary \| wc -w` | Corrected with the reason. |
+
+### Verified before accepting the branch
+
+- Body parity: all 295 recipes shared with the pre-split tree have identical body lines; only `check` differs, by the added hygiene call.
+- `just --summary` set equals the post-deletion set plus `hygiene-check`.
+- Attribute lines (`[positional-arguments]`) and list comments survived the move.
+- Backtick variables interpolate across files (`diagnose-kepler-disk` renders the fleet IP lookup).
+- `check.yml` parses as YAML; no workflow references a deleted test directory.
+- `tests/MANUAL.md` has no stale directory row.
+- `nix eval .#nixosConfigurations` lists 12 configurations and no `drtest`.
+
+### Discarded findings
+
+- *"Secret-shaped additions in the diff."* The added lines are moved recipe bodies that reference `sops`, `jq`, and `BAO_TOKEN` variables. No value, key, or credential was added; the text moved from `justfile` to `just/secrets.just`.
+- *"96 recipes have no `just --list` comment."* Pre-existing; the split preserved every comment it found, and the count is unchanged from the baseline.
+
+## Revision 4 findings (PR #454 review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F14 (P1) | Four consumers still read or copied only the root `justfile`: `tests/work-vm`, `tests/kindle-release-agent`, `tests/harbor-publisher-bootstrap`, and the `hermes-state-backup` flake check. | Each suite failed at head; `nix build .#checks.x86_64-linux.hermes-state-backup` reproduces the import abort. | `read()` and `justfile_text()` now read the union; both sandbox tests copy `just/`; the flake check copies `${../just}` and substitutes every copied file. |
+| F15 (P1) | The new CI step ran one pytest invocation over 33 directories with duplicate module names and default prepend import mode, so collection aborted. | Reproduced: 3 collection errors with the default mode; `--import-mode=importlib` reports 72 passed. | `--import-mode=importlib` added to the step. |
+| F16 (P2) | The docs index row for this proposal kept a status clause and said the delivery had not started. | Read of `docs/README.md` against the proposal's `**Status:**`. | Replaced with purpose only. |
+| F17 (P2) | Prose references to deleted pointer stubs remained outside markdown links, which `docs-check` cannot see. | `git grep -F` over every deleted doc path. | Repointed the seven local paths to canonical homelab URLs; the historical reorg record now states that moved documents are canonical in `homelab`. |
+
+### Verification after the fixes
+
+- `tests/work-vm`: 14 passed.
+- `tests/kindle-release-agent`: 100 tests OK in the dev shell.
+- `tests/harbor-publisher-bootstrap`: 12 tests OK in the dev shell (the local failures came from a Python without `pyyaml`).
+- `nix build .#checks.x86_64-linux.hermes-state-backup`: passed.
+- CI static list with `--import-mode=importlib`: 72 passed.
+- `just hygiene-check`, `docs-check`, `fmt-check`, `lint`, `structure-check`: pass.
+
+## Revision 5 findings (documentation sweep)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F18 | After the phase tooling was deleted, the AdGuard adoption contract still described itself as a draft with "mutation remains blocked", and the index repeated the same claim. | Read of both contracts and the index rows against the homelab execution plan, which records P2 complete. | Both statuses now record the completed phase and the 2026-11-01 tooling retirement; the index rows describe purpose only. |
+
+The sweep also confirmed that no document references a deleted recipe by name,
+a deleted script, a deleted test directory, or a deleted document path outside
+the canonical homelab URLs.
+
+## Revision 6 findings (second PR review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F19 | `tests/orchestration` was deleted as one bucket, but only two of its three files had a deleted subject. `test_unit_lifecycle.py` guards `modules/server/orchestration.nix` and Kepler's compose unit order, both untouched. | Restored file passes against the current tree. | File restored and added to the static CI step. |
+| F20 | `tests/kepler-fast-state` was deleted whole, but only the migration test lost its subject. The microvm layout and grow-only resize assertions still guard live configuration. | Restored file minus the migration test: 3 passed. | Directory restored, migration test removed, added to CI. |
+| F21 | `tests/dead-mans-switch` was deleted whole, but the probe-procedure test guards `test-vanguard-dead-mans-switch`, which this change keeps. | Restored probe test plus the notification test pass; the host-endpoint assertion still names moved config. | Probe and notification tests restored, the stale endpoint test removed, directory added to CI. |
+
+The deletion count is corrected from 13 to 10 directories, and the restored files
+bring the static CI set from 32 to 35 suites. `just hygiene-check` and the full
+static invocation pass at this head.
+
+## Revision 7 finding (third PR review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F22 | `tests/discovery-esp-scratch-restore/test_recipe.py` was deleted whole, but 34 of its 42 assertions cover retained restore-drill recipes (Harbor, HAOS, AdGuard, OpenBao, identity, home, Postgres, Redis, SWAG). | The restored file passes against the split tree after the union-read change. | File restored; only the 8 assertions for deleted recipes and one pre-existing stale skopeo assertion were removed; added to CI. |
+
+Corrections: deleted directories 10 → 9, total 106 → 107, static CI set 35 → 36.
+
+## Residual risks
+
+- The 32 static suites pass under the host Python; the dev-shell pytest
+  environment is not identical. S4's CI run is the first proof there, and the
+  120 s cap fails the slice if the set is slower than expected.
+- The 18 manual directories are declared, not proven. Their commands are
+  recorded but not executed by this change.
+- `tests/harbor-version-reconcile` references a moved script path; S4 must
+  repair or delete it rather than declare it manual unchanged.
+- Worktree and branch cleanup (M7) is deferred and needs its own inspection.
+- 34 test files carry the same inline justfile-join expression. A shared helper
+  would need a sys.path shim that breaks `python -m unittest discover`; the
+  duplication is accepted until the test layout changes.
+
+## Not found
+
+- No scenario in the contract is unowned or untestable.
+- No deleted recipe is referenced by a retained recipe, script, module, or
+  sibling repository.
+- No acceptance evidence, `.feature` contract, or RV report is scheduled for
+  deletion.

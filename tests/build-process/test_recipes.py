@@ -11,9 +11,13 @@ import pytest
 
 JUSTFILE = Path(__file__).parents[2] / "justfile"
 
+def justfile_text():
+    return "\n".join(p.read_text() for p in [JUSTFILE, *sorted((JUSTFILE.parent / "just").glob("*.just"))])
+
 
 def run_recipe(tmp_path, arguments, env=None):
     shutil.copy2(JUSTFILE, tmp_path / "justfile")
+    shutil.copytree(JUSTFILE.parent / "just", tmp_path / "just")
     shutil.copy2(JUSTFILE.parent / "fleet.json", tmp_path / "fleet.json")
     mock_bin = tmp_path / "bin"
     mock_bin.mkdir(exist_ok=True)
@@ -126,7 +130,6 @@ def test_x86_bootstrap_helpers_use_both_builders(tmp_path, name, overrides):
     ["switch", "endeavour"], ["boot", "endeavour"], ["dry", "endeavour"],
     ["home-switch", "endeavour"], ["deploy", "endeavour", "192.0.2.10"],
     ["deploy-boot", "endeavour", "192.0.2.10"],
-    ["voyager-vm-build"], ["drtest-vm-build"],
 ])
 def test_ordinary_recipes_offer_pool_with_one_local_fallback(tmp_path, arguments):
     calls = run_recipe(tmp_path, arguments)
@@ -158,7 +161,7 @@ def test_sd_image_reuses_canonical_orion_endpoint_and_personal_client_key(tmp_pa
 
 
 def test_no_ordinary_recipe_forbids_local_fallback():
-    text = JUSTFILE.read_text()
+    text = justfile_text()
     for name in ("validate-hermes-orion", "preflight-discovery-hermes-kepler",
                  "backup-discovery-hermes-kepler", "rehearse-discovery-hermes-kepler"):
         body = recipe(name)
@@ -185,10 +188,11 @@ def test_hermes_sandbox_validation_remains_orion_only(tmp_path):
 
 
 def test_no_guest_kace_uninstall_or_obsolete_host_watchdog_actions():
-    assert "remove-ubuntu-work-kace" not in JUSTFILE.read_text()
-    assert "ampagent" not in JUSTFILE.read_text()
-    assert "KACE stays" not in JUSTFILE.read_text()
-    assert "proprietary KACE" not in JUSTFILE.read_text()
+    text = justfile_text()
+    assert "remove-ubuntu-work-kace" not in text
+    assert "ampagent" not in text
+    assert "KACE stays" not in text
+    assert "proprietary KACE" not in text
     assert "endeavour)" not in recipe("grafana-alert-retry")
 
 
@@ -214,7 +218,7 @@ def test_installers_propagate_target_aware_pool_to_tool_and_build(name, selector
 
 
 def recipe(name: str) -> str:
-    text = JUSTFILE.read_text()
+    text = justfile_text()
     match = re.search(
         rf"^{re.escape(name)}(?: [^\n:]*)?:\n(?P<body>(?:^[ \t]+.*\n|^\n)*)",
         text,
