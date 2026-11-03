@@ -51,7 +51,7 @@
   # share the user folders with it.
   hosts = {
     pathfinder = {
-      devices = ["discovery" "orion"];
+      devices = ["discovery" "endeavour" "orion"];
       folderPaths = {
         "ndykv-cjhly" = "/home/${u}/Downloads/";
         "ykxhp-khmz2" = "/home/${u}/Documents/";
