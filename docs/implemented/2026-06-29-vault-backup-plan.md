@@ -28,7 +28,7 @@ Two things landed differently / better than this plan described:
   **kepler** (03:20) + **off-PREMISE restic-REST → voyager** (03:40, Oracle,
   append-only, tailnet-only). Each tier has its own
   `*_backup_last_success_seconds` liveness metric + Grafana staleness alert. The
-  voyager off-premise tier was added by `implemented/2026-06-30-offsite-dr-crown-jewels.md`.
+  voyager off-premise tier was added by [the offsite DR decision](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-30-offsite-dr-crown-jewels.md).
 - **The one open DR dependency is CLOSED.** "Offline break-glass copy of the
   primary age key" is now the passphrase-age escrow (`age-key.age` at
   `voyager:~/escrow` + local) shipped in crown-jewels §4b — no longer an operator
@@ -192,7 +192,7 @@ secret). Backup precedes data, always.
 
 ## Links
 
-- Parent: `implemented/2026-06-29-vault-secrets-platform.md` (P3). Reuses the
+- Parent: [the vault platform decision](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-29-vault-secrets-platform.md) (P3). Reuses the
   `restic-tofu-state` module + the textfile dead-man's-switch from
   `implemented/2026-06-20-telemetry-hardening.md` lineage / the 2026-06-29
   Healthchecks-replacement work.

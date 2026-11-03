@@ -100,6 +100,24 @@ between recipe spans.
 - *"Secret-shaped additions in the diff."* The added lines are moved recipe bodies that reference `sops`, `jq`, and `BAO_TOKEN` variables. No value, key, or credential was added; the text moved from `justfile` to `just/secrets.just`.
 - *"96 recipes have no `just --list` comment."* Pre-existing; the split preserved every comment it found, and the count is unchanged from the baseline.
 
+## Revision 4 findings (PR #454 review)
+
+| ID | Finding | Verification | Fix |
+|---|---|---|---|
+| F14 (P1) | Four consumers still read or copied only the root `justfile`: `tests/work-vm`, `tests/kindle-release-agent`, `tests/harbor-publisher-bootstrap`, and the `hermes-state-backup` flake check. | Each suite failed at head; `nix build .#checks.x86_64-linux.hermes-state-backup` reproduces the import abort. | `read()` and `justfile_text()` now read the union; both sandbox tests copy `just/`; the flake check copies `${../just}` and substitutes every copied file. |
+| F15 (P1) | The new CI step ran one pytest invocation over 33 directories with duplicate module names and default prepend import mode, so collection aborted. | Reproduced: 3 collection errors with the default mode; `--import-mode=importlib` reports 72 passed. | `--import-mode=importlib` added to the step. |
+| F16 (P2) | The docs index row for this proposal kept a status clause and said the delivery had not started. | Read of `docs/README.md` against the proposal's `**Status:**`. | Replaced with purpose only. |
+| F17 (P2) | Prose references to deleted pointer stubs remained outside markdown links, which `docs-check` cannot see. | `git grep -F` over every deleted doc path. | Repointed the seven local paths to canonical homelab URLs; the historical reorg record now states that moved documents are canonical in `homelab`. |
+
+### Verification after the fixes
+
+- `tests/work-vm`: 14 passed.
+- `tests/kindle-release-agent`: 100 tests OK in the dev shell.
+- `tests/harbor-publisher-bootstrap`: 12 tests OK in the dev shell (the local failures came from a Python without `pyyaml`).
+- `nix build .#checks.x86_64-linux.hermes-state-backup`: passed.
+- CI static list with `--import-mode=importlib`: 72 passed.
+- `just hygiene-check`, `docs-check`, `fmt-check`, `lint`, `structure-check`: pass.
+
 ## Residual risks
 
 - The 32 static suites pass under the host Python; the dev-shell pytest

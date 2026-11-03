@@ -6,7 +6,7 @@ recovered; SOUL directive + wiki-curator skill live; an in-turn ingest wrote
 session-reading (~134k tok — vs 253k for the old batch-read; remainder is the
 inherent multi-step agent-loop tax, reducible via fewer steps / disabled_toolsets).
 **Plan:** `docs/implemented/2026-06-26-hermes-native-llm-wiki.md`.
-**Deferred sibling:** `docs/proposals/2026-06-25-hermes-agentmemory-integration.md`
+**Deferred sibling:** [homelab proposal](https://github.com/ErikBPF/homelab/blob/main/docs/proposals/2026-06-25-hermes-agentmemory-integration.md)
 (agentmemory integration — parked for a later "unified approach").
 
 ## What this is

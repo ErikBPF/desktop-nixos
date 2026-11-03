@@ -19,7 +19,7 @@ fleet-check:
 # would build). DRIFT = host is behind/ahead of the flake. Reaches hosts over the
 # tailnet (tailscaleIp, works roaming); Endeavour is read locally; homeassistant
 # (HAOS, not NixOS) is skipped. Makes P5 drift a command, not a memory file
-# (docs/proposals/2026-07-12-fleet-upgrade-hardening.md).
+# (homelab docs/proposals/2026-07-12-fleet-upgrade-hardening.md).
 fleet-status:
     #!/usr/bin/env bash
     set -uo pipefail

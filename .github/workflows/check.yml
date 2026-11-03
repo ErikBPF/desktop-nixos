@@ -94,7 +94,7 @@ jobs:
       - name: Static contracts and repository hygiene
         run: |
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
-          nix develop -c "$python/bin/python" -m pytest -q \
+          nix develop -c "$python/bin/python" -m pytest -q --import-mode=importlib \
             tests/repository-hygiene \
             tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
             tests/buzz tests/cognee-signing tests/deepseek-harness tests/deprecations \

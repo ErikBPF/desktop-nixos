@@ -3,6 +3,11 @@ from pathlib import Path
 
 
 def read(path: str) -> str:
+    if path == "justfile":
+        return "\n".join(
+            p.read_text()
+            for p in [Path("justfile"), *sorted(Path("just").glob("*.just"))]
+        )
     return Path(path).read_text()
 
 

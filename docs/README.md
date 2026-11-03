@@ -73,7 +73,7 @@ developer-tool changes and preserved runtime boundaries.
 
 | Doc | Purpose |
 |-----|---------|
-| [`proposals/2026-10-31-repository-simplification.md`](proposals/2026-10-31-repository-simplification.md) · [`behavior contract`](behaviors/repository-simplification/repository-simplification.feature) | `/pl` deletion manifest for finished-migration tooling, unwired tests, pointer stubs, and the Discovery stateful-stack helpers; delivery slices not started. |
+| [`proposals/2026-10-31-repository-simplification.md`](proposals/2026-10-31-repository-simplification.md) · [`behavior contract`](behaviors/repository-simplification/repository-simplification.feature) | Deletion manifest and delivery record for finished-migration tooling, unwired tests, pointer stubs, and the Discovery stateful-stack helpers. |
 | [`proposals/2026-09-08-fleet-capability-composition.md`](proposals/2026-09-08-fleet-capability-composition.md) · [`behavior contract`](behaviors/fleet-capability-composition/composition.feature) | grounded `/pl` and `/ip` draft for shared wake/routing capabilities, developer-tool composition and import-only profiles; no implementation or deployment. |
 | [`Independent local workspace sessions`](proposals/2026-09-12-local-workspace-sessions.md) | preserves the recorded September 12 activation; isolated publication checks validate the corrected independent-session behavior. |
 | [`proposals/2026-08-24-kepler-cold-restart-resilience.md`](proposals/2026-08-24-kepler-cold-restart-resilience.md) · [`behavior contract`](behaviors/kepler-cold-restart/kepler-cold-restart.feature) | Implementation planned — reviewed `/pl` contract and `/ip` slices define a forced-off, two-minute-off, power-on sequence, exact storage/source gates, and a 10-minute return deadline. |

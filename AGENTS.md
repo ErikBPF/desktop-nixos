@@ -201,7 +201,7 @@ Three clean layers: **network/physical** (`homelab-iac`) → **host/cluster
 substrate** (`desktop-nixos`, incl. k3s microvms) → **workloads** (`servarr`
 media Compose and `homelab-gitops` Kubernetes home-services/lab lanes). Full
 rationale + original decisions D1–D9 live in
-`docs/implemented/2026-06-29-repo-ssot-srp.md` (and the P3 secrets sub-RFC). One
+the [homelab decision record](https://github.com/ErikBPF/homelab/blob/main/docs/decisions/2026-06-29-repo-ssot-srp.md) (and the P3 secrets sub-RFC). One
 owner per concern — change a fact in its owner, consumers vendor/pin it (D9):
 
 | Concern | Owner (SSOT) |
