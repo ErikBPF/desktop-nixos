@@ -198,6 +198,14 @@ The main-branch package input would downgrade these kernels. Preserve this
 running baseline through a scoped pinned kernel input, without importing the
 unrelated changes in the canonical checkout's dirty lock file.
 
+**Superseded 2026-11-03:** the `nixpkgs-gpu-kernel` pin moved to `d3b13ad`
+because `c043004` cannot build its `linux-modules` output. It now resolves
+kernel `7.2.12` for both hosts and Kepler's guests (image
+`/nix/store/ydi4la1gxv20licqiba9vwinx6vwikgd-linux-7.2.12/bzImage`, guest
+hypervisor `/nix/store/8b8pbl6q1z6b9pl0nd96fwfxam8l988q-linux-7.2.12-dev/vmlinux`)
+and NVIDIA `595.104.02`. The `7.2.3` paths above record the original preflight;
+use the paths the current generation evaluates.
+
 Recorded compatible host generations before staging:
 
 | Host | Running system | Compatible boot entry | ESP free |
@@ -255,6 +263,12 @@ Apollo uses `/nix/store/8gsy6nldplfw12ylblabahhay8bv8xfx-linux-6.18.49-dev/vmlin
 Every VM's `booted` and `current` runner matched. Use these exact paths when
 checking the prepared kernels. Boot-only staging leaves running VMs alone;
 the next host boot installs the declared guest runners before starting them.
+
+**Superseded 2026-11-03:** after the `nixpkgs-gpu-kernel` pin moved, Kepler's
+declared guest runner evaluates to
+`/nix/store/8b8pbl6q1z6b9pl0nd96fwfxam8l988q-linux-7.2.12-dev/vmlinux`. The
+`7.2.3` path above is the original preflight; compare against the path the
+current generation evaluates.
 
 For the initial exchange, each host was staged once from the reviewed revision.
 Kepler retained two boot entries; Apollo temporarily kept all existing

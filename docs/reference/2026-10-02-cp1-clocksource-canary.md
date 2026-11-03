@@ -19,7 +19,7 @@ Those failures preceded kubelet heartbeat loss and k3s API timeouts. The exact
 hypervisor/kernel trigger is unproven. Test `kvm-clock` on cp-1 alone; keep the
 host and all other guests unchanged.
 
-At the original preflight, the running guests used Linux 7.2.3 and K3s 1.35.7. This source checkout evaluated
+At the original preflight, the running guests used Linux 7.2.3 and K3s 1.35.7. **Superseded 2026-11-03:** the `nixpkgs-gpu-kernel` pin now resolves Linux 7.2.12 for the host and guests, so treat `7.2.3` as the original-preflight record, not a current comparison target. This source checkout evaluated
 K3s 1.36.4 and different runner closures for all six guests. A host deployment
 would confound the experiment and could bounce multiple control planes. The
 declarative cp-1-only kernel parameter is prepared in
@@ -145,7 +145,8 @@ guest must then be restarted individually. The earlier cp-1-only evidence above
 is preserved as the first phase, not rewritten as all-guest acceptance.
 
 The source and running host kernel both resolve to the same Linux 7.2.3 store
-path. Inspect the host activation preview before using live activation; any
+path. After the 2026-11-03 pin move both resolve to Linux 7.2.12 instead;
+compare the store paths the current generation evaluates. Inspect the host activation preview before using live activation; any
 storage, networking or driver change that breaks the single-guest rollout is a
 stop gate. Boot-only staging followed by a host reboot cannot substitute for
 this phased rollout.
