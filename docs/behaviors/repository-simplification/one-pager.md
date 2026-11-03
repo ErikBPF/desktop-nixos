@@ -44,9 +44,10 @@ invocation. `import` preserves `just deploy-rs`, `just check`, and CI calls.
 | Full `just check` | not run | `dry-all` builds five host closures; CI covers it |
 | Live behavior | not observed | No host was switched or deployed |
 
-Two manual suites still fail as they did before the change: `kepler-compose`
-(assertion about declared units) and `grafana-alert-ops` (a `Restart` assertion).
-Both are in `tests/MANUAL.md`; neither is gated.
+Two suites that were manual and red at the #454 delivery are now gated and
+green: `kepler-compose` (it asserted units the Kepler declaration does not
+enable) and `grafana-alert-ops` (it asserted `Restart` on a oneshot). Both run
+in the static CI job and leave `tests/MANUAL.md`.
 
 ## Decisions and corrections
 
@@ -68,6 +69,7 @@ needs explicit authorization.
 - **A contract test now parses concatenated text.** It could mask a recipe that
   moved but changed name; `just --summary` parity and the hygiene test cover the
   name set, not the body. Review the split diff with moved-file detection.
-- **Two manual suites are red before and after.** They are declared manual; a
-  green claim never included them.
+- **Two previously red suites are now gated.** `kepler-compose` and
+  `grafana-alert-ops` pass in the static CI job; the earlier red state is
+  recorded above and never counted toward a green claim.
 - **Rollback.** Revert the commit; no host state changed.
