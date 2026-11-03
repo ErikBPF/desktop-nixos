@@ -112,8 +112,7 @@ def test_transient_discovery_jobs_have_bounded_retries():
     restic = (ROOT / "modules/services/restic-tofu-state.nix").read_text()
 
     seed = wiki.split("systemd.services.hermes-wiki-cron-seed", 1)[1]
-    assert 'Restart = "on-failure";' in seed
-    assert 'RestartSec = "30s";' in seed
+    assert 'Type = "oneshot";' in seed
     assert 'ready=0' in wiki
     assert '[ "$ready" -eq 1 ]' in wiki
 

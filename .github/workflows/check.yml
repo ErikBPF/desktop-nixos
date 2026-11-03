@@ -105,7 +105,7 @@ jobs:
             tests/kepler-vault-lanes tests/kepler-wazuh-firewall tests/kepler-wazuh-k8s \
             tests/kepler-worker-control tests/kepler-zfs-mount tests/login-startup \
             tests/dead-mans-switch tests/kepler-fast-state tests/orchestration \
-            tests/discovery-esp-scratch-restore \
+            tests/discovery-esp-scratch-restore tests/kepler-compose tests/grafana-alert-ops \
             tests/monitoring-hardening tests/nanokvm-route tests/openbao-audit-status \
             tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
 

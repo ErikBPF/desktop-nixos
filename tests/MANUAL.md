@@ -15,7 +15,6 @@ them. Run the listed command from the repository root on a suitable host.
 | `tests/desktop-file-managers` | `pytest -q tests/desktop-file-managers` | runtime state |
 | `tests/fail2ban-sshd-session` | `pytest -q tests/fail2ban-sshd-session` | nix eval |
 | `tests/fleet-dns-lan` | `pytest -q tests/fleet-dns-lan` | nix eval |
-| `tests/grafana-alert-ops` | `pytest -q tests/grafana-alert-ops` | docker, network, root |
 | `tests/harbor-host-auth` | `pytest -q tests/harbor-host-auth` | docker |
 | `tests/harbor-iam-acceptance` | `pytest -q tests/harbor-iam-acceptance` | network |
 | `tests/harbor-iam-preflight` | `pytest -q tests/harbor-iam-preflight` | ssh host, docker, network, root |
@@ -23,7 +22,6 @@ them. Run the listed command from the repository root on a suitable host.
 | `tests/herdr-worklab` | `pytest -q tests/herdr-worklab` | ssh host, nix eval, network |
 | `tests/hermes-go-credentials` | `pytest -q tests/hermes-go-credentials` | network |
 | `tests/kepler-collision-recovery` | `bats tests/kepler-collision-recovery` | ssh host, docker |
-| `tests/kepler-compose` | `pytest -q tests/kepler-compose` | root |
 | `tests/opencode-work-provider` | `pytest -q tests/opencode-work-provider` | network |
 | `tests/orion-audit` | `pytest -q tests/orion-audit` | nix eval |
 | `tests/orion-main-guardrails` | `pytest -q tests/orion-main-guardrails` | nix eval, network |
