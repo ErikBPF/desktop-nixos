@@ -87,11 +87,10 @@ No live cache, deployment, real Cargo build or host firewall was exercised by
 this follow-up. All accepted writers share one trusted cache namespace; one
 compromised writer can still poison entries read by other consumers. Tailnet
 address changes require the corresponding fleet update and Nginx deployment.
-The legacy laptop is no longer a managed fleet host. Its accepted IaC address
-is declared once in `modules/meta.nix` under `fleet.tailnetPeers` and exported
-in `fleet.json`; updating it requires `just fleet-json`. This keeps
-`fleet.hosts`, upgrade targets and the physical inventory unchanged. The cache
-selects the laptop peer by name, so adding another peer does not grant writes.
+The laptop retired on 2026-11-01 and left the tailnet. `fleet.tailnetPeers` is
+empty, and the cache allowlist reads only `fleet.hosts.endeavour` and
+`fleet.hosts.kepler`, so the two named hosts are the accepted writers. Kepler is
+an unattended server, which widens the writer set beyond the workstation.
 Static metadata does not prove live ownership; reconcile effective identities
 before rollout.
 If writer authorization breaks, compile locally while correcting the mapping;
