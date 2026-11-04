@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -124,6 +126,57 @@ def bundle_id(repo: str, pr: int, head: str) -> str:
     return f"{owner}__{name}__{pr}__{head[:12]}"
 
 
+def ignore_reason(entry: dict, pr: dict) -> str | None:
+    """Return why this PR is skipped, or None.
+
+    Filters only stop a new head from being bundled; an already queued or
+    published head keeps its state. An invalid title pattern fails open so a
+    typo cannot blind the gate, but is reported on stderr.
+    """
+    author = str((pr.get("author") or {}).get("login") or "").casefold()
+    authors = {str(item).casefold() for item in entry.get("ignore_authors") or []}
+    if author and author in authors:
+        return f"author {author}"
+
+    labels = {
+        str((label.get("name") if isinstance(label, dict) else label) or "").casefold()
+        for label in pr.get("labels") or []
+    }
+    ignored = {str(item).casefold() for item in entry.get("ignore_labels") or []}
+    hit = labels & ignored
+    if hit:
+        return f"label {sorted(hit)[0]}"
+
+    pattern = entry.get("ignore_title") or ""
+    if pattern:
+        try:
+            if re.search(pattern, str(pr.get("title") or "")):
+                return f"title matches {pattern!r}"
+        except re.error as exc:
+            print(
+                f"WARN {entry.get('repo')}: invalid ignore_title regex: {exc}",
+                file=sys.stderr,
+            )
+    return None
+
+
+def reuse_review(previous: dict, head: str, base: str) -> dict:
+    """Copy a published verdict onto an identical diff at a new head."""
+    review = json.loads(json.dumps(previous))
+    old_head = str(review.get("head") or "")[:7]
+    review["head"] = head
+    review["base"] = base
+    review["limits"] = [
+        item
+        for item in review.get("limits") or []
+        if "Diff is identical to" not in str(item)
+    ] + [
+        f"Diff is identical to {old_head}. The previous verdict was reused "
+        "without a new model run."
+    ]
+    return review
+
+
 def prune_repo_bundles(
     in_dir: Path,
     db,
@@ -161,6 +214,10 @@ def prune_repo_bundles(
         if row is not None and row["state"] == "leased":
             if (row["lease_expires"] or 0) > now:
                 continue
+        if row is not None and row["state"] == "reusing":
+            (in_dir.parent / "review-out" / f"{bundle.name}.json").unlink(
+                missing_ok=True
+            )
         if row is not None and row["state"] not in ("published", "stale"):
             ledger.finish(
                 db, row["repo"], row["pr"], row["head"], "stale", "bundle pruned"
@@ -363,6 +420,86 @@ def harden_bundle(root: Path) -> None:
         path.chmod(0o755 if path.is_dir() else 0o644)
 
 
+def reuse_bundle(
+    args,
+    db,
+    repo: str,
+    number: int,
+    head: str,
+    base: str,
+    bid: str,
+    digest: str,
+    previous,
+) -> Path | None:
+    """Publish a copied verdict for an identical diff instead of reviewing again.
+
+    The publisher still needs a bundle for evidence checks and a ledger row for
+    identity. Copying the previous bundle keeps the same evidence files
+    (``diff.patch``, ``docs/``, ``skills/``) available, so a finding that quotes
+    repository guidance is not silently dropped. A ``reusing`` row is never
+    claimable. The packet is renamed into place last: a half-written reuse is
+    discarded by the collector and reviewed for real.
+    """
+    data_dir = Path(args.data_dir)
+    target = data_dir / "review-in" / bid
+    source = data_dir / "review-done" / str(previous["bundle"])
+    packet = data_dir / "review-done" / f"{previous['bundle']}.json"
+    if not source.is_dir():
+        return None
+    try:
+        reused = reuse_review(json.loads(packet.read_text()), head, base)
+    except (OSError, ValueError) as exc:
+        print(f"WARN {repo}#{number}: cannot reuse {packet.name}: {exc}", file=sys.stderr)
+        return None
+    out_dir = data_dir / "review-out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    staged = out_dir / f"{bid}.json.tmp"
+    old_umask = os.umask(0o022)
+    try:
+        tmp = target.with_name(target.name + ".tmp")
+        if tmp.exists():
+            shutil.rmtree(tmp)
+        shutil.copytree(source, tmp)
+        for stale in (".ready", ".posted"):
+            (tmp / stale).unlink(missing_ok=True)
+        (tmp / "meta.json").write_text(
+            json.dumps(
+                {
+                    "repo": repo,
+                    "pr": number,
+                    "head": head,
+                    "base": base,
+                    "reused_from": previous["head"],
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        (tmp / ".reuse").write_text(now() + "\n")
+        harden_bundle(tmp)
+        tmp.replace(target)
+        staged.write_text(json.dumps(reused, indent=2) + "\n")
+
+        ledger.mark_reusing(db, repo, number, head, base, bid, digest)
+        row = ledger.get(db, repo, number, head)
+        if row is None or row["state"] != "reusing":
+            # A live row (for example a leased worker) owns this head; do not
+            # hand the publisher a second packet for it.
+            shutil.rmtree(target, ignore_errors=True)
+            staged.unlink(missing_ok=True)
+            return None
+        ledger.supersede(db, repo, number, head)
+        staged.replace(out_dir / f"{bid}.json")
+    except Exception:
+        shutil.rmtree(target, ignore_errors=True)
+        staged.unlink(missing_ok=True)
+        raise
+    finally:
+        os.umask(old_umask)
+    print(f"REUSED {bid} from {str(previous['head'])[:7]}")
+    return target
+
+
 def build_bundle(
     args, entry: dict, pr: dict, db, token: str
 ) -> Path | None:
@@ -371,16 +508,35 @@ def build_bundle(
     head = pr["headRefOid"]
     base = pr["baseRefOid"]
     bid = bundle_id(repo, number, head)
-    target = Path(args.data_dir) / "review-in" / bid
+    data_dir = Path(args.data_dir)
+    target = data_dir / "review-in" / bid
     row = ledger.get(db, repo, number, head)
-    if row is not None and row["state"] in ("published", "stale", "failed"):
+    if row is not None and row["state"] in ("published", "stale", "failed", "reusing"):
         return None
+    # Reuse is only for a head the ledger has never seen. An existing queued
+    # row means a retry or an explicit on-demand request; both run the model.
+    fresh_head = row is None
     if target.exists():
-        if row is None:
+        if row is not None:
+            return None
+        if (target / ".reuse").exists():
+            # A reuse that never reached the ledger is not reviewable input.
+            shutil.rmtree(target, ignore_errors=True)
+            (data_dir / "review-out" / f"{bid}.json.tmp").unlink(missing_ok=True)
+        else:
             ledger.record(db, repo, number, head, base, bid)
             print(f"REQUESTED {bid}")
             return target
-        return None
+
+    diff = gh_bytes(["pr", "diff", str(number), "--repo", repo], token)
+    digest = hashlib.sha256(diff).hexdigest()
+    previous = ledger.last_published(db, repo, number) if fresh_head else None
+    if previous is not None and previous["diff_hash"] == digest:
+        reused = reuse_bundle(
+            args, db, repo, number, head, base, bid, digest, previous
+        )
+        if reused is not None:
+            return reused
 
     tmp = target.with_name(target.name + ".tmp")
     if tmp.exists():
@@ -401,9 +557,7 @@ def build_bundle(
             token,
         )
         (tmp / "meta.json").write_text(json.dumps(view, indent=2) + "\n")
-        (tmp / "diff.patch").write_bytes(
-            gh_bytes(["pr", "diff", str(number), "--repo", repo], token)
-        )
+        (tmp / "diff.patch").write_bytes(diff)
         for name, endpoint in (
             ("reviews.json", "reviews"),
             ("review_comments.json", "comments"),
@@ -473,7 +627,7 @@ def build_bundle(
     finally:
         os.umask(old_umask)
 
-    ledger.record(db, repo, number, head, base, bid)
+    ledger.record(db, repo, number, head, base, bid, digest)
     ledger.supersede(db, repo, number, head)
     print(f"REQUESTED {bid}")
     return target
@@ -492,6 +646,8 @@ def main() -> int:
     args = parser.parse_args()
 
     config = tokens.load_config(args.config)
+    settings = tokens.load_settings(args.config)
+    review_drafts = bool(settings.get("review_drafts", True))
     state_dir = Path(args.state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
     state_path = state_dir / "state.json"
@@ -536,7 +692,7 @@ def main() -> int:
                     "--limit",
                     str(args.limit),
                     "--json",
-                    "number,title,isDraft,headRefOid,baseRefOid,url,updatedAt",
+                    "number,title,author,labels,isDraft,headRefOid,baseRefOid,url,updatedAt",
                 ],
                 token,
             )
@@ -552,8 +708,28 @@ def main() -> int:
         for pr in prs:
             key = f"{repo}#{pr['number']}"
             head = pr["headRefOid"]
+            reason = ignore_reason(entry, pr)
+            if reason:
+                print(f"IGNORED {key} ({reason})")
+                continue
+            if pr.get("isDraft") and not review_drafts:
+                print(f"SKIP-DRAFT {key}")
+                continue
             row = ledger.get(db, repo, pr["number"], head)
             if row is not None:
+                if row["state"] == "reusing":
+                    # The publisher has only the copied packet; without it,
+                    # fall back to a real review at this head.
+                    out_dir = Path(args.data_dir) / "review-out"
+                    if (out_dir / f"{row['bundle']}.json").exists():
+                        continue
+                    shutil.rmtree(
+                        Path(args.data_dir) / "review-in" / row["bundle"],
+                        ignore_errors=True,
+                    )
+                    (out_dir / f"{row['bundle']}.json.tmp").unlink(missing_ok=True)
+                    ledger.requeue(db, repo, pr["number"], head)
+                    row = ledger.get(db, repo, pr["number"], head)
                 if row["state"] == "published":
                     if marker_matches(marker_dir, row["head"]):
                         continue

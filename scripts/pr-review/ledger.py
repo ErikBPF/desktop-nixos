@@ -16,7 +16,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-STATES = ("queued", "leased", "published", "stale", "failed")
+STATES = ("queued", "leased", "published", "stale", "failed", "reusing")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS reviews (
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     requested_at REAL    NOT NULL,
     updated_at   REAL    NOT NULL,
     error        TEXT,
+    diff_hash    TEXT    NOT NULL DEFAULT '',
     PRIMARY KEY (repo, pr, head)
 );
 CREATE INDEX IF NOT EXISTS reviews_claimable
@@ -46,6 +47,11 @@ def connect(path: str | Path) -> sqlite3.Connection:
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA busy_timeout=10000")
     db.executescript(SCHEMA)
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(reviews)")}
+    if "diff_hash" not in columns:
+        db.execute(
+            "ALTER TABLE reviews ADD COLUMN diff_hash TEXT NOT NULL DEFAULT ''"
+        )
     return db
 
 
@@ -56,20 +62,23 @@ def record(
     head: str,
     base: str,
     bundle: str,
+    diff_hash: str = "",
 ) -> None:
     """Queue a head. Published, stale and failed rows are never resurrected."""
     now = time.time()
     db.execute(
         """
-        INSERT INTO reviews (repo, pr, head, base, bundle, state, requested_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)
+        INSERT INTO reviews
+            (repo, pr, head, base, bundle, state, requested_at, updated_at, diff_hash)
+        VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?)
         ON CONFLICT(repo, pr, head) DO UPDATE SET
             base = excluded.base,
             bundle = excluded.bundle,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            diff_hash = excluded.diff_hash
         WHERE reviews.state = 'queued'
         """,
-        (repo, pr, head, base, bundle, now, now),
+        (repo, pr, head, base, bundle, now, now, diff_hash),
     )
 
 
@@ -142,6 +151,7 @@ def requeue(db: sqlite3.Connection, repo: str, pr: int, head: str) -> None:
 
     A valid packet that exhausted its attempts, or a head staled by a closed
     PR or a misread open-PR list, must be reviewable again at the same commit.
+    ``reusing`` is included so a lost reuse packet falls back to a real review.
     """
     # A revival is a new request. Without this, has_newer_head keeps staling a
     # current head against a published sibling after a force-push back.
@@ -152,9 +162,60 @@ def requeue(db: sqlite3.Connection, repo: str, pr: int, head: str) -> None:
         SET state = 'queued', attempts = 0, lease_owner = NULL,
             lease_expires = NULL, requested_at = ?, updated_at = ?, error = NULL
         WHERE repo = ? AND pr = ? AND head = ?
-          AND state IN ('failed', 'stale', 'published')
+          AND state IN ('failed', 'stale', 'published', 'reusing')
         """,
         (now, now, repo, pr, head),
+    )
+
+
+def last_published(
+    db: sqlite3.Connection, repo: str, pr: int
+) -> sqlite3.Row | None:
+    """Newest published head for this PR that recorded a diff hash."""
+    return db.execute(
+        """
+        SELECT * FROM reviews
+        WHERE repo = ? AND pr = ? AND state = 'published' AND diff_hash != ''
+        ORDER BY updated_at DESC, rowid DESC
+        LIMIT 1
+        """,
+        (repo, pr),
+    ).fetchone()
+
+
+def mark_reusing(
+    db: sqlite3.Connection,
+    repo: str,
+    pr: int,
+    head: str,
+    base: str,
+    bundle: str,
+    diff_hash: str,
+) -> None:
+    """Queue a publisher-only row whose review packet was copied from a prior head.
+
+    ``reusing`` is deliberately absent from every claim query: dispatch must not
+    spend a worker on a head whose diff already has a verdict.
+    """
+    now = time.time()
+    db.execute(
+        """
+        INSERT INTO reviews
+            (repo, pr, head, base, bundle, state, requested_at, updated_at, diff_hash)
+        VALUES (?, ?, ?, ?, ?, 'reusing', ?, ?, ?)
+        ON CONFLICT(repo, pr, head) DO UPDATE SET
+            base = excluded.base,
+            bundle = excluded.bundle,
+            state = 'reusing',
+            attempts = 0,
+            lease_owner = NULL,
+            lease_expires = NULL,
+            updated_at = excluded.updated_at,
+            error = NULL,
+            diff_hash = excluded.diff_hash
+        WHERE reviews.state IN ('queued', 'failed', 'stale')
+        """,
+        (repo, pr, head, base, bundle, now, now, diff_hash),
     )
 
 
