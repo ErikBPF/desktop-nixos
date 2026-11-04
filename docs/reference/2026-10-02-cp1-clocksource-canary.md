@@ -145,8 +145,9 @@ guest must then be restarted individually. The earlier cp-1-only evidence above
 is preserved as the first phase, not rewritten as all-guest acceptance.
 
 The source and running host kernel both resolve to the same Linux 7.2.3 store
-path. After the 2026-11-03 pin move both resolve to Linux 7.2.12 instead;
-compare the store paths the current generation evaluates. Inspect the host activation preview before using live activation; any
+path. After the 2026-11-03 pin move the source evaluates Linux 7.2.12; the
+running host stays on the 7.2.3 path until a switch. Compare the store paths the
+current generation evaluates. Inspect the host activation preview before using live activation; any
 storage, networking or driver change that breaks the single-guest rollout is a
 stop gate. Boot-only staging followed by a host reboot cannot substitute for
 this phased rollout.

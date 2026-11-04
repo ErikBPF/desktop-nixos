@@ -45,7 +45,7 @@ class GPUExchangeOptions(unittest.TestCase):
         kepler, apollo = hosts["kepler"], hosts["apollo"]
         for name, host in hosts.items():
             with self.subTest(kernel=name):
-                self.assertTrue(host["kernelVersion"].startswith("7.2."), host["kernelVersion"])
+                self.assertEqual(host["kernelVersion"], "7.2.12")
                 self.assertTrue(host["kernelImage"].endswith("/bzImage"), host["kernelImage"])
             with self.subTest(guest_kernels=name):
                 if name != "kepler":
@@ -58,6 +58,7 @@ class GPUExchangeOptions(unittest.TestCase):
                     self.assertEqual(kernel["image"], kepler["kernelImage"])
                     self.assertIn(f"-linux-{kepler['kernelVersion']}-dev/vmlinux",
                                   kernel["hypervisorImage"])
+        self.assertEqual(kepler["kernelVersion"], apollo["kernelVersion"])
         with self.subTest(host="kepler"):
             self.assertEqual(kepler["drivers"], ["amdgpu"])
             self.assertIn("amdgpu", kepler["initrdModules"])
