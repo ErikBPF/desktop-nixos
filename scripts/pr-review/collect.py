@@ -24,6 +24,9 @@ import ledger
 import tokens
 
 GH = "gh"
+# The required check's name. `tests/pr-review-publish.py` asserts it matches
+# the publisher's constant.
+CHECK_NAME = "hackerman-cr/evaluation"
 
 
 def now() -> str:
@@ -46,6 +49,22 @@ def gh_bytes(args: list[str], token: str) -> bytes:
         [GH, *args], check=True, capture_output=True, env=tokens.gh_env(token)
     )
     return proc.stdout
+
+
+def gh_api(method: str, endpoint: str, token: str, payload: dict) -> object:
+    proc = subprocess.run(
+        [GH, "api", "--method", method, endpoint, "--input", "-"],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=tokens.gh_env(token),
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"gh api {method} {endpoint} failed ({proc.returncode}): "
+            f"{proc.stderr.strip()}"
+        )
+    return json.loads(proc.stdout or "{}")
 
 
 def fetch_file(
@@ -158,6 +177,42 @@ def ignore_reason(entry: dict, pr: dict) -> str | None:
                 file=sys.stderr,
             )
     return None
+
+
+def publish_skip_check(repo: str, head: str, reason: str, token: str) -> bool:
+    """Satisfy the required check on a head the filters deliberately skipped.
+
+    A missing check blocks the PR, which defeats the point of skipping bot PRs.
+    ``neutral`` passes a required status check without claiming a review.
+    Never overwrite an existing run for the same head: a real verdict wins.
+    """
+    query = (
+        f"repos/{repo}/commits/{head}/check-runs"
+        f"?check_name={CHECK_NAME}&per_page=100"
+    )
+    runs = gh_json(["api", query], token).get("check_runs", [])
+    if any(run.get("name") == CHECK_NAME for run in runs):
+        return False
+    gh_api(
+        "POST",
+        f"repos/{repo}/check-runs",
+        token,
+        {
+            "name": CHECK_NAME,
+            "head_sha": head,
+            "status": "completed",
+            "conclusion": "neutral",
+            "output": {
+                "title": f"Skipped: {reason}",
+                "summary": (
+                    "This head matched a review filter, so hackerman-cr did "
+                    "not review it. Remove the author, label, or title match "
+                    "to request a review."
+                ),
+            },
+        },
+    )
+    return True
 
 
 def reuse_review(previous: dict, head: str, base: str) -> dict:
@@ -761,6 +816,11 @@ def main() -> int:
             reason = ignore_reason(entry, pr)
             if reason:
                 print(f"IGNORED {key} ({reason})")
+                try:
+                    if publish_skip_check(repo, head, reason, token):
+                        print(f"SKIP-CHECK {key}")
+                except Exception as exc:  # keep the other PRs moving
+                    print(f"ERROR {key}: skip check: {exc}", file=sys.stderr)
                 continue
             if pr.get("isDraft") and not review_drafts:
                 print(f"SKIP-DRAFT {key}")

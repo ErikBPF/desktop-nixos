@@ -15,7 +15,10 @@ leases, and how new heads dispatch workers.
 2. The collector lists open PRs, skips what the repository's filters exclude
    (ignored author, label, or title) and, when `reviewDrafts` is false, draft
    PRs, then writes one immutable bundle per new `(repo, pr, head)` under
-   `review-in/` and queues a ledger row. Bundles are created under `umask 022`
+   `review-in/` and queues a ledger row. A filtered head gets a `neutral`
+   `hackerman-cr/evaluation` check so the required check still passes; an
+   existing run for that head is never overwritten. Drafts get no check until
+   they are reviewed, because a draft is not mergeable. Bundles are created under `umask 022`
    and hardened again before the rename, so the reviewing agent cannot rewrite
    its own diff or evidence.
    A new head whose diff hash equals the newest published head of the same PR
@@ -151,7 +154,8 @@ and no comment trigger.
 - An on-demand request clears the head's publication marker before the
   collector runs, so the recipe cannot report the previous verdict.
 - An ignored head is never bundled. An existing `queued` or `published` row is
-  not revoked by a later filter match.
+  not revoked by a later filter match. The neutral skip check is posted once;
+  a check-run API error is reported and retried on the next collect.
 - An invalid `ignoreTitle` pattern is reported on stderr and ignored, so a
   typo cannot silently stop reviews.
 - Collector errors are per repository and do not stop the other repositories.

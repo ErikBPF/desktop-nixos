@@ -489,6 +489,29 @@ with tempfile.TemporaryDirectory() as tmp:
         is None
     ), "an invalid pattern must fail open"
 
+    # A filtered head must still satisfy the required check, and must never
+    # overwrite a real verdict for the same head.
+    assert collect.CHECK_NAME == pub.CHECK_NAME
+    posted = []
+    collect.gh_json = lambda args, token: {"check_runs": []}
+    collect.gh_api = lambda method, endpoint, token, payload: posted.append(
+        (method, endpoint, payload)
+    ) or {}
+    assert collect.publish_skip_check(
+        "ErikBPF/aster", "e" * 40, "label skip-review", "token"
+    )
+    assert posted[-1][2]["conclusion"] == "neutral"
+    assert posted[-1][2]["head_sha"] == "e" * 40
+    assert "skip-review" in posted[-1][2]["output"]["title"]
+    posted.clear()
+    collect.gh_json = lambda args, token: {
+        "check_runs": [{"name": collect.CHECK_NAME}]
+    }
+    assert not collect.publish_skip_check(
+        "ErikBPF/aster", "e" * 40, "label skip-review", "token"
+    )
+    assert not posted
+
     # Reused verdicts keep the findings and record why no model ran.
     reused = collect.reuse_review(review(), "d" * 40, "b" * 40)
     assert reused["head"] == "d" * 40 and reused["base"] == "b" * 40
