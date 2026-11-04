@@ -51,7 +51,8 @@ _: {
         export PYTHONPATH=${../../../scripts/pr-review}
         exec ${python}/bin/python3 ${../../../scripts/pr-review/request.py} \
           --ledger ${lib.escapeShellArg "${ledgerDir}/ledger.db"} \
-          --data-dir ${lib.escapeShellArg cfg.dataDir} "$@"
+          --data-dir ${lib.escapeShellArg cfg.dataDir} \
+          --state-dir /var/lib/hermes-pr-review "$@"
       '';
     };
     bootstrap = pkgs.writeShellApplication {

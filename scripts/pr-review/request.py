@@ -30,6 +30,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ledger", required=True)
     parser.add_argument("--data-dir", required=True)
+    parser.add_argument("--state-dir", default="/var/lib/hermes-pr-review")
     parser.add_argument("--repo", required=True)
     parser.add_argument("--pr", type=int, required=True)
     parser.add_argument("--head", default="")
@@ -58,6 +59,11 @@ def main() -> int:
             (data_dir / "review-out" / f"{row['bundle']}{suffix}").unlink(
                 missing_ok=True
             )
+        # The publication marker is keyed by head and outlives a publish. Clear
+        # it so a waiter cannot mistake the old verdict for this request.
+        (Path(args.state_dir) / "published" / f"{row['head']}.json").unlink(
+            missing_ok=True
+        )
         ledger.requeue(db, row["repo"], row["pr"], row["head"])
         print(
             f"REQUEUED {row['repo']}#{row['pr']} {row['head']} "

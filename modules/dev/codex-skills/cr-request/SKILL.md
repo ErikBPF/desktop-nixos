@@ -43,8 +43,9 @@ credential.
 
 - Automatic review already covers every new head. Use this only for a head with
   no review, or when you want a fresh verdict at the same commit.
-- A published head is requeued on purpose: the next review runs the model again
-  and updates the existing bot comment in place.
+- A published head is requeued on purpose: its old publication marker is
+  cleared, the next review runs the model again, and it updates the existing bot
+  comment in place. The printed URL is this run's result.
 - Do not run the ledger or publish scripts directly. `hermes-pr-review-request`
   is the supported entry point and keeps the ledger root-owned.
 - Never paste a token. The command needs none.

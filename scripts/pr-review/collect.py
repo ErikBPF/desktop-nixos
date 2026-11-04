@@ -164,17 +164,32 @@ def reuse_review(previous: dict, head: str, base: str) -> dict:
     """Copy a published verdict onto an identical diff at a new head."""
     review = json.loads(json.dumps(previous))
     old_head = str(review.get("head") or "")[:7]
+    old_base = str(review.get("base") or "")[:7]
     review["head"] = head
     review["base"] = base
     review["limits"] = [
         item
         for item in review.get("limits") or []
-        if "Diff is identical to" not in str(item)
+        if "identical to" not in str(item)
     ] + [
-        f"Diff is identical to {old_head}. The previous verdict was reused "
-        "without a new model run."
+        f"Diff and repository guidance are identical to {old_head} "
+        f"(base {old_base}). The previous verdict was reused without a new "
+        "model run."
     ]
     return review
+
+
+def guidance_snapshot(root: Path) -> dict[str, bytes]:
+    """Base-pinned contributor guidance, compared byte for byte before reuse."""
+    snapshot: dict[str, bytes] = {}
+    for directory in ("docs", "skills"):
+        source = root / directory
+        if not source.exists():
+            continue
+        for path in sorted(source.rglob("*")):
+            if path.is_file():
+                snapshot[str(path.relative_to(root))] = path.read_bytes()
+    return snapshot
 
 
 def prune_repo_bundles(
@@ -430,6 +445,7 @@ def reuse_bundle(
     bid: str,
     digest: str,
     previous,
+    token: str,
 ) -> Path | None:
     """Publish a copied verdict for an identical diff instead of reviewing again.
 
@@ -462,6 +478,22 @@ def reuse_bundle(
         shutil.copytree(source, tmp)
         for stale in (".ready", ".posted"):
             (tmp / stale).unlink(missing_ok=True)
+        # The previous bundle's guidance was fetched at the old base. Reuse is
+        # only honest when that guidance still matches the new base; a changed
+        # rule can change the verdict, so fall back to a real review.
+        before = guidance_snapshot(tmp)
+        for directory in ("docs", "skills"):
+            shutil.rmtree(tmp / directory, ignore_errors=True)
+        fetch_skills(repo, base, tmp / "skills", token)
+        fetch_docs(repo, base, tmp / "docs", token)
+        if guidance_snapshot(tmp) != before:
+            print(
+                f"REFRESH {repo}#{number}: guidance changed at {base[:7]}; "
+                "reviewing instead of reusing",
+                file=sys.stderr,
+            )
+            shutil.rmtree(tmp, ignore_errors=True)
+            return None
         (tmp / "meta.json").write_text(
             json.dumps(
                 {
@@ -474,6 +506,24 @@ def reuse_bundle(
                 indent=2,
             )
             + "\n"
+        )
+        (tmp / "request.md").write_text(
+            "\n".join(
+                [
+                    "# Review request",
+                    "",
+                    f"Bundle: `{bid}`",
+                    f"Repository: `{repo}`",
+                    f"PR: `{number}`",
+                    f"Base: `{base}`",
+                    f"Head: `{head}`",
+                    "",
+                    f"Verdict reused from `{previous['head']}`: diff and "
+                    "base-pinned guidance are identical.",
+                    "No model run. Do not modify the PR or the bundle.",
+                    "",
+                ]
+            )
         )
         (tmp / ".reuse").write_text(now() + "\n")
         harden_bundle(tmp)
@@ -533,7 +583,7 @@ def build_bundle(
     previous = ledger.last_published(db, repo, number) if fresh_head else None
     if previous is not None and previous["diff_hash"] == digest:
         reused = reuse_bundle(
-            args, db, repo, number, head, base, bid, digest, previous
+            args, db, repo, number, head, base, bid, digest, previous, token
         )
         if reused is not None:
             return reused

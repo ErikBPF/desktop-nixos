@@ -20,10 +20,12 @@ leases, and how new heads dispatch workers.
    its own diff or evidence.
    A new head whose diff hash equals the newest published head of the same PR
    reuses that verdict: the collector copies the published bundle and packet,
-   updates the head, and queues a `reusing` row. The publisher still posts the
-   comment and the required check for the new head, but no worker runs the
-   model. Only the diff is compared; the base SHA may differ. The copied bundle
-   keeps `docs/` and `skills/` so strict evidence checks behave as before.
+   refetches `docs/` and `skills/` at the new base, updates the head, and
+   queues a `reusing` row. The publisher still posts the comment and the
+   required check for the new head, but no worker runs the model. Reuse
+   requires both the diff and the base-pinned guidance to match byte for byte;
+   a rebase that changed contributor guidance or review skills goes through a
+   real review instead.
 3. If any row is claimable, the collector's `ExecStartPost` runs
    `hermes-pr-review-dispatch`.
 4. Dispatch starts up to `parallelism` transient `systemd-run` units, one per
@@ -121,10 +123,12 @@ just pr-review-request ErikBPF/aster 42
 ```
 
 That recipe runs `hermes-pr-review-request` on `discovery`, which requeues a
-published, stale, or failed head and starts the collector. It then waits for
-the root-only publication marker and prints the review URL. This is the local
-replacement for a GitHub comment command; the bot has no inbound webhook and no
-comment trigger.
+published, stale, or failed head, clears that head's old publication marker,
+and starts the collector. It then waits for the marker to reappear and prints
+the review URL. Clearing the marker matters: it is keyed by head, so a waiter
+would otherwise read the previous verdict as this request's result. This is the
+local replacement for a GitHub comment command; the bot has no inbound webhook
+and no comment trigger.
 
 ## Failure handling
 
@@ -141,7 +145,11 @@ comment trigger.
 - A `published` row without a matching root-only marker (forged or lost state)
   is requeued and reviewed again.
 - A `reusing` row whose copied packet is missing is requeued and reviewed for
-  real; its minimal bundle is discarded first.
+  real; its bundle is discarded first.
+- A reuse candidate whose guidance at the new base differs from the copied
+  bundle is reviewed for real, not published with the old verdict.
+- An on-demand request clears the head's publication marker before the
+  collector runs, so the recipe cannot report the previous verdict.
 - An ignored head is never bundled. An existing `queued` or `published` row is
   not revoked by a later filter match.
 - An invalid `ignoreTitle` pattern is reported on stderr and ignored, so a

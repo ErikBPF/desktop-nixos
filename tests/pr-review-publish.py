@@ -562,6 +562,19 @@ with tempfile.TemporaryDirectory() as tmp:
     (data / "review-done" / "old-packet.json").write_text(json.dumps(review()))
     reuse_db = ledger.connect(tmp / "reuse-write.db")
     previous = {"bundle": "old-packet", "head": "a" * 40}
+
+    # Guidance is refetched at the new base and compared, so the test stands in
+    # for the GitHub calls.
+    original_docs, original_skills = collect.fetch_docs, collect.fetch_skills
+
+    def same_docs(repo, base, dest, token):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "AGENTS.md").write_text("quote from repo guidance\n")
+        return 1
+
+    collect.fetch_docs = same_docs
+    collect.fetch_skills = lambda repo, base, dest, token: 0
+
     result = collect.reuse_bundle(
         args,
         reuse_db,
@@ -572,6 +585,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "new-bundle",
         "i" * 64,
         previous,
+        "token",
     )
     assert result == data / "review-in" / "new-bundle"
     assert (result / ".reuse").exists()
@@ -584,14 +598,45 @@ with tempfile.TemporaryDirectory() as tmp:
     assert packet["head"] == "f" * 40 and packet["base"] == "b" * 40
     row = ledger.get(reuse_db, "ErikBPF/aster", 1, "f" * 40)
     assert row["state"] == "reusing" and row["diff_hash"] == "i" * 64
+    assert "reused from" in (result / "request.md").read_text()
+
+    # Guidance changed at the new base: the old verdict is not safe to reuse.
+    def changed_docs(repo, base, dest, token):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "AGENTS.md").write_text("changed rule\n")
+        return 1
+
+    collect.fetch_docs = changed_docs
+    assert (
+        collect.reuse_bundle(
+            args,
+            reuse_db,
+            "ErikBPF/aster",
+            1,
+            "d" * 40,
+            "c" * 40,
+            "changed-bundle",
+            "l" * 64,
+            previous,
+            "token",
+        )
+        is None
+    )
+    assert not (data / "review-in" / "changed-bundle").exists()
+    assert not (data / "review-out" / "changed-bundle.json").exists()
+    collect.fetch_docs, collect.fetch_skills = original_docs, original_skills
     reuse_db.close()
 
     # On-demand request: a published head is requeued and its old payload is
     # discarded; an in-flight head is left alone.
     req_data = tmp / "request-data"
+    req_state = tmp / "request-state"
     (req_data / "review-in" / "bundle").mkdir(parents=True)
     (req_data / "review-out").mkdir(parents=True)
     (req_data / "review-out" / "bundle.json").write_text("{}\n")
+    (req_state / "published").mkdir(parents=True)
+    marker_path = req_state / "published" / f"{'a' * 40}.json"
+    marker_path.write_text(json.dumps({"head": "a" * 40}))
     req_db_path = tmp / "request.db"
     req_db = ledger.connect(req_db_path)
     ledger.record(req_db, "ErikBPF/aster", 40, "a" * 40, "b" * 40, "bundle")
@@ -607,6 +652,8 @@ with tempfile.TemporaryDirectory() as tmp:
                 str(req_db_path),
                 "--data-dir",
                 str(req_data),
+                "--state-dir",
+                str(req_state),
                 "--repo",
                 "ErikBPF/aster",
                 "--pr",
@@ -621,6 +668,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert request("--head", "a" * 40).startswith("REQUEUED")
     assert not (req_data / "review-in" / "bundle").exists()
     assert not (req_data / "review-out" / "bundle.json").exists()
+    assert not marker_path.exists(), "a stale marker would satisfy the wait loop"
     req_db = ledger.connect(req_db_path)
     assert ledger.get(req_db, "ErikBPF/aster", 40, "a" * 40)["state"] == "queued"
     req_db.close()
