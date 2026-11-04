@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -49,16 +50,24 @@ def main() -> int:
                 "live head on its next run"
             )
             return 0
+        if not ledger.valid_bundle(row):
+            # The ledger is agent-writable; never turn its strings into root
+            # paths or marker names.
+            print(
+                f"INVALID {args.repo}#{args.pr}: ledger bundle does not match "
+                "repo, PR and head",
+                file=sys.stderr,
+            )
+            return 2
         if row["state"] in ACTIVE:
             print(f"ALREADY {row['state']} {row['head']}")
             return 0
 
         data_dir = Path(args.data_dir)
-        shutil.rmtree(data_dir / "review-in" / row["bundle"], ignore_errors=True)
+        bid = ledger.bundle_id(row["repo"], row["pr"], row["head"])
+        shutil.rmtree(data_dir / "review-in" / bid, ignore_errors=True)
         for suffix in (".json", ".json.tmp"):
-            (data_dir / "review-out" / f"{row['bundle']}{suffix}").unlink(
-                missing_ok=True
-            )
+            (data_dir / "review-out" / f"{bid}{suffix}").unlink(missing_ok=True)
         # The publication marker is keyed by head and outlives a publish. Clear
         # it so a waiter cannot mistake the old verdict for this request.
         (Path(args.state_dir) / "published" / f"{row['head']}.json").unlink(

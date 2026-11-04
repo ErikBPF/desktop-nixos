@@ -141,8 +141,7 @@ def fetch_docs(repo: str, base: str, dest: Path, token: str) -> int:
 
 
 def bundle_id(repo: str, pr: int, head: str) -> str:
-    owner, name = repo.split("/", 1)
-    return f"{owner}__{name}__{pr}__{head[:12]}"
+    return ledger.bundle_id(repo, pr, head)
 
 
 def ignore_reason(entry: dict, pr: dict) -> str | None:
@@ -274,7 +273,7 @@ def prune_repo_bundles(
             continue
         current = heads.get(number)
         row = ledger.get_bundle(db, bundle.name)
-        if row is not None and row["repo"] != repo:
+        if row is not None and (row["repo"] != repo or not ledger.valid_bundle(row)):
             row = None
         if row is not None:
             current = heads.get(row["pr"])
@@ -511,10 +510,17 @@ def reuse_bundle(
     claimable. The packet is renamed into place last: a half-written reuse is
     discarded by the collector and reviewed for real.
     """
+    if not ledger.valid_bundle(previous):
+        print(
+            f"WARN {repo}#{number}: refused invalid ledger bundle for reuse",
+            file=sys.stderr,
+        )
+        return None
+    previous_bid = ledger.bundle_id(repo, number, str(previous["head"]))
     data_dir = Path(args.data_dir)
     target = data_dir / "review-in" / bid
-    source = data_dir / "review-done" / str(previous["bundle"])
-    packet = data_dir / "review-done" / f"{previous['bundle']}.json"
+    source = data_dir / "review-done" / previous_bid
+    packet = data_dir / "review-done" / f"{previous_bid}.json"
     if not source.is_dir():
         return None
     try:
@@ -829,15 +835,31 @@ def main() -> int:
             if row is not None:
                 if row["state"] == "reusing":
                     # The publisher has only the copied packet; without it,
-                    # fall back to a real review at this head.
+                    # fall back to a real review at this head. The ledger is
+                    # agent-writable, so never trust its strings as paths.
+                    if not ledger.valid_bundle(row):
+                        print(
+                            f"ERROR {key}: invalid ledger bundle; not touching paths",
+                            file=sys.stderr,
+                        )
+                        ledger.finish(
+                            db,
+                            repo,
+                            pr["number"],
+                            head,
+                            "failed",
+                            "invalid bundle name",
+                        )
+                        continue
+                    bid = ledger.bundle_id(repo, pr["number"], head)
                     out_dir = Path(args.data_dir) / "review-out"
-                    if (out_dir / f"{row['bundle']}.json").exists():
+                    if (out_dir / f"{bid}.json").exists():
                         continue
                     shutil.rmtree(
-                        Path(args.data_dir) / "review-in" / row["bundle"],
+                        Path(args.data_dir) / "review-in" / bid,
                         ignore_errors=True,
                     )
-                    (out_dir / f"{row['bundle']}.json.tmp").unlink(missing_ok=True)
+                    (out_dir / f"{bid}.json.tmp").unlink(missing_ok=True)
                     ledger.requeue(db, repo, pr["number"], head)
                     row = ledger.get(db, repo, pr["number"], head)
                 if row["state"] == "published":

@@ -82,6 +82,13 @@ into the agent container, so a forged ledger state alone cannot silence the
 gate. The publisher also rejects a packet whose bundle name does not match the
 packet's repo, PR and head.
 
+The ledger database is writable by the reviewing agent, so its strings are
+never used as paths. A row's bundle is accepted only when it equals
+`<owner>__<name>__<pr>__<head[:12]>` and the head is hexadecimal; otherwise the
+claim loop, the collector's reuse recovery, and `hermes-pr-review-request` mark
+the row failed and touch nothing. The same check gates the `review-done/` copy
+that reuse reads from.
+
 `claim.py` leases atomically with `BEGIN IMMEDIATE`. Before reviewing, it marks
 the claimed head `stale` when a newer head for the same PR is queued, leased, or
 published, so a fast push does not spend a worker on an obsolete commit. An

@@ -12,11 +12,13 @@ the row is failed instead of retried forever.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import time
 from pathlib import Path
 
 STATES = ("queued", "leased", "published", "stale", "failed", "reusing")
+HEAD_RE = re.compile(r"\A[0-9a-f]{7,64}\Z")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS reviews (
@@ -89,6 +91,34 @@ def get(
         "SELECT * FROM reviews WHERE repo = ? AND pr = ? AND head = ?",
         (repo, pr, head),
     ).fetchone()
+
+
+def bundle_id(repo: str, pr: int, head: str) -> str:
+    owner, name = repo.split("/", 1)
+    return f"{owner}__{name}__{pr}__{head[:12]}"
+
+
+def valid_bundle(row) -> bool:
+    """True when a ledger row's bundle and head are safe to turn into a path.
+
+    The ledger is writable by the reviewing agent, and the collector and
+    request tool delete paths as root. A row may therefore name a bundle only
+    when it is exactly the name this repo, PR and head produce.
+    """
+    try:
+        head = str(row["head"] or "")
+        repo = str(row["repo"] or "")
+        pr = int(row["pr"])
+        bundle = str(row["bundle"] or "")
+    except (KeyError, IndexError, TypeError, ValueError):
+        return False
+    if not HEAD_RE.fullmatch(head):
+        return False
+    try:
+        expected = bundle_id(repo, pr, head)
+    except ValueError:
+        return False
+    return bundle == expected
 
 
 def get_bundle(db: sqlite3.Connection, bundle: str) -> sqlite3.Row | None:
