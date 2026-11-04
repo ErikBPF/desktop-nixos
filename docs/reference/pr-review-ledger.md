@@ -1,6 +1,8 @@
 # PR review ledger and dispatch
 
-**Status:** Implemented and live on `discovery` (2026-10-30).
+**Status:** Implemented and live on `discovery` (2026-10-30). Trigger filters,
+draft policy, unchanged-diff reuse, and the local request tool are in source and
+await deployment.
 
 Hackerman reviews Erik's pull requests from host-collected bundles. The host
 collector owns GitHub credentials; the agent only reads a bundle and writes
@@ -10,10 +12,23 @@ leases, and how new heads dispatch workers.
 ## Flow
 
 1. `hermes-pr-review-collect.timer` runs every 2 minutes.
-2. The collector lists open PRs, writes one immutable bundle per new
-   `(repo, pr, head)` under `review-in/`, and queues a ledger row. Bundles are
-   created under `umask 022` and hardened again before the rename, so the
-   reviewing agent cannot rewrite its own diff or evidence.
+2. The collector lists open PRs, skips what the repository's filters exclude
+   (ignored author, label, or title) and, when `reviewDrafts` is false, draft
+   PRs, then writes one immutable bundle per new `(repo, pr, head)` under
+   `review-in/` and queues a ledger row. A filtered head gets a `neutral`
+   `hackerman-cr/evaluation` check so the required check still passes; an
+   existing run for that head is never overwritten. Drafts get no check until
+   they are reviewed, because a draft is not mergeable. Bundles are created under `umask 022`
+   and hardened again before the rename, so the reviewing agent cannot rewrite
+   its own diff or evidence.
+   A new head whose diff hash equals the newest published head of the same PR
+   reuses that verdict: the collector copies the published bundle and packet,
+   refetches `docs/` and `skills/` at the new base, updates the head, and
+   queues a `reusing` row. The publisher still posts the comment and the
+   required check for the new head, but no worker runs the model. Reuse
+   requires both the diff and the base-pinned guidance to match byte for byte;
+   a rebase that changed contributor guidance or review skills goes through a
+   real review instead.
 3. If any row is claimable, the collector's `ExecStartPost` runs
    `hermes-pr-review-dispatch`.
 4. Dispatch starts up to `parallelism` transient `systemd-run` units, one per
@@ -49,7 +64,8 @@ States:
 |---|---|
 | `queued` | Not leased. Claimable. |
 | `leased` | A worker owns the head until `lease_expires`. |
-| `published` | Comment, review, and check were posted. Never re-reviewed. |
+| `published` | Comment, review, and check were posted. Never re-reviewed on its own. |
+| `reusing` | Copied verdict awaiting publish; never claimable by a worker. |
 | `stale` | Superseded head, closed PR, or a bundle that no longer exists. |
 | `failed` | Invalid packet or lease expired after `max_attempts`. |
 
@@ -65,6 +81,13 @@ the row. The directory is mode `0700` and each marker `0600`; it is not mounted
 into the agent container, so a forged ledger state alone cannot silence the
 gate. The publisher also rejects a packet whose bundle name does not match the
 packet's repo, PR and head.
+
+The ledger database is writable by the reviewing agent, so its strings are
+never used as paths. A row's bundle is accepted only when it equals
+`<owner>__<name>__<pr>__<head[:12]>` and the head is hexadecimal; otherwise the
+claim loop, the collector's reuse recovery, and `hermes-pr-review-request` mark
+the row failed and touch nothing. The same check gates the `review-done/` copy
+that reuse reads from.
 
 `claim.py` leases atomically with `BEGIN IMMEDIATE`. Before reviewing, it marks
 the claimed head `stale` when a newer head for the same PR is queued, leased, or
@@ -102,6 +125,21 @@ Publish promptly without waiting for the timer:
 sudo systemctl start hermes-pr-review-publish.service
 ```
 
+Request a fresh review of one head from the workstation (`gh` auth reads the
+live head; no bot credential is involved):
+
+```bash
+just pr-review-request ErikBPF/aster 42
+```
+
+That recipe runs `hermes-pr-review-request` on `discovery`, which requeues a
+published, stale, or failed head, clears that head's old publication marker,
+and starts the collector. It then waits for the marker to reappear and prints
+the review URL. Clearing the marker matters: it is keyed by head, so a waiter
+would otherwise read the previous verdict as this request's result. This is the
+local replacement for a GitHub comment command; the bot has no inbound webhook
+and no comment trigger.
+
 ## Failure handling
 
 - Missing bundle: the claim loop marks the row `stale` and tries the next row;
@@ -116,6 +154,17 @@ sudo systemctl start hermes-pr-review-publish.service
   leased head `stale`, so merged heads are not retried.
 - A `published` row without a matching root-only marker (forged or lost state)
   is requeued and reviewed again.
+- A `reusing` row whose copied packet is missing is requeued and reviewed for
+  real; its bundle is discarded first.
+- A reuse candidate whose guidance at the new base differs from the copied
+  bundle is reviewed for real, not published with the old verdict.
+- An on-demand request clears the head's publication marker before the
+  collector runs, so the recipe cannot report the previous verdict.
+- An ignored head is never bundled. An existing `queued` or `published` row is
+  not revoked by a later filter match. The neutral skip check is posted once;
+  a check-run API error is reported and retried on the next collect.
+- An invalid `ignoreTitle` pattern is reported on stderr and ignored, so a
+  typo cannot silently stop reviews.
 - Collector errors are per repository and do not stop the other repositories.
 
 ## Migration and rollback

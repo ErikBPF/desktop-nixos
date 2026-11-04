@@ -2,6 +2,26 @@
 validate-hermes-orion:
     nix build --no-link -L .#checks.x86_64-linux.hermes-plugin-selftests .#checks.x86_64-linux.hermes-plugin-native .#checks.x86_64-linux.hermes-state-backup --builders '{{orion_builder}}' --builders-use-substitutes --max-jobs 0
 
+# Local replacement for a GitHub comment command. Requeues a published head,
+# runs the collector, waits for the published marker, prints the review URL.
+# Request and wait for a review of one open PR head; needs local `gh` auth.
+pr-review-request repo pr:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    head="$(gh pr view "{{pr}}" --repo "{{repo}}" --json headRefOid --jq .headRefOid)"
+    ssh -p 2222 erik@"$IP" "sudo hermes-pr-review-request --repo '{{repo}}' --pr {{pr}} --head $head"
+    ssh -p 2222 erik@"$IP" 'sudo systemctl start hermes-pr-review-collect.service'
+    for _ in $(seq 1 80); do
+        if marker="$(ssh -p 2222 erik@"$IP" "sudo test -s /var/lib/hermes-pr-review/published/$head.json && sudo cat /var/lib/hermes-pr-review/published/$head.json" 2>/dev/null)"; then
+            printf 'published %s\n' "$(printf '%s' "$marker" | jq -r '.url // "no-url"')"
+            exit 0
+        fi
+        sleep 15
+    done
+    echo "still pending after 20 minutes; inspect the ledger on discovery" >&2
+    exit 1
+
 # Read-only post-deploy proof for the Nix-owned Hermes service. Prints only a
 # credential fingerprint, never the credential itself.
 verify-hermes-cutoff target="discovery":

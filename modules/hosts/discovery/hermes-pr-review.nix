@@ -44,6 +44,17 @@ _: {
         exec ${python}/bin/python3 ${../../../scripts/pr-review/publish.py} "$@"
       '';
     };
+    request = pkgs.writeShellApplication {
+      name = "hermes-pr-review-request";
+      runtimeInputs = [python pkgs.coreutils];
+      text = ''
+        export PYTHONPATH=${../../../scripts/pr-review}
+        exec ${python}/bin/python3 ${../../../scripts/pr-review/request.py} \
+          --ledger ${lib.escapeShellArg "${ledgerDir}/ledger.db"} \
+          --data-dir ${lib.escapeShellArg cfg.dataDir} \
+          --state-dir /var/lib/hermes-pr-review "$@"
+      '';
+    };
     bootstrap = pkgs.writeShellApplication {
       name = "hermes-pr-review-bootstrap";
       runtimeInputs = [pkgs.docker pkgs.coreutils pkgs.gnugrep pkgs.gawk pkgs.bash];
@@ -96,10 +107,14 @@ _: {
       '';
     };
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
+      review_drafts = cfg.reviewDrafts;
       repos =
         map (entry: {
           inherit (entry) repo credential;
           bot_login = entry.botLogin;
+          ignore_authors = entry.ignoreAuthors;
+          ignore_labels = entry.ignoreLabels;
+          ignore_title = entry.ignoreTitle;
         })
         cfg.repos;
     });
@@ -124,9 +139,30 @@ _: {
               default = "hackerman-cr[bot]";
               description = "Login that owns the bot comment. App installations use '<slug>[bot]'.";
             };
+            ignoreAuthors = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [];
+              description = "PR authors to skip, case-insensitive (for example dependabot[bot]).";
+            };
+            ignoreLabels = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [];
+              description = "PR labels to skip, case-insensitive.";
+            };
+            ignoreTitle = lib.mkOption {
+              type = lib.types.str;
+              default = "";
+              description = "Python regular expression; PR titles that match are skipped. An invalid pattern is reported and ignored.";
+            };
           };
         });
         default = [];
+      };
+
+      reviewDrafts = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Review draft PRs. When false, a draft is skipped and reviewed after it leaves draft, even at the same head.";
       };
 
       appCredentialFile = lib.mkOption {
@@ -198,6 +234,9 @@ _: {
           message = "services.hermes-pr-review.repos must not be empty";
         }
       ];
+
+      # On-demand review request; run with sudo so the ledger stays root-owned.
+      environment.systemPackages = [request];
 
       systemd.services.hermes-pr-review-bootstrap = {
         description = "Install the Hermes PR review cron job";

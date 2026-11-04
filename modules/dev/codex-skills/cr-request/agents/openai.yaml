@@ -1,0 +1,4 @@
+interface:
+  display_name: "Request Hackerman Review"
+  short_description: "Request a hackerman-cr review now"
+  default_prompt: "Use $cr-request to request a fresh hackerman-cr review of this pull request."
