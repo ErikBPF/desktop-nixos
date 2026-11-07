@@ -131,15 +131,28 @@
       "git branch -D*"
       "git branch -f*"
       "git branch -m*"
-      # Patch and blob forms of the otherwise stat-only git reads.
-      "git diff *-p*"
-      "git diff *--patch*"
-      "git diff *-U*"
-      "git diff *--unified*"
-      "git log *-p*"
-      "git log *--patch*"
-      "git log *-U*"
-      "git log *--unified*"
+      # Patch and blob forms of the otherwise stat-only git reads. Each flag is
+      # anchored to an argument boundary (a leading space or first argument): an
+      # unanchored `*-p*` also matches `--pretty` and `--src-prefix`, which
+      # turned every ordinary `git log` into a deny. Quoted flags and plain
+      # `git diff` still reach patch output under auto-accept; this list is
+      # defense in depth, not a content boundary.
+      "git diff * -p*"
+      "git diff -p*"
+      "git diff * --patch*"
+      "git diff --patch*"
+      "git diff * -U*"
+      "git diff -U*"
+      "git diff * --unified*"
+      "git diff --unified*"
+      "git log * -p*"
+      "git log -p*"
+      "git log * --patch*"
+      "git log --patch*"
+      "git log * -U*"
+      "git log -U*"
+      "git log * --unified*"
+      "git log --unified*"
       "git show *:*"
       # Execution vectors a prefix glob would otherwise admit.
       "rg *--pre*"
