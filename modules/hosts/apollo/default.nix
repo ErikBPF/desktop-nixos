@@ -112,7 +112,8 @@ in {
       -A apollo-qwen-litellm -i lo -j ACCEPT
       -A apollo-qwen-litellm -s ${config.flake.fleet.hosts.discovery.tailscaleIp}/32 -i tailscale0 -p tcp -m multiport --dports 11542,11560 -j ACCEPT
       -A apollo-qwen-litellm -j REJECT --reject-with icmp-port-unreachable' ]]
-      [[ $(findmnt -n -o SOURCE /mnt/data) == /dev/sdc1 ]]
+      # Device names reorder across boots; check the data filesystem UUID.
+      [[ $(findmnt -n -o UUID /mnt/data) == f87b86ad-82ab-4187-bc84-66ea618e0c3a ]]
       gpu_uuids=$(nvidia-smi --query-gpu=uuid --format=csv,noheader)
       [[ $gpu_uuids == *GPU-af808452-3544-e84a-b33a-fc5588ede436* ]]
       [[ $gpu_uuids == *GPU-818843e6-ce30-5d98-a4b4-8d8580aaa049* ]]
