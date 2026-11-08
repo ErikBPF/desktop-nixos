@@ -7,6 +7,7 @@ Synthetic only. No GitHub calls, tokens, or host state.
 import importlib.util
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts/pr-review"
 PUBLISH = SCRIPTS / "publish.py"
 GATE = SCRIPTS / "apply-gate.py"
+REQUEST = SCRIPTS / "request.py"
 sys.path.insert(0, str(SCRIPTS))
 
 import ledger
@@ -136,51 +138,63 @@ with tempfile.TemporaryDirectory() as tmp:
         )
         return result.stdout.strip().splitlines()[0]
 
-    older = review_in / "older"
-    newer = review_in / "newer"
+    older = review_in / ledger.bundle_id("ErikBPF/aster", 10, "a" * 40)
+    newer = review_in / ledger.bundle_id("ErikBPF/aster", 10, "b" * 40)
     for bundle, mtime in ((older, 1_000_000), (newer, 2_000_000)):
         bundle.mkdir()
         (bundle / ".ready").write_text("now\n")
         os.utime(bundle, (mtime, mtime))
-    ledger.record(db, "ErikBPF/aster", 1, "a" * 40, "", "older")
-    ledger.record(db, "ErikBPF/aster", 1, "b" * 40, "", "newer")
+    ledger.record(db, "ErikBPF/aster", 10, "a" * 40, "", older.name)
+    ledger.record(db, "ErikBPF/aster", 10, "b" * 40, "", newer.name)
 
-    assert claim() == "CLAIM newer", "a newer head supersedes the older one"
+    assert claim() == f"CLAIM {newer.name}", "a newer head supersedes the older one"
     assert claim() == "NO_CLAIM", "each worker gets a distinct head"
 
-    db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'newer'")
-    assert claim("--claim-ttl", "1") == "CLAIM newer", "expired lease is reclaimable"
+    db.execute(
+        "UPDATE reviews SET lease_expires = 0 WHERE bundle = ?", (newer.name,)
+    )
+    assert (
+        claim("--claim-ttl", "1") == f"CLAIM {newer.name}"
+    ), "expired lease is reclaimable"
 
     # A head is never reviewed twice after it published.
-    ledger.finish(db, "ErikBPF/aster", 1, "a" * 40, "published")
-    ledger.finish(db, "ErikBPF/aster", 1, "b" * 40, "published")
+    ledger.finish(db, "ErikBPF/aster", 10, "a" * 40, "published")
+    ledger.finish(db, "ErikBPF/aster", 10, "b" * 40, "published")
     assert claim() == "NO_CLAIM"
 
     # Repeated expired leases stop after max attempts instead of retrying forever.
-    capped = review_in / "capped"
+    capped = review_in / ledger.bundle_id("ErikBPF/aster", 12, "c" * 40)
     capped.mkdir()
     (capped / ".ready").write_text("now\n")
-    ledger.record(db, "ErikBPF/aster", 2, "c" * 40, "", "capped")
-    assert claim("--claim-ttl", "1") == "CLAIM capped"
+    ledger.record(db, "ErikBPF/aster", 12, "c" * 40, "", capped.name)
+    assert claim("--claim-ttl", "1") == f"CLAIM {capped.name}"
     for _ in range(2):
-        db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'capped'")
-        assert claim("--claim-ttl", "1") == "CLAIM capped"
-    db.execute("UPDATE reviews SET lease_expires = 0 WHERE bundle = 'capped'")
+        db.execute(
+            "UPDATE reviews SET lease_expires = 0 WHERE bundle = ?", (capped.name,)
+        )
+        assert claim("--claim-ttl", "1") == f"CLAIM {capped.name}"
+    db.execute(
+        "UPDATE reviews SET lease_expires = 0 WHERE bundle = ?", (capped.name,)
+    )
     assert claim("--claim-ttl", "1") == "NO_CLAIM"
-    row = db.execute("SELECT state FROM reviews WHERE bundle = 'capped'").fetchone()
+    row = db.execute(
+        "SELECT state FROM reviews WHERE bundle = ?", (capped.name,)
+    ).fetchone()
     assert row["state"] == "failed"
 
     # A retry resets the attempt budget; without that the 45-minute requeue
     # oscillates failed -> queued -> failed and never reviews the head.
-    ledger.requeue(db, "ErikBPF/aster", 2, "c" * 40)
-    row = ledger.get(db, "ErikBPF/aster", 2, "c" * 40)
+    ledger.requeue(db, "ErikBPF/aster", 12, "c" * 40)
+    row = ledger.get(db, "ErikBPF/aster", 12, "c" * 40)
     assert row["state"] == "queued" and row["attempts"] == 0
-    assert claim() == "CLAIM capped", "a requeued head must be claimable again"
+    assert (
+        claim() == f"CLAIM {capped.name}"
+    ), "a requeued head must be claimable again"
 
     # Published is terminal: a late duplicate packet cannot downgrade it.
-    ledger.finish(db, "ErikBPF/aster", 2, "c" * 40, "published")
-    ledger.finish(db, "ErikBPF/aster", 2, "c" * 40, "failed", "late packet")
-    row = ledger.get(db, "ErikBPF/aster", 2, "c" * 40)
+    ledger.finish(db, "ErikBPF/aster", 12, "c" * 40, "published")
+    ledger.finish(db, "ErikBPF/aster", 12, "c" * 40, "failed", "late packet")
+    row = ledger.get(db, "ErikBPF/aster", 12, "c" * 40)
     assert row["state"] == "published"
 
     # A stale head that is still open at the same commit can be revived.
@@ -215,10 +229,12 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # Superseded and closed-PR bundles are pruned; a live lease is preserved.
     collect = load(SCRIPTS / "collect.py", "pr_review_collect")
-    keep = review_in / "ErikBPF__aster__1__aaaaaaaaaaaa"
-    superseded = review_in / "ErikBPF__aster__1__eeeeeeeeeeee"
-    closed = review_in / "ErikBPF__aster__2__cccccccccccc"
-    busy = review_in / "ErikBPF__aster__1__dddddddddddd"
+    prune_in = tmp / "prune-in"
+    prune_in.mkdir()
+    keep = prune_in / "ErikBPF__aster__1__aaaaaaaaaaaa"
+    superseded = prune_in / "ErikBPF__aster__1__eeeeeeeeeeee"
+    closed = prune_in / "ErikBPF__aster__2__cccccccccccc"
+    busy = prune_in / "ErikBPF__aster__1__dddddddddddd"
     for bundle in (keep, superseded, closed, busy):
         bundle.mkdir()
     ledger.record(db, "ErikBPF/aster", 1, "e" * 40, "", superseded.name)
@@ -229,11 +245,24 @@ with tempfile.TemporaryDirectory() as tmp:
         (time.time() + 3600, busy.name),
     )
     removed = collect.prune_repo_bundles(
-        review_in, db, "ErikBPF/aster", {1: "a" * 40}
+        prune_in, db, "ErikBPF/aster", {1: "a" * 40}
     )
     assert removed == 2, removed
     assert keep.exists() and busy.exists()
     assert not superseded.exists() and not closed.exists()
+
+    # Pruning a superseded reuse also drops its packet, so the publisher does
+    # not report a bundle-less identity mismatch.
+    prune_root = tmp / "prune-reuse"
+    prune_bundle = "ErikBPF__aster__50__999999999999"
+    (prune_root / "review-in" / prune_bundle).mkdir(parents=True)
+    (prune_root / "review-out").mkdir(parents=True)
+    (prune_root / "review-out" / f"{prune_bundle}.json").write_text("{}\n")
+    ledger.mark_reusing(
+        db, "ErikBPF/aster", 50, "9" * 40, "", prune_bundle, "k" * 64
+    )
+    collect.prune_repo_bundles(prune_root / "review-in", db, "ErikBPF/aster", {})
+    assert not (prune_root / "review-out" / f"{prune_bundle}.json").exists()
 
     # A failed head whose PR merged or closed becomes stale, not retried.
     ledger.record(db, "ErikBPF/aster", 99, "f" * 40, "", "gone")
@@ -336,6 +365,11 @@ with tempfile.TemporaryDirectory() as tmp:
     entries = tokens.load_config(str(config_path))
     assert entries[0]["credential"] == "app"
     assert "author" not in entries[0]
+    assert entries[0]["ignore_authors"] == []
+    assert entries[0]["ignore_labels"] == []
+    assert entries[0]["ignore_title"] == ""
+    settings = tokens.load_settings(str(config_path))
+    assert settings.get("review_drafts", True) is True
 
     os.environ["GH_REVIEW_UPSTREAM_TOKEN"] = "test-token"
     assert (
@@ -444,6 +478,349 @@ with tempfile.TemporaryDirectory() as tmp:
         == 0
     )
 
+    # Trigger filters: author and label match case-insensitively; a title is a
+    # regex; a broken regex fails open and never blocks a review.
+    entry = {"repo": "ErikBPF/aster", "ignore_authors": ["Dependabot[BOT]"]}
+    bot = {"author": {"login": "dependabot[bot]"}, "title": "chore: bump"}
+    assert collect.ignore_reason(entry, bot) == "author dependabot[bot]"
+    assert collect.ignore_reason({"repo": "ErikBPF/aster"}, bot) is None
+    assert (
+        collect.ignore_reason(
+            {"repo": "ErikBPF/aster", "ignore_labels": ["skip-review"]},
+            {"author": {"login": "erik"}, "labels": [{"name": "Skip-Review"}]},
+        )
+        == "label skip-review"
+    )
+    assert "title matches" in collect.ignore_reason(
+        {"repo": "ErikBPF/aster", "ignore_title": "^chore"},
+        {"author": {"login": "erik"}, "title": "chore: bump"},
+    )
+    assert (
+        collect.ignore_reason(
+            {"repo": "ErikBPF/aster", "ignore_title": "("},
+            {"author": {"login": "erik"}, "title": "anything"},
+        )
+        is None
+    ), "an invalid pattern must fail open"
+
+    # A filtered head must still satisfy the required check, and must never
+    # overwrite a real verdict for the same head.
+    assert collect.CHECK_NAME == pub.CHECK_NAME
+    posted = []
+    collect.gh_json = lambda args, token: {"check_runs": []}
+    collect.gh_api = lambda method, endpoint, token, payload: posted.append(
+        (method, endpoint, payload)
+    ) or {}
+    assert collect.publish_skip_check(
+        "ErikBPF/aster", "e" * 40, "label skip-review", "token"
+    )
+    assert posted[-1][2]["conclusion"] == "neutral"
+    assert posted[-1][2]["head_sha"] == "e" * 40
+    assert "skip-review" in posted[-1][2]["output"]["title"]
+    posted.clear()
+    collect.gh_json = lambda args, token: {
+        "check_runs": [{"name": collect.CHECK_NAME}]
+    }
+    assert not collect.publish_skip_check(
+        "ErikBPF/aster", "e" * 40, "label skip-review", "token"
+    )
+    assert not posted
+
+    # Reused verdicts keep the findings and record why no model ran.
+    reused = collect.reuse_review(review(), "d" * 40, "b" * 40)
+    assert reused["head"] == "d" * 40 and reused["base"] == "b" * 40
+    assert reused["findings"] == review()["findings"]
+    assert any("without a new model run" in item for item in reused["limits"])
+    assert review()["head"] == "a" * 40, "the published packet must not be mutated"
+
+    # Ledger: a legacy table gains diff_hash; reusing is terminal for workers
+    # but not for the publisher.
+    legacy_path = tmp / "legacy.db"
+    legacy = sqlite3.connect(legacy_path)
+    legacy.execute(
+        """
+        CREATE TABLE reviews (
+            repo TEXT NOT NULL, pr INTEGER NOT NULL, head TEXT NOT NULL,
+            base TEXT NOT NULL DEFAULT '', bundle TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT 'queued',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            lease_owner TEXT, lease_expires REAL,
+            requested_at REAL NOT NULL, updated_at REAL NOT NULL, error TEXT,
+            PRIMARY KEY (repo, pr, head)
+        )
+        """
+    )
+    legacy.commit()
+    legacy.close()
+    upgrade = ledger.connect(legacy_path)
+    columns = {row["name"] for row in upgrade.execute("PRAGMA table_info(reviews)")}
+    assert "diff_hash" in columns
+    upgrade.close()
+
+    # Ledger strings become root paths, so only the exact bundle name for a
+    # repo/PR/head pair is accepted.
+    good_bundle = ledger.bundle_id("ErikBPF/aster", 7, "a" * 40)
+    assert good_bundle == "ErikBPF__aster__7__aaaaaaaaaaaa"
+    assert ledger.valid_bundle(
+        {"repo": "ErikBPF/aster", "pr": 7, "head": "a" * 40, "bundle": good_bundle}
+    )
+    for bad in ("/tmp/evil", "../..", "ErikBPF__aster__7__bbbbbbbbbbbb"):
+        assert not ledger.valid_bundle(
+            {"repo": "ErikBPF/aster", "pr": 7, "head": "a" * 40, "bundle": bad}
+        ), bad
+    assert not ledger.valid_bundle(
+        {"repo": "ErikBPF/aster", "pr": 7, "head": "../../etc", "bundle": good_bundle}
+    )
+
+    reuse_db = ledger.connect(tmp / "reuse.db")
+    ledger.mark_reusing(
+        reuse_db, "ErikBPF/aster", 30, "f" * 40, "b" * 40, "reuse-bundle", "g" * 64
+    )
+    row = ledger.get(reuse_db, "ErikBPF/aster", 30, "f" * 40)
+    assert row["state"] == "reusing", dict(row)
+    assert ledger.claimable_count(reuse_db) == 0
+    assert ledger.claim(reuse_db, "worker", 60) is None
+    ledger.record(reuse_db, "ErikBPF/aster", 31, "e" * 40, "b" * 40, "old", "h" * 64)
+    ledger.finish(reuse_db, "ErikBPF/aster", 31, "e" * 40, "published")
+    assert ledger.last_published(reuse_db, "ErikBPF/aster", 31)["diff_hash"] == "h" * 64
+    ledger.requeue(reuse_db, "ErikBPF/aster", 30, "f" * 40)
+    assert ledger.get(reuse_db, "ErikBPF/aster", 30, "f" * 40)["state"] == "queued"
+
+    # A live worker owns its head; reuse must not overwrite the lease.
+    ledger.record(reuse_db, "ErikBPF/aster", 32, "b" * 40, "", "leased")
+    reuse_db.execute(
+        "UPDATE reviews SET state = 'leased', lease_expires = ? WHERE pr = 32",
+        (time.time() + 600,),
+    )
+    ledger.mark_reusing(
+        reuse_db, "ErikBPF/aster", 32, "b" * 40, "", "leased", "j" * 64
+    )
+    assert ledger.get(reuse_db, "ErikBPF/aster", 32, "b" * 40)["state"] == "leased"
+    reuse_db.close()
+
+    # Reuse path: a copied packet, a minimal evidence bundle, and a row no
+    # worker can claim.
+    args = type("Args", (), {"data_dir": str(tmp / "reuse-data")})
+    data = Path(args.data_dir)
+    previous_name = ledger.bundle_id("ErikBPF/aster", 1, "a" * 40)
+    previous_dir = data / "review-done" / previous_name
+    previous_dir.mkdir(parents=True)
+    (previous_dir / "diff.patch").write_text(
+        "diff --git a/x b/x\n+let value = 1;\n"
+    )
+    (previous_dir / "docs").mkdir()
+    (previous_dir / "docs" / "AGENTS.md").write_text(
+        "quote from repo guidance\n"
+    )
+    (previous_dir / ".ready").write_text("old\n")
+    (data / "review-done" / f"{previous_name}.json").write_text(json.dumps(review()))
+    reuse_db = ledger.connect(tmp / "reuse-write.db")
+    previous = {
+        "repo": "ErikBPF/aster",
+        "pr": 1,
+        "head": "a" * 40,
+        "bundle": previous_name,
+    }
+
+    # Guidance is refetched at the new base and compared, so the test stands in
+    # for the GitHub calls.
+    original_docs, original_skills = collect.fetch_docs, collect.fetch_skills
+
+    def same_docs(repo, base, dest, token):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "AGENTS.md").write_text("quote from repo guidance\n")
+        return 1
+
+    collect.fetch_docs = same_docs
+    collect.fetch_skills = lambda repo, base, dest, token: 0
+
+    result = collect.reuse_bundle(
+        args,
+        reuse_db,
+        "ErikBPF/aster",
+        1,
+        "f" * 40,
+        "b" * 40,
+        "new-bundle",
+        "i" * 64,
+        previous,
+        "token",
+    )
+    assert result == data / "review-in" / "new-bundle"
+    assert (result / ".reuse").exists()
+    assert not (result / ".ready").exists(), "a reuse bundle must not look claimable"
+    assert (result / "diff.patch").read_text().startswith("diff --git")
+    assert (result / "docs" / "AGENTS.md").read_text().startswith("quote"), (
+        "docs must be copied so documented evidence survives strict publication"
+    )
+    packet = json.loads((data / "review-out" / "new-bundle.json").read_text())
+    assert packet["head"] == "f" * 40 and packet["base"] == "b" * 40
+    row = ledger.get(reuse_db, "ErikBPF/aster", 1, "f" * 40)
+    assert row["state"] == "reusing" and row["diff_hash"] == "i" * 64
+    assert "reused from" in (result / "request.md").read_text()
+
+    # Guidance changed at the new base: the old verdict is not safe to reuse.
+    def changed_docs(repo, base, dest, token):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "AGENTS.md").write_text("changed rule\n")
+        return 1
+
+    collect.fetch_docs = changed_docs
+    assert (
+        collect.reuse_bundle(
+            args,
+            reuse_db,
+            "ErikBPF/aster",
+            1,
+            "d" * 40,
+            "c" * 40,
+            "changed-bundle",
+            "l" * 64,
+            previous,
+            "token",
+        )
+        is None
+    )
+    assert not (data / "review-in" / "changed-bundle").exists()
+    assert not (data / "review-out" / "changed-bundle.json").exists()
+
+    # A forged source bundle is refused before any path is touched.
+    evil = tmp / "evil-reuse"
+    evil.mkdir()
+    (evil / ".ready").write_text("x\n")
+    assert (
+        collect.reuse_bundle(
+            args,
+            reuse_db,
+            "ErikBPF/aster",
+            1,
+            "8" * 40,
+            "b" * 40,
+            "forged",
+            "n" * 64,
+            {
+                "repo": "ErikBPF/aster",
+                "pr": 1,
+                "head": "a" * 40,
+                "bundle": str(evil),
+            },
+            "token",
+        )
+        is None
+    )
+    assert evil.exists() and (evil / ".ready").exists()
+    assert not (data / "review-in" / "forged").exists()
+    collect.fetch_docs, collect.fetch_skills = original_docs, original_skills
+    reuse_db.close()
+
+    # A worker must not follow a forged bundle out of the inbox.
+    forged_in = tmp / "forged-in"
+    forged_in.mkdir()
+    forged_evil = tmp / "evil-claim"
+    forged_evil.mkdir()
+    (forged_evil / ".ready").write_text("x\n")
+    forged_db_path = tmp / "forged.db"
+    forged_db = ledger.connect(forged_db_path)
+    ledger.record(forged_db, "ErikBPF/aster", 60, "7" * 40, "", str(forged_evil))
+    forged_db.close()
+    forged = subprocess.run(
+        [sys.executable, str(SCRIPTS / "claim.py")],
+        env=dict(
+            os.environ,
+            HERMES_REVIEW_LEDGER=str(forged_db_path),
+            HERMES_REVIEW_IN=str(forged_in),
+        ),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert forged.stdout.strip().splitlines()[0] == "NO_CLAIM"
+    assert (forged_evil / ".ready").exists()
+    forged_db = ledger.connect(forged_db_path)
+    assert ledger.get(forged_db, "ErikBPF/aster", 60, "7" * 40)["state"] == "failed"
+    forged_db.close()
+
+    # On-demand request: a published head is requeued and its old payload is
+    # discarded; an in-flight head is left alone.
+    req_data = tmp / "request-data"
+    req_state = tmp / "request-state"
+    req_bundle = ledger.bundle_id("ErikBPF/aster", 40, "a" * 40)
+    (req_data / "review-in" / req_bundle).mkdir(parents=True)
+    (req_data / "review-out").mkdir(parents=True)
+    (req_data / "review-out" / f"{req_bundle}.json").write_text("{}\n")
+    (req_state / "published").mkdir(parents=True)
+    marker_path = req_state / "published" / f"{'a' * 40}.json"
+    marker_path.write_text(json.dumps({"head": "a" * 40}))
+    req_db_path = tmp / "request.db"
+    req_db = ledger.connect(req_db_path)
+    ledger.record(req_db, "ErikBPF/aster", 40, "a" * 40, "b" * 40, req_bundle)
+    ledger.finish(req_db, "ErikBPF/aster", 40, "a" * 40, "published")
+    req_db.close()
+
+    def request(*extra):
+        return subprocess.run(
+            [
+                sys.executable,
+                str(REQUEST),
+                "--ledger",
+                str(req_db_path),
+                "--data-dir",
+                str(req_data),
+                "--state-dir",
+                str(req_state),
+                "--repo",
+                "ErikBPF/aster",
+                "--pr",
+                "40",
+                *extra,
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+    assert request("--head", "a" * 40).startswith("REQUEUED")
+    assert not (req_data / "review-in" / req_bundle).exists()
+    assert not (req_data / "review-out" / f"{req_bundle}.json").exists()
+    assert not marker_path.exists(), "a stale marker would satisfy the wait loop"
+    req_db = ledger.connect(req_db_path)
+    assert ledger.get(req_db, "ErikBPF/aster", 40, "a" * 40)["state"] == "queued"
+    req_db.close()
+    assert request("--head", "a" * 40).startswith("ALREADY queued")
+    assert request("--head", "9" * 40).startswith("NO-REVIEW")
+
+    # A forged ledger row must not let the request tool delete an arbitrary
+    # path as root.
+    sentinel = tmp / "sentinel"
+    sentinel.mkdir()
+    (sentinel / "keep").write_text("x\n")
+    req_db = ledger.connect(req_db_path)
+    ledger.record(req_db, "ErikBPF/aster", 41, "b" * 40, "", str(sentinel))
+    ledger.finish(req_db, "ErikBPF/aster", 41, "b" * 40, "published")
+    req_db.close()
+    forged = subprocess.run(
+        [
+            sys.executable,
+            str(REQUEST),
+            "--ledger",
+            str(req_db_path),
+            "--data-dir",
+            str(req_data),
+            "--state-dir",
+            str(req_state),
+            "--repo",
+            "ErikBPF/aster",
+            "--pr",
+            "41",
+            "--head",
+            "b" * 40,
+        ],
+        text=True,
+        capture_output=True,
+    )
+    assert forged.returncode == 2, forged.stderr
+    assert (sentinel / "keep").exists()
+
 # Review isolation invariants: a fresh session per run, no cross-PR recall,
 # and no stale pre-parallel job left behind.
 bootstrap = (SCRIPTS / "bootstrap-cron.sh").read_text()
@@ -500,18 +877,20 @@ with tempfile.TemporaryDirectory() as raw:
 
     old_head, new_head = "a" * 40, "c" * 40
     db = ledger.connect(db_path)
-    ledger.record(db, "owner/repo", 1, old_head, "b" * 40, "old-bundle")
-    ledger.record(db, "owner/repo", 1, new_head, "b" * 40, "new-bundle")
+    old_name = ledger.bundle_id("owner/repo", 1, old_head)
+    new_name = ledger.bundle_id("owner/repo", 1, new_head)
+    ledger.record(db, "owner/repo", 1, old_head, "b" * 40, old_name)
+    ledger.record(db, "owner/repo", 1, new_head, "b" * 40, new_name)
     db.execute("UPDATE reviews SET requested_at = 1000 WHERE head = ?", (old_head,))
     db.execute("UPDATE reviews SET requested_at = 2000 WHERE head = ?", (new_head,))
     db.commit()
     db.close()
-    for bundle in ("old-bundle", "new-bundle"):
+    for bundle in (old_name, new_name):
         (review_in / bundle).mkdir()
         (review_in / bundle / ".ready").write_text("ready\n")
 
     claimed = run_claim(db_path, review_in)
-    assert claimed == ["CLAIM new-bundle"], claimed
+    assert claimed == [f"CLAIM {new_name}"], claimed
     db = ledger.connect(db_path)
     old = ledger.get(db, "owner/repo", 1, old_head)
     new = ledger.get(db, "owner/repo", 1, new_head)
@@ -529,6 +908,6 @@ with tempfile.TemporaryDirectory() as raw:
     db.close()
 
     claimed = run_claim(db_path, review_in)
-    assert claimed == ["CLAIM old-bundle"], claimed
+    assert claimed == [f"CLAIM {old_name}"], claimed
 
 print("pr-review-publish: ok")
