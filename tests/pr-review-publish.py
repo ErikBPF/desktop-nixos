@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts/pr-review"
@@ -909,5 +910,75 @@ with tempfile.TemporaryDirectory() as raw:
 
     claimed = run_claim(db_path, review_in)
     assert claimed == [f"CLAIM {old_name}"], claimed
+
+for evidence_case in ("empty", "valid", "mixed", "missing", "unreadable", "published"):
+    with tempfile.TemporaryDirectory() as raw:
+        data = Path(raw)
+        head = "a" * 40
+        name = "ErikBPF__aster__1__" + head[:12]
+        bundle = data / "review-in" / name
+        bundle.mkdir(parents=True)
+        if evidence_case == "unreadable":
+            (bundle / "diff.patch").mkdir()
+        else:
+            (bundle / "diff.patch").write_text("let value = 1;\n")
+        findings = [] if evidence_case == "empty" else [review()["findings"][1]]
+        if evidence_case == "mixed":
+            findings += [review()["findings"][0]]
+        if evidence_case in ("missing", "published"):
+            findings = [review()["findings"][0]]
+        packet = review(repo="ErikBPF/aster", pr=1, findings=findings)
+        output = data / "review-out"
+        output.mkdir()
+        (output / f"{name}.json").write_text(json.dumps(packet))
+        db = ledger.connect(data / "ledger.db")
+        ledger.record(db, packet["repo"], 1, head, "b" * 40, name)
+        if evidence_case == "published":
+            db.execute("UPDATE reviews SET diff_hash = ?", ("d" * 64,))
+            ledger.finish(db, packet["repo"], 1, head, "published")
+            assert ledger.last_published(db, packet["repo"], 1) is not None
+            pub.write_marker(data / "state", head, packet, "https://example.test/old")
+        db.close()
+        captured = []
+
+        def fake_json(args, token):
+            if "check-runs" in args[1]:
+                return {"check_runs": [{"id": 9, "name": pub.CHECK_NAME, "conclusion": "success"}]}
+            return []
+
+        argv = [
+            str(PUBLISH), "--config", "unused", "--data-dir", str(data),
+            "--state-dir", str(data / "state"), "--ledger", str(data / "ledger.db"),
+            "--app-credential", "unused", "--app-token-cache", "unused",
+        ]
+        with patch.object(sys, "argv", argv), patch.object(
+            tokens, "load_config", return_value=[{"repo": packet["repo"], "bot_login": "hackerman-cr[bot]"}]
+        ), patch.object(tokens, "token_for", return_value="dummy"), patch.object(
+            pub, "current_head", return_value=(head, "OPEN")
+        ), patch.object(pub, "gh_json", side_effect=fake_json), patch.object(
+            pub, "gh_api", side_effect=lambda method, endpoint, token, payload: captured.append((method, endpoint, payload)) or {}
+        ), patch.object(pub, "find_comment", return_value=None), patch.object(
+            pub, "upsert_comment", return_value="https://example.test/review"
+        ):
+            assert pub.main() == 0
+            rejected = evidence_case in ("mixed", "missing", "unreadable", "published")
+            approvals = [payload for _, endpoint, payload in captured if endpoint.endswith("/reviews")]
+            db = ledger.connect(data / "ledger.db")
+            row = ledger.get(db, packet["repo"], 1, head)
+            if rejected:
+                assert row["state"] == "failed", (evidence_case, dict(row))
+                assert not approvals, "unverified findings must never produce a review approval"
+                assert any(payload.get("conclusion") == "failure" for _, _, payload in captured), "prior success must be replaced"
+                assert not (data / "state" / "published" / f"{head}.json").exists()
+                assert ledger.last_published(db, packet["repo"], 1) is None
+                archived = data / "review-stale" / f"{name}.json"
+                assert json.loads(archived.read_text())["findings"] == findings
+            else:
+                assert row["state"] == "published", dict(row)
+                assert approvals[-1]["event"] == ("APPROVE" if not findings else "REQUEST_CHANGES")
+            db.close()
+            before = list(captured)
+            assert pub.main() == 0
+            assert captured == before, "retired packets must not be published twice"
 
 print("pr-review-publish: ok")
