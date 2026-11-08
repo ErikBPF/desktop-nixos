@@ -10,6 +10,21 @@ in {
       firewall = {
         enable = true;
         checkReversePath = "loose";
+        # apollo-ai exposes vLLM and pqnld only to discovery over tailscale0.
+        # The unit preflight asserts these exact rules before starting.
+        # extraInputRules is nftables-only; apollo uses the iptables backend,
+        # so the INPUT jumps must live in extraCommands.
+        extraCommands = ''
+          iptables -N apollo-qwen-litellm 2>/dev/null || true
+          iptables -F apollo-qwen-litellm
+          iptables -A apollo-qwen-litellm -i lo -j ACCEPT
+          iptables -A apollo-qwen-litellm -s ${config.flake.fleet.hosts.discovery.tailscaleIp}/32 -i tailscale0 -p tcp -m multiport --dports 11542,11560 -j ACCEPT
+          iptables -A apollo-qwen-litellm -j REJECT --reject-with icmp-port-unreachable
+          iptables -D INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11542 -j apollo-qwen-litellm 2>/dev/null || true
+          iptables -D INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11560 -j apollo-qwen-litellm 2>/dev/null || true
+          iptables -A INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11542 -j apollo-qwen-litellm
+          iptables -A INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11560 -j apollo-qwen-litellm
+        '';
       };
     };
 
