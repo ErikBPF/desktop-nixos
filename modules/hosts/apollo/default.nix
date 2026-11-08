@@ -181,6 +181,8 @@ in {
       unitConfig.RequiresMountsFor = "/mnt/data";
       serviceConfig = {
         Type = "simple";
+        # A clean systemctl stop makes podman exit 143; do not report it as failed.
+        SuccessExitStatus = [143 "SIGTERM"];
         ExecStartPre = [
           "${apolloAiPreflight}"
           "${apolloAiClean}"
