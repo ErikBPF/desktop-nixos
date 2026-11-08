@@ -80,8 +80,10 @@
         auth/approle/login role_id="$VAULT_ROLE_ID" secret_id="$VAULT_SECRET_ID")"
       export GITHUB_TOKEN="$(BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$bao_token" \
         ${pkgs.openbao}/bin/bao kv get -field=token -mount=secret iac/github)"
-      export CLOUDFLARE_API_TOKEN="$(BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$bao_token" \
+      cf_token="$(BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$bao_token" \
         ${pkgs.openbao}/bin/bao kv get -field=token -mount=secret iac/cloudflare)"
+      [ -n "$cf_token" ] || { echo "homelab-iac: CLOUDFLARE_API_TOKEN missing from OpenBao secret/iac/cloudflare" >&2; exit 1; }
+      export CLOUDFLARE_API_TOKEN="$cf_token"
       unset bao_token
       export BAO_ADDR=http://127.0.0.1:8200
       export BAO_TOKEN="$(cat /run/vault-agent/token)"
