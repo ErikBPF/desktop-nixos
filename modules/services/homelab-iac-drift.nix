@@ -80,6 +80,8 @@
         auth/approle/login role_id="$VAULT_ROLE_ID" secret_id="$VAULT_SECRET_ID")"
       export GITHUB_TOKEN="$(BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$bao_token" \
         ${pkgs.openbao}/bin/bao kv get -field=token -mount=secret iac/github)"
+      export CLOUDFLARE_API_TOKEN="$(BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$bao_token" \
+        ${pkgs.openbao}/bin/bao kv get -field=token -mount=secret iac/cloudflare)"
       unset bao_token
       export BAO_ADDR=http://127.0.0.1:8200
       export BAO_TOKEN="$(cat /run/vault-agent/token)"
