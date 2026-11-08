@@ -59,3 +59,7 @@ presence from approved and denied vantages. Recovery must preserve the disabled
 development boundary: stop serving or restore a known-good image/configuration
 behind that boundary, rather than re-enable administrative development endpoints.
 No image was rebuilt or replaced and no credential material was inspected.
+
+## Published CI repair
+
+The first PR run exposed a missing CI dependency: the bare pytest selection collected an existing Apollo recipe test that invokes `just`. Moved the Apollo directory to the existing `nix develop` pytest invocation. The exact flake-built Python with pytest and the development shell passed all nine Apollo tests. Lint and formatting passed. This corrects CI wiring without changing host behavior; the repaired PR head still needs its remote checks.
