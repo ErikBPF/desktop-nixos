@@ -58,7 +58,8 @@ in {
       '';
       serveVllm = pkgs.writeShellScript "serve-vllm.sh" ''
         set -euo pipefail
-        export VLLM_SERVER_DEV_MODE=1 VLLM_CACHE_ROOT=/cache/vllm HF_HOME=/cache/hf \
+        unset VLLM_SERVER_DEV_MODE
+        export VLLM_CACHE_ROOT=/cache/vllm HF_HOME=/cache/hf \
                XDG_CACHE_HOME=/cache/xdg TORCH_HOME=/cache/torch CUDA_CACHE_PATH=/cache/cuda \
                HF_HUB_OFFLINE=1 NCCL_P2P_DISABLE=1 VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 LMCACHE_TRACK_USAGE=false
         exec vllm serve /model --served-model-name qwen38-27b-nvfp4 --host 0.0.0.0 --port 11542 \
