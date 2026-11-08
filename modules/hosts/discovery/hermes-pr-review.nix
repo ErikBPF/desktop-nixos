@@ -299,7 +299,7 @@ _: {
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
           ];
-          ExecStart = "${publish}/bin/hermes-pr-review-publish --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
+          ExecStart = "${publish}/bin/hermes-pr-review-publish --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache} --post-empty";
           TimeoutStartSec = "5min";
         };
       };
