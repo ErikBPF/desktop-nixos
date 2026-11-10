@@ -22,6 +22,9 @@ import urllib.parse
 SERVARR_BRANCH = "main"
 SERVARR_REPO = pathlib.Path("/home/erik/servarr")
 COMPOSE_PATH = "machines/discovery/kindle-dash.compose.yml"
+# The pin change and its runtime-baseline hash land together; the closure
+# contract in Servarr fails if only one of them moves.
+BASELINE_PATH = "machines/discovery/secret-runtime-baseline.json"
 GHCR_IMAGE = "ghcr.io/erikbpf/kindle-dash"
 HARBOR_IMAGE = "harbor.homelab.pastelariadev.com/library/kindle-dash"
 KINDLE_UNIT = "podman-compose-kindle-dash.service"
@@ -691,8 +694,11 @@ def parse_pin(compose_text):
 def validate_candidate(commit, changed_paths, compose_text):
     if not COMMIT_RE.fullmatch(commit):
         raise ValueError("invalid candidate commit")
-    if changed_paths != [COMPOSE_PATH]:
-        raise ValueError("candidate changes files outside the fixed Compose path")
+    allowed = ([COMPOSE_PATH], sorted([COMPOSE_PATH, BASELINE_PATH]))
+    if changed_paths not in allowed:
+        raise ValueError(
+            "candidate changes files outside the fixed Compose path"
+        )
     version, digest = parse_pin(compose_text)
     return {
         "commit": commit,
