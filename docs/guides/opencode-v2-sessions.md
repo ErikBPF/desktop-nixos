@@ -33,11 +33,10 @@ V2 has one global `~/.config/opencode/cli.json`, managed through Home
 Manager. Server/project config and legacy layered `tui.json` are not the
 place for terminal bindings. Prefer native defaults over a navigation
 plugin. Keep `session.permissions` set to `autoaccept` so a session can ground
-itself without a human. The allow list then only skips the prompt path; the
-deny tail in `modules/dev/opencode.nix` is the real gate. Subagents that must
-stay read-only, such as `architect`, carry their own `shell *` deny plus the
-inspection allowlist and the same deny tail instead of inheriting the global
-policy.
+itself without a human. Shell is allowed explicitly; the
+deny tail in `modules/dev/opencode.nix` is the real gate. Subagents inherit the
+global read, edit and shell rules; the `architect` role text asks for review
+over implementation but no longer enforces a read-only boundary.
 
 Sources: [V2 keybinds](https://opencode.ai/v2/docs/cli/keybinds),
 [CLI settings](https://opencode.ai/v2/docs/cli/config).
