@@ -2,9 +2,10 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    # Kepler imports this fixed revision because nixpkgs removed the 7.2
-    # kernel series on 2026-11-11 and ZFS 2.4.4 supports kernels up to 7.2.
-    # Every other host uses the floating `nixpkgs` input (7.3).
+    # Kepler imports this fixed revision because ZFS 2.4.4 supports kernels up
+    # to 7.2 and the floating input dropped that series. Apollo and the
+    # `profile-server` hosts follow the floating input; endeavour and pathfinder
+    # pin `linuxPackages_zen` themselves.
     # Revisit once ZFS supports 7.3: https://github.com/ErikBPF/desktop-nixos/issues/459
     nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/d3b13ad75cc492690728f9307e443dec9ef9a20e";
 
