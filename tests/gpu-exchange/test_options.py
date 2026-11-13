@@ -43,9 +43,11 @@ class GPUExchangeOptions(unittest.TestCase):
             cwd=ROOT, text=True,
         ))
         kepler, apollo = hosts["kepler"], hosts["apollo"]
+        # Kepler pins 7.2 for ZFS support; Apollo follows the main nixpkgs 7.3.
+        expected = {"kepler": r"^7\.2(\.|$)", "apollo": r"^7\.3(\.|$)"}
         for name, host in hosts.items():
             with self.subTest(kernel=name):
-                self.assertRegex(host["kernelVersion"], r"^7\.3(\.|$)", host["kernelVersion"])
+                self.assertRegex(host["kernelVersion"], expected[name], host["kernelVersion"])
                 self.assertTrue(host["kernelImage"].endswith("/bzImage"), host["kernelImage"])
             with self.subTest(guest_kernels=name):
                 if name != "kepler":
@@ -58,7 +60,6 @@ class GPUExchangeOptions(unittest.TestCase):
                     self.assertEqual(kernel["image"], kepler["kernelImage"])
                     self.assertIn(f"-linux-{kepler['kernelVersion']}-dev/vmlinux",
                                   kernel["hypervisorImage"])
-        self.assertEqual(kepler["kernelVersion"], apollo["kernelVersion"])
         with self.subTest(host="kepler"):
             self.assertEqual(kepler["drivers"], ["amdgpu"])
             self.assertIn("amdgpu", kepler["initrdModules"])

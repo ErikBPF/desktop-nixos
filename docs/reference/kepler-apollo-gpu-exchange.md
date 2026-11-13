@@ -204,9 +204,10 @@ kernel `7.2.12` for both hosts and Kepler's guests (image
 `/nix/store/ydi4la1gxv20licqiba9vwinx6vwikgd-linux-7.2.12/bzImage`, guest
 hypervisor `/nix/store/8b8pbl6q1z6b9pl0nd96fwfxam8l988q-linux-7.2.12-dev/vmlinux`)
 and NVIDIA `595.104.02`. On 2026-11-13 nixpkgs removed the end-of-life `7.2`
-series, so issue #459 moved both hosts, the server profile and Kepler's guests
-to `7.3` from the main `nixpkgs` input, and deleted the `nixpkgs-gpu-kernel`
-pin. The `7.2.3` paths above record the original preflight;
+series. Apollo and the server profile moved to `7.3` from the main `nixpkgs`
+input. Kepler stays on the pinned `7.2` revision because ZFS 2.4.4 supports
+kernels up to 7.2; issue #459 tracks the remaining move. The `7.2.3` paths
+above record the original preflight;
 use the paths the current generation evaluates.
 
 Recorded compatible host generations before staging:
