@@ -196,7 +196,7 @@ in {
     mkGuest = name: let
       s = nodeSpec name;
     in {
-      # Keep the guests on the host's already-running 7.2 kernel baseline.
+      # Keep the guests on the host's already-running 7.3 kernel baseline.
       boot.kernelPackages = config.boot.kernelPackages;
       # The cp-1 canary passed after the October 2 timer/RCU stall.
       # See docs/reference/2026-10-02-cp1-clocksource-canary.md.

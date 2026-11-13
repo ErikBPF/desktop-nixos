@@ -45,7 +45,7 @@ class GPUExchangeOptions(unittest.TestCase):
         kepler, apollo = hosts["kepler"], hosts["apollo"]
         for name, host in hosts.items():
             with self.subTest(kernel=name):
-                self.assertEqual(host["kernelVersion"], "7.2.12")
+                self.assertRegex(host["kernelVersion"], r"^7\.3(\.|$)", host["kernelVersion"])
                 self.assertTrue(host["kernelImage"].endswith("/bzImage"), host["kernelImage"])
             with self.subTest(guest_kernels=name):
                 if name != "kepler":

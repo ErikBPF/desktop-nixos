@@ -1,16 +1,11 @@
-{inputs, ...}: {
+_: {
   flake.modules.nixos.apollo-hardware = {
     config,
     lib,
     pkgs,
     ...
-  }: let
-    kernelPkgs = import inputs.nixpkgs-gpu-kernel {
-      inherit (pkgs.stdenv.hostPlatform) system;
-      config = config.nixpkgs.config;
-    };
-  in {
-    boot.kernelPackages = lib.mkForce kernelPkgs.linuxPackages_7_2;
+  }: {
+    boot.kernelPackages = lib.mkForce pkgs.linuxPackages_7_3;
     boot.initrd.availableKernelModules = ["xhci_pci" "ehci_pci" "ahci" "usb_storage" "sd_mod"];
     # Blackwell-only host: the RTX 5060 Ti pair requires the open kernel modules.
     boot.initrd.kernelModules = ["nvidia"];
