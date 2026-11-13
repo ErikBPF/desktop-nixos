@@ -1,6 +1,6 @@
 # OpenCode shell and PR permissions
 
-**Status:** Proposed. Configuration, tests and documentation are unchanged.
+**Status:** Implemented for S1 and S2; S3 deployment verification pending.
 
 ## Human seed and destination
 
