@@ -61,23 +61,28 @@ restriction is the deny tail, which rejects ordinary review commands, and the
 
 2. Remove the patch denials from the global deny tail. The affected patterns are
    the `git diff` and `git log` forms with `-p`, `--patch`, `-U` and `--unified`,
-   including the anchored variants. Keep them in a separate `historyDenies` list
-   that only the architect subagent appends. Plain `git diff` and `gh pr diff`
-   already print patches, so these patterns do not protect content. They only
-   reject legitimate history review in the default agent.
+   including the anchored variants. Plain `git diff` and `gh pr diff` already
+   print patches, so these patterns do not protect content. They only reject
+   legitimate history review. No agent keeps a private copy of the list.
 
 3. Keep `git show *:*` in the global deny tail. The blob form can print a
    protected file, and the `*.env*` and `*secrets/*` substring denials do not
    catch `HEAD:.ssh/id_rsa`. Record the `git -C` bypass in the comment instead of
    claiming a boundary.
 
-4. Keep the remaining global denials unchanged: force-push, branch `-D/-f/-m`,
-   `rm -rf`, `docker rm` and `docker volume rm`, `nix eval`, `find -exec`,
-   `rg --pre`, secret path substrings, and the raw cross-host deploy forms.
+4. Keep the remaining global denials unchanged: branch `-D/-f/-m`, `rm -rf`,
+   `docker rm` and `docker volume rm`, `nix eval`, `find -exec`, `rg --pre`,
+   secret path substrings, and the raw cross-host deploy forms.
 
-5. Keep the architect read-only. It keeps `edit * deny`, `shell * deny`, the
-   inspection allowlist and `historyDenies`. Keep the L1 `edit` denial outside
-   `docs/*`.
+5. Allow force-push. Remove the `git push --force*` and `git push -f *` denials.
+   Update `modules/dev/opencode-agents.md` and `modules/dev/agent-policy.md` so
+   the written policy matches the configuration. Prefer `--force-with-lease`
+   when a rebase rewrites a task branch. `main` has no server-side branch
+   protection, so the lease is the only guard against discarding a peer commit.
+
+6. Let the architect inherit the global policy. Remove the agent's `permissions`
+   override. It keeps its role description and review focus, and it gains shell
+   and edit. Keep the L1 `edit` denial outside `docs/*`.
 
 ## Non-goals
 
@@ -95,6 +100,11 @@ restriction is the deny tail, which rejects ordinary review commands, and the
   unattended shell execution.
 - Removing the patch denials grants no new content access. `read` already allows
   every unprotected path, and plain `git diff` already prints patches.
+- Bare force-push can discard commits. `main` has no branch protection, so the
+  configuration cannot stop it. The written policy asks for
+  `--force-with-lease`, and the operator accepted the risk on 2026-11-13.
+- Removing the architect restriction lets a subagent edit any unprotected file.
+  The role description still directs it to review rather than implement.
 - The deny tail still matches only literal prefixes. That limitation stays and
   becomes documented.
 
@@ -103,16 +113,16 @@ restriction is the deny tail, which rejects ordinary review commands, and the
 - `python3 tests/opencode-profiles/test_settings.py` passes after the test
   update. The test evaluates the Endeavour Home Manager settings.
 - `just docs-check`, `just lint` and `just fmt-check` pass.
-- After `just switch endeavour`, an interactive session shows `git log -1 -p`
-  and `gh pr view <number>` allowed, and `cat .env` denied. The operator records
-  the command output.
+- After `just switch endeavour`, an interactive session shows `git log -1 -p`,
+  `git push --force-with-lease` and an architect edit allowed, and `cat .env`
+  denied. The operator records the command output.
 
 ## Delivery slices
 
 | Slice | Owner | Scope | Acceptance |
 |---|---|---|---|
-| S1 | general | `modules/dev/opencode.nix` (global `shell allow *`, `historyDenies`, architect list) and `tests/opencode-profiles/test_settings.py` (allow and deny expectations) | settings test passes; no secret path becomes readable |
-| S2 | general | `docs/reference/opencode-profiles.md`: replace the "deny tail is the gate" paragraph with the policy above | `just docs-check` passes |
+| S1 | general | `modules/dev/opencode.nix` (global `shell allow *`, pruned deny tail, architect inherits) and `tests/opencode-profiles/test_settings.py` (allow and deny expectations) | settings test passes; no secret path becomes readable |
+| S2 | general | `docs/reference/opencode-profiles.md`, `modules/dev/opencode-agents.md` and `modules/dev/agent-policy.md`: record the policy above | `just docs-check` and `just lint` pass |
 | S3 | verify | `just switch endeavour`, then the interactive allow and deny checks | recorded output matches the S1 acceptance |
 
 ## Open question

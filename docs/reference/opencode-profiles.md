@@ -52,9 +52,9 @@ carries no `#variant` suffix; the model definition still rejects
 or `.opencode/opencode.json` from widening role permissions. Backend state,
 which holds the server password, is denied to role agents for read and edit.
 
-L1 keeps `edit` denied outside `docs/*` but follows the global shell policy
-(`ask`, auto-approved by `ol`/`ow`). Credential validation and documentation
-therefore work without a slice; implementation still goes through L2/L3.
+L1 keeps `edit` denied outside `docs/*` and uses the global `shell allow *`
+policy. Credential validation and documentation therefore work without a slice;
+implementation still goes through L2/L3.
 
 `OPENCODE_DISABLE_PROJECT_CONFIG=1` also disables project `AGENTS.md`
 discovery. Each generated profile therefore appends the workspace `AGENTS.md`
@@ -100,12 +100,13 @@ personal/work split holds. It sets `session.permissions = "autoaccept"` and
 `session.sidebar = "auto"`.
 Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
-The deny tail in `modules/dev/opencode.nix` is the gate: it blocks protected
-paths by argument substring, patch and blob git forms, force-push, branch
-mutation, `find -exec`, `rg --pre` and `nix eval`. Inspection commands are
-allowlisted, but under auto-accept an allow only skips the prompt path.
-Shell is not a sandbox, and a deployment command is approved without a human,
-so the deny tail is what holds.
+The deny tail in `modules/dev/opencode.nix` is the only gate: it blocks
+protected paths by argument substring, blob git reads (`git show <rev>:<path>`),
+branch mutation, `find -exec`, `rg --pre` and `nix eval`. Shell is allowed
+explicitly, so a session runs every other command without a prompt. Force-push
+is allowed; a task branch rebase uses `--force-with-lease`. Architect inherits
+the global read, edit and shell rules. Shell is not a sandbox, and a deployment
+command is approved without a human, so the deny tail is what holds.
 
 The project config inherits the packaged Nix MCP. Native file tools replace
 the former unversioned filesystem MCP. The isolated trial's independent

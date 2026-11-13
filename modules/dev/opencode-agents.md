@@ -96,8 +96,9 @@ quote errors verbatim.
 - **Declarative, repo → deploy.** Change source and redeploy via
   documented entry points; never hand-edit a running host.
 - **Git:** conventional commits, imperative, *why* not *what*. No AI
-  attribution. Never force-push. Ask before pushing and before any
-  irreversible or outward-facing action unless already authorized.
+  attribution. Use `--force-with-lease` when a rebase rewrites a task
+  branch. Ask before pushing and before any irreversible or outward-facing
+  action unless already authorized.
 - **Token discipline.** When `rtk` is on PATH, run read-heavy shell
   commands through it (`rtk git/ls/grep/find/docker/log/json/read …`
   instead of raw) — it compresses output 60–90% and shares a flat model

@@ -69,90 +69,22 @@
     ];
     permissionRules = action: effect: resources:
       map (resource: {inherit action effect resource;}) resources;
-    # Inspection-only shell surface shared by the global policy and the
-    # architect subagent. Nothing here may execute code or print file contents:
-    # `find -exec`, `rg --pre`, `fd -x`, `jq . .env`, `git diff --no-index` and
-    # `git show <rev>:<path>` all bypass the read denies because the shell rule
-    # only sees the command string.
-    inspectionShell = [
-      "pwd"
-      "git status *"
-      # Filename- and count-only diffs.
-      "git diff --stat *"
-      "git diff --name-only *"
-      "git diff --numstat *"
-      "git log --oneline *"
-      "git show --stat"
-      # Read-only ref queries; plain `git branch *` also admits -D, -f and -m.
-      "git branch --list*"
-      "git for-each-ref *"
-      "git rev-parse *"
-      "git ls-files *"
-      "git stash list *"
-      "git worktree list *"
-      # Filenames only. `rg <pattern>` prints matches and `rg --pre` runs a
-      # command; the `grep` tool covers content search under read denies.
-      "rg --files *"
-      "ls *"
-      "wc *"
-      "tree *"
-      "just --list"
-      "just --dry-run *"
-      "just check"
-      "just lint"
-      "just fmt-check"
-      "just docs-check"
-      "just structure-check"
-      "just status"
-      "just audit"
-      "just test"
-      "just dry *"
-      "nix flake show *"
-      "opencode debug *"
-      "gh pr view *"
-      "gh pr diff *"
-      "gh issue view *"
-      "gh run list *"
-      "gh run view *"
-    ];
-    # Appended after the allow list in every policy that uses inspectionShell,
-    # so a deny is always the last word. Auto-accept turns `ask` into an
-    # approval, so protected paths are denied by argument substring here: the
-    # shell rule sees the command string, not the file the command opens.
+    # Shell is host-authority, not a sandbox. The global policy allows every
+    # command up to the deny tail below. The tail matches the literal command
+    # string: it cannot see a path that a glob expands to, and `git -C <dir>`
+    # changes the prefix, so a determined caller can still reach a denied form.
+    # These patterns are defence in depth, not a content boundary.
     shellDenies = [
       "rm -rf /"
       "rm -rf /*"
       "rm -rf ~*"
       "docker volume rm *"
       "docker rm -f *"
-      # Never force-push, even under auto-accept.
-      "git push --force*"
-      "git push -f *"
       "git branch -D*"
       "git branch -f*"
       "git branch -m*"
-      # Patch and blob forms of the otherwise stat-only git reads. Each flag is
-      # anchored to an argument boundary (a leading space or first argument): an
-      # unanchored `*-p*` also matches `--pretty` and `--src-prefix`, which
-      # turned every ordinary `git log` into a deny. Quoted flags and plain
-      # `git diff` still reach patch output under auto-accept; this list is
-      # defense in depth, not a content boundary.
-      "git diff * -p*"
-      "git diff -p*"
-      "git diff * --patch*"
-      "git diff --patch*"
-      "git diff * -U*"
-      "git diff -U*"
-      "git diff * --unified*"
-      "git diff --unified*"
-      "git log * -p*"
-      "git log -p*"
-      "git log * --patch*"
-      "git log --patch*"
-      "git log * -U*"
-      "git log -U*"
-      "git log * --unified*"
-      "git log --unified*"
+      # The blob form can print a protected file that the substring denials
+      # miss, for example `git show HEAD:.ssh/id_rsa`.
       "git show *:*"
       # Execution vectors a prefix glob would otherwise admit.
       "rg *--pre*"
@@ -489,12 +421,7 @@
         # V2 2.0.27 renames this action; keep it aligned with the consumer pin.
         ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
 
-      # Inspection-shaped commands run unprompted. The CLI defaults to
-      # auto-accept, so every `ask` is approved without a human: the deny tail
-      # is the real gate, and it blocks protected paths by argument substring
-      # because the shell rule cannot see inside a command's arguments. Shell is
-      # host-authority, not a sandbox; globs that expand to a protected path
-      # (for example `cat ~/.e??`) still defeat the substring match.
+      # Shell executes without a prompt. The deny tail below is the only gate.
       permissions =
         permissionRules "read" "allow" ["*"]
         ++ permissionRules "read" "deny" protectedReads
@@ -505,31 +432,14 @@
         # catches: .env.example enumerates keys and holds no values, while the
         # secrets-bearing .env / .env.<name> files stay denied.
         ++ permissionRules "edit" "allow" ["*.env.example"]
-        ++ permissionRules "shell" "ask" ["*"]
-        ++ permissionRules "shell" "allow" inspectionShell
+        ++ permissionRules "shell" "allow" ["*"]
         ++ permissionRules "shell" "deny" shellDenies;
 
-      # Helpers inherit the selected gateway/model. Architect is strictly
-      # read-only: its own shell rule denies everything first, then re-admits
-      # the inspection list. Inheriting the global policy would not hold under
-      # auto-accept, where the global `shell *` ask is accepted automatically.
-      # V1 `permission.bash = "deny"` became a V2 `shell * deny` appended last,
-      # which silently blocked every command in the agent.
+      # Helpers inherit the selected gateway, model and global permissions.
       agents = {
         architect = {
-          description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Never writes code.";
+          description = "RFC, ADR, test-contract, seed-integrity review (spicyphus per-slice architect role). Use for grounded grill of behavior.md, test-contract drafting, and seed-vs-impl diff review. Prefers review over implementation.";
           mode = "subagent";
-          permissions =
-            [
-              {
-                action = "edit";
-                resource = "*";
-                effect = "deny";
-              }
-            ]
-            ++ permissionRules "shell" "deny" ["*"]
-            ++ permissionRules "shell" "allow" inspectionShell
-            ++ permissionRules "shell" "deny" shellDenies;
         };
       };
 
