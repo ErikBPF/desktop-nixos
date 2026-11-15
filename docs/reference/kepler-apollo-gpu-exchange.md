@@ -199,12 +199,18 @@ running baseline through a scoped pinned kernel input, without importing the
 unrelated changes in the canonical checkout's dirty lock file.
 
 **Superseded 2026-11-03:** the `nixpkgs-gpu-kernel` pin moved to `d3b13ad`
-because `c043004` cannot build its `linux-modules` output. It now resolves
-kernel `7.2.12` for both hosts and Kepler's guests (image
+because `c043004` cannot build its `linux-modules` output. It resolved kernel
+`7.2.12` for both hosts and Kepler's guests (image
 `/nix/store/ydi4la1gxv20licqiba9vwinx6vwikgd-linux-7.2.12/bzImage`, guest
 hypervisor `/nix/store/8b8pbl6q1z6b9pl0nd96fwfxam8l988q-linux-7.2.12-dev/vmlinux`)
-and NVIDIA `595.104.02`. The `7.2.3` paths above record the original preflight;
-use the paths the current generation evaluates.
+and NVIDIA `595.104.02`.
+
+**Current 2026-11-13:** nixpkgs `d4f25a3e` (2026-11-11) removed the end-of-life
+`7.2` series. Apollo and the `profile-server` hosts move to `7.3` from the
+floating `nixpkgs` input. Kepler and its guests keep the pinned `7.2` revision
+because ZFS 2.4.4 supports kernels up to 7.2; issue #459 tracks the remaining
+move. The `7.2.3` paths above record the original preflight; use the paths the
+current generation evaluates.
 
 Recorded compatible host generations before staging:
 
