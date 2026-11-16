@@ -495,7 +495,7 @@ in {
                 "XDG_CACHE_HOME=${config.xdg.cacheHome}/opencode-v2-backends/${project.name}"
                 "PATH=${servicePath}"
               ];
-              Restart = "always";
+              Restart = "on-failure";
               RestartSec = 2;
               UMask = "0077";
             };

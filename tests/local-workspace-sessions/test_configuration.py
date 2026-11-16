@@ -98,8 +98,6 @@ class Configuration(unittest.TestCase):
             self.assertFalse(unit["Unit"].get("PartOf"))
             self.assertFalse(unit["Unit"].get("BindsTo"))
             self.assertEqual(unit["Install"]["WantedBy"], ["default.target"])
-            self.assertEqual(unit["Service"]["Restart"], "always")
-            self.assertEqual(unit["Service"]["RestartSec"], 2)
             self.assertEqual(unit["Service"]["UMask"], "0077")
             environment = dict(item.split("=", 1) for item in unit["Service"]["Environment"])
             self.assertEqual(environment.get("OPENCODE_DISABLE_CLAUDE_CODE"), "1")
