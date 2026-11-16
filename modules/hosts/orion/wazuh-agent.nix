@@ -94,6 +94,8 @@
     };
 
     systemd.services.podman-wazuh-agent = {
+      # Retry the dependent agent when enrollment recovers after a boot timeout.
+      wantedBy = ["wazuh-agent-vault.service"];
       after = ["wazuh-agent-vault.service" "syslog.service"];
       requires = ["wazuh-agent-vault.service" "syslog.service"];
       serviceConfig.RuntimeDirectoryPreserve = "yes";

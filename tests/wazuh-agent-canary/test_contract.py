@@ -108,3 +108,10 @@ def test_alert_verifiers_tolerate_partial_final_line_without_false_positive():
             result = subprocess.run(command, input=json.dumps(record) + '\n{"agent":',
                                     text=True, capture_output=True)
             assert (result.returncode == 0) == matches, result.stderr
+
+
+def test_vault_recovery_pulls_in_agent_after_dependency_failure():
+    source = MODULE.read_text().split('systemd.services.podman-wazuh-agent = {', 1)[1].split('\n    };', 1)[0]
+    assert 'wantedBy = ["wazuh-agent-vault.service"]' in source, (
+        'Vault can recover after its boot timeout without retrying the dependent agent'
+    )
