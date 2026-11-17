@@ -310,7 +310,10 @@ backup-orion-home-kepler:
     export RESTIC_PASSWORD
     export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
-    restic() { nix shell nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"; }
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@";
+    }
     if ! restic snapshots >/dev/null 2>&1; then restic init; fi
     hashes=$(mktemp)
     restore=$(mktemp -d)
@@ -352,7 +355,10 @@ verify-orion-home-backup-kepler:
     export RESTIC_PASSWORD
     export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
-    restic() { nix shell nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"; }
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@";
+    }
     hashes=$(mktemp)
     restore=$(mktemp -d)
     trap 'rm -f "$hashes"; rm -rf "$restore"' EXIT
@@ -429,7 +435,10 @@ backup-pathfinder-home-kepler sample:
     export RESTIC_PASSWORD
     export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/pathfinder-esp"
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
-    restic() { nix shell nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"; }
+    restic() {
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@";
+    }
     if ! restic snapshots >/dev/null 2>&1; then restic init; fi
     source_hash=$(ssh -p 2222 erik@"$PATHFINDER" "sha256sum '/home/erik/$sample'" | awk '{print $1}')
     test -n "$source_hash"
