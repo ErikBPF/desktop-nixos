@@ -39,8 +39,8 @@ _: {
       assert health == {"status": "healthy", "db": "connected"}
 
       body = json.dumps({
-          # HA inference is paused after the GPU exchange; qwen-chat remains promised.
-          "model": "qwen-chat",
+          # Probe the model the agents actually answer with; HA inference stays paused.
+          "model": "deepseek-v4.1-flash",
           "messages": [{"role": "user", "content": "Reply OK"}],
           "max_tokens": 2,
       }).encode()

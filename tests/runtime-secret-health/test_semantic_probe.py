@@ -39,7 +39,7 @@ class SemanticProbe(unittest.TestCase):
             "http://127.0.0.1:4000/health/readiness",
             "http://127.0.0.1:4000/v1/chat/completions",
         ])
-        self.assertEqual(self.models, ["qwen-chat"])
+        self.assertEqual(self.models, ["deepseek-v4.1-flash"])
 
     def test_database_failure_still_fails(self):
         with self.assertRaises(AssertionError):
