@@ -95,9 +95,9 @@ def test_native_pool_and_self_exclusion(policies):
                 assert set(machine["supportedFeatures"]) == {"benchmark", "big-parallel", "kvm", "nixos-test"}
 
 
-def test_only_enrolled_consumers_get_one_local_fallback_job(policies):
+def test_only_enrolled_consumers_forbid_local_jobs(policies):
     for host, policy in policies.items():
-        assert policy["maxJobs"] == (1 if host in CONSUMERS else "auto")
+        assert policy["maxJobs"] == (0 if host in CONSUMERS else "auto")
         assert policy["cores"] == (1 if host in CONSUMERS else 0)
 
 
