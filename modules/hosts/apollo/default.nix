@@ -40,10 +40,9 @@ in {
       input_rules=$(iptables -S INPUT)
       chain_rules=$(iptables -S apollo-qwen-litellm)
       grep -qxF -- '-A INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11542 -j apollo-qwen-litellm' <<<"$input_rules"
-      grep -qxF -- '-A INPUT -d ${config.flake.fleet.hosts.apollo.tailscaleIp}/32 -p tcp -m tcp --dport 11560 -j apollo-qwen-litellm' <<<"$input_rules"
       [[ $chain_rules == '-N apollo-qwen-litellm
       -A apollo-qwen-litellm -i lo -j ACCEPT
-      -A apollo-qwen-litellm -s ${config.flake.fleet.hosts.discovery.tailscaleIp}/32 -i tailscale0 -p tcp -m multiport --dports 11542,11560 -j ACCEPT
+      -A apollo-qwen-litellm -s ${config.flake.fleet.hosts.discovery.tailscaleIp}/32 -i tailscale0 -p tcp -m multiport --dports 11542 -j ACCEPT
       -A apollo-qwen-litellm -j REJECT --reject-with icmp-port-unreachable' ]]
       # ext4 UUID of the 4 TB model volume (serial S6PJNS0YA01548X).
       # Device names reorder across boots; check the filesystem UUID instead.
@@ -109,7 +108,7 @@ in {
     # ExecStop stop and remove it. The preflight refuses to start unless the
     # firewall, filesystem, both GPUs, the pinned image and the model files match.
     # Port 11542 is unchanged so the existing LiteLLM route and firewall rule keep
-    # working; port 11560 is now unserved because pqnld was vLLM-specific.
+    # working. pqnld was vLLM-specific, so its port 11560 rule is gone with it.
     systemd.services.apollo-ai = {
       description = "Apollo DeepSeek-V4.1-Flash dsx runtime";
       wantedBy = ["multi-user.target"];
@@ -137,6 +136,11 @@ in {
             "--ipc=host"
             "--ulimit"
             "memlock=-1:-1"
+            "--user"
+            "1000:100"
+            "--env"
+            "HOME=/tmp"
+            "--cpus=8"
             "--security-opt=no-new-privileges"
             "--device"
             "nvidia.com/gpu=all"

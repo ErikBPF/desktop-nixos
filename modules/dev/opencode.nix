@@ -256,15 +256,14 @@
                 output = 32768;
               };
             };
-            "apollo-qwen38-27b" = {
-              name = "Qwen3.8 27B (Apollo)";
+            "apollo-deepseek-v41-flash" = {
+              name = "DeepSeek V4.1 Flash (Apollo)";
               cost = {
                 input = 0.0;
                 output = 0.0;
               };
               limit = {
-                context = 90000;
-                input = 81808;
+                context = 262144;
                 output = 8192;
               };
             };
