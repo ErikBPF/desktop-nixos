@@ -41,7 +41,7 @@ orion-esp-graph-proof:
     BUILDERS="$(just _builders orion)"
     script=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.orion-esp-installer.config.system.build.diskoScript \
-      --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 | tail -1)
+      --builders "$BUILDERS" --builders-use-substitutes --max-jobs 0 | tail -1)
     expected="nvme-Force_MP510_19458242000129183963"
     grep -Fq "$expected" "$script"
     forbidden=(
@@ -89,15 +89,15 @@ deploy-orion-esp:
     age=$(( $(date +%s) - $(stat -c %Y "$marker") ))
     test "$age" -le 86400 || { echo ":: BLOCKED: stale $marker" >&2; exit 1; }
     grep -Eq '^snapshot=[0-9a-f]+$' "$marker"
-    export NIX_CONFIG="builders = {{apollo_builder}}
-    max-jobs = 1
+    export NIX_CONFIG="builders = {{orion_builder}}
+    max-jobs = 0
     builders-use-substitutes = true"
     just orion-esp-live-preflight
     just orion-esp-graph-proof
     nix build --no-link \
       .#nixosConfigurations.orion-esp-installer.config.system.build.toplevel \
-      --builders "{{apollo_builder}}" \
-      --builders-use-substitutes --max-jobs 1 --show-trace
+      --builders "{{orion_builder}}" \
+      --builders-use-substitutes --max-jobs 0 --show-trace
     extra=$(mktemp -d)
     trap 'rm -rf "$extra"' EXIT
     mkdir -p "$extra/var/lib/sops-staging"
@@ -232,7 +232,7 @@ deploy-orion:
     #!/usr/bin/env bash
     set -euo pipefail
     export NIX_CONFIG="builders = $(just _builders orion)
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt

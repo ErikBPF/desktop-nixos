@@ -128,7 +128,7 @@ deploy-pathfinder-esp mode="installer":
     #!/usr/bin/env bash
     set -euo pipefail
     export NIX_CONFIG="builders = $(just _builders pathfinder)
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     for marker in /tmp/pathfinder-esp-preflight.ok /tmp/pathfinder-esp-backup.ok; do
       test -f "$marker" || { echo ":: BLOCKED: missing $marker" >&2; exit 1; }
@@ -189,7 +189,7 @@ deploy-endeavour:
     #!/usr/bin/env bash
     set -euo pipefail
     export NIX_CONFIG="builders = $(just _builders endeavour)
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     target=nixos@192.168.10.99
     disk=/dev/nvme0n1
@@ -240,7 +240,7 @@ switch-voyager user="erik" port="2222":
         --target-host {{user}}@"$IP" \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 1 \
+        --max-jobs 0 \
         --use-substitutes --sudo --show-trace
 
 # Prove Voyager's OCI serial-console recovery path before a tailnet-only switch.
@@ -326,7 +326,7 @@ switch-telstar user="erik" port="2222":
         --target-host {{user}}@"$IP" \
         --option builders "{{orion_builder}}" \
         --option builders-use-substitutes true \
-        --max-jobs 1 \
+        --max-jobs 0 \
         --use-substitutes --sudo --show-trace
 
 # vanguard: the 2nd 1 GB x86 Oracle micro (sibling of voyager) — same class, same
@@ -349,7 +349,7 @@ switch-vanguard user="erik" port="2222":
         --target-host {{user}}@"$IP" \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 1 \
+        --max-jobs 0 \
         --use-substitutes --sudo --show-trace
 
 # Force the offsite outage alert once, then restore the healthy state.
@@ -392,7 +392,7 @@ boot-vanguard user="root" port="22":
         --target-host {{user}}@"$IP" \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 1 \
+        --max-jobs 0 \
         --use-substitutes --show-trace
 
 # Provision vanguard exactly like voyager: nixos-infect the stock Ubuntu cloud
@@ -474,7 +474,7 @@ build-archinaut-sd target="archinaut":
     # Only Orion provides aarch64 binfmt capacity; reuse its canonical SSH spec.
     nix build .#nixosConfigurations.{{target}}.config.system.build.sdImage \
         --builders '{{orion_builder}}' --builders-use-substitutes \
-        --max-jobs 1 --show-trace --out-link result-{{target}}-sd
+        --max-jobs 0 --show-trace --out-link result-{{target}}-sd
     @echo ":: image at result-{{target}}-sd/sd-image/ — flash with:"
     @echo "   zstd -dc result-{{target}}-sd/sd-image/*.img.zst | sudo dd of=/dev/sdX bs=4M oflag=direct status=progress conv=fsync"
 
@@ -594,7 +594,7 @@ deploy-telstar:
     chmod 600 /tmp/nixos-extra-telstar/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra-telstar' EXIT
     export NIX_CONFIG="builders = {{orion_builder}}
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     nix run github:nix-community/nixos-anywhere -- \
         --flake .#telstar \

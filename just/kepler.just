@@ -25,7 +25,7 @@ kepler-esp-graph-proof:
     set -euo pipefail
     script=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.kepler.config.system.build.diskoScript \
-      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 1 | tail -1)
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 | tail -1)
     expected="ata-TOSHIBA_KSG60ZMV256G_M.2_2280_256GB_58SF70G0F5WP"
     grep -Fq "$expected" "$script"
     forbidden=(KINGSTON ST4000DM004 fast-pool bulk-pool /dev/sda /dev/sdb /dev/sdc /dev/sde /dev/sdf /dev/sdg /dev/sdh /dev/sdi /dev/sdj /dev/sdk /dev/sdl)
@@ -65,7 +65,7 @@ deploy-kepler-esp:
     just kepler-esp-live-preflight
     just kepler-esp-graph-proof
     nix build --no-link .#nixosConfigurations.kepler.config.system.build.toplevel \
-      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 1 --show-trace
+      --builders "{{orion_builder}}" --builders-use-substitutes --max-jobs 0 --show-trace
     extra=$(mktemp -d)
     trap 'rm -rf "$extra"' EXIT
     ssh -p 2222 erik@{{ip_kepler}} \
@@ -73,7 +73,7 @@ deploy-kepler-esp:
       | tar -xpf - -C "$extra"
     chmod 600 "$extra"/etc/ssh/ssh_host_*_key "$extra"/var/lib/tailscale/tailscaled.state "$extra"/home/erik/.config/sops/age/keys.txt
     export NIX_CONFIG="builders = {{orion_builder}}
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     echo ":: DESTRUCTIVE: wiping only Toshiba OS M.2 serial 58SF70G0F5WP"
     nix run github:nix-community/nixos-anywhere -- \
@@ -109,7 +109,7 @@ backup-kepler-esp-orion:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     hashes=$(mktemp)
     restore=$(mktemp -d)
@@ -175,7 +175,7 @@ verify-kepler-esp-backup-orion:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     hashes=$(mktemp)
     restore=$(mktemp -d)
@@ -220,7 +220,7 @@ restore-kepler-esp-home-orion:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$ORION -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     expected=$(restic dump "$snapshot" kepler-os-state.tar | tar -xOf - "$sample" | sha256sum | awk '{print $1}')
     restic dump "$snapshot" kepler-os-state.tar \
@@ -395,8 +395,8 @@ restore-orion-home-kepler:
     export RESTIC_REPOSITORY="sftp:erik@$KEPLER:/bulk/backups/orion-esp"
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
-      nix shell --builders "{{apollo_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+      nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic dump "$snapshot" orion-home.tar \
       | ssh -p 2222 erik@"$ORION" 'sudo tar -xpf - -C /home/erik'
@@ -626,7 +626,7 @@ backup-discovery-identity-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic unlock
     for sample in "${samples[@]}"; do
@@ -669,7 +669,7 @@ restore-discovery-identity-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic dump "$snapshot" discovery-host-identity.tar | tar -xpf - -C "$restore"
     test "$(sha256sum "$restore/var/lib/tailscale/tailscaled.state" | awk '{print $1}')" = "$tailscale_sha256"
@@ -726,7 +726,7 @@ restore-discovery-home-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     restic snapshots "$snapshot" >/dev/null
     restic dump "$snapshot" discovery-mutable-state.tar |
@@ -779,7 +779,7 @@ backup-discovery-home-kepler:
     sftp_cmd="ssh -p 2222 -o BatchMode=yes erik@$KEPLER -s sftp"
     restic() {
       nix shell --builders "{{orion_builder}}" --builders-use-substitutes \
-        --max-jobs 1 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
+        --max-jobs 0 nixpkgs#restic -c restic -o "sftp.command=$sftp_cmd" "$@"
     }
     for sample in "${samples[@]}"; do
       ssh -p 2222 erik@"$DISCOVERY" \
@@ -813,7 +813,7 @@ deploy-kepler:
     #!/usr/bin/env bash
     set -euo pipefail
     export NIX_CONFIG="builders = $(just _builders kepler)
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     mkdir -p /tmp/nixos-extra-kepler/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra-kepler/var/lib/sops-staging/age-keys.txt

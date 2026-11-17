@@ -3,7 +3,7 @@ switch target=profile:
     BUILDERS="$(just _builders {{target}})" && \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 1
+        --option builders-use-substitutes true --max-jobs 0
 
 # Activate only the declarative user environment; leaves the running OS unchanged.
 home-switch target=profile:
@@ -13,7 +13,7 @@ home-switch target=profile:
     BUILDERS="$(just _builders {{target}})"
     activation=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.{{target}}.config.home-manager.users.erik.home.activationPackage \
-      --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1)
+      --builders "$BUILDERS" --builders-use-substitutes --max-jobs 0)
     HOME_MANAGER_BACKUP_EXT=backup "$activation/activate"
 
 boot target=profile:
@@ -21,7 +21,7 @@ boot target=profile:
     BUILDERS="$(just _builders {{target}})" && \
     sudo nixos-rebuild boot --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 1
+        --option builders-use-substitutes true --max-jobs 0
 
 # Build every flake check from a clean clone on Orion. The ref
 # must already be published on origin/main; dirty local work is never copied.
@@ -66,7 +66,7 @@ check-remote ref="HEAD":
     printf ":: building %d checks\n" "${#installables[@]}"
     exec nix build --no-link --show-trace "${installables[@]}" \
       --option builders "$builders" \
-      --option builders-use-substitutes true --max-jobs 1'
+      --option builders-use-substitutes true --max-jobs 0'
     printf '%s\n' "$remote_script" | ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=8 \
       erik@"{{ip_orion}}" bash -s -- "$remote_url" "$commit" "$builders_b64"
 
@@ -94,11 +94,11 @@ deploy target ip port="2222" user="erik":
         --use-substitutes --sudo --show-trace \
         --option builders "$BUILDERS" \
         --option builders-use-substitutes true \
-        --max-jobs 1
+        --max-jobs 0
 
 # deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
-# auto-revert if the host lost reachability). Uses the target-aware builders and
-# permits one local fallback job when a builder is offline; the deployment
+# auto-revert if the host lost reachability). Uses Orion as the only builder and
+# forbids local jobs, so no client host builds its own closure; the deployment
 # target never compiles its own closure. Node config
 # (hostname from fleet SSOT, erik@2222, per-host magic rollback) lives in
 # modules/deploy-rs.nix.
@@ -115,18 +115,18 @@ deploy target ip port="2222" user="erik":
 #   just deploy-rs voyager
 deploy-rs target hostname="":
     BUILDERS="$(just _builders {{target}})"; \
-    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 .#deploy-rs -- --skip-checks {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
+    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 0 .#deploy-rs -- --skip-checks {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
-           --max-jobs 1
+           --max-jobs 0
 
 # Build and show activation changes without switching the remote system.
 deploy-rs-preview target hostname="":
     BUILDERS="$(just _builders {{target}})"; \
-    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 .#deploy-rs -- --skip-checks --dry-activate {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
+    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 0 .#deploy-rs -- --skip-checks --dry-activate {{if hostname == "" { "" } else { "--hostname " + quote(hostname) }}} .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
-           --max-jobs 1
+           --max-jobs 0
 
 # Like deploy-rs, but --boot: set the new generation as the NEXT-BOOT target
 # WITHOUT live-activating. For GPU/driver hosts (kepler, discovery) where an
@@ -136,10 +136,10 @@ deploy-rs-preview target hostname="":
 # reboot deliberately. Follow with: ssh -p 2222 erik@<ip> sudo systemctl reboot
 deploy-rs-boot target:
     BUILDERS="$(just _builders {{target}})"; \
-    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 1 .#deploy-rs -- --skip-checks --boot --fast-connection true .#{{target}} \
+    nix run --builders "$BUILDERS" --builders-use-substitutes --max-jobs 0 .#deploy-rs -- --skip-checks --boot --fast-connection true .#{{target}} \
         -- --option builders "$BUILDERS" \
            --option builders-use-substitutes true \
-           --max-jobs 1
+           --max-jobs 0
 
 deploy-boot target ip port="2222" user="erik":
     BUILDERS="$(just _builders {{target}})"; \
@@ -147,7 +147,7 @@ deploy-boot target ip port="2222" user="erik":
         --target-host {{user}}@{{ip}} \
         --use-substitutes --sudo --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 1
+        --option builders-use-substitutes true --max-jobs 0
 
 verify target ip port="2222" user="erik":
     @echo ":: Verifying {{target}}..."

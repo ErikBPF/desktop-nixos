@@ -175,7 +175,7 @@ deploy-discovery:
     #!/usr/bin/env bash
     set -euo pipefail
     export NIX_CONFIG="builders = $(just _builders discovery)
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     mkdir -p /tmp/nixos-extra/var/lib/sops-staging/
     cp ~/.config/sops/age/keys.txt /tmp/nixos-extra/var/lib/sops-staging/age-keys.txt

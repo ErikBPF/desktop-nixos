@@ -70,10 +70,10 @@ in {
       })
 
       (lib.mkIf (enabled && builtins.elem host ["endeavour" "kepler" "discovery"]) {
-        # Native remote hooks run first for ordinary derivations; one local job
-        # remains when remote capacity is unavailable. cores is guidance, not quota.
+        # Never build on the client host. Every derivation goes to the remote
+        # builder; local work is limited to evaluation and substitution.
         nix.settings = {
-          max-jobs = lib.mkForce 1;
+          max-jobs = lib.mkForce 0;
           cores = lib.mkForce 1;
         };
       })
