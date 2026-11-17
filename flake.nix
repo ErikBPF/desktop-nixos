@@ -1,6 +1,9 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # Pinned to the master revision whose qutebrowser entry no longer carries
+    # the upstream-reverted insecure mark; nixos-unstable still lags it.
+    # Restore github:nixos/nixpkgs/nixos-unstable once the channel advances.
+    nixpkgs.url = "github:nixos/nixpkgs/5c3cda7610193a82ba555e178e80de6667ae03de";
 
     # Kepler imports this fixed revision because ZFS 2.4.4 supports kernels up
     # to 7.2 and the floating input dropped that series. Apollo and the

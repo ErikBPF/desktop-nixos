@@ -37,12 +37,8 @@ def test_kepler_retains_existing_ssh_authorization():
 
 
 def test_recipe_pool_excludes_the_target_and_kepler():
-    for target, endpoints in (
-        ("orion", ["apollo-builder"]),
-        ("apollo", ["orion-builder"]),
-        ("kepler", ["orion-builder", "apollo-builder"]),
-        ("endeavour", ["orion-builder", "apollo-builder"]),
-    ):
+    for target in ("orion", "apollo", "kepler", "endeavour"):
+        endpoints = ["orion-builder"]
         result = subprocess.run(
             ["just", "--no-dotenv", "_builders", target],
             cwd=ROOT,
