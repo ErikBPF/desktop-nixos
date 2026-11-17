@@ -21,7 +21,7 @@ in {
     ...
   }: let
     host = config.networking.hostName;
-    enabled = config.nix.distributedBuildsOrion.enable || config.nix.distributedBuildsApollo.enable;
+    enabled = config.nix.distributedBuildsOrion.enable;
     server = builtins.hasAttr host serverKeys;
     builder = builtins.hasAttr host hostKeys;
     secretName = "nix-builders/${host}/ssh-key";
@@ -40,8 +40,6 @@ in {
     # Explicit client enrollment; builders also expose the restricted server endpoint.
     options.nix.distributedBuildsOrion.enable =
       lib.mkEnableOption "offload nix builds to orion via ssh-ng";
-    options.nix.distributedBuildsApollo.enable =
-      lib.mkEnableOption "offload nix builds to apollo via ssh-ng";
 
     config = lib.mkMerge [
       (lib.mkIf enabled {
@@ -56,16 +54,6 @@ in {
               maxJobs = 16;
               speedFactor = 4;
               supportedFeatures = ["nixos-test" "benchmark" "big-parallel"];
-            })
-          ++ lib.optional (
-            config.nix.distributedBuildsApollo.enable && host != "apollo"
-          ) (identity
-            // {
-              hostName = "apollo-builder";
-              systems = ["i686-linux" "x86_64-linux"];
-              maxJobs = 6;
-              speedFactor = 1;
-              supportedFeatures = ["nixos-test" "benchmark" "big-parallel" "kvm"];
             });
       })
 

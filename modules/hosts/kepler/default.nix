@@ -108,7 +108,6 @@ in {
     # in nix-gc.service rather than silently deleting live data. If it does,
     # disable this again and run the offline `btrfs check --readonly` first.
     nix.distributedBuildsOrion.enable = true;
-    nix.distributedBuildsApollo.enable = true;
 
     # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
     # module imported above (grub off, panic=10). Migrated GRUB → systemd-boot

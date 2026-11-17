@@ -184,7 +184,6 @@ in {
     };
     services.btrfs.autoScrub.enable = true;
     nix.distributedBuildsOrion.enable = true;
-    nix.distributedBuildsApollo.enable = true;
     programs.appimage = {
       enable = true;
       binfmt = true;

@@ -55,6 +55,7 @@ pathfinder-esp-preflight:
     IP="$(jq -r '.hosts.pathfinder.tailscaleIp // .hosts.pathfinder.ip' fleet.json)"
     evidence="/tmp/pathfinder-esp-preflight.txt"
     nix build --no-link \
+      --builders "$(just _builders pathfinder)" --max-jobs 0 \
       .#nixosConfigurations.pathfinder.config.system.build.kernel \
       .#nixosConfigurations.pathfinder.config.system.build.initialRamdisk
     kernel=$(nix eval --raw .#nixosConfigurations.pathfinder.config.system.build.kernel)

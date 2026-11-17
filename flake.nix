@@ -6,9 +6,9 @@
     nixpkgs.url = "github:nixos/nixpkgs/5c3cda7610193a82ba555e178e80de6667ae03de";
 
     # Kepler imports this fixed revision because ZFS 2.4.4 supports kernels up
-    # to 7.2 and the floating input dropped that series. Apollo and the
-    # `profile-server` hosts follow the floating input; endeavour and pathfinder
-    # pin `linuxPackages_zen` themselves.
+    # to 7.2 and the root input dropped that series. Apollo and the
+    # `profile-server` hosts follow the root revision pin; endeavour and
+    # pathfinder pin `linuxPackages_zen` themselves.
     # Revisit once ZFS supports 7.3: https://github.com/ErikBPF/desktop-nixos/issues/459
     nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/d3b13ad75cc492690728f9307e443dec9ef9a20e";
 
@@ -120,6 +120,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Held at 0.1.60: 0.1.62 (opencode 2.3.0) fails the native shell roundtrip
+    # test with `bash: nomatch: invalid option name`.
     opencode-flake = {
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
       inputs.flake-parts.follows = "flake-parts";

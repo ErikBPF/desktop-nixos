@@ -165,6 +165,19 @@ def test_no_recipe_permits_a_local_build():
     assert "kepler_builder" not in text
 
 
+def test_builder_invocations_forbid_local_jobs():
+    # Every --builders invocation must carry --max-jobs 0, or sit in a
+    # NIX_CONFIG block that sets max-jobs = 0.
+    lines = justfile_text().splitlines()
+    for index, line in enumerate(lines):
+        if "--builders" in line and "--max-jobs 0" not in line:
+            window = "\n".join(lines[index:index + 4])
+            assert "--max-jobs 0" in window, line
+        if 'NIX_CONFIG="builders' in line:
+            window = "\n".join(lines[index:index + 4])
+            assert "max-jobs = 0" in window, line
+
+
 def test_hermes_sandbox_validation_remains_orion_only(tmp_path):
     call = run_recipe(tmp_path, [
         "orion_builder=ORION_OVERRIDE",

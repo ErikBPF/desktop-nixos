@@ -19,8 +19,9 @@ tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
 # Export the override so nested Just invocations retain the operator's builder.
 export orion_builder := env_var_or_default("orion_builder", "ssh-ng://erik@orion-builder:2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test")
 
-# Orion is the only build worker. Client hosts build nothing locally
-# (max-jobs 0); a target equal to Orion still builds there.
+# Orion is the only builder. Client hosts build nothing locally (max-jobs 0).
+# A recipe that targets Orion therefore builds through Orion's ssh-ng endpoint;
+# the ESP and restore recipes document that dependency.
 _builders target:
     @printf '%s\n' '{{orion_builder}}'
 

@@ -173,7 +173,6 @@ in {
 
     system.stateVersion = "25.11";
     nix.distributedBuildsOrion.enable = true;
-    nix.distributedBuildsApollo.enable = true;
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.intel.updateMicrocode = true;
 

@@ -16,17 +16,14 @@ def nix_eval(attribute):
     return json.loads(result.stdout)
 
 
-def test_endeavour_uses_only_orion_and_apollo():
+def test_endeavour_uses_only_orion():
     machines = nix_eval("nixosConfigurations.endeavour.config.nix.buildMachines")
-    assert [machine["hostName"] for machine in machines] == [
-        "orion-builder",
-        "apollo-builder",
-    ]
+    assert [machine["hostName"] for machine in machines] == ["orion-builder"]
 
 
 def test_kepler_never_uses_itself_as_a_remote_builder():
     machines = nix_eval("nixosConfigurations.kepler.config.nix.buildMachines")
-    assert [machine["hostName"] for machine in machines] == ["orion-builder", "apollo-builder"]
+    assert [machine["hostName"] for machine in machines] == ["orion-builder"]
 
 
 def test_kepler_retains_existing_ssh_authorization():
