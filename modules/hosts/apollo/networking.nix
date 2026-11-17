@@ -10,7 +10,7 @@ in {
       firewall = {
         enable = true;
         checkReversePath = "loose";
-        # apollo-ai exposes vLLM and pqnld only to discovery over tailscale0.
+        # apollo-ai exposes the dsx engine only to discovery over tailscale0.
         # The unit preflight asserts these exact rules before starting.
         # extraInputRules is nftables-only; apollo uses the iptables backend,
         # so the INPUT jumps must live in extraCommands.
