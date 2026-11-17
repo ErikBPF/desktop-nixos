@@ -16,20 +16,14 @@ ip_apollo := `jq -r '.hosts.apollo.ip' fleet.json`
 tailscale_voyager := `jq -r '.hosts.voyager.tailscaleIp' fleet.json`
 tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
 
-# Export overrides so nested Just invocations retain the operator's builder pool.
+# Export the override so nested Just invocations retain the operator's builder.
 export orion_builder := env_var_or_default("orion_builder", "ssh-ng://erik@orion-builder:2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test")
-export apollo_builder := env_var_or_default("apollo_builder", "ssh-ng://erik@apollo-builder:2222 i686-linux,x86_64-linux /home/erik/.ssh/id_ed25519 6 1 big-parallel,benchmark,kvm,nixos-test")
 
-# Never ask a deployment target to build itself. Other x86_64 targets can use
-# Orion as primary plus Apollo's deliberately constrained capacity.
+# Orion is the only builder. Client hosts build nothing locally (max-jobs 0).
+# A recipe that targets Orion therefore builds through Orion's ssh-ng endpoint;
+# the ESP and restore recipes document that dependency.
 _builders target:
-    @if [ "{{target}}" = apollo ]; then \
-        printf '%s\n' '{{orion_builder}}'; \
-    elif [ "{{target}}" = orion ]; then \
-        printf '%s\n' '{{apollo_builder}}'; \
-    else \
-        printf '%s ; %s\n' '{{orion_builder}}' '{{apollo_builder}}'; \
-    fi
+    @printf '%s\n' '{{orion_builder}}'
 
 default:
     @just --list

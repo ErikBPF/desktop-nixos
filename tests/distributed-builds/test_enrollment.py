@@ -15,11 +15,11 @@ PUBLIC_KEYS = {
 }
 
 
-def test_consumers_explicitly_enroll_both_builders():
+def test_consumers_explicitly_enroll_orion():
     for host in CONSUMERS:
         source = (ROOT / f"modules/hosts/{host}/default.nix").read_text()
         assert "nix.distributedBuildsOrion.enable = true;" in source, host
-        assert "nix.distributedBuildsApollo.enable = true;" in source, host
+        assert "distributedBuildsApollo" not in source, host
         assert "distributedBuildsKepler" not in source, host
 
 
@@ -42,7 +42,6 @@ def policies():
               system.stateVersion = "25.11";
               nix.settings = { max-jobs = "auto"; cores = 0; };
               nix.distributedBuildsOrion.enable = host != "pathfinder";
-              nix.distributedBuildsApollo.enable = host != "pathfinder";
             } ];
           }).config;
         in {
@@ -77,27 +76,20 @@ def policies():
 
 def test_native_pool_and_self_exclusion(policies):
     for host, policy in policies.items():
-        expected = [] if host == "pathfinder" else [
-            f"{builder}-builder" for builder in ("orion", "apollo") if builder != host
-        ]
+        expected = [] if host in ("pathfinder", "orion") else ["orion-builder"]
         assert [machine["hostName"] for machine in policy["machines"]] == expected
         for machine in policy["machines"]:
             assert machine["protocol"] == "ssh-ng"
-            if machine["hostName"] == "orion-builder":
-                assert set(machine["systems"]) == {"i686-linux", "x86_64-linux", "aarch64-linux"}
-                assert machine["maxJobs"] == 16
-                assert machine["speedFactor"] == 4
-                assert set(machine["supportedFeatures"]) == {"benchmark", "big-parallel", "nixos-test"}
-            else:
-                assert set(machine["systems"]) == {"i686-linux", "x86_64-linux"}
-                assert machine["maxJobs"] == 6
-                assert machine["speedFactor"] == 1
-                assert set(machine["supportedFeatures"]) == {"benchmark", "big-parallel", "kvm", "nixos-test"}
+            assert machine["hostName"] == "orion-builder"
+            assert set(machine["systems"]) == {"i686-linux", "x86_64-linux", "aarch64-linux"}
+            assert machine["maxJobs"] == 16
+            assert machine["speedFactor"] == 4
+            assert set(machine["supportedFeatures"]) == {"benchmark", "big-parallel", "nixos-test"}
 
 
-def test_only_enrolled_consumers_get_one_local_fallback_job(policies):
+def test_only_enrolled_consumers_forbid_local_jobs(policies):
     for host, policy in policies.items():
-        assert policy["maxJobs"] == (1 if host in CONSUMERS else "auto")
+        assert policy["maxJobs"] == (0 if host in CONSUMERS else "auto")
         assert policy["cores"] == (1 if host in CONSUMERS else 0)
 
 

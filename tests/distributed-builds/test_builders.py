@@ -16,17 +16,14 @@ def nix_eval(attribute):
     return json.loads(result.stdout)
 
 
-def test_endeavour_uses_only_orion_and_apollo():
+def test_endeavour_uses_only_orion():
     machines = nix_eval("nixosConfigurations.endeavour.config.nix.buildMachines")
-    assert [machine["hostName"] for machine in machines] == [
-        "orion-builder",
-        "apollo-builder",
-    ]
+    assert [machine["hostName"] for machine in machines] == ["orion-builder"]
 
 
 def test_kepler_never_uses_itself_as_a_remote_builder():
     machines = nix_eval("nixosConfigurations.kepler.config.nix.buildMachines")
-    assert [machine["hostName"] for machine in machines] == ["orion-builder", "apollo-builder"]
+    assert [machine["hostName"] for machine in machines] == ["orion-builder"]
 
 
 def test_kepler_retains_existing_ssh_authorization():
@@ -36,13 +33,9 @@ def test_kepler_retains_existing_ssh_authorization():
     assert any(key.endswith("nix-builder@laptop") for key in keys)
 
 
-def test_recipe_pool_excludes_the_target_and_kepler():
-    for target, endpoints in (
-        ("orion", ["apollo-builder"]),
-        ("apollo", ["orion-builder"]),
-        ("kepler", ["orion-builder", "apollo-builder"]),
-        ("endeavour", ["orion-builder", "apollo-builder"]),
-    ):
+def test_recipe_pool_is_orion_only_and_excludes_kepler():
+    for target in ("orion", "apollo", "kepler", "endeavour"):
+        endpoints = ["orion-builder"]
         result = subprocess.run(
             ["just", "--no-dotenv", "_builders", target],
             cwd=ROOT,

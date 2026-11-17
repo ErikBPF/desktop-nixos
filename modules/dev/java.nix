@@ -3,7 +3,10 @@ _: {
     environment.systemPackages = with pkgs; [
       jdk
       zulu17
-      zulu11
+      # JDK 11 needs gtk2 for its GTK look and feel. nixpkgs marks gtk2
+      # broken ahead of removal, so drop the L&F dependencies; the toolchain
+      # itself is unchanged.
+      (zulu11.override {gtkSupport = false;})
       jre21_minimal
       spark
       gradle

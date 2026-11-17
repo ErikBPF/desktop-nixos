@@ -72,55 +72,51 @@ def run_recipe(tmp_path, arguments, env=None):
 
 
 @pytest.mark.parametrize("target,expected", [
-    ("orion", "APOLLO_OVERRIDE"),
+    ("orion", "ORION_OVERRIDE"),
     ("apollo", "ORION_OVERRIDE"),
-    ("endeavour", "ORION_OVERRIDE ; APOLLO_OVERRIDE"),
+    ("endeavour", "ORION_OVERRIDE"),
 ])
 def test_cli_builder_overrides_survive_child_just(tmp_path, target, expected):
     calls = run_recipe(tmp_path, [
-        "orion_builder=ORION_OVERRIDE", "apollo_builder=APOLLO_OVERRIDE", "build", target,
+        "orion_builder=ORION_OVERRIDE", "build", target,
     ])
     assert calls[0][calls[0].index("--builders") + 1] == expected
-    assert calls[0][calls[0].index("--max-jobs") + 1] == "1"
+    assert calls[0][calls[0].index("--max-jobs") + 1] == "0"
 
 
-@pytest.mark.parametrize("overrides", [[], [
-    "orion_builder=ORION_OVERRIDE", "apollo_builder=APOLLO_OVERRIDE",
-]])
-def test_orion_graph_proof_excludes_target_with_bounded_fallback(tmp_path, overrides):
+@pytest.mark.parametrize("overrides", [[], ["orion_builder=ORION_OVERRIDE"]])
+def test_orion_graph_proof_uses_orion_only(tmp_path, overrides):
     call = run_recipe(tmp_path, [*overrides, "orion-esp-graph-proof"])[0]
     assert "--builders" in call
     builders = call[call.index("--builders") + 1]
     if overrides:
-        assert builders == "APOLLO_OVERRIDE"
+        assert builders == "ORION_OVERRIDE"
     else:
-        assert builders.startswith("ssh-ng://erik@apollo-builder:2222 ")
-        assert "orion-builder" not in builders
+        assert builders.startswith("ssh-ng://erik@orion-builder:2222 ")
+        assert "apollo-builder" not in builders
     assert "--max-jobs" in call
-    assert call[call.index("--max-jobs") + 1] == "1"
+    assert call[call.index("--max-jobs") + 1] == "0"
     assert "--builders-use-substitutes" in call
 
 
 def test_orion_migration_exports_pool_before_nested_proofs():
     body = recipe("deploy-orion-esp")
-    export = body.index('export NIX_CONFIG="builders = {{apollo_builder}}')
+    export = body.index('export NIX_CONFIG="builders = {{orion_builder}}')
     assert export < body.index("just orion-esp-live-preflight")
     assert export < body.index("just orion-esp-graph-proof")
 
 
 @pytest.mark.parametrize("name", ["switch-voyager", "switch-vanguard", "boot-vanguard"])
-@pytest.mark.parametrize("overrides", [[], [
-    "orion_builder=ORION_OVERRIDE", "apollo_builder=APOLLO_OVERRIDE",
-]])
-def test_x86_bootstrap_helpers_use_both_builders(tmp_path, name, overrides):
+@pytest.mark.parametrize("overrides", [[], ["orion_builder=ORION_OVERRIDE"]])
+def test_x86_bootstrap_helpers_use_orion_only(tmp_path, name, overrides):
     call = run_recipe(tmp_path, [*overrides, name])[0]
     builders = call[call.index("builders") + 1]
     if overrides:
-        assert builders == "ORION_OVERRIDE ; APOLLO_OVERRIDE"
+        assert builders == "ORION_OVERRIDE"
     else:
         assert "orion-builder:2222" in builders
-        assert "apollo-builder:2222" in builders
-    assert call[call.index("--max-jobs") + 1] == "1"
+        assert "apollo-builder:2222" not in builders
+    assert call[call.index("--max-jobs") + 1] == "0"
     transports = [json.loads(line) for line in (tmp_path / "transport.jsonl").read_text().splitlines()]
     assert [Path(call[0]).name for call in transports] == ["ssh", "scp", "ssh"]
     assert not (tmp_path / ".config/sops/age/keys.txt").exists()
@@ -131,21 +127,22 @@ def test_x86_bootstrap_helpers_use_both_builders(tmp_path, name, overrides):
     ["home-switch", "endeavour"], ["deploy", "endeavour", "192.0.2.10"],
     ["deploy-boot", "endeavour", "192.0.2.10"],
 ])
-def test_ordinary_recipes_offer_pool_with_one_local_fallback(tmp_path, arguments):
+def test_ordinary_recipes_offer_orion_without_local_fallback(tmp_path, arguments):
     calls = run_recipe(tmp_path, arguments)
     call = calls[0]
-    assert call[call.index("--max-jobs") + 1] == "1"
-    assert any("orion-builder:2222" in arg and "apollo-builder:2222" in arg for arg in call)
+    assert call[call.index("--max-jobs") + 1] == "0"
+    assert any("orion-builder:2222" in arg for arg in call)
+    assert not any("apollo-builder:2222" in arg for arg in call)
 
 
 @pytest.mark.parametrize("name", ["deploy-rs", "deploy-rs-preview", "deploy-rs-boot"])
 def test_deploy_rs_realizes_tool_and_closure_through_same_pool(tmp_path, name):
     call = run_recipe(tmp_path, [name, "orion"])[0]
     outer, inner = call[:call.index("--")], call[call.index("--") + 1:]
-    assert outer[outer.index("--max-jobs") + 1] == "1"
+    assert outer[outer.index("--max-jobs") + 1] == "0"
     assert "--builders-use-substitutes" in outer
-    assert outer[outer.index("--builders") + 1].startswith("ssh-ng://erik@apollo-builder:2222 ")
-    assert inner[inner.index("--max-jobs") + 1] == "1"
+    assert outer[outer.index("--builders") + 1].startswith("ssh-ng://erik@orion-builder:2222 ")
+    assert inner[inner.index("--max-jobs") + 1] == "0"
     assert inner[inner.index("builders") + 1] == outer[outer.index("--builders") + 1]
     if name == "deploy-rs-preview":
         assert "--skip-checks --dry-activate" in " ".join(inner)
@@ -157,25 +154,33 @@ def test_sd_image_reuses_canonical_orion_endpoint_and_personal_client_key(tmp_pa
     assert builders.startswith("ssh-ng://erik@orion-builder:2222 ")
     assert "aarch64-linux" in builders
     assert "/home/erik/.ssh/id_ed25519" in builders
-    assert call[call.index("--max-jobs") + 1] == "1"
+    assert call[call.index("--max-jobs") + 1] == "0"
 
 
-def test_no_ordinary_recipe_forbids_local_fallback():
+def test_no_recipe_permits_a_local_build():
     text = justfile_text()
-    for name in ("validate-hermes-orion", "preflight-discovery-hermes-kepler",
-                 "backup-discovery-hermes-kepler", "rehearse-discovery-hermes-kepler"):
-        body = recipe(name)
-        assert "--builders" in body and "{{orion_builder}}" in body
-        assert "--max-jobs 0" in body
-        text = text.replace(body, "", 1)
-    assert "--max-jobs 0" not in text
-    assert "max-jobs = 0" not in text
+    assert "--max-jobs 1" not in text
+    assert "max-jobs = 1" not in text
+    assert "apollo_builder" not in text
     assert "kepler_builder" not in text
+
+
+def test_builder_invocations_forbid_local_jobs():
+    # Every --builders invocation must carry --max-jobs 0, or sit in a
+    # NIX_CONFIG block that sets max-jobs = 0.
+    lines = justfile_text().splitlines()
+    for index, line in enumerate(lines):
+        if ("--builders" in line or "--option builders" in line) and "--max-jobs 0" not in line:
+            window = "\n".join(lines[index:index + 4])
+            assert "--max-jobs 0" in window, line
+        if 'NIX_CONFIG="builders' in line:
+            window = "\n".join(lines[index:index + 4])
+            assert "max-jobs = 0" in window, line
 
 
 def test_hermes_sandbox_validation_remains_orion_only(tmp_path):
     call = run_recipe(tmp_path, [
-        "orion_builder=ORION_OVERRIDE", "apollo_builder=APOLLO_OVERRIDE",
+        "orion_builder=ORION_OVERRIDE",
         "validate-hermes-orion",
     ])[0]
     assert call[call.index("--builders") + 1] == "ORION_OVERRIDE"
@@ -200,7 +205,7 @@ def test_remote_checks_include_endeavour_without_host_locality_exception():
     body = recipe("check-remote")
     assert 'found_endeavour=true' in body
     assert 'found_endeavour=true\n        continue' not in body
-    assert '--max-jobs 1' in body
+    assert '--max-jobs 0' in body
     assert 'just check-remote' in recipe("check-endeavour-remote")
 
 
@@ -213,7 +218,7 @@ def test_remote_checks_include_endeavour_without_host_locality_exception():
 def test_installers_propagate_target_aware_pool_to_tool_and_build(name, selector):
     body = recipe(name)
     assert f'export NIX_CONFIG="builders = $(just _builders {selector})' in body
-    assert 'max-jobs = 1' in body
+    assert 'max-jobs = 0' in body
     assert 'builders-use-substitutes = true' in body
 
 
@@ -251,9 +256,9 @@ def test_builder_preflight_is_explicit_and_target_aware():
     assert "builder-preflight" not in recipe("switch")
 
 
-def test_deploy_rs_has_one_local_fallback_job():
+def test_deploy_rs_forbids_local_jobs():
     body = recipe("deploy-rs")
-    assert "--max-jobs 1" in body
+    assert "--max-jobs 0" in body
 
 
 def test_dry_all_builds_fleet_in_one_scheduler_invocation():

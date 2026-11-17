@@ -21,7 +21,7 @@ in {
     ...
   }: let
     host = config.networking.hostName;
-    enabled = config.nix.distributedBuildsOrion.enable || config.nix.distributedBuildsApollo.enable;
+    enabled = config.nix.distributedBuildsOrion.enable;
     server = builtins.hasAttr host serverKeys;
     builder = builtins.hasAttr host hostKeys;
     secretName = "nix-builders/${host}/ssh-key";
@@ -40,8 +40,6 @@ in {
     # Explicit client enrollment; builders also expose the restricted server endpoint.
     options.nix.distributedBuildsOrion.enable =
       lib.mkEnableOption "offload nix builds to orion via ssh-ng";
-    options.nix.distributedBuildsApollo.enable =
-      lib.mkEnableOption "offload nix builds to apollo via ssh-ng";
 
     config = lib.mkMerge [
       (lib.mkIf enabled {
@@ -56,24 +54,14 @@ in {
               maxJobs = 16;
               speedFactor = 4;
               supportedFeatures = ["nixos-test" "benchmark" "big-parallel"];
-            })
-          ++ lib.optional (
-            config.nix.distributedBuildsApollo.enable && host != "apollo"
-          ) (identity
-            // {
-              hostName = "apollo-builder";
-              systems = ["i686-linux" "x86_64-linux"];
-              maxJobs = 6;
-              speedFactor = 1;
-              supportedFeatures = ["nixos-test" "benchmark" "big-parallel" "kvm"];
             });
       })
 
       (lib.mkIf (enabled && builtins.elem host ["endeavour" "kepler" "discovery"]) {
-        # Native remote hooks run first for ordinary derivations; one local job
-        # remains when remote capacity is unavailable. cores is guidance, not quota.
+        # Never build on the client host. Every derivation goes to the remote
+        # builder; local work is limited to evaluation and substitution.
         nix.settings = {
-          max-jobs = lib.mkForce 1;
+          max-jobs = lib.mkForce 0;
           cores = lib.mkForce 1;
         };
       })

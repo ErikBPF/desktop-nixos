@@ -1,6 +1,9 @@
 # Orion/Apollo builders and guest-only KACE
 
 **Status:** Guest-only KACE source verified; waiting for scheduled Orion cache build.
+**Builder policy (2026-11-16):** Orion only. Apollo enrollment and the local
+fallback job are removed; Orion-targeted recovery recipes document the
+self-build dependency and the `orion_builder` override.
 **Stage:** October 16 correction GREEN and independent review reconciled.
 
 ## Outcome and why
@@ -8,9 +11,9 @@
 The latest [human seed](behavior.md) clarifies that the Ubuntu work VM is the
 only machine that must keep KACE. Keep its apt-owned `ampagent` package and
 `konea.service` checks, alongside WARP and Trend; do not reintroduce KACE on the
-NixOS host. This supersedes earlier guest-removal instructions, not the selected
-Orion/Apollo builder policy. Merge the correction and wait for Orion's next
-scheduled cache build: no manual cache trigger, host build or activation.
+NixOS host. This supersedes earlier guest-removal instructions, not the
+builder policy. Merge the correction and wait for Orion's next scheduled cache
+build: no manual cache trigger, host build or activation.
 
 The earlier uninstall attempt never reached the guest: SSH exited 255 with
 `192.168.122.74 port 22: No route to host`. No apt command ran, so this correction
@@ -20,11 +23,14 @@ Guest uninstall is cancelled, not pending work.
 ## Source changes and boundaries
 
 Builder [PR #380](https://github.com/ErikBPF/desktop-nixos/pull/380) merged as
-`22ba5efe2b458c8c2cbb88d365421ca13ea51811`. Orion/Apollo remain the remote pool,
-with symmetric target exclusion, propagated Just overrides and bounded local
-fallback. Kepler/Discovery have distinct encrypted source credentials for native
-restricted, untrusted Nix RPC. No personal private keys were distributed. Orion
-remains the official signed cache; existing automation is unchanged.
+`22ba5efe2b458c8c2cbb88d365421ca13ea51811`. The 2026-11-16 policy supersedes
+that placement: Orion is the only pool member, Apollo enrollment and the local
+fallback job are removed, and recipes propagate the Orion override through child
+Just calls. A recipe that targets Orion builds through Orion itself and carries
+a comment about the override. Kepler/Discovery have distinct encrypted source
+credentials for native restricted, untrusted Nix RPC. No personal private keys
+were distributed. Orion remains the official signed cache; existing automation
+is unchanged.
 
 The guest boundary correction restores deployment health requirements, deletes
 the now-inappropriate KACE uninstall helper/recipe, and updates the guide and

@@ -54,10 +54,10 @@ Q-13 selects RTK retirement, roaming recipe/daemon builders and sudo-PATH
 reconciliation for reviewed PR publication, normal squash merge and Endeavour
 delivery. Existing sudo-PATH source is already on main; no older V1 module is
 copied. Other dirty worktrees and DNS/route approvals remain separate.
-Q-14 accepts main #380's superseding Orion/Apollo pool, strict public pins,
-LAN/tailnet aliases and one-job local fallback. Main's builder source/tests/CI
-remain authoritative; this PR retains only independent RTK repair, fixture
-correction and delivery records. The single additional thirty-minute candidate
+Q-14 accepts main #380's superseding builder pool, later narrowed by the
+2026-11-16 Orion-only policy with strict public pins, LAN/tailnet aliases and no
+local fallback job. Main's builder source/tests/CI remain authoritative; this PR
+retains only independent RTK repair, fixture correction and delivery records. The single additional thirty-minute candidate
 build succeeded; its allowance is consumed, with no further retry authorized.
 Q-16 accepts the inherited Endeavour Hermes CLI/interpreter/dependency update.
 No guest uninstall or other-host activation.
