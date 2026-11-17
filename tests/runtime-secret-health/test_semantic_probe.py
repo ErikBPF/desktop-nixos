@@ -22,6 +22,9 @@ class SemanticProbe(unittest.TestCase):
 
         def gateway(request, timeout):
             calls.append(request.full_url)
+            self.headers = getattr(self, "headers", [])
+            if request.full_url.endswith("/v1/chat/completions"):
+                self.headers.append(request.get_header("X-opencode-session"))
             if request.full_url.endswith("/health/readiness"):
                 body = health if health is not None else {"status": "healthy", "db": "connected"}
             else:
@@ -40,6 +43,7 @@ class SemanticProbe(unittest.TestCase):
             "http://127.0.0.1:4000/v1/chat/completions",
         ])
         self.assertEqual(self.models, ["deepseek-v4.1-flash"])
+        self.assertEqual(self.headers, ["litellm-semantic-probe"])
 
     def test_database_failure_still_fails(self):
         with self.assertRaises(AssertionError):
