@@ -32,6 +32,8 @@ _: {
       headers = {
           "Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"],
           "Content-Type": "application/json",
+          # opencode-go rejects this model without a session header.
+          "x-opencode-session": "litellm-semantic-probe",
       }
       request = urllib.request.Request(base + "/health/readiness", headers=headers)
       with urllib.request.urlopen(request, timeout=15) as response:

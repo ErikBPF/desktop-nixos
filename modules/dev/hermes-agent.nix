@@ -69,7 +69,10 @@ in {
         # NOTE: this only delegates LLM inference. The hermes-agent logic
         # itself still runs locally in-process; only model calls are remote.
         OPENAI_BASE_URL = discoveryApiUrl;
-        HERMES_DEFAULT_MODEL = "deepseek-v4.1-flash";
+        # qwen-chat stays: this CLI has no provider block, so it cannot send the
+        # x-opencode-session header that deepseek-v4.1-flash requires through the
+        # gateway (400 without it). Move this when the gateway injects the header.
+        HERMES_DEFAULT_MODEL = "qwen-chat";
 
         # Laptop is a thin client — turn off the local gateways. They bind
         # 127.0.0.1:8642 + 127.0.0.1:8644 by default which is dead weight

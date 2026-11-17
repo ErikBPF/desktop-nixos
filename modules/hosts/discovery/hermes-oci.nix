@@ -140,7 +140,7 @@ in {
         # MiMo (free) to keep the shared budget for actual responses.
         auxiliary = {
           vision = {
-            provider = "custom";
+            provider = "opencode-go";
             model = "deepseek-v4.1-flash";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
