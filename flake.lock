@@ -1316,12 +1316,12 @@
         "nixpkgs": "nixpkgs_6"
       },
       "locked": {
-        "lastModified": 1794590662,
-        "narHash": "sha256-lMSWmc0ZG3bAL/4AeBU7RMvwH7K8ope3bLVq9sXvgoU=",
-        "rev": "c78b79f3f7d1885e00db3ac5c57565e393b052fd",
-        "revCount": 62,
+        "lastModified": 1793415786,
+        "narHash": "sha256-unWBhr0SxlEfNCcE/1y40ilxcOYGXOVABTpdS/UNtBU=",
+        "rev": "f7f8d68ac7658c12076b2e5429738894a352a247",
+        "revCount": 60,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/ErikBPF/opencode-flake/0.1.62%2Brev-c78b79f3f7d1885e00db3ac5c57565e393b052fd/01a1d5f4-c74c-7a52-9275-1e28628107b7/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/ErikBPF/opencode-flake/0.1.60%2Brev-f7f8d68ac7658c12076b2e5429738894a352a247/01a18fed-545d-7fe0-92c1-07b9cb049bfb/source.tar.gz"
       },
       "original": {
         "type": "tarball",
