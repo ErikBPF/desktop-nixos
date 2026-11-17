@@ -170,7 +170,7 @@ def test_builder_invocations_forbid_local_jobs():
     # NIX_CONFIG block that sets max-jobs = 0.
     lines = justfile_text().splitlines()
     for index, line in enumerate(lines):
-        if "--builders" in line and "--max-jobs 0" not in line:
+        if ("--builders" in line or "--option builders" in line) and "--max-jobs 0" not in line:
             window = "\n".join(lines[index:index + 4])
             assert "--max-jobs 0" in window, line
         if 'NIX_CONFIG="builders' in line:

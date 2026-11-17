@@ -376,6 +376,9 @@ verify-orion-home-backup-kepler:
 
 # Restore the verified pre-migration Orion home snapshot from Kepler. Streams
 # directly into Orion; no plaintext archive is written to the controller.
+# Recovery exception: restic and the helper shell run through Orion while
+# Orion's home is restored. Override orion_builder when Orion's daemon or store
+# is unhealthy.
 restore-orion-home-kepler:
     #!/usr/bin/env bash
     set -euo pipefail

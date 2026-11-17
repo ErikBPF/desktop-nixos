@@ -98,9 +98,8 @@ deploy target ip port="2222" user="erik":
 
 # deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
 # auto-revert if the host lost reachability). Uses Orion as the only builder and
-# forbids local jobs. A recipe that targets Orion builds through Orion itself;
-# the deployment
-# target never compiles its own closure. Node config
+# forbids local jobs; a recipe that targets Orion builds through Orion itself,
+# which the Orion recovery recipes document. Node config
 # (hostname from fleet SSOT, erik@2222, per-host magic rollback) lives in
 # modules/deploy-rs.nix.
 #

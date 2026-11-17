@@ -1,6 +1,9 @@
 # Orion/Apollo builders and guest-only KACE
 
 **Status:** Guest-only KACE source verified; waiting for scheduled Orion cache build.
+**Builder policy (2026-11-16):** Orion only. Apollo enrollment and the local
+fallback job are removed; Orion-targeted recovery recipes document the
+self-build dependency and the `orion_builder` override.
 **Stage:** October 16 correction GREEN and independent review reconciled.
 
 ## Outcome and why

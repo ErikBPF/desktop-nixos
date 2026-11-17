@@ -33,7 +33,7 @@ def test_kepler_retains_existing_ssh_authorization():
     assert any(key.endswith("nix-builder@laptop") for key in keys)
 
 
-def test_recipe_pool_excludes_the_target_and_kepler():
+def test_recipe_pool_is_orion_only_and_excludes_kepler():
     for target in ("orion", "apollo", "kepler", "endeavour"):
         endpoints = ["orion-builder"]
         result = subprocess.run(

@@ -35,6 +35,9 @@ orion-disk-inventory:
       systemctl --failed --no-legend || true
     '
 
+# Recovery exception: builds through Orion's own ssh-ng endpoint. Apollo is no
+# longer enrolled and max-jobs is 0, so this needs a healthy Orion daemon;
+# override orion_builder to use another builder before running it on a sick host.
 orion-esp-graph-proof:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -81,6 +84,8 @@ orion-esp-live-preflight:
 
 # Approved Orion migration: wipe only the Force MP510 NVMe via force-kexec.
 # The SATA filesystems are mounted by UUID but absent from the disko graph.
+# Recovery exception: the installer closure builds through Orion, the host this
+# recipe then wipes. Override orion_builder when Orion's store is unhealthy.
 deploy-orion-esp:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -228,6 +233,8 @@ verify-orion-esp:
       test -z "$failed"
     '
 
+# Recovery exception: builds through Orion while Orion is the target. Override
+# orion_builder when the target daemon or store is unhealthy.
 deploy-orion:
     #!/usr/bin/env bash
     set -euo pipefail
