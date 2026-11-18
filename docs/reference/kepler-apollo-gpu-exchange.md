@@ -98,8 +98,8 @@ Compose definitions. Kepler's declared stack list excludes `whisper-gpu`,
 `qwen4b-gpu`, and `retrieval` during the exchange.
 
 During this pause IaC withdraws `ha-agent-qwen4b` and Servarr removes its expected
-probe entry. Discovery's semantic canary checks the still-promised `qwen-chat`
-route through an actual completion and database readiness; failure alerts remain
+probe entry. Discovery's semantic canary completes against `deepseek-v4.1-flash`,
+the route the agents answer with, plus database readiness; failure alerts remain
 enabled. Credentials, model data and Compose definitions stay intact. Restoring
 the HA alias requires explicit workload placement and a verified backend first.
 The IaC source pin includes the withdrawal while retaining Discovery's existing
