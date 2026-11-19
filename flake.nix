@@ -121,9 +121,10 @@
     };
 
     # Held at 0.1.60: 0.1.62 (opencode 2.3.0) fails the native shell roundtrip
-    # test with `bash: nomatch: invalid option name`.
+    # test with `bash: nomatch: invalid option name`. Pin the exact version:
+    # `/*` re-resolves to the newest release on every `nix flake update`.
     opencode-flake = {
-      url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
+      url = "https://flakehub.com/f/ErikBPF/opencode-flake/=0.1.60";
       inputs.flake-parts.follows = "flake-parts";
       inputs.home-manager.follows = "home-manager";
       # Match the published flake's toolchain; newer Bun changes dependency hashes.
