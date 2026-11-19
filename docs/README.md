@@ -71,6 +71,8 @@ developer-tool changes and preserved runtime boundaries.
 
 ## Designs and proposals
 
+[Bluetooth pairing prompts](behaviors/bluetooth-prompts/stage-one-pager.md) proposes visible approvals and supervised Blueman startup on Endeavour.
+
 | Doc | Purpose |
 |-----|---------|
 | [`proposals/2026-10-31-repository-simplification.md`](proposals/2026-10-31-repository-simplification.md) · [`behavior contract`](behaviors/repository-simplification/repository-simplification.feature) | Deletion manifest and delivery record for finished-migration tooling, unwired tests, pointer stubs, and the Discovery stateful-stack helpers. |

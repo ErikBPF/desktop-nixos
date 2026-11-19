@@ -65,6 +65,7 @@ in {
       imports = [
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
+        m.home.bluetooth-prompts
         m.home.desktop-workspaces
         m.home.deepseek-harness
         m.home.monitor-layout-docked
