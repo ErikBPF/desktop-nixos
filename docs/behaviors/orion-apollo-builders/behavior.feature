@@ -1,19 +1,18 @@
 Feature: Orion and Apollo build placement and guest-only KACE
   # Documentary scenarios; runner mappings below are intended, not full coverage claims.
   # Intended mapping: distributed-builds, build-process, update-safe suites.
-  Scenario: Deployments use only eligible remote builders
-    Given Orion and Apollo are the remote build pool
-    When a target-specific build is requested
-    Then Kepler is never a remote builder
-    And the target is excluded from its own remote pool
+  Scenario: Recipes build only on Orion
+    Given Orion is the only remote build pool member
+    When a recipe builds a host closure
+    Then every invocation carries `--max-jobs 0`
+    And no client host enrolls Apollo
+    And Kepler is never a remote builder
 
-  Scenario: Ordinary builds prefer remote capacity with bounded fallback
-    Given an ordinary derivation supports a remote builder
-    And the derivation does not request preferLocalBuild
-    When an eligible remote slot is available
-    Then Nix attempts remote execution before local execution
-    But unavailable eligible capacity permits one local job
-    And a failed accepted remote compilation remains a failure
+  Scenario: A recipe that targets Orion documents the self-build dependency
+    Given a recovery recipe targets Orion itself
+    When it exports the Orion builder endpoint
+    Then the recipe carries a comment that the recovered host must be healthy
+    And an operator can override `orion_builder` to use another builder
 
   Scenario: Explicit recipe overrides survive nested Just calls
     Given an operator supplies builder overrides

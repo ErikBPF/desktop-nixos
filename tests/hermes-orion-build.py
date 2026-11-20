@@ -14,13 +14,12 @@ def main():
     apollo = "ssh-ng://erik@apollo-builder:2222"
     overlay = hosts["orion"]["tailscaleIp"]
     overlay_overrides = ["--set", "orion_builder",
-                 f"ssh-ng://erik@{overlay}:2222 x86_64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test",
-                 "--set", "apollo_builder", ""]
+                 f"ssh-ng://erik@{overlay}:2222 x86_64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test"]
     cases = (
         ("discovery", overlay_overrides,
          [f"ssh-ng://erik@{overlay}:2222"]),
-        ("discovery", [], [orion, apollo]),
-        ("orion", [], [apollo]),
+        ("discovery", [], [orion]),
+        ("orion", [], [orion]),
         ("apollo", [], [orion]),
     )
     for target, overrides, expected in cases:
@@ -37,10 +36,10 @@ def main():
         actual = [builder.split()[0] for builder in builders.split(";")]
         assert actual == expected, f"{target}: expected {expected}, got {actual}"
         assert argv[0] == "build" and "--no-link" in argv
-        assert argv[argv.index("--max-jobs") + 1] == "1"
+        assert argv[argv.index("--max-jobs") + 1] == "0"
         assert "--builders-use-substitutes" in argv
         assert f".#nixosConfigurations.{target}.config.system.build.toplevel" in argv
-    print("PASS: Orion override, Orion/Apollo defaults and bounded fallback (4 cases)")
+    print("PASS: Orion override, Orion defaults and no local fallback (4 cases)")
     result = subprocess.run(
         ["bash", "--noprofile", "--norc", "-c",
          'ssh() { printf \'%s\\n\' "$@"; }\nexport -f ssh\n'
@@ -82,7 +81,7 @@ def main():
         assert argv[argv.index(".#deploy-rs") + 1] == "--"
         assert argv[argv.index("--hostname") + 1] == hosts["discovery"]["tailscaleIp"]
         assert ("--dry-activate" in argv) == (recipe == "deploy-rs-preview")
-        assert argv[argv.index("--max-jobs") + 1] == "1"
+        assert argv[argv.index("--max-jobs") + 1] == "0"
         assert "--skip-checks" in argv and ".#discovery" in argv
         assert argv[argv.index("builders-use-substitutes") + 1] == "true"
     print("PASS: deploy and preview preserve Orion overrides (2 cases; 7 cases total)")

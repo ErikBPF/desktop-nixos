@@ -28,11 +28,12 @@ existing `accept-new` trust and disabled local jobs. Main #380 explicitly
 superseded that unpublished policy. Q-14 accepts the replacement for this
 Endeavour delivery; original seeds and RED/GREEN receipts remain historical.
 
-The [main-owned builder record](../orion-apollo-builders/one-pager.md) now owns
-Orion/Apollo aliases, fleet LAN/tailnet selection, strict authenticated public
-pins, revised capacity/features and one local fallback job. Symmetric target
-exclusion remains. Endeavour keeps its existing private SSH identity; new server
-credential installation belongs to Kepler/Discovery, neither activated here.
+The [main-owned builder record](../orion-apollo-builders/one-pager.md) owns the
+Orion-only aliases, fleet LAN/tailnet selection, strict authenticated public pins
+and revised capacity/features. Apollo enrollment and the local fallback job are
+removed; Orion-targeted recovery recipes document the self-build dependency.
+Endeavour keeps its existing private SSH identity; new server credential
+installation belongs to Kepler/Discovery, neither activated here.
 No old builder implementation or assertions are restored over main. LAN selection
 is not health failover, and static policy checks do not prove live RPC dispatch.
 

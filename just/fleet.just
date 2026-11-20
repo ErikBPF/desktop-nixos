@@ -46,7 +46,7 @@ build target=profile:
     nix build --no-link \
         .#nixosConfigurations.{{target}}.config.system.build.toplevel \
         --builders "$BUILDERS" \
-        --builders-use-substitutes --max-jobs 1 --show-trace
+        --builders-use-substitutes --max-jobs 0 --show-trace
 
 builder-preflight target=profile:
     BUILDERS="$(just _builders {{target}})"; \
@@ -117,13 +117,13 @@ upgrade target=profile:
     BUILDERS="$(just _builders {{target}})" && \
     sudo nixos-rebuild switch --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 1
+        --option builders-use-substitutes true --max-jobs 0
 
 dry target=profile:
     BUILDERS="$(just _builders {{target}})"; \
     sudo nixos-rebuild dry-build --flake .#{{target}} --show-trace \
         --option builders "$BUILDERS" \
-        --option builders-use-substitutes true --max-jobs 1
+        --option builders-use-substitutes true --max-jobs 0
 
 # Build fleet toplevels in one scheduler invocation so independent host graphs
 # run concurrently and shared derivations are built once. Does not create links.
@@ -138,8 +138,8 @@ build-all:
         installables+=(".#nixosConfigurations.$host.config.system.build.toplevel")
     done <<<"$names"
     nix build --no-link "${installables[@]}" \
-        --builders '{{orion_builder}} ; {{apollo_builder}}' \
-        --builders-use-substitutes --max-jobs 1 --keep-going --show-trace
+        --builders "$(just _builders all)" \
+        --builders-use-substitutes --max-jobs 0 --keep-going --show-trace
 
 # Compare evaluated managed-host derivations without building or activating.
 [positional-arguments]
@@ -307,7 +307,7 @@ provision host target:
     chmod 600 /tmp/nixos-extra-{{host}}/var/lib/sops-staging/age-keys.txt
     trap 'rm -rf /tmp/nixos-extra-{{host}}' EXIT
     export NIX_CONFIG="builders = $(just _builders {{host}})
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     nix run github:nix-community/nixos-anywhere -- \
         --flake .#{{host}} \
@@ -319,7 +319,7 @@ nixos-anywhere target ip luks-pass="" user="nixos":
     #!/usr/bin/env bash
     set -euo pipefail
     export NIX_CONFIG="builders = $(just _builders {{target}})
-    max-jobs = 1
+    max-jobs = 0
     builders-use-substitutes = true"
     LUKS_PASS="{{luks-pass}}"
     if [ -z "$LUKS_PASS" ]; then

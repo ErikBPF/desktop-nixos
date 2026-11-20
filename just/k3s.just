@@ -51,6 +51,11 @@ kick-stack target stack:
     ssh -p 2222 erik@$IP 'uid=$(id -u); sudo systemctl start user-runtime-dir@$uid.service user@$uid.service; export XDG_RUNTIME_DIR=/run/user/$uid; systemctl --user restart podman-compose-{{stack}}.service'
     ssh -p 2222 erik@$IP 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user status podman-compose-{{stack}}.service --no-pager -n10'
 
+# Recover the existing canary without changing credentials or reinstalling it.
+recover-wazuh-agent-canary:
+    ssh -p 2222 -o BatchMode=yes erik@{{ip_orion}} 'sudo -n systemctl start wazuh-agent-vault.service syslog.service podman-wazuh-agent.service'
+    just probe-wazuh-agent-canary
+
 # Live proof for Orion's Kubernetes-backed Wazuh canary.
 verify-wazuh-agent-canary:
     #!/usr/bin/env bash

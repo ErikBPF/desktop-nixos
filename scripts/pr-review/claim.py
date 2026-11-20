@@ -54,6 +54,16 @@ def main() -> int:
                     "superseded before review",
                 )
                 continue
+            if not ledger.valid_bundle(row):
+                ledger.finish(
+                    db,
+                    row["repo"],
+                    row["pr"],
+                    row["head"],
+                    "failed",
+                    "invalid bundle name",
+                )
+                continue
             bundle = row["bundle"]
             if (root / bundle / ".ready").exists():
                 print(f"CLAIM {bundle}")

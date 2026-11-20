@@ -23,6 +23,9 @@
             hash = "sha256-dzR+oxBIPNBQuCa6RtjJn7pyMkMQSEMgHf671R7EUPs=";
           };
           cargoHash = "sha256-P38Sto1yC2J5amfagaC+UeffBw1nGUcXaKb2PUnEm2U=";
+          # zstd-sys probes for libzstd through pkg-config when one is on PATH.
+          nativeBuildInputs = [final.pkg-config];
+          buildInputs = [final.zstd];
         };
 
         # dbx — lightweight database client (Tauri, 100+ engines). Not in

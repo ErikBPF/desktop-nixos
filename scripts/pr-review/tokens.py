@@ -23,8 +23,13 @@ from pathlib import Path
 API = "https://api.github.com"
 
 
+def load_settings(path: str) -> dict:
+    """Raw config document; collectors read service-wide flags from it."""
+    return json.loads(Path(path).read_text())
+
+
 def load_config(path: str) -> list[dict]:
-    data = json.loads(Path(path).read_text())
+    data = load_settings(path)
     repos = data.get("repos")
     if not isinstance(repos, list) or not repos:
         raise ValueError("config must contain a non-empty repos list")
@@ -41,6 +46,16 @@ def load_config(path: str) -> list[dict]:
             raise ValueError(f"{repo}: credential must be app or upstream")
         if not entry.get("bot_login"):
             raise ValueError(f"{repo}: bot_login is required")
+        entry.setdefault("ignore_authors", [])
+        entry.setdefault("ignore_labels", [])
+        entry.setdefault("ignore_title", "")
+        for field in ("ignore_authors", "ignore_labels"):
+            if not isinstance(entry[field], list) or not all(
+                isinstance(item, str) for item in entry[field]
+            ):
+                raise ValueError(f"{repo}: {field} must be a list of strings")
+        if not isinstance(entry["ignore_title"], str):
+            raise ValueError(f"{repo}: ignore_title must be a string")
     return repos
 
 

@@ -69,7 +69,7 @@ in {
         # NOTE: this only delegates LLM inference. The hermes-agent logic
         # itself still runs locally in-process; only model calls are remote.
         OPENAI_BASE_URL = discoveryApiUrl;
-        HERMES_DEFAULT_MODEL = "qwen-chat";
+        HERMES_DEFAULT_MODEL = "deepseek-v4.1-flash";
 
         # Laptop is a thin client — turn off the local gateways. They bind
         # 127.0.0.1:8642 + 127.0.0.1:8644 by default which is dead weight

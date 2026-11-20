@@ -36,7 +36,7 @@ Apply two drafts to substantial PL/IP artifacts and implementations. Complete a 
 
 Rewrite like you know the end: state the observed accepted outcome; work backward through boundaries, interfaces, names, and rationale. Remove dead experiments, temporary glue, duplicate configuration, and tangents from delivery; keep discovery receipts. Never backdate tests, fabricate certainty, or silently rewrite acceptance. Behavior changes reopen planning. PL rewrites its decision map/examples; IP rewrites delivery slices/verification; RV owns implementation rewrite and final conformance. Rerun relevant validation.
 
-Package useful green vertical PRs with outcomes, dependencies, validation, and rollback. Keep RED anchors inside PRs; never require merging a broken PR. Same-repo upper PRs target predecessors; cross-repo consumers require linked dependencies and published/pinned artifacts before landing. Land leaf-first. Never force-push for prettier history. Publishing and deployment each require scope-appropriate authorization.
+Package useful green vertical PRs with outcomes, dependencies, validation, and rollback. Keep RED anchors inside PRs; never require merging a broken PR. Same-repo upper PRs target predecessors; cross-repo consumers require linked dependencies and published/pinned artifacts before landing. Land leaf-first. Force-push a task branch with `--force-with-lease` when a rebase rewrites it. Publishing and deployment each require scope-appropriate authorization.
 
 ### Bounded test loop
 

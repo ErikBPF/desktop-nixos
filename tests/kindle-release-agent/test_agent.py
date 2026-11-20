@@ -112,6 +112,11 @@ class PinContract(unittest.TestCase):
             [self.agent.COMPOSE_PATH],
             f"    image: {self.pin}\n",
         )
+        self.agent.validate_candidate(
+            "b" * 40,
+            sorted([self.agent.COMPOSE_PATH, self.agent.BASELINE_PATH]),
+            f"    image: {self.pin}\n",
+        )
         self.assertEqual(
             candidate,
             {

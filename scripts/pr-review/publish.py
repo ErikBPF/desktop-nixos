@@ -295,10 +295,15 @@ def publish_check(
     findings: list[dict],
     token: str,
     dry_run: bool,
+    *,
+    error: str | None = None,
 ) -> str:
-    conclusion = verdict(findings)
+    conclusion = "failure" if error else verdict(findings)
     short = head[:7]
-    if findings:
+    if error:
+        title = "Review evidence rejected"
+        summary = error
+    elif findings:
         title = f"{len(findings)} P1/P2 finding(s)"
         summary = (
             f"Hackerman requested changes at `{short}`. "
@@ -493,16 +498,28 @@ def main() -> int:
                     retire_bundle(bundle, stale_dir)
                 continue
             if args.strict_evidence:
-                kept = []
-                for finding in review["findings"]:
-                    if evidence_in_bundle(finding["evidence"], bundle):
-                        kept.append(finding)
-                    else:
-                        print(
-                            f"DROP {path.name} {finding['id']}: evidence not in bundle",
-                            file=sys.stderr,
+                invalid = sum(
+                    not evidence_in_bundle(finding["evidence"], bundle)
+                    for finding in review["findings"]
+                )
+                if invalid:
+                    error = f"Evidence validation failed for {invalid} finding(s); submit a corrected packet."
+                    print(f"INVALID {path.name}: {error}", file=sys.stderr)
+                    publish_check(
+                        repo, head, review["findings"], token, args.dry_run,
+                        error=error,
+                    )
+                    if not args.dry_run:
+                        path.replace(stale_dir / path.name)
+                        if row["state"] == "published":
+                            ledger.requeue(db, repo, pr, head)
+                        ledger.finish(db, repo, pr, head, "failed", error)
+                        (Path(args.state_dir) / "published" / f"{head}.json").unlink(
+                            missing_ok=True
                         )
-                review["findings"] = kept
+                        mark_bundle(bundle, "failed")
+                        retire_bundle(bundle, stale_dir)
+                    continue
             if not review["findings"] and not args.post_empty:
                 if args.dry_run:
                     body = None

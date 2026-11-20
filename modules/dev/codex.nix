@@ -97,6 +97,8 @@
     home.file.".agents/skills/rv".source = ./codex-skills/rv;
     # Upstream PR review (someone else's PR) for the homelab component repos.
     home.file.".agents/skills/pr-review".source = ./codex-skills/pr-review;
+    # On-demand hackerman-cr review; replaces a GitHub comment command.
+    home.file.".agents/skills/cr-request".source = ./codex-skills/cr-request;
 
     home.activation.configureCodexUI = lib.hm.dag.entryAfter ["writeBoundary"] ''
       run ${uiPython}/bin/python ${../../scripts/configure-codex-ui.py} "$HOME/.codex/config.toml"

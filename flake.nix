@@ -1,15 +1,15 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # Pinned to the master revision whose qutebrowser entry no longer carries
+    # the upstream-reverted insecure mark; nixos-unstable still lags it.
+    # Restore github:nixos/nixpkgs/nixos-unstable once the channel advances.
+    nixpkgs.url = "github:nixos/nixpkgs/5c3cda7610193a82ba555e178e80de6667ae03de";
 
-    # GPU exchange: both GPU hosts and their guests stay on the 7.2 kernel
-    # series during the hardware move; the rest of the fleet evaluates the
-    # floating `nixpkgs` input above.
-    # c043004 (2026-09-05) shipped linux 7.2.3, whose linux-modules build fails
-    # on `cp modules.cer` and breaks the orion cache builder. d3b13ad still
-    # tracks 7.2 and resolves kernel 7.2.12 and NVIDIA 595.104.02 (was 7.2.3
-    # and 595.99.02) for both GPU hosts and Kepler's guests. 7.2 is past
-    # upstream EOL; tracking move: https://github.com/ErikBPF/desktop-nixos/issues/459
+    # Kepler imports this fixed revision because ZFS 2.4.4 supports kernels up
+    # to 7.2 and the root input dropped that series. Apollo and the
+    # `profile-server` hosts follow the root revision pin; endeavour and
+    # pathfinder pin `linuxPackages_zen` themselves.
+    # Revisit once ZFS supports 7.3: https://github.com/ErikBPF/desktop-nixos/issues/459
     nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/d3b13ad75cc492690728f9307e443dec9ef9a20e";
 
     # Kepler recovery tooling is reviewed against SecretSpec 0.13.0.
@@ -120,6 +120,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Held at 0.1.60: 0.1.62 (opencode 2.3.0) fails the native shell roundtrip
+    # test with `bash: nomatch: invalid option name`.
     opencode-flake = {
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/*";
       inputs.flake-parts.follows = "flake-parts";
@@ -142,7 +144,7 @@
 
     # Runtime jobs execute this reviewed source revision, never a mutable checkout.
     homelab-iac = {
-      url = "github:ErikBPF/homelab-iac/19a6def2a8f4673b11b971ab2b3feae661eab5ca";
+      url = "github:ErikBPF/homelab-iac/e706043aa73347c0b50c27228a865f70ce94fd9d";
       flake = false;
     };
 

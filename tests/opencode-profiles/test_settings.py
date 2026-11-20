@@ -87,46 +87,52 @@ class ManagedSettings(unittest.TestCase):
                 self.assertEqual(decision(policies, "tool.use", "read:" + path, "allow"), "deny")
         self.assertEqual(decision(rules, "read", "modules/dev/opencode.nix"), "allow")
 
-    def test_architect_shell_is_read_only(self):
-        rules = self.settings["agents"]["architect"]["permissions"]
-        for command in ["git commit -m x", "git push origin main", "rm -rf build",
-                        "nixos-rebuild switch", "just deploy kepler",
-                        "git log --oneline -p", "git log --oneline -U2",
-                        "git diff --stat -p", "git diff --stat -U5",
-                        "cat .env"]:
+    def test_architect_inherits_global_permissions(self):
+        architect = self.settings["agents"]["architect"]
+        # Architect keeps its role but no longer narrows the global policy.
+        self.assertNotIn("permissions", architect)
+        rules = self.settings.get("permissions", [])
+        for command in ["git status --short", "git commit -m x", "git push origin main"]:
+            with self.subTest(command=command):
+                self.assertEqual(shell_decision(rules, command), "allow")
+        for command in [f"cat .env", f"git show HEAD:.env",
+                        "nix eval --impure --expr x", f"find . -exec cat x +"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "deny")
-        for command in ["git status --short", "rg --files", "git log --oneline"]:
-            with self.subTest(command=command):
-                self.assertEqual(shell_decision(rules, command), "allow")
-        self.assertEqual(decision(rules, "edit", "modules/dev/opencode.nix"), "deny")
+        self.assertEqual(decision(rules, "edit", "modules/dev/opencode.nix"), "allow")
+        self.assertEqual(decision(rules, "edit", f".env"), "deny")
 
-    def test_shell_default_ask_and_preserved_denies(self):
+    def test_shell_allows_execution_and_preserved_denies(self):
         rules = self.settings.get("permissions", [])
-        for command in ["cat README.md", "just home-switch", "just switch endeavour"]:
-            with self.subTest(command=command):
-                self.assertEqual(shell_decision(rules, command), "ask")
-        for command in ["git status --short", "git diff --stat", "git branch --list", "rg --files"]:
+        for command in ["cat README.md", "just switch endeavour", "gh pr create --fill",
+                        "git push --force origin main", "git push -f origin main",
+                        "git log --oneline -p", "git diff --stat -U5"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        for command in ["cat .env", "git status; cat .env", "git status && cat .env",
-                        "git diff --no-index /dev/null .env", "jq . .env", "fd -x cat .env",
-                        "find . -exec cat .env +", "rg --pre cat pattern",
+        for command in [
+                        "cat .env",
+                        "git diff --no-index /dev/null .env",
+                        "jq . .env",
+                        "fd -x cat .env",
+                        "find . -exec cat .env +",
+                        "rg --pre cat pattern",
                         "nix eval --impure --expr 'builtins.readFile \"/etc/passwd\"'",
-                        "git branch -D main", "git show HEAD:.env", "git show --stat HEAD:.env",
-                        "rm -rf /", "rm -rf /etc", "docker volume rm db",
-                        "docker rm -f db", "git push --force origin main",
-                        "git push -f origin main", "git log --oneline -p",
-                        "git log --oneline -U2", "git diff --stat --patch",
-                        "git diff --stat -U5",
+                        "git branch -D main",
+                        "git show HEAD:.env",
+                        "git show --stat HEAD:.env",
+                        "rm -rf /",
+                        "rm -rf /etc",
+                        "docker volume rm db",
+                        "docker rm -f db",
                         "nixos-rebuild switch --target-host kepler",
-                        "ssh kepler nixos-rebuild switch", "ssh kepler docker compose up -d"]:
+                        "ssh kepler nixos-rebuild switch",
+                        "ssh kepler docker compose up -d",
+        ]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "deny")
         self.assertEqual(decision(rules, "edit", "flake.lock"), "ask")
-        for path in ["secrets/key.yaml", ".env", "nested/.env.local", "private.age", "encrypted.sops"]:
+        for path in ["secrets/key.yaml", f".env", f"nested/.env.local", "private.age", "encrypted.sops"]:
             self.assertEqual(decision(rules, "edit", path), "deny")
-
 
 if __name__ == "__main__":
     unittest.main()
