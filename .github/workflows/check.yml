@@ -29,6 +29,9 @@ jobs:
       - name: Bluetooth prompt and startup contract
         run: python3 tests/bluetooth-prompts/check.py
 
+      - name: Captive Wi-Fi login contract
+        run: python3 -m unittest discover -s tests/captive-portal -p 'test_*.py'
+
       - name: SBX package contract
         run: |
           nix develop -c python -m unittest discover -s tests/sbx -p 'test_*.py'

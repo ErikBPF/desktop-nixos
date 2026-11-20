@@ -30,3 +30,9 @@ The listener and once-per-connection policy are unchanged. Activated Wi-Fi conne
 ## Continuing work and recovery
 
 Reconnect to the captive Wi-Fi to exercise the next permitted automatic window. Real hotspot login and reboot execution remain untested. VPN routing and portals that allowlist the probe can still affect detection. Changes remain staged, unmerged and unpublished. Earlier discovery and stage evidence remain in `.gsd/evidence/captive-portal/`. Recovery is a source revert followed by the normal deployment recipe; no rollback was performed.
+
+## Integration for merge — revision 5
+
+The user requested merging both Bluetooth and Wi-Fi changes. Bluetooth PR #480 is already merged as `0696f460`. The Wi-Fi task was committed and rebased onto that main revision; the only conflict was the adjacent Endeavour Home Manager imports, resolved by retaining both `bluetooth-prompts` and `captive-portal`.
+
+The Check workflow now runs all 11 captive-portal unit/configuration tests, preventing the unregistered-test failure previously encountered by Bluetooth. The unit suite, repository hygiene, lint and formatting pass on the combined tree. The existing simulated-browser result above applies to unchanged launcher logic; actual hotspot retesting remains pending. The combined Bluetooth/Wi-Fi tree has not been deployed. Merge authorization does not initiate a system switch.
