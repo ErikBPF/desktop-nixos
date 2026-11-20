@@ -66,6 +66,7 @@ in {
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
         m.home.bluetooth-prompts
+        m.home.captive-portal
         m.home.desktop-workspaces
         m.home.deepseek-harness
         m.home.monitor-layout-docked

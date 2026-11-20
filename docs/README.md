@@ -71,6 +71,8 @@ developer-tool changes and preserved runtime boundaries.
 
 ## Designs and proposals
 
+[Captive Wi-Fi login](behaviors/captive-portal/stage-one-pager.md) records automatic login windows once per connection and HTTP portal navigation.
+
 [Bluetooth pairing prompts](behaviors/bluetooth-prompts/stage-one-pager.md) proposes visible approvals and supervised Blueman startup on Endeavour.
 
 | Doc | Purpose |
