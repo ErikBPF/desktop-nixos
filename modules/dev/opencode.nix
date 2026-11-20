@@ -54,6 +54,41 @@
           platforms = ["x86_64-linux"];
         };
       });
+
+    # donsetch ships a prebuilt linux-x64 tarball (binary + libonnxruntime.so).
+    # The binary dlopens libonnxruntime.so by name, so the install layout must
+    # put the .so beside it and append $ORIGIN to the rpath. Refresh url/hash with
+    #   nix store prefetch-file --json --hash-type sha256 <url>
+    donsetchLock = {
+      version = "4.7.4";
+      url = "https://github.com/dondai44423/donsetch/releases/download/v4.7.4/donsetch-linux-x64.tar.gz";
+      sha256 = "sha256-oe0cccYnYsfpr6b7d8xFFIUDCSZQR/9f9NIZU6XZo4E=";
+    };
+    donsetch = pkgs.stdenvNoCC.mkDerivation {
+      pname = "donsetch";
+      inherit (donsetchLock) version;
+      src = pkgs.fetchurl {inherit (donsetchLock) url sha256;};
+      nativeBuildInputs = [pkgs.autoPatchelfHook];
+      buildInputs = [pkgs.stdenv.cc.cc.lib];
+      sourceRoot = ".";
+      dontConfigure = true;
+      dontBuild = true;
+      # autoPatchelfHook only adds rpath entries for NEEDED libraries; the
+      # dlopen-only libonnxruntime.so is found via this $ORIGIN entry.
+      appendRunpaths = ["$ORIGIN"];
+      installPhase = ''
+        runHook preInstall
+        install -Dm755 donsetch "$out/bin/donsetch"
+        install -Dm644 libonnxruntime.so "$out/bin/libonnxruntime.so"
+        runHook postInstall
+      '';
+      meta = {
+        description = "Search and fetch MCP server (prebuilt release binary)";
+        homepage = "https://github.com/dondai44423/donsetch";
+        mainProgram = "donsetch";
+        platforms = ["x86_64-linux"];
+      };
+    };
     protectedReads = [
       "*.secrets.json"
       "*.secret.json"
@@ -70,10 +105,11 @@
     permissionRules = action: effect: resources:
       map (resource: {inherit action effect resource;}) resources;
     # Shell is host-authority, not a sandbox. The global policy allows every
-    # command up to the deny tail below. The tail matches the literal command
-    # string: it cannot see a path that a glob expands to, and `git -C <dir>`
-    # changes the prefix, so a determined caller can still reach a denied form.
-    # These patterns are defence in depth, not a content boundary.
+    # command up to the deny tail below. The tail matches the LITERAL command
+    # text, per subcommand: it cannot see a path that a glob expands to, and
+    # `git -C <dir>` changes the prefix, so a determined caller can still reach
+    # a denied form. These patterns are defence in depth, not a content
+    # boundary; the read action and the tool.use policies are the boundary.
     shellDenies = [
       "rm -rf /"
       "rm -rf /*"
@@ -83,9 +119,15 @@
       "git branch -D*"
       "git branch -f*"
       "git branch -m*"
-      # The blob form can print a protected file that the substring denials
-      # miss, for example `git show HEAD:.ssh/id_rsa`.
-      "git show *:*"
+      # Blob forms that can print a protected file the substring denials miss.
+      "git show *:.env"
+      "git show *.env"
+      "git show *.age"
+      "git show *.secrets.json"
+      "git show *.secret.json"
+      "git show *:secrets/*"
+      "git show *:.ssh/*"
+      "git show *:.config/sops/age/*"
       # Execution vectors a prefix glob would otherwise admit.
       "rg *--pre*"
       "* -exec *"
@@ -94,7 +136,7 @@
       "*.env*"
       "*.secrets.json*"
       "*.secret.json*"
-      "*.age*"
+      "*.age"
       "*secrets/*"
       "*/.ssh/*"
       "*/.config/sops/age/*"
@@ -131,7 +173,7 @@
       inputs.opencode-flake.homeManagerModules.withPackageV2
     ];
 
-    home.packages = [graphify];
+    home.packages = [graphify donsetch];
 
     # rtk comes from modules/dev/codex.nix (hiPrio 0.48.0). Adding pkgs.rtk here
     # too put two different store paths with the same bin/rtk subpath in one
@@ -432,7 +474,10 @@
         # secrets-bearing .env / .env.<name> files stay denied.
         ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "allow" ["*"]
-        ++ permissionRules "shell" "deny" shellDenies;
+        ++ permissionRules "shell" "deny" shellDenies
+        # .env.example enumerates keys and holds no values, but the deny tail's
+        # `*.env*` otherwise refuses a command that only quotes the template.
+        ++ permissionRules "shell" "allow" ["*.env.example*"];
 
       # Helpers inherit the selected gateway, model and global permissions.
       agents = {
@@ -444,7 +489,7 @@
 
       mcp.donsetch = {
         type = "local";
-        command = ["npx" "-y" "donsetch@4.7.4" "mcp" "--supervised"];
+        command = ["${donsetch}/bin/donsetch" "mcp" "--supervised"];
         enabled = true;
       };
 

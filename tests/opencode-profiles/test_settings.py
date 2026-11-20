@@ -64,8 +64,10 @@ class ManagedSettings(unittest.TestCase):
         self.assertEqual(self.settings["compaction"], {"auto": True, "keep": {"tokens": 15000}})
 
     def test_pinned_integrations_and_optional_plugins_absent(self):
-        self.assertEqual(self.settings["mcp"]["donsetch"]["command"],
-                         ["npx", "-y", "donsetch@4.7.4", "mcp", "--supervised"])
+        cmd = self.settings["mcp"]["donsetch"]["command"]
+        self.assertTrue(cmd[0].startswith("/nix/store/") and cmd[0].endswith("/bin/donsetch"), cmd[0])
+        self.assertEqual(cmd[1:], ["mcp", "--supervised"])
+        self.assertIs(self.settings["mcp"]["donsetch"]["enabled"], True)
         # Search runs through donsetch; the built-in provider picker has no
         # donsetch backend and would otherwise win by being directly callable.
         self.assertIs(self.settings["websearch"], False)
@@ -107,6 +109,12 @@ class ManagedSettings(unittest.TestCase):
         for command in ["cat README.md", "just switch endeavour", "gh pr create --fill",
                         "git push --force origin main", "git push -f origin main",
                         "git log --oneline -p", "git diff --stat -U5"]:
+            with self.subTest(command=command):
+                self.assertEqual(shell_decision(rules, command), "allow")
+        # The retuned tail admits ordinary blob review reads, the repo skills
+        # directory, and the env template that only names keys.
+        for command in ["git show HEAD:modules/dev/opencode.nix", "ls .agents",
+                        "ls ~/.agents/skills", "cat .env.example"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
         for command in [
