@@ -554,6 +554,27 @@ class ExternalReportingContract(unittest.TestCase):
             self.assertNotIn(secret, request_text)
         self.assertEqual(http.responses, [])
 
+    def test_accepts_current_github_installation_token_shape(self):
+        # Regression: GitHub issues ~390-char installation tokens that contain
+        # '-', '.', and '_'. The alnum-only 255-char rule rejected every real
+        # token, so the agent re-reported one release on every hourly run.
+        token = "ghs_" + "A1b2-C3d4.E5f6_" * 24
+        response = self.response(
+            201,
+            {
+                "token": token,
+                "expires_at": "2026-11-20T18:00:00Z",
+                "permissions": {"checks": "write", "metadata": "read"},
+                "repository_selection": "selected",
+                "repositories": [
+                    {"name": "servarr", "full_name": "ErikBPF/servarr"}
+                ],
+            },
+        )
+        self.assertEqual(
+            self.agent.ExternalReporter._installation_token(response), token
+        )
+
     def test_discord_routes_only_clean_success_to_deploys(self):
         fixtures = (
             (dict(self.clean), self.agent.DISCORD_DEPLOYS_WEBHOOK),
