@@ -61,3 +61,11 @@ Real-device prompts, applet crash recovery and lock-screen behavior remain untes
 The normal dry-build stalled fetching an existing source from the Orion cache; a direct HTTP read timed out. A parallel diagnostic also hit the Nix evaluation-cache lock. Both were stopped. The final targeted toplevel dry-run uses `--option substituters https://cache.nixos.org --option connect-timeout 10` for that invocation only; no persistent cache policy changed.
 
 Final gate: `nix build .#nixosConfigurations.endeavour.config.system.build.toplevel --dry-run --option substituters https://cache.nixos.org --option connect-timeout 10` exited zero. Existing Rofi and PipeWire deprecation warnings remain. This is successful evaluation and dry-run planning, not a built or activated system. The real-device pilot and activation are still pending.
+
+## PR review reconciliation — revision 3
+
+Review: [PR #480, head a688f010](https://github.com/ErikBPF/desktop-nixos/pull/480#issuecomment-6996082877). The verified P2 identified an unregistered regression script and missing assertions for the preserved non-Endeavour startup branch. CI independently failed repository hygiene with `bluetooth-prompts` as the unlisted test directory; the same hygiene failure was reproduced locally before this repair.
+
+The Check workflow's lint job now executes `python3 tests/bluetooth-prompts/check.py`. The script additionally evaluates Orion and requires both disabled managed-applet ownership and the direct `blueman-applet` launch in its `hyprland.start` callback. This resolves both parts of the finding without changing production configuration or weakening the hygiene gate. The earlier assertion-failing RED for Endeavour remains recorded above.
+
+Hygiene, lint, formatting and documentation checks passed after the repair. The expanded evaluated contract passed for both Endeavour and Orion, printing `PASS: Bluetooth dialogs, supervised session and Orion startup`. Local Orion cache access stalled again, so the rerun uses an invocation-only official-cache override; CI uses its normal cache configuration. Device validation and deployment remain outside this repair.
