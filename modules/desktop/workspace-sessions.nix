@@ -122,13 +122,13 @@ in {
           permissions =
             planning
             ++ [
-              # Credential validation and docs creation need a shell. Explicit
-              # ask (not implicit global merge) keeps it independent of the
-              # engine default; protected destructive denies still follow.
+              # L1 has shell like the other roles. The protected deny tail
+              # (appended last) is the gate for destructive commands, and edit
+              # stays denied outside docs/* via the planning rules above.
               {
                 action = "shell";
                 resource = "*";
-                effect = "ask";
+                effect = "allow";
               }
               {
                 action = "subagent";
