@@ -240,5 +240,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/_vault-agent.nix",
-  "source_sha256": "058f4665d48da4f9077cf7a2b36a7680b5293d379658cf965099690365aa642f"
+  "source_sha256": "69f74bcff6b29e520d585793a9739325e6be9bfd3c4ee7d1da71312dd59c86f9"
 }

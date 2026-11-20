@@ -407,7 +407,10 @@ in {
     # key lives in sops, so a disk stolen without the age key stays sealed.
     systemd.services.openbao-unseal = {
       description = "Ensure OpenBao is unsealed (raft seals on every restart)";
-      wantedBy = ["multi-user.target"];
+      # Pulled by vault-agent, harbor-reader, and the timer below. It must not
+      # be wanted by multi-user.target: this oneshot polls for up to five
+      # minutes, and a boot-time bind race would hold the target that long.
+      # Consumers retry, and the timer heals any re-seal after boot.
       after = ["openbao.service"];
       # `wants`, NOT `requires`: openbao crash-restarts at boot until its tailnet
       # listener IP appears (see the openbao RestartSec block above). With
@@ -428,6 +431,10 @@ in {
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectHome = true;
+        # Bound the 150 x 2 s seal-status poll. The service is no longer in the
+        # boot transaction, so a wedged run must fail and let the timer retry
+        # instead of holding a start job forever.
+        TimeoutStartSec = "6min";
         # NOT RemainAfterExit: the timer below re-runs this every minute, so any
         # re-seal (crash, rebuild restart, boot race) self-heals within ~60 s.
         # The script is idempotent — a no-op when the store is already unsealed.
@@ -466,9 +473,10 @@ in {
 
     # Re-run the unseal check every minute so ANY re-seal — a crash, a rebuild
     # restart, or the boot tailnet-IP race — self-heals in <=60 s, regardless of
-    # why openbao sealed. Boot still gets an immediate run via wantedBy +
-    # OnBootSec. The oneshot won't pile up: systemd won't start a second run
-    # while one is active.
+    # why openbao sealed. At boot the oneshot is pulled by the `wants` edges in
+    # vault-agent and harbor-reader, and by OnBootSec; nothing here puts it in
+    # front of multi-user.target. The oneshot won't pile up: systemd won't start
+    # a second run while one is active.
     systemd.timers.openbao-unseal = {
       description = "Periodically ensure OpenBao is unsealed (self-heal any re-seal)";
       wantedBy = ["timers.target"];

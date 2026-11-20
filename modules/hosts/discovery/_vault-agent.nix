@@ -15,7 +15,11 @@ in {
   systemd.services.vault-agent = lib.mkForce {
     description = "OpenBao agent — render runtime secrets from Vault";
     wantedBy = ["multi-user.target"];
-    after = ["openbao-unseal.service"];
+    # Do not order after unseal. OpenBao can become usable late (tailnet/bridge
+    # race, slow raft replay), and an ordering edge would put that wait in front
+    # of multi-user.target. The agent retries AppRole authentication until the
+    # store is available; consumers already tolerate a delayed first render.
+    startLimitIntervalSec = 0;
     wants = ["openbao-unseal.service"];
     path = [pkgs.bash];
     serviceConfig = {
