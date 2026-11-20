@@ -128,7 +128,6 @@ _: {
       discord
       obsidian
       spotify
-      spotify-player
       teams-for-linux
       whatsapp-electron
       tailscale-systray

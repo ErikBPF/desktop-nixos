@@ -338,7 +338,6 @@
                     hl.exec_cmd("sleep 2; " .. whatsappApp, { workspace = 10 })
                     hl.exec_cmd("sleep 4; ghostty +new-window -e btop", { workspace = 11 })
                     hl.exec_cmd("sleep 4; obsidian", { workspace = 11 })
-                    hl.exec_cmd("sleep 6; ghostty --gtk-single-instance=false --class=com.pastelariadev.spotify_tui --title=spotify-tui -e spotify_player", { workspace = 12 })
                   end
                 '')
               ];
@@ -555,18 +554,6 @@
               size = "1056 603";
             }
             {
-              match.class = "^.*\\.spotify_tui$";
-              float = true;
-            }
-            {
-              match.class = "^.*\\.spotify_tui$";
-              move = "12 47";
-            }
-            {
-              match.class = "^.*\\.spotify_tui$";
-              size = "1056 585";
-            }
-            {
               match.class = "^(brave-browser|chromium|google-chrome|google-chrome-unstable)$";
               workspace = "1";
             }
@@ -577,10 +564,6 @@
             {
               match.class = "^(obsidian)$";
               workspace = "11";
-            }
-            {
-              match.class = "^.*\\.spotify_tui$";
-              workspace = "12";
             }
             {
               match.class = "^discord$";
@@ -597,10 +580,6 @@
             {
               match.class = "^(obsidian)$";
               workspace = "11 silent";
-            }
-            {
-              match.class = "^.*\\.spotify_tui$";
-              workspace = "12 silent";
             }
             {
               match.class = "^discord$";
