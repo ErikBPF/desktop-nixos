@@ -461,7 +461,10 @@ class ExternalReporter:
                     "repositories",
                 }
                 or not isinstance(payload["token"], str)
-                or not re.fullmatch(r"ghs_[A-Za-z0-9]{20,255}", payload["token"])
+                # GitHub issues ~390-char installation tokens that can contain
+                # '-', '.', and '_'. The old alnum-only, 255-char rule rejected
+                # every real token, so the hourly retry never cleared a report.
+                or not re.fullmatch(r"ghs_[A-Za-z0-9._-]{20,1024}", payload["token"])
                 or payload["permissions"]
                 != {"checks": "write", "metadata": "read"}
                 or payload["repository_selection"] != "selected"
