@@ -1,9 +1,12 @@
-{config, ...}: {
+{config, ...}: let
+  hostIntegrity = config.flake.modules.nixos."host-integrity";
+in {
   flake.modules.nixos.alloy = {
     config,
     lib,
     ...
   }: {
+    imports = [hostIntegrity];
     services.alloy = {
       enable = true;
       # Bind the Alloy HTTP UI/API to localhost only — it contains pipeline
@@ -88,8 +91,17 @@
 
       prometheus.scrape "host_metrics" {
         targets         = prometheus.exporter.unix.host.targets
-        forward_to      = [prometheus.remote_write.prometheus.receiver]
+        forward_to      = [prometheus.relabel.host_legacy.receiver]
         scrape_interval = "30s"
+      }
+
+      prometheus.relabel "host_legacy" {
+        rule {
+          source_labels = ["__name__"]
+          regex         = "host_integrity_.*"
+          action        = "drop"
+        }
+        forward_to = [prometheus.remote_write.prometheus.receiver]
       }
 
       // ============================================================================
