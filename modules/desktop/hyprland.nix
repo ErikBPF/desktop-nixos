@@ -323,7 +323,7 @@
                     hl.exec_cmd("systemctl --user start hyprpolkitagent")
                     hl.exec_cmd("systemctl --user start xdg-desktop-portal-gtk")
                     hl.exec_cmd("wl-clip-persist --clipboard regular & clipse -listen")
-                    hl.exec_cmd("blueman-applet")
+                    ${lib.optionalString (!config.services.blueman-applet.enable) ''hl.exec_cmd("blueman-applet")''}
                     hl.exec_cmd("nm-applet --indicator")
                     hl.exec_cmd("tailscale-systray --accept-routes")
                     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME ADW_DEBUG_COLOR_SCHEME")
