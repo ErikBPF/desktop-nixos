@@ -61,7 +61,17 @@ in {
       m.nixos.harbor-reader
     ];
 
-    home-manager.users.${flakeConfig.username} = {pkgs, ...}: {
+    home-manager.users.${flakeConfig.username} = {
+      config,
+      lib,
+      pkgs,
+      ...
+    }: let
+      sk = pkgs.writeShellScriptBin "sk" ''
+        exec ${pkgs.openssh}/bin/ssh kepler "$@"
+      '';
+      terminal = "${config.programs.ghostty.package}/bin/ghostty +new-window";
+    in {
       imports = [
         inputs.nix-colors.homeManagerModules.default
         m.home.profile-desktop
@@ -88,7 +98,20 @@ in {
         GH_TOKEN = { description = "GitHub CLI token maintained in OpenBao", ref = { item = "iac/github", field = "token" }, providers = ["bao_home"] }
       '';
 
-      home.packages = [pkgs.secretspec];
+      home.packages = [pkgs.secretspec sk];
+
+      wayland.windowManager.hyprland.settings = {
+        # Override desktop-workspaces' forced local terminal on this client.
+        terminal = lib.mkOverride 40 {_var = "${terminal} -e ${sk}/bin/sk";};
+        bind = [
+          {
+            _args = [
+              "SUPER + SHIFT + T"
+              (lib.generators.mkLuaInline ''hl.dsp.exec_cmd("${terminal}")'')
+            ];
+          }
+        ];
+      };
 
       systemd.user.services.secretspec-export = {
         Unit.Description = "Resolve dev secrets from OpenBao into a 0600 env file";
