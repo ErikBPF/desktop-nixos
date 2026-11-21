@@ -111,14 +111,15 @@ class ManagedSettings(unittest.TestCase):
                         "git log --oneline -p", "git diff --stat -U5"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        # The retuned tail admits ordinary blob review reads, the repo skills
-        # directory, and the env template that only names keys.
+        # The retuned tail admits ordinary blob review reads and the repo
+        # skills directory.
         for command in ["git show HEAD:modules/dev/opencode.nix", "ls .agents",
-                        "ls ~/.agents/skills", "cat .env.example"]:
+                        "ls ~/.agents/skills"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
         for command in [
                         "cat .env",
+                        "cat .env.example .env",
                         "git diff --no-index /dev/null .env",
                         "jq . .env",
                         "fd -x cat .env",

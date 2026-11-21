@@ -474,10 +474,7 @@
         # secrets-bearing .env / .env.<name> files stay denied.
         ++ permissionRules "edit" "allow" ["*.env.example"]
         ++ permissionRules "shell" "allow" ["*"]
-        ++ permissionRules "shell" "deny" shellDenies
-        # .env.example enumerates keys and holds no values, but the deny tail's
-        # `*.env*` otherwise refuses a command that only quotes the template.
-        ++ permissionRules "shell" "allow" ["*.env.example*"];
+        ++ permissionRules "shell" "deny" shellDenies;
 
       # Helpers inherit the selected gateway, model and global permissions.
       agents = {

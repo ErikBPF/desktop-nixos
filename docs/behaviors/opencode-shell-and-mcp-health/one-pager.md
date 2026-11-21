@@ -1,8 +1,8 @@
 # Agent shell policy and MCP health
 
-**Status:** First draft implemented and unit-verified on `main` (96d3376b) in the
-worktree `opencode-mcp-shell-permissions-20261120`; RV review pending; not yet
-activated on Endeavour.
+**Status:** Implemented and unit-verified on `main` (96d3376b) in the worktree
+`opencode-mcp-shell-permissions-20261120`; the RV pass applied and re-verified
+its correction; not yet activated on Endeavour.
 **Seed (verbatim):** "check why our mcps are breaking and why pilot-l1 agent
 still does not have shell access. Base on deskto-nixos main" → then "lets change
 pilot l1 to allow and fix deny tail. Also fix mcps. After do a /rv and create
@@ -39,7 +39,9 @@ Two independent defects are fixed in `desktop-nixos`.
   ["$ORIGIN"]`, `libonnxruntime.so` installed beside the binary) and
   `mcp.donsetch.command = ["${donsetch}/bin/donsetch" "mcp" "--supervised"]`.
 - `tests/opencode-profiles/test_settings.py`: the donsetch assertion now expects
-  the store path, and the allow list gains the blob review read and `.agents`.
+  the store path; the allow list gains the blob review read and `.agents`; a
+  regression case asserts that naming the env template next to a real env file
+  stays denied.
 - `tests/opencode-profiles/test_three_level_backends.py`: L1 shell expectation
   `ask` → `allow`.
 
