@@ -6,7 +6,7 @@ Feature: Restore bounded cache scheduling while updating Orion safely
     Given Orion's cache schedule was paused during outage investigation
     And the operator approves immediate missed-run catch-up
     When the reviewed configuration is activated
-    Then the existing cache timer is enabled for 03:00
+    Then the existing cache timer is enabled for 22:00
     And persistence permits an overdue run
     And the cache builder retains two-job and two-core hints
     And its aggregate CPU quota remains 400 percent
