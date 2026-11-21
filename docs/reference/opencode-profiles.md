@@ -52,9 +52,10 @@ carries no `#variant` suffix; the model definition still rejects
 or `.opencode/opencode.json` from widening role permissions. Backend state,
 which holds the server password, is denied to role agents for read and edit.
 
-L1 keeps `edit` denied outside `docs/*` and its own explicit `shell ask` rule,
-which `ol`/`ow` auto-approve. Credential validation and documentation therefore
-work without a slice; implementation still goes through L2/L3.
+Every role runs shell: L1 carries an explicit `shell allow *` like L2 and L3.
+L1 keeps `edit` denied outside `docs/*`, so credential validation and
+documentation work without a slice while implementation still goes through
+L2/L3.
 
 `OPENCODE_DISABLE_PROJECT_CONFIG=1` also disables project `AGENTS.md`
 discovery. Each generated profile therefore appends the workspace `AGENTS.md`
@@ -100,17 +101,23 @@ personal/work split holds. It sets `session.permissions = "autoaccept"` and
 `session.sidebar = "auto"`.
 Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
-The deny tail in `modules/dev/opencode.nix` is the only gate: it blocks
-protected paths by argument substring, blob git reads (`git show <rev>:<path>`),
-branch mutation, `find -exec`, `rg --pre` and `nix eval`. Shell is allowed
-explicitly, so a session runs every other command without a prompt. Force-push
+The deny tail in `modules/dev/opencode.nix` is the only gate: it blocks branch
+mutation, `find -exec`, `rg --pre`, `nix eval`, the raw cross-host deploy forms
+and blob reads of protected files. Each pattern matches the literal text of one
+subcommand, so the tail cannot see a path a glob expands to and is defence in
+depth rather than a content boundary; the `read` action and the `tool.use`
+policies deny the protected paths. Shell is allowed explicitly, so a session
+runs every other command without a prompt. Force-push
 is allowed; a task branch rebase uses `--force-with-lease`. Architect inherits
 the global read, edit and shell rules. Shell is not a sandbox, and a deployment
 command is approved without a human, so the deny tail is what holds.
 
-The project config inherits the packaged Nix MCP. Native file tools replace
-the former unversioned filesystem MCP. The isolated trial's independent
-MCP refresh work is not overwritten by normal-user activation.
+`modules/dev/opencode.nix` packages every local MCP server as a Nix derivation
+(`graphify`, `nix` via the `opencode-flake` default, and `donsetch` from its
+release tarball). Nothing is resolved through `npx` at server start, so a
+backend restart does not depend on the npm registry. Native file tools replace
+the former unversioned filesystem MCP. The isolated trial's independent MCP
+refresh work is not overwritten by normal-user activation.
 
 [Session shortcuts and optional experiments](../guides/opencode-v2-sessions.md)
 cover Context Fold and usage sidebar. Both are absent from default plugin
