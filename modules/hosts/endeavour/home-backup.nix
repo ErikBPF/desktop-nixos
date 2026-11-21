@@ -25,6 +25,8 @@
       repository = "sftp:restic-kepler:/bulk/backups/restic-offsite/endeavour-home";
       passwordFile = config.sops.secrets.restic_tofu_state_password.path;
       paths = ["/home/erik"];
+      # GVfs is transient session-mounted data that the root backup cannot traverse.
+      exclude = ["/home/erik/.gvfs"];
       initialize = true;
       timerConfig = {
         OnCalendar = "*-*-* 02:00:00";
