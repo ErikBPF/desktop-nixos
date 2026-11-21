@@ -101,6 +101,8 @@ jobs:
         run: |
           alloy=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.grafana-alloy')
           export ALLOY_BIN="$alloy/bin/alloy"
+          clamav=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.clamav')
+          export CLAMSCAN_BIN="$clamav/bin/clamscan"
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
           nix develop -c "$python/bin/python" -m pytest -q --import-mode=importlib \
             tests/repository-hygiene \
@@ -116,6 +118,9 @@ jobs:
             tests/discovery-esp-scratch-restore tests/kepler-compose tests/grafana-alert-ops \
             tests/monitoring-hardening tests/nanokvm-route tests/openbao-audit-status \
             tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
+
+      - name: Integrity pilot stage evaluation
+        run: nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix
 
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts
