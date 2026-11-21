@@ -17,3 +17,10 @@ def test_filesystem_collector_skips_remote_nfs_mounts():
         'mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|mnt/nfs)($|/)"'
         in text
     )
+
+
+def test_legacy_host_scrape_rejects_reserved_integrity_namespace():
+    text = MODULE.read_text()
+    assert 'prometheus.relabel.host_legacy.receiver' in text
+    assert 'regex         = "host_integrity_.*"' in text
+    assert 'action        = "drop"' in text
