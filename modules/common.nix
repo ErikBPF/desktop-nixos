@@ -29,6 +29,11 @@
         # Allow build machines to fetch from substituters directly
         builders-use-substitutes = true;
         connect-timeout = 5;
+        # A wedged nix-serve keeps the TCP connection open and then stops
+        # sending. The default 300s stall timeout multiplied by per-path
+        # retries stalled a discovery deploy for 17h; fail over to the next
+        # substituter after 30s instead.
+        stalled-download-timeout = 30;
         substituters = lib.mkForce [
           "https://cache.nixos.org?priority=10"
           "http://orion:5000?priority=5"
