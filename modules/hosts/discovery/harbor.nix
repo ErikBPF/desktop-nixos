@@ -85,6 +85,8 @@ in {
         # there yet on first boot, harbor-setup.sh exits non-zero → retry.
         Restart = "on-failure";
         RestartSec = "30s";
+        # A hung compose pull must not hold multi-user.target forever.
+        TimeoutStartSec = "5min";
       };
       # Retry indefinitely until .env is present (no start-limit burn-out).
       startLimitIntervalSec = 0;
