@@ -75,3 +75,13 @@ compatible enrollment revisions, capture actual firing/resolved receipts and
 observe seven days. The pre-existing home-backup failure remains qualified,
 unrepaired baseline evidence. No unrelated upgrades, backup reset, host outage,
 quarantine or fleet rollout are authorized by this source change.
+
+## Published review reconciliation
+
+Hackerman reviewed `9f0c79f2` and found no P1/P2 code defect, but requested a
+standalone retained seed artifact matching the earlier slices. The exact human
+request and Downloads-only answer now live in [behavior.md](behavior.md), with
+accepted scope clearly separated from quotations. The cited `docs/AGENTS.md`
+was absent in this checkout; the earlier slice pattern and shared seed-retention
+requirement independently support this documentation fix. Re-review of the new
+head remains pending; the prior verdict is not presented as approval.
