@@ -137,12 +137,12 @@ def binding(role):
     pvc = f"wazuh-manager-{role}-wazuh-manager-{role}-0"
     return ({"metadata": {"uid": uid, "name": pvc},
              "spec": {"volumeName": "pvc-" + uid}, "status": {"phase": "Bound"}},
-            {"metadata": {"name": "pvc-" + uid},
+            {"metadata": {"name": "pvc-" + uid}, "status": {"phase": "Bound"},
              "spec": {"claimRef": {"uid": uid, "name": pvc, "namespace": "wazuh"},
                       "csi": {"driver": "nfs.csi.k8s.io", "volumeHandle": f"10.250.0.1#fast/k8s#pvc-{uid}##", "volumeAttributes": {"server": "10.250.0.1", "share": "/fast/k8s", "subdir": "pvc-" + uid}}}})
 
 
-@pytest.mark.parametrize("changed", ["uid", "server", "share", "phase"])
+@pytest.mark.parametrize("changed", ["uid", "server", "share", "phase", "volume_phase"])
 def test_binding_change_fails_closed(changed):
     claim, volume = binding("master")
     controller.check_binding("master", claim, volume)
@@ -150,6 +150,8 @@ def test_binding_change_fails_closed(changed):
         volume["spec"]["claimRef"]["uid"] = "replacement"
     elif changed == "phase":
         claim["status"]["phase"] = "Lost"
+    elif changed == "volume_phase":
+        volume["status"]["phase"] = "Released"
     else:
         volume["spec"]["csi"]["volumeAttributes"][changed] = "unexpected"
     with pytest.raises(ValueError):
@@ -309,3 +311,38 @@ def test_invalid_freshness_does_not_replace_prior_evidence(tmp_path):
     with pytest.raises(ValueError):
         controller.write_freshness(path, {"source_started": True})
     assert path.read_text() == "old"
+
+
+@pytest.mark.parametrize("index_changed", [False, True])
+def test_indexer_backing_volume_must_still_match_reviewed_binding(index_changed):
+    cluster = object.__new__(controller.Cluster)
+    def request(path):
+        if "applications/wazuh" in path:
+            return delegation()
+        if controller.BINDINGS["indexer"] in path:
+            if index_changed:
+                return {"metadata": {"name": "replacement"}}
+            uid = controller.BINDINGS["indexer"]
+            return {"metadata": {"name": "pvc-" + uid}, "status": {"phase": "Bound"},
+                    "spec": {"claimRef": {"uid": uid, "name": "wazuh-indexer-wazuh-indexer-0", "namespace": "wazuh"},
+                             "csi": {"driver": "nfs.csi.k8s.io", "volumeHandle": f"10.250.0.1#bulk/k8s#pvc-{uid}##",
+                                     "volumeAttributes": {"server": "10.250.0.1", "share": "/bulk/k8s", "subdir": "pvc-" + uid}}}}
+        for role in controller.MANAGERS:
+            claim, volume = binding(role)
+            if path.endswith("/pvc-" + controller.BINDINGS[role]):
+                return volume
+            if "persistentvolumeclaims/" in path and role in path:
+                return claim
+            if path == cluster.scale_path(role):
+                return {"spec": {"replicas": 1}, "status": {"replicas": 1}}
+            if path == cluster.pod_path(role):
+                return {"metadata": {"uid": "uid-" + role},
+                        "status": {"conditions": [{"type": "Ready", "status": "True"}]},
+                        "spec": {"containers": [{"image": "fixture@" + controller.MANAGER_DIGEST}]}}
+        raise AssertionError("unexpected API request")
+    cluster.request = request
+    if index_changed:
+        with pytest.raises(ValueError):
+            cluster.preflight()
+    else:
+        assert cluster.preflight() == {"master": "uid-master", "worker": "uid-worker"}

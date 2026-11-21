@@ -115,3 +115,19 @@ the synthetic evaluation pass. This requires reviewed manual-only host bootstrap
 before materialization; the recipe has not been executed live. The legacy
 textfile's host-user-writable trust boundary remains an explicit alert-enrollment
 gate pending coordinator direction.
+
+### Final conformance review
+
+The installer invokes the declared interpreter with `-I`, preventing the remote
+operator directory or Python environment from shadowing standard-library imports.
+The command assertion failed before this correction
+(`/tmp/wazuh-installer-isolation-red.log`), then passed.
+
+Final preflight review found that the authorized indexer PV was not inspected and
+PV binding phase was not checked. Two behavioral assertions demonstrated those
+gaps (`/tmp/wazuh-capture-pv-red.log`). The shared guard now requires exact claim
+and CSI identity plus Bound phase for all three PVs before quiesce. Thirty-six
+focused tests pass; a fresh reviewer independently reproduced seven affected
+cases and found no material issue. This adds no Kubernetes authority. The source
+was rebased onto `3f0e7841`, preserving existing CI selections. Runtime gates above
+remain unmet; source review does not authorize activation.

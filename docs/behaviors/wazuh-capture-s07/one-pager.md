@@ -8,7 +8,7 @@ host service and creates no credential. The user's exact acceptance, “do as
 recomendation”, covers thirty-day alert retention, daily encrypted index and
 manager-state backups, and isolated restore. Those runtime outcomes remain gated.
 
-The branch began at Desktop `b9eaeea8`. GitOps recovery PR249 owns replica
+The branch began at Desktop `b9eaeea8`, then rebased onto `3f0e7841`. GitOps recovery PR249 owns replica
 delegation, named metadata RBAC, graceful shutdown and native index snapshots.
 IaC owns the dedicated Vault reader. Servarr PR362 supplies the self-contained
 transport at `1c0dfb0d8e664be099485d48ed38a3ef5158da4d`, with file SHA256
@@ -49,13 +49,13 @@ before enrolling daily alerts.
 ## Evidence and limits
 
 The [test contract](test-contract.md) records observed REDs and the initial
-implementation-first adapter limitation. Thirty-three focused tests now pass,
+implementation-first adapter limitation. Thirty-six focused tests now pass,
 including preflight-before-quiesce, failure recovery, atomic private state,
 materialization/hash/mode checks and truthful freshness. Synthetic Nix evaluation
 proves disabled defaults, manual-only capture, independent recovery and pinned
 arguments. Owner lint, formatting, structure and docs checks pass. The offline
 Kepler toplevel dry evaluation passed after the normal owner command hit the known
-Orion cache stall. Final integrated review and publication remain pending.
+Orion cache stall. Independent integrated review passed, including all three exact PV identities and Bound states. Publication follows these source gates.
 
 The first manager-only draft independently passed twenty-one tests and Nix
 review. The Servarr transport independently passed historical restore, next-day

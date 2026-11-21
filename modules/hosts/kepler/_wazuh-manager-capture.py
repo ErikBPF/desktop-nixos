@@ -116,17 +116,14 @@ def check_delegation(application):
             raise ValueError("Missing exact manager replica delegation")
 
 
-def check_binding(role, claim, volume):
+def check_volume(role, volume):
     uid = BINDINGS[role]
-    name = (f"wazuh-indexer-wazuh-indexer-0" if role == "indexer"
+    name = ("wazuh-indexer-wazuh-indexer-0" if role == "indexer"
             else f"wazuh-manager-{role}-wazuh-manager-{role}-0")
     root = "/bulk/k8s" if role == "indexer" else "/fast/k8s"
     try:
-        valid = (claim["metadata"]["uid"] == uid
-                 and claim["metadata"]["name"] == name
-                 and claim["status"]["phase"] == "Bound"
-                 and claim["spec"]["volumeName"] == f"pvc-{uid}"
-                 and volume["metadata"]["name"] == f"pvc-{uid}"
+        valid = (volume["metadata"]["name"] == f"pvc-{uid}"
+                 and volume["status"]["phase"] == "Bound"
                  and volume["spec"]["claimRef"]["uid"] == uid
                  and volume["spec"]["claimRef"]["name"] == name
                  and volume["spec"]["claimRef"]["namespace"] == "wazuh"
@@ -138,7 +135,22 @@ def check_binding(role, claim, volume):
     except KeyError:
         valid = False
     if not valid:
-        raise ValueError("Wazuh PVC binding differs from reviewed identity")
+        raise ValueError("Wazuh backing volume differs from reviewed binding")
+
+
+def check_binding(role, claim, volume):
+    uid = BINDINGS[role]
+    name = f"wazuh-manager-{role}-wazuh-manager-{role}-0"
+    try:
+        valid = (claim["metadata"]["uid"] == uid
+                 and claim["metadata"]["name"] == name
+                 and claim["status"]["phase"] == "Bound"
+                 and claim["spec"]["volumeName"] == f"pvc-{uid}")
+    except KeyError:
+        valid = False
+    if not valid:
+        raise ValueError("Wazuh PVC differs from reviewed identity")
+    check_volume(role, volume)
 
 
 class Cluster:
@@ -185,6 +197,7 @@ class Cluster:
 
     def preflight(self):
         check_delegation(self.request("/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/wazuh") or {})
+        check_volume("indexer", self.request(f"/api/v1/persistentvolumes/pvc-{BINDINGS['indexer']}") or {})
         identities = {}
         for role in MANAGERS:
             name = f"wazuh-manager-{role}-wazuh-manager-{role}-0"
