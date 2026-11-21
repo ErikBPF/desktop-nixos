@@ -59,6 +59,40 @@ _: {
         fi
         echo "Health check passed: critical units active and routed network reachable"
       '');
+
+      # Retry a failed unattended upgrade once, anchored to that run rather
+      # than to a wall-clock time: hosts schedule nightly (discovery,
+      # pathfinder, with up to 15 min of jitter) or weekly (archinaut), so a
+      # fixed retry time would fire on days the host never upgraded or miss a
+      # jittered run that was still activating. OnFailure fires immediately
+      # after the failed run, which is inside the reboot window.
+      #
+      # OnFailure also fires for the retried run, so a failed retry would
+      # retrigger itself. The 6h marker bounds it to one attempt per failure.
+      systemd.services.nixos-upgrade.serviceConfig.OnFailure = [
+        "nixos-upgrade-retry.service"
+      ];
+
+      systemd.services.nixos-upgrade-retry = {
+        description = "Retry a failed unattended upgrade once";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+        };
+        script = ''
+          marker=/run/nixos-upgrade-retry.last
+          now=$(${pkgs.coreutils}/bin/date +%s)
+          if [ -e "$marker" ] && \
+            [ $((now - $(${pkgs.coreutils}/bin/stat -c %Y "$marker"))) -lt 21600 ]; then
+            echo "retry already attempted within 6h; not retrying" >&2
+            exit 0
+          fi
+          ${pkgs.coreutils}/bin/touch "$marker"
+          echo "nixos-upgrade failed; retrying once" >&2
+          ${pkgs.systemd}/bin/systemctl reset-failed nixos-upgrade.service
+          ${pkgs.systemd}/bin/systemctl start nixos-upgrade.service
+        '';
+      };
     };
   };
 }

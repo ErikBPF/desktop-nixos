@@ -2701,6 +2701,69 @@ class ReportingOrchestrationContract(unittest.TestCase):
                     persist.assert_called_once_with(degraded)
                     self.assertNotIn(sentinel, json.dumps(degraded.to_dict()))
 
+    def test_report_retry_backs_off_after_three_consecutive_failures(self):
+        ledger = mock.Mock()
+        ledger.attempts.return_value = self.agent.REPORT_RETRY_LIMIT
+        ledger.last_attempt.return_value = 1_000
+        state = self.snapshot(degradation="external-reporting-unavailable")
+        self.assertFalse(
+            self.agent.should_report_externally(
+                state, state, ledger, clock=lambda: 1_100
+            )
+        )
+        self.assertTrue(
+            self.agent.should_report_externally(
+                state, state, ledger, clock=lambda: 1_000 + 24 * 3600
+            )
+        )
+
+    def test_report_ledger_counts_failures_and_clears_on_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = self.agent.ReportLedger(
+                pathlib.Path(directory) / "report-failures"
+            )
+            self.assertEqual(ledger.attempts(), 0)
+            ledger.record(True)
+            ledger.record(True)
+            self.assertEqual(ledger.attempts(), 2)
+            self.assertTrue(ledger.path.exists())
+            ledger.record(False)
+            self.assertEqual(ledger.attempts(), 0)
+            self.assertFalse(ledger.path.exists())
+
+    def test_changed_state_always_reports_when_the_ledger_is_capped(self):
+        ledger = mock.Mock()
+        ledger.attempts.return_value = 99
+        # Recent attempt: the backoff clause alone must return False, so only
+        # the changed-state clause can make the assertion pass.
+        ledger.last_attempt.return_value = 1_000
+        initial = self.snapshot(degradation="external-reporting-unavailable")
+        changed = self.snapshot(
+            degradation="external-reporting-unavailable",
+            version="v0.11.0",
+        )
+        self.assertFalse(
+            self.agent.should_report_externally(
+                initial, initial, ledger, clock=lambda: 1_100
+            )
+        )
+        self.assertTrue(
+            self.agent.should_report_externally(
+                initial, changed, ledger, clock=lambda: 1_100
+            )
+        )
+
+    def test_bootstrap_always_reports(self):
+        ledger = mock.Mock()
+        ledger.attempts.return_value = 99
+        ledger.last_attempt.return_value = 1_000
+        state = self.snapshot(degradation="external-reporting-unavailable")
+        self.assertTrue(
+            self.agent.should_report_externally(
+                None, state, ledger, clock=lambda: 1_100
+            )
+        )
+
     def test_successful_retry_clears_reporting_degradation_atomically(self):
         degraded = self.snapshot(degradation="external-reporting-unavailable")
         reporter = mock.Mock()
