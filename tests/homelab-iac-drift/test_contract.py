@@ -46,7 +46,7 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
 def test_pinned_iac_revision_matches_published_discovery_guard():
     root = Path(__file__).parents[2]
     flake = (root / "flake.nix").read_text()
-    revision = "20480906a95f6351744f99d5b4e6a6c8daba745a"
+    revision = "7c5d785420c794769cb2c4952fb9916e99788450"
     pin = re.search(r"homelab-iac\s*=\s*\{([^}]+)\};", flake)
 
     assert pin is not None
@@ -143,3 +143,106 @@ def test_pinned_source_gets_local_git_metadata_for_terragrunt():
     assert module.index("cp -R --no-preserve=mode") < module.index(init)
     assert module.index(init) < module.index('cd "$STATE_DIRECTORY/source"')
 
+
+
+def test_whole_service_result_and_recovery(tmp_path):
+    import importlib.util
+    helper = ROOT / 'modules/services/_homelab-iac-drift-report.py'
+    assert helper.exists(), 'whole-service reporter missing'
+    spec = importlib.util.spec_from_file_location('drift_report', helper)
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    cfg = dict(state_dir=tmp_path / 'private', metrics_dir=tmp_path / 'metrics',
+               result_file=tmp_path / 'result.json', instance='discovery',
+               revision='a'*40, scope='b'*64)
+    def event(action, now, invocation, service='success', status=0, result=None):
+        if action == 'finish' and result is not None:
+            cfg['result_file'].write_text(json.dumps(dict(schemaVersion=1, sourceRevision=cfg['revision'], scopeSha256=cfg['scope'], **result)))
+        return report.update(cfg, action, now=now, invocation=invocation,
+                             service_result=service, exit_status=str(status), exit_code='exited')
+    event('restore', 90, '')
+    assert 'homelab_iac_drift_outcome{instance="discovery"} 0' in (cfg['metrics_dir']/'drift.prom').read_text()
+    for index, (service, status, result, outcome, notice) in enumerate([
+        ('exit-code',1,None,4,4), # bootstrap before script result
+        ('exit-code',75,None,6,4), # shared apply lock timeout
+        ('timeout',15,None,5,4),
+        ('signal',9,None,4,4),
+        ('success',0,dict(outcome='clean',notification='not-required'),2,0),
+        ('success',2,dict(outcome='drift',notification='delivered'),3,1),
+        ('success',2,dict(outcome='drift',notification='failed'),3,2),
+        ('exit-code',1,dict(outcome='error',notification='failed'),4,2),
+        ('success',0,None,4,4), # no structured result cannot look clean
+    ]):
+        start=100+index*10
+        previous=event('begin',start,str(index))
+        assert not cfg['result_file'].exists(), 'old result must not survive begin'
+        value=event('finish',start+2,str(index),service,status,result)
+        assert value['outcome']==outcome
+        assert value['notification']==notice
+        assert value['duration_seconds']==2
+        assert value['lock_contention']==int(outcome==6)
+        assert value['last_complete_seconds']==(start+2 if outcome in (2,3) else previous['last_complete_seconds'])
+    assert (cfg['state_dir']/'state.json').stat().st_mode & 0o777 == 0o600
+    assert (cfg['metrics_dir']/'drift.prom').stat().st_mode & 0o777 == 0o644
+
+
+def test_result_identity_and_file_boundary_fail_closed(tmp_path):
+    import importlib.util
+    helper = ROOT / 'modules/services/_homelab-iac-drift-report.py'
+    spec = importlib.util.spec_from_file_location('drift_report', helper)
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    cfg = dict(state_dir=tmp_path/'private', metrics_dir=tmp_path/'metrics',
+               result_file=tmp_path/'result.json', instance='discovery', revision='a'*40, scope='b'*64)
+    for index, bad in enumerate(('scope', 'symlink', 'too-large', 'oom')):
+        report.update(cfg,'begin',now=100+index*10,invocation=bad)
+        data=dict(schemaVersion=1,sourceRevision=cfg['revision'],scopeSha256=cfg['scope'],outcome='clean',notification='not-required')
+        if bad=='scope': data['scopeSha256']='c'*64
+        if bad=='symlink':
+            target=tmp_path/'private-file'
+            target.write_text(json.dumps(data))
+            cfg['result_file'].symlink_to(target)
+        else:
+            cfg['result_file'].write_text('x'*5000 if bad=='too-large' else json.dumps(data))
+        result=report.update(cfg,'finish',now=102+index*10,invocation=bad,
+                             service_result='oom-kill' if bad=='oom' else 'success',exit_code='exited',exit_status='0')
+        assert result['outcome']==4
+        assert result['last_complete_seconds']==0
+
+
+def test_growing_result_is_bounded_after_open(tmp_path, monkeypatch):
+    import importlib.util
+    import os
+    helper = ROOT / 'modules/services/_homelab-iac-drift-report.py'
+    spec = importlib.util.spec_from_file_location('drift_report', helper)
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    cfg = dict(state_dir=tmp_path/'private',metrics_dir=tmp_path/'metrics',result_file=tmp_path/'result.json',
+               instance='discovery',revision='a'*40,scope='b'*64)
+    report.update(cfg,'begin',now=100,invocation='fixture')
+    cfg['result_file'].write_text(json.dumps(dict(schemaVersion=1,sourceRevision='a'*40,scopeSha256='b'*64,outcome='clean',notification='not-required')))
+    fstat = os.fstat
+    def growing(fd):
+        result = fstat(fd)
+        with cfg['result_file'].open('a') as stream:
+            stream.write(' '*10000)
+        return result
+    monkeypatch.setattr(report.os,'fstat',growing)
+    state=report.update(cfg,'finish',now=102,invocation='fixture',service_result='success',exit_code='exited',exit_status='0')
+    assert state['outcome']==4
+    assert state['last_complete_seconds']==0
+
+
+def test_finish_without_matching_begin_rejects_previous_clean_result(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('drift_report', ROOT/'modules/services/_homelab-iac-drift-report.py')
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    cfg = dict(state_dir=tmp_path/'private', metrics_dir=tmp_path/'metrics',
+               result_file=tmp_path/'result.json', instance='discovery', revision='a'*40, scope='b'*64)
+    report.update(cfg, 'begin', now=100, invocation='previous')
+    cfg['result_file'].write_text(json.dumps(dict(schemaVersion=1, sourceRevision=cfg['revision'], scopeSha256=cfg['scope'], outcome='clean', notification='not-required')))
+    report.update(cfg, 'finish', now=101, invocation='previous', service_result='success', exit_status='0', exit_code='exited')
+    value = report.update(cfg, 'finish', now=102, invocation='new-without-begin', service_result='success', exit_status='0', exit_code='exited')
+    assert value['outcome'] == 4
+    assert value['last_complete_seconds'] == 101

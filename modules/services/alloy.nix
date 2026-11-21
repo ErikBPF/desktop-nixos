@@ -98,7 +98,7 @@ in {
       prometheus.relabel "host_legacy" {
         rule {
           source_labels = ["__name__"]
-          regex         = "host_integrity_.*"
+          regex         = "host_integrity_.*|homelab_iac_drift_.*"
           action        = "drop"
         }
         forward_to = [prometheus.remote_write.prometheus.receiver]
