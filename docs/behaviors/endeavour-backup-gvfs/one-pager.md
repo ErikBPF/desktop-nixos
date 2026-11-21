@@ -46,3 +46,9 @@ no material issue. Worktree: `worktrees/endeavour-backup-gvfs`, branch
 Publish/activation and a normal successful backup remain coordinator work.
 Rollback removes only this exclusion through the owner configuration; preserve
 prior failure evidence and do not mask an incomplete snapshot as success.
+
+
+Hosted review found that the new exact-scope fixture was only documented as a
+manual command. It is now executed in the existing integrity stage CI step,
+alongside the staged pilot evaluation. The owner module and acceptance assertions
+are unchanged; the targeted fixture was rerun successfully before publication.
