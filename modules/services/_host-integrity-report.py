@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import tempfile
 import time
+import uuid
 
 CHECKS = ("signatures", "store", "av")
 FIELDS = ("last_attempt_seconds", "last_complete_seconds", "last_publish_seconds",
@@ -45,15 +46,15 @@ class Reporter:
         self.metric_path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         os.chmod(self.state_path.parent, 0o700)
 
-    def update(self, event, *, now=None, findings=0, skipped=0, errors=0, database_seconds=None):
+    def update(self, event, *, now=None, findings=0, skipped=0, errors=0, database_seconds=None, finding_source="genuine"):
         now = time.time() if now is None else now
+        if finding_source not in ("genuine", "synthetic", "retained"):
+            raise ValueError("invalid finding provenance")
         if event not in ("publish", "begin", "progress", "complete", "partial", "failed"):
             raise ValueError("invalid integrity event")
         for value in (now, findings, skipped, errors):
             if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
                 raise ValueError("invalid integrity value")
-        if now > time.time():
-            raise ValueError("future attempt time")
         if any(int(v) != v for v in (findings, skipped, errors)):
             raise ValueError("non-integer count")
         if database_seconds is not None and (self.check != "signatures" or
@@ -63,18 +64,14 @@ class Reporter:
         lock = os.open(self.state_path.with_suffix(".lock"), os.O_CREAT | os.O_RDWR, 0o600)
         with os.fdopen(lock, "w") as stream:
             fcntl.flock(stream, fcntl.LOCK_EX)
-            state = dict.fromkeys(self.fields, 0)
-            if self.state_path.exists():
-                state = json.loads(self.state_path.read_text())
-                if set(state) != set(self.fields) or any(
-                    type(v) not in (int, float) or not math.isfinite(v) or v < 0
-                    for v in state.values()
-                ) or state["state"] not in range(5) or any(
-                    (key.endswith("_seconds") and value > now) or
-                    (not key.endswith("_seconds") and int(value) != value)
-                    for key, value in state.items()
-                ):
-                    raise ValueError("invalid persistent integrity state")
+            if event in ("progress", "complete", "partial", "failed") and findings > 0 and finding_source == "genuine":
+                # Record identity before state validation/publication, even across a clock rollback or crash.
+                taint = dict(instance=self.instance, check=self.check, source="genuine",
+                             event_id=uuid.uuid4().hex, observed_seconds=now, findings=findings)
+                atomic_write(self.state_path.with_name(f"{self.check}.genuine-findings.json"), json.dumps(taint) + "\n", 0o600)
+            if now > time.time():
+                raise ValueError("future attempt time")
+            state = self._load(now)
             if event == "begin":
                 state.update(last_attempt_seconds=now, state=1, skipped=0, errors=0)
             elif event != "publish":
@@ -89,13 +86,32 @@ class Reporter:
                     state["last_complete_seconds"] = now
             if database_seconds is not None:
                 state["signature_database_seconds"] = database_seconds
-            state["last_publish_seconds"] = now
-            # Persist first: interrupted metric publication is replayed on restart.
-            atomic_write(self.state_path, json.dumps(state) + "\n", 0o600)
-            labels = f'instance="{self.instance}",check="{self.check}"'
-            metrics = "".join(f"host_integrity_{key}{{{labels}}} {state[key]}\n" for key in self.fields)
-            atomic_write(self.metric_path, metrics, 0o644)
-            return state
+            return self._publish(state, now)
+
+    def _load(self, now):
+        state = dict.fromkeys(self.fields, 0)
+        if self.state_path.exists():
+            state = json.loads(self.state_path.read_text())
+            if set(state) != set(self.fields) or any(
+                type(v) not in (int, float) or not math.isfinite(v) or v < 0
+                for v in state.values()
+            ) or state["state"] not in range(5) or any(
+                (key.endswith("_seconds") and value > now) or
+                (not key.endswith("_seconds") and int(value) != value)
+                for key, value in state.items()
+            ):
+                raise ValueError("invalid persistent integrity state")
+        return state
+
+    def _publish(self, state, now):
+        state["last_publish_seconds"] = now
+        # Persist first: interrupted metric publication is replayed on restart.
+        atomic_write(self.state_path, json.dumps(state) + "\n", 0o600)
+        labels = f'instance="{self.instance}",check="{self.check}"'
+        metrics = "".join(f"host_integrity_{key}{{{labels}}} {state[key]}\n" for key in self.fields)
+        atomic_write(self.metric_path, metrics, 0o644)
+        return state
+
 
 
 if __name__ == "__main__":
