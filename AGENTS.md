@@ -384,14 +384,20 @@ Kubernetes user journey and rollback gate pass.
   `references/repos/opencode-flake`. Remote
   `git@github_erikbpf:ErikBPF/opencode-flake.git`.
 - **Vendored as a flake input**, but *not* pinned to the local tree — consumed via
-  **FlakeHub** (`url = "https://flakehub.com/f/ErikBPF/opencode-flake/*"`). Provides
-  the opencode package (`withPackage`) + a Home-Manager module; the **Endeavour** dev
-  env is fully HM-managed off it (config, permissions, rtk plugin). Ships a **daily
-  auto-merge lane** + FlakeHub publish; no Cachix (the orion cache covers the fleet).
-- Bump flow like `hermes-flake`: land upstream in the leaf → the daily lane republishes
-  to FlakeHub → `nix flake update opencode-flake` here → `just switch endeavour`. Gotchas
-  (HM crash on `package=null` HM#9589, placeholder jsonschema nixpkgs#537917, rtk=plugin
-  not markdown, permissions need `dag.entryAfter`): `memory/opencode_flake_rfc.md`.
+  **FlakeHub** and pinned to the exact release
+  (`url = "https://flakehub.com/f/ErikBPF/opencode-flake/=0.1.60"`). Provides the
+  opencode package (`withPackage`) + a Home-Manager module; the **Endeavour** dev env is
+  fully HM-managed off it (config, permissions, rtk plugin). Ships a **daily auto-merge
+  lane** + FlakeHub publish; no Cachix (the orion cache covers the fleet).
+- **The exact-version pin makes `nix flake update opencode-flake` a no-op**: it
+  re-resolves `=0.1.60` forever and changes nothing in `flake.lock`. A bump means
+  editing the version in `flake.nix` first, then re-locking, then
+  `just switch endeavour`. The hold exists because later releases break the managed
+  native RTK shell roundtrip (`bash: nomatch: invalid option name`); it lifts when
+  `tests/local-workspace-sessions/test_tool_roundtrip.py` passes against a newer
+  release — tracked in issue #490. Gotchas (HM crash on `package=null` HM#9589,
+  placeholder jsonschema nixpkgs#537917, rtk=plugin not markdown, permissions need
+  `dag.entryAfter`): `memory/opencode_flake_rfc.md`.
 
 ### `codex-flake` — codex CLI package + Home-Manager module
 
