@@ -34,6 +34,7 @@ in
   assert manual.systemd.services."host-integrity-av-canary@".serviceConfig.ProtectSystem == manual.systemd.services.host-integrity-av.serviceConfig.ProtectSystem;
   assert manual.systemd.services."host-integrity-av-canary@".serviceConfig.MemoryMax == manual.systemd.services.host-integrity-av.serviceConfig.MemoryMax;
   assert lib.hasInfix "_host-integrity-pilot.py canary" manual.systemd.services."host-integrity-av-canary@".serviceConfig.ExecStart;
+  assert builtins.elem "--quiet" storeCommand;
   assert builtins.elemAt storeCommand 2 == "--store";
   assert builtins.elemAt storeCommand 3 == "daemon";
   assert lib.hasInfix "path-info /run/current-system" manual.systemd.services.host-integrity-store-preflight.serviceConfig.ExecStart;

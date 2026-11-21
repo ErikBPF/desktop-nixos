@@ -38,7 +38,7 @@ _: {
           sourceRevision = builtins.hashString "sha256" (builtins.readFile ./_host-integrity-run.py + builtins.readFile ./_host-integrity-report.py + builtins.readFile ./_host-integrity-pilot.py + builtins.readFile ./host-integrity.nix);
           command =
             if check == "store"
-            then ["${pkgs.nix}/bin/nix" "--offline" "--store" "daemon" "store" "verify" "--all" "--no-trust"]
+            then ["${pkgs.nix}/bin/nix" "--offline" "--store" "daemon" "store" "verify" "--all" "--no-trust" "--quiet"]
             else if check == "signatures"
             then ["${pkgs.clamav}/bin/freshclam" "--config-file=${freshclam}"]
             else [

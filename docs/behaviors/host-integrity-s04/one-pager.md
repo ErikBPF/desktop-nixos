@@ -105,3 +105,6 @@ coordination message. The accepted scope is now stated directly here; the raw
 human seed remains verbatim in `behavior.md`, preserving the seed-retention rule.
 This reconciliation changes documentation only; executable tests and acceptance
 are unchanged. Documentation links and actual commit hooks passed.
+
+
+The first live signature attempt exposed a dropped FreshClam configuration argument in its version probe. The [runtime failure and focused repair receipt](freshclam-version-repair.md) records the failed state, actual tool reproduction, RED/GREEN and retry gate. No completed signature coverage is inferred from the wrapper exit.
