@@ -223,6 +223,10 @@ in {
     systemd.services.docker-hermes-agent = {
       after = ["vault-agent.service"];
       requires = ["vault-agent.service"];
+      # The first render can lag the agent start while OpenBao is unsealing.
+      # Retry without the default 5-in-10s start limit.
+      startLimitIntervalSec = 0;
+      serviceConfig.RestartSec = "10s";
       serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-hermes-agent-env" ''
         for _ in $(seq 1 100); do
           [ -s /run/vault-agent/hermes-agent.env ] && exit 0

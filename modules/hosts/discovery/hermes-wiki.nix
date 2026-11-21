@@ -96,10 +96,11 @@ _: {
       wants = ["network-online.target" "nss-lookup.target"];
       path = [pkgs.git pkgs.openssh pkgs.coreutils];
       # Boot network race: the github clone runs before routing is up on a cold
-      # boot and fails. Retry a handful of times until the network settles rather
+      # boot and fails. Retry until the network and secret render settle rather
       # than failing the unit for the rest of the session.
-      startLimitIntervalSec = 300;
-      startLimitBurst = 10;
+      # OpenBao unseal can take up to five minutes after a cold boot. Keep
+      # retrying instead of exhausting the old 10-in-5-minutes budget.
+      startLimitIntervalSec = 0;
       serviceConfig = {
         Type = "oneshot";
         User = "hermes";
