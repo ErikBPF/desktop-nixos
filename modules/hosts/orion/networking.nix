@@ -1,4 +1,4 @@
-_: {
+{config, ...}: {
   flake.modules.nixos.orion-networking = {
     lib,
     pkgs,
@@ -12,6 +12,10 @@ _: {
         enable = true;
         checkReversePath = "loose";
         interfaces.tailscale0.allowedTCPPorts = [8085 8087];
+        # Discovery-only access also depends on the matching Tailscale ACL.
+        extraCommands = ''
+          iptables -A nixos-fw -i tailscale0 -s ${config.fleet.hosts.discovery.tailscaleIp}/32 -p tcp --dport 9000 -j nixos-fw-accept
+        '';
         allowedTCPPorts = [
           8080 # llama.cpp (LiteLLM routes here)
           8081

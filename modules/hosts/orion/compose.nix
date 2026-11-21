@@ -8,6 +8,7 @@ _: {
         "ai-models" # llama-server (AMD Vulkan GPU)
         "sync" # restic backup
         "retrieval" # temporary CPU BGE placement; Kepler stays paused
+        "voice" # CPU transcription; independent of the active GPU chat stack
         # hermes-agent relocated to Discovery 2026-05-23 (always-on host)
       ];
     };
