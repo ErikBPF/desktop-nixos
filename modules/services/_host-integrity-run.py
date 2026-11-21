@@ -202,7 +202,7 @@ def service_failure(cfg, result):
     if previous["state"] != 1:
         r.update("begin")
     counts = dict(findings=previous["findings"], skipped=previous["skipped"], errors=previous["errors"] + 1)
-    r.update("failed", **counts)
+    r.update("failed", finding_source="retained", **counts)
     receipt(cfg, time.time(), "failed", counts, "unavailable", None, [result])
 
 
@@ -217,6 +217,10 @@ def run(cfg):
         lock = resources.enter_context(os.fdopen(lock_fd, "w"))
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if cfg.get("coordinationLock"):
+                fd = os.open(cfg["coordinationLock"], os.O_CREAT | os.O_RDWR, 0o600)
+                coordination = resources.enter_context(os.fdopen(fd, "w"))
+                fcntl.flock(coordination, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if cfg["check"] in ("store", "av"):
                 fd = os.open(Path(cfg["state_dir"]) / "heavy.run.lock", os.O_CREAT | os.O_RDWR, 0o600)
                 heavy_lock = resources.enter_context(os.fdopen(fd, "w"))
@@ -231,7 +235,8 @@ def run(cfg):
             return
         r.update("begin", now=started)
         try:
-            code, version = command([cfg["command"][0], "--version"], deadline, cfg)
+            version_command = cfg["command"] if cfg["check"] == "signatures" else cfg["command"][:1]
+            code, version = command(version_command + ["--version"], deadline, cfg)
             if code:
                 raise ValueError("tool version unavailable")
             if cfg["check"] == "signatures":
@@ -240,9 +245,14 @@ def run(cfg):
                 db = database(cfg["databaseDirectory"])
                 counts["errors"] = int(code != 0)
             elif cfg["check"] == "store":
-                code, output = command(cfg["command"], deadline, cfg)
+                def store_finding(line):
+                    if re.fullmatch(r"path '/nix/store/[^']+' was modified! expected hash '[^']+', got '[^']+'", line):
+                        counts["findings"] += 1
+                        details.append({"observedFinding": line})
+                        r.update("progress", **counts)
+                code, output = command(cfg["command"], deadline, cfg, store_finding)
                 details.append(output)
-                counts["findings"] = int(code >= 0 and bool(code & 3))
+                counts["findings"] = max(counts["findings"], int(code >= 0 and bool(code & 3)))
                 counts["errors"] = int(code < 0 or code > 7 or bool(code & 4))
             else:
                 db = database(cfg["databaseDirectory"])
@@ -278,7 +288,7 @@ def run(cfg):
                             counts["errors"] += 1
         except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
             counts["errors"] += 1
-            details.append(type(error).__name__)
+            details.append({"error": type(error).__name__, "reason": str(error)[:512]})
         result = "failed" if counts["errors"] else "partial" if counts["skipped"] else "complete"
         extra = {"database_seconds": db["published"] if db else 0} if cfg["check"] == "signatures" else {}
         # A competing attempt invalidates this coverage; never overwrite its failure with success.

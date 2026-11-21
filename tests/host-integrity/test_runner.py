@@ -64,6 +64,19 @@ def test_deadline_records_failure(tmp_path):
     assert state(cfg)["last_complete_seconds"] == 0
 
 
+def test_signature_version_probe_keeps_declared_config(tmp_path):
+    run = runner()
+    cfg = config(tmp_path, "signatures")
+    tool = Path(cfg["command"][0])
+    tool.write_text('#!/bin/sh\n[ "$1" = --config-file=fixture.conf ] || exit 2\n'
+                    'if [ "${2:-}" = --version ]; then echo fixture-1; fi\n')
+    cfg["command"].append("--config-file=fixture.conf")
+    run.run(cfg)
+    assert state(cfg)["state"] == 2
+    assert state(cfg)["errors"] == 0
+    assert state(cfg)["last_complete_seconds"] > 0
+
+
 def test_noop_updater_does_not_refresh_database_time(tmp_path):
     run = runner()
     cfg = config(tmp_path, "signatures")
@@ -341,3 +354,57 @@ def test_partial_database_install_cannot_be_reported_complete(tmp_path, missing)
     assert state(cfg)["state"] == 4
     assert state(cfg)["last_complete_seconds"] == 0
     assert not marker.exists()
+
+
+def test_scheduled_runner_refuses_backup_lock_without_recipe_guard(tmp_path):
+    run = runner()
+    marker = tmp_path / "scan-started"
+    cfg = config(tmp_path, body=f"touch '{marker}'")
+    cfg["coordinationLock"] = str(tmp_path / "backup.lock")
+    with Path(cfg["coordinationLock"]).open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        run.run(cfg)
+    assert not marker.exists()
+    assert state(cfg)["state"] == 4
+
+
+def test_backup_cannot_enter_during_actual_integrity_command(tmp_path):
+    run = runner()
+    marker = tmp_path / "backup-started"
+    lock = tmp_path / "backup.lock"
+    cfg = config(tmp_path, body=f"if flock --exclusive --nonblock '{lock}' touch '{marker}'; then exit 4; else exit 0; fi")
+    cfg["coordinationLock"] = str(lock)
+    run.run(cfg)
+    assert not marker.exists()
+    assert state(cfg)["state"] == 2
+
+
+def test_store_corruption_survives_output_limit(tmp_path):
+    run = runner()
+    cfg = config(tmp_path, body="echo \"path '/nix/store/fixture' was modified! expected hash 'sha256:old', got 'sha256:new'\"; head -c 8192 /dev/zero")
+    run.run(cfg)
+    result = state(cfg)
+    assert result["state"] == 4
+    assert result["findings"] == 1
+    assert result["last_complete_seconds"] == 0
+    assert (Path(cfg["state_dir"]) / "store.genuine-findings.json").exists()
+    record = json.loads(next((Path(cfg["state_dir"]) / "receipts").glob("*.json")).read_text())
+    assert any(isinstance(item, dict) and item.get("reason") == "tool output limit exceeded" for item in record["details"])
+
+
+def test_quiet_nix_verification_retains_corruption_diagnostic(tmp_path):
+    import subprocess
+    nix = os.environ.get("NIX_BIN", "nix")
+    local = tmp_path / "local"
+    sample = tmp_path / "sample"
+    sample.write_text("original harmless fixture")
+    command = [nix, "--offline", "--store", f"local?root={local}"]
+    added = subprocess.run(command + ["store", "add-file", str(sample)], capture_output=True, text=True, check=True, timeout=15)
+    logical = added.stdout.strip()
+    physical = local / logical.lstrip("/")
+    physical.chmod(0o600)
+    physical.write_text("changed harmless fixture")
+    result = subprocess.run(command + ["store", "verify", "--no-trust", "--quiet", logical], capture_output=True, text=True, timeout=15)
+    assert result.returncode == 1
+    assert "was modified! expected hash" in result.stderr
+    assert "checking '" not in result.stderr

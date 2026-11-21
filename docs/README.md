@@ -52,6 +52,7 @@ developer-tool changes and preserved runtime boundaries.
 | [`reference/2026-10-13-ha-publisher-bootstrap.md`](reference/2026-10-13-ha-publisher-bootstrap.md) | Controller-only IaC Harbor publisher SecretID capture; target preflight, shared lock, no inherited proxy. |
 | [`reference/2026-09-07-desktop-reconciliation.md`](reference/2026-09-07-desktop-reconciliation.md) | Historical rollout, ten-stash review and key-rotation correction. |
 | [`reference/opencode-profiles.md`](reference/opencode-profiles.md) | Declarative V2 config, explicit native workspace backends, private separate state, three-level agents, plugins and activation boundaries. |
+| [`reference/host-integrity-pilot.md`](reference/host-integrity-pilot.md) | Endeavour staged integrity pilot, bounded jobs, synthetic resolution, backup exclusion and exact rollback. |
 | [`reference/openbao-hardening.md`](reference/openbao-hardening.md) | Preserve tailnet ingress identity; private declarative audit and controlled restart gates. |
 | [`reference/vault-disaster-recovery.md`](reference/vault-disaster-recovery.md) | OpenBao DR runbook — sealed/corrupt/total-loss recovery; the fresh-cluster restore (unseal with the OLD sops key) tested 2026-06-29. |
 | [`reference/key-rotation.md`](reference/key-rotation.md) | When (and when not) to rotate each fleet key/secret + how — trigger-driven, weighted by blast radius; the age key, escrow passphrase, voyager REST creds, restic/OpenBao keys. |
@@ -101,3 +102,5 @@ from the [homelab proposal index](https://github.com/ErikBPF/homelab/blob/main/d
 
 New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
+
+- [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.

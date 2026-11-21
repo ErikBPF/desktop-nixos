@@ -94,17 +94,19 @@ jobs:
         run: |
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.tomlkit p.pytest])')
           "$python/bin/python" -m pytest -q tests/security-maintainability
-          "$python/bin/python" -m pytest -q tests/codex-ui tests/codex-skills tests/homelab-iac-drift tests/discovery-seed-timer tests/compose-health-gate tests/hermes-healthchecks tests/container-health-probe modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
+          "$python/bin/python" -m pytest -q tests/codex-ui tests/codex-skills tests/discovery-seed-timer tests/compose-health-gate tests/hermes-healthchecks tests/container-health-probe modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
           nix develop -c "$python/bin/python" -m pytest -q tests/apollo-host tests/distributed-builds tests/build-process tests/builder-preflight tests/work-profile tests/work-vm
 
       - name: Static contracts and repository hygiene
         run: |
           alloy=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.grafana-alloy')
           export ALLOY_BIN="$alloy/bin/alloy"
+          clamav=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.clamav')
+          export CLAMSCAN_BIN="$clamav/bin/clamscan"
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
           nix develop -c "$python/bin/python" -m pytest -q --import-mode=importlib \
-            tests/repository-hygiene \
-            tests/host-integrity tests/alloy tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
+            tests/repository-hygiene tests/wazuh-agent-canary \
+            tests/host-integrity tests/alloy tests/homelab-iac-drift tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
             tests/buzz tests/cognee-signing tests/deepseek-harness tests/deprecations \
             tests/endeavour-luks tests/endeavour-touchpad tests/gtk-icons \
             tests/hermes-wiki-deploy tests/hypridle tests/hyprland-navigation \
@@ -116,6 +118,20 @@ jobs:
             tests/discovery-esp-scratch-restore tests/kepler-compose tests/grafana-alert-ops \
             tests/monitoring-hardening tests/nanokvm-route tests/openbao-audit-status \
             tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
+
+      - name: Integrity pilot stage evaluation
+        run: |
+          nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix
+          nix eval --impure --raw --file tests/endeavour-home-backup.nix
+
+      - name: Wazuh enrollment trust handshake
+        env:
+          WAZUH_CONTAINER_ENGINE: docker
+        run: |
+          python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
+          image=$("$python/bin/python" -c 'import runpy; print(runpy.run_path("tests/wazuh-agent-canary/trust_handshake.py")["IMAGE"])')
+          docker pull "$image"
+          "$python/bin/python" -m pytest -q tests/wazuh-agent-canary/trust_handshake.py
 
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts
