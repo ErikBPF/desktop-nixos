@@ -197,34 +197,33 @@ in {
     # Cache warming is the only sustained multi-hour build on an inference host.
     # History: the 89 min ceiling killed the 2026-10-25 run (27.7 G peak); the
     # 179 min ceiling killed the 2026-10-26 run at 05:59; the 359 min ceiling
-    # killed both the 2026-10-27 and the 2026-10-28 runs at 08:59 with
-    # Result=timeout, still building.
+    # killed the 2026-10-27, 2026-10-28 and 2026-11-20 runs at 08:59, still
+    # building.
     #
-    # Neither timed-out run saturated the 2x2 shape's four-thread budget
-    # (systemd unit CPU time over wall clock):
-    #   2026-10-27: 6h52m CPU / 5h59m wall ~= 1.15 cores
-    #   2026-10-28: 3h49m CPU / 5h59m wall ~= 0.64 cores
-    # So the bottleneck is inside a single derivation, not the job count, and
-    # more jobs would only add memory. Raise the per-derivation thread budget
-    # instead: 1 job x 10 threads under a 2100% (21-core) quota, which is a
-    # ceiling, not a reservation.
+    # The 2026-11-20 run settled the constraint: 5h59m wall for 10,033 s of CPU
+    # (0.47 of 32 threads) with a 43.0 G memory peak against a 40 G MemoryHigh.
+    # The box was otherwise idle and reclaiming the whole time, so the earlier
+    # "single slow derivation" reading was wrong: one job at a time was waiting
+    # on memory pressure, not on its own thread count.
     #
-    # The cgroup MemoryPeak is the only memory figure the cap governs; the
-    # 10-thread per-derivation peak is unmeasured, so keep the existing
-    # 40G/48G bounds and re-baseline them from the next run. If MemoryMax
-    # binds, the cgroup OOM-kills the build, not the inference service, and
-    # the timer retries. The 359 min window is the outer bound, not a claim
-    # that it fits: if tonight still averages ~1 core, threads are not the
-    # constraint either and this shape needs revisiting.
+    # Give it memory headroom (Orion has 125.7 GiB; 85 GiB was available during
+    # the run) and one more job: 2 x 6 threads inside the same 2100% quota.
+    # One step, not three, because the 43 G peak is a single-derivation figure
+    # and two concurrent peaks are already close to the 56 G high-water mark.
+    # MemoryMax is the hard ceiling — if parallel peaks bind, the cgroup kills
+    # the build, not inference. Nice keeps the warm behind the desktop session;
+    # IOWeight is deliberately unset (io.weight only orders sibling cgroups,
+    # and the desktop lives in user.slice, not system.slice).
     systemd.services.nix-cache-builder = {
       environment.NIX_CONFIG = ''
-        max-jobs = 1
-        cores = 10
+        max-jobs = 2
+        cores = 6
       '';
       serviceConfig = {
         CPUQuota = "2100%";
-        MemoryHigh = "40G";
-        MemoryMax = "48G";
+        MemoryHigh = "56G";
+        MemoryMax = "72G";
+        Nice = 10;
         TimeoutStartSec = "359min";
         TimeoutStopSec = "1min";
         KillMode = "control-group";
