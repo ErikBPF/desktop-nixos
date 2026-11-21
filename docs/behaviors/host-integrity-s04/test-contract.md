@@ -2,6 +2,8 @@
 
 **Status:** Source validation passed; live systemd and notification proof pending.
 
+Retained [human seed and accepted scope](behavior.md).
+
 Human seed: “do remaining core work” — S04 pilot and S10 closeout; seven-day
 evidence cannot be fabricated. Subsequent explicit scope answer: Downloads only.
 
