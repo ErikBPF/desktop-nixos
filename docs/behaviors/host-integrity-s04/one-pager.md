@@ -85,8 +85,7 @@ head remains pending; the prior verdict is not presented as approval.
 
 ## Manual-job stage: RED/GREEN and review
 
-The latest instruction is “do wazuh and iac activities. also do 1-5. evoke subagents”.
-For Endeavour, this selects bounded scans, detection/recovery and backup proof.
+The accepted Endeavour scope is to enable bounded signature, store and Downloads scans for manual starts, keep schedules disabled during detection/recovery drills, and prove backup coexistence. The [retained seed](behavior.md) separates the full coordination request from this host-specific scope.
 The actual-host assertion for `pilot.enableJobs` failed before the one-line
 configuration change, then passed. The fixture explicitly disables jobs in its
 collector case, retaining that stage's absence and unchanged-backup assertions;
@@ -98,3 +97,11 @@ This stage depends on the published collector predecessor and observed backend
 identity. Merge and activation follow that proof. Timers remain disabled for
 sequential owner-recipe runs. Preserve genuine findings, report bounded coverage
 honestly, and require actual notification receipts before claiming recovery.
+
+
+Hosted review at `889d387f` reported no blocking executable defect and requested
+that this stage page describe its own host scope rather than quote the broader
+coordination message. The accepted scope is now stated directly here; the raw
+human seed remains verbatim in `behavior.md`, preserving the seed-retention rule.
+This reconciliation changes documentation only; executable tests and acceptance
+are unchanged. Documentation links and actual commit hooks passed.

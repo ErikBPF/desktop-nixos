@@ -10,6 +10,12 @@ Subsequent answer to the mutable-file AV scope question:
 
 > Downloads only (recommended)
 
+Subsequent coordination instruction, preserved as context rather than expanding this host slice:
+
+> do wazuh and iac activities. also do 1-5. evoke subagents
+
+For this repository stage, the referenced core steps select collector verification, bounded manual checks, native detection/recovery and backup proof. Wazuh and IaC remain separately owned slices.
+
 These quotations preserve the human input verbatim. The scope below records the
 accepted implementation plan; it is not an additional human quotation.
 
