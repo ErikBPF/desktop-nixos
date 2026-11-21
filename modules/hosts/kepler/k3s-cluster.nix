@@ -648,6 +648,8 @@ in {
             restartIfChanged = false;
             requiredBy = map (name: "microvm@${name}.service") allNames;
             before = map (name: "microvm@${name}.service") allNames;
+            # Retry dependency-failed guests when the reader itself restarts.
+            wants = map (name: "microvm@${name}.service") allNames;
           };
           k3s-bootstrap-materialize = {
             restartIfChanged = false;
