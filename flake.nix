@@ -123,6 +123,8 @@
     # Held at 0.1.60: 0.1.62 (opencode 2.3.0) fails the native shell roundtrip
     # test with `bash: nomatch: invalid option name`. Pin the exact version:
     # `/*` re-resolves to the newest release on every `nix flake update`.
+    # Revisit trigger: issue #490 — lift the hold once a release passes
+    # tests/local-workspace-sessions/test_tool_roundtrip.py.
     opencode-flake = {
       url = "https://flakehub.com/f/ErikBPF/opencode-flake/=0.1.60";
       inputs.flake-parts.follows = "flake-parts";
