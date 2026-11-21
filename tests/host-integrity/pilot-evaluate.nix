@@ -1,7 +1,7 @@
 let
   flake = builtins.getFlake (toString ../..);
   base = flake.nixosConfigurations.endeavour;
-  collector = base.config;
+  collector = (base.extendModules {modules = [{services.hostIntegrity.pilot.enableJobs = lib.mkForce false;}];}).config;
   manual = (base.extendModules {modules = [{services.hostIntegrity.pilot.enableJobs = true;}];}).config;
   scheduled =
     (base.extendModules {
@@ -18,6 +18,8 @@ let
   storeCommand = (builtins.fromJSON (builtins.unsafeDiscardStringContext manual.environment.etc."host-integrity/store.json".source.text)).command;
   lib = flake.inputs.nixpkgs.lib;
 in
+  assert base.config.services.hostIntegrity.pilot.enableJobs;
+  assert !base.config.services.hostIntegrity.pilot.enableSchedules;
   assert collector.services.hostIntegrity.enable;
   assert collector.services.hostIntegrity.checks == names;
   assert collector.services.hostIntegrity.jobs == {};
