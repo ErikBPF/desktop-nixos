@@ -54,6 +54,7 @@ in {
       m.nixos.first-boot
       m.nixos.pangolin-newt
       m.nixos.alloy
+      m.nixos.endeavour-host-integrity
       m.nixos.kepler-nfs
       m.nixos.btrfs-snapshots
       m.nixos.endeavour-home-backup
