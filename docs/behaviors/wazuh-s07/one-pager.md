@@ -11,7 +11,10 @@ directory containing one harmless configuration-shaped fixture. Actual pinned
 Wazuh 4.14.7 observes host mutation and restoration without file contents or an
 unwatched control appearing in its native event stream.
 
-This is stacked on S06 Desktop `65354915` in `worktrees/wazuh-fim-s07`.
+This began on S06 Desktop `65354915` in `worktrees/wazuh-fim-s07`.
+After S06 merged, publication was rebased onto main `3f0e7841` and retargeted to
+main. All fifteen fixtures and owner lint, formatting and documentation checks
+passed again; production FIM remains disabled.
 It changes only disposable tests, their fixture, the approved existing CI step
 and documentation. No production module, host import, enrollment key, manager
 rule, index policy or standing credential changes. Orion's deployed trust,

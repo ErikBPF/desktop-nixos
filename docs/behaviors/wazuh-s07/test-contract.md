@@ -4,7 +4,8 @@
 
 Assigned scope: isolated nonsecret host-directory FIM preparation, no production
 FIM enablement until deployed S06 verification and retention/recovery decisions.
-This checkout is based on S06 `65354915`. The user has accepted retention and
+This checkout originally used S06 `65354915`; current publication is rebased onto
+main `3f0e7841` after S06 merged. The user has accepted retention and
 backup/restore behavior; the approved destination is still being grounded.
 No backup location or credentials are inferred.
 
