@@ -1,6 +1,6 @@
 # S04: staged Endeavour pilot source
 
-**Status:** Reviewed source preparation; no live activation or observation claimed here.
+**Status:** Manual-job source prepared after collector stage; no live scan or observation claimed here.
 
 ## Outcome and why
 
@@ -13,9 +13,7 @@ after real schedules activate; local tests cannot complete that evidence.
 
 ## Changes
 
-An Endeavour aspect defaults to collector-only: three checks, no jobs or timers.
-Separate `enableJobs` and `enableSchedules` options make manual-job and scheduled
-stages explicit reviewed revisions. Budgets bound CPU, memory, deadlines, copy
+The collector-stage predecessor declares three checks without jobs. This revision enables the existing manual jobs while leaving `enableSchedules` false. Separate options retain explicit collector, manual-job and scheduled stages; the staged fixture checks all three, including the actual current rollout selection. Budgets bound CPU, memory, deadlines, copy
 size, traversal and output. Receipts retain 30 days and at most 128 per check.
 Other hosts remain unenrolled.
 
@@ -60,8 +58,7 @@ locally and independently. Lint, format, structure, documentation, S01/S02/S04
 evaluations and Endeavour offline dry-run passed. Fresh review found no remaining
 material source blocker. Exact results are recorded in the [test contract](test-contract.md).
 
-The precommit candidate remains unrealized; its dry-run lists 2256 derivations
-to build. This does not establish a pilot-only activation diff. The published
+The original source-preparation dry-run listed 2256 unrealized derivations. That historical result does not establish the current activation diff. The published
 revision must be re-evaluated, built and compared against the running closure
 before switching. Commit `342a74f0` passed its actual hooks; no hook bypass or
 live host activation occurred in this source-validation pass.
@@ -72,8 +69,7 @@ The [owner runbook](../../reference/host-integrity-pilot.md) records exact comma
 armed single-check restoration and generation-211 rollback. The coordinating
 agent must inspect the candidate/current closure diff before switching, publish
 compatible enrollment revisions, capture actual firing/resolved receipts and
-observe seven days. The pre-existing home-backup failure remains qualified,
-unrepaired baseline evidence. No unrelated upgrades, backup reset, host outage,
+observe seven days. The pre-existing home-backup failure is attributed to the transient GVfs mount; the companion exact exclusion preserves ordinary home data and exit-code 3 failures. Actual healthy backup recovery remains pending. No unrelated upgrades, backup reset, host outage,
 quarantine or fleet rollout are authorized by this source change.
 
 ## Published review reconciliation
@@ -85,3 +81,27 @@ accepted scope clearly separated from quotations. The cited `docs/AGENTS.md`
 was absent in this checkout; the earlier slice pattern and shared seed-retention
 requirement independently support this documentation fix. Re-review of the new
 head remains pending; the prior verdict is not presented as approval.
+
+
+## Manual-job stage: RED/GREEN and review
+
+The accepted Endeavour scope is to enable bounded signature, store and Downloads scans for manual starts, keep schedules disabled during detection/recovery drills, and prove backup coexistence. The [retained seed](behavior.md) separates the full coordination request from this host-specific scope.
+The actual-host assertion for `pilot.enableJobs` failed before the one-line
+configuration change, then passed. The fixture explicitly disables jobs in its
+collector case, retaining that stage's absence and unchanged-backup assertions;
+manual and scheduled fixtures preserve their original limits and timer checks.
+Lint and formatting passed. Local receipts are `/tmp/host-integrity-manual-red.log`
+and `/tmp/host-integrity-manual-green.log`; independent review passed and reproduced the staged Nix evaluation. All three actual services and timers have empty `wantedBy` and `requiredBy`; no automatic start was introduced. Endeavour toplevel dry-run, structure and documentation checks also passed. No new scheduler, path scope, limit or scan implementation was added.
+
+This stage depends on the published collector predecessor and observed backend
+identity. Merge and activation follow that proof. Timers remain disabled for
+sequential owner-recipe runs. Preserve genuine findings, report bounded coverage
+honestly, and require actual notification receipts before claiming recovery.
+
+
+Hosted review at `889d387f` reported no blocking executable defect and requested
+that this stage page describe its own host scope rather than quote the broader
+coordination message. The accepted scope is now stated directly here; the raw
+human seed remains verbatim in `behavior.md`, preserving the seed-retention rule.
+This reconciliation changes documentation only; executable tests and acceptance
+are unchanged. Documentation links and actual commit hooks passed.

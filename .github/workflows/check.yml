@@ -120,7 +120,9 @@ jobs:
             tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
 
       - name: Integrity pilot stage evaluation
-        run: nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix
+        run: |
+          nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix
+          nix eval --impure --raw --file tests/endeavour-home-backup.nix
 
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts

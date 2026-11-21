@@ -37,6 +37,7 @@ _: {
       ];
       services.hostIntegrity = {
         enable = true;
+        pilot.enableJobs = true;
         checks = ["signatures" "store" "av"];
         jobs = lib.optionalAttrs pilot.enableJobs {
           signatures =
