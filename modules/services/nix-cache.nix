@@ -20,6 +20,15 @@
 
     services.nix-serve = {
       enable = true;
+      # nix-serve-ng is the maintained drop-in: a GHC-built executable that
+      # links the Nix store library, already cached by Hydra for this nixpkgs,
+      # so it substitutes instead of rebuilding. The perl nix-serve in this
+      # nixpkgs ships no Nix perl modules, so every child died with
+      # "Can't locate Nix/Config.pm" and the cache crash-looped while every host
+      # fell back to cache.nixos.org. nix-serve-ng parses the module's
+      # `--listen addr:port` for drop-in compatibility, so the rest of the
+      # module (DynamicUser, LoadCredential, Restart=always) stays as it was.
+      package = pkgs.nix-serve-ng;
       bindAddress = "0.0.0.0";
       port = 5000;
       secretKeyFile = config.sops.secrets.nix_cache_signing_key.path;

@@ -32,6 +32,7 @@ OPTIONS = """c: {
     cacheServing = {
       inherit (c.services.nix-serve) enable bindAddress port secretKeyFile;
       package = c.services.nix-serve.package.outPath;
+      wantedBy = c.systemd.services.nix-serve.wantedBy;
     };
     wol = {
       inherit (c.systemd.services.orion-wol) enable wantedBy after serviceConfig;
@@ -93,9 +94,10 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
         ))
         preserved = self.options["preserved"]
         for name, value in self.baseline["preserved"].items():
-            if name == "cacheBuildScript":
-                # Reshaped deliberately (one host per invocation, bounded per
-                # host); the new shape is asserted by the test below.
+            if name in {"cacheBuildScript", "cacheServing"}:
+                # Reshaped deliberately (per-host warm; nix-serve-ng unit
+                # instead of services.nix-serve); both are asserted explicitly
+                # below instead of against the old baseline.
                 continue
             with self.subTest(preserved=name):
                 self.assertEqual(preserved[name], value)
@@ -117,6 +119,15 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
         self.assertIn("timeout 2400 nix build --no-link --keep-going", script)
         self.assertIn('failed+=("$host")', script)
         self.assertIn("exit 1", script)
+
+    def test_binary_cache_is_served_by_nix_serve_ng_at_boot(self):
+        serving = self.options["preserved"]["cacheServing"]
+        self.assertTrue(serving["enable"])
+        self.assertIn("multi-user.target", serving["wantedBy"])
+        self.assertEqual(serving["bindAddress"], "0.0.0.0")
+        self.assertEqual(serving["port"], 5000)
+        self.assertIn("nix-serve-ng", serving["package"])
+        self.assertIn("nix_cache_signing_key", serving["secretKeyFile"])
 
     def test_cache_build_has_native_resource_and_cancellation_bounds(self):
         builder = self.options["builder"]
