@@ -96,12 +96,87 @@ in {
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [8200];
     networking.firewall.interfaces.br-openbao.allowedTCPPorts = [8200];
 
+    # OpenBao's SWAG listener binds 172.31.82.1 on br-openbao. That bridge used
+    # to be created only by servarr's networking compose stack, which itself
+    # needs vault-agent: a cold boot without Docker network state could not
+    # start OpenBao. Own the network here and let servarr declare it external.
+    systemd.services.openbao-network = {
+      description = "Ensure the OpenBao SWAG bridge network exists";
+      wantedBy = ["multi-user.target"];
+      before = ["openbao.service"];
+      requires = ["docker.service"];
+      after = ["docker.service"];
+      path = [pkgs.docker pkgs.iproute2 pkgs.gnugrep];
+      # A hung Docker API call must not hold OpenBao's start job.
+      startLimitIntervalSec = 0;
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        TimeoutStartSec = "2min";
+        Restart = "on-failure";
+        RestartSec = "10s";
+        ExecStart = pkgs.writeShellScript "openbao-network" ''
+          set -euo pipefail
+          network=openbao-proxy
+          bridge=br-openbao
+          subnet=172.31.82.0/29
+          gateway=172.31.82.1
+
+          if inspect="$(${pkgs.docker}/bin/docker network inspect "$network" 2>&1)"; then
+            has_network=1
+          else
+            case "$inspect" in
+              *"No such network"* | *"not found"*) has_network=0 ;;
+              *)
+                printf '%s\n' "$inspect" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [ "$has_network" -eq 1 ]; then
+            # Docker retains network metadata across a daemon restart. If the
+            # link is gone, recreate it directly: removing the network record
+            # is not possible while SWAG still has an endpoint on it.
+            if ! ${pkgs.iproute2}/bin/ip link show "$bridge" >/dev/null 2>&1; then
+              ${pkgs.iproute2}/bin/ip link add name "$bridge" type bridge
+              ${pkgs.iproute2}/bin/ip address add "$gateway/29" dev "$bridge"
+              ${pkgs.iproute2}/bin/ip link set "$bridge" up
+            fi
+          else
+            # A stale link without Docker metadata would make network create
+            # fail on the bridge name. Remove it before creating the network.
+            if ${pkgs.iproute2}/bin/ip link show "$bridge" >/dev/null 2>&1; then
+              ${pkgs.iproute2}/bin/ip link delete "$bridge"
+            fi
+            ${pkgs.docker}/bin/docker network create \
+              --driver bridge --internal \
+              --opt "com.docker.network.bridge.name=$bridge" \
+              --subnet "$subnet" --gateway "$gateway" \
+              "$network" >/dev/null
+          fi
+
+          if ! ${pkgs.iproute2}/bin/ip -4 address show dev "$bridge" |
+            ${pkgs.gnugrep}/bin/grep -Fq "$gateway/29"; then
+            ${pkgs.iproute2}/bin/ip address add "$gateway/29" dev "$bridge"
+          fi
+
+          actual="$(${pkgs.docker}/bin/docker network inspect "$network" \
+            --format '{{range .IPAM.Config}}{{.Subnet}} {{.Gateway}}{{end}}')"
+          test "$actual" = "$subnet $gateway"
+          ${pkgs.iproute2}/bin/ip link show "$bridge" >/dev/null
+          ${pkgs.iproute2}/bin/ip -4 address show dev "$bridge" |
+            ${pkgs.gnugrep}/bin/grep -Fq "$gateway/29"
+        '';
+      };
+    };
+
     # The tailnet and SWAG listeners bind addresses created by tailscaled and
-    # Docker. A cold boot can race either interface, so retry without a
-    # start-limit cap until both exist.
+    # Docker. Start OpenBao only after the bridge exists; the tailnet address
+    # can still race, so keep the restart loop without a start-limit cap.
     systemd.services.openbao = {
-      after = ["tailscaled.service" "network-online.target"];
-      wants = ["network-online.target"];
+      after = ["tailscaled.service" "network-online.target" "openbao-network.service"];
+      wants = ["network-online.target" "openbao-network.service"];
       startLimitIntervalSec = 0;
       serviceConfig.RestartSec = "2s";
       serviceConfig.LogsDirectory = "openbao";
