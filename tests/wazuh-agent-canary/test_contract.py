@@ -115,3 +115,24 @@ def test_vault_recovery_pulls_in_agent_after_dependency_failure():
     assert 'wantedBy = ["wazuh-agent-vault.service"]' in source, (
         'Vault can recover after its boot timeout without retrying the dependent agent'
     )
+
+
+def test_enrollment_verifies_pinned_manager_without_changing_identity_or_feed():
+    root = ET.parse(MODULE.with_name("wazuh-agent.xml")).getroot()
+    assert root.findtext("client/enrollment/server_ca_path") == "/var/ossec/etc/enrollment-ca.pem"
+    source = MODULE.read_text()
+    assert 'WAZUH_REGISTRATION_SERVER = "wazuh-manager-master-0"' in source
+    assert '"--add-host=wazuh-manager-master-0:192.168.10.250"' in source
+    assert '${./wazuh-enrollment-ca.pem}:/var/ossec/etc/enrollment-ca.pem:ro' in source
+    assert '"${stateDir}/client.keys:/var/ossec/etc/client.keys"' in source
+    assert 'WAZUH_AGENT_NAME = "orion-canary"' in source
+
+
+def test_public_enrollment_pin_matches_authenticated_manager_receipt():
+    certificate = MODULE.with_name("wazuh-enrollment-ca.pem")
+    result = subprocess.run(["openssl", "x509", "-in", str(certificate),
+                             "-noout", "-fingerprint", "-sha256"],
+                            check=True, capture_output=True, text=True)
+    assert "3D:53:33:FB:58:6F:22:DA:2A:72:71:23:9F:F4:3A:EB:B0:F9:20:3F:35:2D:0A:66:76:94:00:B4:34:9B:05:27" in result.stdout
+    assert "PRIVATE KEY" not in certificate.read_text()
+    assert "modules/hosts/orion/wazuh-enrollment-ca.pem" in (ROOT / ".graphifyignore").read_text()

@@ -11,6 +11,7 @@
     <crypto_method>aes</crypto_method>
     <enrollment>
       <enabled>yes</enabled>
+      <server_ca_path>/var/ossec/etc/enrollment-ca.pem</server_ca_path>
       <manager_address>CHANGE_ENROLL_IP</manager_address>
       <port>CHANGE_ENROLL_PORT</port>
       <agent_name>CHANGE_AGENT_NAME</agent_name>

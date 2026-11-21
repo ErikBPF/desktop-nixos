@@ -105,7 +105,7 @@
       image = "docker.io/wazuh/wazuh-agent:4.14.7@sha256:150e7af098fbe34ec7d4825a0943ec2ab87525bff3d62488f104094c3354032e";
       environment = {
         WAZUH_MANAGER_SERVER = "192.168.10.250";
-        WAZUH_REGISTRATION_SERVER = "192.168.10.250";
+        WAZUH_REGISTRATION_SERVER = "wazuh-manager-master-0";
         WAZUH_MANAGER_PORT = "1514";
         WAZUH_REGISTRATION_PORT = "1515";
         WAZUH_AGENT_NAME = "orion-canary";
@@ -114,10 +114,16 @@
       environmentFiles = ["/run/wazuh-agent/agent.env"];
       volumes = [
         "${./wazuh-agent.xml}:/wazuh-config-mount/etc/ossec.conf:ro"
+        "${./wazuh-enrollment-ca.pem}:/var/ossec/etc/enrollment-ca.pem:ro"
         "/var/log/wazuh-host:/var/log/wazuh-host:ro"
         "${stateDir}/client.keys:/var/ossec/etc/client.keys"
       ];
-      extraOptions = ["--hostname=orion"];
+      # The persisted self-signed enrollment certificate identifies this master.
+      # Event transport remains on the existing address and enrolled client key.
+      extraOptions = [
+        "--hostname=orion"
+        "--add-host=wazuh-manager-master-0:192.168.10.250"
+      ];
     };
   };
 }
