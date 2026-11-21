@@ -6,7 +6,7 @@
 
 Preserve the [human seed](behavior.md) and the earlier accepted recovery policy
 without copying its stale lock file or live-build authorization. The subsequent
-human request supersedes timer pause: restore 03:00 with persistence and allow
+human request supersedes timer pause: restore 22:00 with persistence and allow
 immediate catch-up. Publication, merge and Orion update are now authorized,
 subject to checks and preview. The [behavior examples](cache-and-update.feature)
 are unautomated Gherkin, not a claim of executed scenarios. The old task's
@@ -40,7 +40,7 @@ Assertions:
   jobs and a two-core build hint, without conflicting duplicate assignments.
 - Both existing cache timer and generated timer unit have `enable=true`;
   absence does not count as restoration. Require `wantedBy` to include
-  `timers.target`, `OnCalendar="03:00"` and `Persistent=true`. Do not
+  `timers.target`, `OnCalendar="22:00"` and `Persistent=true`. Do not
   suppress/remove the generated unit.
 - Existing sleep/suspend/hibernate/hybrid-sleep targets remain disabled and
   logind idle/suspend/hibernate/lid actions remain ignored.

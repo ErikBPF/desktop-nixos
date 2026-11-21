@@ -29,7 +29,7 @@
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [5000];
 
     # Daily closure builder — keeps the cache warm by building all host closures.
-    # Runs at 03:00, requires the flake repo to be checked out at the path below.
+    # Runs at 22:00, requires the flake repo to be checked out at the path below.
     systemd.services.nix-cache-builder = {
       description = "Build all host closures to warm the nix cache";
       # Never let activation queue a job for this oneshot: a deploy landing

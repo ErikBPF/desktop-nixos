@@ -107,11 +107,11 @@ just deploy pathfinder 192.168.10.215 2222
 
 ### Fleet auto-update
 
-Orion builds and caches all host closures at 03:00. Hosts with
+Orion builds and caches all host closures at 22:00. Hosts with
 `system.autoUpgrade` enabled update at 05:00 once the cache is warm.
 Endeavour uses manual upgrades (`just upgrade`) and has no nightly update timer.
 
-- orion `nix-cache-builder`: 03:00
+- orion `nix-cache-builder`: 22:00
 - auto-update hosts: 05:00
 
 Auto-update hosts need no manual deploys after merging to main.

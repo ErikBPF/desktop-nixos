@@ -149,7 +149,7 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             self.assertTrue(self.options["generatedTimerEnabled"])
         timer = self.options["cacheTimer"]
         self.assertIn("timers.target", timer["wantedBy"])
-        self.assertEqual(timer["timerConfig"]["OnCalendar"], "03:00")
+        self.assertEqual(timer["timerConfig"]["OnCalendar"], "22:00")
         self.assertTrue(timer["timerConfig"]["Persistent"])
 
 
