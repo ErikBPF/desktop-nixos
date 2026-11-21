@@ -71,3 +71,19 @@ before activation. Preserve enrolled keys and SSH collection throughout; revert
 only this source change if necessary without modifying manager state. S07's
 narrow host-view proposal, live mutation proof, retention/restore evidence and
 observation gates remain separate; no fleet expansion is implied.
+
+
+### Publication rebase and runtime revision
+
+The publication branch was rebased onto main `e699f85c` after the manual-stage
+merge. Its CI conflict preserves both integrity pilot/backup evaluations and the
+Wazuh trust fixture. The Wazuh module, XML, public anchor and fixture bytes remain
+identical to reviewed revision `65354915`. Eight static and six real pinned-image
+trust tests pass again, together with owner lint, formatting and docs checks.
+The current-main Orion dry evaluation is separate from the frozen runtime build.
+
+The rollout candidate remains revision `65354915`, with closure
+`/nix/store/yzl0vz31p96lyvp0rvxd0r5g1n5zawab-nixos-system-orion-26.11.20261115.5c3cda7`.
+Publication includes intervening main changes; it does not authorize deploying
+those changes. The bounded candidate build and complete baseline comparison must
+finish before activation; running/profile generations44/45 remain distinct.
