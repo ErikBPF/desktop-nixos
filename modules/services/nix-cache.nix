@@ -87,7 +87,11 @@
       description = "Daily nix cache builder timer";
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnCalendar = "03:00";
+        # 22:00, not 03:00: the warm needs up to the 359 min unit ceiling in
+        # modules/hosts/orion/default.nix, and the fleet's autoUpgrade herd
+        # substitutes at 05:00. Starting at 03:00 put the tail of the build
+        # inside that window; starting at 22:00 leaves ~7h to finish first.
+        OnCalendar = "22:00";
         Persistent = true;
       };
     };
