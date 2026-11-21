@@ -416,3 +416,11 @@ test-cp1-durable-boot:
     trap 'rm -f "$fixture"' EXIT
     nix eval --impure --json --expr 'import ./tests/cp1-durable-boot-order/fixture.nix { baselineUrl = "github:ErikBPF/desktop-nixos/030d17cf4f9d56a40a3205d4af2ae7867a208e7d"; recoveryUrl = "github:ErikBPF/desktop-nixos/228bc67bf427fa1c4d33508f3f5967e2b1008d7a"; }' > "$fixture"
     python3 tests/cp1-durable-boot-order/systemd-smoke.py "$fixture"
+
+# Operator-only private source installation. No service start, credential write or switch.
+install-wazuh-backup-transport:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    revision=$(nix eval --raw .#nixosConfigurations.kepler.config.services.wazuhManagerCapture.transportRevision)
+    digest=$(nix eval --raw .#nixosConfigurations.kepler.config.services.wazuhManagerCapture.transportSha256)
+    python3 scripts/install-wazuh-transport.py --revision "$revision" --sha256 "$digest"

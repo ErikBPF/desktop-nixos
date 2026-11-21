@@ -142,7 +142,7 @@ jobs:
           export CLAMSCAN_BIN="$clamav/bin/clamscan"
           nix develop -c "$PYTEST_PYTHON" -m pytest -q --import-mode=importlib \
             tests/repository-hygiene tests/pr-review-ocr tests/wazuh-agent-canary \
-            tests/host-integrity tests/alloy tests/homelab-iac-drift tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
+            tests/wazuh-manager-capture tests/host-integrity tests/alloy tests/homelab-iac-drift tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
             tests/buzz tests/cognee-signing tests/deepseek-harness tests/deprecations \
             tests/endeavour-luks tests/endeavour-touchpad tests/gtk-icons \
             tests/hermes-wiki-deploy tests/hypridle tests/hyprland-navigation \
@@ -166,6 +166,8 @@ jobs:
           image=$("$PYTEST_PYTHON" -c 'import runpy; print(runpy.run_path("tests/wazuh-agent-canary/trust_handshake.py")["IMAGE"])')
           docker pull "$image"
           "$PYTEST_PYTHON" -m pytest -q tests/wazuh-agent-canary/trust_handshake.py
+      - name: Wazuh manager capture policy evaluation
+        run: nix eval --impure --raw --file tests/wazuh-manager-capture/evaluate.nix
       - name: Shared compiler-cache writer boundary
         run: |
           python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v

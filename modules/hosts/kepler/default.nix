@@ -24,6 +24,7 @@ in {
       m.nixos.systemd-boot-counting
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
+      m.nixos.kepler-wazuh-manager-capture
       m.nixos.kepler-monitoring
       m.nixos.kepler-development
       m.nixos.kepler-tmux-persistence
