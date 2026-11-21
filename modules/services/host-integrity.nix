@@ -12,6 +12,10 @@ _: {
         path = ./_host-integrity-run.py;
       }
       {
+        name = "_host-integrity-pilot.py";
+        path = ./_host-integrity-pilot.py;
+      }
+      {
         name = "_host-integrity-report.py";
         path = ./_host-integrity-report.py;
       }
@@ -31,10 +35,10 @@ _: {
           metrics_dir = "/var/lib/host-integrity-metrics";
           databaseDirectory = database;
           work_dir = "/run/host-integrity-${check}";
-          sourceRevision = builtins.hashString "sha256" (builtins.readFile ./_host-integrity-run.py + builtins.readFile ./_host-integrity-report.py + builtins.readFile ./host-integrity.nix);
+          sourceRevision = builtins.hashString "sha256" (builtins.readFile ./_host-integrity-run.py + builtins.readFile ./_host-integrity-report.py + builtins.readFile ./_host-integrity-pilot.py + builtins.readFile ./host-integrity.nix);
           command =
             if check == "store"
-            then ["${pkgs.nix}/bin/nix" "--offline" "store" "verify" "--all" "--no-trust"]
+            then ["${pkgs.nix}/bin/nix" "--offline" "--store" "daemon" "store" "verify" "--all" "--no-trust"]
             else if check == "signatures"
             then ["${pkgs.clamav}/bin/freshclam" "--config-file=${freshclam}"]
             else [
@@ -56,6 +60,21 @@ _: {
         }
         // builtins.removeAttrs job ["calendar" "jitterSeconds" "cpuQuotaPercent" "memoryMaxBytes" "ioWeight" "nice"]));
     runCommand = check: job: "${pkgs.python3}/bin/python3 ${helpers}/_host-integrity-run.py --config ${jobConfig check job}";
+    pilotCommand = "${pkgs.python3}/bin/python3 ${helpers}/_host-integrity-pilot.py";
+    configFiles = lib.genAttrs (map (check: "host-integrity/${check}.json") cfg.checks) (name: let
+      check = lib.removeSuffix ".json" (lib.removePrefix "host-integrity/" name);
+    in {
+      source =
+        if cfg.jobs ? ${check}
+        then jobConfig check cfg.jobs.${check}
+        else
+          pkgs.writeText "host-integrity-${check}-reporting.json" (builtins.toJSON {
+            inherit check;
+            instance = config.networking.hostName;
+            state_dir = "/var/lib/host-integrity";
+            metrics_dir = "/var/lib/host-integrity-metrics";
+          });
+    });
     positive = description:
       lib.mkOption {
         type = lib.types.ints.positive;
@@ -63,6 +82,11 @@ _: {
       };
     jobType = lib.types.submodule {
       options = {
+        coordinationLock = lib.mkOption {
+          type = lib.types.nullOr (lib.types.strMatching "/run/.*");
+          default = null;
+          description = "Optional root-owned exclusion lock shared with an owning backup command.";
+        };
         scopeId = lib.mkOption {
           type = lib.types.strMatching "[a-z0-9][a-z0-9-]{0,63}";
           description = "Reviewed scope identifier.";
@@ -129,6 +153,11 @@ _: {
           message = "AV requires explicit scope paths; other integrity jobs require an empty path list.";
         }
       ];
+      environment.systemPackages = [
+        (pkgs.writeShellScriptBin "host-integrity-pilot" ''
+          exec ${pilotCommand} "$@"
+        '')
+      ];
       systemd.timers = lib.mapAttrs' (check: job:
         lib.nameValuePair "host-integrity-${check}" {
           wantedBy = ["timers.target"];
@@ -140,6 +169,28 @@ _: {
         })
       cfg.jobs;
       systemd.services = lib.mkMerge [
+        (lib.mkIf (cfg.jobs ? store) {
+          host-integrity-store-preflight = {
+            description = "Read-only Nix daemon query in the store verification sandbox";
+            inherit (config.systemd.services.host-integrity-store) environment after;
+            serviceConfig =
+              config.systemd.services.host-integrity-store.serviceConfig
+              // {
+                ExecStart = "${pkgs.nix}/bin/nix --offline --store daemon path-info /run/current-system";
+              };
+          };
+        })
+        (lib.mkIf (cfg.jobs ? av) {
+          "host-integrity-av-canary@" = {
+            description = "Operator-only synthetic integrity canary %i";
+            inherit (config.systemd.services.host-integrity-av) environment after onFailure;
+            serviceConfig =
+              config.systemd.services.host-integrity-av.serviceConfig
+              // {
+                ExecStart = "${pilotCommand} canary --config ${jobConfig "av" cfg.jobs.av} --case %i";
+              };
+          };
+        })
         (lib.mapAttrs' (check: job:
           lib.nameValuePair "host-integrity-${check}" {
             description = "Bounded host integrity ${check}";
@@ -164,7 +215,7 @@ _: {
               ProtectSystem = "strict";
               ProtectHome = "read-only";
               PrivateTmp = check != "av";
-              ReadWritePaths = ["/var/lib/host-integrity" "/var/lib/host-integrity-metrics"];
+              ReadWritePaths = ["/var/lib/host-integrity" "/var/lib/host-integrity-metrics"] ++ lib.optional (job.coordinationLock != null) (builtins.dirOf job.coordinationLock);
             };
           })
         cfg.jobs)
@@ -220,42 +271,46 @@ _: {
         "d ${database} 0700 root root - -"
         "d /var/lib/host-integrity-metrics 0755 root root - -"
       ];
-      environment.etc."alloy/config.alloy".text = lib.mkAfter ''
-        // This root-owned input is independent of legacy user-writable metrics.
-        prometheus.exporter.unix "host_integrity" {
-          set_collectors = ["textfile"]
-          textfile {
-            directory = "/var/lib/host-integrity-metrics"
-          }
-        }
-        prometheus.scrape "host_integrity" {
-          targets         = prometheus.exporter.unix.host_integrity.targets
-          forward_to      = [prometheus.relabel.host_integrity.receiver]
-          scrape_interval = "30s"
-          honor_labels    = true
-        }
-        prometheus.relabel "host_integrity" {
-          rule {
-            source_labels = ["__name__"]
-            regex         = "host_integrity_.*"
-            action        = "keep"
-          }
-          rule {
-            source_labels = ["check"]
-            regex         = "${lib.concatStringsSep "|" cfg.checks}"
-            action        = "keep"
-          }
-          rule {
-            target_label  = "instance"
-            replacement   = "${config.networking.hostName}"
-          }
-          rule {
-            regex         = "__name__|instance|check|job"
-            action        = "labelkeep"
-          }
-          forward_to = [prometheus.remote_write.prometheus.receiver]
-        }
-      '';
+      environment.etc =
+        configFiles
+        // {
+          "alloy/config.alloy".text = lib.mkAfter ''
+            // This root-owned input is independent of legacy user-writable metrics.
+            prometheus.exporter.unix "host_integrity" {
+              set_collectors = ["textfile"]
+              textfile {
+                directory = "/var/lib/host-integrity-metrics"
+              }
+            }
+            prometheus.scrape "host_integrity" {
+              targets         = prometheus.exporter.unix.host_integrity.targets
+              forward_to      = [prometheus.relabel.host_integrity.receiver]
+              scrape_interval = "30s"
+              honor_labels    = true
+            }
+            prometheus.relabel "host_integrity" {
+              rule {
+                source_labels = ["__name__"]
+                regex         = "host_integrity_.*"
+                action        = "keep"
+              }
+              rule {
+                source_labels = ["check"]
+                regex         = "${lib.concatStringsSep "|" cfg.checks}"
+                action        = "keep"
+              }
+              rule {
+                target_label  = "instance"
+                replacement   = "${config.networking.hostName}"
+              }
+              rule {
+                regex         = "__name__|instance|check|job"
+                action        = "labelkeep"
+              }
+              forward_to = [prometheus.remote_write.prometheus.receiver]
+            }
+          '';
+        };
     };
   };
 }
