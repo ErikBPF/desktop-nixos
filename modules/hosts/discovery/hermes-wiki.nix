@@ -108,6 +108,8 @@ _: {
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "15s";
+        # Bound the clone so an unusable GitHub route cannot stall boot.
+        TimeoutStartSec = "3min";
         StateDirectory = "hermes-wiki-ssh";
         StateDirectoryMode = "0700";
         ExecStartPre = pkgs.writeShellScript "wait-for-hermes-wiki-key" ''

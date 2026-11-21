@@ -16,6 +16,14 @@ Tailscale ACL processing happens before this rule. The kernel regression test
 must pass after Tailscale/netfilter upgrades because the mark is an integration
 detail. No nginx allowlist was expanded.
 
+## Boot ordering
+
+`openbao-unseal.service` is not wanted by `multi-user.target`. `vault-agent` and
+`harbor-reader` want it, and `openbao-unseal.timer` runs it 30 seconds after boot
+and every minute after that. `openbao-network.service` owns
+`openbao-proxy`/`br-openbao`; servarr declares that network external, so a cold
+boot no longer depends on the compose stack that needs `vault-agent`.
+
 One declarative file audit device writes HMAC-protected records to
 `/var/log/openbao/audit.json`, mode 0600, under a private service log directory.
 API-created audit devices are disabled. Logrotate checks daily, rotates above

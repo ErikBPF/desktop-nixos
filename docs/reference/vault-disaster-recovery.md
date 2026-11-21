@@ -77,7 +77,12 @@ documentation checks passed. Physical acceptance remains pending.
 
 ## Scenario A — node sealed (reboot / restart)
 
-`openbao-unseal.service` auto-unseals on boot from the sops key. If it didn't:
+`openbao-unseal.service` auto-unseals from the sops key. It is no longer
+pulled by `multi-user.target`: at boot `vault-agent` and `harbor-reader` want
+it, and `openbao-unseal.timer` runs it 30 seconds after boot and every minute
+after that. `openbao-network.service` creates the `openbao-proxy` bridge before
+OpenBao starts, and the servarr compose stack consumes that network as
+external. If it didn't unseal:
 ```bash
 ssh -p 2222 erik@192.168.10.210
 export BAO_ADDR=http://127.0.0.1:8200

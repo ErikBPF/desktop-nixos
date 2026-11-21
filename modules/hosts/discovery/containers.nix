@@ -65,6 +65,10 @@
       };
     };
 
+    # Bound daemon startup so a wedged Docker cannot hold multi-user.target
+    # indefinitely. Normal discovery startup is about 45 s.
+    systemd.services.docker.serviceConfig.TimeoutStartSec = "3min";
+
     # Recovery — runs the shared `recover` pass two ways:
     #
     # 1. ExecStartPost of docker-prune.service: the weekly `docker system prune
