@@ -4,7 +4,7 @@
 # LAN/tailnet reach to the controllers, so enable this on a fleet host on the
 # LAN (e.g. the laptop or discovery), not a cloud runner.
 #
-# Plans every Terragrunt unit (`bin/drift-check.sh`); alerts via ntfy on drift.
+# Plans the adopted IaC scope; its existing Discord notifier owns findings.
 {inputs, ...}: {
   flake.modules.nixos.homelab-iac-drift = {
     config,
@@ -13,6 +13,10 @@
     ...
   }: let
     cfg = config.services.homelabIacDrift;
+    revision = inputs.homelab-iac.rev;
+    scope = builtins.hashFile "sha256" (inputs.homelab-iac + "/tests/fixtures/drift-monitored-units.txt");
+    report = "${pkgs.python3}/bin/python3 ${./_homelab-iac-drift-report.py}";
+    reportArgs = "--state-dir /var/lib/homelab-iac-drift-health --metrics-dir /var/lib/homelab-iac-drift-metrics --result-file /var/lib/homelab-iac-drift/result.json --instance ${lib.escapeShellArg config.networking.hostName} --revision ${revision} --scope ${scope}";
 
     unitPath = with pkgs; [
       opentofu
@@ -60,6 +64,8 @@
       # `IFS='=' read` would strip a single trailing '=' from the value —
       # i.e. base64 padding — corrupting keys like OCI_private_key_b64
       # (base64decode then fails and the oracle units error out).
+      decrypted_env="$(${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops)"
+      management_env="$(cat ${lib.escapeShellArg cfg.githubAppManagementEnvFile})"
       while IFS= read -r line; do
         case "$line" in ""|"#"*) continue ;; esac
         key="''${line%%=*}"
@@ -69,10 +75,8 @@
         value="''${value%\'}"
         value="''${value#\'}"
         export "$key=$value"
-      done < <(
-        ${pkgs.sops}/bin/sops --input-type dotenv --output-type dotenv --decrypt .env.sops
-        cat ${lib.escapeShellArg cfg.githubAppManagementEnvFile}
-      )
+      done <<< "$decrypted_env"$'\n'"$management_env"
+      unset decrypted_env management_env
       # GitHub provider token: homelab-iac retired the .env.sops copy
       # (#139) and keeps the only copy in OpenBao secret/iac/github.
       # Resolve it with the reader AppRole that .env.sops already holds.
@@ -94,6 +98,11 @@
     options.services.homelabIacDrift = {
       enable = lib.mkEnableOption "homelab-iac Terraform drift detection";
 
+      timeoutSeconds = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 3600;
+        description = "Finite whole drift startup/run deadline, including bootstrap and lock wait.";
+      };
       user = lib.mkOption {
         type = lib.types.str;
         description = "User that owns the repo and the sops age key.";
@@ -170,12 +179,65 @@
     };
 
     config = lib.mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = cfg.timeoutSeconds > 900;
+          message = "Drift deadline must exceed its shared 900-second apply lock wait.";
+        }
+      ];
+      systemd.tmpfiles.rules = [
+        "d /var/lib/homelab-iac-drift-health 0700 root root - -"
+        "d /var/lib/homelab-iac-drift-metrics 0755 root root - -"
+      ];
+      systemd.services.homelab-iac-drift-report = {
+        description = "Restore durable drift lifecycle gauges";
+        wantedBy = ["multi-user.target"];
+        after = ["systemd-tmpfiles-setup.service"];
+        before = ["alloy.service"];
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+          UMask = "0077";
+          TimeoutStartSec = "30s";
+          ExecStart = "${report} restore ${reportArgs}";
+        };
+      };
+      environment.etc."alloy/config.alloy".text = lib.mkIf config.services.alloy.enable (lib.mkAfter ''
+        prometheus.exporter.unix "iac_drift" {
+          set_collectors = ["textfile"]
+          textfile { directory = "/var/lib/homelab-iac-drift-metrics" }
+        }
+        prometheus.scrape "iac_drift" {
+          targets = prometheus.exporter.unix.iac_drift.targets
+          forward_to = [prometheus.relabel.iac_drift.receiver]
+          scrape_interval = "30s"
+          honor_labels = true
+        }
+        prometheus.relabel "iac_drift" {
+          rule {
+            source_labels = ["__name__"]
+            regex = "homelab_iac_drift_.*"
+            action = "keep"
+          }
+          rule {
+            target_label = "instance"
+            replacement = "${config.networking.hostName}"
+          }
+          rule {
+            regex = "__name__|instance|job"
+            action = "labelkeep"
+          }
+          forward_to = [prometheus.remote_write.prometheus.receiver]
+        }
+      '');
       systemd.services.homelab-iac-drift = {
         description = "homelab-iac Terraform drift check";
         after = [
           "network-online.target"
           "tailscaled.service"
           "vault-agent.service"
+          "systemd-tmpfiles-setup.service"
+          "homelab-iac-drift-report.service"
         ];
         wants = ["network-online.target"];
 
@@ -183,6 +245,8 @@
 
         environment =
           {
+            DRIFT_SOURCE_REVISION = revision;
+            DRIFT_RESULT_FILE = "/var/lib/homelab-iac-drift/result.json";
             TG_TF_PATH = "${pkgs.opentofu}/bin/tofu";
             SOPS_AGE_KEY_FILE = cfg.sopsAgeKeyFile;
             # Without a shared plugin cache, `run --all` re-downloads every
@@ -199,6 +263,12 @@
         serviceConfig = {
           Type = "oneshot";
           SuccessExitStatus = [2];
+          TimeoutStartSec = cfg.timeoutSeconds;
+          TimeoutStopSec = "30s";
+          KillMode = "control-group";
+          UMask = "0077";
+          ExecStartPre = "+${report} begin ${reportArgs}";
+          ExecStopPost = "+${report} finish ${reportArgs}";
           User = cfg.user;
           StateDirectory = "homelab-iac-drift";
           StateDirectoryMode = "0700";
@@ -220,7 +290,7 @@
             ${providerEnv}
             # Serialize with the apply poller instead of killing it: both take
             # this lock, so an apply waits for an in-flight plan.
-            exec flock -w 900 "$CACHE_DIRECTORY/run.lock" bash bin/drift-check.sh
+            exec flock -w 900 -E 75 "$CACHE_DIRECTORY/run.lock" bash bin/drift-check.sh
           '';
         };
       };
