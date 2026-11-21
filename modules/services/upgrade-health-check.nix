@@ -59,6 +59,34 @@ _: {
         fi
         echo "Health check passed: critical units active and routed network reachable"
       '');
+
+      # system.autoUpgrade runs once a day. A transient failure (unreachable
+      # substituter, wedged cache) otherwise leaves the host on the old
+      # generation until tomorrow, with the unit red the whole time. Retry once
+      # inside the reboot window; a second failure waits for the next run.
+      systemd.services.nixos-upgrade-retry = {
+        description = "Retry a failed unattended upgrade once";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+        };
+        script = ''
+          if ${pkgs.systemd}/bin/systemctl is-failed --quiet nixos-upgrade.service; then
+            echo "nixos-upgrade failed; retrying once" >&2
+            ${pkgs.systemd}/bin/systemctl reset-failed nixos-upgrade.service
+            ${pkgs.systemd}/bin/systemctl start nixos-upgrade.service
+          fi
+        '';
+      };
+
+      systemd.timers.nixos-upgrade-retry = {
+        description = "Retry a failed unattended upgrade once per day";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "05:35";
+          Persistent = false;
+        };
+      };
     };
   };
 }
