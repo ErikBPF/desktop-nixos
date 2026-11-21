@@ -9,6 +9,8 @@ in
   assert unit.serviceConfig.TimeoutStopSec == "30s";
   assert unit.serviceConfig.SuccessExitStatus == [2];
   assert lib.hasPrefix "+" unit.serviceConfig.ExecStartPre;
+  assert lib.hasInfix "timeout --signal=KILL 30s " unit.serviceConfig.ExecStartPre;
+  assert lib.hasInfix "timeout --signal=KILL 30s " unit.serviceConfig.ExecStopPost;
   assert lib.hasInfix " begin " unit.serviceConfig.ExecStartPre;
   assert lib.hasPrefix "+" unit.serviceConfig.ExecStopPost;
   assert lib.hasInfix " finish " unit.serviceConfig.ExecStopPost;
@@ -19,4 +21,5 @@ in
   assert lib.hasInfix ''host_integrity_.*|homelab_iac_drift_.*'' alloy; {
     check = "S09_MODULE_EVAL_OK";
     inherit alloy;
+    reporters = [unit.serviceConfig.ExecStartPre unit.serviceConfig.ExecStopPost];
   }

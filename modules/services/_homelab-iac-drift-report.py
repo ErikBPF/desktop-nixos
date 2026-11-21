@@ -57,6 +57,7 @@ def update(cfg, action, *, now=None, invocation='', service_result='', exit_stat
                 raise ValueError('invalid persisted lifecycle enum')
             if any(state[k] > now for k in FIELDS if k.startswith('last_')):
                 raise ValueError('future persisted lifecycle state')
+        matching_begin = state['invocation'] == invocation and state['outcome'] == 1
         if action == 'begin' or (action == 'finish' and state['invocation'] != invocation):
             state.update(last_attempt_seconds=now, duration_seconds=0, outcome=1,
                          notification=4, lock_contention=0, invocation=invocation)
@@ -69,7 +70,7 @@ def update(cfg, action, *, now=None, invocation='', service_result='', exit_stat
                 state['outcome'] = 5
             elif exit_code == 'exited' and exit_status == '75':
                 state.update(outcome=6, lock_contention=1)
-            elif service_result in ('success', 'exit-code') and exit_code == 'exited' and exit_status in ('0', '1', '2'):
+            elif matching_begin and service_result in ('success', 'exit-code') and exit_code == 'exited' and exit_status in ('0', '1', '2'):
                 try:
                     result_path = Path(cfg['result_file'])
                     fd = os.open(result_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)

@@ -231,3 +231,18 @@ def test_growing_result_is_bounded_after_open(tmp_path, monkeypatch):
     state=report.update(cfg,'finish',now=102,invocation='fixture',service_result='success',exit_code='exited',exit_status='0')
     assert state['outcome']==4
     assert state['last_complete_seconds']==0
+
+
+def test_finish_without_matching_begin_rejects_previous_clean_result(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('drift_report', ROOT/'modules/services/_homelab-iac-drift-report.py')
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    cfg = dict(state_dir=tmp_path/'private', metrics_dir=tmp_path/'metrics',
+               result_file=tmp_path/'result.json', instance='discovery', revision='a'*40, scope='b'*64)
+    report.update(cfg, 'begin', now=100, invocation='previous')
+    cfg['result_file'].write_text(json.dumps(dict(schemaVersion=1, sourceRevision=cfg['revision'], scopeSha256=cfg['scope'], outcome='clean', notification='not-required')))
+    report.update(cfg, 'finish', now=101, invocation='previous', service_result='success', exit_status='0', exit_code='exited')
+    value = report.update(cfg, 'finish', now=102, invocation='new-without-begin', service_result='success', exit_status='0', exit_code='exited')
+    assert value['outcome'] == 4
+    assert value['last_complete_seconds'] == 101

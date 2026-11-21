@@ -68,3 +68,26 @@ def test_protected_drift_collector_rejects_spoof_and_keeps_backup(tmp_path):
             assert '999' not in samples and 'forged' not in samples and 'private' not in samples
         finally:
             process.terminate();process.wait(timeout=10)
+
+
+def test_evaluated_reporters_kill_blocked_lock_wait(tmp_path):
+    import fcntl
+    import json
+    import shlex
+    commands = json.loads(subprocess.run(['nix','eval','--offline','--impure','--json','--expr',
+        '(import ./tests/homelab-iac-drift/evaluate.nix).reporters'], cwd=ROOT,
+        text=True, capture_output=True, check=True).stdout)
+    private = tmp_path/'private'; private.mkdir()
+    result = tmp_path/'result.json'; result.write_text('previous result')
+    with (private/'state.lock').open('w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        for command in commands:
+            argv = shlex.split(command.removeprefix('+'))
+            assert argv[1:3] == ['--signal=KILL', '30s']
+            argv[2] = '0.2s'  # Same evaluated wrapper, scaled deadline for the fixture.
+            for flag, value in [('--state-dir',private), ('--metrics-dir',tmp_path/'metrics'), ('--result-file',result)]:
+                argv[argv.index(flag)+1] = str(value)
+            run = subprocess.run(argv, capture_output=True, timeout=3)
+            assert run.returncode in (-9, 137), run.stderr
+            assert not (private/'state.json').exists()
+            assert result.read_text() == 'previous result'

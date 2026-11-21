@@ -15,7 +15,7 @@
     cfg = config.services.homelabIacDrift;
     revision = inputs.homelab-iac.rev;
     scope = builtins.hashFile "sha256" (inputs.homelab-iac + "/tests/fixtures/drift-monitored-units.txt");
-    report = "${pkgs.python3}/bin/python3 ${./_homelab-iac-drift-report.py}";
+    report = "${pkgs.coreutils}/bin/timeout --signal=KILL 30s ${pkgs.python3}/bin/python3 ${./_homelab-iac-drift-report.py}";
     reportArgs = "--state-dir /var/lib/homelab-iac-drift-health --metrics-dir /var/lib/homelab-iac-drift-metrics --result-file /var/lib/homelab-iac-drift/result.json --instance ${lib.escapeShellArg config.networking.hostName} --revision ${revision} --scope ${scope}";
 
     unitPath = with pkgs; [
@@ -101,7 +101,7 @@
       timeoutSeconds = lib.mkOption {
         type = lib.types.ints.positive;
         default = 3600;
-        description = "Finite whole drift startup/run deadline, including bootstrap and lock wait.";
+        description = "Finite main command deadline, including bootstrap and lock wait; root reporting has separate 30-second bounds.";
       };
       user = lib.mkOption {
         type = lib.types.str;

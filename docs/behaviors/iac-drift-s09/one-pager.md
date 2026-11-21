@@ -1,5 +1,7 @@
 # S09: whole-service IaC drift health
 
+**Status:** Source reviewed and published; phase-bound correction independently verified; hosted checks pending. No live Discovery deployment.
+
 ## Outcome and purpose
 
 The user-selected IaC track extends the existing Discovery drift service with
@@ -11,8 +13,14 @@ no apply authority, monitored unit or provider configuration.
 
 ## Changes and interface
 
-The service has a finite 3,600-second startup/run deadline, including its existing
-900-second shared apply-lock wait, and a 30-second stop/reporting bound. Root
+The main command has a finite 3,600-second deadline, including provider bootstrap
+and its existing 900-second shared apply-lock wait. Root begin/finish commands
+are each wrapped in an explicit 30-second kill deadline. Systemd 262 resets
+startup timeouts per command; it does not impose one shared startup budget.
+Stop and final cleanup phases can each spend another 30 seconds. The conservative
+lifecycle alert threshold is 3,780 seconds: 30 for begin, 3,600 for main, and five
+30-second cleanup phases, including finish. This is a configured phase budget,
+not a promise that the kernel can terminate uninterruptible tasks. Root
 `ExecStartPre` records an attempt; root `ExecStopPost` records the systemd result,
 including failures before the script body. Exit 2 remains successful systemd
 completion. Lock timeout is explicitly exit 75. Both drift and merged-main apply
@@ -70,3 +78,24 @@ failed invocation or incompatible result identity. Runtime budget calibration,
 S09B consumer deployment and actual Discovery evidence remain coordinator work.
 Rollback restores the previous specific pin and reporting wiring while retaining
 apply serialization, credentials, the existing notifier and private evidence.
+
+
+Review correction evidence: pinned `pkgs.systemd.version=262` and
+`src.rev=refs/tags/v262`; upstream [service.c](https://github.com/systemd/systemd/blob/v262/src/core/service.c)
+rearms relative timers in `service_spawn_internal`, separately enters pre-start,
+main and stop-post, and bounds TERM/KILL/final cleanup phases. A new evaluated
+module assertion first failed because begin lacked its explicit timeout. A second
+regression first accepted stale clean output without a matching begin; finish now
+requires the current invocation's running state before reading any result.
+The initial commit skipped absent generated hooks; the exact devShell-generated
+configuration was subsequently restored and actual Alejandra, ripsecrets and
+Statix checks passed. Further commits use those real hooks.
+
+The correction passed 20 lifecycle/Alloy tests, including actual evaluated timeout
+commands blocked on a held private lock. The fixture scales the same wrapper's
+30-second deadline to 0.2 seconds and observes termination without publication.
+An independent reviewer reproduced all 20 tests. Owner lint, format, structure,
+docs checks and the offline Discovery dry-run passed again. RED receipts are
+`/tmp/s09-timeout-red.log` and `/tmp/s09-no-begin-red.log`; final dry-run receipt is
+`/tmp/s09-phase-final-dry.log`. GitOps S09B uses the matching 3,780-second predicate
+and its existing five-minute alert hold.
