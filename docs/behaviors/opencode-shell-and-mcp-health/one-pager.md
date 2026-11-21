@@ -10,7 +10,7 @@ prs".
 
 ## Outcome
 
-Two independent defects are fixed in `desktop-nixos`.
+Three defects are fixed in `desktop-nixos`.
 
 1. `pilot-l1` is the only agent whose resolved `shell` effect was `ask`; `pilot-l2`
    and `pilot-l3` inherit the global `shell allow *`. `ask` behaved as `allow`
@@ -85,9 +85,13 @@ Two independent defects are fixed in `desktop-nixos`.
 - Package `donsetch` rather than keeping `npx`: the backends must not resolve a
   tool from the npm registry at start.
 - Reject the first draft's `*.env.example*` shell allow. The tail matches one
-  subcommand, so a command that names the template next to a real `.env` would
-  be admitted; `read` already allows the template, and the deny tail stays the
-  single word on the shell text.
+  subcommand with last-match-wins, so a command that named the template next to
+  a real env file would have been admitted. That template file stays edit-only:
+  the pattern `*.env*` sits in `protectedReads`, `read` applies
+  `deny protectedReads` after `read allow *`, and `experimental.policies` denies
+  `tool.use` on `read:*.env*`. Only `edit allow *.env.example` admits it. Widening
+  `read` to admit the template is an open question for the operator and is not
+  part of this change.
 
 ## Risks and recovery
 
