@@ -1,6 +1,6 @@
 # Kepler credential dependency recovery
 
-**Status:** Source fix and independent review passed; publication and deployment pending.
+**Status:** PR501 source review passed; credential repair included; deployment pending.
 
 ## Outcome and why
 
@@ -30,9 +30,9 @@ A later reader restart can start those configured autostart guests again.
 
 This is a Kepler-only relationship. The shared reader, Docker consumers,
 authentication, file permissions, runtime credentials and registry policy remain
-unchanged. There is no cached-credential fallback or new identity. The change
-cannot repair an expired or revoked SecretID; the owning credential recovery
-must succeed first. Guest failures unrelated to the reader are not automatically
+unchanged by the dependency fix. The combined PR also carries the coordinator's
+Sops-only replacement of the invalid Kepler reader SecretID; no other decrypted
+key changed. There is no cached-credential fallback or new identity. Guest failures unrelated to the reader are not automatically
 retried by this relationship. Reader start-rate limits and permanent credentials
 failures still require their normal operator recovery.
 
@@ -60,7 +60,16 @@ RED receipts are `/tmp/kepler-reader-recovery-red.log` and
 repository artifacts. No guest image, private credential or production API was
 used by these tests.
 
-## Continuing work and recovery
+## Credential repair and remaining deployment
+
+The coordinator issued and persisted only the Kepler replacement, removed the
+private handoff, stopped the failed login retry loop, and unlocked only that role.
+Observed replacement login and its own KV read returned 200; an Endeavour sibling
+read returned 403. The temporary verification token was revoked. Its observed
+expiry is **2026-12-23 19:34:49 -03:00**, despite the configured ninety-day role
+setting; that actual bound controls renewal planning. No credential value appears
+in this receipt. The deployed credential remains unchanged until activation.
+
 
 Independent review reproduced both GREEN commands and found no material issue.
 Owner lint, formatting, docs and diff checks passed. The offline Kepler toplevel
