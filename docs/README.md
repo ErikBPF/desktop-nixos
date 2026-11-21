@@ -125,3 +125,4 @@ New design work: add an RFC under `proposals/` named
 - [Durable cp1 recovery sequence](reference/cp1-durable-recovery.md) — staged host containment and separately approved member replacement.
 - [Cp1 boot containment checks](reference/cp1-boot-containment-check.md) — installer, boot entry and rollback completion evidence.
 - [Orion voice host wiring](behaviors/voice-litellm/one-pager.md) — independent ASR lifecycle and access boundary.
+- [Wazuh host-view FIM fixture](behaviors/wazuh-s07/one-pager.md) — isolated mutation/restoration proof and unresolved rollout gates.

@@ -165,7 +165,12 @@ jobs:
         run: |
           image=$("$PYTEST_PYTHON" -c 'import runpy; print(runpy.run_path("tests/wazuh-agent-canary/trust_handshake.py")["IMAGE"])')
           docker pull "$image"
-          "$PYTEST_PYTHON" -m pytest -q tests/wazuh-agent-canary/trust_handshake.py
+          "$PYTEST_PYTHON" -m pytest -q tests/wazuh-agent-canary/trust_handshake.py tests/wazuh-agent-canary/fim_host_view.py
+
+      - name: Syncthing conflict archive
+        run: python3 -m unittest discover -s tests/syncthing-conflicts
+      - name: Syncthing ignore activation
+        run: python3 -m unittest discover -s tests/syncthing-ignore
       - name: Shared compiler-cache writer boundary
         run: |
           python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v
