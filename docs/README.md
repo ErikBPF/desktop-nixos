@@ -15,6 +15,9 @@ line. This index names purpose only, so the two cannot drift apart.
 
 ## Operational references
 
+[Kepler credential dependency recovery](behaviors/kepler-reader-recovery/one-pager.md)
+records guest restart behavior after the Harbor reader recovers.
+
 [Manual fork sync](guides/github-forks.md) and
 [Orion display capture](guides/orion-display-capture.md) describe opt-in helpers.
 
