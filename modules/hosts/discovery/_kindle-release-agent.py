@@ -461,7 +461,10 @@ class ExternalReporter:
                     "repositories",
                 }
                 or not isinstance(payload["token"], str)
-                or not re.fullmatch(r"ghs_[A-Za-z0-9]{20,255}", payload["token"])
+                # GitHub issues ~390-char installation tokens that can contain
+                # '-', '.', and '_'. The old alnum-only, 255-char rule rejected
+                # every real token, so the hourly retry never cleared a report.
+                or not re.fullmatch(r"ghs_[A-Za-z0-9._-]{20,1024}", payload["token"])
                 or payload["permissions"]
                 != {"checks": "write", "metadata": "read"}
                 or payload["repository_selection"] != "selected"
@@ -1164,6 +1167,69 @@ def _write_atomic(path, payload, file_mode, directory_mode):
             os.unlink(temporary)
 
 
+REPORT_RETRY_LIMIT = 3
+REPORT_RETRY_INTERVAL = 24 * 3600
+
+
+class ReportLedger:
+    """Counts consecutive external-report failures for one release.
+
+    The hourly timer retries a degraded report forever, which turns one
+    expired credential into a Discord post every hour. After
+    REPORT_RETRY_LIMIT consecutive failures, back off to one attempt per
+    REPORT_RETRY_INTERVAL until a delivery succeeds.
+    """
+
+    def __init__(self, path):
+        self.path = pathlib.Path(path)
+
+    def attempts(self):
+        try:
+            return int(self.path.read_text().strip() or "0")
+        except (OSError, ValueError):
+            return 0
+
+    def last_attempt(self):
+        try:
+            return int(self.path.stat().st_mtime)
+        except OSError:
+            return 0
+
+    def record(self, failed):
+        if failed:
+            count = self.attempts() + 1
+            _write_atomic(
+                self.path,
+                f"{count}\n".encode(),
+                file_mode=0o600,
+                directory_mode=0o700,
+            )
+            return
+        try:
+            self.path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+REPORT_LEDGER = ReportLedger(STATE_PATH.parent / "report-failures")
+
+def _degradation(result):
+    try:
+        return result["degradation"]
+    except (KeyError, TypeError):
+        return None
+
+
+def should_report_externally(initial, result, ledger, clock=time.time):
+    if initial is None or result != initial:
+        return True
+    if result["degradation"] != "external-reporting-unavailable":
+        return False
+    if ledger.attempts() < REPORT_RETRY_LIMIT:
+        return True
+    return clock() - ledger.last_attempt() >= REPORT_RETRY_INTERVAL
+
+
 def write_state(path, state):
     snapshot = validate_state(state)
     payload = (
@@ -1440,12 +1506,9 @@ def execute_once():
                 _utc_now,
                 after_revalidate=reconcile,
             )
-    if (
-        initial is None
-        or result != initial
-        or initial["degradation"] == "external-reporting-unavailable"
-    ):
+    if should_report_externally(initial, result, REPORT_LEDGER):
         result = report_terminal(result, ExternalReporter(), persist, _utc_now)
+        REPORT_LEDGER.record(_degradation(result) is not None)
     return 1 if result["phase"] == "failed" else 0
 
 

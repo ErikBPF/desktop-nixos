@@ -170,7 +170,7 @@ Requires `/root/.ssh/nix-builder` on the client and the corresponding public key
 ## Binary cache
 
 orion runs `nix-serve` on `http://192.168.10.220:5000`. All hosts have it configured as
-a high-priority substituter. The cache is warmed nightly at 03:00 by building all host
+a high-priority substituter. The cache is warmed nightly at 22:00 by building all host
 closures. Signing key is managed by sops-nix.
 
 ```bash

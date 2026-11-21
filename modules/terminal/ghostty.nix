@@ -18,9 +18,7 @@ _: {
         # dedupes D-Bus/.desktop launches, so a plain `ghostty` from a Hyprland
         # exec keybind forks a fresh process each time and pays the full GTK4 +
         # OpenGL + Nerd-Font cold start (~1.8s). With `true` only the first
-        # terminal is cold; later windows share the instance (~0.5s). The
-        # spotify TUI in hyprland.nix passes --gtk-single-instance=false
-        # explicitly, so it keeps its own process.
+        # terminal is cold; later windows share the instance (~0.5s).
         gtk-single-instance = true;
         # Keep Shift+mouse in the terminal so Ctrl+Shift+click opens links
         # even when a TUI captures mouse input; ordinary wheel scrolling stays in the app.

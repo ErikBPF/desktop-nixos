@@ -96,12 +96,87 @@ in {
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [8200];
     networking.firewall.interfaces.br-openbao.allowedTCPPorts = [8200];
 
+    # OpenBao's SWAG listener binds 172.31.82.1 on br-openbao. That bridge used
+    # to be created only by servarr's networking compose stack, which itself
+    # needs vault-agent: a cold boot without Docker network state could not
+    # start OpenBao. Own the network here and let servarr declare it external.
+    systemd.services.openbao-network = {
+      description = "Ensure the OpenBao SWAG bridge network exists";
+      wantedBy = ["multi-user.target"];
+      before = ["openbao.service"];
+      requires = ["docker.service"];
+      after = ["docker.service"];
+      path = [pkgs.docker pkgs.iproute2 pkgs.gnugrep];
+      # A hung Docker API call must not hold OpenBao's start job.
+      startLimitIntervalSec = 0;
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        TimeoutStartSec = "2min";
+        Restart = "on-failure";
+        RestartSec = "10s";
+        ExecStart = pkgs.writeShellScript "openbao-network" ''
+          set -euo pipefail
+          network=openbao-proxy
+          bridge=br-openbao
+          subnet=172.31.82.0/29
+          gateway=172.31.82.1
+
+          if inspect="$(${pkgs.docker}/bin/docker network inspect "$network" 2>&1)"; then
+            has_network=1
+          else
+            case "$inspect" in
+              *"No such network"* | *"not found"*) has_network=0 ;;
+              *)
+                printf '%s\n' "$inspect" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [ "$has_network" -eq 1 ]; then
+            # Docker retains network metadata across a daemon restart. If the
+            # link is gone, recreate it directly: removing the network record
+            # is not possible while SWAG still has an endpoint on it.
+            if ! ${pkgs.iproute2}/bin/ip link show "$bridge" >/dev/null 2>&1; then
+              ${pkgs.iproute2}/bin/ip link add name "$bridge" type bridge
+              ${pkgs.iproute2}/bin/ip address add "$gateway/29" dev "$bridge"
+              ${pkgs.iproute2}/bin/ip link set "$bridge" up
+            fi
+          else
+            # A stale link without Docker metadata would make network create
+            # fail on the bridge name. Remove it before creating the network.
+            if ${pkgs.iproute2}/bin/ip link show "$bridge" >/dev/null 2>&1; then
+              ${pkgs.iproute2}/bin/ip link delete "$bridge"
+            fi
+            ${pkgs.docker}/bin/docker network create \
+              --driver bridge --internal \
+              --opt "com.docker.network.bridge.name=$bridge" \
+              --subnet "$subnet" --gateway "$gateway" \
+              "$network" >/dev/null
+          fi
+
+          if ! ${pkgs.iproute2}/bin/ip -4 address show dev "$bridge" |
+            ${pkgs.gnugrep}/bin/grep -Fq "$gateway/29"; then
+            ${pkgs.iproute2}/bin/ip address add "$gateway/29" dev "$bridge"
+          fi
+
+          actual="$(${pkgs.docker}/bin/docker network inspect "$network" \
+            --format '{{range .IPAM.Config}}{{.Subnet}} {{.Gateway}}{{end}}')"
+          test "$actual" = "$subnet $gateway"
+          ${pkgs.iproute2}/bin/ip link show "$bridge" >/dev/null
+          ${pkgs.iproute2}/bin/ip -4 address show dev "$bridge" |
+            ${pkgs.gnugrep}/bin/grep -Fq "$gateway/29"
+        '';
+      };
+    };
+
     # The tailnet and SWAG listeners bind addresses created by tailscaled and
-    # Docker. A cold boot can race either interface, so retry without a
-    # start-limit cap until both exist.
+    # Docker. Start OpenBao only after the bridge exists; the tailnet address
+    # can still race, so keep the restart loop without a start-limit cap.
     systemd.services.openbao = {
-      after = ["tailscaled.service" "network-online.target"];
-      wants = ["network-online.target"];
+      after = ["tailscaled.service" "network-online.target" "openbao-network.service"];
+      wants = ["network-online.target" "openbao-network.service"];
       startLimitIntervalSec = 0;
       serviceConfig.RestartSec = "2s";
       serviceConfig.LogsDirectory = "openbao";
@@ -407,7 +482,10 @@ in {
     # key lives in sops, so a disk stolen without the age key stays sealed.
     systemd.services.openbao-unseal = {
       description = "Ensure OpenBao is unsealed (raft seals on every restart)";
-      wantedBy = ["multi-user.target"];
+      # Pulled by vault-agent, harbor-reader, and the timer below. It must not
+      # be wanted by multi-user.target: this oneshot polls for up to five
+      # minutes, and a boot-time bind race would hold the target that long.
+      # Consumers retry, and the timer heals any re-seal after boot.
       after = ["openbao.service"];
       # `wants`, NOT `requires`: openbao crash-restarts at boot until its tailnet
       # listener IP appears (see the openbao RestartSec block above). With
@@ -428,6 +506,10 @@ in {
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectHome = true;
+        # Bound the 150 x 2 s seal-status poll. The service is no longer in the
+        # boot transaction, so a wedged run must fail and let the timer retry
+        # instead of holding a start job forever.
+        TimeoutStartSec = "6min";
         # NOT RemainAfterExit: the timer below re-runs this every minute, so any
         # re-seal (crash, rebuild restart, boot race) self-heals within ~60 s.
         # The script is idempotent — a no-op when the store is already unsealed.
@@ -466,9 +548,10 @@ in {
 
     # Re-run the unseal check every minute so ANY re-seal — a crash, a rebuild
     # restart, or the boot tailnet-IP race — self-heals in <=60 s, regardless of
-    # why openbao sealed. Boot still gets an immediate run via wantedBy +
-    # OnBootSec. The oneshot won't pile up: systemd won't start a second run
-    # while one is active.
+    # why openbao sealed. At boot the oneshot is pulled by the `wants` edges in
+    # vault-agent and harbor-reader, and by OnBootSec; nothing here puts it in
+    # front of multi-user.target. The oneshot won't pile up: systemd won't start
+    # a second run while one is active.
     systemd.timers.openbao-unseal = {
       description = "Periodically ensure OpenBao is unsealed (self-heal any re-seal)";
       wantedBy = ["timers.target"];

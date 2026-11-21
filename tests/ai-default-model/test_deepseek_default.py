@@ -42,7 +42,7 @@ def test_hermes_marks_litellm_opencode_routes_for_session_affinity():
     primary = (ROOT / "modules/hosts/discovery/hermes-oci.nix").read_text()
     agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
 
-    assert primary.count('provider = "opencode-go";') == 9
-    assert primary.count('provider = "custom";') == 2
+    assert primary.count('provider = "opencode-go";') == 10
+    assert primary.count('provider = "custom";') == 1
     assert agents.count('provider = "opencode-go";') == 7
     assert 'provider = "custom";' not in agents

@@ -29,7 +29,7 @@
     networking.firewall.interfaces.tailscale0.allowedTCPPorts = [5000];
 
     # Daily closure builder — keeps the cache warm by building all host closures.
-    # Runs at 03:00, requires the flake repo to be checked out at the path below.
+    # Runs at 22:00, requires the flake repo to be checked out at the path below.
     systemd.services.nix-cache-builder = {
       description = "Build all host closures to warm the nix cache";
       # Never let activation queue a job for this oneshot: a deploy landing
@@ -43,7 +43,7 @@
         StateDirectory = "nix-cache-builder";
         WorkingDirectory = "/var/lib/nix-cache-builder";
       };
-      path = [pkgs.git pkgs.nix];
+      path = [pkgs.git pkgs.nix pkgs.coreutils];
       script = ''
         set -euo pipefail
         if [ ! -d repo/.git ]; then
@@ -57,18 +57,28 @@
 
         # One host's broken closure must not skip the others' warm (observed
         # 2026-07-02: one unavailable fixed-output aborted the run before the
-        # remaining hosts were built). Attempt every host, fail
-        # the unit at the end so the failure still surfaces.
+        # remaining hosts were built). Build one host at a time so a slow
+        # closure cannot consume the whole timeout without naming itself, and
+        # fail the unit at the end so the failure still surfaces.
+        # 8 hosts x 40 min stays inside the 359 min unit ceiling in
+        # modules/hosts/orion/default.nix.
         echo ":: Building host closures..."
-        nix build --no-link --keep-going \
-          .#nixosConfigurations.archinaut.config.system.build.toplevel \
-          .#nixosConfigurations.discovery.config.system.build.toplevel \
-          .#nixosConfigurations.kepler.config.system.build.toplevel \
-          .#nixosConfigurations.orion.config.system.build.toplevel \
-          .#nixosConfigurations.pathfinder.config.system.build.toplevel \
-          .#nixosConfigurations.telstar.config.system.build.toplevel \
-          .#nixosConfigurations.vanguard.config.system.build.toplevel \
-          .#nixosConfigurations.voyager.config.system.build.toplevel
+        failed=()
+        for host in archinaut discovery kepler orion pathfinder telstar vanguard voyager; do
+          started=$(date -u +%FT%TZ)
+          if timeout 2400 nix build --no-link --keep-going \
+            ".#nixosConfigurations.$host.config.system.build.toplevel"; then
+            echo ":: $host ok ($started -> $(date -u +%FT%TZ))"
+          else
+            status=$?
+            echo ":: $host FAILED status=$status ($started -> $(date -u +%FT%TZ))" >&2
+            failed+=("$host")
+          fi
+        done
+        if [ ''${#failed[@]} -gt 0 ]; then
+          echo ":: Cache builder failed for: ''${failed[*]}" >&2
+          exit 1
+        fi
         echo ":: Cache builder complete"
       '';
     };
@@ -77,7 +87,11 @@
       description = "Daily nix cache builder timer";
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnCalendar = "03:00";
+        # 22:00, not 03:00: the warm needs up to the 359 min unit ceiling in
+        # modules/hosts/orion/default.nix, and the fleet's autoUpgrade herd
+        # substitutes at 05:00. Starting at 03:00 put the tail of the build
+        # inside that window; starting at 22:00 leaves ~7h to finish first.
+        OnCalendar = "22:00";
         Persistent = true;
       };
     };

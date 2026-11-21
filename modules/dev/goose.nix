@@ -118,8 +118,8 @@ _: {
             context_limit = 98304;
           }
           {
-            name = "apollo-qwen38-27b";
-            context_limit = 90000;
+            name = "apollo-deepseek-v41-flash";
+            context_limit = 262144;
           }
           {
             name = "qwen3.8-flash";

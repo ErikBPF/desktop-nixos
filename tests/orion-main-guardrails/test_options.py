@@ -9,7 +9,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BASELINE = "f2d020432580f8ca30d23f917c4053e2e20054d5"
+BASELINE = "db7d86c8dc87cc9faf1691b4ae4c34fdb763883f"
 OPTIONS = """c: {
   sysctl = c.boot.kernel.sysctl;
   kernelParams = c.boot.kernelParams;
@@ -93,6 +93,10 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
         ))
         preserved = self.options["preserved"]
         for name, value in self.baseline["preserved"].items():
+            if name == "cacheBuildScript":
+                # Reshaped deliberately (one host per invocation, bounded per
+                # host); the new shape is asserted by the test below.
+                continue
             with self.subTest(preserved=name):
                 self.assertEqual(preserved[name], value)
         for name, enabled in preserved["sleepTargets"].items():
@@ -103,14 +107,26 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             with self.subTest(logind=name):
                 self.assertEqual(preserved["login"][name], "ignore")
 
+    def test_cache_warm_builds_one_host_per_invocation(self):
+        script = self.options["preserved"]["cacheBuildScript"]
+        self.assertIn(
+            "for host in archinaut discovery kepler orion pathfinder "
+            "telstar vanguard voyager; do",
+            script,
+        )
+        self.assertIn("timeout 2400 nix build --no-link --keep-going", script)
+        self.assertIn('failed+=("$host")', script)
+        self.assertIn("exit 1", script)
+
     def test_cache_build_has_native_resource_and_cancellation_bounds(self):
         builder = self.options["builder"]
         self.assertTrue(builder["enable"])
         self.assertEqual(builder["serviceConfig"]["Type"], "oneshot")
         for name, value in {
             "CPUQuota": "2100%",
-            "MemoryHigh": "40G",
-            "MemoryMax": "48G",
+            "MemoryHigh": "56G",
+            "MemoryMax": "72G",
+            "Nice": 10,
             "TimeoutStartSec": "359min",
             "TimeoutStopSec": "1min",
             "KillMode": "control-group",
@@ -119,7 +135,7 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             with self.subTest(property=name):
                 self.assertEqual(builder["serviceConfig"].get(name), value)
         settings = builder["environment"].get("NIX_CONFIG", "").splitlines()
-        for name, expected in (("max-jobs", "1"), ("cores", "10")):
+        for name, expected in (("max-jobs", "2"), ("cores", "6")):
             with self.subTest(nix_setting=name):
                 values = [line.split("=", 1)[1].strip() for line in settings
                           if "=" in line and line.split("=", 1)[0].strip() == name]
@@ -134,7 +150,7 @@ class OrionMainGuardrailsOptions(unittest.TestCase):
             self.assertTrue(self.options["generatedTimerEnabled"])
         timer = self.options["cacheTimer"]
         self.assertIn("timers.target", timer["wantedBy"])
-        self.assertEqual(timer["timerConfig"]["OnCalendar"], "03:00")
+        self.assertEqual(timer["timerConfig"]["OnCalendar"], "22:00")
         self.assertTrue(timer["timerConfig"]["Persistent"])
 
 

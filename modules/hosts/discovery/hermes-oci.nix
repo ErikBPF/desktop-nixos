@@ -136,12 +136,12 @@ in {
           api_key = "\${OPENAI_API_KEY}";
         };
 
-        # Aux models — vision on qwen, compression/session-search on MiMo (free)
-        # to keep the shared budget for actual responses.
+        # Aux models — vision on DeepSeek V4.1 Flash, compression/session-search on
+        # MiMo (free) to keep the shared budget for actual responses.
         auxiliary = {
           vision = {
-            provider = "custom";
-            model = "qwen-chat";
+            provider = "opencode-go";
+            model = "deepseek-v4.1-flash";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
@@ -223,6 +223,10 @@ in {
     systemd.services.docker-hermes-agent = {
       after = ["vault-agent.service"];
       requires = ["vault-agent.service"];
+      # The first render can lag the agent start while OpenBao is unsealing.
+      # Retry without the default 5-in-10s start limit.
+      startLimitIntervalSec = 0;
+      serviceConfig.RestartSec = "10s";
       serviceConfig.ExecStartPre = pkgs.writeShellScript "wait-for-hermes-agent-env" ''
         for _ in $(seq 1 100); do
           [ -s /run/vault-agent/hermes-agent.env ] && exit 0
