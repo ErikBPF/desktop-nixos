@@ -105,7 +105,7 @@ jobs:
           export CLAMSCAN_BIN="$clamav/bin/clamscan"
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
           nix develop -c "$python/bin/python" -m pytest -q --import-mode=importlib \
-            tests/repository-hygiene \
+            tests/repository-hygiene tests/wazuh-agent-canary \
             tests/host-integrity tests/alloy tests/ai-default-model tests/alloy-self-metrics tests/brave-upgrade \
             tests/buzz tests/cognee-signing tests/deepseek-harness tests/deprecations \
             tests/endeavour-luks tests/endeavour-touchpad tests/gtk-icons \
@@ -123,6 +123,15 @@ jobs:
         run: |
           nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix
           nix eval --impure --raw --file tests/endeavour-home-backup.nix
+
+      - name: Wazuh enrollment trust handshake
+        env:
+          WAZUH_CONTAINER_ENGINE: docker
+        run: |
+          python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest])')
+          image=$("$python/bin/python" -c 'import runpy; print(runpy.run_path("tests/wazuh-agent-canary/trust_handshake.py")["IMAGE"])')
+          docker pull "$image"
+          "$python/bin/python" -m pytest -q tests/wazuh-agent-canary/trust_handshake.py
 
       - name: Syncthing conflict archive
         run: python3 -m unittest discover -s tests/syncthing-conflicts

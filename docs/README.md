@@ -102,3 +102,5 @@ from the [homelab proposal index](https://github.com/ErikBPF/homelab/blob/main/d
 
 New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
+
+- [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.
