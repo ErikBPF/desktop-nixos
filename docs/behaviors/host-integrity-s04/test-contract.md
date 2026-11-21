@@ -1,6 +1,6 @@
 # S04 source test contract and receipts
 
-**Status:** Source validation in progress; live systemd and notification proof pending.
+**Status:** Source validation passed; live systemd and notification proof pending.
 
 Human seed: “do remaining core work” — S04 pilot and S10 closeout; seven-day
 evidence cannot be fabricated. Subsequent explicit scope answer: Downloads only.
@@ -45,3 +45,38 @@ is the authoritative final gate.
 
 No live host write, deployment, backup repair, ordinary-file scan, notification
 receipt or elapsed observation is represented by these local tests.
+
+## Final source validation
+
+Reviewed implementation committed as `342a74f0`; these gates passed against the
+frozen source before publication:
+
+- CI-mode `pytest -q --import-mode=importlib tests/host-integrity tests/alloy`
+  with pinned ClamAV 1.5.4 and Alloy 1.21.3: **70 passed**.
+- `just lint`, `just fmt-check`, `just structure-check`, `just docs-check`:
+  **passed**; structure advisories identify existing large files.
+- Offline evaluation of `tests/host-integrity/evaluate.nix`:
+  `S01_MODULE_EVAL_OK S02_MODULE_EVAL_OK`.
+- Offline evaluation of `tests/host-integrity/pilot-evaluate.nix`:
+  `S04_STAGED_PILOT_EVAL_OK`, including the corrected backup/store assertions.
+- Endeavour toplevel `nix build --dry-run --offline`: **passed**, exit 0.
+  Log: `/tmp/host-integrity-s04-host-dry.log` (local execution evidence).
+- Working and staged `git diff --check`: **passed**.
+
+Fresh independent review passed, including its own 66 helper tests and complete
+S04 evaluation. No material source blocker remains. Existing Rofi/PipeWire
+deprecation warnings do not establish runtime failure.
+
+The precommit evaluated candidate was
+`/nix/store/xyl7k4b6npkj2r4xik658crj4m8cg6vm-nixos-system-endeavour-26.11.20261115.5c3cda7`.
+It was **not realized**; the offline dry-run listed **2256 derivations to build**.
+This count is not proof that all are unrelated upgrades. Re-evaluate the published
+revision, build through the owner workflow and inspect the candidate/current
+closure difference before activation; commit metadata can change the candidate.
+No host build or activation was performed by this validation pass.
+
+The commit's actual hooks passed. Its ignored generated pre-commit configuration
+was restored from the evaluated shell-hook configuration store path; an offline
+full development-shell attempt was stopped after queuing excessive builds.
+No hook was bypassed. These preparation details do not substitute for live
+sandbox, backup exclusion, notification delivery or seven-day observation proof.

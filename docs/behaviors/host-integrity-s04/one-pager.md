@@ -46,7 +46,8 @@ Six initial behavior assertions failed against a new no-op seam before helper
 implementation. Subsequent assertions reproduced lost-receipt genuine clearing,
 pre-counter-publication crash ambiguity and backup overlap in both directions;
 repairs retained explicit RED/GREEN evidence. The focused helper/reporter/runner
-suite passed 66 tests before final integrated validation. Actual pinned ClamAV
+suite passed 66 tests independently; final CI-mode helper/collector/Alloy validation
+passed 70 tests. Actual pinned ClamAV
 runs used temporary harmless fixtures and a tiny local signature database,
 never host content or production definitions.
 
@@ -54,8 +55,16 @@ The staged Nix fixture checks collector/manual/scheduled behavior, Downloads-onl
 scope, finite budgets, shared sandbox properties, explicit daemon access and the
 actual backup wrapper/lock path. An earlier fixture edit failed to insert its
 new assertions because the final marker shared an assertion line; that limited
-evaluation was not proof of the omitted checks. The corrected fixture is rerun
-before delivery. Final commands/results are recorded in the test contract.
+evaluation was not proof of the omitted checks. The corrected fixture passed
+locally and independently. Lint, format, structure, documentation, S01/S02/S04
+evaluations and Endeavour offline dry-run passed. Fresh review found no remaining
+material source blocker. Exact results are recorded in the [test contract](test-contract.md).
+
+The precommit candidate remains unrealized; its dry-run lists 2256 derivations
+to build. This does not establish a pilot-only activation diff. The published
+revision must be re-evaluated, built and compared against the running closure
+before switching. Commit `342a74f0` passed its actual hooks; no hook bypass or
+live host activation occurred in this source-validation pass.
 
 ## Decisions, remaining work and recovery
 
