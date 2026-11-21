@@ -2734,9 +2734,35 @@ class ReportingOrchestrationContract(unittest.TestCase):
     def test_changed_state_always_reports_when_the_ledger_is_capped(self):
         ledger = mock.Mock()
         ledger.attempts.return_value = 99
-        ledger.last_attempt.return_value = 0
+        # Recent attempt: the backoff clause alone must return False, so only
+        # the changed-state clause can make the assertion pass.
+        ledger.last_attempt.return_value = 1_000
+        initial = self.snapshot(degradation="external-reporting-unavailable")
+        changed = self.snapshot(
+            degradation="external-reporting-unavailable",
+            version="v0.11.0",
+        )
+        self.assertFalse(
+            self.agent.should_report_externally(
+                initial, initial, ledger, clock=lambda: 1_100
+            )
+        )
+        self.assertTrue(
+            self.agent.should_report_externally(
+                initial, changed, ledger, clock=lambda: 1_100
+            )
+        )
+
+    def test_bootstrap_always_reports(self):
+        ledger = mock.Mock()
+        ledger.attempts.return_value = 99
+        ledger.last_attempt.return_value = 1_000
         state = self.snapshot(degradation="external-reporting-unavailable")
-        self.assertTrue(self.agent.should_report_externally(None, state, ledger))
+        self.assertTrue(
+            self.agent.should_report_externally(
+                None, state, ledger, clock=lambda: 1_100
+            )
+        )
 
     def test_successful_retry_clears_reporting_degradation_atomically(self):
         degraded = self.snapshot(degradation="external-reporting-unavailable")
