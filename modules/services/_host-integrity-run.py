@@ -202,7 +202,7 @@ def service_failure(cfg, result):
     if previous["state"] != 1:
         r.update("begin")
     counts = dict(findings=previous["findings"], skipped=previous["skipped"], errors=previous["errors"] + 1)
-    r.update("failed", **counts)
+    r.update("failed", finding_source="retained", **counts)
     receipt(cfg, time.time(), "failed", counts, "unavailable", None, [result])
 
 
@@ -217,6 +217,10 @@ def run(cfg):
         lock = resources.enter_context(os.fdopen(lock_fd, "w"))
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if cfg.get("coordinationLock"):
+                fd = os.open(cfg["coordinationLock"], os.O_CREAT | os.O_RDWR, 0o600)
+                coordination = resources.enter_context(os.fdopen(fd, "w"))
+                fcntl.flock(coordination, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if cfg["check"] in ("store", "av"):
                 fd = os.open(Path(cfg["state_dir"]) / "heavy.run.lock", os.O_CREAT | os.O_RDWR, 0o600)
                 heavy_lock = resources.enter_context(os.fdopen(fd, "w"))

@@ -341,3 +341,26 @@ def test_partial_database_install_cannot_be_reported_complete(tmp_path, missing)
     assert state(cfg)["state"] == 4
     assert state(cfg)["last_complete_seconds"] == 0
     assert not marker.exists()
+
+
+def test_scheduled_runner_refuses_backup_lock_without_recipe_guard(tmp_path):
+    run = runner()
+    marker = tmp_path / "scan-started"
+    cfg = config(tmp_path, body=f"touch '{marker}'")
+    cfg["coordinationLock"] = str(tmp_path / "backup.lock")
+    with Path(cfg["coordinationLock"]).open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        run.run(cfg)
+    assert not marker.exists()
+    assert state(cfg)["state"] == 4
+
+
+def test_backup_cannot_enter_during_actual_integrity_command(tmp_path):
+    run = runner()
+    marker = tmp_path / "backup-started"
+    lock = tmp_path / "backup.lock"
+    cfg = config(tmp_path, body=f"if flock --exclusive --nonblock '{lock}' touch '{marker}'; then exit 4; else exit 0; fi")
+    cfg["coordinationLock"] = str(lock)
+    run.run(cfg)
+    assert not marker.exists()
+    assert state(cfg)["state"] == 2
