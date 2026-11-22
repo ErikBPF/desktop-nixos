@@ -1,38 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
+    "read": {
+      "*": "allow"
+    },
     "edit": {
-      "*": "allow",
-      "flake.lock": "ask",
-      "*.sops": "deny",
-      "*.env*": "deny",
-      "secrets/**": "deny",
-      "*.age": "deny"
+      "*": "allow"
     },
     "bash": {
-      "*": "ask",
-      "pwd": "allow",
-      "git status": "allow",
-      "git status --short": "allow",
-      "git diff --stat": "allow",
-      "git diff --name-only": "allow",
-      "rtk git status": "allow",
-      "rtk git status --short": "allow",
-      "rtk git diff --stat": "allow",
-      "rtk git diff --name-only": "allow",
-      "rm -rf /*": "deny",
-      "rm -rf ~*": "deny",
-      "*nixos-rebuild*--target-host*": "deny",
-      "**ssh*nixos-rebuild*switch*": "deny",
-      "docker volume rm *": "deny",
-      "docker rm -f *": "deny"
+      "*": "allow"
     },
     "external_directory": {
-      "~/Documents/erik/servarr/**": "allow",
-      "~/Documents/erik/hermes-flake/**": "allow",
-      "~/Documents/erik/homelab-iac/**": "allow",
-      "~/Documents/erik/code/home-assistant-config/**": "allow",
-      "~/Documents/erik/klipper-biqu/**": "allow"
+      "*": "allow"
     }
   }
 }
