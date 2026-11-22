@@ -52,7 +52,7 @@ def run_recipe(tmp_path, arguments, env=None):
         '#!/usr/bin/env bash\nprintf "%s\\n" "${HOSTNAME_UNDER_TEST:-endeavour}"\n'
     )
     hostname.chmod(0o755)
-    for name in ("ssh", "scp"):
+    for name in ("ssh", "scp", "systemd-run"):
         transport = mock_bin / name
         transport.write_text(
             f"#!{sys.executable}\n"
@@ -265,3 +265,26 @@ def test_dry_all_builds_fleet_in_one_scheduler_invocation():
     body = recipe("dry-all")
     assert "just build-all" in body
     assert "nixos-rebuild" not in body
+
+
+def test_home_switch_is_independent_and_uses_normal_xdg_roots(tmp_path):
+    run_recipe(tmp_path, ["home-switch", "endeavour"], env={
+        "XDG_CONFIG_HOME": "/isolated/config",
+        "XDG_DATA_HOME": "/isolated/data",
+        "XDG_STATE_HOME": "/isolated/state",
+        "XDG_CACHE_HOME": "/isolated/cache",
+    })
+    transport = tmp_path / "transport.jsonl"
+    assert transport.exists(), "activation must run outside the calling backend service"
+    call = json.loads(transport.read_text().splitlines()[-1])
+    assert Path(call[0]).name == "systemd-run"
+    assert "--user" in call and "--wait" in call and "--collect" in call
+    assert "--pipe" not in call and "--scope" not in call
+    assert "--unit=home-manager-switch" in call
+    for variable, suffix in {
+        "XDG_CONFIG_HOME": ".config", "XDG_DATA_HOME": ".local/share",
+        "XDG_STATE_HOME": ".local/state", "XDG_CACHE_HOME": ".cache",
+    }.items():
+        assert f"--setenv={variable}={tmp_path / suffix}" in call
+    assert "--setenv=HOME_MANAGER_BACKUP_EXT=backup" in call
+    assert call[-1] == str(tmp_path / "activation/activate")
