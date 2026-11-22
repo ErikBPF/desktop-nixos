@@ -85,3 +85,23 @@ three expected destinations (`GENERATED_REMOTE_ROUTES_OK`); the first two check
 attempts needed correction for Nix's versioned `derivations` wrapper and
 `structuredAttrs` layout, without production changes. Live shortcut activation
 remains pending.
+
+
+## Apply preparation — recovery target
+
+The user authorized merge and activation, then explicitly accepted backing up
+the temporary voice Hyprland config and temporarily losing Super+F8/F9/F10.
+Readback found Kepler has since moved to the published cp-1 containment host
+`492mc5...`, so ordinary Kepler deployment would overwrite the recovery setup.
+The same development-tools block is now a shared `kepler-development` module
+imported by both ordinary Kepler and `kepler-cp1-recovery`. The pinned recovery
+baseline, cp-1 override and disabled boot counting remain unchanged.
+
+The new regression failed because recovery tmux was disabled; all five focused
+launcher/recovery tests now pass. Use the existing `deploy-preview` and `deploy`
+recipes on the recovery target, as its owner documentation requires. Compare
+the generated installer, kernel/modules, VM PIDs/start times and boot defaults
+before/after. Do not use deploy-rs here: its bootloader rewrite conflicts with
+containment. The old boot ID, all six VM PIDs and start times, cp-1 selected
+runner and installer were captured in `/tmp/picker-recovery-before.txt`.
+No activation has occurred at this preparation stage.

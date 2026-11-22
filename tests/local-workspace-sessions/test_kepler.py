@@ -18,6 +18,9 @@ class KeplerShell(unittest.TestCase):
               ssh = "${hosts.endeavour.pkgs.openssh}/bin/ssh";
               coordinator = "${hosts.endeavour.config.home-manager.users.erik.home.profileDirectory}/bin/desktop-workspaces";
               tmux = hosts.kepler.config.programs.tmux.enable;
+              recoveryTmux = hosts.kepler-cp1-recovery.config.programs.tmux.enable;
+              recoveryBootCounting = hosts.kepler-cp1-recovery.config.boot.loader.systemd-boot.bootCounting.enable;
+              recoveryPicker = builtins.any (p: p.name == "tmux-resume") hosts.kepler-cp1-recovery.config.environment.systemPackages;
               linger = hosts.kepler.config.users.users.erik.linger;
               killUserProcesses = hosts.kepler.config.services.logind.settings.Login.KillUserProcesses;
               ghosttyTerminfo = builtins.elem hosts.kepler.pkgs.ghostty.terminfo hosts.kepler.config.environment.systemPackages;
@@ -51,3 +54,8 @@ class KeplerShell(unittest.TestCase):
         self.assertTrue(self.config["linger"])
         self.assertFalse(self.config["killUserProcesses"])
         self.assertTrue(self.config["ghosttyTerminfo"])
+
+    def test_recovery_host_keeps_containment_and_gets_same_tools(self):
+        self.assertTrue(self.config["recoveryTmux"])
+        self.assertTrue(self.config["recoveryPicker"])
+        self.assertFalse(self.config["recoveryBootCounting"])
