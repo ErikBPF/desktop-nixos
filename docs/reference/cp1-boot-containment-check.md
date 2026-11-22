@@ -6,6 +6,22 @@ The observation receipt below closes this host gate for that baseline, not the
 remaining guest preview/backup/member-replacement gates. Recheck after drift.
 Use only within the [revised recovery sequence](cp1-durable-recovery.md).
 
+## Development-tool rollout candidate — 2026-11-22
+
+PR #512 adds only the shared tmux/picker/terminfo module to the supplemental
+recovery host. Its source-evaluated candidate is
+`/nix/store/9rni5lncjfqplnfzpz687m87q044413f-nixos-system-kepler-26.11.20261115.5c3cda7`.
+The pinned kernel, cp-1 recovery guest/runner, five sibling VM closures and
+disabled boot counting remain unchanged. The containment contract separates
+three restart-trigger changes (AppArmor, D-Bus and polkit) plus the privileged
+wrapper service adding tmux's standard root:utmp setgid-only utempter helper from the existing two cp-1 unit changes against the older baseline.
+
+This is a candidate, not an activation receipt. Use the same owner preview/deploy
+route below and recheck installer, runners, VM PIDs and exact boot selection.
+After activation, the historical `492mc5…` host/profile receipt cannot substitute
+for fresh evidence, and any later recovery manifest must record the new host
+baseline. See the [session rollout record](../behaviors/kepler-persistent-shell/one-pager.md).
+
 ## Observed owner deployment receipt — 2026-11-22
 
 Clean source `8b73c5bf947cc2f6c6c1beabec0d54833f87e973` re-evaluated to the

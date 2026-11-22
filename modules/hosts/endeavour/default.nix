@@ -69,7 +69,10 @@ in {
       ...
     }: let
       sk = pkgs.writeShellScriptBin "sk" ''
-        exec ${pkgs.openssh}/bin/ssh kepler "$@"
+        if (( $# > 0 )); then
+          exec ${pkgs.openssh}/bin/ssh kepler "$@"
+        fi
+        exec ${config.home.profileDirectory}/bin/desktop-workspaces remote
       '';
       terminal = "${config.programs.ghostty.package}/bin/ghostty +new-window";
     in {

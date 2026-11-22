@@ -1,7 +1,9 @@
 let
   f = builtins.getFlake (toString ../..);
   baseline = (builtins.getFlake "github:ErikBPF/desktop-nixos/030d17cf4f9d56a40a3205d4af2ae7867a208e7d").nixosConfigurations.kepler.config;
-  repaired = (builtins.getFlake "github:ErikBPF/desktop-nixos/a3f290e015eacce61e718f8596cdb6acc3716c7c").nixosConfigurations.kepler.config;
+  repairedHost = (builtins.getFlake "github:ErikBPF/desktop-nixos/a3f290e015eacce61e718f8596cdb6acc3716c7c").nixosConfigurations.kepler;
+  repaired = repairedHost.config;
+  withDevelopment = (repairedHost.extendModules {modules = [f.modules.nixos.kepler-development];}).config;
   c = f.nixosConfigurations.kepler-cp1-recovery.config;
   vm = c.microvm.vms.cp-1;
   guest =
@@ -29,7 +31,12 @@ in
   assert !c.boot.loader.systemd-boot.bootCounting.enable;
   assert builtins.all (n: baseline.microvm.vms.${n}.config.config.microvm.declaredRunner.outPath == c.microvm.vms.${n}.config.config.microvm.declaredRunner.outPath) ["cp-2" "cp-3" "w-1" "w-2" "w-3"];
   assert unitDelta baseline repaired == ["home-manager-erik.service"];
-  assert unitDelta repaired c == ["install-microvm-cp-1.service" "microvm@cp-1.service"];
+  assert withDevelopment.security.wrappers.utempter.owner == "root";
+  assert withDevelopment.security.wrappers.utempter.group == "utmp";
+  assert withDevelopment.security.wrappers.utempter.setgid;
+  assert !withDevelopment.security.wrappers.utempter.setuid;
+  assert unitDelta repaired withDevelopment == ["apparmor.service" "dbus-broker.service" "polkit.service" "suid-sgid-wrappers.service"];
+  assert unitDelta withDevelopment c == ["install-microvm-cp-1.service" "microvm@cp-1.service"];
   assert builtins.hashFile "sha256" c.sops.secrets.openbao-harbor-reader-kepler-secret-id.sopsFile == expectedEncryptedFileSha256;
   assert !(f.deploy.nodes ? kepler-cp1-recovery);
-  assert c.system.build.toplevel.outPath == "/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7"; "KEPLER_DURABLE_CP1_BOOT_OK ${c.system.build.toplevel.outPath}"
+  assert c.system.build.toplevel.outPath == "/nix/store/9rni5lncjfqplnfzpz687m87q044413f-nixos-system-kepler-26.11.20261115.5c3cda7"; "KEPLER_DURABLE_CP1_BOOT_OK ${c.system.build.toplevel.outPath}"

@@ -23,6 +23,7 @@ in {
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
       m.nixos.kepler-monitoring
+      m.nixos.kepler-development
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas
       m.nixos.containers

@@ -3,6 +3,7 @@ import importlib.util
 import fcntl
 import json
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import tempfile
@@ -198,6 +199,34 @@ class WorkspaceBehavior(unittest.TestCase):
                         self.assertEqual(launch[-2:], ["-e", "nvim"])
                     if app == "shell":
                         self.assertNotIn("-e", launch)
+
+    def test_remote_picker_follows_same_workspace_boundaries(self):
+        self.assertTrue(hasattr(APP, "remote"), "workspace-aware remote route is missing")
+        self.config["remoteHome"] = "/home/erik"
+        for project in self.config["projects"]:
+            project["remoteDirectory"] = "/compute/" + project["name"] + " project"
+        for workspace in [-99, -1, 0, *range(1, 14)]:
+            self.native.workspace = workspace
+            with self.subTest(workspace=workspace), patch.dict(os.environ, {"HYPRLAND_INSTANCE_SIGNATURE": "test"}), patch.object(APP.os, "execvp") as execute:
+                APP.remote(self.config)
+                command = execute.call_args.args[1]
+                self.assertEqual(command[:3], ["ssh", "-t", "kepler"])
+                expected = "/compute/dataplatform project" if 2 <= workspace <= 4 else "/compute/homelab project" if 5 <= workspace <= 12 else "/home/erik"
+                self.assertEqual(shlex.split(command[3]), ["tmux-resume", expected])
+
+    def test_remote_without_hyprland_uses_home_and_does_not_probe_desktop(self):
+        self.assertTrue(hasattr(APP, "remote"), "workspace-aware remote route is missing")
+        self.config["remoteHome"] = "/home/erik"
+        with patch.dict(os.environ, {}, clear=True), patch.object(APP.os, "execvp") as execute:
+            APP.remote(self.config)
+        self.assertEqual(self.native.calls, [])
+        self.assertEqual(shlex.split(execute.call_args.args[1][3]), ["tmux-resume", "/home/erik"])
+
+    def test_broken_hyprland_query_does_not_fall_back_or_start_ssh(self):
+        with patch.dict(os.environ, {"HYPRLAND_INSTANCE_SIGNATURE": "stale"}), patch.object(APP, "run", side_effect=subprocess.CalledProcessError(1, ["hyprctl"])), patch.object(APP.os, "execvp") as execute:
+            with self.assertRaises(subprocess.CalledProcessError):
+                APP.remote(self.config)
+        execute.assert_not_called()
 
     def test_existing_workspace_recovery_does_not_rearrange(self):
         self.native.clients = [{"class": "user-window", "address": f"0xu{ws}", "workspace": {"id": ws}, "floating": False, "size": [700, 400]} for ws in (2, 3, 7, 8)]
