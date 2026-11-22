@@ -59,12 +59,21 @@
       };
     };
     # Endeavour keeps the Syncthing identity the retired laptop used, so the
-    # device-ID key is endeavour_id while the peer set is unchanged.
+    # device-ID key is endeavour_id.
     endeavour = {
-      devices = ["discovery" "pathfinder" "orion"];
+      devices = ["discovery" "pathfinder" "orion" "kepler"];
+      shareWith = ["discovery" "pathfinder" "orion"];
       folderPaths = {
-        "ndykv-cjhly" = "/home/${u}/Downloads/";
-        "ykxhp-khmz2" = "/home/${u}/Documents/";
+        "ndykv-cjhly" = {
+          path = "/home/${u}/Downloads/";
+          devices = ["discovery" "pathfinder" "orion" "kepler"];
+          syncAll = false;
+        };
+        "ykxhp-khmz2" = {
+          path = "/home/${u}/Documents/";
+          devices = ["discovery" "pathfinder" "orion" "kepler"];
+          syncAll = false;
+        };
         "xbwsp-zwvsr" = "/home/${u}/.kube/";
       };
     };
@@ -107,14 +116,21 @@
         };
       };
     };
-    # kepler syncs no user folders yet.
-    # /opt/models: AI model weights — sync to/from orion after first boot.
-    # Kepler is the primary source; Orion is a consumer. Add a "models"
-    # folder (path /fast/models, devices ["orion"]) once orion's syncthing
-    # is updated to include it.
+    # Independent user copies on Kepler's local SSD pool.
     kepler = {
-      devices = ["discovery" "orion"];
+      devices = ["discovery" "orion" "endeavour"];
+      storageMount = "/fast";
       folderPaths = {
+        "ndykv-cjhly" = {
+          path = "/fast/compute/${u}/Downloads/";
+          devices = ["endeavour"];
+          syncAll = false;
+        };
+        "ykxhp-khmz2" = {
+          path = "/fast/compute/${u}/Documents/";
+          devices = ["endeavour"];
+          syncAll = false;
+        };
         "tofu-state" = {
           path = "/home/${u}/tofu-state-backup/";
           devices = ["discovery" "orion"];
@@ -139,8 +155,15 @@
     devices,
     folderPaths,
     shareWith ? devices,
-  }: {pkgs, ...}: let
+    storageMount ? null,
+  }: {
+    pkgs,
+    utils,
+    ...
+  }: let
     folders = lib.mapAttrs (_: normalizeFolder) folderPaths;
+    poolFolders = lib.filterAttrs (_: f: storageMount != null && lib.hasPrefix "${storageMount}/" f.path) folders;
+    homeFolders = lib.filterAttrs (id: _: !(builtins.hasAttr id poolFolders)) folders;
     ignoreFiles =
       lib.mapAttrs
       (_: f:
@@ -152,15 +175,26 @@
       folders;
   in {
     systemd.tmpfiles.rules =
-      (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -") folders)
+      (lib.mapAttrsToList (_: f: "d ${f.path} 0700 ${u} users - -") homeFolders)
       ++ (lib.mapAttrsToList
         (id: f: "L+ ${f.path}.stignore - - - - ${ignoreFiles.${id}}")
-        folders);
+        homeFolders);
 
     # Syncthing caches ignores by mtime; Nix store files all have a fixed mtime.
     systemd.services.syncthing = {
-      after = ["systemd-tmpfiles-resetup.service"];
+      after = ["systemd-tmpfiles-resetup.service"] ++ lib.optional (storageMount != null) "${utils.escapeSystemdPath storageMount}.mount";
       restartTriggers = lib.mapAttrsToList (_: file: "${file}") ignoreFiles;
+      # /fast is nofail: never create pool data on the root filesystem.
+      unitConfig = lib.mkIf (storageMount != null) {
+        RequiresMountsFor = [storageMount];
+        AssertPathIsMountPoint = storageMount;
+      };
+      bindsTo = lib.optional (storageMount != null) "${utils.escapeSystemdPath storageMount}.mount";
+      preStart = lib.concatStringsSep "\n" (lib.mapAttrsToList (id: f: ''
+          ${pkgs.coreutils}/bin/install -d -m 0700 ${lib.escapeShellArg f.path}
+          ${pkgs.coreutils}/bin/ln -sfnT ${ignoreFiles.${id}} ${lib.escapeShellArg "${f.path}.stignore"}
+        '')
+        poolFolders);
     };
 
     services.syncthing = {
