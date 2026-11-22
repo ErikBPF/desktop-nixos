@@ -79,8 +79,11 @@
     };
 
     pi = inputs.pi.packages.${pkgs.stdenv.hostPlatform.system}.pi;
+    # Local durable harness (Pi-native orchestration, code mode, subagents).
+    # Registered as a flake package too, but the home profile needs it on PATH.
+    piHarness = pkgs.callPackage ./pi-harness/_package.nix {};
   in {
-    home.packages = [pi];
+    home.packages = [pi piHarness];
 
     # Pi reads its user-level configuration from ~/.pi/agent. Values mirror
     # modules/dev/opencode.nix; keys resolve at load time through `!cat`, so no
