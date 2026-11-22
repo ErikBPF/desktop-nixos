@@ -73,6 +73,9 @@ Test count after this round: 20.
   `buildNpmPackage`, and `check.yml` builds that check and runs
   `modules/dev/pi-extensions/rtk.test.js`. The Nix log reports 7 files and 20
   tests.
+- At `a136b409` it raised one P2: the check skipped `tsc`, so a type error that
+  breaks the installed artefact would pass. The check now runs `npm run build`
+  before `npm test`.
 
 ## RED evidence
 
