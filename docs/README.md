@@ -15,6 +15,9 @@ line. This index names purpose only, so the two cannot drift apart.
 
 ## Operational references
 
+[K3s bootstrap recovery reproduction](behaviors/k3s-bootstrap-reproduction/one-pager.md)
+records exact-version disposable evidence and rejected recovery assumptions.
+
 [Kepler credential dependency recovery](behaviors/kepler-reader-recovery/one-pager.md)
 records guest restart behavior after the Harbor reader recovers.
 
