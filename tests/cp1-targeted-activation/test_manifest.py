@@ -20,7 +20,7 @@ def metadata():
                 guestCurrent=store,guestProfile=store,runner=store,
                 guestBootId='00000000-0000-0000-0000-000000000000', bootstrapTimerState='enabled', bootstrapServiceState='enabled'),
             'candidate':dict(hardware=copy.deepcopy(hardware),toplevel=store,runner=store,
-                nix=store,conditionSystemd=store,stateDir="/fast/microvms",registration=store+'/registration',clusterInit=False,
+                nix=store,python=store,conditionSystemd=store,stateDir="/fast/microvms",registration=store+'/registration',clusterInit=False,
                 serverAddr='https://10.250.0.13:6443',restart='no',timeoutStartSec=300,
                 bootstrapTimer=False,bootstrapService=False)}
 

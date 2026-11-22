@@ -20,7 +20,7 @@ jq -e '
   ([.baseline.bootstrapTimerState,.baseline.bootstrapServiceState] |
     all(.[]; . == "enabled" or . == "disabled" or . == "static" or . == "masked" or . == "masked-runtime")) and
   ([.baseline.hostCurrent,.baseline.hostProfile,.baseline.guestCurrent,
-    .baseline.runner,.candidate.toplevel,.candidate.runner,.candidate.nix,.candidate.registration,.candidate.conditionSystemd,
+    .baseline.runner,.candidate.toplevel,.candidate.runner,.candidate.nix,.candidate.python,.candidate.registration,.candidate.conditionSystemd,
     .candidate.hardware.kernel,.candidate.hardware.initrd] |
     all(.[]; type == "string" and test("^/nix/store/[a-z0-9]{32}-[A-Za-z0-9+._/-]+$") and (split("/") | all(.[]; . != ".." and . != "."))))
 ' "$manifest" >/dev/null
@@ -47,7 +47,7 @@ done
 for unit in k3s-bootstrap-secrets.timer k3s-bootstrap-secrets.service; do
   [[ $(readlink -f "$new/etc/systemd/system/$unit") == /dev/null ]]
 done
-python3 - "$old" "$new" "$(get .candidate.timeoutStartSec)" "$(get .candidate.conditionSystemd)" <<'PY'
+"$(get .candidate.python)/bin/python3" -I - "$old" "$new" "$(get .candidate.timeoutStartSec)" "$(get .candidate.conditionSystemd)" <<'PY'
 from pathlib import Path
 import re, sys
 old, new = (Path(p) / 'etc/systemd/system' for p in sys.argv[1:3])

@@ -171,3 +171,20 @@ The exported candidate metadata, now including the source-owned state directory,
 has SHA-256 `dae5fa3806e2f2ed9b41776787e2818c78b2035a798877ed1e283d6ff367a0e7`.
 No guest preview, membership operation, activation or runner persistence was
 performed. These remain within the concrete approval gate above.
+
+### Declared comparator runtime
+
+Kepler's interactive PATH has no Python. The first shell draft therefore would
+have stopped before guest SSH. The helper now stages the candidate package set's
+Python executable output as a fifth GC-rooted artifact, exports its exact path,
+and invokes that path for unit comparison. An empty-PATH command regression
+failed with `python3: command not found` before the fix. No global host package
+installation is required; the guest closure is unchanged. Earlier four-artifact
+receipts remain historical evidence, not the complete final runtime contract.
+
+The first hosted lint run also caught the owner's command-layout contract:
+`--max-jobs 0` must occur on the `--builders` line or immediately after it.
+Moving the already-present flag onto that line preserves build behavior and
+passes the unchanged contract. The combined helper and owner recipe suite now
+passes 78 tests; the helper alone passes 39. The comparator uses Python isolated
+mode (`-I`) to ignore inherited user-site and Python environment overrides.

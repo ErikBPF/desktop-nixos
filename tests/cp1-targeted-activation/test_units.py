@@ -35,3 +35,25 @@ def test_unrelated_reconcile_command_rejected(tmp_path):
 
 def test_condition_cannot_start_k3s(tmp_path):
     assert units(tmp_path,'condition').returncode != 0
+
+
+def test_unit_comparison_uses_declared_runtime_without_path_python(tmp_path):
+    import os
+    import shutil
+    units(tmp_path);old=tmp_path/'old';new=tmp_path/'new'
+    runtime=tmp_path/'runtime';(runtime/'bin').mkdir(parents=True)
+    (runtime/'bin/python3').symlink_to(sys.executable)
+    invocation=SCRIPT.read_text().splitlines()[next(i for i,line in enumerate(SCRIPT.read_text().splitlines()) if "<<'PY'" in line)]
+    shell='''set -eu
+get() {
+ case "$1" in
+ .candidate.python) printf '%s' "$RUNTIME";;
+ .candidate.timeoutStartSec) printf 300;;
+ .candidate.conditionSystemd) printf '%s' "$CONDITION";;
+ *) exit 90;;
+ esac
+}
+'''+invocation+'\n'+CHECK+'\nPY\n'
+    result=subprocess.run([shutil.which('bash'),'-se'],input=shell,text=True,
+        env=dict(os.environ,PATH='',old=str(old),new=str(new),RUNTIME=str(runtime),CONDITION=CONDITION_SYSTEMD),capture_output=True)
+    assert result.returncode == 0, result.stderr

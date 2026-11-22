@@ -341,11 +341,11 @@ cp1-stage-artifacts revision:
     revision={{quote(revision)}}
     [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || exit 2
     builders=$(just _builders kepler)
-    outputs=$(nix build --no-link --print-out-paths --max-jobs 0 \
-      --builders "$builders" --builders-use-substitutes --impure --expr \
-      "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in [ c.system.build.toplevel c.microvm.declaredRunner c.nix.package.out (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) ]")
+    outputs=$(nix build --no-link --print-out-paths \
+      --builders "$builders" --max-jobs 0 --builders-use-substitutes --impure --expr \
+      "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in [ c.system.build.toplevel c.microvm.declaredRunner c.nix.package.out e.pkgs.python3.out (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) ]")
     mapfile -t artifacts <<< "$outputs"
-    test "${#artifacts[@]}" -eq 4
+    test "${#artifacts[@]}" -eq 5
     NIX_SSHOPTS='-o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none' \
       nix copy --to 'ssh://erik@{{ip_kepler}}:2222?remote-program=sudo%20-n%20nix-store' "${artifacts[@]}"
     for artifact in "${artifacts[@]}"; do
@@ -391,6 +391,7 @@ cp1-artifact-metadata revision:
         toplevel = c.system.build.toplevel.outPath;
         runner = c.microvm.declaredRunner.outPath;
         nix = c.nix.package.outPath;
+        python = e.pkgs.python3.outPath;
         conditionSystemd = e.pkgs.systemd.outPath;
         registration = toString (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) + \"/registration\";
         hardware = {
