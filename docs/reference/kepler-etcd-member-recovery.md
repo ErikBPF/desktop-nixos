@@ -139,6 +139,32 @@ old snapshot into potentially changed WAL. A next method requires review of
 K3s bootstrap, membership, and rollback together; it is pending, not an implicit
 extension of the failed attempt's approval.
 
+## Maintenance entrypoint: contain reconciliation before stopping K3s
+
+A later coordinator investigation found that cp-1's credential timer restarted
+K3s through its reconciliation service's `Wants=k3s.service`. A service stop
+alone was therefore insufficient. Through the authenticated owner guest route,
+stop these units in order on **cp-1 only**:
+
+```sh
+systemctl stop k3s-bootstrap-secrets.timer
+systemctl stop k3s-bootstrap-secrets.service k3s-manifest-reconcile.service
+systemctl stop k3s.service
+systemctl show k3s-bootstrap-secrets.timer -p ActiveState -p NextElapseUSecMonotonic
+systemctl show k3s-bootstrap-secrets.service k3s-manifest-reconcile.service k3s.service -p ActiveState -p MainPID -p NRestarts
+```
+
+Require the timer inactive with no scheduled elapse and all reconciliation and K3s services without
+running processes. A retained historical failed state/restart count is not a
+new attempt; compare timestamps and PID state. Do not restart the timer while
+the failed member is under maintenance. After a separately approved recovery
+passes membership, fixed-revision hash and API health gates, explicitly start
+the manifest and credential reconciliation services and then the credential timer. Do not start K3s implicitly by
+starting the credential service. The
+[maintenance-stop source fix](../behaviors/kepler-bootstrap-maintenance/one-pager.md)
+removes that dependency from both credential and switch-driven manifest reconciliation and skips work while K3s is inactive; it does
+not cancel work already running, so the ordered maintenance stop still applies.
+
 ## Rollback and remaining risk
 
 Before the first restart, reversing the directory move restores the original

@@ -411,8 +411,9 @@ in {
         description = "Reconcile Argo and ESO bootstrap credentials";
         wantedBy = ["multi-user.target"];
         after = ["k3s.service"];
-        wants = ["k3s.service"];
         serviceConfig = {
+          # Reconciliation must not undo an operator's K3s maintenance stop.
+          ExecCondition = "${pkgs.systemd}/bin/systemctl is-active --quiet k3s.service";
           Type = "oneshot";
           UMask = "0077";
           NoNewPrivileges = true;
