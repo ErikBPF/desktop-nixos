@@ -21,7 +21,7 @@ Last updated: 2026-07-17.
         ┌───────────────┴──────────────────┴───────────────┐
         │  br-k3s private subnet 10.250.0.0/24 (microvms)   │
         │   cp-1 .11   cp-2 .12   cp-3 .13   (HA etcd)       │
-        │   worker-1 .21   worker-2 .22                     │
+        │   worker-1 .21   worker-2 .22   worker-3 .23       │
         └───────────────────────────────────────────────────┘
                         │ push telemetry (tailnet)
                         ▼
@@ -29,9 +29,14 @@ Last updated: 2026-07-17.
 ```
 
 - **Cluster**: k3s on NixOS microvms (cloud-hypervisor), HA embedded etcd.
-  3 control-plane (2 vCPU / 4 GB) + 2 workers. Defined entirely in
+  3 control-plane (2 vCPU / 3 GB) + 3 workers (2 vCPU / 10 GB). Defined entirely in
   `modules/hosts/kepler/k3s-cluster.nix` (dendritic). Scale workers by bumping
-  `workerCount` + switch.
+  `workerCount` + switch. Workers 2 vCPU / 10 GiB and control planes 2 vCPU /
+  3 GiB fit 3+3 nodes in ~39 GiB of kepler's ~94 GiB. The worker pool is
+  sized above the measured pod working set (~22 GiB requests, 74% of 30 GiB);
+  note the two survivors after a lost worker hold only 20 GiB, so part of an
+  evicted set stays Pending until it returns. The control-plane 3 GiB is a
+  monitored deviation from the recorded 4 GiB etcd headroom point.
 - **kepler L4 LB** (host nginx stream): `.245:6443` → apiserver; `.250:443` →
   worker NodePort `30444` (Traefik, post-cutover). Host-only config — reloading
   it does **not** bounce the guests.
@@ -46,7 +51,7 @@ Last updated: 2026-07-17.
 
 ### Cluster (this repo — `k3s-cluster.nix`)
 
-- HA 3-CP + 2-worker microvm cluster, staggered boot ordering
+- HA 3-CP + 3-worker microvm cluster, staggered boot ordering
   (`microvm@` After-chains) so etcd forms cleanly.
 - `br_netfilter` + bridge-nf sysctls; networkd kept off the CNI interfaces
   (cni0/flannel/veth/cali/vxlan unmanaged) so pod networking survives the

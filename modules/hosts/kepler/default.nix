@@ -82,7 +82,8 @@ in {
     # ⚠ Brings up systemd-networkd — deploy supervised (see the module header).
     kepler.k3s.enable = true;
     kepler.k3s.workerCount = 3;
-    kepler.k3s.workerVcpu = 4;
+    kepler.k3s.workerVcpu = 2;
+    kepler.k3s.workerMem = 10240;
     services.harborReader = {
       enable = true;
       address = "http://100.103.52.100:8200";
