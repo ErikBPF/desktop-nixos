@@ -15,6 +15,12 @@ line. This index names purpose only, so the two cannot drift apart.
 
 ## Operational references
 
+[K3s bootstrap recovery reproduction](behaviors/k3s-bootstrap-reproduction/one-pager.md)
+records exact-version disposable evidence and rejected recovery assumptions.
+
+[Kepler credential dependency recovery](behaviors/kepler-reader-recovery/one-pager.md)
+records guest restart behavior after the Harbor reader recovers.
+
 [Manual fork sync](guides/github-forks.md) and
 [Orion display capture](guides/orion-display-capture.md) describe opt-in helpers.
 
@@ -49,6 +55,8 @@ developer-tool changes and preserved runtime boundaries.
 | [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. |
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. |
+| [`reference/kepler-etcd-member-recovery.md`](reference/kepler-etcd-member-recovery.md) | Preserved divergent etcd evidence, failed bounded recovery, and the K3s bootstrap prerequisite. |
+| [`reference/cp1-targeted-activation.md`](reference/cp1-targeted-activation.md) | Guarded guest-only activation and the separate next-boot persistence boundary. |
 | [`reference/harbor-discovery-registry.md`](reference/harbor-discovery-registry.md) | Harbor registry on discovery — the imperative baseline. |
 | [`reference/2026-10-13-ha-publisher-bootstrap.md`](reference/2026-10-13-ha-publisher-bootstrap.md) | Controller-only IaC Harbor publisher SecretID capture; target preflight, shared lock, no inherited proxy. |
 | [`reference/2026-09-07-desktop-reconciliation.md`](reference/2026-09-07-desktop-reconciliation.md) | Historical rollout, ten-stash review and key-rotation correction. |
@@ -105,3 +113,10 @@ New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
 
 - [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.
+
+- [Kepler bootstrap maintenance](behaviors/kepler-bootstrap-maintenance/one-pager.md): preserve operator-stopped K3s while retaining healthy credential reconciliation.
+
+- [Durable cp1 host boot containment](behaviors/kepler-cp1-host-containment/one-pager.md) — held supplemental recovery output and exact baseline custody.
+
+- [Durable cp1 recovery sequence](reference/cp1-durable-recovery.md) — staged host containment and separately approved member replacement.
+- [Cp1 boot containment checks](reference/cp1-boot-containment-check.md) — installer, boot entry and rollback completion evidence.

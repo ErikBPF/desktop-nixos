@@ -96,6 +96,16 @@ deploy target ip port="2222" user="erik":
         --option builders-use-substitutes true \
         --max-jobs 0
 
+# Show remote activation changes; dry activation can update directory metadata.
+deploy-preview target ip port="2222" user="erik":
+    BUILDERS="$(just _builders {{target}})"; \
+    NIX_SSHOPTS="-p {{port}}" nixos-rebuild dry-activate --flake .#{{target}} \
+        --target-host {{user}}@{{ip}} \
+        --use-substitutes --sudo --show-trace \
+        --option builders "$BUILDERS" \
+        --option builders-use-substitutes true \
+        --max-jobs 0
+
 # deploy-rs: subsequent switch WITH magic rollback (activate → re-check SSH →
 # auto-revert if the host lost reachability). Uses Orion as the only builder and
 # forbids local jobs; a recipe that targets Orion builds through Orion itself,
