@@ -105,3 +105,20 @@ before/after. Do not use deploy-rs here: its bootloader rewrite conflicts with
 containment. The old boot ID, all six VM PIDs and start times, cp-1 selected
 runner and installer were captured in `/tmp/picker-recovery-before.txt`.
 No activation has occurred at this preparation stage.
+
+
+CI caught the older recovery contract's exact two-unit/host-closure pin. The
+updated contract now first applies the same development module to its repaired
+baseline and asserts exactly three restart-trigger unit changes plus the wrapper service
+adding the standard root:utmp setgid-only utempter helper, then keeps
+the original exact two-unit cp-1 delta. All guest, sibling, secret-file and
+boot-counting assertions remain. The candidate host pin is `9rni5ln…`, obtained
+from the evaluated build artifact rather than the live machine.
+
+Builder cache lookup stalled with remote substitution enabled. Only this task's
+three build/preview clients were interrupted; the retry keeps compilation on
+Orion but supplies inputs from the local public cache (`builders-use-substitutes
+false`). No builder configuration was edited. The voice config and original
+symlink were backed up under
+`~/.local/state/homelab-activation/picker-20261122T152948Z/`; the active link has
+not yet been replaced.
