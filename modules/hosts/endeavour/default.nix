@@ -12,6 +12,18 @@ in {
     modulesPath,
     ...
   }: let
+    # OCR resolves its LiteLLM key at run time from the login environment
+    # (already sourced from OpenBao), so the key never lands in
+    # ~/.opencodereview/config.json.
+    ocrLitellmKey = pkgs.writeShellScriptBin "ocr-litellm-key" ''
+      set -eu
+      if [ -z "''${LITELLM_OCR_API_KEY:-}" ]; then
+        echo "ocr-litellm-key: LITELLM_OCR_API_KEY is unset; run ocr from a login shell" >&2
+        exit 1
+      fi
+      printf '%s' "$LITELLM_OCR_API_KEY"
+    '';
+
     # Resolves the OpenBao-backed dev secrets into a 0600 env file at login.
     # The shell sources that file, so every agent session inherits GH_TOKEN
     # without depending on $XDG_CONFIG_HOME (opencode rewrites it for its
@@ -100,9 +112,24 @@ in {
 
         [profiles.desktop]
         GH_TOKEN = { description = "GitHub CLI token maintained in OpenBao", ref = { item = "iac/github", field = "token" }, providers = ["bao_home"] }
+        LITELLM_OCR_API_KEY = { description = "Open Code Review LiteLLM key maintained in OpenBao", ref = { item = "home/ocr-review-litellm", field = "LITELLM_OCR_API_KEY" }, providers = ["bao_home"] }
       '';
 
-      home.packages = [pkgs.secretspec sk];
+      home.packages = [pkgs.secretspec sk ocrLitellmKey];
+
+      # Open Code Review provider routing for the /cr pre-pass. Only the
+      # endpoint and model are declared here; the key comes from the helper.
+      home.file.".opencodereview/config.json".text = builtins.toJSON {
+        provider = "litellm";
+        providers.litellm = {
+          url = "https://litellm.homelab.pastelariadev.com/v1";
+          model = "glm-5.3-flash";
+          api_key_cmd = "${ocrLitellmKey}/bin/ocr-litellm-key";
+          # The gateway routes per session; the placeholder keeps one value
+          # per OCR run, the same contract as opencode's gateway plugin.
+          extra_headers = "x-opencode-session={ocr_session_key}";
+        };
+      };
 
       wayland.windowManager.hyprland.settings = {
         # Override desktop-workspaces' forced local terminal on this client.
