@@ -1,0 +1,137 @@
+# Targeted cp-1 recovery activation
+
+**Status:** Source preparation only. Immutable build/copy and task GC roots are authorized preparation. Fresh approval of the complete member-replacement method is required before guest dry activation, member removal or activation. A successful switch does not prove etcd recovery.
+
+## Purpose and boundaries
+
+The recovery candidate preserves the guest kernel, initrd, interfaces, volumes and
+shares while joining cp-3 without `cluster-init`. K3s gets `Restart=no` and a
+five-minute startup timeout. Bootstrap service/timer are disabled in source; the
+manifest reconciler loses its K3s start dependency and gains an active-service
+condition. These are the only allowed unit changes.
+
+The helper runs only on Kepler and addresses only cp-1. It never switches Kepler,
+restarts a VM, removes an etcd member, moves WAL/backend files, or restores an old
+configuration. The approved replacement procedure must remove the failed member
+and preserve/quarantine its state **before** activation, because activation starts
+K3s. A new cp-1 member ID is expected; survivor IDs and cluster identity must remain.
+
+## Prepare exact artifacts and observations
+
+After candidate publication, `just cp1-stage-artifacts REVISION` builds exactly the
+cp-1 toplevel, runner, Nix package and closure registration from that full commit.
+It copies through authenticated, strictly verified SSH with normal Nix signature
+checks, then creates root-owned task GC links under
+`/nix/var/nix/gcroots/cp1-recovery-REVISION`. Neither Kepler system profile changes.
+GC roots remain until reviewed cleanup; copying alone is not persistent GC safety.
+
+`just cp1-artifact-metadata REVISION` exports evaluated paths and hardware. Run it
+for the reviewed baseline and candidate. The actual nested attribute is
+`nixosConfigurations.kepler.config.microvm.vms.cp-1.config.config`.
+
+Build a private reviewed `/tmp/cp1-activation-NAME.json` on Kepler with this shape:
+
+```json
+{
+  "sourceRevision": "FULL_CANDIDATE_COMMIT",
+  "knownHosts": "/absolute/preverified/cp1-known-hosts",
+  "knownHostsSha256": "SHA256_OF_THAT_FILE",
+  "baseline": {
+    "hardware": {},
+    "hostCurrent": "OBSERVED_KEPLER_RUNNING_CLOSURE",
+    "hostProfile": "OBSERVED_KEPLER_PERSISTENT_CLOSURE",
+    "guestCurrent": "OBSERVED_CP1_RUNNING_CLOSURE",
+    "guestProfile": "OBSERVED_CP1_SYSTEM_PROFILE",
+    "guestBootId": "OBSERVED_CP1_BOOT_UUID",
+    "runner": "OBSERVED_CP1_CURRENT_RUNNER",
+    "bootstrapTimerState": "OBSERVED_IS_ENABLED_STATE",
+    "bootstrapServiceState": "OBSERVED_IS_ENABLED_STATE"
+  },
+  "candidate": {}
+}
+```
+
+Replace `baseline.hardware` and `candidate` from the two source exports; replace
+all observation placeholders with fresh read-only evidence. Require baseline
+exported toplevel/runner to match the running guest and recorded runner. Do not
+invent paths or infer SSH trust from a live disk read that reports errors. Record
+existing bootstrap mask states so a later release cannot silently unmask a unit
+that was already intentionally masked.
+
+## Preview, activation and stop boundary
+
+Before preview, require the four units `k3s.service`,
+`k3s-bootstrap-secrets.timer`, `k3s-bootstrap-secrets.service` and
+`k3s-manifest-reconcile.service` stopped with MainPID zero. Their maintenance stop
+belongs to the approved recovery procedure. Confirm surviving etcd quorum/health,
+matching fixed-revision hashes and the preserved failed-state archives.
+
+Run `just cp1-activate MANIFEST preview`; inspect its real dry-activation output.
+This upstream dry activation does not switch services, but its user-management
+script may normalize `/root` and `/home` directory metadata; it is not promised
+to make zero filesystem writes. Include that bounded behavior in live approval.
+Reject unexpected service actions outside the four reviewed units. After explicit
+approval, `just cp1-activate MANIFEST activate` loads guest registration, selects
+the new guest profile and switches only that guest. The switch is bounded at
+360 seconds; the SSH operation has a 540-second outer budget for preview and
+cleanup. Signal/failure handling attempts a bounded stop and checks K3s PID zero;
+transport loss can prevent confirmation and must be treated as uncontained until
+verified. No automatic old-etcd restart or bootstrap unmask occurs.
+
+The helper asserts unchanged Kepler running/persistent profiles, cp-1 current
+runner and guest boot ID. It intentionally leaves the host runner unchanged.
+After replacement health, alarms, survivor/member IDs and fixed-revision hashes
+pass, stage the reviewed current runner through the post-health owner step included in the approved procedure.
+Until then, do not reboot cp-1: its boot runner still selects the prior closure.
+
+## Explicit post-health runner persistence
+
+Only after approval of the complete procedure and verified replacement health, run these commands
+on Kepler as root with the same reviewed manifest. They alter only cp-1's next-boot
+runner. Record the current `booted` target before approval and supply that exact
+value as `EXPECTED_BOOTED_RUNNER`; do not infer it from `current`.
+
+```bash
+set -euo pipefail
+manifest=/tmp/cp1-activation-NAME.json
+: "${EXPECTED_BOOTED_RUNNER:?recorded booted runner required}"
+old=$(jq -er '.baseline.runner' "$manifest")
+new=$(jq -er '.candidate.runner' "$manifest")
+revision=$(jq -er '.sourceRevision' "$manifest")
+[[ "$revision" =~ ^[a-f0-9]{40}$ ]]
+[[ "$new" =~ ^/nix/store/[a-z0-9]{32}-microvm-cloud-hypervisor-cp-1$ ]]
+[[ $(readlink -e /run/current-system) == "$(jq -er '.baseline.hostCurrent' "$manifest")" ]]
+[[ $(readlink -e /nix/var/nix/profiles/system) == "$(jq -er '.baseline.hostProfile' "$manifest")" ]]
+directory=/var/lib/microvms/cp-1
+[[ $(readlink -e "$directory/current") == "$old" ]]
+[[ $(readlink -e "$directory/booted") == "$EXPECTED_BOOTED_RUNNER" ]]
+roots=/nix/var/nix/gcroots/cp1-recovery-$revision
+[[ -d "$roots" && ! -L "$roots" && $(stat -c '%u:%a' "$roots") == 0:700 ]]
+if [[ -L "$roots/previous-runner" ]]; then
+  [[ $(readlink "$roots/previous-runner") == "$old" ]]
+else
+  ln -s "$old" "$roots/previous-runner"
+fi
+[[ $(readlink -e "$new/share/microvm/system") == "$(jq -er '.candidate.toplevel' "$manifest")" ]]
+link=$directory/.current-recovery-$revision
+[[ ! -e "$link" && ! -L "$link" ]]
+ln -s "$new" "$link"
+mv -T "$link" "$directory/current"
+[[ $(readlink -e "$directory/current") == "$new" ]]
+[[ $(readlink -e "$directory/booted") == "$EXPECTED_BOOTED_RUNNER" ]]
+[[ $(readlink -e /run/current-system) == "$(jq -er '.baseline.hostCurrent' "$manifest")" ]]
+[[ $(readlink -e /nix/var/nix/profiles/system) == "$(jq -er '.baseline.hostProfile' "$manifest")" ]]
+```
+
+Do not modify the existing `old` link or `booted` link, restart the VM, release
+bootstrap masks, or delete GC roots automatically. A future host deployment must
+include the reviewed replacement source so it does not restage the old runner.
+
+## Evidence and limits
+
+Command-level fixtures cover preview, identity/PID/drift rejection, signal and
+failed-switch containment, finite budgets, strict manifest values and exact unit
+changes. The unit comparator also passed against actual built baseline `5dd7…`
+and candidate `xp0g…`; source-disabled bootstrap units resolve to `/dev/null`.
+REDs are in `/tmp/cp1-{commands,pid-budget,active-service,unit-delta,condition-path}-red.log`.
+These are preparation checks, not live activation or persistent recovery proof.
