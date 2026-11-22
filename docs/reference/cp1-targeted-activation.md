@@ -135,3 +135,11 @@ changes. The unit comparator also passed against actual built baseline `5dd7…`
 and candidate `xp0g…`; source-disabled bootstrap units resolve to `/dev/null`.
 REDs are in `/tmp/cp1-{commands,pid-budget,active-service,unit-delta,condition-path}-red.log`.
 These are preparation checks, not live activation or persistent recovery proof.
+
+### Staging output correction
+
+The first owner staging attempt stopped before copying: Nix selected the Nix
+package's manual output as well as its executable output, producing five paths
+instead of the required four. Selecting `c.nix.package.out` explicitly produced
+the four reviewed artifacts. The failed output-count guard caused no remote
+mutation; the actual cached build confirmed the corrected output set.

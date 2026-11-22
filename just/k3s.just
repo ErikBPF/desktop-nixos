@@ -343,7 +343,7 @@ cp1-stage-artifacts revision:
     builders=$(just _builders kepler)
     outputs=$(nix build --no-link --print-out-paths --max-jobs 0 \
       --builders "$builders" --builders-use-substitutes --impure --expr \
-      "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in [ c.system.build.toplevel c.microvm.declaredRunner c.nix.package (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) ]")
+      "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in [ c.system.build.toplevel c.microvm.declaredRunner c.nix.package.out (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) ]")
     mapfile -t artifacts <<< "$outputs"
     test "${#artifacts[@]}" -eq 4
     NIX_SSHOPTS='-o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none' \
