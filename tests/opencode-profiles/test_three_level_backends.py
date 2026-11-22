@@ -73,35 +73,40 @@ class ThreeLevelBackends(unittest.TestCase):
     def test_role_boundaries_and_auto_accept(self):
         for name, profile in self.profiles.items():
             with self.subTest(name):
-                l1 = profile["agents"]["pilot-l1"]["permissions"]
-                l2 = profile["agents"]["pilot-l2"]["permissions"]
-                l3 = profile["agents"]["pilot-l3"]["permissions"]
-                self.assertEqual(rule(l1, "edit", "src/main.py"), "deny")
-                self.assertEqual(rule(l1, "edit", "docs/plan.md"), "ask")
-                # L1 has shell like the other roles, gated by the protected
-                # deny tail for destructive commands.
-                self.assertEqual(rule(l1, "shell", "git status"), "allow")
-                self.assertEqual(rule(l1, "shell", "rm -rf /"), "deny")
-                self.assertEqual(rule(l1, "dispatch_slice", "*"), "allow")
-                self.assertEqual(rule(l2, "subagent", "pilot-l3"), "allow")
-                self.assertEqual(rule(l2, "subagent", "*"), "deny")
-                self.assertEqual(rule(l3, "subagent", "*"), "deny")
-                # L3 implements/edits; secret reads stay denied globally.
-                self.assertFalse(any(item["action"] == "edit" for item in l3))
-                self.assertEqual(rule(profile["permissions"], "read", "/run/secrets/opencode/work_key"), "deny")
+                raw = {layer: profile["agents"][layer]["permissions"]
+                       for layer in ("pilot-l1", "pilot-l2", "pilot-l3")}
+                # Global rules reach every agent; role lists narrow dispatch and
+                # slice authority only.
+                effective = {layer: profile["permissions"] + rules
+                             for layer, rules in raw.items()}
+                for layer in effective:
+                    with self.subTest(layer=layer):
+                        self.assertEqual(rule(effective[layer], "edit", "src/main.py"), "allow")
+                        self.assertEqual(rule(effective[layer], "edit", "docs/plan.md"), "allow")
+                        self.assertEqual(rule(effective[layer], "edit", ".env"), "allow")
+                        self.assertEqual(rule(effective[layer], "edit", ".env.example"), "allow")
+                        self.assertEqual(rule(effective[layer], "edit", "nested/.env.example"), "allow")
+                        self.assertEqual(rule(effective[layer], "shell", "git status"), "allow")
+                        self.assertEqual(rule(effective[layer], "shell", "rm -rf /"), "allow")
+                        self.assertEqual(rule(effective[layer], "subagent", "*"), "allow")
+                self.assertEqual(rule(effective["pilot-l1"], "dispatch_slice", "*"), "allow")
+                self.assertEqual(rule(effective["pilot-l2"], "dispatch_slice", "*"), "deny")
+                self.assertEqual(rule(effective["pilot-l3"], "dispatch_slice", "*"), "deny")
+                self.assertFalse(any(item["action"] == "edit" for item in raw["pilot-l3"]))
+                self.assertEqual(rule(profile["permissions"], "read", "/run/secrets/opencode/work_key"), "allow")
                 self.assertEqual(rule(profile["permissions"], "read",
-                                 "/home/erik/.local/state/opencode-v2-backends/homelab/server-password"), "deny")
+                                 "/home/erik/.local/state/opencode-v2-backends/homelab/server-password"), "allow")
                 self.assertEqual(rule(profile["permissions"], "edit",
-                                 "/home/erik/.local/state/opencode-v2-backends/homelab/opencode.db"), "deny")
+                                 "/home/erik/.local/state/opencode-v2-backends/homelab/opencode.db"), "allow")
 
-    def test_provider_policy_keeps_protected_denials(self):
+    def test_provider_policy_does_not_restrict_file_access(self):
         for name, profile in self.profiles.items():
             with self.subTest(name):
                 policies = profile["experimental"]["policies"]
                 providers = [item for item in policies if item["action"] == "provider.use"]
                 self.assertEqual(rule(providers, "provider.use", "openai"), "allow")
                 self.assertEqual(rule(providers, "provider.use", "*"), "deny")
-                self.assertEqual(rule(policies, "tool.use", "read:/run/secrets/opencode/work_key"), "deny")
+                self.assertEqual(rule(policies, "tool.use", "read:/run/secrets/opencode/work_key", "allow"), "allow")
 
     def test_websearch_stays_disabled(self):
         for name, profile in self.profiles.items():

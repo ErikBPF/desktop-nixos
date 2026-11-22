@@ -53,7 +53,14 @@ in {
     resurrect = "${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect";
     resurrectDir = "${config.xdg.dataHome}/tmux/workspace-desktop";
     manifest = pkgs.writeText "desktop-workspaces.json" (builtins.toJSON {
-      inherit projects resurrect resurrectDir;
+      inherit resurrect resurrectDir;
+      remoteHome = "/home/${flakeConfig.username}";
+      projects = map (project:
+        project
+        // {
+          remoteDirectory = "/fast/compute/${flakeConfig.username}/Documents/${lib.removePrefix "${config.home.homeDirectory}/Documents/" project.directory}";
+        })
+      projects;
       shell = "${pkgs.zsh}/bin/zsh";
     });
     coordinator = pkgs.writeShellApplication {
@@ -61,6 +68,7 @@ in {
       runtimeInputs = [
         pkgs.tmux
         pkgs.python3
+        pkgs.openssh
         pkgs.systemd
         config.programs.ghostty.package
         config.wayland.windowManager.hyprland.package
@@ -79,19 +87,6 @@ in {
     # Three-level agent framework: L1 plans, L2 coordinates a slice, L3 executes.
     # Backend profiles replace the plain build agent with this hierarchy.
     threeLevelPlugin = ../dev/opencode-plugins-v2/three-level;
-    planning = [
-      {
-        action = "edit";
-        resource = "*";
-        effect = "deny";
-      }
-      {
-        action = "edit";
-        resource = "docs/*";
-        effect = "ask";
-      }
-    ];
-    protected = builtins.filter (rule: rule.effect == "deny") base.permissions;
     mkProfile = project: let
       model = "${project.provider}/deepseek-v4.1-flash";
       # Work's OpenRouter route rejects reasoning_effort and exposes no variants.
@@ -116,37 +111,33 @@ in {
             inventory when present. Hardware totals are not available resource grants.
             Use the repository's coordination templates. Summarize accepted outcomes,
             verification, unresolved decisions and blockers; never manufacture evidence.
-            Validate credentials and create or update documentation directly; delegate
-            implementation to L2 slices.
+            Validate credentials and create or update documentation directly. Delegate
+            broad implementation to L2 slices; edit directly only for small work that
+            unblocks the plan.
           '';
-          permissions =
-            planning
-            ++ [
-              # L1 has shell like the other roles. The protected deny tail
-              # (appended last) is the gate for destructive commands, and edit
-              # stays denied outside docs/* via the planning rules above.
-              {
-                action = "shell";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "subagent";
-                resource = "*";
-                effect = "deny";
-              }
-              {
-                action = "dispatch_slice";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "slice_status";
-                resource = "*";
-                effect = "allow";
-              }
-            ]
-            ++ protected;
+          permissions = [
+            # Every role runs shell, invokes native subagents and edits source.
+            {
+              action = "shell";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "subagent";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "dispatch_slice";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "slice_status";
+              resource = "*";
+              effect = "allow";
+            }
+          ];
         };
         pilot-l2 = {
           mode = "primary";
@@ -155,7 +146,7 @@ in {
           system = ''
             You are L2, an independent slice coordinator. Own the /pl -> /ip -> /rv
             workflow and canonical task ledger. Read source and run verification as
-            needed, but delegate implementation to native subagent pilot-l3.
+            needed. You may implement directly; prefer a native subagent for broad work.
             Define dependencies and parallel tasks before dispatch. Include paths,
             concrete acceptance criteria and resource limits in every handover.
             Accept exact result revisions before dependent work. After rejection,
@@ -164,31 +155,23 @@ in {
             state outcome, changed files, verification evidence, decisions, remaining
             work and blockers. A tool returning is not proof of accepted work.
           '';
-          permissions =
-            planning
-            ++ [
-              {
-                action = "subagent";
-                resource = "*";
-                effect = "deny";
-              }
-              {
-                action = "subagent";
-                resource = "pilot-l3";
-                effect = "allow";
-              }
-              {
-                action = "dispatch_slice";
-                resource = "*";
-                effect = "deny";
-              }
-              {
-                action = "slice_status";
-                resource = "*";
-                effect = "deny";
-              }
-            ]
-            ++ protected;
+          permissions = [
+            {
+              action = "subagent";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "dispatch_slice";
+              resource = "*";
+              effect = "deny";
+            }
+            {
+              action = "slice_status";
+              resource = "*";
+              effect = "deny";
+            }
+          ];
         };
         pilot-l3 = {
           mode = "subagent";
@@ -199,14 +182,15 @@ in {
             and its verification recipes. For review assignments, inspect the complete
             slice and downstream effects without editing implementation. Report exact
             changed files, commands/results, assumptions and blockers to L2. Never
-            claim a test or deployment ran without evidence. Do not create more agents
-            or allocate remote compute beyond the grant in your handover.
+            claim a test or deployment ran without evidence. Create further agents only
+            when the task needs them, and do not allocate remote compute beyond the
+            grant in your handover.
           '';
           permissions = [
             {
               action = "subagent";
               resource = "*";
-              effect = "deny";
+              effect = "allow";
             }
             {
               action = "dispatch_slice";
@@ -241,21 +225,8 @@ in {
         # discovery, so load the workspace instructions by absolute path.
         # Nested AGENTS.md discovery does not apply to these backends.
         instructions = base.instructions ++ ["${project.directory}/AGENTS.md"];
-        # Backend state holds the server password; role agents must not read it.
-        permissions =
-          builtins.filter (rule: rule.action != "provider.use") base.permissions
-          ++ [
-            {
-              action = "read";
-              resource = "${config.xdg.stateHome}/opencode-v2-backends/*";
-              effect = "deny";
-            }
-            {
-              action = "edit";
-              resource = "${config.xdg.stateHome}/opencode-v2-backends/*";
-              effect = "deny";
-            }
-          ];
+        # All profiles inherit the same OS-level coding authority as Pi.
+        inherit (base) permissions;
         plugins = base.plugins ++ ["file://${threeLevelPlugin}"];
         skills = ["${config.home.homeDirectory}/.agents/skills"];
         experimental =

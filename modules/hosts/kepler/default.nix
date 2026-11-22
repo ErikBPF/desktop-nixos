@@ -23,6 +23,7 @@ in {
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
       m.nixos.kepler-monitoring
+      m.nixos.kepler-development
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas
       m.nixos.containers
@@ -82,6 +83,7 @@ in {
     kepler.k3s.enable = true;
     kepler.k3s.workerCount = 3;
     kepler.k3s.workerVcpu = 4;
+    kepler.k3s.workerMem = 10240;
     services.harborReader = {
       enable = true;
       address = "http://100.103.52.100:8200";

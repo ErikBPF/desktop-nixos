@@ -113,7 +113,7 @@ jobs:
             tests/hyprland-startup tests/kepler-disk tests/kepler-k3s-dns \
             tests/kepler-k3s-identity tests/kepler-k3s-transport tests/kepler-k8s-capacity \
             tests/kepler-vault-lanes tests/kepler-wazuh-firewall tests/kepler-wazuh-k8s \
-            tests/kepler-worker-control tests/kepler-zfs-mount tests/login-startup \
+            tests/kepler-worker-control tests/cp1-targeted-activation tests/kepler-zfs-mount tests/login-startup \
             tests/dead-mans-switch tests/kepler-fast-state tests/orchestration \
             tests/discovery-esp-scratch-restore tests/kepler-compose tests/grafana-alert-ops \
             tests/monitoring-hardening tests/nanokvm-route tests/openbao-audit-status \
@@ -123,6 +123,16 @@ jobs:
         run: |
           nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix
           nix eval --impure --raw --file tests/endeavour-home-backup.nix
+
+      - name: Kepler credential dependency recovery
+        run: |
+          nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix
+          nix eval --impure --raw --file tests/kepler-bootstrap-maintenance/evaluate.nix
+
+      - name: cp1 member replacement candidate
+        run: nix eval --impure --raw --file tests/k3s-bootstrap-reproduction/evaluate.nix
+      - name: Durable cp1 host containment
+        run: nix eval --impure --raw --file tests/kepler-cp1-host-containment/evaluate.nix
 
       - name: Wazuh enrollment trust handshake
         env:
@@ -137,6 +147,10 @@ jobs:
         run: python3 -m unittest discover -s tests/syncthing-conflicts
       - name: Syncthing ignore activation
         run: python3 -m unittest discover -s tests/syncthing-ignore
+      - name: Tmux resume picker
+        run: |
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
+          PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/tmux-resume -v
       - name: Shared compiler-cache writer boundary
         run: |
           python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v

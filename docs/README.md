@@ -15,6 +15,12 @@ line. This index names purpose only, so the two cannot drift apart.
 
 ## Operational references
 
+[K3s bootstrap recovery reproduction](behaviors/k3s-bootstrap-reproduction/one-pager.md)
+records exact-version disposable evidence and rejected recovery assumptions.
+
+[Kepler credential dependency recovery](behaviors/kepler-reader-recovery/one-pager.md)
+records guest restart behavior after the Harbor reader recovers.
+
 [Manual fork sync](guides/github-forks.md) and
 [Orion display capture](guides/orion-display-capture.md) describe opt-in helpers.
 
@@ -25,6 +31,7 @@ developer-tool changes and preserved runtime boundaries.
 |-----|--------|
 | [`reference/graphify-package.md`](reference/graphify-package.md) | Exact Graphify wheel artifacts, offline builds and explicit dependency updates. |
 | [`reference/hermes-state-backup-one-pager.md`](reference/hermes-state-backup-one-pager.md) · [`behavior contract`](behaviors/hermes-state-backup.feature) | Optional encrypted two-agent backup/isolated restore helpers and retained attempt history. |
+| [`reference/argus-owner-verification-one-pager.md`](reference/argus-owner-verification-one-pager.md) | Argus runtime-aware model checks and scoped render verification. |
 | [`reference/hermes-agent-runtime-one-pager.md`](reference/hermes-agent-runtime-one-pager.md) · [`behavior contract`](behaviors/hermes-agent-runtime.feature) | Verified image pins, Argus lifecycle/dedup and synthetic state roundtrip. |
 | [`reference/hermes-agent-hardening-one-pager.md`](reference/hermes-agent-hardening-one-pager.md) · [`behavior contract`](behaviors/hermes-agent-hardening.feature) | Argus evidence/leak boundaries, terminal-only RTK rewriting, and Romozinha health/webhook scope. |
 | [`reference/pr-review-ledger.md`](reference/pr-review-ledger.md) | Per-head review ledger, leases, fast collect, and worker dispatch for the Hackerman PR gate. |
@@ -36,6 +43,7 @@ developer-tool changes and preserved runtime boundaries.
 | [`reference/2026-10-02-cp1-clocksource-canary.md`](reference/2026-10-02-cp1-clocksource-canary.md) | Kepler guest clocksource, dependency-stop recovery, etcd failure investigation and serial worker update evidence. |
 | [`behaviors/local-workspace-sessions/opencode-v2-default-one-pager.md`](behaviors/local-workspace-sessions/opencode-v2-default-one-pager.md) | OpenCode v2 as the default: packaged v2 lane in `opencode-flake`, single-config v2 plugins, `ol`/`ow` via the default alias, v1 removal. |
 | [`behaviors/local-workspace-sessions/opencode-backends-one-pager.md`](behaviors/local-workspace-sessions/opencode-backends-one-pager.md) | Endeavour persistent homelab/work backends, attach commands and deployment evidence. |
+| [`behaviors/opencode-pi-permissions/one-pager.md`](behaviors/opencode-pi-permissions/one-pager.md) | Pi-equivalent coding-tool authority, regression evidence and activation receipt. |
 | [`behaviors/opencode-three-level-backends/one-pager.md`](behaviors/opencode-three-level-backends/one-pager.md) | Three-level `pilot-l1`/`pilot-l2`/`pilot-l3` profiles on the `ol`/`ow` backends, dispatch plugin, inline config and per-backend state. |
 | [`behaviors/opencode-shell-and-mcp-health/one-pager.md`](behaviors/opencode-shell-and-mcp-health/one-pager.md) | L1 shell allow, the retuned shell deny tail, and the Nix-packaged donsetch MCP server. |
 | [`reference/2026-09-07-telemetry-drill.md`](reference/2026-09-07-telemetry-drill.md) | Bounded Discovery Alloy identity-loss procedure, rollback and live evidence; isolated Loki error handling. |
@@ -49,6 +57,8 @@ developer-tool changes and preserved runtime boundaries.
 | [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. |
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. |
+| [`reference/kepler-etcd-member-recovery.md`](reference/kepler-etcd-member-recovery.md) | Preserved divergent etcd evidence, failed bounded recovery, and the K3s bootstrap prerequisite. |
+| [`reference/cp1-targeted-activation.md`](reference/cp1-targeted-activation.md) | Guarded guest-only activation and the separate next-boot persistence boundary. |
 | [`reference/harbor-discovery-registry.md`](reference/harbor-discovery-registry.md) | Harbor registry on discovery — the imperative baseline. |
 | [`reference/2026-10-13-ha-publisher-bootstrap.md`](reference/2026-10-13-ha-publisher-bootstrap.md) | Controller-only IaC Harbor publisher SecretID capture; target preflight, shared lock, no inherited proxy. |
 | [`reference/2026-09-07-desktop-reconciliation.md`](reference/2026-09-07-desktop-reconciliation.md) | Historical rollout, ten-stash review and key-rotation correction. |
@@ -80,7 +90,7 @@ developer-tool changes and preserved runtime boundaries.
 | Doc | Purpose |
 |-----|---------|
 | [`proposals/2026-10-31-repository-simplification.md`](proposals/2026-10-31-repository-simplification.md) · [`behavior contract`](behaviors/repository-simplification/repository-simplification.feature) | Deletion manifest and delivery record for finished-migration tooling, unwired tests, pointer stubs, and the Discovery stateful-stack helpers. |
-| [`proposals/2026-11-13-opencode-shell-permissions.md`](proposals/2026-11-13-opencode-shell-permissions.md) | Effective OpenCode shell policy: explicit `shell allow *`, removed patch and history denials, architect inherits the global rules, preserved secret, blob-read and cross-host deploy denials. |
+| [`implemented/2026-11-13-opencode-shell-permissions.md`](implemented/2026-11-13-opencode-shell-permissions.md) | Historical shell-policy decisions before Pi-equivalent coding authority replaced the deny tail. |
 | [`proposals/2026-09-08-fleet-capability-composition.md`](proposals/2026-09-08-fleet-capability-composition.md) · [`behavior contract`](behaviors/fleet-capability-composition/composition.feature) | grounded `/pl` and `/ip` draft for shared wake/routing capabilities, developer-tool composition and import-only profiles; no implementation or deployment. |
 | [`Independent local workspace sessions`](proposals/2026-09-12-local-workspace-sessions.md) | preserves the recorded September 12 activation; isolated publication checks validate the corrected independent-session behavior. |
 | [`proposals/2026-08-24-kepler-cold-restart-resilience.md`](proposals/2026-08-24-kepler-cold-restart-resilience.md) · [`behavior contract`](behaviors/kepler-cold-restart/kepler-cold-restart.feature) | Implementation planned — reviewed `/pl` contract and `/ip` slices define a forced-off, two-minute-off, power-on sequence, exact storage/source gates, and a 10-minute return deadline. |
@@ -105,3 +115,10 @@ New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
 
 - [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.
+
+- [Kepler bootstrap maintenance](behaviors/kepler-bootstrap-maintenance/one-pager.md): preserve operator-stopped K3s while retaining healthy credential reconciliation.
+
+- [Durable cp1 host boot containment](behaviors/kepler-cp1-host-containment/one-pager.md) — held supplemental recovery output and exact baseline custody.
+
+- [Durable cp1 recovery sequence](reference/cp1-durable-recovery.md) — staged host containment and separately approved member replacement.
+- [Cp1 boot containment checks](reference/cp1-boot-containment-check.md) — installer, boot entry and rollback completion evidence.

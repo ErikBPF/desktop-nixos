@@ -49,13 +49,15 @@ carries no `#variant` suffix; the model definition still rejects
 `reasoning_effort`. Each profile is injected inline through
 `OPENCODE_CONFIG_CONTENT` (highest precedence) and
 `OPENCODE_DISABLE_PROJECT_CONFIG=1` prevents a repository `opencode.json`
-or `.opencode/opencode.json` from widening role permissions. Backend state,
-which holds the server password, is denied to role agents for read and edit.
+or `.opencode/opencode.json` from changing the managed role configuration.
+Backend state uses the same OS file permissions as other user-owned files.
 
-Every role runs shell: L1 carries an explicit `shell allow *` like L2 and L3.
-L1 keeps `edit` denied outside `docs/*`, so credential validation and
-documentation work without a slice while implementation still goes through
-L2/L3.
+Every role runs shell, invokes native subagents and edits source. The global
+`permissions` rules reach every agent; role lists only narrow `dispatch_slice`
+and `slice_status` authority. L1 carries an explicit `shell allow *` and
+`subagent allow *`. All roles inherit unrestricted read, edit and shell rules,
+matching Pi coding-tool authority. Repository instructions still govern intent;
+they are not an enforced tool sandbox.
 
 `OPENCODE_DISABLE_PROJECT_CONFIG=1` also disables project `AGENTS.md`
 discovery. Each generated profile therefore appends the workspace `AGENTS.md`
@@ -93,6 +95,8 @@ command, rather than mutating tool input before permissions. The gateway
 hook scopes `x-opencode-session` to the intended provider and actual
 session. Plugin loading alone is not proof that either behavior works.
 
+`modules/dev/agent-policy.md` is the single owner of Graphify guidance for OpenCode, Codex and Claude, so there is no OpenCode-only plugin.
+
 One global `cli.json` owns terminal settings and permission prompts. Tabs are
 off so tmux owns window switching; the global default is auto-accept, and
 `ol`/`ow` pass `--auto` as well, so the permission prompt is never a gate.
@@ -101,16 +105,15 @@ personal/work split holds. It sets `session.permissions = "autoaccept"` and
 `session.sidebar = "auto"`.
 Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
-The deny tail in `modules/dev/opencode.nix` is the only gate: it blocks branch
-mutation, `find -exec`, `rg --pre`, `nix eval`, the raw cross-host deploy forms
-and blob reads of protected files. Each pattern matches the literal text of one
-subcommand, so the tail cannot see a path a glob expands to and is defence in
-depth rather than a content boundary; the `read` action and the `tool.use`
-policies deny the protected paths. Shell is allowed explicitly, so a session
-runs every other command without a prompt. Force-push
-is allowed; a task branch rebase uses `--force-with-lease`. Architect inherits
-the global read, edit and shell rules. Shell is not a sandbox, and a deployment
-command is approved without a human, so the deny tail is what holds.
+Coding-tool access matches the Pi harness: read, edit and shell actions are
+allowed without harness prompts or path/command denials. The invoking user's
+OS permissions remain the boundary; this does not grant root or change file
+ownership. Secret files, backend state and commands that were previously denied
+are accessible when the OS allows them. Reading credentials may expose values
+to the configured model provider and persisted session history. Keep secrets
+out of reports, commits and indexes; use them without printing when possible.
+Provider routing and L1/L2/L3 dispatch boundaries remain separate controls.
+The repository's direct-launch `opencode.json` uses the same coding authority.
 
 `modules/dev/opencode.nix` packages every local MCP server as a Nix derivation
 (`graphify`, `nix` via the `opencode-flake` default, and `donsetch` from its

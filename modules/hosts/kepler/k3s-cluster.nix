@@ -171,10 +171,13 @@ in {
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
         # etcd is memory + fsync sensitive; 2G/1vcpu flapped under sync load
-        # (grill §3). 4G/2vcpu gives etcd+apiserver headroom. The configured
-        # 3×4G control planes + 3×16G workers use 60 GiB of kepler's 96 GiB.
+        # (grill §3), so 4G/2vcpu was the established headroom point. 2vcpu/3G
+        # is a deliberate, monitored deviation — watch cp-* memory and etcd
+        # fsync latency after rollout and revert to 4096 if it flaps. The
+        # configured 3×3G control planes + 3×10G workers use 39 GiB of kepler's
+        # ~94 GiB.
         vcpu = 2;
-        mem = 4096;
+        mem = 3072;
         disk = 32768;
       }
       else let
@@ -398,6 +401,14 @@ in {
       # discovery's LAN IP (reached from the private subnet via kepler's NAT).
       networking.hosts."192.168.10.210" = ["harbor.homelab.${domain}"];
       services.k3s.extraFlags = ["--private-registry=/run/harbor-reader/registries.yaml"];
+      # Temporary cp-1 member replacement; retain s.clusterInit and its shares.
+      services.k3s.clusterInit = lib.mkIf (name == "cp-1") (lib.mkForce false);
+      services.k3s.serverAddr = lib.mkIf (name == "cp-1") (lib.mkForce "https://10.250.0.13:6443");
+      systemd.services.k3s.wantedBy = lib.mkIf (name == "cp-1") (lib.mkForce []);
+      systemd.services.k3s.serviceConfig = lib.mkIf (name == "cp-1") {
+        Restart = lib.mkForce "no";
+        TimeoutStartSec = lib.mkForce "5min";
+      };
 
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
@@ -408,11 +419,13 @@ in {
       # the rest of /run/secrets. A timer repairs deletion and picks up rotation
       # without bouncing the control plane.
       systemd.services.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
+        enable = lib.mkIf (name == "cp-1") false;
         description = "Reconcile Argo and ESO bootstrap credentials";
         wantedBy = ["multi-user.target"];
         after = ["k3s.service"];
-        wants = ["k3s.service"];
         serviceConfig = {
+          # Reconciliation must not undo an operator's K3s maintenance stop.
+          ExecCondition = "${pkgs.systemd}/bin/systemctl is-active --quiet k3s.service";
           Type = "oneshot";
           UMask = "0077";
           NoNewPrivileges = true;
@@ -479,6 +492,7 @@ in {
         '';
       };
       systemd.timers.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
+        enable = lib.mkIf (name == "cp-1") false;
         wantedBy = ["timers.target"];
         timerConfig = {
           OnBootSec = "30s";
@@ -501,8 +515,8 @@ in {
       };
       workerMem = lib.mkOption {
         type = lib.types.int;
-        default = 16384;
-        description = "RAM (MiB) per worker. Kepler configures 3×16 GiB workers + 3×4 GiB control planes: 60 GiB of 96 GiB total; ARC yields under pressure.";
+        default = 10240;
+        description = "RAM (MiB) per worker. Kepler configures 3×10 GiB workers + 3×3 GiB control planes: 39 GiB of ~94 GiB total. Sized above the measured pod working set (~22 GiB requests, 74% of 30 GiB); note two survivors after a lost worker hold only 20 GiB, so part of an evicted set stays Pending. ARC yields under pressure.";
       };
       workerVcpu = lib.mkOption {
         type = lib.types.int;
@@ -648,6 +662,8 @@ in {
             restartIfChanged = false;
             requiredBy = map (name: "microvm@${name}.service") allNames;
             before = map (name: "microvm@${name}.service") allNames;
+            # Retry dependency-failed guests when the reader itself restarts.
+            wants = map (name: "microvm@${name}.service") allNames;
           };
           k3s-bootstrap-materialize = {
             restartIfChanged = false;

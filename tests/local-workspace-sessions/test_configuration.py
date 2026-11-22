@@ -29,6 +29,8 @@ class Configuration(unittest.TestCase):
           binds = h.wayland.windowManager.hyprland.settings.bind;
           hooks = h.wayland.windowManager.hyprland.settings.on;
           terminal = h.wayland.windowManager.hyprland.settings.terminal;
+          ghostty = toString h.programs.ghostty.package;
+          keplerShortcuts = map toString (builtins.filter (p: p.name == "sk") h.home.packages);
           editor = h.wayland.windowManager.hyprland.settings.terminalEditor or {};
           yazi = h.wayland.windowManager.hyprland.settings.fileManagerTui;
           tmuxConfig = h.xdg.configFile."tmux/desktop-workspaces.conf".text or "";
@@ -375,7 +377,16 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
         self.assertIn("desktop-workspaces recover", json.dumps(self.config["hooks"]))
 
     def test_route_shortcuts_and_limit_rollout(self):
-        self.assertIn("desktop-workspaces launch shell", json.dumps(self.config["terminal"]))
+        self.assertEqual(len(self.config["keplerShortcuts"]), 1)
+        terminal = f'{self.config["ghostty"]}/bin/ghostty +new-window'
+        sk = f'{self.config["keplerShortcuts"][0]}/bin/sk'
+        self.assertEqual(self.config["terminal"], {"_var": f"{terminal} -e {sk}"})
+        remote = [b for b in self.config["binds"] if b.get("_args", [None])[0] == "SUPER + T"]
+        self.assertEqual(len(remote), 1)
+        self.assertEqual(remote[0]["_args"][1]["expr"], "hl.dsp.exec_cmd(terminal)")
+        local = [b for b in self.config["binds"] if b.get("_args", [None])[0] == "SUPER + SHIFT + T"]
+        self.assertEqual(len(local), 1)
+        self.assertEqual(local[0]["_args"][1]["expr"], f'hl.dsp.exec_cmd("{terminal}")')
         self.assertIn("desktop-workspaces launch nvim", json.dumps(self.config["editor"]))
         self.assertIn("desktop-workspaces launch yazi", json.dumps(self.config["yazi"]))
         users = {str(p.relative_to(ROOT)) for p in (ROOT / "modules").rglob("*.nix")

@@ -1,6 +1,5 @@
 """Project overrides must not bypass the managed OpenCode integrations."""
 import json
-import fnmatch
 import unittest
 from pathlib import Path
 
@@ -15,30 +14,10 @@ class ProjectConfiguration(unittest.TestCase):
         self.assertNotIn("nix", self.config.get("mcp", {}))
         self.assertNotIn("filesystem", self.config.get("mcp", {}))
 
-    def test_unlisted_shell_and_deployment_commands_require_approval(self):
-        rules = self.config["permission"]["bash"]
-        self.assertEqual(rules["*"], "ask")
-        for broad in ("just *", "nix build *", "nix flake *"):
-            self.assertNotEqual(rules.get(broad), "allow")
-        for inspection in ("git status --short", "git diff --stat"):
-            self.assertTrue(any(fnmatch.fnmatchcase(inspection, pattern) and effect == "allow"
-                                for pattern, effect in rules.items()))
-
-    def test_inspection_allowances_cannot_include_secret_reads_or_compounds(self):
-        rules = self.config["permission"]["bash"]
-        for command in ("git status; cat .env", "rtk git status && cat .env",
-                        "git diff --no-index /dev/null .env", "rtk git diff -- .env"):
-            effect = "ask"
-            for pattern, candidate in rules.items():
-                if fnmatch.fnmatchcase(command, pattern):
-                    effect = candidate
-            self.assertEqual(effect, "ask", command)
-
-    def test_existing_destructive_denials_remain(self):
-        rules = self.config["permission"]["bash"]
-        for pattern in ("rm -rf /*", "rm -rf ~*", "docker volume rm *",
-                        "docker rm -f *", "*nixos-rebuild*--target-host*"):
-            self.assertEqual(rules[pattern], "deny")
+    def test_coding_tools_use_invoking_user_authority(self):
+        permissions = self.config["permission"]
+        for action in ("read", "edit", "bash", "external_directory"):
+            self.assertEqual(permissions[action], {"*": "allow"})
 
     def test_optional_experiment_fragments_are_pinned_and_private(self):
         directory = ROOT / "modules/dev/opencode-experiments"

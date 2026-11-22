@@ -9,7 +9,8 @@ def test_module_installs_tuicr_with_nix_owned_config():
     assert MODULE.exists()
 
     module = MODULE.read_text()
-    assert "home.packages = [pkgs.tuicr];" in module
+    assert "home.packages = [pkgs.tuicr ocr];" in module
+    assert 'pname = "opencodereview";' in module
     assert 'no_update_check = true;' in module
     assert 'diff_watch_interval_ms = 1000;' in module
 

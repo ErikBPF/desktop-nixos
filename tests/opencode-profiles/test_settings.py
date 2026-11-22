@@ -75,7 +75,7 @@ class ManagedSettings(unittest.TestCase):
         self.assertTrue(any("opencode-ponytail-v2-0.1.0" in p for p in plugins))
         self.assertFalse(any("dcp" in p or "context-fold" in p or "sidebar" in p for p in plugins))
 
-    def test_secret_reads_hard_denied_even_after_agent_allow(self):
+    def test_secret_reads_use_invoking_user_authority(self):
         rules = self.settings.get("permissions", [])
         policies = self.settings["experimental"]["policies"]
         paths = ["local.secrets.json", "nested/local.secret.json", ".env", ".env.local",
@@ -84,9 +84,9 @@ class ManagedSettings(unittest.TestCase):
                  "/run/secrets/opencode/work_key"]
         for path in paths:
             with self.subTest(path=path):
-                self.assertEqual(decision(rules, "read", path), "deny")
-                # Agent permissions append after globals; policies must still block.
-                self.assertEqual(decision(policies, "tool.use", "read:" + path, "allow"), "deny")
+                self.assertEqual(decision(rules, "read", path), "allow")
+                # No hard policy may override the requested read authority.
+                self.assertEqual(decision(policies, "tool.use", "read:" + path, "allow"), "allow")
         self.assertEqual(decision(rules, "read", "modules/dev/opencode.nix"), "allow")
 
     def test_architect_inherits_global_permissions(self):
@@ -97,22 +97,24 @@ class ManagedSettings(unittest.TestCase):
         for command in ["git status --short", "git commit -m x", "git push origin main"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        for command in [f"cat .env", f"git show HEAD:.env",
-                        "nix eval --impure --expr x", f"find . -exec cat x +"]:
+        for command in [f"cat .env", f"git show HEAD:.env"]:
             with self.subTest(command=command):
-                self.assertEqual(shell_decision(rules, command), "deny")
+                self.assertEqual(shell_decision(rules, command), "allow")
         self.assertEqual(decision(rules, "edit", "modules/dev/opencode.nix"), "allow")
-        self.assertEqual(decision(rules, "edit", f".env"), "deny")
+        self.assertEqual(decision(rules, "edit", f".env"), "allow")
 
-    def test_shell_allows_execution_and_preserved_denies(self):
+    def test_shell_and_edits_use_invoking_user_authority(self):
         rules = self.settings.get("permissions", [])
         for command in ["cat README.md", "just switch endeavour", "gh pr create --fill",
                         "git push --force origin main", "git push -f origin main",
-                        "git log --oneline -p", "git diff --stat -U5"]:
+                        "git log --oneline -p", "git diff --stat -U5",
+                        "python3 -c 'import os; print(os.environ)'",
+                        "kubectl get pod x -o jsonpath='{.spec.containers[0].env[*]}'",
+                        "find . -maxdepth 1 -name '*.md' -exec wc -l {} +",
+                        "nix eval --impure --expr '1 + 1'"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        # The retuned tail admits ordinary blob review reads and the repo
-        # skills directory.
+        # Ordinary inspection and previously denied commands share the same authority.
         for command in ["git show HEAD:modules/dev/opencode.nix", "ls .agents",
                         "ls ~/.agents/skills"]:
             with self.subTest(command=command):
@@ -122,10 +124,15 @@ class ManagedSettings(unittest.TestCase):
                         "cat .env.example .env",
                         "git diff --no-index /dev/null .env",
                         "jq . .env",
+                        "rg -n \"secrets/\" README.md",
+                        "cat \"secrets/prod.yaml\"",
+                        "cat 'secrets/key'",
+                        "python3 -c \"open('.env').read()\"",
+                        "python3 -c 'open(\".env\").read()'",
+                        "node -e \"console.log(require('fs').readFileSync('.env','utf8'))\"",
+                        "python3 -c \"open('secrets/k').read()\"",
                         "fd -x cat .env",
                         "find . -exec cat .env +",
-                        "rg --pre cat pattern",
-                        "nix eval --impure --expr 'builtins.readFile \"/etc/passwd\"'",
                         "git branch -D main",
                         "git show HEAD:.env",
                         "git show --stat HEAD:.env",
@@ -138,10 +145,10 @@ class ManagedSettings(unittest.TestCase):
                         "ssh kepler docker compose up -d",
         ]:
             with self.subTest(command=command):
-                self.assertEqual(shell_decision(rules, command), "deny")
-        self.assertEqual(decision(rules, "edit", "flake.lock"), "ask")
+                self.assertEqual(shell_decision(rules, command), "allow")
+        self.assertEqual(decision(rules, "edit", "flake.lock"), "allow")
         for path in ["secrets/key.yaml", f".env", f"nested/.env.local", "private.age", "encrypted.sops"]:
-            self.assertEqual(decision(rules, "edit", path), "deny")
+            self.assertEqual(decision(rules, "edit", path), "allow")
 
 if __name__ == "__main__":
     unittest.main()
