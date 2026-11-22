@@ -29,14 +29,22 @@ Last updated: 2026-07-17.
 ```
 
 - **Cluster**: k3s on NixOS microvms (cloud-hypervisor), HA embedded etcd.
-  3 control-plane (2 vCPU / 3 GB) + 3 workers (2 vCPU / 10 GB). Defined entirely in
+  3 control-plane (2 vCPU / 3 GB) + 3 workers (4 vCPU / 10 GB). Defined entirely in
   `modules/hosts/kepler/k3s-cluster.nix` (dendritic). Scale workers by bumping
-  `workerCount` + switch. Workers 2 vCPU / 10 GiB and control planes 2 vCPU /
+  `workerCount` + switch. Workers 4 vCPU / 10 GiB and control planes 2 vCPU /
   3 GiB fit 3+3 nodes in ~39 GiB of kepler's ~94 GiB. The worker pool is
   sized above the measured pod working set (~22 GiB requests, 74% of 30 GiB);
   note the two survivors after a lost worker hold only 20 GiB, so part of an
-  evicted set stays Pending until it returns. The control-plane 3 GiB is a
-  monitored deviation from the recorded 4 GiB etcd headroom point.
+  evicted set stays Pending until it returns. Workers keep 4 vCPU: the ~7.5
+  cores of pod CPU requests do not fit 3 x 2 vCPU, and the NFS storage class
+  pins each volume to one worker, so under-scheduling is not movable. That
+  restores the 1.5x guest-vCPU overcommit (18 guest vCPU on kepler's 12
+  threads); unlike guest RAM, vCPU is CFS shares. Watch host CPU saturation
+  beside the ZFS/ARC, NAS and podman/compose stacks, and cp-* etcd heartbeat
+  and fsync latency; roll back to `workerVcpu = 3` (9 worker cores, 1.25x,
+  still above the ~7.5-core request set) if it degrades. The
+  control-plane 3 GiB is a monitored deviation from the recorded 4 GiB etcd
+  headroom point.
 - **kepler L4 LB** (host nginx stream): `.245:6443` → apiserver; `.250:443` →
   worker NodePort `30444` (Traefik, post-cutover). Host-only config — reloading
   it does **not** bounce the guests.
