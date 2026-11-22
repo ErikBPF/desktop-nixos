@@ -149,16 +149,17 @@ python3 -m unittest discover -s tests/local-workspace-sessions
 python3 -m unittest discover -s tests/opencode-project -p 'test_*.py'
 ```
 
-For the approved Endeavour user-only activation, use the documented recipe
-with normal roots, not the harness's isolated trial XDG roots:
+For the approved Endeavour user-only activation, use:
 
 ```sh
-XDG_CONFIG_HOME="$HOME/.config" \
-XDG_DATA_HOME="$HOME/.local/share" \
-XDG_STATE_HOME="$HOME/.local/state" \
-XDG_CACHE_HOME="$HOME/.cache" \
 just home-switch endeavour
 ```
+
+The recipe sets normal XDG roots and runs activation in the independent
+`home-manager-switch.service` user unit. It survives a backend restart and
+rejects overlapping activations through that same unit name. Inspect its logs
+with `journalctl --user -u home-manager-switch.service`. Do not invoke a
+Home Manager activation script directly from an isolated harness environment.
 
 After activation, verify both unit PIDs/executables, authenticated V2 API
 responses, routes, model/tool behavior and V1 metadata. Native discovery can
