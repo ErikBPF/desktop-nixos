@@ -398,6 +398,14 @@ in {
       # discovery's LAN IP (reached from the private subnet via kepler's NAT).
       networking.hosts."192.168.10.210" = ["harbor.homelab.${domain}"];
       services.k3s.extraFlags = ["--private-registry=/run/harbor-reader/registries.yaml"];
+      # Temporary cp-1 member replacement; retain s.clusterInit and its shares.
+      services.k3s.clusterInit = lib.mkIf (name == "cp-1") (lib.mkForce false);
+      services.k3s.serverAddr = lib.mkIf (name == "cp-1") (lib.mkForce "https://10.250.0.13:6443");
+      systemd.services.k3s.wantedBy = lib.mkIf (name == "cp-1") (lib.mkForce []);
+      systemd.services.k3s.serviceConfig = lib.mkIf (name == "cp-1") {
+        Restart = lib.mkForce "no";
+        TimeoutStartSec = lib.mkForce "5min";
+      };
 
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;
@@ -408,6 +416,7 @@ in {
       # the rest of /run/secrets. A timer repairs deletion and picks up rotation
       # without bouncing the control plane.
       systemd.services.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
+        enable = lib.mkIf (name == "cp-1") false;
         description = "Reconcile Argo and ESO bootstrap credentials";
         wantedBy = ["multi-user.target"];
         after = ["k3s.service"];
@@ -480,6 +489,7 @@ in {
         '';
       };
       systemd.timers.k3s-bootstrap-secrets = lib.mkIf s.clusterInit {
+        enable = lib.mkIf (name == "cp-1") false;
         wantedBy = ["timers.target"];
         timerConfig = {
           OnBootSec = "30s";

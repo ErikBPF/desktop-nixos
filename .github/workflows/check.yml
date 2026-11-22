@@ -129,6 +129,9 @@ jobs:
           nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix
           nix eval --impure --raw --file tests/kepler-bootstrap-maintenance/evaluate.nix
 
+      - name: cp1 member replacement candidate
+        run: nix eval --impure --raw --file tests/k3s-bootstrap-reproduction/evaluate.nix
+
       - name: Wazuh enrollment trust handshake
         env:
           WAZUH_CONTAINER_ENGINE: docker
