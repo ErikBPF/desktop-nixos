@@ -26,7 +26,7 @@ Both aliases have typed `no-log=true`; key metadata disables normal prompt stora
 
 ## Continuing work and recovery
 
-Resolve Orion GPU availability and host scheduled-exec health separately; complete privacy observation before claiming zero-content logging. Client/IaC source integration remains pending, and a later unrelated Home Manager activation can remove the scoped deployment. Migration paths and prior unit/config targets are recorded privately at `~/.local/state/voice-dictation/litellm-migration-paths.json`; restore those targets and reload services/Hyprland to recover the previous local flow. No archive, meeting capture or graph ingestion was added.
+Resolve Orion GPU availability and host scheduled-exec health separately; complete privacy observation before claiming zero-content logging. Client/IaC source is prepared for PR review; merge integration remains pending, and a later unrelated Home Manager activation can remove the scoped deployment. Migration paths and prior unit/config targets are recorded privately at `~/.local/state/voice-dictation/litellm-migration-paths.json`; restore those targets and reload services/Hyprland to recover the previous local flow. No archive, meeting capture or graph ingestion was added.
 
 ## Shortcut revision — 2026-11-22
 
@@ -39,3 +39,5 @@ Validation: 27 controller tests and source binding assertions passed; live Hyprl
 Activation provides the clients and services, but does not fetch the private gateway key or seed Ollama. Use the authorized OpenBao reader to retrieve only `VOICE_LITELLM_API_KEY` from `secret/home/voice-litellm` into `~/.config/voice-dictation/litellm-api-key` (parent directory mode0700, file mode0600). Never paste the value into a shell argument, journal, Nix expression or review artifact. Missing credentials select local fallback.
 
 Start `voice-rewrite.service`, then seed its dedicated storage with `OLLAMA_HOST=127.0.0.1:11435 ollama pull qwen3.5:4b`. Verify `http://127.0.0.1:11435/api/tags` reports model `qwen3.5:4b` and digest `d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04` before claiming the observed local qualification applies. A mutable tag resolving differently requires new qualification. Parakeet files are checksum-pinned by Nix. The live local rewrite evaluator now explicitly disables gateway access.
+
+Publication review (2026-11-22): rebased onto Orion wiring and current main. Added fresh-install model/key prerequisites and forced the local rewrite evaluator to bypass gateway access. All four local synthetic rewrite cases passed again; 27 controller tests, Nix lint/format and documentation checks passed. Physical-microphone behavior remains unresolved. Historical patch receipts preserve their original whitespace.
