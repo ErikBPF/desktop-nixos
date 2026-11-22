@@ -154,8 +154,13 @@ in `/var/lib/rancher/k3s/server/db/snapshots`, not the scheduled virtiofs share.
 All three snapshot metadata checks passed. Each selected snapshot and matching
 `/tokens/token` was streamed over authenticated nested SSH into local age stdin;
 only encrypted output reached Endeavour disk. The coordinator subsequently exported the existing scheduled snapshots as an
-approximately 816 MB encrypted off-host archive. Off-host validation of the latest
-three snapshots remains pending at this checkpoint.
+approximately 816 MB encrypted off-host archive; those historical copies remain
+unvalidated. All three fresh bundles passed off-host validation: snapshot SHA-256
+matched the source, matching tokens were present without display, and etcdutl
+3.6.14 passed snapshot status and isolated restore with hash checks enabled.
+No etcd server was started, and private plaintext validation directories were
+removed. This proves format/checksum restoration, not historical correctness or
+a production K3s restore.
 These are coordinator observations, not executions by this document's author.
 
 Matching local diagnostic binaries were obtained from the official etcd 3.6.14
@@ -163,6 +168,13 @@ Linux amd64 release. Both report version 3.6.14/API 3.6. Archive SHA-256
 `ffe840ff9295808e88cce2794a18a5ac87f12a5203c8314d0bf6aa119b41bac5`
 matched both the release SHA256SUMS and GitHub's asset digest before extraction.
 No binary was installed into a live guest by this author.
+
+The latest pre-repair checks at common hash revision 64426062 and compact
+revision 64423411 returned cp-1 hash 693956178 versus cp-2/cp-3 hash 3536509858.
+All three endpoint health checks passed; cp-3 remained leader, term 140. The
+specific user approval for stopping cp-1, preserving its complete stopped state,
+moving only `member/snap`, and one five-minute attempt remains pending. No
+stopped-database backup or member repair has occurred. Silence is not approval.
 
 The coordinator independently reviewed and accepted the bounded candidate after
 preservation and applicable approval. `just docs-check` and `git diff --check`
