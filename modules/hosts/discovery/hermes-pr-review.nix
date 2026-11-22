@@ -251,8 +251,9 @@ _: {
         default = "low";
       };
       ocrTimeoutMinutes = lib.mkOption {
-        type = lib.types.ints.positive;
+        type = lib.types.ints.between 1 10;
         default = 5;
+        description = "Per-subtask budget in minutes. The pass ceiling is this value times the effort rounds (low 1, medium 2, high 3); the collector caps OCR work at 20 minutes per run and the unit at 30.";
       };
       ocrBaseUrl = lib.mkOption {
         type = lib.types.str;

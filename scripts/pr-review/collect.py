@@ -26,6 +26,10 @@ import ledger
 import tokens
 
 GH = "gh"
+# OCR scales its task budget by the effort rounds. Keep the wrapper ceiling,
+# the per-run cap and the unit start bound in one budget.
+OCR_EFFORT_ROUNDS = {"low": 1, "medium": 2, "high": 3}
+OCR_RUN_BUDGET_SECONDS = 20 * 60
 # The required check's name. `tests/pr-review-publish.py` asserts it matches
 # the publisher's constant.
 CHECK_NAME = "hackerman-cr/evaluation"
@@ -528,6 +532,12 @@ def ocr_invocation(
     ]
 
 
+def ocr_budget(cfg: dict) -> int:
+    """Seconds for one head: effort rounds times the task budget, plus fetch slack."""
+    rounds = OCR_EFFORT_ROUNDS.get(cfg.get("effort", "low"), 1)
+    return int(cfg.get("timeout_minutes", 5)) * rounds * 60 + 60
+
+
 def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path) -> None:
     """Run the candidate pass. A broken pass must never block the review."""
     try:
@@ -535,7 +545,7 @@ def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path) -> N
             ocr_invocation(cfg, worktree, base, head, out),
             capture_output=True,
             text=True,
-            timeout=max(600, int(cfg.get("timeout_minutes", 5)) * 60 * 3),
+            timeout=ocr_budget(cfg),
         )
         if proc.returncode != 0:
             detail = (proc.stderr or proc.stdout or "").strip().splitlines()
@@ -598,6 +608,16 @@ def ocr_candidates(args, repo: str, base: str, head: str, bundle: Path, token: s
     """Write `ocr.json` into the bundle when this repo opts in."""
     cfg = ocr_settings({"ocr": getattr(args, "ocr", None)}, repo)
     if cfg is None:
+        return
+    deadline = getattr(args, "ocr_deadline", None)
+    if deadline is not None and time.time() >= deadline:
+        (bundle / "ocr.json").write_text(
+            json.dumps(
+                {"status": "skipped", "message": "OCR run budget exhausted"},
+                indent=2,
+            )
+            + "\n"
+        )
         return
     cache = None
     worktree = None
@@ -891,6 +911,8 @@ def main() -> int:
     settings = tokens.load_settings(args.config)
     review_drafts = bool(settings.get("review_drafts", True))
     args.ocr = settings.get("ocr")
+    if (args.ocr or {}).get("enable") and (args.ocr or {}).get("repos"):
+        args.ocr_deadline = time.time() + OCR_RUN_BUDGET_SECONDS
     state_dir = Path(args.state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
     state_path = state_dir / "state.json"
