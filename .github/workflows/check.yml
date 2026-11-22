@@ -125,7 +125,9 @@ jobs:
           nix eval --impure --raw --file tests/endeavour-home-backup.nix
 
       - name: Kepler credential dependency recovery
-        run: nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix
+        run: |
+          nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix
+          nix eval --impure --raw --file tests/kepler-bootstrap-maintenance/evaluate.nix
 
       - name: Wazuh enrollment trust handshake
         env:

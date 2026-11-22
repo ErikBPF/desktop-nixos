@@ -109,3 +109,5 @@ New design work: add an RFC under `proposals/` named
 `YYYY-MM-DD-<slug>.md`; promote decisions to ADRs once locked.
 
 - [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.
+
+- [Kepler bootstrap maintenance](behaviors/kepler-bootstrap-maintenance/one-pager.md): preserve operator-stopped K3s while retaining healthy credential reconciliation.
