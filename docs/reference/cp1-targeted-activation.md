@@ -1,8 +1,9 @@
 # Targeted cp-1 recovery activation
 
 **Status:** Guest recovery remains blocked after the approved preview failed on
-2026-11-22, before dry activation. The coordinator reports the reviewed host
-containment deployed and verified; this replaces the earlier old-installer hold.
+2026-11-22, before dry activation. The [observed host receipt](cp1-boot-containment-check.md) records the reviewed
+containment deployment and verification; this closes the earlier old-installer
+hold for that observed baseline.
 The helper incorrectly required a service-only `MainPID` property on an inactive
 timer. The source repair below requires review before another preview. No member
 removal, quarantine, guest switch or K3s start followed this failure. Follow the
@@ -103,9 +104,9 @@ The former executable post-health `current`-symlink persistence block is
 withdrawn. Delaying persistence until health leaves a failed-switch/reboot window;
 changing only the symlink does not survive the old declarative installer.
 
-Before any member removal or datastore quarantine, a separately reviewed owner
-procedure must establish and verify durable host selection of the safe cp-1
-runner. Evidence must bind the published source and persistent host closure to
+The [owner containment receipt](cp1-boot-containment-check.md) records successful
+durable host selection at 14:11 UTC. Before any member removal or quarantine,
+require that observed baseline to remain unchanged; re-establish the gate on drift. Evidence must bind the published source and persistent host closure to
 the installed `install-microvm-cp-1` definition and its declared runner, prove
 that the selected runner contains the reviewed guest configuration, and cover
 failure and reboot ordering. Preserve concurrent host changes, sibling guests,
