@@ -333,3 +333,77 @@ capture-k3s-vault-lane-secrets:
     done
     unset token
     echo ":: lane AppRole credentials encrypted in sops"
+
+# Prepare only immutable cp-1 artifacts from a published revision; no activation.
+cp1-stage-artifacts revision:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    revision={{quote(revision)}}
+    [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || exit 2
+    builders=$(just _builders kepler)
+    outputs=$(nix build --no-link --print-out-paths \
+      --builders "$builders" --max-jobs 0 --builders-use-substitutes --impure --expr \
+      "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in [ c.system.build.toplevel c.microvm.declaredRunner c.nix.package.out e.pkgs.python3.out (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) ]")
+    mapfile -t artifacts <<< "$outputs"
+    test "${#artifacts[@]}" -eq 5
+    NIX_SSHOPTS='-o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none' \
+      nix copy --to 'ssh://erik@{{ip_kepler}}:2222?remote-program=sudo%20-n%20nix-store' "${artifacts[@]}"
+    for artifact in "${artifacts[@]}"; do
+      [[ "$artifact" =~ ^/nix/store/[a-z0-9]{32}-[A-Za-z0-9+._-]+$ ]] || exit 2
+    done
+    ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none \
+      erik@{{ip_kepler}} "sudo -n bash -s -- '$revision' ${artifacts[*]}" <<'ROOT'
+    set -euo pipefail
+    revision=$1; shift
+    directory=/nix/var/nix/gcroots/cp1-recovery-$revision
+    [[ ! -L "$directory" ]]
+    if [[ ! -d "$directory" ]]; then mkdir -m 0700 "$directory"; fi
+    [[ $(stat -c '%u:%a' "$directory") == 0:700 ]]
+    for artifact in "$@"; do
+      nix-store --query --requisites "$artifact" | xargs -r nix-store --check-validity
+      link=$directory/$(basename "$artifact")
+      if [[ -L "$link" ]]; then [[ $(readlink "$link") == "$artifact" ]]; else ln -s "$artifact" "$link"; fi
+    done
+    ROOT
+    printf '%s\n' "${artifacts[@]}"
+
+# Manifest is already reviewed and materialized privately on Kepler; no discovery.
+cp1-activate manifest mode="preview":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    manifest={{quote(manifest)}}
+    mode={{quote(mode)}}
+    [[ "$manifest" =~ ^/tmp/cp1-activation-[A-Za-z0-9._-]+\.json$ ]] || exit 2
+    case "$mode" in preview|activate) ;; *) exit 2;; esac
+    ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none \
+      erik@{{ip_kepler}} "bash -s -- '$manifest' '$mode'" < scripts/activate-cp1.sh
+
+# Read-only source metadata for a reviewed published cp-1 revision.
+cp1-artifact-metadata revision:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    revision={{quote(revision)}}
+    [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || exit 2
+    nix eval --json --impure --expr \
+      "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in {
+        sourceRevision = \"$revision\";
+        stateDir = f.nixosConfigurations.kepler.config.microvm.stateDir;
+        toplevel = c.system.build.toplevel.outPath;
+        runner = c.microvm.declaredRunner.outPath;
+        nix = c.nix.package.outPath;
+        python = e.pkgs.python3.outPath;
+        conditionSystemd = e.pkgs.systemd.outPath;
+        registration = toString (e.pkgs.closureInfo { rootPaths = [ c.system.build.toplevel ]; }) + \"/registration\";
+        hardware = {
+          kernel = toString c.system.build.kernel + \"/\" + c.system.boot.loader.kernelFile;
+          initrd = toString c.system.build.initialRamdisk + \"/\" + c.system.boot.loader.initrdFile;
+          interfaces = map (i: { inherit (i) type id mac; }) c.microvm.interfaces;
+          inherit (c.microvm) volumes shares;
+        };
+        inherit (c.services.k3s) clusterInit serverAddr;
+        wantedBy = c.systemd.services.k3s.wantedBy;
+        restart = c.systemd.services.k3s.serviceConfig.Restart;
+        timeoutStartSec = if c.systemd.services.k3s.serviceConfig.TimeoutStartSec == \"5min\" then 300 else c.systemd.services.k3s.serviceConfig.TimeoutStartSec;
+        bootstrapTimer = c.systemd.timers.k3s-bootstrap-secrets.enable;
+        bootstrapService = c.systemd.services.k3s-bootstrap-secrets.enable;
+      }"

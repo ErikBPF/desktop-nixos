@@ -53,6 +53,7 @@ developer-tool changes and preserved runtime boundaries.
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. |
 | [`reference/kepler-etcd-member-recovery.md`](reference/kepler-etcd-member-recovery.md) | Preserved divergent etcd evidence, failed bounded recovery, and the K3s bootstrap prerequisite. |
+| [`reference/cp1-targeted-activation.md`](reference/cp1-targeted-activation.md) | Guarded guest-only activation and the separate next-boot persistence boundary. |
 | [`reference/harbor-discovery-registry.md`](reference/harbor-discovery-registry.md) | Harbor registry on discovery — the imperative baseline. |
 | [`reference/2026-10-13-ha-publisher-bootstrap.md`](reference/2026-10-13-ha-publisher-bootstrap.md) | Controller-only IaC Harbor publisher SecretID capture; target preflight, shared lock, no inherited proxy. |
 | [`reference/2026-09-07-desktop-reconciliation.md`](reference/2026-09-07-desktop-reconciliation.md) | Historical rollout, ten-stash review and key-rotation correction. |
