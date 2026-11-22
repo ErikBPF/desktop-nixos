@@ -313,6 +313,8 @@ _: {
             ["-${cfg.upstreamTokenFile}"]
             ++ lib.optionals cfg.ocrEnable ["-${cfg.ocrEnvFile}"];
           Environment = lib.optionals cfg.ocrEnable [
+            # ocr resolves its config under $HOME; the collector has none.
+            "HOME=${cfg.dataDir}/ocr-home"
             "OCR_LLM_URL=${cfg.ocrBaseUrl}"
             "OCR_LLM_MODEL=${cfg.ocrModel}"
             "OCR_LLM_PROTOCOL=openai"
