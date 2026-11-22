@@ -39,7 +39,10 @@ markdown artifact (OCR does not read `.md`) or the user declines.
 
 Run against the resolved target:
 
+Create the output directory once; `ocr` refuses a missing parent:
+
 ```bash
+install -d /tmp/opencode/cr-ocr
 ocr review --format json --audience agent -o /tmp/opencode/cr-ocr/<slug>.json
 ocr review --format json --audience agent -c <sha> -o /tmp/opencode/cr-ocr/<slug>.json
 ocr review --format json --audience agent --from <base> --to <head> -o /tmp/opencode/cr-ocr/<slug>.json

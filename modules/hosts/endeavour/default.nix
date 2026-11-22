@@ -112,7 +112,7 @@ in {
 
         [profiles.desktop]
         GH_TOKEN = { description = "GitHub CLI token maintained in OpenBao", ref = { item = "iac/github", field = "token" }, providers = ["bao_home"] }
-        LITELLM_OCR_API_KEY = { description = "Open Code Review LiteLLM key maintained in OpenBao", ref = { item = "home/ocr-review-litellm", field = "LITELLM_OCR_API_KEY" }, providers = ["bao_home"] }
+        LITELLM_OCR_API_KEY = { description = "Open Code Review LiteLLM key maintained in OpenBao", ref = { item = "home/ocr-review-litellm", field = "LITELLM_OCR_API_KEY" }, providers = ["bao_home"], required = false }
       '';
 
       home.packages = [pkgs.secretspec sk ocrLitellmKey];
@@ -127,7 +127,7 @@ in {
           api_key_cmd = "${ocrLitellmKey}/bin/ocr-litellm-key";
           # The gateway routes per session; the placeholder keeps one value
           # per OCR run, the same contract as opencode's gateway plugin.
-          extra_headers = "x-opencode-session={ocr_session_key}";
+          extra_headers = {"x-opencode-session" = "{ocr_session_key}";};
         };
       };
 
