@@ -75,6 +75,10 @@ budget. Its bootstrap service/timer are disabled. The original node specificatio
 and bootstrap share remain unchanged. A Nix assertion failed before these edits
 and passed afterward. The maintenance suppression fix in PR505 is a prerequisite;
 the owning helper must permit its exact manifest-reconciler change as well.
+The targeted build passed: closure `xp0gqc2bhpj5aqn6ivyv2qfj4753mwcc`,
+runner `52z7d4x4jh743sdk3f5iwgkylgmwrs2c`. Actual bootstrap units resolve to
+`/dev/null`; five sibling outputs and cp1 hardware match the PR505 baseline.
+Lint, formatting, docs links, Nix assertions and actual commit hooks passed.
 
 Activation starts K3s: the fresh approved member removal and full-directory
 quarantine must happen first. The [ordered recovery plan](recovery-plan.md)
@@ -82,7 +86,6 @@ defines that boundary. Do not deploy the whole host or activate siblings.
 Restart=no and disabled reconciliation remain temporary reliability limitations
 until a separately reviewed cleanup restores them after recovery; a successful
 join alone does not close the incident.
-
 
 The process fixture has no agents, Kubernetes Node UID or node-password
 controller: those production identity checks require separate source review and

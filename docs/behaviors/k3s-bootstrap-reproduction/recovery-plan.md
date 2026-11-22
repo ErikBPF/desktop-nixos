@@ -32,8 +32,11 @@ production recovery recipe.
    not pull K3s back in. The other control planes remain running.
 6. Build and copy the exact reviewed guest closure/runner/registration through
    the owning helper. Inspect the rendered activation script for dry-activation
-   support, then run the validated `switch-to-configuration dry-activate` preview.
-   Review that preview before requesting fresh approval. No whole-host switch.
+   support. The generated dry script honors dry user/group changes but still
+   runs `install -d` on `/root` and `/home`, potentially normalizing metadata.
+   Use static unit/hardware comparison before approval; include that bounded
+   metadata effect in approval before running `switch-to-configuration
+   dry-activate`. Review its output before the irreversible step. No whole-host switch.
 
 ## One separately approved replacement attempt
 
