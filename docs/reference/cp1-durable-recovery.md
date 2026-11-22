@@ -12,6 +12,11 @@ member-removal retry, old-WAL restart or return to the unsafe old host profile.
 Desktop owns the supplemental `kepler-cp1-recovery` configuration. The source extends reconciled baseline
 `a3f290e015eacce61e718f8596cdb6acc3716c7c` and selects the published guest from
 `228bc67bf427fa1c4d33508f3f5967e2b1008d7a` through native `evaluatedConfig`.
+Both sources are declared inputs in `flake.nix` and recorded with NAR hashes in
+`flake.lock`, preserving their historical dependency graphs. Retain the published
+`recovery/kepler-zi7-baseline` and `recovery/kepler-cp1-guest` artifact branches
+until no consumer depends on them; never merge their historical trees to main.
+Offline evaluation requires the locked source paths already present in the store.
 Supplemental-only boot counting is disabled. These are source pins, not permission
 to execute the old manifest. Use the final reviewed published host revision,
 not a mutable working tree or the ordinary `kepler` output.

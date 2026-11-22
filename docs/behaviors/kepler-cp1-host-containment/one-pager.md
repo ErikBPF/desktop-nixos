@@ -87,3 +87,13 @@ The held [owner sequence](../../reference/cp1-durable-recovery.md) requires the
 CI on initial head `caa12d00` misclassified the public encrypted-file SHA256 as an
 API key; naming that expected hash separately preserves the assertion and passes
 Gitleaks 8.24.3 without an allowlist.
+
+Hosted P2 review identified source-retention risk. Both exact sources are now
+declared flake inputs with NAR hashes; their own dependency locks remain intact.
+Recursive comparison confirms all 85 prior input nodes unchanged despite lock-node
+renaming. Retain `recovery/kepler-zi7-baseline` and `recovery/kepler-cp1-guest`
+while any recovery consumer exists; never merge those historical artifact branches.
+An offline evaluation still requires the referenced sources in the local store.
+The final offline acceptance gate passed with the same built `492mc5…` host;
+receipts are `/tmp/kepler-retention-eval.log` and
+`/tmp/kepler-retention-lock-comparison.json`. Independent graph review passed.
