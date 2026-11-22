@@ -78,3 +78,11 @@ change into main so future deployments retain it. Preserve the earlier activatio
 receipt as historical evidence, not current-state proof. Refresh against main,
 rerun checks and require CI plus exact-head review before merging. This merge
 step does not itself reactivate the host.
+
+
+CR reconciliation: the session guide still named the deleted deny tail, and the
+older shell-permissions proposal remained active. Updated the guide to describe
+OS authority and moved the superseded proposal to `docs/implemented/`, retaining
+its seed and S1/S2 history with links to current policy. No behavior changed.
+All 58 focused tests passed after the main rebase; the later main update only
+changed tuicr test wiring. Fresh CI and review cover the final published head.

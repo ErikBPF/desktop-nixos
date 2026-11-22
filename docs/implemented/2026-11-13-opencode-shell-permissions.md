@@ -1,6 +1,11 @@
 # OpenCode shell and PR permissions
 
-**Status:** Implemented for S1 and S2; S3 deployment verification pending.
+**Status:** Superseded by PR #523 on 2026-11-22. Historical S1/S2 record;
+its deny-tail policy is no longer the requested behavior. See the
+[Pi-equivalent permission record](../behaviors/opencode-pi-permissions/one-pager.md)
+and [current OpenCode configuration](../reference/opencode-profiles.md).
+The baseline and destination below describe the earlier policy, not current
+operational guidance.
 
 ## Human seed and destination
 
