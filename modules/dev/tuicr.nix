@@ -5,8 +5,27 @@ _: {
     ...
   }: let
     toml = pkgs.formats.toml {};
+
+    # Open Code Review (`ocr`) — not in nixpkgs; pinned upstream static
+    # release asset (raw binary, so dontUnpack). The /cr skill runs it as an
+    # optional machine pre-pass before the human tuicr review. Bump version and
+    # hash with `nix-prefetch-url <url>`.
+    ocr = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+      pname = "opencodereview";
+      version = "1.14.0";
+      src = pkgs.fetchurl {
+        url = "https://github.com/alibaba/open-code-review/releases/download/v${finalAttrs.version}/opencodereview-linux-amd64";
+        hash = "sha256-P6+He7eHICad0hUhWrfPR0G/GI4WO48YASy+LTujA30=";
+      };
+      dontUnpack = true;
+      installPhase = ''
+        runHook preInstall
+        install -Dm755 $src $out/bin/ocr
+        runHook postInstall
+      '';
+    });
   in {
-    home.packages = [pkgs.tuicr];
+    home.packages = [pkgs.tuicr ocr];
 
     home.file.".agents/skills/tuicr".source = "${pkgs.tuicr.src}/skills/tuicr";
 

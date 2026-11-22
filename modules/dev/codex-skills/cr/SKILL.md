@@ -30,6 +30,49 @@ Commit policy:
 - artifact: commit only if the user asks. Hand the working-tree document at its
   current revision so the human reviews the exact bytes under discussion.
 
+## 1b. Optional machine pre-pass (code diffs only)
+
+OCR (`ocr`) runs the same diff through a deterministic file and rule pipeline
+and a cheaper model. It is not a self-review: the agent produces a candidate
+list, the human owns every comment. Skip this step when the target is a
+markdown artifact (OCR does not read `.md`) or the user declines.
+
+Run against the resolved target:
+
+Create the output directory once; `ocr` refuses a missing parent:
+
+```bash
+install -d /tmp/opencode/cr-ocr
+ocr review --format json --audience agent -o /tmp/opencode/cr-ocr/<slug>.json
+ocr review --format json --audience agent -c <sha> -o /tmp/opencode/cr-ocr/<slug>.json
+ocr review --format json --audience agent --from <base> --to <head> -o /tmp/opencode/cr-ocr/<slug>.json
+```
+
+The first form covers uncommitted work, the second the last commit, the third a
+branch against its base. `<slug>` names the review session.
+
+The host configuration declares the LiteLLM provider, endpoint, and model in
+`~/.opencodereview/config.json`. The key comes from OpenBao through
+`ocr-litellm-key` at run time, so it never enters that file. Verify the path
+once with `ocr llm test`. On a host without that configuration, skip the
+pre-pass or run it where the provider is declared. Never paste a key into chat
+or the review session.
+
+Summarize the result before launching tuicr:
+
+```bash
+jq -r '"status=\(.status) files=\(.summary.files_reviewed // 0) candidates=\(.comments|length)",
+  (.comments[]? | "\(.path):\(.start_line)-\(.end_line) — \(.content)")' <json>
+```
+
+Show the top candidates and keep the JSON path for step 3. A candidate is not a
+finding: the human decides which ones matter, and the agent fixes a candidate
+only when the human asks. If `ocr` is missing or the provider is unconfigured,
+say so in one line and continue without the pre-pass.
+
+When the pre-pass ran, record which candidates the human accepted or rejected
+with the other dispositions in step 4.
+
 ## 2. Launch the TUI
 
 Build the tuicr args: diff → none (`-w` to force uncommitted-only); artifact →
