@@ -20,6 +20,10 @@ class GatewayHeaders(unittest.TestCase):
             "--apply", 'settings: { inherit (settings) plugins; workModel = settings.provider.work.models."deepseek-v4.1-flash"; }',
         ], cwd=ROOT, text=True))
         plugins = managed["plugins"]
+        rendered_agents = subprocess.check_output([
+            "nix", "eval", "--raw",
+            '.#nixosConfigurations.endeavour.config.home-manager.users.erik.xdg.configFile."opencode/AGENTS.md".text',
+        ], cwd=ROOT, text=True)
         temporary_parent = Path.home() / ".local/share/opencode-v2/tmp/opencode"
         temporary_parent.mkdir(parents=True, exist_ok=True)
 
@@ -43,6 +47,7 @@ class GatewayHeaders(unittest.TestCase):
                 root = Path(directory)
                 config = root / "config/opencode"
                 config.mkdir(parents=True)
+                (config / "AGENTS.md").write_text(rendered_agents)
                 repo = root / "repo"
                 repo.mkdir()
                 settings = {
@@ -91,6 +96,8 @@ class GatewayHeaders(unittest.TestCase):
                                 self.assertIn("PONYTAIL MODE ACTIVE", json.dumps(body))
                             if work:
                                 self.assertFalse("reasoning_effort" in body, "Work gateway rejects this parameter")
+                            self.assertIn("graphify_query_graph", json.dumps(body),
+                                          "Managed instruction text must reach the model request")
             finally:
                 server.shutdown()
                 thread.join()
