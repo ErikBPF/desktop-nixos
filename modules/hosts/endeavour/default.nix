@@ -82,6 +82,9 @@ in {
     }: let
       sk = pkgs.writeShellScriptBin "sk" ''
         if (( $# > 0 )); then
+          if [ -t 0 ] && [ -t 1 ]; then
+            exec ${pkgs.openssh}/bin/ssh -o RequestTTY=yes kepler "$@"
+          fi
           exec ${pkgs.openssh}/bin/ssh kepler "$@"
         fi
         exec ${config.home.profileDirectory}/bin/desktop-workspaces remote

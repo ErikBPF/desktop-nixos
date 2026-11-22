@@ -157,3 +157,27 @@ tests to skip on runners without it. The workflow now builds the same tmux
 package as the adjacent workspace smoke step and adds it to PATH for the picker
 suite. This verified finding is fixed rather than waived; CI must execute all
 13 picker tests. The production closure is unchanged by this workflow repair.
+
+
+## TTY passthrough and dev tool set — 2026-11-22
+
+`sk <arguments>` now passes `-o RequestTTY=yes` to SSH only when both standard
+input and standard output are terminals, so full-screen commands receive a TTY
+without changing redirected output. Before this, `sk btop` failed with
+`ERROR: Failed to get size of terminal!`. The 7 focused launcher tests and the
+full 39-test workspace suite pass, and a live local PTY rendered `btop` through
+`sk`. Endeavour's Home Manager activation is active.
+
+Ordinary Kepler imports the new `kepler-devtools` module: the existing
+`dev-python`, `dev-javascript`, `dev-go`, `dev-java`, `dev-dotnet`, `dev-paths`
+and `dev-nix-ld` modules, plus nvim, codex, opencode, claude-code, goose, herdr
+and tuicr in Home Manager. It also imports `opencode-client`, so the agent CLIs
+receive the same `/run/secrets/opencode/*` keys as Endeavour. The recovery host
+keeps the smaller shared `kepler-development` module. Activation returned with no failed units, both ZFS
+pools online, all six MicroVMs running, and the new toolchain on PATH.
+
+The unreachable interval during rollout was not caused by this switch.
+`journalctl -b -1` records `sudo ... systemctl reboot` at 17:16:56, shutdown
+completion at 17:21:27, and the next boot at 17:29. The host returned on the
+same new generation with Home Manager active; no separate tracking issue is
+needed for the switch itself.
