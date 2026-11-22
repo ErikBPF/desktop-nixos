@@ -4,6 +4,7 @@ let
   guests = config.microvm.vms;
   cp1 = guests.cp-1.config.config;
 in
+  assert cp1.services.k3s.package.version == "1.36.5+k3s1";
   assert !cp1.services.k3s.clusterInit;
   assert cp1.services.k3s.serverAddr == "https://10.250.0.13:6443";
   assert cp1.services.k3s.tokenFile == "/tokens/token";

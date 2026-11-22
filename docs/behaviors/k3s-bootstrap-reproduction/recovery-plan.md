@@ -24,12 +24,15 @@ production recovery recipe.
    bootstrap credentials. Its only intended service changes are the temporary
    recovery configuration and reviewed PR505 maintenance suppression.
 5. Stop and verify suppression of both bootstrap timer and service, plus stopped
-   K3s with MainPID=0. Suppression must survive activation. Do not interpret a
+   K3s with MainPID=0. Stop `k3s-manifest-reconcile.service` and verify
+   its MainPID=0 too; an already-running reconciler can outlive a new condition.
+   Suppression must survive activation. Do not interpret a
    nonexistent unit or ineffective runtime mask as success. The candidate must
    render both bootstrap units disabled/masked, and its manifest reconciler must
    not pull K3s back in. The other control planes remain running.
 6. Build and copy the exact reviewed guest closure/runner/registration through
-   the owning helper, then perform its non-mutating guest activation preview.
+   the owning helper. Inspect the rendered activation script for dry-activation
+   support, then run the validated `switch-to-configuration dry-activate` preview.
    Review that preview before requesting fresh approval. No whole-host switch.
 
 ## One separately approved replacement attempt

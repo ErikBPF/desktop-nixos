@@ -6,7 +6,7 @@ Live recovery requires a new approval and the reviewed owning helper.
 
 ## Outcome and why
 
-The user asked to continue fixes after cp-1 could not restart following removal
+Human seed: `continue` (following `do fixes`). The user asked to continue fixes after cp-1 could not restart following removal
 of its embedded-etcd snapshot directory. Source inspection suggested adding a
 healthy peer's HTTP bootstrap URL might restore bootstrap data while retaining
 the existing member identity. The first disposable run appeared to support that
