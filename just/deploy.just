@@ -14,7 +14,15 @@ home-switch target=profile:
     activation=$(nix build --no-link --print-out-paths \
       .#nixosConfigurations.{{target}}.config.home-manager.users.erik.home.activationPackage \
       --builders "$BUILDERS" --builders-use-substitutes --max-jobs 0)
-    HOME_MANAGER_BACKUP_EXT=backup "$activation/activate"
+    # Harness XDG roots hide the previous HM generation; stopping the caller
+    # during activation must not kill the process that starts services again.
+    systemd-run --user --unit=home-manager-switch --collect --wait --service-type=exec \
+      --setenv=HOME_MANAGER_BACKUP_EXT=backup \
+      --setenv="XDG_CONFIG_HOME=$HOME/.config" \
+      --setenv="XDG_DATA_HOME=$HOME/.local/share" \
+      --setenv="XDG_STATE_HOME=$HOME/.local/state" \
+      --setenv="XDG_CACHE_HOME=$HOME/.cache" \
+      "$activation/activate"
 
 boot target=profile:
     just _host-guard {{target}} && \
