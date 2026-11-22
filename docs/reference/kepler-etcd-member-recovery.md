@@ -20,9 +20,18 @@ while cp-1 is unavailable.
 
 ## Why the source review was incomplete
 
-Owner source sets cp-1 `clusterInit = true`, `serverAddr = null` in
+At the failed attempt, cp-1 effectively used `clusterInit = true` and
+`serverAddr = null` in
 [`k3s-cluster.nix`](../../modules/hosts/kepler/k3s-cluster.nix).
-Deleting its whole database and starting normally risks a new singleton.
+Under that historical configuration, deleting its whole database and starting
+normally risked a new singleton. The node specification retains those inputs
+to preserve the bootstrap share, but the current temporary recovery candidate
+overrides cp-1 with `mkForce`: effective `clusterInit = false`,
+`serverAddr = "https://10.250.0.13:6443"`, one bounded startup and bootstrap
+reconciliation disabled. See the [replacement proof and held candidate](../behaviors/k3s-bootstrap-reproduction/one-pager.md).
+Source preparation does not establish what is active in the guest; verify the
+actual closure before any startup. The history below explains the withdrawn
+method, not the candidate's current effective settings.
 The [pinned K3s v1.36.5+k3s1 implementation](https://github.com/k3s-io/k3s/blob/v1.36.5%2Bk3s1/pkg/etcd/etcd.go)
 recognizes an initialized member by `member/wal`, then uses the stored etcd
 options with `ForceNewCluster=false`. Retain WAL, `name`, configuration and TLS.
@@ -35,7 +44,7 @@ The initial review checked the etcd existing-member path but missed an earlier
 K3s bootstrap prerequisite. In the
 [pinned bootstrap implementation](https://github.com/k3s-io/k3s/blob/v1.36.5%2Bk3s1/pkg/cluster/bootstrap.go),
 an initialized server without a successful remote bootstrap first reconciles
-bootstrap data using its local backend. cp-1 has no join URL. Moving its `snap`
+bootstrap data using its local backend. At that attempt cp-1 had no join URL. Moving its `snap`
 directory therefore prevents this reconciliation before normal etcd startup.
 The general etcd purge guidance is not a complete executable recovery procedure
 for this K3s configuration. Do not repeat the failed sequence or disable checks.
