@@ -15,14 +15,14 @@ def executable(path, text):
     path.chmod(0o755)
 
 
-def fixture(tmp_path, *, failure=False, active=False, wrong_host=False, retained_pid=False, no_k3s=False, signal=False, start_failure=False, stale_closure=False, stale_exec=False):
+def fixture(tmp_path, *, failure=False, active=False, wrong_host=False, retained_pid=False, no_k3s=False, signal=False, start_failure=False, stale_closure=False, stale_exec=False, timer_state="inactive", state_error=False, pid_error=False, pid_empty=False):
     commands = tmp_path / 'commands'; commands.mkdir()
     old, new, nix = (tmp_path / name for name in ('old', 'new', 'nix'))
     log = tmp_path / 'calls'; log.touch()
     current = tmp_path / 'current'; current.write_text(str(old))
     env = dict(os.environ, PATH=str(commands)+':'+os.environ['PATH'], LOG=str(log),
                CURRENT=str(current), NEW=str(new), OLD=str(old),
-               FAIL='1' if failure else '0', ACTIVE='1' if active else '0', PID='42' if retained_pid else '0', NO_K3S='1' if no_k3s else '0', SIGNAL='1' if signal else '0', START_FAIL='1' if start_failure else '0', STALE_CLOSURE='1' if stale_closure else '0', STALE_EXEC='1' if stale_exec else '0')
+               FAIL='1' if failure else '0', ACTIVE='1' if active else '0', PID='42' if retained_pid else '0', NO_K3S='1' if no_k3s else '0', SIGNAL='1' if signal else '0', START_FAIL='1' if start_failure else '0', STALE_CLOSURE='1' if stale_closure else '0', STALE_EXEC='1' if stale_exec else '0', TIMER_STATE=timer_state, STATE_ERROR='1' if state_error else '0', PID_ERROR='1' if pid_error else '0', PID_EMPTY='1' if pid_empty else '0')
     executable(commands/'hostname', 'echo '+('other' if wrong_host else 'cp-1'))
     executable(commands/'readlink', 'cat "$CURRENT"')
     executable(commands/'systemctl', '''
@@ -30,8 +30,19 @@ printf 'systemctl %s\\n' "$*" >> "$LOG"
 case "$1" in
  is-enabled) echo enabled;;
  is-active)
+ if [ "$2" = k3s-bootstrap-secrets.timer ]; then echo "$TIMER_STATE"; [ "$TIMER_STATE" = active ]; exit; fi
  if [ "$ACTIVE" = 1 ] || { [ "$2" = k3s.service ] && [ "$(cat "$CURRENT")" = "$NEW" ] && [ "$NO_K3S" = 0 ]; }; then echo active; else echo inactive; exit 3; fi;;
- show) case "$*" in *MainPID*) echo "$PID";; *Restart*) echo no;; *ExecStart*) if [ "$STALE_EXEC" = 1 ]; then echo "k3s server --cluster-init"; else echo "k3s server --server https://10.250.0.13:6443"; fi;; *) echo masked;; esac;;
+ show) case "$*" in
+ *ActiveState*)
+   if [ "$2" = k3s-bootstrap-secrets.timer ]; then echo "$TIMER_STATE"; else
+     if [ "$ACTIVE" = 1 ]; then echo active; else echo inactive; fi
+   fi
+   [ "$STATE_ERROR" = 0 ] || exit 1;;
+ *MainPID*)
+   # systemd timers have no MainPID property: successful lookup, empty output.
+   [ "$2" != k3s-bootstrap-secrets.timer ] || exit 0
+   [ "$PID_EMPTY" = 1 ] || echo "$PID"
+   [ "$PID_ERROR" = 0 ] || exit 1;; *Restart*) echo no;; *ExecStart*) if [ "$STALE_EXEC" = 1 ]; then echo "k3s server --cluster-init"; else echo "k3s server --server https://10.250.0.13:6443"; fi;; *) echo masked;; esac;;
  start) [ "$START_FAIL" = 0 ] || exit 43;;
  stop) exit 0;;
  *) exit 90;;
@@ -137,3 +148,17 @@ def test_unexpected_loaded_configuration_never_starts(tmp_path,option):
     assert result.returncode != 0
     assert 'systemctl start k3s.service' not in calls
     assert 'systemctl stop k3s.service' in calls
+
+
+@pytest.mark.parametrize('timer_state', ['active', 'failed', '', 'unknown'])
+def test_timer_must_be_explicitly_inactive(tmp_path, timer_state):
+    result, calls = run(tmp_path, 'preview', timer_state=timer_state)
+    assert result.returncode != 0
+    assert 'switch ' not in calls and 'nix-env' not in calls
+
+
+@pytest.mark.parametrize('option', ['state_error', 'pid_error', 'pid_empty'])
+def test_recovery_property_read_failure_aborts_before_preview(tmp_path, option):
+    result, calls = run(tmp_path, 'preview', **{option: True})
+    assert result.returncode != 0
+    assert 'switch ' not in calls and 'nix-env' not in calls
