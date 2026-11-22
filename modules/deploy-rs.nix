@@ -63,7 +63,6 @@
   #   confirmTimeout:     seconds the post-activation reachability re-check waits.
   mkNode = {
     host,
-    configuration ? host,
     magicRollback,
     tailnetOnly ? false,
     activationTimeout ? 300,
@@ -81,7 +80,7 @@
     user = "root";
     sshOpts = ["-p" "2222"];
     inherit magicRollback activationTimeout confirmTimeout;
-    profiles.system.path = activate configuration;
+    profiles.system.path = activate host;
   };
 in {
   # Remote NixOS fleet only. The Ubuntu laptop and Home Assistant OS are out.
@@ -144,11 +143,6 @@ in {
     # deliberately.
     kepler = mkNode {
       host = "kepler";
-      magicRollback = true;
-    };
-    kepler-cp1-recovery = mkNode {
-      host = "kepler";
-      configuration = "kepler-cp1-recovery";
       magicRollback = true;
     };
     apollo = mkNode {

@@ -12,28 +12,23 @@ no cp1 start against missing/quarantined etcd state before the reviewed replacem
 The guest recovery candidate disables automatic K3s startup, but the earlier
 procedure retained the old host runner until after recovery. A host reboot
 would run the old declarative installer, restore that old runner and boot a
-cluster-initializing guest. Changing a guest profile or only its `current` link
-cannot prevent this. Pinned MicroVM source `d70265960646e506757f8364e8585c17a06050e7`
-selects `current/bin/microvm-run`; that runner embeds a fixed guest `init` path.
-The installer rewrites `current` before boot.
+cluster-initializing guest. Pinned MicroVM source `d70265960646e506757f8364e8585c17a06050e7`
+rewrites `current` before boot; changing only that link cannot contain it.
 
-This change adds opt-in `nixosConfigurations.kepler-cp1-recovery` and matching
-`deploy.nodes.kepler-cp1-recovery`. Normal fleet definitions are not replaced. The existing configuration mapper
+This change adds `nixosConfigurations.kepler-cp1-recovery`. Normal fleet definitions are not replaced. The existing configuration mapper
 also adds the supplemental host to the flake check set; full/check-remote
 validation will include it. CI uses a focused evaluation gate.
 The supplemental host uses the native `microvm.vms.cp-1.evaluatedConfig` option
 so the normal installer durably selects the reviewed no-autostart guest. It
-reuses the existing deployment node settings and deploy-rs activation library.
+uses the existing owner `deploy` recipe; the new `deploy-preview` recipe uses
+the same flags with `dry-activate`.
 All five sibling runners and their service definitions must remain
 unchanged; cp1 retains its kernel, initrd, interfaces, volumes and shares.
 
 ## Exact source and credential custody
 
 Published historical artifact `030d17cf4f9d56a40a3205d4af2ae7867a208e7d`
-reproduces running host `zi7mrrickfv7haaglmy7yrsljr9zgk9p` exactly. It preserves
-the already deployed Syncthing change from the separate compute worktree without
-editing that worktree. Initial packaging changed source-store paths; the corrected artifact matches
-the original tracked tree.
+reproduces running host `zi7mrrickfv7haaglmy7yrsljr9zgk9p` exactly. It preserves deployed Syncthing without editing the separate compute worktree.
 
 Artifact `a3f290e015eacce61e718f8596cdb6acc3716c7c` layers the exact encrypted
 reader repair already approved in PR501. The baseline encrypted file SHA256 is
@@ -49,10 +44,7 @@ and the reviewed guest source `228bc67bf427fa1c4d33508f3f5967e2b1008d7a`.
 The source assertion first failed because the supplemental host selected old
 runner `324az74…`, then passed after native evaluatedConfig selected `s226dm…`.
 Receipts: `/tmp/kepler-host-containment-red.log` and
-`/tmp/kepler-host-containment-green.log`. Exact baseline and pre-credential unit
-comparison are recorded in `/tmp/kepler-zi7-exact-cp1-override.json`: only cp1's
-installer and VM trigger changed, with restart-on-change disabled. The final
-comparison shows the credential
+`/tmp/kepler-host-containment-green.log`. Final unit comparison shows the credential
 layer changes the Home Manager unit store path (no activation-snippet changes;
 only user Sops unit sources differ); the guest layer changes only
 `install-microvm-cp-1.service` and `microvm@cp-1.service`. Source artifact
@@ -60,14 +52,15 @@ only user Sops unit sources differ); the guest layer changes only
 
 The disposable systemd ordering test exercises installer selection and translated
 boot target edges, including failure before guest startup. It is not a real VM
-reboot or a proof of etcd data recovery. The accepted replacement algorithm is unchanged.
+reboot or a proof of etcd data recovery.
 
 ## Activation and failure boundary
 
 **Proposed sequence, held for explicit live approval:** use the existing owner
 preview/deploy recipes with target
-`kepler-cp1-recovery`. Host deployment, reachability confirmation and any deploy-rs
-rollback window must finish before member removal. Then verify running and
+`kepler-cp1-recovery 192.168.10.230`. Host deployment and explicit reachability
+checks must finish before member removal. This route has no deploy-rs automatic
+rollback. Dry activation may update directory metadata. Then verify running and
 persistent host identities, effective installer, selected safe runner, and
 unchanged guest boot ID/PID/booted runner. Keep the old guest reconcilers stopped.
 The supplemental host disables boot counting temporarily: automatic fallback
@@ -76,19 +69,18 @@ unsafe EFI one-shot/default override. Only a separately approved procedure may
 remove the member and quarantine state.
 After that point, never roll back to an old host generation that reinstalls the
 unsafe runner. Old generations and archives are evidence, not automatic recovery
-options. Later cleanup must restore normal guest restart/boot/reconciliation
-policy through separately reviewed source and activation.
+options. Later reviewed cleanup must restore normal guest restart, boot and reconciliation.
 
-Recursive and duplicate flake-output packaging failures were corrected in the
-existing owner module. They are not behavioral REDs.
+Two output-packaging failures preceded the successful build; neither was behavioral RED.
 
-Boot-policy unit comparison, `just test-cp1-durable-boot`, and final Nix evaluation
-passed. Final host:
-`/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7`;
-deploy wrapper:
-`/nix/store/aq1z3l8qmpzgwmgyczix15146ji43002-activatable-nixos-system-kepler-26.11.20261115.5c3cda7`.
-The bounded third build is progressing on the owner builder; realization remains
-a separate gate. Receipt: `/tmp/kepler-host-containment-build-attempt3.log`.
+Boot-policy unit comparison, `just test-cp1-durable-boot`, and Nix evaluation passed. Built host:
+`/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7`.
+The bounded third build passed: `/tmp/kepler-host-containment-build-attempt3.log`.
+The built deploy-rs wrapper `aq1z3l8…` deletes the bootloader default after switching,
+so it is withdrawn from live use. The supplemental deploy node was removed; an
+assertion failed before removal and passed afterward. Normal deploy-rs nodes remain
+unchanged. Owner recipe expansion confirms preview and deployment differ only in
+the action. The realized installer pins the safe guest and runner.
 
 The held [owner sequence](../../reference/cp1-durable-recovery.md) requires the
 [boot containment checks](../../reference/cp1-boot-containment-check.md) before member removal.

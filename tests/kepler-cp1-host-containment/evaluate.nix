@@ -11,8 +11,6 @@ let
   runner = guest.microvm.declaredRunner.outPath;
   installer = c.systemd.services.install-microvm-cp-1;
   unitDelta = a: z: builtins.filter (n: (a.systemd.units.${n}.text or null) != (z.systemd.units.${n}.text or null)) (builtins.attrNames (a.systemd.units // z.systemd.units));
-  node = f.deploy.nodes.kepler-cp1-recovery;
-  normalNode = f.deploy.nodes.kepler;
   expectedEncryptedFileSha256 = "4677ac8136bb743b1d01603d7d50446efdbf3347e915af8dd90972dfeb51f96d";
   contains = needle: f.inputs.nixpkgs.lib.hasInfix (builtins.unsafeDiscardStringContext needle);
 in
@@ -33,7 +31,5 @@ in
   assert unitDelta baseline repaired == ["home-manager-erik.service"];
   assert unitDelta repaired c == ["install-microvm-cp-1.service" "microvm@cp-1.service"];
   assert builtins.hashFile "sha256" c.sops.secrets.openbao-harbor-reader-kepler-secret-id.sopsFile == expectedEncryptedFileSha256;
-  assert builtins.removeAttrs node ["profiles"] == builtins.removeAttrs normalNode ["profiles"];
-  assert builtins.removeAttrs node.profiles ["system"] == builtins.removeAttrs normalNode.profiles ["system"];
-  assert builtins.removeAttrs node.profiles.system ["path"] == builtins.removeAttrs normalNode.profiles.system ["path"];
-  assert node.profiles.system.path != normalNode.profiles.system.path; "KEPLER_DURABLE_CP1_BOOT_OK ${c.system.build.toplevel.outPath} ${node.profiles.system.path}"
+  assert !(f.deploy.nodes ? kepler-cp1-recovery);
+  assert c.system.build.toplevel.outPath == "/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7"; "KEPLER_DURABLE_CP1_BOOT_OK ${c.system.build.toplevel.outPath}"

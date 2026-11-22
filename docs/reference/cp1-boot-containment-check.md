@@ -1,6 +1,6 @@
 # cp-1 pre-removal boot containment check
 
-**Status:** Held for completed host build, exact-head review and fresh live
+**Status:** Host build passed; held for exact-head review and fresh live
 approval. No command in this check has been run on Kepler. Use it only within the
 [revised recovery sequence](cp1-durable-recovery.md), never as standalone approval.
 This is a read-only gate after a separately authorized owner deployment, not a
@@ -16,16 +16,27 @@ independent gate is completed and its manifest records the new host baselines.
 Before filling variables, the owner must independently verify the published
 kepler-cp1-recovery output, native generated installer script and unit, preserved
 Syncthing/credential changes, all sibling closures, and restartIfChanged=false.
-Capture exact expected running closure, persistent activatable wrapper, installer
-unit target, and installer script SHA256 from those immutable artifacts. The evaluated expected host and wrapper paths
-are recorded in the [sequence](cp1-durable-recovery.md); their build is pending. Do not
-infer these expected values from the live host under test.
+Capture the exact expected host closure, installer unit target and installer
+script SHA256 from the built artifacts. The expected running and persistent
+system profile is the same `492mc5…` host path recorded in the
+[sequence](cp1-durable-recovery.md). Do not infer expected values from the live
+host under test.
 
-Wait for the owner deploy-rs operation and its confirmation/automatic-rollback
-protocol to finish successfully before opening the removal gate. No pending
-rollback may restore the old installer after this check. The owner must identify
-and verify the pinned deploy-rs completion semantics; this check defines no
-rollback-unit name or substitute deployment implementation.
+Require the existing owner `just deploy kepler-cp1-recovery 192.168.10.230`
+command to complete successfully, then independently verify authenticated SSH
+reachability and every profile/installer/bootloader check below. This
+`nixos-rebuild switch` route has no automatic deploy-rs rollback. A command error,
+lost transport or partial activation leaves member removal blocked; no automatic
+old-profile rollback or manual bootloader repair is authorized by this check.
+
+The actual built `492mc5…` unit resolves to
+`/nix/store/cbcrfqfijcbq41lw2ihwhmpgr5hxh5kw-unit-install-microvm-cp-1.service/install-microvm-cp-1.service`.
+Its sole ExecStart executable is
+`/nix/store/h7z0f18p6q6riizjdy9jjz3viyrs1a07-unit-script-install-microvm-cp-1-start/bin/install-microvm-cp-1-start`,
+with no arguments and WorkingDirectory `/fast/microvms/cp-1`. The script SHA-256
+is `8b793b91ae778148be74743940596b29a3533f1c00a71f22bce0d9666163eb48`.
+These are inspected build artifacts, not observed loaded runtime state. Match
+the loaded executable and complete argv to these values before removal.
 
 The following proposed read-only assertions run on Kepler through the verified
 owner SSH route, with exact reviewed constants supplied privately:
@@ -44,6 +55,18 @@ test "$(systemctl show "$unit" -p NeedDaemonReload --value)" = no
 test "$(systemctl show "$unit" -p DropInPaths --value)" = ''
 fragment=$(systemctl show "$unit" -p FragmentPath --value)
 test "$(readlink -e "$fragment")" = "$EXPECTED_INSTALLER_UNIT"
+busctl=/nix/store/kh0kk4mi6hr0cdvsc8rzd0jvr2c2vhwk-systemd-262/bin/busctl
+object=$(timeout 10 "$busctl" --system --json=short call \
+  org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+  org.freedesktop.systemd1.Manager GetUnit s "$unit" | \
+  jq -er 'select(.type == "o" and (.data | length) == 1) | .data[0] |
+    select(type == "string" and startswith("/org/freedesktop/systemd1/unit/"))')
+timeout 10 "$busctl" --system --json=short get-property \
+  org.freedesktop.systemd1 "$object" org.freedesktop.systemd1.Service ExecStart | \
+  jq -e --arg script "$EXPECTED_INSTALLER_SCRIPT" '
+    .type == "a(sasbttttuii)" and (.data | type == "array") and
+    (.data | length) == 1 and .data[0][0] == $script and
+    .data[0][1] == [$script] and .data[0][2] == false' >/dev/null
 printf '%s  %s\n' "$EXPECTED_INSTALLER_SHA256" "$EXPECTED_INSTALLER_SCRIPT" | sha256sum -c --status
 test "$(readlink -e /fast/microvms/cp-1/current)" = "$EXPECTED_RUNNER"
 test "$(readlink -e /fast/microvms/cp-1/toplevel)" = "$EXPECTED_GUEST_TOPLEVEL"
@@ -54,9 +77,9 @@ test "$(readlink -e /fast/microvms/cp-1/booted)" = "$EXPECTED_BOOTED_RUNNER"
 The empty DropInPaths expectation is provisional until the built installer unit
 is inspected. If it legitimately has source-owned drop-ins, compare their exact
 immutable paths and contents; do not silently omit override validation. The
-persistent activatable wrapper must be proven to reference the same expected
-host closure/installer through its actual generated activation script. Merely
-matching an arbitrary wrapper path does not establish that relationship.
+running and persistent host paths must both resolve to the reviewed host
+toplevel; its actual generated installer must select the safe runner. The
+withdrawn `aq1z3…` wrapper is not an acceptable persistent-profile target.
 
 Also require all sibling current/booted links and VM MainPID/start timestamps
 unchanged from the pre-deployment receipt. Through the existing verified guest
@@ -72,13 +95,15 @@ behavior remains unobserved.
 
 ## Owner details still required before live execution
 
-Verify the loaded installer ExecStart executable and complete argv against the
-reviewed built unit/script. FragmentPath, NeedDaemonReload and script hash are
-necessary but not the complete command check. `systemctl show ExecStart` embeds
-runtime timestamps/PIDs; compare only its immutable executable/argv fields with
-a strict parser or the owner's existing structured interface. Do not derive the
-expected command from the live command being checked. The exact built unit is
-pending, so no speculative parsing command is supplied here.
+The structured assertion above reads the loaded unit through systemd's D-Bus
+API using the candidate's pinned systemd 262 `busctl`. `GetUnit` returns one
+object path; `ExecStart` has type `a(sasbttttuii)`. Require exactly one command,
+the reviewed executable path, argv containing only that path, and
+`ignore_errors=false`. Runtime timestamps, PID and exit-status fields do not
+change the immutable command expectation. Empty or additional commands, altered
+arguments or ignored failures reject the gate without printing their values.
+The schema was calibrated read-only against a local service, not production;
+Kepler's loaded command remains to be checked after approved deployment.
 
 Independently verify the configured bootloader's actual default generation and
 its selected host closure resolve to the durable containment candidate. A new
@@ -138,8 +163,8 @@ selection excluded. A manually selectable old entry remains unsafe after
 quarantine; disabling automatic fallback is not permission to select it.
 
 The supplemental host source sets `bootCounting.enable = mkForce false`.
-Its evaluated assertion passed; completed build, exact host delta review and
-live evidence remain separate gates.
+Its evaluated assertion and host build passed; exact-head review and live
+evidence remain separate gates.
 Do not assume it strips an existing same-content counter: inspect the generated
 entry and actual ESP filename. Existing unsafe entries can remain manual choices,
 but no automatic preferred/wildcard/EFI override may select one during recovery.
@@ -156,31 +181,19 @@ actual loader.conf and matched entry's filename/options, and cross-check EFI
 selection reported by status. This is a source-grounded check specification, not an
 observed live bootloader result.
 
-### Deploy-rs confirmation and completion
+### Withdrawn wrapper and selected owner route
 
-There is no invented rollback timer to query. In the pinned deploy-rs source:
+The built deploy-rs wrapper `aq1z3l8qmpzgwmgyczix15146ji43002` contains
+`sed -i '/^default /d' /boot/loader/loader.conf` after the host switch. It would
+remove the required exact default. It was never executed and is withdrawn;
+the supplemental deploy node is removed. Earlier process-local canary/confirmation
+research remains historical evidence, not the completion gate for this procedure.
 
-- `src/bin/activate.rs:363–390` installs a watcher and creates a canary after
-  activation. `danger_zone` at 278–286 waits for deletion within confirmTimeout;
-  `activate` at 755–762 calls rollback if confirmation fails.
-- `src/deploy.rs:296–359` confirms through a separate SSH command deleting that
-  exact canary. This is performed by the owner client, never manually by this
-  gate. `src/lib.rs:18–26` derives canary/cancel names from the activation closure
-  store hash and the configured temporary directory; do not infer from the guest
-  toplevel or invent unit names.
-- `src/deploy.rs:640–734` waits for the activation SSH child, confirms, then awaits
-  activation completion and joins its task before returning. The rollback wait
-  lives in that remote activation process; successful owner command completion
-  plus terminated remote activation process closes that transaction's window.
-  Seeing only “Activation succeeded!” or “Deployment confirmed.” is insufficient.
-
-Require the exact owner `just deploy-rs kepler-cp1-recovery` process to
-finish successfully, preserve its complete result, and verify the new running
-and persistent host identities afterward. Bind the remote activation closure and
-its command/process completion to the same receipt; if transport is lost or
-completion uncertain, keep removal blocked. Do not manually remove canary files
-or disable rollback. The baseline Kepler node uses magicRollback=true with
-activationTimeout=300 and confirmTimeout=60; the supplemental node must export
-its actual settings rather than silently inherit these numbers in the receipt.
-This completion evidence proves no pending rollback from that completed process,
-not cluster health, future absence of a new deployment, or actual reboot safety.
+Use only the reviewed owner `deploy-preview` and existing `deploy` recipes named
+in the [sequence](cp1-durable-recovery.md), which preserve the standard remote
+`nixos-rebuild` flags and select the host toplevel directly. No ad hoc replacement
+deployment command, canary deletion, auto-rollback assumption or manual old-host
+rollback is valid. Require owner command exit zero AND fresh reachability,
+installed-command, selected-runner, host-profile and actual bootloader evidence
+before opening the irreversible gate. No host or guest operation has occurred
+as part of preparing these documents.

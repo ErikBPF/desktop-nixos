@@ -1,7 +1,7 @@
 # Revised cp-1 recovery sequence — held
 
-**Status:** Held. Host build, exact-head source review and fresh explicit live
-approval of this whole sequence remain pending. Source is published in
+**Status:** Held. The host build passed; exact-head source review and fresh
+explicit live approval of this whole sequence remain pending. Source is published in
 [PR509](https://github.com/ErikBPF/desktop-nixos/pull/509); publication is not
 deployment approval. No live command below has been run for this procedure. No old `228`/cc8/a351 private manifest may be reused. Existing archives,
 roots and receipts remain preserved. Stop at the first failed gate; no automatic
@@ -9,44 +9,45 @@ member-removal retry, old-WAL restart or return to the unsafe old host profile.
 
 ## 0. Bind reviewed source and expected artifacts
 
-Desktop owns the supplemental `kepler-cp1-recovery` configuration and deploy
-node. The source extends reconciled baseline
+Desktop owns the supplemental `kepler-cp1-recovery` configuration. The source extends reconciled baseline
 `a3f290e015eacce61e718f8596cdb6acc3716c7c` and selects the published guest from
 `228bc67bf427fa1c4d33508f3f5967e2b1008d7a` through native `evaluatedConfig`.
 Supplemental-only boot counting is disabled. These are source pins, not permission
 to execute the old manifest. Use the final reviewed published host revision,
 not a mutable working tree or the ordinary `kepler` output.
-The node inherits `fleet.hosts.kepler.ip = "192.168.10.230"` from
-`modules/meta.nix` through `mkNode { host = "kepler"; }`; SSH uses erik on
-port 2222. Omit the optional hostname override. Existing strict host-key
-verification remains an independent prerequisite; the address is not proof of
-identity.
+The existing owner deployment recipe takes the verified fleet IP explicitly:
+`192.168.10.230`, SSH erik on port 2222. Existing strict host-key verification
+remains an independent prerequisite; the address is not proof of identity.
+The supplemental deploy-rs node is withdrawn; do not select a deploy-rs route.
 
 In its exact clean owner checkout, record `git rev-parse HEAD` and obtain expected
 values from these source outputs in the final reviewed published checkout:
 
 ```bash
 nix eval --raw .#nixosConfigurations.kepler-cp1-recovery.config.system.build.toplevel
-nix eval --raw .#deploy.nodes.kepler-cp1-recovery.profiles.system.path
-nix eval --json .#deploy.nodes.kepler-cp1-recovery
 just cp1-artifact-metadata 228bc67bf427fa1c4d33508f3f5967e2b1008d7a
 ```
 
-Evaluation passed with these expected values; the build is still pending:
+Evaluation and build passed for the expected running AND persistent host:
 
-- Host: `/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7`
-- Wrapper: `/nix/store/aq1z3l8qmpzgwmgyczix15146ji43002-activatable-nixos-system-kepler-26.11.20261115.5c3cda7`
+`/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7`
 
 The local evaluation receipt is `/tmp/kepler-host-containment-final-green.log`;
-this is a workstation receipt, not a portable prerequisite or proof of build or
+this is a workstation receipt, not a portable prerequisite or proof of live
 deployment. Re-evaluate against the final published head and reject drift.
+Extract the exact installer unit/script and systemd executable from the built
+host. Preserve its unit/script hashes, guest runner/toplevel and bootloader
+configuration. The existing `nixos-rebuild switch` owner route selects the host
+toplevel directly as the persistent system profile, not an activation wrapper.
 
-The first output supplies the expected running host closure; the second supplies
-the persistent deploy-rs activation wrapper. Inspect that built wrapper to prove
-its target host closure; do not assume they have equal paths. Extract the exact
-installer unit/script and systemd executable from the built host. Preserve its
-unit/script hashes, guest runner/toplevel, bootloader configuration and actual
-activation/confirmation timeouts. The reviewed guest artifacts are `9m1zvc…`
+The built wrapper
+`/nix/store/aq1z3l8qmpzgwmgyczix15146ji43002-activatable-nixos-system-kepler-26.11.20261115.5c3cda7`
+is **withdrawn and was never executed**. Its `deploy-rs-activate` runs
+`sed -i '/^default /d' /boot/loader/loader.conf` after switching, removing the
+exact safe default required here. This finding supersedes prior deploy-rs
+completion instructions; the host `492mc5…` artifact itself is unchanged.
+
+The reviewed guest artifacts are `9m1zvc…`
 and `s226dm…`; require full path equality with the published metadata. Verify
 unchanged host kernel, relevant hardware, Syncthing/credentials and five sibling
 guest closures before live approval. No invented pending closure paths.
@@ -67,7 +68,7 @@ stopped-state backup/quarantined snapshot evidence and confirm free space.
 Only after the whole live procedure is approved, from the pinned owner checkout:
 
 ```bash
-just deploy-rs-preview kepler-cp1-recovery
+just deploy-preview kepler-cp1-recovery 192.168.10.230
 ```
 
 Inspect the complete preview. Accept only the independently reviewed host delta:
@@ -80,22 +81,24 @@ be normalized. It performs no guest activation, but remains within live approval
 If the preview matches, run exactly:
 
 ```bash
-just deploy-rs kepler-cp1-recovery
+just deploy kepler-cp1-recovery 192.168.10.230
 ```
 
-Require full owner command completion with exit zero, including its SSH
-confirmation and remote activation-process completion. An “Activation succeeded”
-log is not completion. Pinned deploy-rs owns the process-local canary/rollback
-protocol; do not remove canaries, disable rollback, invent a timer check or begin
-member removal while completion is uncertain. If it rolls back, removal stays
-blocked and no attempt is made to compensate by manual runner pinning.
+Require full owner command completion with exit zero, then independently
+re-establish authenticated SSH and verify the host, installer, profile and
+bootloader gates below. This route has no deploy-rs canary confirmation or
+automatic rollback. A successful command alone does not prove containment;
+transport loss, partial activation or any mismatch keeps removal blocked.
+Do not automatically return to the old host profile, restart old WAL, manually
+edit loader.conf, or compensate with a symlink. Recovery from a failed host
+switch requires an explicit reviewed action while cp-1 remains stopped.
 
 ## 3. Prove durable host selection before removal
 
 Apply the separately reviewed read-only gate in
 [boot containment check](cp1-boot-containment-check.md), filled from the built constants:
 
-- Running host and persistent wrapper match the reviewed candidate; loaded
+- Running host and persistent system profile both match `492mc5…`; loaded
   installer FragmentPath, immutable ExecStart executable/argv and script hash
   match source, with no unexpected drop-ins or daemon-reload discrepancy.
 - Native installer has selected the safe current runner and matching toplevel;
