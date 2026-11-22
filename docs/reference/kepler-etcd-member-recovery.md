@@ -1,6 +1,6 @@
-# Kepler: preserve and recover one divergent etcd member
+# Kepler: preserved etcd state and failed member recovery
 
-**Status:** Independently reviewed procedure candidate, 2026-11-22; preservation underway, member repair not executed or drilled.
+**Status:** The approved bounded attempt failed on 2026-11-22; cp-1 is stopped. The prior snap-only procedure is withdrawn for this K3s configuration. No retry or alternative recovery is approved by this document.
 
 ## Outcome and evidence
 
@@ -18,7 +18,7 @@ Abort this procedure if faults recur, the surviving pair loses quorum, or its
 fixed-revision hashes cease to agree. Never stop a second control-plane member
 while cp-1 is unavailable.
 
-## Why preserve WAL and membership
+## Why the source review was incomplete
 
 Owner source sets cp-1 `clusterInit = true`, `serverAddr = null` in
 [`k3s-cluster.nix`](../../modules/hosts/kepler/k3s-cluster.nix).
@@ -31,9 +31,14 @@ The [etcd 3.6 corruption guide](https://etcd.io/docs/v3.6/op-guide/data_corrupti
 describes stopping a member, backing up its data, moving its `snap` directory
 away, and starting it as an existing member to recover from the leader. Here
 that directory is `/var/lib/rancher/k3s/server/db/etcd/member/snap`.
-This is a bounded first attempt, not a guarantee: retained WAL or other host
-damage can prevent recovery. Do not substitute member removal, full database
-deletion, `--cluster-reset`, or disabled corruption checks after a failure.
+The initial review checked the etcd existing-member path but missed an earlier
+K3s bootstrap prerequisite. In the
+[pinned bootstrap implementation](https://github.com/k3s-io/k3s/blob/v1.36.5%2Bk3s1/pkg/cluster/bootstrap.go),
+an initialized server without a successful remote bootstrap first reconciles
+bootstrap data using its local backend. cp-1 has no join URL. Moving its `snap`
+directory therefore prevents this reconciliation before normal etcd startup.
+The general etcd purge guidance is not a complete executable recovery procedure
+for this K3s configuration. Do not repeat the failed sequence or disable checks.
 
 ## Preservation and verification before repair
 
@@ -108,31 +113,31 @@ database keys, or values. The coordinator owns live execution.
    not application semantics, token decryption, or historical correctness.
    Retain the encrypted originals; clean private plaintext only after verification.
 
-## One bounded member repair
+## Executed attempt: failed, no retry
 
-Only after preservation succeeds, reconfirm cp-1's identity and cp-3 leadership.
-If cp-1 became leader, pause and reassess instead of implicitly changing leaders.
-The coordinator must reconcile any required destructive-action confirmation
-against this exact scope; authorization does not include removing a member or
-resetting the cluster.
+After specific user approval and off-host snapshot validation, the coordinator
+stopped only cp-1 K3s and preserved its complete stopped etcd directory, TLS and
+token in a verified encrypted off-host archive. Only `member/snap` was moved to
+`/var/lib/kepler-etcd-recovery/20261122-cp1/snap.before-recovery`; WAL and member
+name were retained. One startup attempt failed at 01:51:26 UTC, before etcd
+startup, during bootstrap reconciliation:
 
-1. Stop **only cp-1's `k3s.service`** through the owner access route. Verify its
-   process/cgroup has stopped before copying state. Do not use `k3s-killall.sh`.
-2. Make a complete offline, root-private copy of cp-1's etcd directory and
-   associated identity/configuration; encrypt/export and verify it as above.
-   This stopped copy, not a copy of a changing live directory, is the rollback
-   evidence. Record file manifest/checksum metadata without dumping contents.
-3. Confirm `member/wal` and `name` still exist. Move only `member/snap` to a
-   unique retained sibling path outside `member`, on the same filesystem. Refuse
-   an existing destination; never overwrite or remove prior evidence.
-4. Start cp-1 once. Observe for at most five minutes. It must retain the existing
-   cluster/member identity, catch up, and pass health. Recheck all three at a new
-   shared revision/compact revision and verify matching hashes, three voting
-   members, fresh node leases and no renewed host faults. Do not infer success
-   from process activity or startup passing alone.
-5. On failure, stop cp-1 to prevent an unbounded restart experiment; retain both
-   its new attempt state and the original offline copy. Leave cp-2/cp-3 running
-   if healthy, and report the exact failure before planning another method.
+```text
+stat /var/lib/rancher/k3s/server/db/etcd-tmp/member/snap/db: no such file or directory
+```
+
+The agreed stop-on-failure boundary was followed. cp-1 remains stopped with
+`NRestarts=0` and `MainPID=0`; cp-2/cp-3 remain healthy. No retry, member removal,
+cluster reset, or fallback was performed. The complete stopped archive receipts:
+
+- Original archive SHA-256: `96f08bbb32a0d01d2ecd25aabaf31e1fbb93fe77bf32bf0702482a7aa9624834`.
+- Encrypted archive SHA-256: `824e491407cb935005fcb45dec6ce0922972faf20a5872f47e76390b660d15f2`.
+- Encrypted archive size: 460011450 bytes.
+
+Keep the moved original snapshot and complete archive. Do not restore just the
+old snapshot into potentially changed WAL. A next method requires review of
+K3s bootstrap, membership, and rollback together; it is pending, not an implicit
+extension of the failed attempt's approval.
 
 ## Rollback and remaining risk
 
@@ -171,13 +176,12 @@ No binary was installed into a live guest by this author.
 
 The latest pre-repair checks at common hash revision 64426062 and compact
 revision 64423411 returned cp-1 hash 693956178 versus cp-2/cp-3 hash 3536509858.
-All three endpoint health checks passed; cp-3 remained leader, term 140. The
-specific user approval for stopping cp-1, preserving its complete stopped state,
-moving only `member/snap`, and one five-minute attempt remains pending. No
-stopped-database backup or member repair has occurred. Silence is not approval.
+All three endpoint health checks passed; cp-3 remained leader, term 140. These were pre-attempt observations. The specific approval subsequently
+arrived; the stopped-state preservation and failed single attempt are recorded
+above. They do not authorize another attempt.
 
-The coordinator independently reviewed and accepted the bounded candidate after
-preservation and applicable approval. `just docs-check` and `git diff --check`
-passed. No additional procedure-review gate is introduced. No member repair or
-live restore has run; record exact commands and outcomes in the incident receipt.
-The existing total-loss runbook is not the targeted member procedure.
+The earlier independent review accepted an incomplete candidate; the actual
+failure supersedes that source-only conclusion. Documentation checks cannot
+validate a recovery algorithm. Next work is offline source review and a revised
+concrete method, with cp-1 remaining stopped. The existing total-loss runbook is
+not an automatic fallback.
