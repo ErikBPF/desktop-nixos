@@ -95,10 +95,14 @@ else
 fi
 [[ $(timeout 10 systemctl is-enabled k3s-bootstrap-secrets.timer || true) == "$timer_state" ]]
 [[ $(timeout 10 systemctl is-enabled k3s-bootstrap-secrets.service || true) == "$bootstrap_state" ]]
-for unit in k3s.service k3s-bootstrap-secrets.timer k3s-bootstrap-secrets.service k3s-manifest-reconcile.service; do
-  state=$(systemctl is-active "$unit" || true)
+# Timers have no MainPID property; require explicit inactivity separately.
+state=$(timeout 10 systemctl show k3s-bootstrap-secrets.timer --property=ActiveState --value)
+[[ "$state" == inactive ]]
+for unit in k3s.service k3s-bootstrap-secrets.service k3s-manifest-reconcile.service; do
+  state=$(timeout 10 systemctl show "$unit" --property=ActiveState --value)
   [[ "$state" == inactive || "$state" == failed ]]
-  [[ $(timeout 10 systemctl show "$unit" --property=MainPID --value) == 0 ]]
+  pid=$(timeout 10 systemctl show "$unit" --property=MainPID --value)
+  [[ "$pid" == 0 ]]
 done
 timeout 60 "$new/bin/switch-to-configuration" dry-activate
 [[ "$mode" == activate ]] || exit 0

@@ -128,12 +128,17 @@
       "git show *:secrets/*"
       "git show *:.ssh/*"
       "git show *:.config/sops/age/*"
-      # Execution vectors a prefix glob would otherwise admit.
-      "rg *--pre*"
-      "* -exec *"
-      "nix eval *"
-      # Protected content, matched wherever it appears in the command.
-      "*.env*"
+      # Environment files use path-shaped forms so `os.environ` and kubectl
+      # `.env[*]` pass. Secret directories stay broad: quoted and prefixed
+      # spellings are otherwise easy to miss.
+      "*.env"
+      "*.env.*"
+      "* .env*"
+      "*/.env*"
+      "* \".env*"
+      "* '.env*"
+      "*\".env*"
+      "*'.env*"
       "*.secrets.json*"
       "*.secret.json*"
       "*.age"

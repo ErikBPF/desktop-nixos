@@ -87,18 +87,6 @@ in {
     # Three-level agent framework: L1 plans, L2 coordinates a slice, L3 executes.
     # Backend profiles replace the plain build agent with this hierarchy.
     threeLevelPlugin = ../dev/opencode-plugins-v2/three-level;
-    planning = [
-      {
-        action = "edit";
-        resource = "*";
-        effect = "deny";
-      }
-      {
-        action = "edit";
-        resource = "docs/*";
-        effect = "ask";
-      }
-    ];
     protected = builtins.filter (rule: rule.effect == "deny") base.permissions;
     mkProfile = project: let
       model = "${project.provider}/deepseek-v4.1-flash";
@@ -124,15 +112,15 @@ in {
             inventory when present. Hardware totals are not available resource grants.
             Use the repository's coordination templates. Summarize accepted outcomes,
             verification, unresolved decisions and blockers; never manufacture evidence.
-            Validate credentials and create or update documentation directly; delegate
-            implementation to L2 slices.
+            Validate credentials and create or update documentation directly. Delegate
+            broad implementation to L2 slices; edit directly only for small work that
+            unblocks the plan.
           '';
           permissions =
-            planning
-            ++ [
-              # L1 has shell like the other roles. The protected deny tail
-              # (appended last) is the gate for destructive commands, and edit
-              # stays denied outside docs/* via the planning rules above.
+            [
+              # Every role runs shell, invokes native subagents and edits source.
+              # The protected deny tail appended below still blocks secret paths
+              # and destructive commands.
               {
                 action = "shell";
                 resource = "*";
@@ -141,7 +129,7 @@ in {
               {
                 action = "subagent";
                 resource = "*";
-                effect = "deny";
+                effect = "allow";
               }
               {
                 action = "dispatch_slice";
@@ -154,7 +142,16 @@ in {
                 effect = "allow";
               }
             ]
-            ++ protected;
+            ++ protected
+            # The protected tail re-applies the global env deny after the
+            # global template allow. Re-admit the value-free template last.
+            ++ [
+              {
+                action = "edit";
+                resource = "*.env.example";
+                effect = "allow";
+              }
+            ];
         };
         pilot-l2 = {
           mode = "primary";
@@ -163,7 +160,7 @@ in {
           system = ''
             You are L2, an independent slice coordinator. Own the /pl -> /ip -> /rv
             workflow and canonical task ledger. Read source and run verification as
-            needed, but delegate implementation to native subagent pilot-l3.
+            needed. You may implement directly; prefer a native subagent for broad work.
             Define dependencies and parallel tasks before dispatch. Include paths,
             concrete acceptance criteria and resource limits in every handover.
             Accept exact result revisions before dependent work. After rejection,
@@ -173,16 +170,10 @@ in {
             work and blockers. A tool returning is not proof of accepted work.
           '';
           permissions =
-            planning
-            ++ [
+            [
               {
                 action = "subagent";
                 resource = "*";
-                effect = "deny";
-              }
-              {
-                action = "subagent";
-                resource = "pilot-l3";
                 effect = "allow";
               }
               {
@@ -196,7 +187,14 @@ in {
                 effect = "deny";
               }
             ]
-            ++ protected;
+            ++ protected
+            ++ [
+              {
+                action = "edit";
+                resource = "*.env.example";
+                effect = "allow";
+              }
+            ];
         };
         pilot-l3 = {
           mode = "subagent";
@@ -207,14 +205,15 @@ in {
             and its verification recipes. For review assignments, inspect the complete
             slice and downstream effects without editing implementation. Report exact
             changed files, commands/results, assumptions and blockers to L2. Never
-            claim a test or deployment ran without evidence. Do not create more agents
-            or allocate remote compute beyond the grant in your handover.
+            claim a test or deployment ran without evidence. Create further agents only
+            when the task needs them, and do not allocate remote compute beyond the
+            grant in your handover.
           '';
           permissions = [
             {
               action = "subagent";
               resource = "*";
-              effect = "deny";
+              effect = "allow";
             }
             {
               action = "dispatch_slice";

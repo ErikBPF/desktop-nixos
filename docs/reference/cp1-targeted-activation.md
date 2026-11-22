@@ -1,15 +1,14 @@
 # Targeted cp-1 recovery activation
 
-**Status:** Execution blocked. Do not run guest preview, activation or the former
-post-health runner-persistence procedure. Kepler's old declarative installer
-restores the old cp-1 runner at boot. After datastore quarantine, that runner's
-`cluster-init` configuration can create a singleton from an empty WAL directory.
-Safe guest settings and an atomic `current` symlink change do not contain this
-failure path. Existing manifests, including `228bc67`, are held. No live action
-is authorized by this document; durable source-owned boot selection, independent
-review and fresh approval of the complete recovery sequence remain required.
-Immutable artifact preparation and the historical receipts below do not prove
-that containment has been applied.
+**Status:** Guest recovery remains blocked after the approved preview failed on
+2026-11-22, before dry activation. The [observed host receipt](cp1-boot-containment-check.md) records the reviewed
+containment deployment and verification; this closes the earlier old-installer
+hold for that observed baseline.
+The helper incorrectly required a service-only `MainPID` property on an inactive
+timer. The source repair below requires review before another preview. No member
+removal, quarantine, guest switch or K3s start followed this failure. Follow the
+[ordered recovery sequence](cp1-durable-recovery.md); old manifests and former
+post-health runner-persistence instructions remain superseded.
 
 ## Purpose and boundaries
 
@@ -71,9 +70,11 @@ that was already intentionally masked.
 
 ## Existing helper behavior — held, not execution instructions
 
-Before preview, require the four units `k3s.service`,
-`k3s-bootstrap-secrets.timer`, `k3s-bootstrap-secrets.service` and
-`k3s-manifest-reconcile.service` stopped with MainPID zero. Their maintenance stop
+Before preview, require `k3s-bootstrap-secrets.timer` explicitly inactive.
+Require `k3s.service`, `k3s-bootstrap-secrets.service` and
+`k3s-manifest-reconcile.service` inactive/failed with MainPID zero. Timers do not
+have a MainPID property; missing service properties or failed property reads
+reject the guard. Their maintenance stop
 belongs to the approved recovery procedure. Confirm surviving etcd quorum/health,
 matching fixed-revision hashes and the preserved failed-state archives.
 
@@ -103,9 +104,9 @@ The former executable post-health `current`-symlink persistence block is
 withdrawn. Delaying persistence until health leaves a failed-switch/reboot window;
 changing only the symlink does not survive the old declarative installer.
 
-Before any member removal or datastore quarantine, a separately reviewed owner
-procedure must establish and verify durable host selection of the safe cp-1
-runner. Evidence must bind the published source and persistent host closure to
+The [owner containment receipt](cp1-boot-containment-check.md) records successful
+durable host selection at 14:11 UTC. Before any member removal or quarantine,
+require that observed baseline to remain unchanged; re-establish the gate on drift. Evidence must bind the published source and persistent host closure to
 the installed `install-microvm-cp-1` definition and its declared runner, prove
 that the selected runner contains the reviewed guest configuration, and cover
 failure and reboot ordering. Preserve concurrent host changes, sibling guests,
@@ -217,3 +218,28 @@ before removal. Earlier RED/GREEN, source reviews and staging receipts remain
 historical evidence; none proved that the old host installer had been replaced.
 Helper code and live host/guest state are unchanged by this correction. Focused
 document-link and diff checks validate the edit, not runtime recovery.
+
+
+### Timer-property guard repair — 2026-11-22
+
+The first approved guest preview returned exit 1 before NixOS dry activation.
+Read-only diagnosis found the host-side helper preflight passed, while the
+inactive bootstrap timer returned no MainPID property. The fixture had invented
+MainPID=0 for every unit and therefore missed this systemd distinction.
+
+The fixture now returns empty successful MainPID output for timers. Against
+unmodified production code, the preview-success assertion failed before any
+switch/profile call (nine failures, sixteen passes across the command suite).
+The guard now checks the timer's ActiveState separately, accepting only inactive;
+services retain inactive/failed plus PID-zero requirements. Property commands are
+standalone assignments so nonzero exits cannot be hidden by matching output.
+Empty, unknown, failed or active timer states and missing/error service PID reads
+fail closed. No timeout, activation, identity, membership or rollback bound changes.
+
+The targeted suite passed 57 tests after repair. RED/GREEN logs are local
+`/tmp/cp1-timer-guard-red.log` and `/tmp/cp1-timer-guard-green.log`; the initial
+`python3 -m pytest` invocation lacked pytest and is infrastructure failure, not
+RED. These disposable command fixtures execute the actual guest shell but do
+not prove live recovery. No live action was performed while implementing this
+repair. Source review and a successful owner preview remain required before
+continuing the ordered procedure.

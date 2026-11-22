@@ -1,11 +1,15 @@
 # Revised cp-1 recovery sequence — held
 
-**Status:** Held. The host build passed; exact-head source review and fresh
-explicit live approval of this whole sequence remain pending. Source is published in
-[PR509](https://github.com/ErikBPF/desktop-nixos/pull/509); publication is not
-deployment approval. No live command below has been run for this procedure. No old `228`/cc8/a351 private manifest may be reused. Existing archives,
-roots and receipts remain preserved. Stop at the first failed gate; no automatic
-member-removal retry, old-WAL restart or return to the unsafe old host profile.
+**Status:** Partially executed under the user's “merge and deploy” instruction.
+Source review/CI passed and host containment was deployed at 14:11 UTC on
+2026-11-22. The [observed host receipt](cp1-boot-containment-check.md) closes
+steps 0–3 for the recorded baseline. Step 4's guest preview failed before dry
+activation on a timer MainPID guard; source repair and successful preview remain
+required. Steps 5–8 have not run for this sequence. No member removal, quarantine
+or guest activation occurred. Do not repeat completed host deployment blindly.
+Old `228`/cc8/a351 private manifests remain superseded; a new post-host manifest
+is recorded privately. Preserve all archives and stop at any failed gate.
+There is no automatic member-removal retry, old-WAL restart or unsafe-host rollback.
 
 ## 0. Bind reviewed source and expected artifacts
 

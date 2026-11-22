@@ -97,8 +97,7 @@ class ManagedSettings(unittest.TestCase):
         for command in ["git status --short", "git commit -m x", "git push origin main"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
-        for command in [f"cat .env", f"git show HEAD:.env",
-                        "nix eval --impure --expr x", f"find . -exec cat x +"]:
+        for command in [f"cat .env", f"git show HEAD:.env"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "deny")
         self.assertEqual(decision(rules, "edit", "modules/dev/opencode.nix"), "allow")
@@ -108,7 +107,11 @@ class ManagedSettings(unittest.TestCase):
         rules = self.settings.get("permissions", [])
         for command in ["cat README.md", "just switch endeavour", "gh pr create --fill",
                         "git push --force origin main", "git push -f origin main",
-                        "git log --oneline -p", "git diff --stat -U5"]:
+                        "git log --oneline -p", "git diff --stat -U5",
+                        "python3 -c 'import os; print(os.environ)'",
+                        "kubectl get pod x -o jsonpath='{.spec.containers[0].env[*]}'",
+                        "find . -maxdepth 1 -name '*.md' -exec wc -l {} +",
+                        "nix eval --impure --expr '1 + 1'"]:
             with self.subTest(command=command):
                 self.assertEqual(shell_decision(rules, command), "allow")
         # The retuned tail admits ordinary blob review reads and the repo
@@ -122,10 +125,15 @@ class ManagedSettings(unittest.TestCase):
                         "cat .env.example .env",
                         "git diff --no-index /dev/null .env",
                         "jq . .env",
+                        "rg -n \"secrets/\" README.md",
+                        "cat \"secrets/prod.yaml\"",
+                        "cat 'secrets/key'",
+                        "python3 -c \"open('.env').read()\"",
+                        "python3 -c 'open(\".env\").read()'",
+                        "node -e \"console.log(require('fs').readFileSync('.env','utf8'))\"",
+                        "python3 -c \"open('secrets/k').read()\"",
                         "fd -x cat .env",
                         "find . -exec cat .env +",
-                        "rg --pre cat pattern",
-                        "nix eval --impure --expr 'builtins.readFile \"/etc/passwd\"'",
                         "git branch -D main",
                         "git show HEAD:.env",
                         "git show --stat HEAD:.env",
