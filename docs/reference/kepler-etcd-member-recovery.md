@@ -238,3 +238,80 @@ failure supersedes that source-only conclusion. Documentation checks cannot
 validate a recovery algorithm. Next work is offline source review and a revised
 concrete method, with cp-1 remaining stopped. The existing total-loss runbook is
 not an automatic fallback.
+
+## Matching diagnostic client staging
+
+This preparation copies only the verified public `etcdctl` and `etcdutl` 3.6.14
+clients into the immutable shared Nix store. It installs no service, changes no
+profile/configuration, and performs no database operation. It follows the strict
+copy and private GC-root pattern in `just cp1-stage-artifacts`, without changing
+that recipe's five-artifact contract. Do not copy the `etcd` server executable.
+The existing verified Kepler SSH identity remains mandatory.
+
+Provenance: official `etcd-v3.6.14-linux-amd64.tar.gz`, obtained from the upstream
+v3.6.14 release and checked against its published SHA256 list. Preserve the
+archive and verification receipt. Expected SHA256 values:
+
+- Archive: `ffe840ff9295808e88cce2794a18a5ac87f12a5203c8314d0bf6aa119b41bac5`.
+- `etcdctl`: `dba085f02f045d6fc0cd59c533ef2a8dc922ad82418c0e538b194525c715450b`.
+- `etcdutl`: `373c24bc46035055bd19f59e3933bbd8c7c479122636fa080853263f2decd021`.
+
+The coordinator prepared this content-addressed store path locally using
+`nix store add-path`, containing exactly the two public clients at mode 0555:
+`/nix/store/mn2hcj16wbx88m2i5qshhxrx2g5lm2w9-cp1-recovery-etcd-tools-3.6.14`.
+The source directory was private and removed after preparation. A local GC root
+and hash receipt are retained under `~/.local/state/kepler-recovery/2026-11-22/`.
+This preparation is not proof of remote staging or live recovery permission.
+
+```bash
+set -euo pipefail
+client_store=/nix/store/mn2hcj16wbx88m2i5qshhxrx2g5lm2w9-cp1-recovery-etcd-tools-3.6.14
+nix-store --check-validity "$client_store"
+(
+  cd "$client_store"
+  test "$(find . -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 2
+  test "$(find . -mindepth 1 -maxdepth 1 | wc -l)" -eq 2
+  printf '%s\n' \
+    'dba085f02f045d6fc0cd59c533ef2a8dc922ad82418c0e538b194525c715450b  etcdctl' \
+    '373c24bc46035055bd19f59e3933bbd8c7c479122636fa080853263f2decd021  etcdutl' \
+    | sha256sum -c --status
+)
+test "$("$client_store/etcdctl" version)" = $'etcdctl version: 3.6.14\nAPI version: 3.6'
+test "$("$client_store/etcdutl" version)" = $'etcdutl version: 3.6.14\nAPI version: 3.6'
+NIX_SSHOPTS='-o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none' \
+  nix copy --to 'ssh://erik@192.168.10.230:2222?remote-program=sudo%20-n%20nix-store' "$client_store"
+ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none \
+  erik@192.168.10.230 "sudo -n bash -s -- '$client_store'" <<'ROOT'
+set -euo pipefail
+test "$(hostname)" = kepler
+client_store=$1
+[[ "$client_store" == /nix/store/mn2hcj16wbx88m2i5qshhxrx2g5lm2w9-cp1-recovery-etcd-tools-3.6.14 ]]
+nix-store --check-validity "$client_store"
+cd "$client_store"
+printf '%s\n' \
+  'dba085f02f045d6fc0cd59c533ef2a8dc922ad82418c0e538b194525c715450b  etcdctl' \
+  '373c24bc46035055bd19f59e3933bbd8c7c479122636fa080853263f2decd021  etcdutl' \
+  | sha256sum -c --status
+directory=/nix/var/nix/gcroots/cp1-recovery-etcd-clients-3.6.14
+[[ ! -L "$directory" ]]
+if [[ ! -d "$directory" ]]; then mkdir -m 0700 "$directory"; fi
+[[ $(stat -c '%u:%a' "$directory") == 0:700 ]]
+link=$directory/clients
+if [[ -L "$link" ]]; then
+  [[ $(readlink "$link") == "$client_store" ]]
+else
+  [[ ! -e "$link" ]]
+  ln -s "$client_store" "$link"
+fi
+test "$("$client_store/etcdctl" version)" = $'etcdctl version: 3.6.14\nAPI version: 3.6'
+test "$("$client_store/etcdutl" version)" = $'etcdutl version: 3.6.14\nAPI version: 3.6'
+ROOT
+printf 'Verified client store: %s\n' "$client_store"
+```
+
+Signature validation remains enabled. Stop if copying or any identity/hash/version
+check fails; do not use `--no-check-sigs`. The guest shared store exposes these
+absolute paths without guest package installation. Reverify path/hash/version in
+the authenticated selected guest before its separately authorized health checks.
+Do not infer why an earlier path disappeared. Preserve the task GC root until the
+recovery evidence no longer depends on it; cleanup needs an explicit later scope.
