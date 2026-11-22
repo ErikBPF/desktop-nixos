@@ -30,6 +30,8 @@ GH = "gh"
 # the per-run cap and the unit start bound in one budget.
 OCR_EFFORT_ROUNDS = {"low": 1, "medium": 2, "high": 3}
 OCR_RUN_BUDGET_SECONDS = 20 * 60
+# Fetch, worktree add and process slack a head needs outside the model call.
+OCR_HEAD_OVERHEAD_SECONDS = 8 * 60
 # The required check's name. `tests/pr-review-publish.py` asserts it matches
 # the publisher's constant.
 CHECK_NAME = "hackerman-cr/evaluation"
@@ -532,20 +534,28 @@ def ocr_invocation(
     ]
 
 
-def ocr_budget(cfg: dict) -> int:
-    """Seconds for one head: effort rounds times the task budget, plus fetch slack."""
+def ocr_budget(cfg: dict, remaining: float | None = None) -> int:
+    """Seconds the CLI may use for one head, inside the run budget.
+
+    The ceiling absorbs the effort rounds and never exceeds what is left of
+    the run after the fetch/worktree reserve, so the unit start bound holds.
+    """
     rounds = OCR_EFFORT_ROUNDS.get(cfg.get("effort", "low"), 1)
-    return int(cfg.get("timeout_minutes", 5)) * rounds * 60 + 60
+    budget = int(cfg.get("timeout_minutes", 5)) * rounds * 60 + 60
+    budget = min(budget, OCR_RUN_BUDGET_SECONDS - OCR_HEAD_OVERHEAD_SECONDS)
+    if remaining is not None:
+        budget = min(budget, int(remaining) - OCR_HEAD_OVERHEAD_SECONDS)
+    return budget
 
 
-def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path) -> None:
+def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path, timeout: int) -> None:
     """Run the candidate pass. A broken pass must never block the review."""
     try:
         proc = subprocess.run(
             ocr_invocation(cfg, worktree, base, head, out),
             capture_output=True,
             text=True,
-            timeout=ocr_budget(cfg),
+            timeout=timeout,
         )
         if proc.returncode != 0:
             detail = (proc.stderr or proc.stdout or "").strip().splitlines()
@@ -610,7 +620,9 @@ def ocr_candidates(args, repo: str, base: str, head: str, bundle: Path, token: s
     if cfg is None:
         return
     deadline = getattr(args, "ocr_deadline", None)
-    if deadline is not None and time.time() >= deadline:
+    remaining = None if deadline is None else deadline - time.time()
+    reserve = OCR_HEAD_OVERHEAD_SECONDS + 3 * 60
+    if remaining is not None and remaining < reserve:
         (bundle / "ocr.json").write_text(
             json.dumps(
                 {"status": "skipped", "message": "OCR run budget exhausted"},
@@ -623,7 +635,7 @@ def ocr_candidates(args, repo: str, base: str, head: str, bundle: Path, token: s
     worktree = None
     try:
         cache, worktree = ocr_prepare(args, repo, base, head, token)
-        ocr_execute(cfg, worktree, base, head, bundle / "ocr.json")
+        ocr_execute(cfg, worktree, base, head, bundle / "ocr.json", ocr_budget(cfg, remaining))
     except Exception as exc:
         (bundle / "ocr.json").write_text(
             json.dumps({"status": "error", "message": str(exc)[:500]}, indent=2) + "\n"

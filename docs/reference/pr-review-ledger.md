@@ -40,8 +40,10 @@ leases, and how new heads dispatch workers.
    `secret/home/ocr-review-litellm`, and it is fail-open — a missing credential
    or a failed run leaves the bundle reviewable without candidates. One head is
    bounded by `ocrTimeoutMinutes` times the effort rounds (low 1, medium 2,
-   high 3) plus fetch overhead; OCR work in one collect run stops after 20
-   minutes, and later heads on that tick get `{"status":"skipped"}`.
+   high 3), clamped to what remains of a 20-minute OCR budget per collect run
+   after a fixed fetch/worktree reserve; heads admitted without enough budget
+   left get `{"status":"skipped"}`. The collect unit keeps a 30-minute start
+   bound.
 3. If any row is claimable, the collector's `ExecStartPost` runs
    `hermes-pr-review-dispatch`.
 4. Dispatch starts up to `parallelism` transient `systemd-run` units, one per

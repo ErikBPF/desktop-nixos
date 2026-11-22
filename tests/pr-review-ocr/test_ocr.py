@@ -33,9 +33,13 @@ class OcrCandidateTest(unittest.TestCase):
         self.assertEqual(argv[argv.index("--audience") + 1], "agent")
         self.assertEqual(argv[argv.index("--output") + 1], "/bundle/ocr.json")
 
-    def test_budget_scales_with_effort_rounds(self):
+    def test_budget_scales_with_effort_and_stays_inside_the_run_cap(self):
+        cap = collect.OCR_RUN_BUDGET_SECONDS - collect.OCR_HEAD_OVERHEAD_SECONDS
         self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "low"}), 360)
-        self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "high"}), 960)
+        self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "high"}), cap)
+        self.assertEqual(
+            collect.ocr_budget({"timeout_minutes": 5, "effort": "low"}, remaining=700), 220
+        )
 
     def test_run_budget_is_recorded_without_calling_ocr(self):
         from types import SimpleNamespace
@@ -52,7 +56,7 @@ class OcrCandidateTest(unittest.TestCase):
     def test_failure_is_recorded_and_not_raised(self):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "ocr.json"
-            collect.ocr_execute({"binary": "/bin/false", "timeout_minutes": 1}, Path(directory), "b", "h", out)
+            collect.ocr_execute({"binary": "/bin/false", "timeout_minutes": 1}, Path(directory), "b", "h", out, 60)
             self.assertEqual(json.loads(out.read_text())["status"], "error")
 
     def test_success_output_is_accepted(self):
@@ -64,7 +68,7 @@ class OcrCandidateTest(unittest.TestCase):
             )
             fake.chmod(0o755)
             out = Path(directory) / "ocr.json"
-            collect.ocr_execute({"binary": str(fake), "timeout_minutes": 1}, Path(directory), "b", "h", out)
+            collect.ocr_execute({"binary": str(fake), "timeout_minutes": 1}, Path(directory), "b", "h", out, 60)
             self.assertEqual(json.loads(out.read_text())["status"], "complete")
 
 
