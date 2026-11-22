@@ -110,7 +110,6 @@ class ManagedSettings(unittest.TestCase):
                         "git log --oneline -p", "git diff --stat -U5",
                         "python3 -c 'import os; print(os.environ)'",
                         "kubectl get pod x -o jsonpath='{.spec.containers[0].env[*]}'",
-                        "rg -n \"secrets/\" README.md",
                         "find . -maxdepth 1 -name '*.md' -exec wc -l {} +",
                         "nix eval --impure --expr '1 + 1'"]:
             with self.subTest(command=command):
@@ -126,6 +125,10 @@ class ManagedSettings(unittest.TestCase):
                         "cat .env.example .env",
                         "git diff --no-index /dev/null .env",
                         "jq . .env",
+                        "rg -n \"secrets/\" README.md",
+                        "cat \"secrets/prod.yaml\"",
+                        "cat 'secrets/key'",
+                        "python3 -c \"open('secrets/k').read()\"",
                         "fd -x cat .env",
                         "find . -exec cat .env +",
                         "git branch -D main",

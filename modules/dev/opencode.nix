@@ -128,8 +128,9 @@
       "git show *:secrets/*"
       "git show *:.ssh/*"
       "git show *:.config/sops/age/*"
-      # Path-shaped protected content. Bare substring patterns blocked benign
-      # commands such as `os.environ`, kubectl `.env[*]` and `rg "secrets/"`.
+      # Environment files use path-shaped forms so `os.environ` and kubectl
+      # `.env[*]` pass. Secret directories stay broad: quoted and prefixed
+      # spellings are otherwise easy to miss.
       "*.env"
       "*.env.*"
       "* .env*"
@@ -139,8 +140,7 @@
       "*.secrets.json*"
       "*.secret.json*"
       "*.age"
-      "* secrets/*"
-      "*/secrets/*"
+      "*secrets/*"
       "*/.ssh/*"
       "*/.config/sops/age/*"
       "*nixos-rebuild*--target-host*"
