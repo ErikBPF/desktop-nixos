@@ -154,8 +154,22 @@ procedure with a stated data-loss window.
 
 The coordinator reports that actual preservation used the existing
 `k3s etcd-snapshot save --name kepler-recovery-20261121` command on each CP.
-Without the running service's snapshot-directory flags, these new files landed
-in `/var/lib/rancher/k3s/server/db/snapshots`, not the scheduled virtiofs share.
+The invocation did not include `--etcd-snapshot-dir` or `--data-dir`. The
+coordinator located the new files in
+`/var/lib/rancher/k3s/server/db/snapshots`; the same named files were absent from
+the scheduled virtiofs share. File sizes, snapshot status and exported source
+hashes were checked against those observed default-path files.
+
+The earlier explanation that a standalone CLI does not inherit server flags was
+incorrect. The [pinned CLI](https://github.com/k3s-io/k3s/blob/v1.36.5%2Bk3s1/pkg/cli/etcdsnapshot/etcd_snapshot.go)
+sends a `/db/snapshot` request; it supplies a directory override only when that
+option is set, otherwise using server defaults. Owner source configures the
+running service with `--etcd-snapshot-dir=/etcd-snapshots`. Why the observed
+runtime files were instead at the default path remains unresolved; do not infer
+that the configured share is absent or rewrite the verified inventory to match
+source. Locate and validate actual files before exporting. The reviewer on
+head `06884ec` correctly challenged the causal explanation; the observed path
+and backup validation are retained as execution evidence.
 All three snapshot metadata checks passed. Each selected snapshot and matching
 `/tokens/token` was streamed over authenticated nested SSH into local age stdin;
 only encrypted output reached Endeavour disk. The coordinator subsequently exported the existing scheduled snapshots as an
@@ -174,11 +188,14 @@ Linux amd64 release. Both report version 3.6.14/API 3.6. Archive SHA-256
 matched both the release SHA256SUMS and GitHub's asset digest before extraction.
 No binary was installed into a live guest by this author.
 
-The latest pre-repair checks at common hash revision 64426062 and compact
+Earlier pre-repair checks at common hash revision 64426062 and compact
 revision 64423411 returned cp-1 hash 693956178 versus cp-2/cp-3 hash 3536509858.
 All three endpoint health checks passed; cp-3 remained leader, term 140. These were pre-attempt observations. The specific approval subsequently
 arrived; the stopped-state preservation and failed single attempt are recorded
-above. They do not authorize another attempt.
+above. They do not authorize another attempt. A later pre-attempt gate used
+hash revision 64451008 and compact revision 64448490: cp-1 returned 3531028427,
+while cp-2/cp-3 returned 1875108299. These are historical pre-attempt checks,
+not current hashes from the stopped cp-1.
 
 The earlier independent review accepted an incomplete candidate; the actual
 failure supersedes that source-only conclusion. Documentation checks cannot
