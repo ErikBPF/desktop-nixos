@@ -103,7 +103,16 @@ in {
       terminal = "tmux-256color";
       extraConfig = "set -g status-right '#H | %H:%M'";
     };
-    environment.systemPackages = [pkgs.ghostty.terminfo];
+    environment.systemPackages = [
+      pkgs.ghostty.terminfo
+      (pkgs.writeShellApplication {
+        name = "tmux-resume";
+        runtimeInputs = [pkgs.tmux pkgs.fzf];
+        text = ''
+          exec ${pkgs.python3}/bin/python3 ${../../terminal/_tmux-resume.py} "$@"
+        '';
+      })
+    ];
 
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";

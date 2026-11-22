@@ -19,3 +19,19 @@ the client preserves processes; rebooting Kepler does not. Additional sessions
 can be created with tmux on Kepler. `sk <arguments>` preserves its existing SSH
 passthrough behavior, and Super+Shift+T stays local. Connection failures remain
 errors, never automatic local writers. No agents launch automatically.
+
+
+Human refinement:
+
+> we should have something like the /resume comand to cycle through oppened tmux sessions based on the folder and attach to it
+
+`tmux-resume [folder]` lists open sessions by their starting folder, name and
+attachment status. Search or use arrow keys, then Enter to attach. Inside tmux,
+selection switches clients without nesting. Escape does not attach or create a
+session. The optional folder filter matches the full canonical starting path;
+it does not follow an arbitrary pane's changing current directory.
+
+Entrypoint question remains pending: show this picker on bare `sk`, or expose
+`sk resume` while keeping direct attachment. Until answered, the existing bare
+`sk` behavior remains unchanged and the picker is callable through
+`sk -t tmux-resume`. No new-session wizard is included in this refinement.
