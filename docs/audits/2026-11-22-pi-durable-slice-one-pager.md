@@ -87,9 +87,11 @@ five were confirmed against the pinned type declarations and fixed on
 `feat/pi-shadow-20261122`: exact-id entry lookup (with a RED test that puts the
 answer outside the 200-entry window), settled-reason failure reporting with a
 `turn_limit` faux run, bounded `status` paging whose count matches its rows,
-sandbox ownership on `close()`, and corrected USAGE default text. Evidence:
-13 → 18 tests, `tsc --noEmit`, `nix build .#pi-harness`, `just lint`,
-`just fmt-check` all pass. Details and rejected alternatives:
+sandbox ownership on `close()`, and corrected USAGE default text. A fresh
+whole-slice review then found a symlinked-entrypoint regression, a vacuous
+stale-failure assertion, and an unproven exact-query test; all were fixed with
+tests. Evidence: 13 → 20 tests, `tsc --noEmit`, `nix build .#pi-harness`,
+`just lint`, `just fmt-check` all pass. Details and rejected alternatives:
 [`2026-11-22-pi-harness-review-fixes.md`](2026-11-22-pi-harness-review-fixes.md).
 
 ## Risks and recovery

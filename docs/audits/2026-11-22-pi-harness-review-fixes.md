@@ -4,11 +4,13 @@
 
 **Scope:** the three defects from the first real read-only run of the durable
 harness in `modules/dev/pi-harness`, plus two follow-ups the same review named
-(sandbox lifetime, USAGE text). The durable type declarations under
-`node_modules/@earendil-works/pi-durable/dist/*.d.ts` were the API reference.
+(sandbox lifetime, USAGE text), and the defects a fresh whole-slice review
+found in the first fix commit.
 
 **Worktree:** `desktop-nixos/worktrees/pi-shadow-20261122` (existing worktree;
 `e44fbba6` was not reverted and `worktrees/pi-durable-20261122` was not touched).
+The durable type declarations under
+`node_modules/@earendil-works/pi-durable/dist/*.d.ts` were the API reference.
 
 ## Finding, verdict, fix, test
 
@@ -33,6 +35,32 @@ harness in `modules/dev/pi-harness`, plus two follow-ups the same review named
 - **Report the live failure whenever it matches this submission.** Rejected:
   the task asks for the settled reason first. The live record is used only when
   the settled reason is empty.
+
+## Review round on the first fix commit
+
+A fresh pilot-l3 review accepted the first commit with nits and found four
+substantive gaps. All were fixed and the tests now prove the intended path:
+
+1. **Symlinked entrypoint regression.** `import.meta.url` resolves to the real
+   file, so comparing it to `argv[1]` made a symlinked `bin` silently do
+   nothing. `isEntrypoint()` now compares against `realpathSync(argv[1])`.
+   Verified by running `node` on a symlink to the emitted `dist/cli.js`: it
+   prints USAGE.
+2. **Vacuous stale-failure assertion.** The `turn_limit` record has a reason, so
+   the ownership check was never evaluated. A synthetic settled record with an
+   empty reason now asserts both sides: matching inputs use the live reason,
+   other inputs return the empty settled reason.
+3. **Entry test did not prove the query.** It only showed the window was too
+   small. The test now spies on `root.entries()` and asserts the exact call:
+   `{ minEntryId, maxEntryId }` for the settled id and limit 1.
+4. **Sandbox close was not guaranteed.** It followed two unguarded awaits. The
+   harness close is now inside `try`, with `sandbox.close()` in `finally`.
+5. **No test for the count line.** `describeConversationCount()` is extracted
+   and tested for both the exact and truncated forms.
+6. **USAGE wording.** It now says the stored value wins unless the flag is
+   passed, matching README.
+
+Test count after this round: 20.
 
 ## RED evidence
 
@@ -60,10 +88,10 @@ tsc exit=0
 
 $ ./node_modules/.bin/vitest run
  Test Files  7 passed (7)
-      Tests  18 passed (18)
+      Tests  20 passed (20)
 ```
 
-Before: 6 files, 13 tests. After: 7 files, 18 tests.
+Before: 6 files, 13 tests. After: 7 files, 20 tests.
 
 Two premises were probed before the fix, with a throwaway test since deleted:
 a `maxTurns: 1` faux run settles `unanswered` with `reason: "turn_limit"`,
@@ -75,14 +103,16 @@ contain it.
 
 ```
 $ nix build .#pi-harness --no-link --print-out-paths
-/nix/store/78zdp0ix6c02za3naxff68xgjm4n4lp5-pi-harness-0.1.0
+/nix/store/m2zqglcfksvs93d80wdw5g601kjngb1d-pi-harness-0.1.0
 
 $ just lint          # exit 0 (statix)
 $ just fmt-check     # exit 0 (alejandra, 245 files)
 ```
 
 The built binary was run to prove the new `main()` guard still starts the CLI
-under the Nix wrapper, and that `status` prints one conversation for one row:
+under the Nix wrapper, and that `status` prints one conversation for one row.
+A `node` run on a symlink to the emitted `dist/cli.js` also printed USAGE,
+which is the regression the first fix commit introduced:
 
 ```
 $ pi-harness status --project "$project" --state-dir "$state" --no-mcp
@@ -97,13 +127,13 @@ covered by faux-provider tests and the CLI start above.
 
 ## Changed files
 
-```
- modules/dev/pi-harness/src/cli.ts                    | 108 +++++++++++++++-------
- modules/dev/pi-harness/src/harness.ts                |   8 ++-
- modules/dev/pi-harness/test/cli.test.ts              | new (5 tests)
- docs/audits/2026-11-22-pi-harness-review-fixes.md    | new
- docs/audits/2026-11-22-pi-durable-slice-one-pager.md | review-fixes section
-```
+- `modules/dev/pi-harness/src/cli.ts` — exact-id lookup, settled failure report,
+  bounded status pages, entrypoint guard, USAGE text.
+- `modules/dev/pi-harness/src/harness.ts` — keep and close the code-mode
+  sandbox.
+- `modules/dev/pi-harness/test/cli.test.ts` — new; 7 tests.
+- `docs/audits/2026-11-22-pi-harness-review-fixes.md` — new.
+- `docs/audits/2026-11-22-pi-durable-slice-one-pager.md` — review-fixes section.
 
 Untouched as required: `e44fbba6`, `modules/dev/pi.nix`, every OpenCode file,
 dependencies, the `pi-durable-20261122` worktree. Nothing was pushed.

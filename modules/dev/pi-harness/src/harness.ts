@@ -258,10 +258,13 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 			dbPath,
 			context: CONTEXT,
 			async close() {
-				for (const client of clients) await client.close();
-				await harness!.close(CONTEXT);
-				// The extension cannot own the sandbox: a script-left worker would outlive the CLI.
-				await sandbox.close().catch(() => {});
+				try {
+					for (const client of clients) await client.close();
+					await harness!.close(CONTEXT);
+				} finally {
+					// The extension cannot own the sandbox: a script-left worker would outlive the CLI.
+					await sandbox.close().catch(() => {});
+				}
 			},
 		};
 	} catch (error) {

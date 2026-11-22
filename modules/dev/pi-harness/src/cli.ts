@@ -8,6 +8,7 @@
  * watch [id]     stream one conversation's committed entries (root by default)
  */
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
@@ -39,10 +40,12 @@ commands:
 
 options:
   --project <dir>     project directory (default: cwd)
-  --model <p/id>      litellm/<id> or work/<id> (first creation: litellm/deepseek-v4.1-flash;
-                      a stored model wins on reopen)
-  --thinking <level>  off|minimal|low|medium|high|xhigh|max (first creation: high;
-                      a stored level wins on reopen)
+  --model <p/id>      litellm/<id> or work/<id> (default on first creation:
+                      litellm/deepseek-v4.1-flash; the stored model wins on reopen
+                      unless this flag is passed)
+  --thinking <level>  off|minimal|low|medium|high|xhigh|max (default on first
+                      creation: high; the stored level wins on reopen unless this
+                      flag is passed)
   --state-dir <dir>   override XDG_STATE_HOME
   --no-mcp            do not start the donsetch/graphify MCP servers
 
@@ -112,6 +115,12 @@ export type ConversationScan = {
 	/** The store had more pages than the bound allowed. */
 	readonly truncated: boolean;
 };
+
+export function describeConversationCount(scan: ConversationScan): string {
+	return scan.truncated
+		? `conversations: at least ${scan.items.length} (more pages)`
+		: `conversations: ${scan.items.length}`;
+}
 
 export async function scanConversationPages(
 	scan: (cursor: Cursor | undefined) => Promise<Page<ConversationRecord, Cursor>>,
@@ -198,11 +207,7 @@ async function commandStatus(values: CliOptions): Promise<void> {
 				opened.context,
 			),
 		);
-		console.log(
-			scan.truncated
-				? `conversations: at least ${scan.items.length} (more pages)`
-				: `conversations: ${scan.items.length}`,
-		);
+		console.log(describeConversationCount(scan));
 		for (const conversation of scan.items) {
 			const owner = conversation.owner === undefined ? "" : ` owner_task=${conversation.owner.taskId}`;
 			console.log(`  ${conversation.id}${owner}`);
@@ -307,8 +312,17 @@ async function main(): Promise<void> {
 	throw new Error(`unknown command: ${command}`);
 }
 
-const invoked = process.argv[1];
-if (invoked !== undefined && import.meta.url === pathToFileURL(invoked).href) {
+/** Whether this module is the process entry point. `argv[1]` may be a symlink to the real file. */
+export function isEntrypoint(invoked: string | undefined, moduleUrl: string): boolean {
+	if (invoked === undefined) return false;
+	try {
+		return moduleUrl === pathToFileURL(realpathSync(invoked)).href;
+	} catch {
+		return false;
+	}
+}
+
+if (isEntrypoint(process.argv[1], import.meta.url)) {
 	main().catch((error: unknown) => {
 		console.error(error instanceof Error ? error.message : String(error));
 		process.exitCode = 1;

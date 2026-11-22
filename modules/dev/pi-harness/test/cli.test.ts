@@ -1,6 +1,8 @@
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { FauxResponseStep } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai";
 import { fauxAssistantMessage, fauxProvider, fauxText, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
@@ -22,7 +24,7 @@ import {
 	openHarness,
 	type OpenedHarness,
 } from "../src/harness.js";
-import { describeRunFailure, findEntry, scanConversationPages } from "../src/cli.js";
+import { describeRunFailure, describeConversationCount, findEntry, isEntrypoint, scanConversationPages } from "../src/cli.js";
 
 const echo = defineTool({
 	name: "echo",
@@ -72,7 +74,12 @@ describe("cli entry lookup", () => {
 			const recent = await opened.root.entries({ order: "descending" }, 200, undefined, CONTEXT);
 			expect(recent.items.some((entry) => entry.id === settled.answer)).toBe(false);
 
+			const entries = vi.spyOn(opened.root, "entries");
 			const answer = await findEntry(opened, settled.answer);
+			expect(entries).toHaveBeenCalledTimes(1);
+			const [query, limit] = entries.mock.calls[0]!;
+			expect(query).toMatchObject({ minEntryId: settled.answer, maxEntryId: settled.answer });
+			expect(limit).toBe(1);
 			expect(answer?.id).toBe(settled.answer);
 			expect(JSON.stringify(answer?.model?.[0])).toContain("the answer");
 		} finally {
@@ -101,14 +108,14 @@ describe("cli failure reporting", () => {
 			expect(report).toContain("turn_limit");
 
 			// A live failure from an older submission must not be named for this one.
-			const stale = {
-				runFailure: {
-					taskId: 1,
-					inputs: [999],
-					reason: "aborted",
-				},
-			} as unknown as Parameters<typeof describeRunFailure>[1];
-			expect(describeRunFailure(settled, stale)).toBe(`${settled.reason}: ${String(settled.detail)}`);
+			type Settled = Parameters<typeof describeRunFailure>[0];
+			type Live = Parameters<typeof describeRunFailure>[1];
+			const synthetic = { status: "unanswered", type: "input", id: 7, reason: "" } as unknown as Settled;
+			const liveFailure = (reason: string, inputs: number[]) =>
+				({ runFailure: { taskId: 1, inputs, reason } }) as unknown as Live;
+
+			expect(describeRunFailure(synthetic, liveFailure("aborted", [7]))).toBe("aborted");
+			expect(describeRunFailure(synthetic, liveFailure("aborted", [9]))).toBe("");
 		} finally {
 			await opened.close();
 		}
@@ -133,6 +140,30 @@ describe("cli status scan", () => {
 		const result = await scanConversationPages(scan, 2);
 		expect(result.items).toHaveLength(2);
 		expect(result.truncated).toBe(true);
+	});
+
+	it("prints the count of the rows it prints", () => {
+		expect(describeConversationCount({ items: [conversation(1), conversation(2)], truncated: false })).toBe(
+			"conversations: 2",
+		);
+		expect(describeConversationCount({ items: [conversation(1)], truncated: true })).toBe(
+			"conversations: at least 1 (more pages)",
+		);
+	});
+});
+
+describe("cli entrypoint", () => {
+	it("recognises a symlinked entrypoint", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "pi-harness-entry-"));
+		const real = join(dir, "cli.js");
+		const link = join(dir, "pi-harness");
+		await writeFile(real, "");
+		await symlink(real, link);
+
+		const realUrl = pathToFileURL(realpathSync(real)).href;
+		expect(isEntrypoint(link, realUrl)).toBe(true);
+		expect(isEntrypoint(link, pathToFileURL(link).href)).toBe(false);
+		expect(isEntrypoint(undefined, realUrl)).toBe(false);
 	});
 });
 
