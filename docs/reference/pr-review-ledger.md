@@ -29,6 +29,16 @@ leases, and how new heads dispatch workers.
    requires both the diff and the base-pinned guidance to match byte for byte;
    a rebase that changed contributor guidance or review skills goes through a
    real review instead.
+
+   For a repository listed in `ocrRepos`, the collector also runs the Open Code
+   Review candidate pass before the bundle is sealed. It fetches base and head
+   into a per-repository bare cache under `repo-cache/`, adds a detached
+   worktree, and writes `ocr.json` into the bundle. That file holds a candidate
+   list, or `{"status":"error"}` when the pass fails. Candidates are advisory:
+   the worker keeps the verdict and must re-quote evidence from the diff. The
+   pass reads `/run/vault-agent/hermes-ocr.env`, rendered from
+   `secret/home/ocr-review-litellm`, and it is fail-open — a missing credential
+   or a failed run leaves the bundle reviewable without candidates.
 3. If any row is claimable, the collector's `ExecStartPost` runs
    `hermes-pr-review-dispatch`.
 4. Dispatch starts up to `parallelism` transient `systemd-run` units, one per
@@ -40,8 +50,11 @@ leases, and how new heads dispatch workers.
    `/var/lib/hermes-pr-review/published/`, then marks the row `published`.
 
 A new head is normally visible as a check within review time plus about one
-minute. Workers still have their own 10-minute cron fallback; dispatch just
-removes the wait for the next shared tick. An idle worker prints the Hermes
+minute. An OCR-enabled deployment adds the serial candidate pass — up to
+`ocrTimeoutMinutes` per new head — before the bundle is sealed, and its collect
+unit carries a 30-minute start bound for that reason. Workers still have their
+own 10-minute cron fallback; dispatch just removes the wait for the next shared
+tick. An idle worker prints the Hermes
 `{"wakeAgent": false}` gate and exits without invoking the model.
 
 ## Ledger
