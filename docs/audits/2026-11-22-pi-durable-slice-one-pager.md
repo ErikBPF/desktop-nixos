@@ -1,9 +1,10 @@
 # Pi durable harness MVP — one-pager
 
 **Date:** 2026-11-22
-**Stage:** Implementation verified in a worktree. No deploy, no push, no new repo.
-**Worktree:** `desktop-nixos/worktrees/pi-durable-20261122`, branch
-`feat/pi-durable-harness`.
+**Status:** Implemented, wired into `m.home.pi`, not switched on a host.
+**Worktree:** developed in `desktop-nixos/worktrees/pi-durable-20261122` on
+branch `feat/pi-durable-harness`; landed with the shadow slice
+(`feat/pi-shadow-20261122`, PR #525).
 **Audit:** [`2026-11-22-pi-durable-slice.md`](2026-11-22-pi-durable-slice.md)
 
 ## Outcome and why
@@ -14,8 +15,10 @@ the two home gateways, coding tools, code mode, MCP tools, and background
 subagents into one registry and exposes four CLI commands.
 
 The slice delivers a working local MVP: it builds under npm and Nix, passes
-offline tests, and answered one live LiteLLM request. It is not deployed and is
-not wired into `modules/dev/pi.nix`.
+offline tests, and answered one live LiteLLM request. `modules/dev/pi.nix`
+installs it as `pi` and `pi-harness`, and `profile-desktop` imports `m.home.pi`.
+No host was switched, so the command is not active on a machine yet. The
+upstream shadow agent is installed beside it as `pi-agent`.
 
 ## Changes
 
@@ -42,16 +45,17 @@ not wired into `modules/dev/pi.nix`.
 
 - `npm install --ignore-scripts`: 153 packages.
 - `npm run build`: TypeScript emits `dist/` with no errors.
-- `npm test`: 5 files, 11 tests passed.
+- `npm test`: 7 files, 20 tests passed (after the review fixes).
 - `nix build .#pi-harness`:
-  `/nix/store/lm5rp38hdrrf2q7khqrfi8kqzsskvr5p-pi-harness-0.1.0`.
+  `/nix/store/m2zqglcfksvs93d80wdw5g601kjngb1d-pi-harness-0.1.0`.
 - `nix flake show` and `just lint`, `just fmt-check`, `just docs-check` pass.
+- Home Manager path for `endeavour`: `bin/pi` prints the harness USAGE,
+  `bin/pi-agent --version` prints `1.6.0`.
 - Live `ask` through LiteLLM printed `ok`; usage was input 10,940, output 3,
   cost `$0.000821`. A plain `resume` kept `litellm/glm-5.3-flash`.
 - First live attempt failed with `400` because LiteLLM requires
   `x-opencode-session`. The provider now sends a stable per-process value.
-- No key was printed. No OpenCode file changed. `modules/dev/pi.nix` was not
-  edited; that file lives in another worktree.
+- No key was printed. No OpenCode file changed.
 
 Limits: coding tools are unsandboxed and ungated; code mode limits memory, not
 authority. MCP startup is best effort. The `work` provider was not exercised
@@ -80,7 +84,8 @@ were not simulated; the tests prove the idempotency guards, not the crash path.
 - Exercise `work/deepseek-v4.1-flash` and `work/glm-5.3-flash` live.
 - Decide whether `status` should avoid a read-only commit when scanning
   conversations.
-- Wire into a home profile only after a separate permission/sandbox decision.
+- Decide the permission/sandbox posture before switching a host. The profile
+  wiring itself is done.
 
 ## Review fixes (2026-11-22)
 
