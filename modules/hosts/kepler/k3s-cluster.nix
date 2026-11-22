@@ -171,10 +171,13 @@ in {
         cid = 10 + i;
         mac = "02:00:00:00:fa:0${toString i}";
         # etcd is memory + fsync sensitive; 2G/1vcpu flapped under sync load
-        # (grill §3). 4G/2vcpu gives etcd+apiserver headroom. The configured
-        # 3×4G control planes + 3×16G workers use 60 GiB of kepler's 96 GiB.
+        # (grill §3), so 4G/2vcpu was the established headroom point. 2vcpu/3G
+        # is a deliberate, monitored deviation — watch cp-* memory and etcd
+        # fsync latency after rollout and revert to 4096 if it flaps. The
+        # configured 3×3G control planes + 3×10G workers use 39 GiB of kepler's
+        # ~94 GiB.
         vcpu = 2;
-        mem = 4096;
+        mem = 3072;
         disk = 32768;
       }
       else let
@@ -512,8 +515,8 @@ in {
       };
       workerMem = lib.mkOption {
         type = lib.types.int;
-        default = 16384;
-        description = "RAM (MiB) per worker. Kepler configures 3×16 GiB workers + 3×4 GiB control planes: 60 GiB of 96 GiB total; ARC yields under pressure.";
+        default = 10240;
+        description = "RAM (MiB) per worker. Kepler configures 3×10 GiB workers + 3×3 GiB control planes: 39 GiB of ~94 GiB total. Sized above the measured pod working set (~22 GiB requests, 74% of 30 GiB); note two survivors after a lost worker hold only 20 GiB, so part of an evicted set stays Pending. ARC yields under pressure.";
       };
       workerVcpu = lib.mkOption {
         type = lib.types.int;
