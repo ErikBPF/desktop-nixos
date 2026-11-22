@@ -1,7 +1,7 @@
 let
   fixture = import ./fixture.nix;
 in
-  assert builtins.elem "multi-user.target" fixture.k3sWantedBy;
+  assert builtins.elem "multi-user.target" fixture.normalNodeK3sWantedBy;
   assert !(builtins.elem "k3s.service" fixture.manifest.wants);
   assert builtins.elem "k3s.service" fixture.manifest.after;
   assert fixture.manifest.remainAfterExit;

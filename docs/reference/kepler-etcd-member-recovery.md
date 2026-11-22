@@ -27,7 +27,8 @@ Under that historical configuration, deleting its whole database and starting
 normally risked a new singleton. The node specification retains those inputs
 to preserve the bootstrap share, but the current temporary recovery candidate
 overrides cp-1 with `mkForce`: effective `clusterInit = false`,
-`serverAddr = "https://10.250.0.13:6443"`, one bounded startup and bootstrap
+`serverAddr = "https://10.250.0.13:6443"`, no automatic boot start, one bounded
+explicit startup and bootstrap
 reconciliation disabled. See the [replacement proof and held candidate](../behaviors/k3s-bootstrap-reproduction/one-pager.md).
 Source preparation does not establish what is active in the guest; verify the
 actual closure before any startup. The history below explains the withdrawn

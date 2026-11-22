@@ -401,6 +401,7 @@ in {
       # Temporary cp-1 member replacement; retain s.clusterInit and its shares.
       services.k3s.clusterInit = lib.mkIf (name == "cp-1") (lib.mkForce false);
       services.k3s.serverAddr = lib.mkIf (name == "cp-1") (lib.mkForce "https://10.250.0.13:6443");
+      systemd.services.k3s.wantedBy = lib.mkIf (name == "cp-1") (lib.mkForce []);
       systemd.services.k3s.serviceConfig = lib.mkIf (name == "cp-1") {
         Restart = lib.mkForce "no";
         TimeoutStartSec = lib.mkForce "5min";

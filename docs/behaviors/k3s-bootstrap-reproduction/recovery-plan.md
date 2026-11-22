@@ -52,9 +52,11 @@ production recovery recipe.
    old etcd name into the new directory. K3s must assign the new member identity.
    Do not use cluster reset or remove any other member.
 4. Only now invoke the reviewed cp1-only activation helper once. The candidate
-   joins cp3 with cluster initialization disabled and Restart=no. Its five-minute
-   startup budget and the helper's outer bound prevent an uncontrolled loop.
-   Activation starts K3s, so it cannot precede member removal/quarantine.
+   joins cp3 with cluster initialization disabled and Restart=no. It has no
+   multi-user boot start edge. The helper switches the closure, then explicitly
+   starts K3s once; its five-minute service startup budget and outer bounds
+   prevent an uncontrolled loop. That explicit start cannot precede approved
+   member removal/quarantine.
 5. Require the original cluster and survivor IDs, a new cp1 member ID, three
    voting members, healthy endpoints, no alarms, converged storage versions, and
    equal hashes at the same requested revision/compact revision. Verify the same
@@ -72,7 +74,7 @@ restore old etcd, recreate the removed member, switch the old guest closure, or
 retry. Escalate for a fresh reviewed recovery choice.
 
 After live recovery is independently accepted, a separate source cleanup must
-restore normal restart and bootstrap reconciliation policies using the PR505
+restore the boot start edge, normal restart and bootstrap reconciliation policies using the PR505
 maintenance-safe dependency behavior. Review whether to retain a healthy join
 URL, then preview and activate that cleanup on cp1 only. Until then, the
 single-attempt/no-reconciliation state remains an explicit operational risk.

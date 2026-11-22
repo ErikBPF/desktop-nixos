@@ -71,19 +71,20 @@ stabilization period.
 
 The temporary Nix candidate overrides only cp1's effective K3s settings: no
 cluster initialization, join through cp3, Restart=no and a five-minute startup
-budget. Its bootstrap service/timer are disabled. The original node specification
+budget. Its boot start edge is removed; bootstrap service/timer are disabled. The original node specification
 and bootstrap share remain unchanged. A Nix assertion failed before these edits
 and passed afterward. The maintenance suppression fix in PR505 is a prerequisite;
 the owning helper must permit its exact manifest-reconciler change as well.
-The targeted build passed: closure `xp0gqc2bhpj5aqn6ivyv2qfj4753mwcc`,
-runner `52z7d4x4jh743sdk3f5iwgkylgmwrs2c`. Actual bootstrap units resolve to
-`/dev/null`; five sibling outputs and cp1 hardware match the PR505 baseline.
+The targeted build passed: boot-guard closure `9m1zvcbinrv8396j6jzvjw9ncx7pk4q4`,
+runner `s226dm43kyklikzpbg64aj1vwhlgydhb`. Actual bootstrap units resolve to
+`/dev/null` and the built multi-user K3s symlink is absent; five sibling outputs and cp1 hardware match the PR505 baseline.
 Lint, formatting, docs links, Nix assertions and actual commit hooks passed.
 
-Activation starts K3s: the fresh approved member removal and full-directory
-quarantine must happen first. The [ordered recovery plan](recovery-plan.md)
+The helper explicitly starts K3s after switching: approved member removal and
+full-directory quarantine must happen first. The [ordered recovery plan](recovery-plan.md)
 defines that boundary. Do not deploy the whole host or activate siblings.
-Restart=no and disabled reconciliation remain temporary reliability limitations
+The absent boot start edge, Restart=no and disabled reconciliation remain
+temporary reliability limitations
 until a separately reviewed cleanup restores them after recovery; a successful
 join alone does not close the incident.
 
@@ -94,3 +95,9 @@ rollback target; the two survivors temporarily have no fault tolerance. A live
 member replacement requires a new concrete approval, validated backup/quorum,
 maintenance suppression, a reviewed single-member activation path and explicit
 stop behavior. No production candidate is declared ready by this document.
+
+Hosted review first corrected a historical source description. Its second
+finding exposed the retained boot start edge: Nix assertion RED preceded the
+cp1-only `wantedBy = []` fix. Immutable copy/GC roots never activate a runner;
+the guarded risk is later installation and boot of this temporary candidate.
+No live action or new recovery-primitive run occurred.
