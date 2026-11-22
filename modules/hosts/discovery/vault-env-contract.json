@@ -36,6 +36,7 @@
     "MINIO_TFSTATE_ROOT_PASSWORD",
     "NORDVPN_PASSWORD",
     "NORDVPN_USER",
+    "OCR_LLM_TOKEN",
     "OPENCODE_GO_KEY",
     "OPENCODE_ZEN_KEY",
     "POSTGRES_PASSWORD",
@@ -174,6 +175,14 @@
       "perms": "0400"
     },
     {
+      "destination": "/run/vault-agent/hermes-ocr.env",
+      "group": "vault-consumers",
+      "names": [
+        "OCR_LLM_TOKEN"
+      ],
+      "perms": "0400"
+    },
+    {
       "destination": "/run/vault-agent/hermes-argus.env",
       "group": "vault-consumers",
       "names": [
@@ -240,5 +249,5 @@
     "user": "root"
   },
   "source": "modules/hosts/discovery/_vault-agent.nix",
-  "source_sha256": "69f74bcff6b29e520d585793a9739325e6be9bfd3c4ee7d1da71312dd59c86f9"
+  "source_sha256": "47072ec8d6af8b2782063224b16184bcc454f389b23261da207c533a7d57f936"
 }

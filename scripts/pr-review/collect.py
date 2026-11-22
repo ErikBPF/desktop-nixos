@@ -8,6 +8,7 @@ PR head under the agent data dir. The agent never sees a token.
 from __future__ import annotations
 
 import argparse
+import base64
 import fcntl
 import hashlib
 import json
@@ -16,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -489,6 +491,133 @@ def harden_bundle(root: Path) -> None:
         path.chmod(0o755 if path.is_dir() else 0o644)
 
 
+def ocr_settings(settings: dict | None, repo: str) -> dict | None:
+    """Return the OCR settings for this repo, or None when not enabled."""
+    cfg = (settings or {}).get("ocr")
+    if not isinstance(cfg, dict) or not cfg.get("enable"):
+        return None
+    if repo not in (cfg.get("repos") or []):
+        return None
+    return cfg
+
+
+def ocr_invocation(
+    cfg: dict, worktree: Path, base: str, head: str, out: Path
+) -> list[str]:
+    return [
+        cfg.get("binary", "ocr"),
+        "review",
+        "--repo",
+        str(worktree),
+        "--from",
+        base,
+        "--to",
+        head,
+        "--model",
+        cfg.get("model", "deepseek-v4.1-flash"),
+        "--effort",
+        cfg.get("effort", "low"),
+        "--timeout",
+        str(cfg.get("timeout_minutes", 5)),
+        "--format",
+        "json",
+        "--audience",
+        "agent",
+        "--output",
+        str(out),
+    ]
+
+
+def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path) -> None:
+    """Run the candidate pass. A broken pass must never block the review."""
+    try:
+        proc = subprocess.run(
+            ocr_invocation(cfg, worktree, base, head, out),
+            capture_output=True,
+            text=True,
+            timeout=max(600, int(cfg.get("timeout_minutes", 5)) * 60 * 3),
+        )
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+            raise RuntimeError(detail[-1][:500] if detail else "non-zero exit")
+        if not out.exists():
+            raise RuntimeError("no output written")
+        json.loads(out.read_text())
+    except Exception as exc:
+        out.write_text(
+            json.dumps({"status": "error", "message": str(exc)[:500]}, indent=2)
+            + "\n"
+        )
+        print(f"WARN ocr {worktree.name}: {exc}", file=sys.stderr)
+
+
+def git_auth_env(token: str) -> dict:
+    """Private-repo fetch without putting the token in argv."""
+    basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+    return {
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
+        "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {basic}",
+    }
+
+
+def ocr_prepare(args, repo: str, base: str, head: str, token: str) -> tuple[Path, Path]:
+    """Fetch base and head into a per-repo bare cache; return a detached worktree."""
+    owner, name = repo.split("/", 1)
+    cache = Path(args.data_dir) / "repo-cache" / f"{owner}__{name}.git"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    if not (cache / "HEAD").exists():
+        subprocess.run(["git", "init", "--bare", "--quiet", str(cache)], check=True)
+        subprocess.run(
+            ["git", "-C", str(cache), "remote", "add", "origin",
+             f"https://github.com/{repo}.git"],
+            check=True,
+        )
+    env = tokens.gh_env(token)
+    env.update(git_auth_env(token))
+    subprocess.run(
+        ["git", "-C", str(cache), "fetch", "--quiet", "--no-tags", "origin", head, base],
+        check=True,
+        env=env,
+        timeout=300,
+    )
+    home = Path(args.data_dir) / "ocr-home"
+    home.mkdir(parents=True, exist_ok=True)
+    worktree = Path(tempfile.mkdtemp(prefix="ocr-", dir=str(home)))
+    subprocess.run(
+        ["git", "-C", str(cache), "worktree", "add", "--quiet", "--detach", str(worktree), head],
+        check=True,
+        env=env,
+        timeout=120,
+    )
+    return cache, worktree
+
+
+def ocr_candidates(args, repo: str, base: str, head: str, bundle: Path, token: str) -> None:
+    """Write `ocr.json` into the bundle when this repo opts in."""
+    cfg = ocr_settings({"ocr": getattr(args, "ocr", None)}, repo)
+    if cfg is None:
+        return
+    cache = None
+    worktree = None
+    try:
+        cache, worktree = ocr_prepare(args, repo, base, head, token)
+        ocr_execute(cfg, worktree, base, head, bundle / "ocr.json")
+    except Exception as exc:
+        (bundle / "ocr.json").write_text(
+            json.dumps({"status": "error", "message": str(exc)[:500]}, indent=2) + "\n"
+        )
+        print(f"WARN ocr {repo}#{head[:7]}: {exc}", file=sys.stderr)
+    finally:
+        if worktree is not None:
+            subprocess.run(
+                ["git", "-C", str(cache), "worktree", "remove", "--force", str(worktree)],
+                capture_output=True,
+            )
+            shutil.rmtree(worktree, ignore_errors=True)
+
+
 def reuse_bundle(
     args,
     db,
@@ -729,6 +858,8 @@ def build_bundle(
                 ]
             )
         )
+        if (tmp / "diff.patch").stat().st_size > 0:
+            ocr_candidates(args, repo, base, head, tmp, token)
         (tmp / ".ready").write_text(now() + "\n")
         harden_bundle(tmp)
         tmp.replace(target)
@@ -759,6 +890,7 @@ def main() -> int:
     config = tokens.load_config(args.config)
     settings = tokens.load_settings(args.config)
     review_drafts = bool(settings.get("review_drafts", True))
+    args.ocr = settings.get("ocr")
     state_dir = Path(args.state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
     state_path = state_dir / "state.json"
