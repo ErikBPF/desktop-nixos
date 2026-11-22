@@ -81,6 +81,11 @@ in {
       # Five workers, each claiming one bundle atomically.
       parallelism = 5;
       publishInterval = "30s";
+      # Host-side OCR candidate list. One repo first: the collector clones it
+      # with the App token, runs the cheap model, and the worker keeps the
+      # verdict. Widen once the packets compare well.
+      ocrEnable = true;
+      ocrRepos = ["ErikBPF/desktop-nixos"];
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;

@@ -9,10 +9,15 @@ def test_module_installs_tuicr_with_nix_owned_config():
     assert MODULE.exists()
 
     module = MODULE.read_text()
-    assert "home.packages = [pkgs.tuicr ocr];" in module
-    assert 'pname = "opencodereview";' in module
+    assert "home.packages = [pkgs.tuicr pkgs.opencodereview];" in module
     assert 'no_update_check = true;' in module
     assert 'diff_watch_interval_ms = 1000;' in module
+
+
+def test_ocr_package_is_defined_in_the_shared_overlay():
+    overlay = (ROOT / "modules/overlays.nix").read_text()
+    assert "opencodereview = final.stdenvNoCC.mkDerivation" in overlay
+    assert 'install -Dm755 $src $out/bin/ocr' in overlay
 
 
 def test_codex_gets_the_version_matched_tuicr_skill():

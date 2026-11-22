@@ -108,6 +108,14 @@ _: {
     };
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
       review_drafts = cfg.reviewDrafts;
+      ocr = {
+        enable = cfg.ocrEnable;
+        binary = "${pkgs.opencodereview}/bin/ocr";
+        repos = cfg.ocrRepos;
+        model = cfg.ocrModel;
+        effort = cfg.ocrEffort;
+        timeout_minutes = cfg.ocrTimeoutMinutes;
+      };
       repos =
         map (entry: {
           inherit (entry) repo credential;
@@ -225,6 +233,37 @@ _: {
         type = lib.types.str;
         default = "2min";
       };
+
+      ocrEnable = lib.mkEnableOption "a host-side OCR candidate list in review bundles";
+
+      ocrRepos = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        description = "Repositories that receive an Open Code Review candidate pass. The collector clones these on the host; the agent container never sees the credential.";
+      };
+      ocrModel = lib.mkOption {
+        type = lib.types.str;
+        default = "deepseek-v4.1-flash";
+        description = "LiteLLM model for the OCR pass. The scoped key must allow it.";
+      };
+      ocrEffort = lib.mkOption {
+        type = lib.types.enum ["low" "medium" "high"];
+        default = "low";
+      };
+      ocrTimeoutMinutes = lib.mkOption {
+        type = lib.types.ints.between 1 10;
+        default = 5;
+        description = "Per-subtask budget in minutes. One head may use this value times the effort rounds (low 1, medium 2, high 3), clamped to what remains of a 20-minute OCR budget per collect run after a fixed fetch/worktree reserve. The unit keeps a 30-minute start bound.";
+      };
+      ocrBaseUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "https://litellm.homelab.pastelariadev.com/v1";
+      };
+      ocrEnvFile = lib.mkOption {
+        type = lib.types.str;
+        default = "/run/vault-agent/hermes-ocr.env";
+        description = "Environment file holding OCR_LLM_TOKEN, rendered by vault-agent from secret/home/ocr-review-litellm.";
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -270,16 +309,32 @@ _: {
           StateDirectory = "hermes-pr-review";
           Group = toString cfg.agentGid;
           UMask = "0002";
-          EnvironmentFile = "-${cfg.upstreamTokenFile}";
+          EnvironmentFile =
+            ["-${cfg.upstreamTokenFile}"]
+            ++ lib.optionals cfg.ocrEnable ["-${cfg.ocrEnvFile}"];
+          Environment = lib.optionals cfg.ocrEnable [
+            "OCR_LLM_URL=${cfg.ocrBaseUrl}"
+            "OCR_LLM_MODEL=${cfg.ocrModel}"
+            "OCR_LLM_PROTOCOL=openai"
+            "OCR_LLM_EXTRA_HEADERS=x-opencode-session={ocr_session_key}"
+            "OCR_LLM_TIMEOUT=300"
+          ];
           ExecCondition = "${tokenGate}";
           ExecStartPre = [
             ensureLedger
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
+            "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.dataDir}/ocr-home"
+            "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.dataDir}/repo-cache"
           ];
           ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
           ExecStartPost = "${dispatch}/bin/hermes-pr-review-dispatch";
-          TimeoutStartSec = "15min";
+          # OCR adds a bounded model run per new head; the collector stays
+          # serial so the repo cache and the state lock never race.
+          TimeoutStartSec =
+            if cfg.ocrEnable
+            then "30min"
+            else "15min";
         };
       };
 

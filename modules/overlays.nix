@@ -10,6 +10,25 @@
         # 2.3.1 pin: 2.3.2 has broken GL init on Mesa 26.x (see flake.nix input).
         inherit (import inputs.nixpkgs-orca {inherit (final.stdenv.hostPlatform) system;}) orca-slicer;
 
+        # opencodereview — Alibaba's `ocr` review CLI (not in nixpkgs). The
+        # upstream release asset is a static Go binary, so no patching is
+        # needed. Used by the workstation /cr pre-pass and by the Discovery
+        # review collector.
+        opencodereview = final.stdenvNoCC.mkDerivation (finalAttrs: {
+          pname = "opencodereview";
+          version = "1.14.0";
+          src = final.fetchurl {
+            url = "https://github.com/alibaba/open-code-review/releases/download/v${finalAttrs.version}/opencodereview-linux-amd64";
+            hash = "sha256-P6+He7eHICad0hUhWrfPR0G/GI4WO48YASy+LTujA30=";
+          };
+          dontUnpack = true;
+          installPhase = ''
+            runHook preInstall
+            install -Dm755 $src $out/bin/ocr
+            runHook postInstall
+          '';
+        });
+
         # grafatui — Prometheus/Grafana metrics TUI (not in nixpkgs). Built from
         # the GitHub tag (v0.1.11 is GH-only; crates.io tops out at 0.1.9).
         # Consumed by modules/terminal/grafatui.nix.

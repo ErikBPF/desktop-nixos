@@ -167,6 +167,13 @@ in {
           destination = "/run/vault-agent/hermes-pr-review-upstream.env"
           perms = "0400"
         }
+        # OCR candidate pass for the review collector. Host-side only; the
+        # agent container never receives this credential.
+        template {
+          contents = "${renderedAt}{{ with secret \"secret/data/home/ocr-review-litellm\" }}OCR_LLM_TOKEN={{ .Data.data.LITELLM_OCR_API_KEY }}\n{{ end }}"
+          destination = "/run/vault-agent/hermes-ocr.env"
+          perms = "0400"
+        }
         template {
           contents = "${hermesEnv "ARGUS_ENV"}WEBHOOK_SECRET={{ with secret \"secret/data/shared/discord\" }}{{ .Data.data.argus_webhook_hmac }}{{ end }}\n"
           destination = "/run/vault-agent/hermes-argus.env"
