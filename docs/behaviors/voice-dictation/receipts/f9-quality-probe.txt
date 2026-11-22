@@ -1,0 +1,3 @@
+{'dictation': 'Responda que não vou conseguir entregar hoje, mas posso enviar amanhã.', 'context': 'Você consegue entregar hoje às 18h?', 'output': 'Não vou conseguir entregar hoje, mas posso enviar amanhã.', 'seconds': 6.67}
+{'dictation': 'Peça para rodar pytest tests/api, sem fazer deploy.', 'context': 'Pode publicar direto em produção?', 'output': 'Peça para rodar pytest tests/api, sem fazer deploy.', 'seconds': 7.34}
+{'dictation': 'Transforma isso num pedido para o OpenCode investigar a causa, sem alterar nada.', 'context': 'ConnectionRefusedError: connection to localhost:5432 refused.', 'output': 'Investigue a causa do erro ConnectionRefusedError ao tentar conectar ao localhost:5432.', 'seconds': 9.0}

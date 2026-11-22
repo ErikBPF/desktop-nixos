@@ -1,0 +1,17 @@
+statix check . -c .statix.toml -i '.direnv/*'
+alejandra --check .
+Checking style in 239 files using 16 threads.
+
+
+Congratulations! Your code complies with the Alejandra style.
+
+👏 Special thanks to Guangtao Zhang for being a sponsor of Alejandra!
+:: docs-check OK — all in-repo doc links resolve
+
+Final nix build .#nixosConfigurations.endeavour.config.system.build.toplevel --dry-run: exit 0
+Deployed controller matches current source SHA256: e9f2fd7ff8c30517988de3a4c812e49c13662ae95e36cf9c78ebea8d41729f1a
+Both services enabled and active; no fixture/debug overrides; Hyprland configerrors empty.
+
+F9 feedback revision 3: 13 unit tests passed; 4 live local-model cases passed; lint, fmt-check, docs-check, Home Manager build, Endeavour system dry-build and diff whitespace checks passed.
+Scoped deployment: /nix/store/33j86miqkgkvpbir3xfwflzsfgs05njk-home-manager-generation
+Deployed controller equals source, SHA256 487b9c09134a24597fc96d09b6c793221db81bd0444d7cdd326e98186fccc6b4; both model services active; no Hyprland config errors. No physical microphone or private clipboard read during this repair.

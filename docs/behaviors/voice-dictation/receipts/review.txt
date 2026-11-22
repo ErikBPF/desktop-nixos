@@ -1,0 +1,27 @@
+Independent review and repair record, 2026-11-21
+
+First pass selected native Voxtype file output rather than stdout parsing or a replacement recorder. Upstream CLI file transcription writes diagnostic text on stdout; native post-processing falls back to raw text on errors.
+
+Verified corrections:
+- Disable output.fallback_to_clipboard; otherwise upstream file-write failure can publish raw text.
+- Pin RUST_LOG=warn plus --quiet; upstream INFO logging includes transcripts.
+- Preserve the clipboard owner outside the capture service cgroup.
+- Re-raise cancellation in notification handling. Assertion RED: Cancelled not raised.
+- Request emergency transcriber stop nonblocking; synchronous stop waits on the dependent worker itself. Assertion RED: expected nonblocking stop absent.
+- Limit transcriber shutdown to five seconds.
+- Reject token-limit/incomplete rewrite responses. Assertion RED: RuntimeError not raised for done_reason=length.
+
+Observed runtime repair:
+- wl-copy's forked selection owner inherited captured stdout/stderr, keeping subprocess communication open. Regression forked a sleeping child; assertion RED: Detached selection owner kept the controller output pipe open. Redirect clipboard command output to DEVNULL. Thirteen unit tests then passed.
+
+Model qualification repairs:
+- Initial rewrite wrapped text in JSON; prompt now explicitly requires plain message text.
+- Initial English rewrite replaced commitments with copied context; prompt now preserves every dictated action/deadline and includes a short example. Live fixture assertion caught missing fix/tests/today. Three local fixtures pass after correction, including an instruction-injection fixture.
+- eSpeak Portuguese performed poorly. Neural Piper Portuguese improved but lost the final syllable without trailing silence. Adding one second of silence to the synthetic fixture produced the exact expected sentence. This is fixture evidence, not a change to the user's microphone or a general accuracy claim.
+
+Final targeted independent pass verified cancellation propagation, nonblocking shutdown, five-second timeout and DEVNULL handling; thirteen tests passed. No remaining material blocker found in that bounded pass. Reviewer did not perform live microphone or clipboard checks.
+
+Final service-boundary repair: actual worker E2E preserved the old clipboard because wl-copy could not exec cat in the restricted unit PATH. Diagnostic stderr was `exec cat: No such file or directory; Failed to copy the file`. Added Coreutils to the declared runtime. Rebuilt artifact then passed plain/context/cancel E2E. Diagnostic overrides were removed.
+
+F9 feedback revision 3:
+User reported incorrect rewriting; capture/binding/services were healthy and context workers exited successfully. No private clipboard was read. Synthetic coding request reproduced omission of “sem alterar nada”; live regression failed with the restriction absent. Candidate 1 added stronger constraint language, but returned the dictated direction without the copied error details; rejected. Candidate 2 removed the contradictory rule that made dictated directions untrusted instructions: spoken directions now control text composition, while copied material remains reference only. The prompt still forbids carrying out actions, inventing commitments, or obeying copied instructions. Four local-model cases passed, including the original three and a context-grounded coding request retaining its no-changes restriction. The user's exact failing example remains requested; this fixes the reproduced defect, not a general quality guarantee.

@@ -1,0 +1,33 @@
+................E........F.
+======================================================================
+ERROR: test_incomplete_transport_reads_use_local_fallback (test_gateway.FailureBoundaries.test_incomplete_transport_reads_use_local_fallback)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/erik/Documents/erik/desktop-nixos/worktrees/voice-dictation/tests/voice-dictation/test_gateway.py", line 90, in test_incomplete_transport_reads_use_local_fallback
+    self.assertEqual(voice.transcribe(Path('audio')), 'local')
+                     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/home/erik/Documents/erik/desktop-nixos/worktrees/voice-dictation/modules/desktop/_voice_dictation.py", line 143, in transcribe
+    result = gateway('audio/transcriptions', {'model': 'voice-transcribe', 'response_format': 'json', 'max_fallbacks': '0'}, audio)
+  File "/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/python3.14/unittest/mock.py", line 1176, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/python3.14/unittest/mock.py", line 1180, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/python3.14/unittest/mock.py", line 1241, in _execute_mock_call
+    raise effect
+http.client.IncompleteRead: IncompleteRead(7 bytes read)
+
+======================================================================
+FAIL: test_multipart_keeps_audio_and_disables_gateway_fallback (test_gateway_http.Wire.test_multipart_keeps_audio_and_disables_gateway_fallback)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/erik/Documents/erik/desktop-nixos/worktrees/voice-dictation/tests/voice-dictation/test_gateway_http.py", line 30, in test_multipart_keeps_audio_and_disables_gateway_fallback
+    self.assertEqual(req.get_header('X-litellm-timeout'),'25')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != '25'
+
+----------------------------------------------------------------------
+Ran 27 tests in 0.279s
+
+FAILED (failures=1, errors=1)

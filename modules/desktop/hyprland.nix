@@ -372,7 +372,6 @@
               {_args = ["SUPER + C" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle calendar")'')];}
               {_args = ["SUPER + G" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle music")'')];}
               {_args = ["SUPER + O" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle battery")'')];}
-              {_args = ["SUPER + I" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle network")'')];}
               {_args = ["SUPER + Y" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle wallpaper")'')];}
               {_args = ["SUPER + U" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle monitors")'')];}
               {_args = ["SUPER + h" (mkLuaInline ''hl.dsp.focus({ direction = "l" })'')];}

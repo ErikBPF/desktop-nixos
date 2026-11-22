@@ -76,6 +76,7 @@ in {
         m.home.desktop-workspaces
         m.home.deepseek-harness
         m.home.monitor-layout-docked
+        m.home.voice-dictation
       ];
       inherit (flakeConfig) colorScheme;
 

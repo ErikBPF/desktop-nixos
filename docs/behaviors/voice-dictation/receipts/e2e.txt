@@ -1,0 +1,3 @@
+plain stop_to_clipboard_seconds= 1.84
+context stop_to_clipboard_seconds= 9.44
+VOICE_FLOW_E2E_OK

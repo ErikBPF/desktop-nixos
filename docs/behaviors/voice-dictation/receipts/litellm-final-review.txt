@@ -1,0 +1,6 @@
+2026-11-21 bounded independent final review
+Reviewer: voice_backend_config
+Finding: installed E2E runner allowed ordinary Wayland displays. Fixed with explicit isolated-display opt-in guard before clipboard access and runtime overrides; disposable compositor wrapper supplies its own display.
+Review disposition: no remaining blocker. Degraded GPU rewrite, container health metadata, incomplete privacy verification and pending source integration correctly documented. Post-guard rerun recorded separately in litellm-capture-e2e.txt.
+27 controller tests passed after the guard addition. Homelab full gate still fails on existing OpenCode TUI references/archive links; no unrelated repairs attempted.
+Post-guard rerun passed all four cases. Worker units inactive afterward, override removed, rewrite service active and Hyprland config errors empty.
