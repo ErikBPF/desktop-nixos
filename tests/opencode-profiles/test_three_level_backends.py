@@ -84,6 +84,8 @@ class ThreeLevelBackends(unittest.TestCase):
                         self.assertEqual(rule(effective[layer], "edit", "src/main.py"), "allow")
                         self.assertEqual(rule(effective[layer], "edit", "docs/plan.md"), "allow")
                         self.assertEqual(rule(effective[layer], "edit", ".env"), "deny")
+                        self.assertEqual(rule(effective[layer], "edit", ".env.example"), "allow")
+                        self.assertEqual(rule(effective[layer], "edit", "nested/.env.example"), "allow")
                         self.assertEqual(rule(effective[layer], "shell", "git status"), "allow")
                         self.assertEqual(rule(effective[layer], "shell", "rm -rf /"), "deny")
                         self.assertEqual(rule(effective[layer], "subagent", "*"), "allow")

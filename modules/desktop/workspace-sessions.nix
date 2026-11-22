@@ -134,7 +134,16 @@ in {
                 effect = "allow";
               }
             ]
-            ++ protected;
+            ++ protected
+            # The protected tail re-applies the global env deny after the
+            # global template allow. Re-admit the value-free template last.
+            ++ [
+              {
+                action = "edit";
+                resource = "*.env.example";
+                effect = "allow";
+              }
+            ];
         };
         pilot-l2 = {
           mode = "primary";
@@ -170,7 +179,14 @@ in {
                 effect = "deny";
               }
             ]
-            ++ protected;
+            ++ protected
+            ++ [
+              {
+                action = "edit";
+                resource = "*.env.example";
+                effect = "allow";
+              }
+            ];
         };
         pilot-l3 = {
           mode = "subagent";

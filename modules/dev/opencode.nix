@@ -137,6 +137,8 @@
       "*/.env*"
       "* \".env*"
       "* '.env*"
+      "*\".env*"
+      "*'.env*"
       "*.secrets.json*"
       "*.secret.json*"
       "*.age"
