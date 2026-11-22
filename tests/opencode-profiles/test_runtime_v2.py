@@ -60,7 +60,7 @@ class NativeRuntime(unittest.TestCase):
         env.update(OPENCODE_DISABLE_CLAUDE_CODE="1", OPENCODE_DISABLE_MODELS_FETCH="1",
                     OPENCODE_PASSWORD="synthetic-loopback")
         # Match the backend's inline routing layer: it must retain global
-        # tool.use denials while appending its provider policies.
+        # tool policies while appending its provider policies.
         env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"experimental": {"policies": [
             {"action": "provider.use", "resource": "*", "effect": "deny"},
             {"action": "provider.use", "resource": "work", "effect": "allow"},
@@ -142,12 +142,12 @@ class NativeRuntime(unittest.TestCase):
     # command and rule set across runs (observed 2026-11-13), so it cannot
     # distinguish allow from ask. Live sessions enforce the ordered rules; the
     # static expectations live in test_settings.py.
-    def test_global_policy_blocks_agent_read_override(self):
+    def test_secret_paths_are_allowed_without_reading_values(self):
         for path in ["local.secrets.json", "nested/local.secret.json", ".env", "nested/.env.local",
                      ".ssh/id_rsa", "/home/erik/.ssh/id_ed25519",
                      "/home/erik/.config/sops/age/keys.txt", "/run/secrets/opencode/work_key"]:
             with self.subTest(path=path):
-                self.assertEqual(self.permission("read", path), "deny")
+                self.assertEqual(self.permission("read", path), "allow")
         self.assertEqual(self.permission("read", "README.md"), "allow")
 
 

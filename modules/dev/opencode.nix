@@ -89,66 +89,8 @@
         platforms = ["x86_64-linux"];
       };
     };
-    protectedReads = [
-      "*.secrets.json"
-      "*.secret.json"
-      "*.env*"
-      ".env*"
-      "*/.env*"
-      "*.age"
-      ".ssh/*"
-      "*/.ssh/*"
-      ".config/sops/age/*"
-      "*/.config/sops/age/*"
-      "/run/secrets/*"
-    ];
     permissionRules = action: effect: resources:
       map (resource: {inherit action effect resource;}) resources;
-    # Shell is host-authority, not a sandbox. The global policy allows every
-    # command up to the deny tail below. The tail matches the LITERAL command
-    # text, per subcommand: it cannot see a path that a glob expands to, and
-    # `git -C <dir>` changes the prefix, so a determined caller can still reach
-    # a denied form. These patterns are defence in depth, not a content
-    # boundary; the read action and the tool.use policies are the boundary.
-    shellDenies = [
-      "rm -rf /"
-      "rm -rf /*"
-      "rm -rf ~*"
-      "docker volume rm *"
-      "docker rm -f *"
-      "git branch -D*"
-      "git branch -f*"
-      "git branch -m*"
-      # Blob forms that can print a protected file the substring denials miss.
-      "git show *:.env"
-      "git show *.env"
-      "git show *.age"
-      "git show *.secrets.json"
-      "git show *.secret.json"
-      "git show *:secrets/*"
-      "git show *:.ssh/*"
-      "git show *:.config/sops/age/*"
-      # Environment files use path-shaped forms so `os.environ` and kubectl
-      # `.env[*]` pass. Secret directories stay broad: quoted and prefixed
-      # spellings are otherwise easy to miss.
-      "*.env"
-      "*.env.*"
-      "* .env*"
-      "*/.env*"
-      "* \".env*"
-      "* '.env*"
-      "*\".env*"
-      "*'.env*"
-      "*.secrets.json*"
-      "*.secret.json*"
-      "*.age"
-      "*secrets/*"
-      "*/.ssh/*"
-      "*/.config/sops/age/*"
-      "*nixos-rebuild*--target-host*"
-      "*ssh*nixos-rebuild*switch*"
-      "ssh *docker compose*up*"
-    ];
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -436,50 +378,39 @@
       # Todos are off by default in V2; long autonomous runs need the task list.
       experimental.todo = true;
 
-      experimental.policies =
-        [
-          {
-            effect = "deny";
-            action = "provider.use";
-            resource = "*";
-          }
-          {
-            effect = "allow";
-            action = "provider.use";
-            resource = "litellm";
-          }
-          {
-            effect = "allow";
-            action = "provider.use";
-            resource = "work";
-          }
-          {
-            effect = "allow";
-            action = "provider.use";
-            resource = "opencode-go";
-          }
-          {
-            effect = "allow";
-            action = "provider.use";
-            resource = "openai";
-          }
-        ]
-        # V2 2.0.27 renames this action; keep it aligned with the consumer pin.
-        ++ permissionRules "tool.use" "deny" (map (path: "read:${path}") protectedReads);
+      experimental.policies = [
+        {
+          effect = "deny";
+          action = "provider.use";
+          resource = "*";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "litellm";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "work";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "opencode-go";
+        }
+        {
+          effect = "allow";
+          action = "provider.use";
+          resource = "openai";
+        }
+      ];
 
-      # Shell executes without a prompt. The deny tail below is the only gate.
+      # Match Pi's coding tools: OS permissions, with no harness approval gate.
       permissions =
         permissionRules "read" "allow" ["*"]
-        ++ permissionRules "read" "deny" protectedReads
         ++ permissionRules "edit" "allow" ["*"]
-        ++ permissionRules "edit" "ask" ["flake.lock"]
-        ++ permissionRules "edit" "deny" ["*.sops" "*.env*" ".env*" "*/.env*" "*.age" "secrets/*"]
-        # Later rules win, so this re-admits the env *template* the deny above
-        # catches: .env.example enumerates keys and holds no values, while the
-        # secrets-bearing .env / .env.<name> files stay denied.
-        ++ permissionRules "edit" "allow" ["*.env.example"]
-        ++ permissionRules "shell" "allow" ["*"]
-        ++ permissionRules "shell" "deny" shellDenies;
+        ++ permissionRules "shell" "allow" ["*"];
 
       # Helpers inherit the selected gateway, model and global permissions.
       agents = {
@@ -569,10 +500,7 @@
               volume = 0.4;
               sound_pack = "opencode.default";
             };
-            # Auto-accept is the default: `ask` never reaches a human, so the
-            # allow and deny lists above are the whole gate. Inspection is
-            # allowed explicitly; everything else is auto-accepted except the
-            # deny patterns. `ol`/`ow` pass --auto for the same effect.
+            # Pi-equivalent coding authority also applies to interactive sessions.
             session.permissions = "autoaccept";
             session.sidebar = "auto";
             # tmux owns windowing; per-cwd tab pools leak sessions across

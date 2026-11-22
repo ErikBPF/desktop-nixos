@@ -87,7 +87,6 @@ in {
     # Three-level agent framework: L1 plans, L2 coordinates a slice, L3 executes.
     # Backend profiles replace the plain build agent with this hierarchy.
     threeLevelPlugin = ../dev/opencode-plugins-v2/three-level;
-    protected = builtins.filter (rule: rule.effect == "deny") base.permissions;
     mkProfile = project: let
       model = "${project.provider}/deepseek-v4.1-flash";
       # Work's OpenRouter route rejects reasoning_effort and exposes no variants.
@@ -116,42 +115,29 @@ in {
             broad implementation to L2 slices; edit directly only for small work that
             unblocks the plan.
           '';
-          permissions =
-            [
-              # Every role runs shell, invokes native subagents and edits source.
-              # The protected deny tail appended below still blocks secret paths
-              # and destructive commands.
-              {
-                action = "shell";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "subagent";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "dispatch_slice";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "slice_status";
-                resource = "*";
-                effect = "allow";
-              }
-            ]
-            ++ protected
-            # The protected tail re-applies the global env deny after the
-            # global template allow. Re-admit the value-free template last.
-            ++ [
-              {
-                action = "edit";
-                resource = "*.env.example";
-                effect = "allow";
-              }
-            ];
+          permissions = [
+            # Every role runs shell, invokes native subagents and edits source.
+            {
+              action = "shell";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "subagent";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "dispatch_slice";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "slice_status";
+              resource = "*";
+              effect = "allow";
+            }
+          ];
         };
         pilot-l2 = {
           mode = "primary";
@@ -169,32 +155,23 @@ in {
             state outcome, changed files, verification evidence, decisions, remaining
             work and blockers. A tool returning is not proof of accepted work.
           '';
-          permissions =
-            [
-              {
-                action = "subagent";
-                resource = "*";
-                effect = "allow";
-              }
-              {
-                action = "dispatch_slice";
-                resource = "*";
-                effect = "deny";
-              }
-              {
-                action = "slice_status";
-                resource = "*";
-                effect = "deny";
-              }
-            ]
-            ++ protected
-            ++ [
-              {
-                action = "edit";
-                resource = "*.env.example";
-                effect = "allow";
-              }
-            ];
+          permissions = [
+            {
+              action = "subagent";
+              resource = "*";
+              effect = "allow";
+            }
+            {
+              action = "dispatch_slice";
+              resource = "*";
+              effect = "deny";
+            }
+            {
+              action = "slice_status";
+              resource = "*";
+              effect = "deny";
+            }
+          ];
         };
         pilot-l3 = {
           mode = "subagent";
@@ -248,21 +225,8 @@ in {
         # discovery, so load the workspace instructions by absolute path.
         # Nested AGENTS.md discovery does not apply to these backends.
         instructions = base.instructions ++ ["${project.directory}/AGENTS.md"];
-        # Backend state holds the server password; role agents must not read it.
-        permissions =
-          builtins.filter (rule: rule.action != "provider.use") base.permissions
-          ++ [
-            {
-              action = "read";
-              resource = "${config.xdg.stateHome}/opencode-v2-backends/*";
-              effect = "deny";
-            }
-            {
-              action = "edit";
-              resource = "${config.xdg.stateHome}/opencode-v2-backends/*";
-              effect = "deny";
-            }
-          ];
+        # All profiles inherit the same OS-level coding authority as Pi.
+        inherit (base) permissions;
         plugins = base.plugins ++ ["file://${threeLevelPlugin}"];
         skills = ["${config.home.homeDirectory}/.agents/skills"];
         experimental =
