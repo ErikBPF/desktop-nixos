@@ -53,7 +53,14 @@ in {
     resurrect = "${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect";
     resurrectDir = "${config.xdg.dataHome}/tmux/workspace-desktop";
     manifest = pkgs.writeText "desktop-workspaces.json" (builtins.toJSON {
-      inherit projects resurrect resurrectDir;
+      inherit resurrect resurrectDir;
+      remoteHome = "/home/${flakeConfig.username}";
+      projects = map (project:
+        project
+        // {
+          remoteDirectory = "/fast/compute/${flakeConfig.username}/Documents/${lib.removePrefix "${config.home.homeDirectory}/Documents/" project.directory}";
+        })
+      projects;
       shell = "${pkgs.zsh}/bin/zsh";
     });
     coordinator = pkgs.writeShellApplication {
@@ -61,6 +68,7 @@ in {
       runtimeInputs = [
         pkgs.tmux
         pkgs.python3
+        pkgs.openssh
         pkgs.systemd
         config.programs.ghostty.package
         config.wayland.windowManager.hyprland.package

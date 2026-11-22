@@ -4,7 +4,10 @@
 
 ## Outcome and decisions
 
-Bare `sk` and Super+T open a folder-based picker of Kepler's tmux sessions.
+Bare `sk` and Super+T open a workspace-scoped picker of Kepler's tmux sessions.
+Workspaces 2–4 select dataplatform, 5–12 select homelab, and other workspaces
+select remote home. Both local and remote routes share the same workspace
+resolver; project compute paths derive from the existing local Documents paths.
 The user explicitly replaced the earlier shared-session default with this picker
 and requested new-session and old-session deletion actions. The verbatim seed
 and corrections remain in `behavior.md`. Explicit SSH arguments and the local
@@ -60,3 +63,25 @@ picker activation is claimed. Git metadata, agent credentials and automatic
 project forwards remain later thin-client work.
 
 Rollback restores plain SSH in `sk` and leaves existing remote sessions intact.
+
+
+## Workspace routing receipt
+
+Live Hyprland still uses the earlier Ghostty → sk shortcut, bypassing the
+workspace router; nvim and yazi already use that router. The revision makes
+bare sk delegate to `desktop-workspaces remote`, sharing `active_project` with
+local launches. SSH gets an explicitly quoted remote picker command and full
+folder path; remote folders need not exist locally. No Hyprland environment
+uses remote home, while a failed active-desktop query remains an error.
+
+The three destination directories were verified on Kepler. RED checks caught
+the missing route and old bare-sk invocation before implementation. Boundary
+tests cover workspaces outside and across both configured ranges, paths with
+spaces, non-desktop launches and query failure. The existing local routing
+checks remain intact. Final validation passed 36 workspace tests and 12 picker tests, lint,
+formatting, docs and the changed Endeavour toplevel dry build. Independent review
+found no blocking issues. The generated Nix manifest was checked against all
+three expected destinations (`GENERATED_REMOTE_ROUTES_OK`); the first two check
+attempts needed correction for Nix's versioned `derivations` wrapper and
+`structuredAttrs` layout, without production changes. Live shortcut activation
+remains pending.

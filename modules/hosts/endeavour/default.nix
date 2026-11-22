@@ -72,8 +72,7 @@ in {
         if (( $# > 0 )); then
           exec ${pkgs.openssh}/bin/ssh kepler "$@"
         fi
-        exec ${pkgs.openssh}/bin/ssh -t kepler \
-          'tmux-resume'
+        exec ${config.home.profileDirectory}/bin/desktop-workspaces remote
       '';
       terminal = "${config.programs.ghostty.package}/bin/ghostty +new-window";
     in {

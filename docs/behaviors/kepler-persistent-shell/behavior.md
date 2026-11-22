@@ -42,3 +42,20 @@ the session running the picker also terminates that picker.
 Explicit `sk <arguments>` retains SSH passthrough. Super+Shift+T stays local.
 Connection failures never create local fallback writers. No agents start
 automatically. Session processes survive client disconnection, not Kepler reboot.
+
+
+Workspace-routing refinement (verbatim):
+
+> check how we manage to open terminals on our current hyprland config. Follow the workspace logic to choose betwwen home, dataplatform and homelab. Copy logic for remote sessions. Based on folder we have a selection of alive sessions
+
+Bare `sk` uses the same active-workspace project resolver as local terminal,
+editor and file-manager launches. Workspaces 2–4 select
+`/fast/compute/erik/Documents/nstech/dataplatform`; 5–12 select
+`/fast/compute/erik/Documents/erik/homelab`; all others select `/home/erik`.
+Outside Hyprland, bare `sk` selects remote home. An active but broken Hyprland
+query fails rather than silently choosing another project. The existing project
+ranges remain the single source of truth; compute paths derive from their
+local Documents-relative paths. The remote picker shows only existing sessions
+started in the selected folder, and defaults new sessions to that folder.
+Explicit SSH commands, local editor/file-manager routing and the local terminal
+escape hatch remain unchanged. No local folder-presence check gates remote use.

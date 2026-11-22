@@ -16,6 +16,7 @@ class KeplerShell(unittest.TestCase):
               script = (builtins.head (builtins.filter (p: p.name == "sk")
                 hosts.endeavour.config.home-manager.users.erik.home.packages)).text;
               ssh = "${hosts.endeavour.pkgs.openssh}/bin/ssh";
+              coordinator = "${hosts.endeavour.config.home-manager.users.erik.home.profileDirectory}/bin/desktop-workspaces";
               tmux = hosts.kepler.config.programs.tmux.enable;
               linger = hosts.kepler.config.users.users.erik.linger;
               killUserProcesses = hosts.kepler.config.services.logind.settings.Login.KillUserProcesses;
@@ -29,14 +30,14 @@ class KeplerShell(unittest.TestCase):
             shim.write_text('#!/usr/bin/env python3\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\nsys.exit(' + str(status) + ')\n')
             shim.chmod(0o700)
             script = root / "sk"
-            script.write_text(self.config["script"].replace(self.config["ssh"], str(shim)))
+            script.write_text(self.config["script"].replace(self.config["ssh"], str(shim)).replace(self.config["coordinator"], str(shim)))
             result = subprocess.run(["bash", str(script), *arguments], capture_output=True, text=True)
             return result.returncode, json.loads(result.stdout)
 
     def test_bare_shortcut_opens_session_picker(self):
         status, args = self.invoke([])
         self.assertEqual(status, 0)
-        self.assertEqual(args, ["-t", "kepler", "tmux-resume"])
+        self.assertEqual(args, ["remote"])
 
     def test_explicit_command_and_options_remain_ssh_passthrough(self):
         args = ["-o", "BatchMode=yes", "printf", "hello world"]

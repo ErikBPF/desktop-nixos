@@ -3,6 +3,7 @@
 import json
 import fcntl
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -61,11 +62,21 @@ def restore(config):
     run(*prefix, "run-shell", f"{config['resurrect']}/scripts/restore.sh")
 
 
+def active_project(config):
+    workspace = json.loads(run("hyprctl", "-j", "activeworkspace").stdout)["id"]
+    return next((project for project in config["projects"] if workspace in project["workspaces"]), None)
+
+
+def remote(config):
+    project = active_project(config) if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") else None
+    directory = project["remoteDirectory"] if project else config["remoteHome"]
+    os.execvp("ssh", ["ssh", "-t", "kepler", shlex.join(["tmux-resume", directory])])
+
+
 def launch(config, app):
     if app not in ("shell", "nvim", "yazi"):
         raise ValueError(f"Unknown terminal application: {app}")
-    workspace = json.loads(run("hyprctl", "-j", "activeworkspace").stdout)["id"]
-    project = next((project for project in config["projects"] if workspace in project["workspaces"]), None)
+    project = active_project(config)
     command = ["ghostty", "+new-window"]
     if project:
         directory = project["directory"]
@@ -154,6 +165,8 @@ if __name__ == "__main__":
             bootstrap(config, sys.argv[3])
         elif mode == "launch" and len(sys.argv) == 4:
             launch(config, sys.argv[3])
+        elif mode == "remote" and len(sys.argv) == 3:
+            remote(config)
         elif mode == "recover" and len(sys.argv) == 3:
             recover(config)
         elif mode == "save" and len(sys.argv) == 3:
@@ -161,7 +174,7 @@ if __name__ == "__main__":
         elif mode == "restore" and len(sys.argv) == 3:
             restore(config)
         else:
-            raise ValueError("Usage: desktop-workspaces bootstrap SESSION | recover | save | restore | launch shell|nvim|yazi")
+            raise ValueError("Usage: desktop-workspaces bootstrap SESSION | recover | save | restore | launch shell|nvim|yazi | remote")
     except subprocess.CalledProcessError as error:
         print(f"desktop-workspaces: {' '.join(error.cmd)} failed: {(error.stderr or '').strip()}", file=sys.stderr)
         sys.exit(1)
