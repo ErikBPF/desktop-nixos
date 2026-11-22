@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createModels } from "@earendil-works/pi-ai";
 import type { FauxResponseStep } from "@earendil-works/pi-ai";
 import { fauxAssistantMessage, fauxProvider, fauxText, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
@@ -11,6 +14,7 @@ import {
 import { obj, str } from "@earendil-works/pi-schema";
 import { describe, expect, it } from "vitest";
 import { CONTEXT } from "../src/harness.js";
+import { openHarness, resolveDbPath } from "../src/harness.js";
 
 const echo = defineTool({
 	name: "echo",
@@ -20,6 +24,52 @@ const echo = defineTool({
 });
 
 describe("durable conversation", () => {
+	it("gives projects with the same basename different databases", () => {
+		expect(resolveDbPath("/work/foo", "/state")).not.toBe(resolveDbPath("/personal/foo", "/state"));
+	});
+
+	it("keeps a stored agent on reopen unless a flag is explicit", async () => {
+		const root = await mkdtemp(join(tmpdir(), "pi-harness-agent-"));
+		const project = join(root, "project");
+		const dbPath = join(root, "session.db");
+		await mkdir(project);
+
+		const first = await openHarness({
+			projectDir: project,
+			dbPath,
+			mcpServers: false,
+			model: { provider: "work", modelId: "glm-5.3-flash" },
+			thinkingLevel: "low",
+		});
+		try {
+			expect((await first.root.agent(CONTEXT)).model).toEqual({ provider: "work", modelId: "glm-5.3-flash" });
+		} finally {
+			await first.close();
+		}
+
+		const reopened = await openHarness({ projectDir: project, dbPath, mcpServers: false });
+		try {
+			expect(reopened.model).toEqual({ provider: "work", modelId: "glm-5.3-flash" });
+			expect((await reopened.root.agent(CONTEXT)).thinkingLevel).toBe("low");
+		} finally {
+			await reopened.close();
+		}
+
+		const explicit = await openHarness({
+			projectDir: project,
+			dbPath,
+			mcpServers: false,
+			model: { provider: "litellm", modelId: "deepseek-v4.1-flash" },
+			thinkingLevel: "high",
+		});
+		try {
+			expect(explicit.model).toEqual({ provider: "litellm", modelId: "deepseek-v4.1-flash" });
+			expect((await explicit.root.agent(CONTEXT)).thinkingLevel).toBe("high");
+		} finally {
+			await explicit.close();
+		}
+	});
+
 	it("runs a two-turn conversation with a tool call and prints the final answer", async () => {
 		const faux = fauxProvider();
 		const models = createModels();

@@ -54,7 +54,9 @@ describe("code mode", () => {
 				(entry.model[0] as { toolName?: string }).toolName === CODEMODE_TOOL_NAME,
 		);
 		const serialized = JSON.stringify(codemodeResult?.model?.[0]);
-		expect(serialized).toContain("2");
+		const content = (codemodeResult?.model?.[0] as { content: { type: string; text?: string }[] } | undefined)?.content;
+		const text = (content ?? []).flatMap((part) => (part.text === undefined ? [] : [part.text])).join("\n").trim();
+		expect(text.endsWith("2")).toBe(true);
 		// The raw array stayed inside the sandbox; only the script output reached the model.
 		expect(serialized).not.toContain("1,2,3,4");
 

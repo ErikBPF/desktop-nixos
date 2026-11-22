@@ -175,6 +175,9 @@ export function createSubagentExtension(options: SubagentOptions = {}) {
 				return reply(lines.length === 0 ? "No subagents." : lines.join("\n"));
 			}
 			if (name === undefined) return reply(`${action} needs a name.`);
+			if (name === "__proto__" || name === "constructor" || name === "prototype") {
+				return reply(`${name} is not a valid subagent name.`);
+			}
 			const agent = Object.hasOwn(state.agents, name) ? state.agents[name] : undefined;
 			if (action !== "spawn" && agent === undefined) return reply(`No subagent named ${name}.`);
 
@@ -183,6 +186,12 @@ export function createSubagentExtension(options: SubagentOptions = {}) {
 				return reply(`Stopped ${name}.`, agent!.conversationId);
 			}
 			if (message === undefined) return reply(`${action} needs a message.`);
+
+			const inherited = (await api.agent(callContext)).instructions;
+			const childInstructions =
+				inherited === undefined || inherited === ""
+					? `You are the subagent "${name}". Answer the main agent's requests.`
+					: `${inherited}\n\nYou are the subagent "${name}". Answer the main agent's requests.`;
 
 			const result = await api.commit(async (tx) => {
 				const next = await tx.doc(Subagents, api.conversationId);
@@ -195,7 +204,7 @@ export function createSubagentExtension(options: SubagentOptions = {}) {
 					await configure(tx, child.id, {
 						model: childModel,
 						extensions: { remove: [SubagentTools] },
-						instructions: `You are the subagent "${name}". Answer the main agent's requests.`,
+						instructions: childInstructions,
 					});
 					next.agents[name] = { conversationId: child.id, reported: [] };
 				}

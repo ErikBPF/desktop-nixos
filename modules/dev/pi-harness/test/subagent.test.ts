@@ -104,6 +104,10 @@ describe("subagents", () => {
 			expect(owned[0]?.owner?.taskId).toBeTypeOf("number");
 			expect(owned[0]?.id).not.toBe(root.id);
 
+			const anchor = await harness.getTask(owned[0]!.owner!.taskId, CONTEXT);
+			expect(anchor?.kind).toBe("app.pi-harness.subagent-anchor");
+			expect(anchor?.background).toBe(true);
+
 			const child = await harness.conversation(owned[0]!.id as ConversationId, CONTEXT);
 			const childEntries = await child!.entries({ order: "ascending" }, 50, undefined, CONTEXT);
 			expect(JSON.stringify(childEntries.items)).toContain("2, 3, 5");
@@ -112,7 +116,7 @@ describe("subagents", () => {
 		}
 	});
 
-	it("reuses the child when the same spawn is called again", async () => {
+	it("does not create a second child for the same name", async () => {
 		const { harness, root } = await openSubagentHarness();
 		try {
 			const settled = await (

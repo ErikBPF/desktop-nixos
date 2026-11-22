@@ -30,7 +30,8 @@ not wired into `modules/dev/pi.nix`.
   cannot recurse. Reporter tasks use request IDs for delivery and reporting.
 - `src/cli.ts`: `ask`, `resume`, `status`, `watch`, plus `--project`,
   `--model`, `--thinking`, `--state-dir`, `--no-mcp`.
-- `default.nix`: `buildNpmPackage`, hash obtained from the build.
+- `default.nix`: flake-parts module exposing `packages.pi-harness`.
+- `_package.nix`: `buildNpmPackage`, with a hash obtained from the build.
 - `test/`: faux-provider conversation, subagent ownership and reuse, code-mode
   output filtering, in-memory MCP bridge.
 - `README.md`: run instructions, storage, credentials, and limits.
@@ -39,11 +40,12 @@ not wired into `modules/dev/pi.nix`.
 
 - `npm install --ignore-scripts`: 153 packages.
 - `npm run build`: TypeScript emits `dist/` with no errors.
-- `npm test`: 5 files, 9 tests passed.
-- `nix build --file ./default.nix`: `/nix/store/0cs48aphxmhr2qlna573ahpr0jy17xbq-pi-harness-0.1.0`.
-- Live `ask` through LiteLLM printed `ok`; usage was input 11,432, output 3,
-  total 11,435, cost `$0.003433`. The task was under 200 tokens; the project
-  `AGENTS.md` instructions dominate the request.
+- `npm test`: 5 files, 11 tests passed.
+- `nix build .#pi-harness`:
+  `/nix/store/lm5rp38hdrrf2q7khqrfi8kqzsskvr5p-pi-harness-0.1.0`.
+- `nix flake show` and `just lint`, `just fmt-check`, `just docs-check` pass.
+- Live `ask` through LiteLLM printed `ok`; usage was input 10,940, output 3,
+  cost `$0.000821`. A plain `resume` kept `litellm/glm-5.3-flash`.
 - First live attempt failed with `400` because LiteLLM requires
   `x-opencode-session`. The provider now sends a stable per-process value.
 - No key was printed. No OpenCode file changed. `modules/dev/pi.nix` was not
@@ -63,6 +65,12 @@ were not simulated; the tests prove the idempotency guards, not the crash path.
 5. Child model defaults to `litellm/glm-5.3-flash`.
 6. `pi-env` is declared per the slice contract but not imported directly; MCP
    stdio is spawned by `pi-mcp`.
+7. `default.nix` is a flake-parts module; `_package.nix` holds the derivation
+   because import-tree skips `_`-prefixed files.
+8. `root.configure()` changes `--model`, `--thinking`, `cwd`, or instructions
+   only when the flag is passed or the on-disk value differs; a plain `resume`
+   leaves the stored agent alone.
+9. The database name includes a hash of the absolute project path.
 
 ## Continuing work
 

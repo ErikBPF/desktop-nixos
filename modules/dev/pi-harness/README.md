@@ -30,7 +30,7 @@ npm test
 npx tsx src/cli.ts ask "List the top-level directories." --project /path/to/repo
 
 # built CLI
-nix build --file ./default.nix
+nix build .#pi-harness
 ./result/bin/pi-harness ask "Explain the build." --project /path/to/repo
 ```
 
@@ -45,17 +45,21 @@ Commands:
 Options:
 
 - `--project <dir>` (default: current directory)
-- `--model <provider/id>` (`litellm` or `work`; default
+- `--model <provider/id>` (`litellm` or `work`; first creation defaults to
   `litellm/deepseek-v4.1-flash`)
 - `--thinking <level>` (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`,
-  `max`; default `high`)
+  `max`; first creation defaults to `high`)
 - `--state-dir <dir>` — override the storage root
 - `--no-mcp` — do not start the donsetch and graphify MCP servers
 
+`--model` and `--thinking` change a stored conversation only when passed. A
+plain `resume`, `status`, or `watch` leaves the stored agent alone.
+
 ## Storage
 
-`${XDG_STATE_HOME:-~/.local/state}/pi-harness/<project>.db`, where `<project>`
-is the sanitized base name of the project directory. SQLite runs in WAL mode.
+`${XDG_STATE_HOME:-~/.local/state}/pi-harness/<project>-<hash>.db`, where
+`<project>` is the sanitized base name of the project directory and `<hash>` is
+the first eight hex characters of the absolute path. SQLite runs in WAL mode.
 One process must write a database at a time; there is no cross-process locking.
 
 ## Credentials
@@ -82,6 +86,7 @@ per-process value; it is a routing hint, not a credential.
   their journal.
 - **MCP is best effort.** If `donsetch` or `graphify-mcp` cannot start, the
   harness logs the server name and reason and continues without that server.
+  Servers start in the project directory.
 - **One live owner.** Do not open the same database from two writers.
 - **Subagent children** use `litellm/glm-5.3-flash` by default and cannot start
   subagents of their own.

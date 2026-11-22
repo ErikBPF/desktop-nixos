@@ -6,8 +6,10 @@
  * background subagents into one registry.
  */
 import { mkdir, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import type { Context } from "@earendil-works/chord/context";
 import type { JsonValue } from "@earendil-works/chord/json";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai";
@@ -80,8 +82,10 @@ export function resolveStateDir(): string {
 }
 
 export function resolveDbPath(projectDir: string, stateDir = resolveStateDir()): string {
-	const project = basename(resolve(projectDir)).replace(/[^A-Za-z0-9._-]/g, "-") || "project";
-	return join(stateDir, "pi-harness", `${project}.db`);
+	const absolute = resolve(projectDir);
+	const project = basename(absolute).replace(/[^A-Za-z0-9._-]/g, "-") || "project";
+	const pathHash = createHash("sha256").update(absolute).digest("hex").slice(0, 8);
+	return join(stateDir, "pi-harness", `${project}-${pathHash}.db`);
 }
 
 export async function readProjectInstructions(projectDir: string): Promise<string> {
@@ -95,7 +99,7 @@ export async function readProjectInstructions(projectDir: string): Promise<strin
 
 /**
  * Wrap a connected MCP client as a durable extension. Tools are deferred, so the
- * model sees them only after `tool_search`, and code mode can call them directly.
+ * model finds them with `tool_search`; code-mode scripts call them once loaded.
  */
 export async function createMcpExtension(name: string, client: McpClient): Promise<Extension> {
 	const mcpTools = await client.listTools();
@@ -111,8 +115,11 @@ export async function createMcpExtension(name: string, client: McpClient): Promi
 					? {}
 					: { structuredOutputSchema: normalizeMcpInputSchema(tool.outputSchema) }),
 				deferred: true,
-				execute: async (args) => {
-					const result = await client.callTool(tool.name, args as Record<string, unknown>);
+				execute: async (args, _api, callContext) => {
+					const result = await client.callTool(tool.name, args as Record<string, unknown>, {
+						timeoutMs: 300_000,
+						signal: callContext.abortSignal,
+					});
 					return {
 						output: toLlmContent(result),
 						...(result.structuredContent === undefined
@@ -128,27 +135,35 @@ export async function createMcpExtension(name: string, client: McpClient): Promi
 
 export async function connectMcpServer(
 	spec: McpServerSpec,
+	projectDir?: string,
 ): Promise<{ client: McpClient; extension: Extension }> {
 	const transport = new StdioTransport({
 		command: spec.command,
 		args: spec.args,
-		cwd: spec.cwd,
+		cwd: spec.cwd ?? projectDir,
 		env: spec.env,
 		inheritEnv: true,
 	});
 	const client = new McpClient({ name: "pi-harness", version: "0.1.0" });
-	await client.connect(transport);
-	return { client, extension: await createMcpExtension(spec.name, client) };
+	try {
+		await client.connect(transport);
+		return { client, extension: await createMcpExtension(spec.name, client) };
+	} catch (error) {
+		// A connect or tools/list failure must not leave the stdio child running.
+		await client.close().catch(() => {});
+		throw error;
+	}
 }
 
 async function installMcpServers(
 	registry: ReturnType<typeof createRegistry>,
 	servers: readonly McpServerSpec[],
+	projectDir: string,
 ): Promise<McpClient[]> {
 	const clients: McpClient[] = [];
 	for (const spec of servers) {
 		try {
-			const connection = await connectMcpServer(spec);
+			const connection = await connectMcpServer(spec, projectDir);
 			registry.install(connection.extension);
 			clients.push(connection.client);
 		} catch (error) {
@@ -187,31 +202,60 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 		config.mcpServers === false || process.env.PI_HARNESS_MCP === "off"
 			? []
 			: (config.mcpServers ?? DEFAULT_MCP_SERVERS);
-	const clients = await installMcpServers(registry, mcpServers);
+	const clients = await installMcpServers(registry, mcpServers, projectDir);
 
 	const dbPath = config.dbPath ?? resolveDbPath(projectDir, config.stateDir);
-	await mkdir(dirname(dbPath), { recursive: true });
-	const storage = await openNodeSqliteStorage(dbPath);
-	const harness = await Harness.open(storage, { models, registry }, CONTEXT);
-	const instructions = config.instructions ?? (await readProjectInstructions(projectDir));
-	const root = await harness.root(CONTEXT, {
-		agent: {
-			model: modelRef,
-			thinkingLevel: config.thinkingLevel ?? "high",
-			cwd: projectDir,
-			instructions,
-		},
-	});
+	let harness: Harness | undefined;
+	try {
+		await mkdir(dirname(dbPath), { recursive: true });
+		const storage = await openNodeSqliteStorage(dbPath);
+		harness = await Harness.open(storage, { models, registry }, CONTEXT);
+		const instructions = config.instructions ?? (await readProjectInstructions(projectDir));
+		const thinkingLevel = config.thinkingLevel ?? "high";
+		const root = await harness.root(CONTEXT, {
+			agent: { model: modelRef, thinkingLevel, cwd: projectDir, instructions },
+		});
+		// `root()` applies `agent` only when it creates the conversation. On reopen, change only
+		// what the caller passed explicitly or what changed on disk.
+		const current = await root.agent(CONTEXT);
+		const change: {
+			model?: ModelRef;
+			thinkingLevel?: NonNullable<HarnessConfig["thinkingLevel"]>;
+			cwd?: string;
+			instructions?: string;
+		} = {};
+		if (
+			config.model !== undefined &&
+			(current.model?.provider !== config.model.provider || current.model.modelId !== config.model.modelId)
+		) {
+			change.model = config.model;
+		}
+		if (config.thinkingLevel !== undefined && current.thinkingLevel !== config.thinkingLevel) {
+			change.thinkingLevel = config.thinkingLevel;
+		}
+		if (current.cwd !== projectDir) change.cwd = projectDir;
+		if (current.instructions !== instructions) change.instructions = instructions;
+		if (Object.keys(change).length > 0) await root.configure(change, CONTEXT);
+		const stored = (await root.agent(CONTEXT)).model;
+		const effective: ModelRef =
+			stored !== undefined && (stored.provider === "litellm" || stored.provider === "work")
+				? { provider: stored.provider, modelId: stored.modelId }
+				: modelRef;
 
-	return {
-		harness,
-		root,
-		model: modelRef,
-		dbPath,
-		context: CONTEXT,
-		async close() {
-			for (const client of clients) await client.close();
-			await harness.close(CONTEXT);
-		},
-	};
+		return {
+			harness,
+			root,
+			model: effective,
+			dbPath,
+			context: CONTEXT,
+			async close() {
+				for (const client of clients) await client.close();
+				await harness!.close(CONTEXT);
+			},
+		};
+	} catch (error) {
+		for (const client of clients) await client.close().catch(() => {});
+		if (harness !== undefined) await harness.close(CONTEXT).catch(() => {});
+		throw error;
+	}
 }

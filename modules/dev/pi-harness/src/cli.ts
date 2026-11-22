@@ -32,17 +32,22 @@ options:
 
 type CliOptions = {
 	project: string;
-	model: string;
-	thinking: string;
+	model?: string;
+	thinking?: string;
 	"state-dir"?: string;
 	"no-mcp": boolean;
 };
 
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
 function configFrom(values: CliOptions): HarnessConfig {
+	if (values.thinking !== undefined && !(THINKING_LEVELS as readonly string[]).includes(values.thinking)) {
+		throw new Error(`invalid thinking level: ${values.thinking}`);
+	}
 	return {
 		projectDir: values.project,
-		model: parseModelRef(values.model),
-		thinkingLevel: values.thinking as NonNullable<HarnessConfig["thinkingLevel"]>,
+		model: values.model === undefined ? undefined : parseModelRef(values.model),
+		thinkingLevel: values.thinking as HarnessConfig["thinkingLevel"],
 		stateDir: values["state-dir"],
 		mcpServers: values["no-mcp"] ? false : undefined,
 	};
@@ -90,7 +95,13 @@ async function commandAsk(values: CliOptions, task: string): Promise<void> {
 		);
 		const settled = await submission.wait(opened.context);
 		if (settled.status !== "done" || settled.type !== "input") {
-			console.error(`run did not answer: ${settled.status}`);
+			const live = await opened.harness.snapshot(LiveDoc, opened.root.id, opened.context);
+			const failure = live?.runFailure;
+			const reason =
+				failure === undefined
+					? settled.status
+					: `${failure.reason}${failure.detail === undefined ? "" : `: ${failure.detail.slice(0, 300)}`}`;
+			console.error(`run did not answer: ${reason}`);
 			process.exitCode = 1;
 		} else {
 			const answer = await findEntry(opened, settled.answer);
@@ -193,7 +204,7 @@ async function commandWatch(values: CliOptions, id: string | undefined): Promise
 		});
 		await new Promise<void>((resolve) => {
 			const stop = () => {
-				watch.stop().finally(resolve);
+				watch.stop().catch(() => {}).finally(resolve);
 			};
 			process.once("SIGINT", stop);
 			process.once("SIGTERM", stop);
@@ -210,11 +221,8 @@ async function main(): Promise<void> {
 		allowPositionals: true,
 		options: {
 			project: { type: "string", default: process.cwd() },
-			model: {
-				type: "string",
-				default: process.env.PI_HARNESS_MODEL ?? "litellm/deepseek-v4.1-flash",
-			},
-			thinking: { type: "string", default: "high" },
+			model: { type: "string" },
+			thinking: { type: "string" },
 			"state-dir": { type: "string" },
 			"no-mcp": { type: "boolean", default: false },
 		},
