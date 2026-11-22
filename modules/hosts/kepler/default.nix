@@ -98,6 +98,13 @@ in {
       m.home.kepler-ssh
     ];
 
+    programs.tmux = {
+      enable = true;
+      terminal = "tmux-256color";
+      extraConfig = "set -g status-right '#H | %H:%M'";
+    };
+    environment.systemPackages = [pkgs.ghostty.terminfo];
+
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.amd.updateMicrocode = true;

@@ -69,7 +69,11 @@ in {
       ...
     }: let
       sk = pkgs.writeShellScriptBin "sk" ''
-        exec ${pkgs.openssh}/bin/ssh kepler "$@"
+        if (( $# > 0 )); then
+          exec ${pkgs.openssh}/bin/ssh kepler "$@"
+        fi
+        exec ${pkgs.openssh}/bin/ssh -t kepler \
+          'tmux new-session -A -s development -c /fast/compute/erik/Documents'
       '';
       terminal = "${config.programs.ghostty.package}/bin/ghostty +new-window";
     in {
