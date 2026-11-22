@@ -8,12 +8,26 @@
  * watch [id]     stream one conversation's committed entries (root by default)
  */
 import { randomUUID } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ConversationId, EntryRecord, Harness } from "@earendil-works/pi-durable";
+import type {
+	ConversationId,
+	ConversationRecord,
+	Cursor,
+	EntryId,
+	EntryRecord,
+	Harness,
+	LiveState,
+	Page,
+	SettledSubmissionRecord,
+} from "@earendil-works/pi-durable";
 import { LiveDoc } from "@earendil-works/pi-durable";
 import { openHarness, type HarnessConfig, type OpenedHarness } from "./harness.js";
 import { modelRefToString, parseModelRef } from "./providers.js";
+
+const STATUS_PAGE_SIZE = 100;
+const STATUS_MAX_PAGES = 10;
 
 const USAGE = `usage: pi-harness <command> [options]
 
@@ -25,10 +39,15 @@ commands:
 
 options:
   --project <dir>     project directory (default: cwd)
-  --model <p/id>      litellm/<id> or work/<id> (default: litellm/deepseek-v4.1-flash)
-  --thinking <level>  off|minimal|low|medium|high|xhigh|max (default: high)
+  --model <p/id>      litellm/<id> or work/<id> (first creation: litellm/deepseek-v4.1-flash;
+                      a stored model wins on reopen)
+  --thinking <level>  off|minimal|low|medium|high|xhigh|max (first creation: high;
+                      a stored level wins on reopen)
   --state-dir <dir>   override XDG_STATE_HOME
-  --no-mcp            do not start the donsetch/graphify MCP servers`;
+  --no-mcp            do not start the donsetch/graphify MCP servers
+
+status lists at most ${STATUS_MAX_PAGES * STATUS_PAGE_SIZE} conversations and says
+"at least N (more pages)" when the store holds more.`;
 
 type CliOptions = {
 	project: string;
@@ -64,8 +83,51 @@ async function recentEntries(opened: OpenedHarness): Promise<readonly EntryRecor
 	return page.items;
 }
 
-async function findEntry(opened: OpenedHarness, id: number): Promise<EntryRecord | undefined> {
-	return (await recentEntries(opened)).find((entry) => entry.id === id);
+export async function findEntry(opened: OpenedHarness, id: EntryId): Promise<EntryRecord | undefined> {
+	const page = await opened.root.entries({ minEntryId: id, maxEntryId: id }, 1, undefined, opened.context);
+	return page.items[0];
+}
+
+function formatFailureDetail(detail: unknown): string {
+	const text = typeof detail === "string" ? detail : JSON.stringify(detail);
+	return `: ${(text ?? "").slice(0, 300)}`;
+}
+
+export function describeRunFailure(
+	settled: SettledSubmissionRecord,
+	live: Readonly<LiveState> | undefined,
+): string {
+	if (settled.status !== "unanswered") return settled.status;
+	// The live failure names the newest failed run, which may belong to an earlier
+	// submission. Trust it only when it lists this submission among its inputs.
+	const failure = live?.runFailure;
+	if (settled.reason === "" && failure !== undefined && failure.inputs.includes(settled.id)) {
+		return `${failure.reason}${failure.detail === undefined ? "" : `: ${failure.detail.slice(0, 300)}`}`;
+	}
+	return `${settled.reason}${settled.detail === undefined ? "" : formatFailureDetail(settled.detail)}`;
+}
+
+export type ConversationScan = {
+	readonly items: readonly ConversationRecord[];
+	/** The store had more pages than the bound allowed. */
+	readonly truncated: boolean;
+};
+
+export async function scanConversationPages(
+	scan: (cursor: Cursor | undefined) => Promise<Page<ConversationRecord, Cursor>>,
+	maxPages = STATUS_MAX_PAGES,
+): Promise<ConversationScan> {
+	const items: ConversationRecord[] = [];
+	let cursor: Cursor | undefined;
+	let pages = 0;
+	for (;;) {
+		const page = await scan(cursor);
+		items.push(...page.items);
+		pages += 1;
+		if (page.next === undefined) return { items, truncated: false };
+		if (pages >= maxPages) return { items, truncated: true };
+		cursor = page.next;
+	}
 }
 
 async function latestAssistant(opened: OpenedHarness): Promise<EntryRecord | undefined> {
@@ -96,12 +158,7 @@ async function commandAsk(values: CliOptions, task: string): Promise<void> {
 		const settled = await submission.wait(opened.context);
 		if (settled.status !== "done" || settled.type !== "input") {
 			const live = await opened.harness.snapshot(LiveDoc, opened.root.id, opened.context);
-			const failure = live?.runFailure;
-			const reason =
-				failure === undefined
-					? settled.status
-					: `${failure.reason}${failure.detail === undefined ? "" : `: ${failure.detail.slice(0, 300)}`}`;
-			console.error(`run did not answer: ${reason}`);
+			console.error(`run did not answer: ${describeRunFailure(settled, live)}`);
 			process.exitCode = 1;
 		} else {
 			const answer = await findEntry(opened, settled.answer);
@@ -135,12 +192,18 @@ async function commandResume(values: CliOptions): Promise<void> {
 async function commandStatus(values: CliOptions): Promise<void> {
 	const opened = await openHarness(configFrom(values));
 	try {
-		const page = await opened.harness.commit(
-			(tx) => tx.scanConversations({ order: "ascending" }, 100),
-			opened.context,
+		const scan = await scanConversationPages(async (cursor) =>
+			opened.harness.commit(
+				(tx) => tx.scanConversations({ order: "ascending" }, STATUS_PAGE_SIZE, cursor),
+				opened.context,
+			),
 		);
-		console.log(`conversations: ${page.items.length}`);
-		for (const conversation of page.items) {
+		console.log(
+			scan.truncated
+				? `conversations: at least ${scan.items.length} (more pages)`
+				: `conversations: ${scan.items.length}`,
+		);
+		for (const conversation of scan.items) {
 			const owner = conversation.owner === undefined ? "" : ` owner_task=${conversation.owner.taskId}`;
 			console.log(`  ${conversation.id}${owner}`);
 		}
@@ -244,7 +307,10 @@ async function main(): Promise<void> {
 	throw new Error(`unknown command: ${command}`);
 }
 
-main().catch((error: unknown) => {
-	console.error(error instanceof Error ? error.message : String(error));
-	process.exitCode = 1;
-});
+const invoked = process.argv[1];
+if (invoked !== undefined && import.meta.url === pathToFileURL(invoked).href) {
+	main().catch((error: unknown) => {
+		console.error(error instanceof Error ? error.message : String(error));
+		process.exitCode = 1;
+	});
+}

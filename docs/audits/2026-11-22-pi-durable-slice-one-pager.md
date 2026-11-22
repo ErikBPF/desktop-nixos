@@ -80,6 +80,18 @@ were not simulated; the tests prove the idempotency guards, not the crash path.
   conversations.
 - Wire into a home profile only after a separate permission/sandbox decision.
 
+## Review fixes (2026-11-22)
+
+The first real read-only run reviewed the harness and found five defects. All
+five were confirmed against the pinned type declarations and fixed on
+`feat/pi-shadow-20261122`: exact-id entry lookup (with a RED test that puts the
+answer outside the 200-entry window), settled-reason failure reporting with a
+`turn_limit` faux run, bounded `status` paging whose count matches its rows,
+sandbox ownership on `close()`, and corrected USAGE default text. Evidence:
+13 → 18 tests, `tsc --noEmit`, `nix build .#pi-harness`, `just lint`,
+`just fmt-check` all pass. Details and rejected alternatives:
+[`2026-11-22-pi-harness-review-fixes.md`](2026-11-22-pi-harness-review-fixes.md).
+
 ## Risks and recovery
 
 The largest risk is assuming durable's restart path is exercised because the

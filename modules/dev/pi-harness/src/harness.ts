@@ -202,9 +202,8 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 	const images = await createNodePhotonImages();
 	registry.install(createCodingTools({ images }));
 	registry.install(createFitImagesExtension(images));
-	registry.install(
-		createCodemodeExtension({ sandbox: new CodemodeSandbox({ memoryLimitBytes: 256 * 1024 * 1024 }) }),
-	);
+	const sandbox = new CodemodeSandbox({ memoryLimitBytes: 256 * 1024 * 1024 });
+	registry.install(createCodemodeExtension({ sandbox }));
 	registry.install(createToolSearchExtension());
 	registry.install(createSubagentExtension({ childModel }));
 
@@ -261,11 +260,14 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 			async close() {
 				for (const client of clients) await client.close();
 				await harness!.close(CONTEXT);
+				// The extension cannot own the sandbox: a script-left worker would outlive the CLI.
+				await sandbox.close().catch(() => {});
 			},
 		};
 	} catch (error) {
 		for (const client of clients) await client.close().catch(() => {});
 		if (harness !== undefined) await harness.close(CONTEXT).catch(() => {});
+		await sandbox.close().catch(() => {});
 		throw error;
 	}
 }
