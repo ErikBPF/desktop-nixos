@@ -7,7 +7,7 @@
 
 ## Knowledge tools
 
-- Use Graphify when requested or `graphify-out/graph.json` exists; query existing graphs before broad reads. Prefer per-repo queries; merged graphs are discovery-only unless cross-repo edges exist.
+- Use Graphify when requested or `graphify-out/graph.json` exists; query existing graphs before broad reads. Prefer per-repo graphs; merged graphs are discovery-only unless cross-repo edges exist. In OpenCode use the graphify MCP tools (`graphify_query_graph`, `graphify_shortest_path`, `graphify_get_node`); in Codex and Claude use the CLI (`graphify query`, `graphify path`, `graphify explain`). Prefer `graphify-out/wiki/index.md` for broad navigation; read `GRAPH_REPORT.md` only when the graph tools lack context. Use `rg`/source for exact strings. Dirty `graphify-out` files after hooks are expected. After code changes, run `graphify update .` (AST only, no model cost).
 - Build canonical graphs by default; worktree graphs only on request. Graphs are caches: verify operational, security, ownership, and current-state claims in source. Use `rg`/source for unsupported formats.
 - Never bypass sensitive-file skips or index `*.secrets.json`, `.env*`, Sops/Vault material, certificates, or credentials.
 - Keep Cognee retrieval disabled unless the repo documents authorized dataset selection, readiness, and a read-only query path. Never broaden empty selections or automatically sync/reset/delete memory. Fall back to source when unqualified.

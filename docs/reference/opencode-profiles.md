@@ -95,6 +95,8 @@ command, rather than mutating tool input before permissions. The gateway
 hook scopes `x-opencode-session` to the intended provider and actual
 session. Plugin loading alone is not proof that either behavior works.
 
+`modules/dev/agent-policy.md` is the single owner of Graphify guidance for OpenCode, Codex and Claude, so there is no OpenCode-only plugin.
+
 One global `cli.json` owns terminal settings and permission prompts. Tabs are
 off so tmux owns window switching; the global default is auto-accept, and
 `ol`/`ow` pass `--auto` as well, so the permission prompt is never a gate.
