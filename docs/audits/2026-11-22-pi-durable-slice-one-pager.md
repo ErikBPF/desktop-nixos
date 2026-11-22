@@ -31,6 +31,8 @@ not wired into `modules/dev/pi.nix`.
 - `src/cli.ts`: `ask`, `resume`, `status`, `watch`, plus `--project`,
   `--model`, `--thinking`, `--state-dir`, `--no-mcp`.
 - `default.nix`: flake-parts module exposing `packages.pi-harness`.
+- `modules/dev/pi.nix`: installs the harness as `pi` and `pi-harness`; the
+  upstream shadow agent remains available as `pi-agent`.
 - `_package.nix`: `buildNpmPackage`, with a hash obtained from the build.
 - `test/`: faux-provider conversation, subagent ownership and reuse, code-mode
   output filtering, in-memory MCP bridge.

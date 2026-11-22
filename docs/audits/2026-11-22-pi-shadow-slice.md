@@ -163,6 +163,10 @@ $ git diff --stat HEAD
 - **Duplicated derivations.** `graphify` and `donsetch` remain copied from
   `modules/dev/opencode.nix`, with the in-file sync comment. This slice may not
   edit that file.
+- **`pi` is the durable harness.** `m.home.pi` installs `pi-harness` and a `pi`
+  symlink to it; the upstream shadow agent is renamed to `pi-agent`. Its
+  `~/.pi/agent` configuration is unchanged and still belongs to the upstream
+  agent.
 
 ## Gaps
 

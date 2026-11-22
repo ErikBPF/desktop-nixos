@@ -82,8 +82,18 @@
     # Local durable harness (Pi-native orchestration, code mode, subagents).
     # Registered as a flake package too, but the home profile needs it on PATH.
     piHarness = pkgs.callPackage ./pi-harness/_package.nix {};
+    # `pi` is the durable harness. The upstream shadow agent keeps its own
+    # configuration under ~/.pi/agent and is reachable as `pi-agent`.
+    piAgent = pkgs.runCommandLocal "pi-agent" {} ''
+      mkdir -p $out/bin
+      ln -s ${pi}/bin/pi $out/bin/pi-agent
+    '';
+    piCommand = pkgs.runCommandLocal "pi-harness-as-pi" {} ''
+      mkdir -p $out/bin
+      ln -s ${piHarness}/bin/pi-harness $out/bin/pi
+    '';
   in {
-    home.packages = [pi piHarness];
+    home.packages = [piAgent piHarness piCommand];
 
     # Pi reads its user-level configuration from ~/.pi/agent. Values mirror
     # modules/dev/opencode.nix; keys resolve at load time through `!cat`, so no

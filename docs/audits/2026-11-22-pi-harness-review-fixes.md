@@ -125,6 +125,14 @@ usage: none
 No live model request ran. The optional mini smoke was skipped; the fixes are
 covered by faux-provider tests and the CLI start above.
 
+## Command wiring
+
+`modules/dev/pi.nix` now installs the durable harness as both `pi-harness` and
+`pi`. The upstream shadow agent is exposed as `pi-agent`, so the profile has no
+`bin/pi` collision and the `~/.pi/agent` configuration still belongs to that
+agent. The harness entrypoint guard resolves symlinked `argv[1]`, which is what
+makes the `pi` symlink invoke `main()`.
+
 ## Changed files
 
 - `modules/dev/pi-harness/src/cli.ts` — exact-id lookup, settled failure report,
