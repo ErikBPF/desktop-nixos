@@ -26,6 +26,7 @@ import { createCodemodeExtension } from "@earendil-works/pi-durable/codemode";
 import { createFitImagesExtension } from "@earendil-works/pi-durable/images/fit";
 import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
+import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import {
@@ -86,6 +87,15 @@ export function resolveDbPath(projectDir: string, stateDir = resolveStateDir()):
 	const project = basename(absolute).replace(/[^A-Za-z0-9._-]/g, "-") || "project";
 	const pathHash = createHash("sha256").update(absolute).digest("hex").slice(0, 8);
 	return join(stateDir, "pi-harness", `${project}-${pathHash}.db`);
+}
+
+/**
+ * Execution environment for durable tool calls. Without one, every built-in
+ * tool answers "No execution environment is configured"; the harness's live
+ * smoke answered text anyway, which hid that failure.
+ */
+export function createExecutionEnv(fallbackCwd?: string) {
+	return ({ cwd }: { cwd?: string }) => new NodeExecutionEnv({ cwd: cwd ?? fallbackCwd ?? process.cwd() });
 }
 
 export async function readProjectInstructions(projectDir: string): Promise<string> {
@@ -209,7 +219,7 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 	try {
 		await mkdir(dirname(dbPath), { recursive: true });
 		const storage = await openNodeSqliteStorage(dbPath);
-		harness = await Harness.open(storage, { models, registry }, CONTEXT);
+		harness = await Harness.open(storage, { models, registry, env: createExecutionEnv(projectDir) }, CONTEXT);
 		const instructions = config.instructions ?? (await readProjectInstructions(projectDir));
 		const thinkingLevel = config.thinkingLevel ?? "high";
 		const root = await harness.root(CONTEXT, {
