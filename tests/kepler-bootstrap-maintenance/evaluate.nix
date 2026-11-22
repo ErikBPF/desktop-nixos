@@ -1,6 +1,11 @@
 let
   fixture = import ./fixture.nix;
 in
+  assert builtins.elem "multi-user.target" fixture.k3sWantedBy;
+  assert !(builtins.elem "k3s.service" fixture.manifest.wants);
+  assert builtins.elem "k3s.service" fixture.manifest.after;
+  assert fixture.manifest.remainAfterExit;
+  assert builtins.match ".*/bin/systemctl is-active --quiet k3s.service" fixture.manifest.condition != null;
   assert !(builtins.elem "k3s.service" fixture.wants);
   assert builtins.elem "k3s.service" fixture.after;
   assert builtins.elem "multi-user.target" fixture.wantedBy;

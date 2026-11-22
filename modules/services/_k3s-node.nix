@@ -69,8 +69,9 @@ in {
     description = "Remove k3s auto-deploy manifests no longer declared";
     wantedBy = ["multi-user.target"];
     after = ["k3s.service"];
-    wants = ["k3s.service"];
     serviceConfig = {
+      # A switch must not undo an operator's K3s maintenance stop.
+      ExecCondition = "${pkgs.systemd}/bin/systemctl is-active --quiet k3s.service";
       Type = "oneshot";
       RemainAfterExit = true;
     };

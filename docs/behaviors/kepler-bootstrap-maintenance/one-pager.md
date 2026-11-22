@@ -19,7 +19,7 @@ attempt. Activation must preserve the coordinator's current runtime baseline.
 
 ## Change and behavior
 
-Remove the credential service's `Wants=k3s.service`. Keep `After=k3s.service`,
+Remove `Wants=k3s.service` from both credential and manifest reconciliation. Keep `After=k3s.service`,
 its normal multi-user boot activation, and the existing 30-second/15-minute timer.
 Add `ExecCondition=systemctl is-active --quiet k3s.service`: inactive K3s skips
 credential writes without marking the reconciliation service failed. During
@@ -29,8 +29,11 @@ remain unchanged. An explicit later K3s start allows reconciliation again.
 
 This condition is a check at service entry, not a lock. For maintenance, stop the
 timer and any in-flight reconciliation before stopping K3s. Restore the timer
-only after the reviewed health gate. The source changes no credentials, API
-permissions, guest restart policy, timer interval, or non-cp-1 services.
+only after the reviewed health gate. The credential fix remains cp-1-only; the shared manifest fix applies to all
+server-role guests, preserving `RemainAfterExit=true`. No caller requires the
+manifest unit to start K3s; K3s is independently wanted by multi-user.target.
+The existing observability recipe only checks manifest-unit activity.
+Credentials, API permissions, guest restart policy and timer interval are unchanged.
 
 ## Evidence and limits
 
@@ -58,6 +61,22 @@ writes after the guest returns active. Nix assertions, lint, format, structure,
 documentation links, diff-check, generated commit hooks and the offline Kepler
 toplevel dry-run passed. `/tmp/kepler-bootstrap-maintenance-dry.log` records the
 successful dry-run; this does not establish live activation safety.
+
+## Hosted review reconciliation
+
+Hackerman correctly found the same `Wants` edge in the shared manifest reconciler.
+A switch-driven restart could also resurrect stopped K3s. The real-systemd
+fixture's `--manifest` mode first ran a healthy RemainAfterExit reconciler, stopped
+the guest, then restarted reconciliation. It failed with `manifest reconciliation
+restart resurrected stopped K3s`; removing that edge and adding the same active
+condition passed. Healthy explicit reconciliation still resumes. Receipts:
+`/tmp/kepler-manifest-maintenance-{red,green}.log`. Run this mode alongside the
+timer test. Nix assertions also prove K3s remains independently boot-enabled.
+
+A skipped condition records `Result=exec-condition`; the existing
+`just verify-k3s-bootstrap` success-only check is intended for healthy operation
+and can fail during maintenance until reconciliation next succeeds. Skipping is
+not successful credential synchronization; do not weaken that verification.
 
 ## Delivery and recovery
 

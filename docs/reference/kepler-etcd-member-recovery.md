@@ -148,21 +148,21 @@ stop these units in order on **cp-1 only**:
 
 ```sh
 systemctl stop k3s-bootstrap-secrets.timer
-systemctl stop k3s-bootstrap-secrets.service
+systemctl stop k3s-bootstrap-secrets.service k3s-manifest-reconcile.service
 systemctl stop k3s.service
 systemctl show k3s-bootstrap-secrets.timer -p ActiveState -p NextElapseUSecMonotonic
-systemctl show k3s-bootstrap-secrets.service k3s.service -p ActiveState -p MainPID -p NRestarts
+systemctl show k3s-bootstrap-secrets.service k3s-manifest-reconcile.service k3s.service -p ActiveState -p MainPID -p NRestarts
 ```
 
-Require the timer inactive with no scheduled elapse and both services without
+Require the timer inactive with no scheduled elapse and all reconciliation and K3s services without
 running processes. A retained historical failed state/restart count is not a
 new attempt; compare timestamps and PID state. Do not restart the timer while
 the failed member is under maintenance. After a separately approved recovery
 passes membership, fixed-revision hash and API health gates, explicitly start
-the reconciliation service and then its timer. Do not start K3s implicitly by
+the manifest and credential reconciliation services and then the credential timer. Do not start K3s implicitly by
 starting the credential service. The
 [maintenance-stop source fix](../behaviors/kepler-bootstrap-maintenance/one-pager.md)
-removes that dependency and skips reconciliation while K3s is inactive; it does
+removes that dependency from both credential and switch-driven manifest reconciliation and skips work while K3s is inactive; it does
 not cancel work already running, so the ordered maintenance stop still applies.
 
 ## Rollback and remaining risk

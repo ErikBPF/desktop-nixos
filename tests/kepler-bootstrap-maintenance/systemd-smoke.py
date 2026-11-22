@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -28,6 +29,9 @@ def main():
     fixture = json.loads(subprocess.check_output(
         ["nix", "eval", "--offline", "--impure", "--json", "--file",
          "tests/kepler-bootstrap-maintenance/fixture.nix"], cwd=ROOT, timeout=90))
+    manifest = "--manifest" in sys.argv
+    if manifest:
+        fixture = fixture["manifest"]
     assert ctl("show-environment").returncode == 0, "user systemd bus required"
     with tempfile.TemporaryDirectory(prefix="bootstrap-maintenance-") as directory:
         path = Path(directory)
@@ -47,6 +51,7 @@ def main():
             "[Unit]\n" + (f"After={guest}\n" if "k3s.service" in fixture["after"] else "")
             + (f"Wants={guest}\n" if "k3s.service" in fixture["wants"] else "")
             + "[Service]\nType=oneshot\n"
+            + ("RemainAfterExit=yes\n" if manifest else "")
             + (f"ExecCondition={condition}\n" if condition else "")
             + f"ExecStart={script}\n")
         (path / timer).write_text(
@@ -59,6 +64,19 @@ def main():
             assert ctl("daemon-reload").returncode == 0
             assert ctl("start", guest, reconcile).returncode == 0
             assert runs() == 1, "healthy boot reconciliation must run"
+            if manifest:
+                assert ctl("stop", guest).returncode == 0
+                before = runs()
+                assert ctl("restart", reconcile).returncode == 0
+                assert ctl("is-active", guest).stdout.strip() == "inactive", (
+                    "manifest reconciliation restart resurrected stopped K3s")
+                assert runs() == before, "inactive K3s must skip manifest writes"
+                assert ctl("is-failed", reconcile).stdout.strip() != "failed"
+                assert ctl("start", guest).returncode == 0
+                assert ctl("start", reconcile).returncode == 0
+                assert runs() == before + 1, "healthy manifest reconciliation must resume"
+                print("KEPLER_MANIFEST_MAINTENANCE_SYSTEMD_OK")
+                return
             assert ctl("start", timer).returncode == 0
             wait_for(lambda: runs() >= 2)
             # Avoid a racing in-flight reconciliation before the maintenance stop.
