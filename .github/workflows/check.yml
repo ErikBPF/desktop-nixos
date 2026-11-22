@@ -148,7 +148,9 @@ jobs:
       - name: Syncthing ignore activation
         run: python3 -m unittest discover -s tests/syncthing-ignore
       - name: Tmux resume picker
-        run: python3 -m unittest discover -s tests/tmux-resume
+        run: |
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
+          PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/tmux-resume -v
       - name: Shared compiler-cache writer boundary
         run: |
           python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v

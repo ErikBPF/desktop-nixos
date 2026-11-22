@@ -13,7 +13,7 @@ DEFAULT_FOLDER = "/fast/compute/erik/Documents"
 def tmux(*arguments):
     environment = os.environ.copy()
     if arguments[0] == "list-sessions":
-        environment["LC_ALL"] = "C"
+        environment["LC_ALL"] = "C.UTF-8"
     return subprocess.run(["tmux", *arguments], capture_output=True, text=True, env=environment)
 
 

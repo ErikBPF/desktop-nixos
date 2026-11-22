@@ -39,4 +39,4 @@ in
   assert unitDelta withDevelopment c == ["install-microvm-cp-1.service" "microvm@cp-1.service"];
   assert builtins.hashFile "sha256" c.sops.secrets.openbao-harbor-reader-kepler-secret-id.sopsFile == expectedEncryptedFileSha256;
   assert !(f.deploy.nodes ? kepler-cp1-recovery);
-  assert c.system.build.toplevel.outPath == "/nix/store/9rni5lncjfqplnfzpz687m87q044413f-nixos-system-kepler-26.11.20261115.5c3cda7"; "KEPLER_DURABLE_CP1_BOOT_OK ${c.system.build.toplevel.outPath}"
+  assert c.system.build.toplevel.outPath == "/nix/store/xlghymr755i465x03a3s5c2w8lkx586r-nixos-system-kepler-26.11.20261115.5c3cda7"; "KEPLER_DURABLE_CP1_BOOT_OK ${c.system.build.toplevel.outPath}"

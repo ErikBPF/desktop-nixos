@@ -137,6 +137,24 @@ class Resume(unittest.TestCase):
         self.assertEqual(len(calls), 4)
         self.assertEqual(execute, [])
 
+    @unittest.skipUnless(shutil.which("tmux"), "tmux binary required for real listing test")
+    def test_real_session_is_visible_in_picker(self):
+        real_run = subprocess.run
+        with tempfile.TemporaryDirectory(prefix="resume-listing-") as folder:
+            socket = str(Path(folder) / "socket")
+            command = ["tmux", "-S", socket]
+            try:
+                real_run(command + ["-f", "/dev/null", "new-session", "-d", "-s", "visible", "-c", folder, "sleep 60"], check=True)
+                def run(args, **kwargs):
+                    if args[0] == "tmux":
+                        return real_run(command + args[1:], **kwargs)
+                    self.assertIn("\tvisible\tdetached\t", kwargs["input"])
+                    return subprocess.CompletedProcess(args, 130, "", "")
+                with patch.object(self.module.subprocess, "run", side_effect=run):
+                    self.assertEqual(self.module.main([folder]), 0)
+            finally:
+                real_run(command + ["kill-server"], capture_output=True)
+
     @unittest.skipUnless(shutil.which("tmux"), "tmux binary required for real server identity test")
     def test_stale_server_id_cannot_delete_replacement_session(self):
         with tempfile.TemporaryDirectory(prefix="resume-identity-") as folder:
