@@ -104,8 +104,10 @@ personal/work split holds. It sets `session.permissions = "autoaccept"` and
 Supported compaction uses `keep.tokens`, not ignored `tail_turns`.
 Application self-updates are disabled; package changes flow through Nix.
 The deny tail in `modules/dev/opencode.nix` is the only gate: it blocks branch
-mutation, `find -exec`, `rg --pre`, `nix eval`, the raw cross-host deploy forms
-and blob reads of protected files. Each pattern matches the literal text of one
+mutation, the raw cross-host deploy forms, blob reads of protected files and
+path-shaped secret patterns. It does not block `find -exec`, `rg --pre` or
+`nix eval`; shell already permits arbitrary execution, so those patterns only
+rejected legitimate commands. Each pattern matches the literal text of one
 subcommand, so the tail cannot see a path a glob expands to and is defence in
 depth rather than a content boundary; the `read` action and the `tool.use`
 policies deny the protected paths. Shell is allowed explicitly, so a session
