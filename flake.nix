@@ -1,5 +1,9 @@
 {
   inputs = {
+    # Retain both exact recovery sources and their own dependency locks.
+    kepler-recovery-baseline.url = "github:ErikBPF/desktop-nixos/a3f290e015eacce61e718f8596cdb6acc3716c7c";
+    kepler-recovery-guest.url = "github:ErikBPF/desktop-nixos/228bc67bf427fa1c4d33508f3f5967e2b1008d7a";
+
     # Pinned to the master revision whose qutebrowser entry no longer carries
     # the upstream-reverted insecure mark; nixos-unstable still lags it.
     # Restore github:nixos/nixpkgs/nixos-unstable once the channel advances.

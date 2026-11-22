@@ -407,3 +407,12 @@ cp1-artifact-metadata revision:
         bootstrapTimer = c.systemd.timers.k3s-bootstrap-secrets.enable;
         bootstrapService = c.systemd.services.k3s-bootstrap-secrets.enable;
       }"
+
+# Disposable translated systemd ordering only; never accesses a live guest.
+test-cp1-durable-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fixture=$(mktemp)
+    trap 'rm -f "$fixture"' EXIT
+    nix eval --impure --json --expr 'import ./tests/cp1-durable-boot-order/fixture.nix { baselineUrl = "github:ErikBPF/desktop-nixos/030d17cf4f9d56a40a3205d4af2ae7867a208e7d"; recoveryUrl = "github:ErikBPF/desktop-nixos/228bc67bf427fa1c4d33508f3f5967e2b1008d7a"; }' > "$fixture"
+    python3 tests/cp1-durable-boot-order/systemd-smoke.py "$fixture"

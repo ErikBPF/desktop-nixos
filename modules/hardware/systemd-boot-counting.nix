@@ -27,9 +27,10 @@ _: {
       };
     };
 
-    # A live switch rewrites the current loader entry without a boot counter.
-    # Let the next real boot bless it; restarting this unit during activation
-    # fails with "Can't find boot counter source file" and rejects the switch.
+    # The running boot entry may have no counter even when a newly installed
+    # generation has one. Do not restart blessing during live activation: it
+    # can fail with "Can't find boot counter source file". The next real boot
+    # assesses and blesses its own entry.
     systemd.services.systemd-bless-boot = {
       restartIfChanged = false;
       stopIfChanged = false;
