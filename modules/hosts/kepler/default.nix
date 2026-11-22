@@ -24,6 +24,7 @@ in {
       m.nixos.kepler-networking
       m.nixos.kepler-monitoring
       m.nixos.kepler-development
+      m.nixos.kepler-devtools
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas
       m.nixos.containers
@@ -98,6 +99,7 @@ in {
 
     home-manager.users.${flakeConfig.username}.imports = [
       m.home.kepler-ssh
+      m.home.kepler-devtools
     ];
 
     system.stateVersion = "25.11";
