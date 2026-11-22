@@ -101,3 +101,19 @@ finding exposed the retained boot start edge: Nix assertion RED preceded the
 cp1-only `wantedBy = []` fix. Immutable copy/GC roots never activate a runner;
 the guarded risk is later installation and boot of this temporary candidate.
 No live action or new recovery-primitive run occurred.
+
+
+## Preview guard repair — 2026-11-22
+
+The coordinator's approved guest preview stopped before dry activation because
+an inactive systemd timer has no MainPID property. Existing command fixtures
+incorrectly supplied PID zero for timers. A realistic empty timer-property
+response produced assertion-failing RED; the minimal guard checks timer
+inactivity separately and keeps service inactivity/PID-zero checks. Failed
+property reads and missing service PIDs reject execution. The targeted helper
+suite passes 57 tests, including active/failed/unknown timers and read failures.
+
+This is a source-only repair awaiting review and renewed successful preview.
+The coordinator reports host containment already deployed, with guest K3s still
+stopped and no member removal or quarantine. Fixture success does not establish
+production recovery or permit skipping any ordered recovery gate.

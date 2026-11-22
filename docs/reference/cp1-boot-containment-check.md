@@ -1,10 +1,49 @@
 # cp-1 pre-removal boot containment check
 
-**Status:** Host build passed; held for exact-head review and fresh live
-approval. No command in this check has been run on Kepler. Use it only within the
-[revised recovery sequence](cp1-durable-recovery.md), never as standalone approval.
-This is a read-only gate after a separately authorized owner deployment, not a
-replacement deployment recipe or authorization for removal.
+**Status:** Host containment deployed and observed at 14:11 UTC on 2026-11-22
+under the user's “merge and deploy” instruction for the presented sequence.
+The observation receipt below closes this host gate for that baseline, not the
+remaining guest preview/backup/member-replacement gates. Recheck after drift.
+Use only within the [revised recovery sequence](cp1-durable-recovery.md).
+
+## Observed owner deployment receipt — 2026-11-22
+
+Clean source `8b73c5bf947cc2f6c6c1beabec0d54833f87e973` re-evaluated to the
+expected host below. Both owner `just deploy-preview` and `just deploy` for
+`kepler-cp1-recovery 192.168.10.230` completed with exit zero. The preview showed
+no VM restart; the reviewed credential reconciliation and Home Manager restart
+were the only listed service/secret actions. Readback used authenticated SSH.
+
+- Running host and persistent profile both resolved to
+  `/nix/store/492mc5ylp5zjk6qmflyxw0jgayjwk4zz-nixos-system-kepler-26.11.20261115.5c3cda7`.
+- Host boot ID remained `62e3e4c1-7d28-44a5-a6b7-c7ed28d37a48`.
+  All six VM PIDs and start timestamps, all five sibling runner selections,
+  and cp-1's old booted runner remained unchanged.
+- The assertion block below passed against the built constants, including
+  loaded installer FragmentPath, exact D-Bus ExecStart argv, no drop-ins,
+  NeedDaemonReload=no and script SHA-256
+  `8b793b91ae778148be74743940596b29a3533f1c00a71f22bce0d9666163eb48`.
+- Native installer selected
+  `/nix/store/s226dm43kyklikzpbg64aj1vwhlgydhb-microvm-cloud-hypervisor-cp-1`
+  and `/nix/store/9m1zvcbinrv8396j6jzvjw9ncx7pk4q4-nixos-system-cp-1-26.11pre-git`.
+  The old booted runner remained `324az74ir78whxmv2w09p5b0m9199bqn`.
+- Pinned bootctl reported generation 141 as the sole default, counter-free
+  entry `nixos-e9b06ef599203f4f1ff842bc91c1e786161585715436581394e06e2eff00a9bf.conf`.
+  Its init path selected exactly the new host. `/boot/loader/loader.conf`
+  contained that exact default, without wildcard/preferred selection.
+  LoaderEntry EFI inventory contained only LoaderEntrySelected, with no
+  default/preferred/one-shot override. No automatic unsafe selection was observed.
+- cp-1 retained boot ID `a5cceb1e-caf7-4282-a8c5-d152fe4f7883`, old guest
+  `5dd7ggjsvsdng85a7jaknjln0hp0pvw6`, no system profile, stopped services with
+  PID zero and inactive bootstrap timer. No host or guest reboot occurred.
+
+Private receipt: `~/.local/state/kepler-recovery/2026-11-22/host-deployment-492-observed.json`,
+which binds hashes of the owner preview/deployment and readback logs. No
+credential values are included. Historical hardware faults remain unresolved;
+this proves observed selection, not actual reboot or datastore recovery.
+The subsequent guest preview failed before dry activation on the timer PID
+check; [the helper repair](cp1-targeted-activation.md) must pass source gates
+and a new preview before proceeding. No member removal or quarantine occurred.
 
 Pinned microvm host/default.nix selects evaluatedConfig before config, generates
 install-microvm-cp-1 to run `ln -sTf RUNNER current` and set `toplevel`, and runs
@@ -38,7 +77,8 @@ is `8b793b91ae778148be74743940596b29a3533f1c00a71f22bce0d9666163eb48`.
 These are inspected build artifacts, not observed loaded runtime state. Match
 the loaded executable and complete argv to these values before removal.
 
-The following proposed read-only assertions run on Kepler through the verified
+The following read-only assertions were run successfully on Kepler and remain
+the repeatable gate through the verified
 owner SSH route, with exact reviewed constants supplied privately:
 
 ```bash
@@ -103,7 +143,7 @@ the reviewed executable path, argv containing only that path, and
 change the immutable command expectation. Empty or additional commands, altered
 arguments or ignored failures reject the gate without printing their values.
 The schema was calibrated read-only against a local service, not production;
-Kepler's loaded command remains to be checked after approved deployment.
+Kepler's loaded command matched in the observed receipt above.
 
 Independently verify the configured bootloader's actual default generation and
 its selected host closure resolve to the durable containment candidate. A new
