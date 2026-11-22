@@ -20,7 +20,7 @@ def metadata():
                 guestCurrent=store,guestProfile=store,runner=store,
                 guestBootId='00000000-0000-0000-0000-000000000000', bootstrapTimerState='enabled', bootstrapServiceState='enabled'),
             'candidate':dict(hardware=copy.deepcopy(hardware),toplevel=store,runner=store,
-                nix=store,conditionSystemd=store,registration=store+'/registration',clusterInit=False,
+                nix=store,conditionSystemd=store,stateDir="/fast/microvms",registration=store+'/registration',clusterInit=False,
                 serverAddr='https://10.250.0.13:6443',restart='no',timeoutStartSec=300,
                 bootstrapTimer=False,bootstrapService=False)}
 
@@ -40,10 +40,19 @@ def test_hardware_change_rejected(field):
     assert not accepts(data)
 
 
-@pytest.mark.parametrize(('field','value'), [('clusterInit',True),('restart','always'),
+@pytest.mark.parametrize(('field','value'), [('stateDir','/var/lib/microvms'),('clusterInit',True),('restart','always'),
     ('serverAddr','https://10.250.0.12:6443'),('timeoutStartSec',0),('timeoutStartSec',600),
     ('bootstrapTimer',True),('bootstrapService',True),
     ('registration','/nix/store/'+'a'*32+'-fixture/../../etc/passwd')])
 def test_unsafe_candidate_rejected(field,value):
     data=metadata();data['candidate'][field]=value
+    assert not accepts(data)
+
+
+def test_explicit_absent_guest_profile_passes():
+    data=metadata();data['baseline']['guestProfile']='absent'
+    assert accepts(data)
+
+def test_absence_cannot_replace_host_profile():
+    data=metadata();data['baseline']['hostProfile']='absent'
     assert not accepts(data)

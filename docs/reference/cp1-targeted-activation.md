@@ -102,7 +102,7 @@ revision=$(jq -er '.sourceRevision' "$manifest")
 [[ "$new" =~ ^/nix/store/[a-z0-9]{32}-microvm-cloud-hypervisor-cp-1$ ]]
 [[ $(readlink -e /run/current-system) == "$(jq -er '.baseline.hostCurrent' "$manifest")" ]]
 [[ $(readlink -e /nix/var/nix/profiles/system) == "$(jq -er '.baseline.hostProfile' "$manifest")" ]]
-directory=/var/lib/microvms/cp-1
+directory=/fast/microvms/cp-1
 [[ $(readlink -e "$directory/current") == "$old" ]]
 [[ $(readlink -e "$directory/booted") == "$EXPECTED_BOOTED_RUNNER" ]]
 roots=/nix/var/nix/gcroots/cp1-recovery-$revision
@@ -143,3 +143,31 @@ package's manual output as well as its executable output, producing five paths
 instead of the required four. Selecting `c.nix.package.out` explicitly produced
 the four reviewed artifacts. The failed output-count guard caused no remote
 mutation; the actual cached build confirmed the corrected output set.
+
+The post-staging read-only check exposed an incorrect default runner directory
+in the first helper draft. Kepler's owning source explicitly sets
+`microvm.stateDir = "/fast/microvms"`; the current and booted links there both
+resolve to the retained `324az74...` runner. The guard and persistence procedure
+now use that exact directory, and immutable metadata exports and validates it.
+The corrected host-path fixture failed before the repair. No guest operation
+ran against the incorrect path; the helper would have stopped at preflight.
+
+Root's read-only guest preflight also confirmed the normal microVM boot has no
+`/nix/var/nix/profiles/system` entry. Record `guestProfile: "absent"` only when
+both the file and symlink are absent. The guard rejects unexpected appearance
+or dangling links; activation creates the first guest profile. Existing profiles
+still require the exact observed store path. This exception never applies to
+the host profile. Disposable actual-file tests cover all six combinations.
+
+### Authorized artifact staging receipt
+
+At 2026-11-22 02:46 UTC, the owner staging recipe completed for candidate
+`7daee157e729dec33b250e2dfff39998bfea185b`. The four reviewed artifacts are retained
+under `/nix/var/nix/gcroots/cp1-recovery-7daee157e729dec33b250e2dfff39998bfea185b`
+(root:root, mode 0700). Normal Nix signature verification remained enabled.
+Kepler's boot ID, running `zi7mrr...` closure and persistent `mhd9qc...` wrapper
+were unchanged. Current and booted cp-1 runners still resolve to `324az74...`.
+The exported candidate metadata, now including the source-owned state directory,
+has SHA-256 `dae5fa3806e2f2ed9b41776787e2818c78b2035a798877ed1e283d6ff367a0e7`.
+No guest preview, membership operation, activation or runner persistence was
+performed. These remain within the concrete approval gate above.

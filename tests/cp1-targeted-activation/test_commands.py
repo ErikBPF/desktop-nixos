@@ -98,3 +98,20 @@ def test_successful_switch_without_k3s_is_not_success(tmp_path):
     result,calls = run(tmp_path,no_k3s=True)
     assert result.returncode != 0
     assert 'systemctl stop k3s.service' in calls
+
+
+@pytest.mark.parametrize(('observed','expected','accepted'), [
+    ('absent','absent',True), ('existing','existing',True),
+    ('existing','absent',False), ('dangling','absent',False),
+    ('absent','existing',False), ('dangling','existing',False),
+])
+def test_guest_profile_absence_is_explicit(tmp_path, observed, expected, accepted):
+    target=tmp_path/'target';target.mkdir()
+    profile=tmp_path/'profile'
+    if observed != 'absent':
+        profile.symlink_to(target if observed == 'existing' else tmp_path/'missing')
+    guard=GUEST.split('[[ $(readlink -e /run/current-system) == "$old" ]]\n',1)[1].split('[[ $(timeout 10 systemctl is-enabled',1)[0]
+    guard=guard.replace('/nix/var/nix/profiles/system',str(profile))
+    result=subprocess.run(['bash','-se'],input=guard,text=True,
+        env=dict(os.environ,profile='absent' if expected=='absent' else str(target)),capture_output=True)
+    assert (result.returncode == 0) == accepted

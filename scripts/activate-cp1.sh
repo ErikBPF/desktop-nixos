@@ -8,16 +8,18 @@ case "$mode" in preview|activate) ;; *) echo 'expected preview or activate' >&2;
 jq -e '
   (.sourceRevision | test("^[a-f0-9]{40}$")) and
   (.baseline.hardware == .candidate.hardware) and
+  (.candidate.stateDir == "/fast/microvms") and
   (.candidate.clusterInit == false) and
   (.candidate.serverAddr == "https://10.250.0.13:6443") and
   (.candidate.restart == "no") and
   (.candidate.timeoutStartSec == 300) and
   (.candidate.bootstrapTimer == false and .candidate.bootstrapService == false) and
+  (.baseline.guestProfile == "absent" or (.baseline.guestProfile | test("^/nix/store/[a-z0-9]{32}-[A-Za-z0-9+._-]+$"))) and
   (.baseline.guestBootId | test("^[a-f0-9-]{36}$")) and
   (.knownHostsSha256 | test("^[a-f0-9]{64}$")) and
   ([.baseline.bootstrapTimerState,.baseline.bootstrapServiceState] |
     all(.[]; . == "enabled" or . == "disabled" or . == "static" or . == "masked" or . == "masked-runtime")) and
-  ([.baseline.hostCurrent,.baseline.hostProfile,.baseline.guestCurrent,.baseline.guestProfile,
+  ([.baseline.hostCurrent,.baseline.hostProfile,.baseline.guestCurrent,
     .baseline.runner,.candidate.toplevel,.candidate.runner,.candidate.nix,.candidate.registration,.candidate.conditionSystemd,
     .candidate.hardware.kernel,.candidate.hardware.initrd] |
     all(.[]; type == "string" and test("^/nix/store/[a-z0-9]{32}-[A-Za-z0-9+._/-]+$") and (split("/") | all(.[]; . != ".." and . != "."))))
@@ -29,7 +31,7 @@ new=$(get .candidate.toplevel)
 check_host() {
   [[ $(readlink -e /run/current-system) == "$(get .baseline.hostCurrent)" ]]
   [[ $(readlink -e /nix/var/nix/profiles/system) == "$(get .baseline.hostProfile)" ]]
-  [[ $(readlink -e /var/lib/microvms/cp-1/current) == "$(get .baseline.runner)" ]]
+  [[ $(readlink -e /fast/microvms/cp-1/current) == "$(get .baseline.runner)" ]]
 }
 check_host
 known=$(get .knownHosts)
@@ -82,7 +84,11 @@ timer_state=$8; bootstrap_state=$9
 [[ $(hostname) == cp-1 ]]
 [[ $(cat /proc/sys/kernel/random/boot_id) == "$boot" ]]
 [[ $(readlink -e /run/current-system) == "$old" ]]
-[[ $(readlink -e /nix/var/nix/profiles/system) == "$profile" ]]
+if [[ "$profile" == absent ]]; then
+  [[ ! -e /nix/var/nix/profiles/system && ! -L /nix/var/nix/profiles/system ]]
+else
+  [[ $(readlink -e /nix/var/nix/profiles/system) == "$profile" ]]
+fi
 [[ $(timeout 10 systemctl is-enabled k3s-bootstrap-secrets.timer || true) == "$timer_state" ]]
 [[ $(timeout 10 systemctl is-enabled k3s-bootstrap-secrets.service || true) == "$bootstrap_state" ]]
 for unit in k3s.service k3s-bootstrap-secrets.timer k3s-bootstrap-secrets.service k3s-manifest-reconcile.service; do

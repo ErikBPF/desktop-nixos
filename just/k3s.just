@@ -387,6 +387,7 @@ cp1-artifact-metadata revision:
     nix eval --json --impure --expr \
       "let f = builtins.getFlake \"github:ErikBPF/desktop-nixos/$revision\"; e = f.nixosConfigurations.kepler.config.microvm.vms.cp-1.config; c = e.config; in {
         sourceRevision = \"$revision\";
+        stateDir = f.nixosConfigurations.kepler.config.microvm.stateDir;
         toplevel = c.system.build.toplevel.outPath;
         runner = c.microvm.declaredRunner.outPath;
         nix = c.nix.package.outPath;

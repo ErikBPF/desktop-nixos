@@ -24,7 +24,7 @@ def test_actual_host_paths_compare_and_abort(tmp_path,drift):
     readlink='''#!/usr/bin/env python3
 import json,os,sys
 m=json.loads(os.environ['EXPECTED'])
-k={'/run/current-system':'hostCurrent','/nix/var/nix/profiles/system':'hostProfile','/var/lib/microvms/cp-1/current':'runner'}[sys.argv[2]]
+k={'/run/current-system':'hostCurrent','/nix/var/nix/profiles/system':'hostProfile','/fast/microvms/cp-1/current':'runner'}[sys.argv[2]]
 print('changed' if os.environ['DRIFT']==k else m['baseline'][k])
 '''
     (commands/'readlink').write_text(readlink);(commands/'readlink').chmod(0o755)
