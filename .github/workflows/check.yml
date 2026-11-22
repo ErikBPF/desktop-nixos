@@ -47,6 +47,11 @@ jobs:
       - name: Graphify wheel-lock contract
         run: python3 -m unittest discover -s tests/graphify-lock -v
 
+      - name: Pi harness and extensions
+        run: |
+          node modules/dev/pi-extensions/rtk.test.js
+          nix build .#checks.x86_64-linux.pi-harness-tests --no-link
+
       - name: Authentik backup staging
         run: nix develop -c python -m unittest discover -s tests/authentik-backup -p 'test_*.py'
 

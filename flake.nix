@@ -161,6 +161,13 @@
     # stays the one upstream tested. See modules/dev/herdr.nix.
     herdr.url = "github:herdrdev/herdr/v0.8.0";
 
+    # Second agent harness, installed alongside opencode as a shadow. Pinned to
+    # a release tag and left on its own nixpkgs (no `follows`) so it builds
+    # against the toolchain upstream tested, as with herdr.
+    pi = {
+      url = "github:earendil-works/pi/v1.6.0";
+    };
+
     # k3s test cluster on kepler runs each node as a NixOS MicroVM.
     # See docs/proposals/2026-06-19-kepler-k3s-microvm-cluster.md.
     microvm = {
