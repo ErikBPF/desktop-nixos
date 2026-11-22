@@ -1,15 +1,15 @@
-# Orion voice host wiring
+# Orion voice host wiring — deployed
 
-**Stage / revision:** RV / 2
-**Status:** Validated source; not deployed.
+**Stage / revision:** RV / 3
+**Status:** Independent CPU ASR deployed and inference verified.
 **Owner / date:** desktop-nixos / 2026-11-21
 
-The user requested voice inference through LiteLLM first, with workstation models as fallback, and authorized Orion model placement. This host slice adds the independent `voice` managed Compose stack and a Discovery-source TCP9000 firewall rule. The source address comes from fleet metadata. Servarr owns the workload and its published revision; the new stack must not replace or restart Orion's existing chat workload.
+The requested LiteLLM-first voice path now uses Orion's independent managed `voice` stack. Servarr owns the workload; desktop-nixos owns activation and the Discovery-source TCP9000 rule using fleet metadata. Tailscale ACL ordering remains part of the isolation boundary. Discovery health returned HTTP200; Endeavour direct access timed out as expected.
 
-The host rule is not a standalone isolation guarantee: Tailscale packet-filter ordering can accept traffic earlier. The corresponding IaC ACL accept/deny assertions and live allowed/denied peer checks are required before backend activation. The Compose listener binds only Orion's Tailscale IPv4 address. Host-local and trusted shared-container processes remain inside the backend trust boundary.
+Owner recipes pinned Servarr `f991f2cfe84bfd43f14aa47c147439704ebcfa79`, deployed Orion and activated voice. PR363 preserves this artifact's ancestry; unrelated backlog is excluded from the rollout. Host closure: `/nix/store/ddgr64wlk50fd6wywmvchq8wg4vx6zkv-nixos-system-orion-26.11.20261115.5c3cda7`. Preview excluded the unrelated package update before deployment. Lint, format and system dry-build passed.
 
-Independent review identified and corrected fleet-address duplication and the missing Servarr `voice.yml` entry-point symlink. `just lint`, `just fmt-check`, and the final Orion system dry-build passed. No switch or managed stack activation occurred; runtime reachability and denial remain untested.
+The CPU Speaches image is digest-pinned, with eight threads, int8 and an 8 GiB memory limit. Cached Whisper model revision is `df99141c9f5db0615d025664cff8949373a69593`; future downloads are not revision-enforced by this API. Gateway English/Portuguese transcription passed in 14.4/12.43 seconds. Installed Endeavour E2E also passed gateway ASR and local fallback.
 
-Orion runs NixOS 26.11.20261115.5c3cda7 with kernel 7.3.4. Its Servarr checkout pins `2090849b39b1b1112c0d98580d202ebe6459a10a`. The Servarr voice task branch was based on that exact pin, avoiding the unrelated mainline backlog. Publication and exact-pin delivery must precede this host activation. The shared chat inference endpoint timed out during synthetic checks; no shared runtime was restarted.
+Scheduled Podman healthchecks fail with conmon exec-pidfile errors across multiple containers, despite passing manual ASR health and inference. Do not claim healthy container metadata. The existing GPU rewrite remained loading after one owner-managed ai-models restart; no repeated restart, GPU reset or reboot occurred. Client fallback covers this degradation; host-runtime repair is outstanding.
 
-The coordinating desktop one-pager lives in the voice-dictation task checkout. OpenBao's documented root-bootstrap operation also awaits an authorized ephemeral token; normal AppRole credentials cannot modify their own policy. Continue backend publication/pinning, model and isolation qualification, and desktop gateway qualification after those dependencies resolve. Source remains uncommitted. Recovery before deployment is removal of this slice's two configuration additions; no runtime rollback is necessary.
+Recovery uses the prior NixOS generation and prior Servarr pin `2090849b39b1b1112c0d98580d202ebe6459a10a` through owner recipes. Source publication/integration for host wiring remains pending; the deployed workload artifact is published. OpenBao credentials are applied, not awaiting a handoff.
