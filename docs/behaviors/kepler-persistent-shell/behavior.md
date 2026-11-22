@@ -12,26 +12,33 @@ Accepted answers:
 
 > Automatically forward ports for selected projects
 
-This slice implements only persistent plain shells: bare `sk` and Super+T attach
-the same `development` tmux session on Kepler, creating it under
-`/fast/compute/erik/Documents` if absent. Closing the terminal or disconnecting
-the client preserves processes; rebooting Kepler does not. Additional sessions
-can be created with tmux on Kepler. `sk <arguments>` preserves its existing SSH
-passthrough behavior, and Super+Shift+T stays local. Connection failures remain
-errors, never automatic local writers. No agents launch automatically.
-
-
 Human refinement:
 
 > we should have something like the /resume comand to cycle through oppened tmux sessions based on the folder and attach to it
 
-`tmux-resume [folder]` lists open sessions by their starting folder, name and
-attachment status. Search or use arrow keys, then Enter to attach. Inside tmux,
-selection switches clients without nesting. Escape does not attach or create a
-session. The optional folder filter matches the full canonical starting path;
-it does not follow an arbitrary pane's changing current directory.
+Latest accepted instruction:
 
-Entrypoint question remains pending: show this picker on bare `sk`, or expose
-`sk resume` while keeping direct attachment. Until answered, the existing bare
-`sk` behavior remains unchanged and the picker is callable through
-`sk -t tmux-resume`. No new-session wizard is included in this refinement.
+> open on picker. Also add the possibility to delete older sessions or start new ones
+
+Bare `sk` and Super+T open Kepler's session picker. Rows show starting folder,
+name, attached/detached status and creation time. Search or use arrows; Enter
+attaches the selected session. `tmux-resume [folder]` also works on Kepler; its
+optional filter matches the canonical starting folder, not a pane's changing cwd.
+Inside tmux, attachment switches clients without nesting. Escape cancels.
+
+The New session row and Ctrl-N prompt for an existing starting folder and an
+optional name, create a detached session and attach it. The default folder is
+`/fast/compute/erik/Documents`, or the supplied folder filter. Duplicate names
+and invalid folders produce errors without replacing existing sessions.
+
+Ctrl-D on a session prompts for the exact word DELETE and warns that its running
+processes will terminate. The selected session's server PID, creation timestamp
+and session ID are checked atomically before deletion. A stale picker cannot
+kill a replacement session reusing the same ID. Session deletion does not delete
+project files. No automatic age-based expiry occurs. The list refreshes after a
+delete or declined confirmation; Ctrl-D on New session is harmless. Deleting
+the session running the picker also terminates that picker.
+
+Explicit `sk <arguments>` retains SSH passthrough. Super+Shift+T stays local.
+Connection failures never create local fallback writers. No agents start
+automatically. Session processes survive client disconnection, not Kepler reboot.

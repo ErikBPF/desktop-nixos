@@ -1,82 +1,62 @@
-# Persistent Kepler shell
+# Kepler session picker
 
-**Status:** Local validation and independent review passed; not deployed.
+**Status:** Final behavior validated and independently reviewed; not deployed.
 
 ## Outcome and decisions
 
-The terminal shortcut currently opens an ordinary SSH shell. Bare `sk` now
-reattaches a plain tmux session named `development`, initially rooted in the
-synchronized Documents directory. The session persists across client disconnects;
-Kepler reboot persistence is outside this slice. Explicit SSH arguments preserve
-the old behavior, including remote commands and exit status.
+Bare `sk` and Super+T open a folder-based picker of Kepler's tmux sessions.
+The user explicitly replaced the earlier shared-session default with this picker
+and requested new-session and old-session deletion actions. The verbatim seed
+and corrections remain in `behavior.md`. Explicit SSH arguments and the local
+Super+Shift+T escape hatch remain unchanged.
 
-Use NixOS's existing tmux module on Kepler, with host identity in the status bar.
-Install Ghostty's terminfo output because the remote host currently lacks
-`xterm-ghostty`; this avoids changing terminal identity or installing a GUI.
-Kepler's user already has lingering enabled. Do not import the desktop tmux
-helpers: they carry fixed layouts and automatic agent launch behavior.
+Rows show starting folder, name, attachment status and creation time. Enter
+attaches; inside tmux it switches the current client. Ctrl-N or New session
+prompts for folder and optional name. Ctrl-D requires typing DELETE after a
+warning about terminating running processes. Deletion checks server PID and
+session creation time atomically because tmux reuses IDs after server restart.
+Files are never deleted. Escape cancels; no automatic session expiry occurs.
 
-## Evidence and delivery
+## Implementation boundaries
 
-The regression test executed the evaluated launcher with a capture-only SSH
-substitute. RED: bare launch omitted tmux and the server's tmux option was false;
-explicit command forwarding and SSH error propagation already passed. GREEN,
-host dry builds, full workspace suite and independent review follow. The initial directory depends on the Syncthing paths delivered by merged PR #511.
+Use the existing tmux and fzf packages, with a small Python helper. Clear fzf's
+default-option variables so user defaults cannot silently select a session.
+Identify sessions by tmux IDs, not names or folder basenames; optional folder
+filtering uses canonical full paths. No session registry, filesystem crawling,
+automatic agent launch or forwarding-policy change is needed. Kepler enables
+tmux and Ghostty terminfo. Existing lingering and `KillUserProcesses=false`
+support disconnect persistence; host reboot persistence remains out of scope.
 
-## Boundaries and recovery
+## Evidence and revision
 
-This does not migrate Git metadata, credentials, agents or editor configuration,
-and does not change forwarding policy. Multiple bare `sk` windows attach the same
-session; separate sessions remain an explicit tmux action. Existing sessions are
-never killed or reshaped. Revert the launcher to plain SSH to roll back; leave
-remote sessions intact. The voice Hyprland collision remains a separate pending
-user decision and must not be silently overwritten during activation.
+The initial launcher and server-option tests failed before implementation; the
+first green slice passed 33 workspace tests. The resume-only refinement passed
+six picker tests and a real local PTY search/attach/detach check. The initial
+PTY harness failed with its unsupported terminal type; using xterm-256color
+fixed that harness without changing production code.
 
+For the current behavior, the updated launcher assertion failed against the
+old shared-session command. New create, empty-server and delete tests failed
+against the resume-only helper. Twelve picker tests now pass, including explicit
+confirmation, harmless Ctrl-D on New, no automatic fzf selection, failure
+handling and a real two-server test proving a reused session ID is protected.
+A disposable PTY test created a named session, attached, detached, deleted it
+with confirmation, returned to the empty picker and retained a sentinel file.
+Only the isolated test servers were removed.
 
-## GREEN and independent review
+Independent review identified stale server IDs and Ctrl-D on New as risks;
+both were fixed with regression coverage. Final validation passed all 12 picker tests and 33 workspace tests, lint,
+formatting, docs and both host dry builds.
+The actual interactive remote deployment remains unverified.
 
-All 33 tests in `python3 -m unittest discover -s tests/local-workspace-sessions -v`
-passed. After review, the four focused launcher tests were rerun with assertions
-for `KillUserProcesses=false` and Ghostty terminfo presence; all passed. Lint,
-formatting and documentation checks passed. Both host toplevel dry builds passed.
-The independent reviewer found no blocking issues and confirmed the source and
-evaluated logind policy support disconnect persistence. Runtime detach/reattach
-has not yet been exercised; capture-only launcher tests do not claim that proof.
+## Delivery and remaining work
 
-The final implementation is twelve added configuration lines, plus regression
-tests and this record. No session manager, automatic agents, desktop helper
-imports or new forwarding policy were introduced.
+PR #511 delivered and activated the synchronized Documents directory. PR #512
+owns this picker and will be updated around the final behavior, with CI and a
+fresh review required for its new head. Activate Kepler's package before the
+client shortcut. Endeavour's separate Home Manager collision with the voice
+Hyprland configuration is still preserved pending the user's decision; no
+picker activation is claimed. Git metadata, agent credentials and automatic
+project forwards remain later thin-client work.
 
-
-## Folder-based resume refinement
-
-The user requested cycling through open sessions by folder. Added a remote
-`tmux-resume [folder]` helper using the existing tmux and fzf packages. It sorts
-by starting folder and session name, displays attachment status, and selects by
-stable tmux session ID. Cancellation leaves sessions untouched; running inside
-tmux switches the current client. Exact full-path filtering distinguishes
-projects sharing a basename. No session registry or filesystem crawler is needed.
-
-The native `session_path` field was verified with two disposable local tmux
-sessions in different folders with the same basename; that test server was
-removed afterward. Unit tests cover selection, cancellation, exact folder
-filtering, nested-session avoidance and unknown IDs. An independent reviewer
-found inherited fzf options could auto-select unexpectedly; an assertion-failing
-regression was added and fixed by clearing only fzf's two default-options
-variables for the picker process. Interactive remote use remains unverified.
-
-Pending async question: bare-sk picker versus explicit sk-resume entrypoint.
-The current published checkout is the persistent-shell worktree, and the existing
-launcher remains unchanged while that answer is pending. The helper is available
-through `sk -t tmux-resume` after deployment; no production activation has occurred.
-
-
-Picker validation: six unit tests pass; lint, formatting, docs and the changed
-Kepler toplevel dry build pass. A disposable local PTY check with two sessions
-sharing the folder basename `project` searched for `home`, attached that session,
-and detached with both sessions still present (`RESUME_INTERACTIVE_OK`). The first
-attempt failed because the harness advertised an unsupported terminal; rerunning
-with `TERM=xterm-256color` passed without production code changes. Remote Kepler
-activation remains untested. The independent review finding is fixed and covered
-by the fzf-defaults regression. No sessions outside the temporary test server
-were touched.
+Rollback restores plain SSH in `sk` and leaves existing remote sessions intact.

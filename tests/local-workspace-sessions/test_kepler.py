@@ -33,10 +33,10 @@ class KeplerShell(unittest.TestCase):
             result = subprocess.run(["bash", str(script), *arguments], capture_output=True, text=True)
             return result.returncode, json.loads(result.stdout)
 
-    def test_bare_shortcut_attaches_persistent_plain_shell(self):
+    def test_bare_shortcut_opens_session_picker(self):
         status, args = self.invoke([])
         self.assertEqual(status, 0)
-        self.assertEqual(args, ["-t", "kepler", "tmux new-session -A -s development -c /fast/compute/erik/Documents"])
+        self.assertEqual(args, ["-t", "kepler", "tmux-resume"])
 
     def test_explicit_command_and_options_remain_ssh_passthrough(self):
         args = ["-o", "BatchMode=yes", "printf", "hello world"]
