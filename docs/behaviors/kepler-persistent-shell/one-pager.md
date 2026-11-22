@@ -1,6 +1,6 @@
 # Kepler session picker
 
-**Status:** Final behavior validated and independently reviewed; not deployed.
+**Status:** PR #512 merged and activated; live listing regression found and fixed, follow-up rollout pending.
 
 ## Outcome and decisions
 
@@ -122,3 +122,31 @@ false`). No builder configuration was edited. The voice config and original
 symlink were backed up under
 `~/.local/state/homelab-activation/picker-20261122T152948Z/`; the active link has
 not yet been replaced.
+
+
+## Activation and live listing regression — 2026-11-22
+
+PR #512 merged as `ce608289` after all CI checks and exact-head approval.
+Owner recipes activated recovery host `9rni5ln…` and Endeavour `i0wh4ya…`.
+Home Manager is active, Hyprland reports no config errors, and both terminal
+bindings are loaded. All six Kepler VM PIDs/start times and its boot ID stayed
+unchanged; the cp-1 runner and installer hash are unchanged. Generation 142 is
+the exact counter-free default, with no EFI selection override present.
+No reboot was performed. Both versions of the temporary voice configuration
+were backed up under the previously recorded backup directory; the latest
+version used Super+I, Super+Shift+I and Super+Ctrl+I. Those voice bindings are
+paused by the authorized managed-config activation. The voice worktree was
+not modified. All three configured credential paths remain readable without
+printing their contents.
+
+A live PTY created `picker-smoke-20261122` in the homelab compute directory and
+detached successfully, but reopening the picker did not show it. The list-only
+`LC_ALL=C` caused tmux to replace tab delimiters with underscores; mocked lists
+and the earlier PTY proof did not catch this later locale regression. A new
+real-server test failed because the picker contained only New session. Using
+`C.UTF-8` preserves delimiters and English missing-server diagnostics; all 13
+picker tests pass. Independent review found no blocking issues and verified
+missing-server handling. The fix changes no session-creation locale or deletion
+semantics. The follow-up must pass CI/review and be deployed before resume/delete
+can be reported as working live. The disposable smoke session remains for that
+verification; existing user sessions are not cleanup targets.

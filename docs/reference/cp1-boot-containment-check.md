@@ -8,9 +8,9 @@ Use only within the [revised recovery sequence](cp1-durable-recovery.md).
 
 ## Development-tool rollout candidate — 2026-11-22
 
-PR #512 adds only the shared tmux/picker/terminfo module to the supplemental
+PR #512 and its session-listing locale fix add only the shared tmux/picker/terminfo module to the supplemental
 recovery host. Its source-evaluated candidate is
-`/nix/store/9rni5lncjfqplnfzpz687m87q044413f-nixos-system-kepler-26.11.20261115.5c3cda7`.
+`/nix/store/xlghymr755i465x03a3s5c2w8lkx586r-nixos-system-kepler-26.11.20261115.5c3cda7`.
 The pinned kernel, cp-1 recovery guest/runner, five sibling VM closures and
 disabled boot counting remain unchanged. The containment contract separates
 three restart-trigger changes (AppArmor, D-Bus and polkit) plus the privileged
