@@ -401,6 +401,7 @@ cp1-artifact-metadata revision:
           inherit (c.microvm) volumes shares;
         };
         inherit (c.services.k3s) clusterInit serverAddr;
+        wantedBy = c.systemd.services.k3s.wantedBy;
         restart = c.systemd.services.k3s.serviceConfig.Restart;
         timeoutStartSec = if c.systemd.services.k3s.serviceConfig.TimeoutStartSec == \"5min\" then 300 else c.systemd.services.k3s.serviceConfig.TimeoutStartSec;
         bootstrapTimer = c.systemd.timers.k3s-bootstrap-secrets.enable;

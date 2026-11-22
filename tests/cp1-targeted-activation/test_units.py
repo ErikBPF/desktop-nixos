@@ -14,6 +14,8 @@ def units(tmp_path, mutation=''):
     for directory in (old,new): (directory/'etc/systemd/system').mkdir(parents=True)
     old_k3s='[Service]\nExecStart=/nix/store/k3s/bin/k3s server \\\n --cluster-init \\\n --token-file=/tokens/token\nRestart=always\nTimeoutStartSec=0\n'
     new_k3s=old_k3s.replace('--cluster-init','--server https://10.250.0.13:6443').replace('Restart=always','Restart=no').replace('TimeoutStartSec=0','TimeoutStartSec=5min')
+    old_k3s += '\n[Install]\nWantedBy=multi-user.target\n'
+    if mutation=='boot-install': new_k3s += '\n[Install]\nWantedBy=multi-user.target\n'
     before='[Unit]\nAfter=k3s.service\nWants=k3s.service\n[Service]\nEnvironment="PATH='+SYSTEMD+'/bin"\nExecStart=/nix/store/fixture/reconcile\nRemainAfterExit=true\n'
     after=before.replace('Wants=k3s.service\n','').replace('[Service]\n','[Service]\nExecCondition='+CONDITION_SYSTEMD+'/bin/systemctl is-active --quiet k3s.service\n')
     if mutation=='command': after=after.replace('/fixture/reconcile','/fixture/other')
@@ -21,6 +23,11 @@ def units(tmp_path, mutation=''):
     for directory,k3s,manifest in ((old,old_k3s,before),(new,new_k3s,after)):
         (directory/'etc/systemd/system/k3s.service').write_text(k3s)
         (directory/'etc/systemd/system/k3s-manifest-reconcile.service').write_text(manifest)
+    wants=old/'etc/systemd/system/multi-user.target.wants';wants.mkdir()
+    (wants/'k3s.service').symlink_to('../k3s.service')
+    if mutation=='boot-link':
+        wants=new/'etc/systemd/system/multi-user.target.wants';wants.mkdir()
+        (wants/'k3s.service').symlink_to('../k3s.service')
     return subprocess.run([sys.executable,'-',str(old),str(new),'300',CONDITION_SYSTEMD],input=CHECK,text=True,capture_output=True)
 
 
@@ -57,3 +64,10 @@ get() {
     result=subprocess.run([shutil.which('bash'),'-se'],input=shell,text=True,
         env=dict(os.environ,PATH='',old=str(old),new=str(new),RUNTIME=str(runtime),CONDITION=CONDITION_SYSTEMD),capture_output=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_boot_target_link_rejected(tmp_path):
+    assert units(tmp_path,'boot-link').returncode != 0
+
+def test_boot_install_directive_rejected(tmp_path):
+    assert units(tmp_path,'boot-install').returncode != 0

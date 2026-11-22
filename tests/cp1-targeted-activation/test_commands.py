@@ -15,14 +15,14 @@ def executable(path, text):
     path.chmod(0o755)
 
 
-def fixture(tmp_path, *, failure=False, active=False, wrong_host=False, retained_pid=False, no_k3s=False, signal=False):
+def fixture(tmp_path, *, failure=False, active=False, wrong_host=False, retained_pid=False, no_k3s=False, signal=False, start_failure=False, stale_closure=False, stale_exec=False):
     commands = tmp_path / 'commands'; commands.mkdir()
     old, new, nix = (tmp_path / name for name in ('old', 'new', 'nix'))
     log = tmp_path / 'calls'; log.touch()
     current = tmp_path / 'current'; current.write_text(str(old))
     env = dict(os.environ, PATH=str(commands)+':'+os.environ['PATH'], LOG=str(log),
                CURRENT=str(current), NEW=str(new), OLD=str(old),
-               FAIL='1' if failure else '0', ACTIVE='1' if active else '0', PID='42' if retained_pid else '0', NO_K3S='1' if no_k3s else '0', SIGNAL='1' if signal else '0')
+               FAIL='1' if failure else '0', ACTIVE='1' if active else '0', PID='42' if retained_pid else '0', NO_K3S='1' if no_k3s else '0', SIGNAL='1' if signal else '0', START_FAIL='1' if start_failure else '0', STALE_CLOSURE='1' if stale_closure else '0', STALE_EXEC='1' if stale_exec else '0')
     executable(commands/'hostname', 'echo '+('other' if wrong_host else 'cp-1'))
     executable(commands/'readlink', 'cat "$CURRENT"')
     executable(commands/'systemctl', '''
@@ -31,7 +31,8 @@ case "$1" in
  is-enabled) echo enabled;;
  is-active)
  if [ "$ACTIVE" = 1 ] || { [ "$2" = k3s.service ] && [ "$(cat "$CURRENT")" = "$NEW" ] && [ "$NO_K3S" = 0 ]; }; then echo active; else echo inactive; exit 3; fi;;
- show) case "$*" in *MainPID*) echo "$PID";; *Restart*) echo no;; *) echo masked;; esac;;
+ show) case "$*" in *MainPID*) echo "$PID";; *Restart*) echo no;; *ExecStart*) if [ "$STALE_EXEC" = 1 ]; then echo "k3s server --cluster-init"; else echo "k3s server --server https://10.250.0.13:6443"; fi;; *) echo masked;; esac;;
+ start) [ "$START_FAIL" = 0 ] || exit 43;;
  stop) exit 0;;
  *) exit 90;;
 esac
@@ -42,7 +43,7 @@ echo "switch $1" >> "$LOG"
 if [ "$1" = switch ]; then
  [ "$SIGNAL" = 0 ] || kill -TERM "$PPID"
  [ "$FAIL" = 0 ] || exit 42
- printf '%s' "$NEW" > "$CURRENT"
+ [ "$STALE_CLOSURE" = 1 ] || printf '%s' "$NEW" > "$CURRENT"
 fi
 ''')
     executable(nix/'bin/nix-store', 'echo "nix-store $*" >> "$LOG"; cat >/dev/null')
@@ -115,3 +116,24 @@ def test_guest_profile_absence_is_explicit(tmp_path, observed, expected, accepte
     result=subprocess.run(['bash','-se'],input=guard,text=True,
         env=dict(os.environ,profile='absent' if expected=='absent' else str(target)),capture_output=True)
     assert (result.returncode == 0) == accepted
+
+
+def test_single_explicit_start_follows_switch(tmp_path):
+    result,calls=run(tmp_path)
+    assert result.returncode == 0
+    assert calls.count('systemctl start k3s.service') == 1
+    assert calls.index('switch switch') < calls.index('systemctl start k3s.service')
+
+def test_explicit_start_failure_stops_without_retry(tmp_path):
+    result,calls=run(tmp_path,start_failure=True)
+    assert result.returncode == 43
+    assert calls.count('systemctl start k3s.service') == 1
+    assert 'systemctl stop k3s.service' in calls
+
+
+@pytest.mark.parametrize('option',['stale_closure','stale_exec'])
+def test_unexpected_loaded_configuration_never_starts(tmp_path,option):
+    result,calls=run(tmp_path,**{option:True})
+    assert result.returncode != 0
+    assert 'systemctl start k3s.service' not in calls
+    assert 'systemctl stop k3s.service' in calls

@@ -15,8 +15,9 @@ SCRIPT = Path(__file__).resolve().parents[2] / 'scripts/activate-cp1.sh'
 PREFLIGHT = SCRIPT.read_text().split('known=$(get .knownHosts)',1)[0]
 
 
+@pytest.mark.parametrize('postcheck', [False, True])
 @pytest.mark.parametrize('drift', ['', 'hostCurrent', 'hostProfile', 'runner'])
-def test_actual_host_paths_compare_and_abort(tmp_path,drift):
+def test_actual_host_paths_compare_and_abort(tmp_path,drift,postcheck):
     data=metadata();data['candidate']['toplevel']='/nix/store/'+'b'*32+'-candidate'
     manifest=tmp_path/'manifest.json';manifest.write_text(json.dumps(data))
     commands=tmp_path/'bin';commands.mkdir()
@@ -28,6 +29,6 @@ k={'/run/current-system':'hostCurrent','/nix/var/nix/profiles/system':'hostProfi
 print('changed' if os.environ['DRIFT']==k else m['baseline'][k])
 '''
     (commands/'readlink').write_text(readlink);(commands/'readlink').chmod(0o755)
-    result=subprocess.run(['bash','-se','--',str(manifest),'preview'],input=PREFLIGHT,text=True,
+    result=subprocess.run(['bash','-se','--',str(manifest),'preview'],input=PREFLIGHT.rsplit('\ncheck_host\n',1)[0]+'\ncheck_host || exit 1\n' if postcheck else PREFLIGHT,text=True,
         env=dict(os.environ,PATH=str(commands)+':'+os.environ['PATH'],EXPECTED=json.dumps(data),DRIFT=drift),capture_output=True,timeout=5)
     assert (result.returncode == 0) == (drift == '')

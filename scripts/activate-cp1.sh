@@ -12,6 +12,7 @@ jq -e '
   (.candidate.clusterInit == false) and
   (.candidate.serverAddr == "https://10.250.0.13:6443") and
   (.candidate.restart == "no") and
+  (.candidate.wantedBy == []) and
   (.candidate.timeoutStartSec == 300) and
   (.candidate.bootstrapTimer == false and .candidate.bootstrapService == false) and
   (.baseline.guestProfile == "absent" or (.baseline.guestProfile | test("^/nix/store/[a-z0-9]{32}-[A-Za-z0-9+._-]+$"))) and
@@ -29,9 +30,9 @@ old=$(get .baseline.guestCurrent)
 new=$(get .candidate.toplevel)
 [[ "$old" != "$new" ]] || { echo 'candidate equals baseline' >&2; exit 1; }
 check_host() {
-  [[ $(readlink -e /run/current-system) == "$(get .baseline.hostCurrent)" ]]
-  [[ $(readlink -e /nix/var/nix/profiles/system) == "$(get .baseline.hostProfile)" ]]
-  [[ $(readlink -e /fast/microvms/cp-1/current) == "$(get .baseline.runner)" ]]
+  [[ $(readlink -e /run/current-system) == "$(get .baseline.hostCurrent)" ]] || return 1
+  [[ $(readlink -e /nix/var/nix/profiles/system) == "$(get .baseline.hostProfile)" ]] || return 1
+  [[ $(readlink -e /fast/microvms/cp-1/current) == "$(get .baseline.runner)" ]] || return 1
 }
 check_host
 known=$(get .knownHosts)
@@ -59,8 +60,11 @@ for name in sorted({str(p.relative_to(root)) for root in (old,new) for p in root
         raise SystemExit('unrelated guest unit change: '+name)
 a,b = ((root/'k3s.service').read_text() for root in (old,new))
 assert '\nRestart=no\n' in b and any('\nTimeoutStartSec='+value+'\n' in b for value in ('300','300s','5min'))
+assert not re.search(r'^WantedBy=',b,re.M), 'candidate must not install a boot start edge'
+assert not any(p != new/'k3s.service' for p in new.rglob('k3s.service')), 'candidate boot/alias link remains'
 assert '--cluster-init' not in b and re.search(r'--server(?:=|\s+)https://10\.250\.0\.13:6443(?:\s|$)',b)
 def stable(text):
+    text = text.replace("\n[Install]\nWantedBy=multi-user.target\n", "")
     return '\n'.join(line for line in text.splitlines() if not re.match(r'^(Restart=|TimeoutStartSec=|\s*--cluster-init(?:\s|$)|\s*--server(?:=|\s))',line))
 assert stable(a) == stable(b), 'unexpected K3s unit change'
 a,b = ((root/'k3s-manifest-reconcile.service').read_text() for root in (old,new))
@@ -74,7 +78,7 @@ ssh_options=(-F /dev/null -o BatchMode=yes -o ConnectTimeout=8 -o ConnectionAtte
   -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$known" -o GlobalKnownHostsFile=/dev/null)
 # Store paths and boot ID above have a strict alphabet before SSH's remote shell.
 set +e
-timeout 540 ssh "${ssh_options[@]}" root@10.250.0.11 bash -se -- \
+timeout 660 ssh "${ssh_options[@]}" root@10.250.0.11 bash -se -- \
   "$mode" "$old" "$new" "$(get .baseline.guestProfile)" "$(get .baseline.guestBootId)" \
   "$(get .candidate.nix)" "$(get .candidate.registration)" \
   "$(get .baseline.bootstrapTimerState)" "$(get .baseline.bootstrapServiceState)" <<'GUEST'
@@ -117,15 +121,22 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "$nix/bin/nix-store" --load-db < "$registration"
 "$nix/bin/nix-env" -p /nix/var/nix/profiles/system --set "$new"
-timeout 360 "$new/bin/switch-to-configuration" switch
+timeout 120 "$new/bin/switch-to-configuration" switch
 [[ $(cat /proc/sys/kernel/random/boot_id) == "$boot" ]]
 [[ $(readlink -e /run/current-system) == "$new" ]]
-[[ $(timeout 10 systemctl is-active k3s.service || true) == active ]]
 [[ $(timeout 10 systemctl show k3s.service --property=Restart --value) == no ]]
 for unit in k3s-bootstrap-secrets.timer k3s-bootstrap-secrets.service; do
   [[ $(systemctl show "$unit" --property=LoadState --value) == masked ]]
   [[ $(systemctl is-active "$unit" || true) != active ]]
 done
+loaded_exec=$(timeout 10 systemctl show k3s.service --property=ExecStart --value)
+[[ "$loaded_exec" != *--cluster-init* ]]
+[[ "$loaded_exec" =~ (^|[[:space:]])--server(=|[[:space:]]+)https://10[.]250[.]0[.]13:6443([[:space:]]|$) ]]
+unset loaded_exec
+timeout 330 systemctl start k3s.service
+[[ $(timeout 10 systemctl is-active k3s.service || true) == active ]]
+[[ $(cat /proc/sys/kernel/random/boot_id) == "$boot" ]]
+[[ $(readlink -e /run/current-system) == "$new" ]]
 GUEST
 status=$?
 set -e

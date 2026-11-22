@@ -19,7 +19,8 @@ K3s. A new cp-1 member ID is expected; survivor IDs and cluster identity must re
 ## Prepare exact artifacts and observations
 
 After candidate publication, `just cp1-stage-artifacts REVISION` builds exactly the
-cp-1 toplevel, runner, Nix package and closure registration from that full commit.
+cp-1 toplevel, runner, Nix executable, Python executable and closure registration
+from that full commit.
 It copies through authenticated, strictly verified SSH with normal Nix signature
 checks, then creates root-owned task GC links under
 `/nix/var/nix/gcroots/cp1-recovery-REVISION`. Neither Kepler system profile changes.
@@ -72,8 +73,11 @@ script may normalize `/root` and `/home` directory metadata; it is not promised
 to make zero filesystem writes. Include that bounded behavior in live approval.
 Reject unexpected service actions outside the four reviewed units. After explicit
 approval, `just cp1-activate MANIFEST activate` loads guest registration, selects
-the new guest profile and switches only that guest. The switch is bounded at
-360 seconds; the SSH operation has a 540-second outer budget for preview and
+the new guest profile and switches only that guest. The candidate has no K3s
+boot target edge. After the approved member removal and datastore quarantine,
+the helper switches configuration (120 seconds), then explicitly starts K3s
+once (330 seconds, enclosing its 300-second service timeout). The SSH operation
+has a 660-second outer budget covering preview (60 seconds), switch, start and
 cleanup. Signal/failure handling attempts a bounded stop and checks K3s PID zero;
 transport loss can prevent confirmation and must be treated as uncontained until
 verified. No automatic old-etcd restart or bootstrap unmask occurs.
@@ -188,3 +192,29 @@ Moving the already-present flag onto that line preserves build behavior and
 passes the unchanged contract. The combined helper and owner recipe suite now
 passes 78 tests; the helper alone passes 39. The comparator uses Python isolated
 mode (`-I`) to ignore inherited user-site and Python environment overrides.
+
+### Boot-start guard revision
+
+Hosted review identified that the temporary candidate still had a boot target
+edge. The revised source removes it; the helper rejects a remaining `WantedBy`
+directive or target/alias link and permits only the reviewed old edge's removal.
+It explicitly starts K3s once after configuration switch; failed start triggers
+the existing bounded stop, never a retry. Actual composed-command regressions
+failed before this change. Earlier staged `7daee157` and `a351b9a` candidates and
+private manifests are superseded and must not be executed; retain their roots
+and receipts until reviewed cleanup. The revised built-unit comparison and
+final artifact staging remain pending the source owner's build.
+
+Hosted review also reproduced post-operation host drift being masked by Bash's
+`errexit` behavior inside an OR-list function call. Every host comparison now
+returns failure explicitly. The actual function is exercised in both bare
+preflight and OR-list postcheck contexts; changed running or persistent host
+profiles fail even when the runner still matches. Both postcheck regressions
+failed before repair; no live activation had occurred.
+
+Before the explicit start, the helper verifies the selected guest closure and
+boot identity, loaded `Restart=no`, bootstrap masks, and loaded K3s command
+joining cp-3 without `--cluster-init`. A successful switch exit alone is not
+enough. Stale-closure and stale-command fixtures both failed before this ordering
+repair and now stop without invoking K3s start. Loaded command values are not
+printed. The final active, boot and closure checks still run after the one start.
