@@ -131,6 +131,8 @@ jobs:
 
       - name: cp1 member replacement candidate
         run: nix eval --impure --raw --file tests/k3s-bootstrap-reproduction/evaluate.nix
+      - name: Durable cp1 host containment
+        run: nix eval --impure --raw --file tests/kepler-cp1-host-containment/evaluate.nix
 
       - name: Wazuh enrollment trust handshake
         env:

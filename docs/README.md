@@ -115,3 +115,8 @@ New design work: add an RFC under `proposals/` named
 - [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.
 
 - [Kepler bootstrap maintenance](behaviors/kepler-bootstrap-maintenance/one-pager.md): preserve operator-stopped K3s while retaining healthy credential reconciliation.
+
+- [Durable cp1 host boot containment](behaviors/kepler-cp1-host-containment/one-pager.md) — held supplemental recovery output and exact baseline custody.
+
+- [Durable cp1 recovery sequence](reference/cp1-durable-recovery.md) — staged host containment and separately approved member replacement.
+- [Cp1 boot containment checks](reference/cp1-boot-containment-check.md) — installer, boot entry and rollback completion evidence.
