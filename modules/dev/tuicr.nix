@@ -5,7 +5,6 @@ _: {
     ...
   }: let
     toml = pkgs.formats.toml {};
-
   in {
     home.packages = [pkgs.tuicr pkgs.opencodereview];
 

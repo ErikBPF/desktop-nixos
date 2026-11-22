@@ -310,28 +310,30 @@ _: {
           UMask = "0002";
           EnvironmentFile =
             ["-${cfg.upstreamTokenFile}"]
-            ++ lib.optionals cfg.ocrEnable [cfg.ocrEnvFile];
-          Environment =
-            lib.optionals cfg.ocrEnable [
-              "OCR_LLM_URL=${cfg.ocrBaseUrl}"
-              "OCR_LLM_MODEL=${cfg.ocrModel}"
-              "OCR_LLM_PROTOCOL=openai"
-              "OCR_LLM_EXTRA_HEADERS=x-opencode-session={ocr_session_key}"
-              "OCR_LLM_TIMEOUT=300"
-            ];
+            ++ lib.optionals cfg.ocrEnable ["-${cfg.ocrEnvFile}"];
+          Environment = lib.optionals cfg.ocrEnable [
+            "OCR_LLM_URL=${cfg.ocrBaseUrl}"
+            "OCR_LLM_MODEL=${cfg.ocrModel}"
+            "OCR_LLM_PROTOCOL=openai"
+            "OCR_LLM_EXTRA_HEADERS=x-opencode-session={ocr_session_key}"
+            "OCR_LLM_TIMEOUT=300"
+          ];
           ExecCondition = "${tokenGate}";
           ExecStartPre = [
             ensureLedger
             "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/review-in"
             "${pkgs.coreutils}/bin/install -d -o ${toString cfg.agentUid} -g ${toString cfg.agentGid} -m 0755 ${cfg.dataDir}/review-out"
             "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.dataDir}/ocr-home"
-            "${pkgs.coreutils}/bin/install -d -m 0755 ${cfg.dataDir}/repo-cache"
+            "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.dataDir}/repo-cache"
           ];
           ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
           ExecStartPost = "${dispatch}/bin/hermes-pr-review-dispatch";
           # OCR adds a bounded model run per new head; the collector stays
           # serial so the repo cache and the state lock never race.
-          TimeoutStartSec = if cfg.ocrEnable then "30min" else "15min";
+          TimeoutStartSec =
+            if cfg.ocrEnable
+            then "30min"
+            else "15min";
         };
       };
 
