@@ -1,6 +1,15 @@
 # Targeted cp-1 recovery activation
 
-**Status:** Source preparation only. Immutable build/copy and task GC roots are authorized preparation. Fresh approval of the complete member-replacement method is required before guest dry activation, member removal or activation. A successful switch does not prove etcd recovery.
+**Status:** Execution blocked. Do not run guest preview, activation or the former
+post-health runner-persistence procedure. Kepler's old declarative installer
+restores the old cp-1 runner at boot. After datastore quarantine, that runner's
+`cluster-init` configuration can create a singleton from an empty WAL directory.
+Safe guest settings and an atomic `current` symlink change do not contain this
+failure path. Existing manifests, including `228bc67`, are held. No live action
+is authorized by this document; durable source-owned boot selection, independent
+review and fresh approval of the complete recovery sequence remain required.
+Immutable artifact preparation and the historical receipts below do not prove
+that containment has been applied.
 
 ## Purpose and boundaries
 
@@ -12,7 +21,7 @@ condition. These are the only allowed unit changes.
 
 The helper runs only on Kepler and addresses only cp-1. It never switches Kepler,
 restarts a VM, removes an etcd member, moves WAL/backend files, or restores an old
-configuration. The approved replacement procedure must remove the failed member
+configuration. Any replacement procedure, after durable boot containment is verified, must remove the failed member
 and preserve/quarantine its state **before** activation, because activation starts
 K3s. A new cp-1 member ID is expected; survivor IDs and cluster identity must remain.
 
@@ -30,7 +39,8 @@ GC roots remain until reviewed cleanup; copying alone is not persistent GC safet
 for the reviewed baseline and candidate. The actual nested attribute is
 `nixosConfigurations.kepler.config.microvm.vms.cp-1.config.config`.
 
-Build a private reviewed `/tmp/cp1-activation-NAME.json` on Kepler with this shape:
+The existing helper manifest shape is retained below as reference, not an
+executable recovery input. It does not validate the effective host installer:
 
 ```json
 {
@@ -59,7 +69,7 @@ invent paths or infer SSH trust from a live disk read that reports errors. Recor
 existing bootstrap mask states so a later release cannot silently unmask a unit
 that was already intentionally masked.
 
-## Preview, activation and stop boundary
+## Existing helper behavior — held, not execution instructions
 
 Before preview, require the four units `k3s.service`,
 `k3s-bootstrap-secrets.timer`, `k3s-bootstrap-secrets.service` and
@@ -67,12 +77,12 @@ Before preview, require the four units `k3s.service`,
 belongs to the approved recovery procedure. Confirm surviving etcd quorum/health,
 matching fixed-revision hashes and the preserved failed-state archives.
 
-Run `just cp1-activate MANIFEST preview`; inspect its real dry-activation output.
+The held helper preview invokes NixOS dry activation. Do not invoke it while
+the boot-containment gate remains open.
 This upstream dry activation does not switch services, but its user-management
 script may normalize `/root` and `/home` directory metadata; it is not promised
 to make zero filesystem writes. Include that bounded behavior in live approval.
-Reject unexpected service actions outside the four reviewed units. After explicit
-approval, `just cp1-activate MANIFEST activate` loads guest registration, selects
+The existing activation implementation loads guest registration, selects
 the new guest profile and switches only that guest. The candidate has no K3s
 boot target edge. After the approved member removal and datastore quarantine,
 the helper switches configuration (120 seconds), then explicitly starts K3s
@@ -84,52 +94,31 @@ verified. No automatic old-etcd restart or bootstrap unmask occurs.
 
 The helper asserts unchanged Kepler running/persistent profiles, cp-1 current
 runner and guest boot ID. It intentionally leaves the host runner unchanged.
-After replacement health, alarms, survivor/member IDs and fixed-revision hashes
-pass, stage the reviewed current runner through the post-health owner step included in the approved procedure.
-Until then, do not reboot cp-1: its boot runner still selects the prior closure.
+That invariant does not prove safe reboot selection: a later installer run can
+replace `current` independently of the guest switch.
 
-## Explicit post-health runner persistence
+## Required source-owned containment before removal
 
-Only after approval of the complete procedure and verified replacement health, run these commands
-on Kepler as root with the same reviewed manifest. They alter only cp-1's next-boot
-runner. Record the current `booted` target before approval and supply that exact
-value as `EXPECTED_BOOTED_RUNNER`; do not infer it from `current`.
+The former executable post-health `current`-symlink persistence block is
+withdrawn. Delaying persistence until health leaves a failed-switch/reboot window;
+changing only the symlink does not survive the old declarative installer.
 
-```bash
-set -euo pipefail
-manifest=/tmp/cp1-activation-NAME.json
-: "${EXPECTED_BOOTED_RUNNER:?recorded booted runner required}"
-old=$(jq -er '.baseline.runner' "$manifest")
-new=$(jq -er '.candidate.runner' "$manifest")
-revision=$(jq -er '.sourceRevision' "$manifest")
-[[ "$revision" =~ ^[a-f0-9]{40}$ ]]
-[[ "$new" =~ ^/nix/store/[a-z0-9]{32}-microvm-cloud-hypervisor-cp-1$ ]]
-[[ $(readlink -e /run/current-system) == "$(jq -er '.baseline.hostCurrent' "$manifest")" ]]
-[[ $(readlink -e /nix/var/nix/profiles/system) == "$(jq -er '.baseline.hostProfile' "$manifest")" ]]
-directory=/fast/microvms/cp-1
-[[ $(readlink -e "$directory/current") == "$old" ]]
-[[ $(readlink -e "$directory/booted") == "$EXPECTED_BOOTED_RUNNER" ]]
-roots=/nix/var/nix/gcroots/cp1-recovery-$revision
-[[ -d "$roots" && ! -L "$roots" && $(stat -c '%u:%a' "$roots") == 0:700 ]]
-if [[ -L "$roots/previous-runner" ]]; then
-  [[ $(readlink "$roots/previous-runner") == "$old" ]]
-else
-  ln -s "$old" "$roots/previous-runner"
-fi
-[[ $(readlink -e "$new/share/microvm/system") == "$(jq -er '.candidate.toplevel' "$manifest")" ]]
-link=$directory/.current-recovery-$revision
-[[ ! -e "$link" && ! -L "$link" ]]
-ln -s "$new" "$link"
-mv -T "$link" "$directory/current"
-[[ $(readlink -e "$directory/current") == "$new" ]]
-[[ $(readlink -e "$directory/booted") == "$EXPECTED_BOOTED_RUNNER" ]]
-[[ $(readlink -e /run/current-system) == "$(jq -er '.baseline.hostCurrent' "$manifest")" ]]
-[[ $(readlink -e /nix/var/nix/profiles/system) == "$(jq -er '.baseline.hostProfile' "$manifest")" ]]
-```
+Before any member removal or datastore quarantine, a separately reviewed owner
+procedure must establish and verify durable host selection of the safe cp-1
+runner. Evidence must bind the published source and persistent host closure to
+the installed `install-microvm-cp-1` definition and its declared runner, prove
+that the selected runner contains the reviewed guest configuration, and cover
+failure and reboot ordering. Preserve concurrent host changes, sibling guests,
+archives and the distinct `booted` runner identity. Do not treat manual remote
+unit edits, an unverified symlink, or old WAL restart as a substitute.
 
-Do not modify the existing `old` link or `booted` link, restart the VM, release
-bootstrap masks, or delete GC roots automatically. A future host deployment must
-include the reviewed replacement source so it does not restage the old runner.
+Refresh the private manifest only after the new host and runner baselines are
+observed. Its `baseline.runner` may then equal the candidate runner while the
+running guest still uses the old closure; record those facts separately. The
+current helper does not itself establish or verify the durable installer gate.
+A source fix being merged, artifacts being copied, or this hold being documented
+does not authorize host deployment or guest activation. The final revised
+procedure needs independent review and fresh scope-appropriate live approval.
 
 ## Evidence and limits
 
@@ -218,3 +207,13 @@ joining cp-3 without `--cluster-init`. A successful switch exit alone is not
 enough. Stale-closure and stale-command fixtures both failed before this ordering
 repair and now stop without invoking K3s start. Loaded command values are not
 printed. The final active, boot and closure checks still run after the one start.
+
+### Documentation hold correction — 2026-11-22
+
+Final failure-path review superseded the executable post-health persistence
+instructions. This docs-only correction removes that shell block, marks preview
+and activation held, and requires source-owned installer/runner containment
+before removal. Earlier RED/GREEN, source reviews and staging receipts remain
+historical evidence; none proved that the old host installer had been replaced.
+Helper code and live host/guest state are unchanged by this correction. Focused
+document-link and diff checks validate the edit, not runtime recovery.
