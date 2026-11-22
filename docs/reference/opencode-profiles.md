@@ -52,10 +52,12 @@ carries no `#variant` suffix; the model definition still rejects
 or `.opencode/opencode.json` from widening role permissions. Backend state,
 which holds the server password, is denied to role agents for read and edit.
 
-Every role runs shell: L1 carries an explicit `shell allow *` like L2 and L3.
-L1 keeps `edit` denied outside `docs/*`, so credential validation and
-documentation work without a slice while implementation still goes through
-L2/L3.
+Every role runs shell, invokes native subagents and edits source. The global
+`permissions` rules reach every agent; role lists only narrow `dispatch_slice`
+and `slice_status` authority. L1 carries an explicit `shell allow *` and
+`subagent allow *`. Secret paths, destructive commands and out-of-band deploy
+forms stay denied by the protected tail appended to L1/L2 and by the global
+rules for L3.
 
 `OPENCODE_DISABLE_PROJECT_CONFIG=1` also disables project `AGENTS.md`
 discovery. Each generated profile therefore appends the workspace `AGENTS.md`

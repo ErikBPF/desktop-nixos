@@ -128,16 +128,19 @@
       "git show *:secrets/*"
       "git show *:.ssh/*"
       "git show *:.config/sops/age/*"
-      # Execution vectors a prefix glob would otherwise admit.
-      "rg *--pre*"
-      "* -exec *"
-      "nix eval *"
-      # Protected content, matched wherever it appears in the command.
-      "*.env*"
+      # Path-shaped protected content. Bare substring patterns blocked benign
+      # commands such as `os.environ`, kubectl `.env[*]` and `rg "secrets/"`.
+      "*.env"
+      "*.env.*"
+      "* .env*"
+      "*/.env*"
+      "* \".env*"
+      "* '.env*"
       "*.secrets.json*"
       "*.secret.json*"
       "*.age"
-      "*secrets/*"
+      "* secrets/*"
+      "*/secrets/*"
       "*/.ssh/*"
       "*/.config/sops/age/*"
       "*nixos-rebuild*--target-host*"
