@@ -150,3 +150,10 @@ missing-server handling. The fix changes no session-creation locale or deletion
 semantics. The follow-up must pass CI/review and be deployed before resume/delete
 can be reported as working live. The disposable smoke session remains for that
 verification; existing user sessions are not cleanup targets.
+
+
+CR found that the picker CI step did not provide tmux, allowing both real-server
+tests to skip on runners without it. The workflow now builds the same tmux
+package as the adjacent workspace smoke step and adds it to PATH for the picker
+suite. This verified finding is fixed rather than waived; CI must execute all
+13 picker tests. The production closure is unchanged by this workflow repair.
