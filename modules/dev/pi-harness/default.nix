@@ -3,5 +3,6 @@
 _: {
   perSystem = {pkgs, ...}: {
     packages.pi-harness = pkgs.callPackage ./_package.nix {};
+    checks.pi-harness-tests = pkgs.callPackage ./_tests.nix {};
   };
 }

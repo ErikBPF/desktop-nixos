@@ -62,6 +62,18 @@ substantive gaps. All were fixed and the tests now prove the intended path:
 
 Test count after this round: 20.
 
+## hackerman-cr rounds
+
+- At `c3e396bf` the bot raised two P2 documentation defects: the durable
+  one-pager still claimed the harness was unwired, and the shadow audit recorded
+  `pi` commands that now start the harness. Fixed in `37dbd49d`; the catalogue
+  and package-pin checks were re-run as `pi-agent` with the same output.
+- At `37dbd49d` it raised one P2: the new suites had no CI gate. `_tests.nix`
+  now exposes `checks.pi-harness-tests`, which runs `vitest` inside
+  `buildNpmPackage`, and `check.yml` builds that check and runs
+  `modules/dev/pi-extensions/rtk.test.js`. The Nix log reports 7 files and 20
+  tests.
+
 ## RED evidence
 
 The tests were written against helpers holding the old behavior first. Five
