@@ -31,6 +31,7 @@ developer-tool changes and preserved runtime boundaries.
 |-----|--------|
 | [`reference/graphify-package.md`](reference/graphify-package.md) | Exact Graphify wheel artifacts, offline builds and explicit dependency updates. |
 | [`reference/hermes-state-backup-one-pager.md`](reference/hermes-state-backup-one-pager.md) · [`behavior contract`](behaviors/hermes-state-backup.feature) | Optional encrypted two-agent backup/isolated restore helpers and retained attempt history. |
+| [`reference/argus-owner-verification-one-pager.md`](reference/argus-owner-verification-one-pager.md) | Argus runtime-aware model checks and scoped render verification. |
 | [`reference/hermes-agent-runtime-one-pager.md`](reference/hermes-agent-runtime-one-pager.md) · [`behavior contract`](behaviors/hermes-agent-runtime.feature) | Verified image pins, Argus lifecycle/dedup and synthetic state roundtrip. |
 | [`reference/hermes-agent-hardening-one-pager.md`](reference/hermes-agent-hardening-one-pager.md) · [`behavior contract`](behaviors/hermes-agent-hardening.feature) | Argus evidence/leak boundaries, terminal-only RTK rewriting, and Romozinha health/webhook scope. |
 | [`reference/pr-review-ledger.md`](reference/pr-review-ledger.md) | Per-head review ledger, leases, fast collect, and worker dispatch for the Hackerman PR gate. |

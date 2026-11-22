@@ -140,6 +140,22 @@ verify-hermes-secret-renders:
       echo "hermes_render=ready mode=0400 fresh=true files=4 wiki_owner=hermes"
     '
 
+# Read-only Argus render metadata gate. The credential handoff separately
+# verifies value convergence; unchanged sibling render mtimes are irrelevant.
+verify-hermes-argus-render:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IP="$(just _host-ip discovery)"
+    ssh -p 2222 erik@"$IP" '
+      set -euo pipefail
+      for unit in vault-agent.service docker-hermes-argus.service; do
+        sudo systemctl is-active --quiet "$unit"
+      done
+      test "$(sudo stat -c '"'"'%a %U %G'"'"' /run/vault-agent/hermes-argus.env)" = "400 root vault-consumers"
+      sudo test -s /run/vault-agent/hermes-argus.env
+      echo "hermes_argus_render=ready mode=0400 nonempty=true"
+    '
+
 # Read-only failure detail for the declarative Hermes wiki checkout.
 diagnose-hermes-wiki:
     IP="$(just _host-ip discovery)"; ssh -p 2222 erik@"$IP" 'sudo systemctl status hermes-wiki-clone.service --no-pager -l || true; sudo journalctl -u hermes-wiki-clone.service -b --no-pager -n 100'
@@ -262,7 +278,13 @@ hermes-agents-health:
       done
       printf ":: hermes-argus route=grafana-alerts health=ready\n"
       for name in hermes-daedalus hermes-argus; do
-        docker exec "$name" python3 -c "import json, os, urllib.request, yaml; u=os.environ[\"OPENAI_BASE_URL\"].rstrip(\"/\")+\"/models\"; q=urllib.request.Request(u, headers={\"Authorization\":\"Bearer \"+os.environ[\"OPENAI_API_KEY\"]}); d=json.load(urllib.request.urlopen(q, timeout=10)); default=yaml.safe_load(open(\"/opt/data/config.yaml\"))[\"model\"][\"default\"]; assert default in {m[\"id\"] for m in d[\"data\"]}" >/dev/null
+        python=python3
+        yaml_loader="import yaml; load=yaml.safe_load"
+        if [ "$name" = hermes-argus ]; then
+          python=/opt/hermes/.venv/bin/python
+          yaml_loader="from ruamel.yaml import YAML; load=YAML(typ=\"safe\").load"
+        fi
+        docker exec "$name" "$python" -c "import json, os, urllib.request; $yaml_loader; u=os.environ[\"OPENAI_BASE_URL\"].rstrip(\"/\")+\"/models\"; q=urllib.request.Request(u, headers={\"Authorization\":\"Bearer \"+os.environ[\"OPENAI_API_KEY\"]}); d=json.load(urllib.request.urlopen(q, timeout=10)); default=load(open(\"/opt/data/config.yaml\"))[\"model\"][\"default\"]; assert default in {m[\"id\"] for m in d[\"data\"]}" >/dev/null
         printf ":: %s litellm=authenticated model_default=authorized\n" "$name"
       done
       docker exec hermes-daedalus hermes mcp list
