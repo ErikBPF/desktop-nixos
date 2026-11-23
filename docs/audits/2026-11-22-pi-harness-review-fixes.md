@@ -67,7 +67,8 @@ Test count after this round: 20.
 - At `c3e396bf` the bot raised two P2 documentation defects: the durable
   one-pager still claimed the harness was unwired, and the shadow audit recorded
   `pi` commands that now start the harness. Fixed in `37dbd49d`; the catalogue
-  and package-pin checks were re-run as `pi-agent` with the same output.
+  and package-pin checks were re-run under the temporary `pi-agent` name with
+  the same output.
 - At `37dbd49d` it raised one P2: the new suites had no CI gate. `_tests.nix`
   now exposes `checks.pi-harness-tests`, which runs `vitest` inside
   `buildNpmPackage`, and `check.yml` builds that check and runs
@@ -142,11 +143,13 @@ covered by faux-provider tests and the CLI start above.
 
 ## Command wiring
 
-`modules/dev/pi.nix` now installs the durable harness as both `pi-harness` and
-`pi`. The upstream shadow agent is exposed as `pi-agent`, so the profile has no
-`bin/pi` collision and the `~/.pi/agent` configuration still belongs to that
-agent. The harness entrypoint guard resolves symlinked `argv[1]`, which is what
-makes the `pi` symlink invoke `main()`.
+`modules/dev/pi.nix` installs the durable harness as `pi-harness` beside the
+upstream `pi` agent. A first attempt in #525 reassigned `pi` to the harness and
+moved the upstream binary to `pi-agent`; a live run then showed bare `pi`
+printed harness usage instead of starting an interactive session, because the
+harness has no interactive mode. #532 reverted the reassignment. The entrypoint
+guard still resolves symlinked `argv[1]`, so a symlinked install of `pi-harness`
+invokes `main()`.
 
 ## Changed files
 

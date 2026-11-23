@@ -21,8 +21,8 @@ ports, or backend wrapper.
 
 ## Run
 
-The Home Manager module installs the harness as both `pi-harness` and `pi`. The
-upstream shadow agent keeps its own binary as `pi-agent`. From a checkout:
+The Home Manager module installs the harness as `pi-harness`, beside the
+upstream `pi` agent. From a checkout:
 
 ```bash
 npm install --ignore-scripts
