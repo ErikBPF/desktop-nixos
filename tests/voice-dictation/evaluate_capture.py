@@ -152,16 +152,27 @@ with tempfile.TemporaryDirectory(prefix='voice-e2e-') as directory:
         assert not list((runtime / 'voice-dictation').glob('capture-*')), 'Cancelled audio leaked'
         print('VOICE_GATEWAY_CAPTURE_E2E_OK', flush=True)
     finally:
-        if active_unit and property_of(active_unit, 'InvocationID') == active_invocation:
-            command(['systemctl', '--user', 'stop', active_unit])
-        dropin.unlink(missing_ok=True)
-        command(['systemctl', '--user', 'daemon-reload'])
-        if loop:
-            loop.terminate(); loop.wait(timeout=5)
-        # Preserve a new clipboard selection made by the user during the test.
-        current = subprocess.run([programs['wl-paste'], '--no-newline', '--type', 'text'], capture_output=True)
-        if not current.returncode and current.stdout in owned_values:
-            if old.returncode:
-                command([programs['wl-copy'], '--clear'])
-            else:
-                copy(old.stdout)
+        # Cleanup of the live unit override must not depend on the stop succeeding:
+        # a leftover drop-in points the controller at a deleted key and silently
+        # forces local fallback for the rest of the login session.
+        try:
+            if active_unit and property_of(active_unit, 'InvocationID') == active_invocation:
+                command(['systemctl', '--user', 'stop', active_unit])
+        finally:
+            dropin.unlink(missing_ok=True)
+            command(['systemctl', '--user', 'daemon-reload'])
+        try:
+            if loop:
+                loop.terminate()
+                try:
+                    loop.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    loop.kill()
+        finally:
+            # Preserve a new clipboard selection made by the user during the test.
+            current = subprocess.run([programs['wl-paste'], '--no-newline', '--type', 'text'], capture_output=True)
+            if not current.returncode and current.stdout in owned_values:
+                if old.returncode:
+                    command([programs['wl-copy'], '--clear'])
+                else:
+                    copy(old.stdout)
