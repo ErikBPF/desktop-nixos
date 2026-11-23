@@ -144,12 +144,12 @@ covered by faux-provider tests and the CLI start above.
 ## Command wiring
 
 `modules/dev/pi.nix` installs the durable harness as `pi-harness` beside the
-upstream `pi` agent. A first attempt reassigned `pi` to the harness and moved
-the upstream binary to `pi-agent`; a live run showed bare `pi` printed harness
-usage instead of starting an interactive session, because the harness has no
-interactive mode. The reassignment was reverted before acceptance. The
-entrypoint guard still resolves symlinked `argv[1]`, so a symlinked install of
-`pi-harness` invokes `main()`.
+upstream `pi` agent. A first attempt in #525 reassigned `pi` to the harness and
+moved the upstream binary to `pi-agent`; a live run then showed bare `pi`
+printed harness usage instead of starting an interactive session, because the
+harness has no interactive mode. #532 reverted the reassignment. The entrypoint
+guard still resolves symlinked `argv[1]`, so a symlinked install of `pi-harness`
+invokes `main()`.
 
 ## Changed files
 
