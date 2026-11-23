@@ -21,7 +21,7 @@ buildNpmPackage {
   nodejs = nodejs_22;
 
   # Filled from the build's reported hash, never guessed.
-  npmDepsHash = "sha256-HINmNBS4oF+bGNx3kgqJuVHjDVVgt+o5kfrdktFg8BE=";
+  npmDepsHash = "sha256-xs7PWtAE0e1TeN21l0BHbyT3cIMHb10uh10qYy5tbaM=";
 
   nativeBuildInputs = [makeWrapper];
 
