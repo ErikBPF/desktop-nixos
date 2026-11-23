@@ -14,13 +14,13 @@ def test_enabled_stacks_include_backup_and_exclude_empty_profile():
     assert '"docs-search"' not in text
 
 
-def test_gpu_ai_stacks_are_paused_for_freetoken():
+def test_qwen4b_gpu_enabled_and_whisper_paused():
     stacks = MODULE.read_text().split("stacks = [", 1)[1].split("];", 1)[0]
     stacks = "\n".join(
         line for line in stacks.splitlines() if not line.lstrip().startswith("#")
     )
+    assert '"qwen4b-gpu"' in stacks
     assert '"whisper-gpu"' not in stacks
-    assert '"qwen4b-gpu"' not in stacks
 
 
 def test_esp_verifier_checks_exact_declared_units_individually():
