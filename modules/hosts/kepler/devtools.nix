@@ -14,6 +14,7 @@ in {
       m.nixos.dev-paths
       m.nixos.dev-nix-ld
       m.nixos.opencode-client
+      m.nixos.hermes-client
     ];
 
     environment.systemPackages = with pkgs; [
@@ -31,6 +32,9 @@ in {
       m.home.goose
       m.home.herdr
       m.home.tuicr
+      m.home.hermes-agent
+      m.home.pi
+      m.home.deepseek-harness
     ];
   };
 }
