@@ -175,10 +175,12 @@ and `dev-nix-ld` modules, plus nvim, codex, opencode, claude-code, goose, herdr,
 tuicr, hermes-agent, pi and deepseek-harness in Home Manager. It imports
 `opencode-client` and `hermes-client`, so the agent CLIs receive the same
 `/run/secrets/opencode/*` and Hermes client keys as Endeavour. The three added
-harnesses land after the 2026-11-22 activation and are not part of that
-evidence; `dsh-tui` also requires the user's secretspec keyring setup. The recovery host
-keeps the smaller shared `kepler-development` module. Activation returned with no failed units, both ZFS
-pools online, all six MicroVMs running, and the new toolchain on PATH.
+harnesses were activated on Kepler generation 150 after the 2026-11-22 switch;
+`hermes`, `pi`, `pi-harness`, `dsh` and `dsh-tui` resolve, and the Hermes client
+key is readable. `dsh-tui` still requires the user's secretspec keyring setup.
+The recovery host keeps the smaller shared `kepler-development` module.
+Activation returned with no failed units, both ZFS pools online, all six
+MicroVMs running, and the new toolchain on PATH.
 
 The unreachable interval during rollout was not caused by this switch.
 `journalctl -b -1` records `sudo ... systemctl reboot` at 17:16:56, shutdown
@@ -192,13 +194,21 @@ Kepler imports the shared `desktop-workspaces` backend with its graphical
 windows disabled. `ol` and `ow` point at the two local three-level OpenCode
 servers, rooted at `/fast/compute/erik/Documents/erik/homelab` and
 `/fast/compute/erik/Documents/nstech/dataplatform`. Only the two backend
-services are enabled; desktop tmux and window units are not started. Live
-activation and provider request checks remain pending.
+services are enabled; desktop tmux and window units are not started. On
+generation 150 both backends are active on `127.0.0.1:4096` and `:4097`, return
+HTTP 200, and `sk ol --help` / `sk ow --help` work from Endeavour. Kepler's
+compose profile sets `systemd.user.startServices = false` in
+`modules/server/orchestration.nix` so compose stacks do not start inside a
+switch, so the two units were started explicitly; they are enabled for the next
+boot. A live provider request is still not asserted.
 
 ## Kepler tmux reboot persistence — 2026-11-23
 
 The `kepler-tmux-persistence` module adds a default-socket tmux server under
 the lingering user manager, restores the last resurrect snapshot before
 `sk`/`tmux-resume` lists sessions, and saves every five minutes and when the
-server stops. It uses the default socket, so `sk` behavior is unchanged. Activation
-and the create/reboot/list check remain pending.
+server stops. It uses the default socket, so `sk` behavior is unchanged. On
+generation 150 the existing `ol1` server caused the unit to skip without
+failure, the save service wrote a snapshot under
+`~/.local/share/tmux/resurrect-kepler`, and `sk` still lists `ol1`. A live
+reboot restore remains to be exercised.
