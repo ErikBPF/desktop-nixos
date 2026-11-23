@@ -2,6 +2,10 @@ _: {
   flake.modules.nixos.kepler-whisper = {pkgs, ...}: let
     whisper = pkgs.whisper-cpp.override {vulkanSupport = true;};
   in {
+    # Kepler's 8 GiB card holds whisper (:9000), parakeet (:9001) and
+    # the 4B compose stack; measured VRAM peak is 6.4 GiB with 1.8 GiB free.
+    # whisper and parakeet contend for the same compute queues (parakeet
+    # 272 -> 933 ms when whisper runs concurrently); do not schedule both.
     systemd.services.whisper-server = {
       description = "whisper.cpp ASR server (Vulkan)";
       wantedBy = ["multi-user.target"];
