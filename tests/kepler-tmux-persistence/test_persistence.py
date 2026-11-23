@@ -17,9 +17,14 @@ class KeplerTmuxPersistence(unittest.TestCase):
               server = c.systemd.user.services.kepler-tmux.serviceConfig;
               save = c.systemd.user.services.kepler-tmux-save.serviceConfig;
               timer = c.systemd.user.timers.kepler-tmux-save.timerConfig;
+              socketEnv = c.environment.variables.TMUX_TMPDIR or "";
+              secureSocket = c.programs.tmux.secureSocket;
             }'''], cwd=ROOT, text=True))
 
     def test_server_restores_before_clients_attach(self):
+        condition = self.config["server"]["ExecCondition"]
+        self.assertIn("! ", condition)
+        self.assertIn("tmux -N list-sessions", condition)
         self.assertIn("resurrect", " ".join(self.config["plugins"]))
         self.assertIn("exit-empty off", self.config["tmuxConfig"])
         self.assertIn("@resurrect-dir", self.config["tmuxConfig"])
@@ -45,6 +50,9 @@ class KeplerTmuxPersistence(unittest.TestCase):
         for command in ("ExecStart", "ExecStop"):
             self.assertNotIn(" -L ", self.config["server"][command])
         self.assertNotIn(" -L ", self.config["save"]["ExecStart"])
+        self.assertTrue(self.config["secureSocket"])
+        # secureSocket exports this through /etc/set-environment.
+        self.assertIn("/run/user/", self.config["socketEnv"])
         self.assertIn('@resurrect-dir "/home/', self.config["tmuxConfig"])
 
 
