@@ -170,9 +170,12 @@ full 39-test workspace suite pass, and a live local PTY rendered `btop` through
 
 Ordinary Kepler imports the new `kepler-devtools` module: the existing
 `dev-python`, `dev-javascript`, `dev-go`, `dev-java`, `dev-dotnet`, `dev-paths`
-and `dev-nix-ld` modules, plus nvim, codex, opencode, claude-code, goose, herdr
-and tuicr in Home Manager. It also imports `opencode-client`, so the agent CLIs
-receive the same `/run/secrets/opencode/*` keys as Endeavour. The recovery host
+and `dev-nix-ld` modules, plus nvim, codex, opencode, claude-code, goose, herdr,
+tuicr, hermes-agent, pi and deepseek-harness in Home Manager. It imports
+`opencode-client` and `hermes-client`, so the agent CLIs receive the same
+`/run/secrets/opencode/*` and Hermes client keys as Endeavour. The three added
+harnesses land after the 2026-11-22 activation and are not part of that
+evidence; `dsh-tui` also requires the user's secretspec keyring setup. The recovery host
 keeps the smaller shared `kepler-development` module. Activation returned with no failed units, both ZFS
 pools online, all six MicroVMs running, and the new toolchain on PATH.
 
