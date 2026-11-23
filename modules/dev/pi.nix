@@ -91,7 +91,7 @@
     # secret value lands in the store or in this repository.
     home.file = {
       ".pi/agent/settings.json".text = ''
-        {"$schema":"https://pi.dev/schemas/settings.schema.json","defaultTools":["+codemode","+grep","+find","+ls"],"enableInstallTelemetry":false,"defaultProjectTrust":"never","packages":["npm:@dietrichgebert/ponytail@4.8.4"],"extensions":[]}
+        {"$schema":"https://pi.dev/schemas/settings.schema.json","defaultTools":["+codemode","+grep","+find","+ls"],"enableInstallTelemetry":false,"defaultProjectTrust":"never","packages":["npm:@dietrichgebert/ponytail@4.8.4"],"extensions":[],"shellPath":"/run/current-system/sw/bin/zsh"}
       '';
 
       ".pi/agent/models.json".text = ''
