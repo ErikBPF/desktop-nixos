@@ -49,7 +49,7 @@
 
     # Postgres exporter, Buzz, and local-only inference backends. Tailnet ACLs
     # still restrict which peers may initiate each connection.
-    networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187 3000 8085 8087 8088 9001];
+    networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9187 3000 8085 8087 8088 9000 9001];
 
     # Tailscale client — no subnet routing needed (not the gateway host)
     services.tailscale = {
