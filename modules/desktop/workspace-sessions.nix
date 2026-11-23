@@ -19,7 +19,7 @@ in {
     projects = [
       {
         name = "dataplatform";
-        directory = "${config.home.homeDirectory}/Documents/nstech/dataplatform";
+        directory = config.homelab.desktopWorkspaces.dataplatformDirectory;
         # Routing range for `launch shell|nvim|yazi` by active workspace.
         workspaces = lib.range 2 4;
         # Workspace that owns this project's eight window sessions.
@@ -29,7 +29,7 @@ in {
       }
       {
         name = "homelab";
-        directory = "${config.home.homeDirectory}/Documents/erik/homelab";
+        directory = config.homelab.desktopWorkspaces.homelabDirectory;
         workspaces = lib.range 5 12;
         workspace = 7;
         prefix = "l";
@@ -65,14 +65,17 @@ in {
     });
     coordinator = pkgs.writeShellApplication {
       name = "desktop-workspaces";
-      runtimeInputs = [
-        pkgs.tmux
-        pkgs.python3
-        pkgs.openssh
-        pkgs.systemd
-        config.programs.ghostty.package
-        config.wayland.windowManager.hyprland.package
-      ];
+      runtimeInputs =
+        [
+          pkgs.tmux
+          pkgs.python3
+          pkgs.openssh
+          pkgs.systemd
+        ]
+        ++ lib.optionals config.homelab.desktopWorkspaces.enable [
+          pkgs.ghostty
+          pkgs.hyprland
+        ];
       text = ''
         exec python3 ${./_workspace-sessions.py} ${manifest} "$@"
       '';
@@ -336,6 +339,24 @@ in {
       ${pkgs.coreutils}/bin/unlink -- "$legacy"
     '';
   in {
+    options.homelab.desktopWorkspaces = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable the graphical desktop windows and desktop tmux server.";
+      };
+      homelabDirectory = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.home.homeDirectory}/Documents/erik/homelab";
+        description = "Homelab checkout used by the ol backend.";
+      };
+      dataplatformDirectory = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.home.homeDirectory}/Documents/nstech/dataplatform";
+        description = "Dataplatform checkout used by the ow backend.";
+      };
+    };
+
     # Inspectable projection of the generated backend profiles (tests and ops).
     options.programs.opencode-backends.profiles = lib.mkOption {
       type = lib.types.attrsOf lib.types.raw;
@@ -390,11 +411,11 @@ in {
       # Bare w1..w8 / l1..l8 attach this machine's persistent tmux session.
       # Reuses the same exact-name bootstrap the desktop windows use, so a
       # missing session is created (never a duplicate) before attaching.
-      programs.zsh.shellAliases = lib.listToAttrs (map (session: {
+      programs.zsh.shellAliases = lib.mkIf config.homelab.desktopWorkspaces.enable (lib.listToAttrs (map (session: {
           inherit (session) name;
           value = "${command} bootstrap ${session.name} && exec tmux -N -L workspace-desktop attach-session -t =${session.name}";
         })
-        sessions);
+        sessions));
 
       xdg.configFile."tmux/desktop-workspaces.conf".text = ''
         source-file "${config.xdg.configHome}/tmux/tmux.conf"
@@ -441,7 +462,7 @@ in {
               Type = "oneshot";
               ExecStart = "${command} save";
             };
-            Install.WantedBy = ["shutdown.target"];
+            Install.WantedBy = lib.optional config.homelab.desktopWorkspaces.enable "shutdown.target";
           };
         }
         // builtins.listToAttrs (map ({
@@ -499,7 +520,7 @@ in {
             };
             Service = {
               ExecStartPre = "${command} bootstrap ${session.name}";
-              ExecStart = "${config.programs.ghostty.package}/bin/ghostty --gtk-single-instance=false --class=com.pastelariadev.${session.name} --title=${session.name} -e ${pkgs.tmux}/bin/tmux -N -L workspace-desktop attach-session -t =${session.name}";
+              ExecStart = "${pkgs.ghostty}/bin/ghostty --gtk-single-instance=false --class=com.pastelariadev.${session.name} --title=${session.name} -e ${pkgs.tmux}/bin/tmux -N -L workspace-desktop attach-session -t =${session.name}";
               WorkingDirectory = session.directory;
               UnsetEnvironment = ["TMUX"];
               TimeoutStartSec = 240;
@@ -515,10 +536,10 @@ in {
           OnUnitActiveSec = "5min";
           Unit = "tmux-save.service";
         };
-        Install.WantedBy = ["timers.target"];
+        Install.WantedBy = lib.optional config.homelab.desktopWorkspaces.enable "timers.target";
       };
 
-      wayland.windowManager.hyprland.settings = {
+      wayland.windowManager.hyprland.settings = lib.mkIf (config.wayland.windowManager.hyprland.enable or false) {
         terminal = lib.mkForce {_var = "${command} launch shell";};
         terminalEditor = lib.mkForce {_var = "${command} launch nvim";};
         fileManagerTui = lib.mkForce {_var = "${command} launch yazi";};
