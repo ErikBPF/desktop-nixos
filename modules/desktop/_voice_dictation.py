@@ -166,8 +166,14 @@ def local_transcribe(audio):
     return text.strip()
 
 
-def wait_for_stop():
-    STOP.wait(115)
+def wait_for_stop(process):
+    deadline = time.monotonic() + 115
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or STOP.wait(min(.2, remaining)):
+            return
+        if process.poll() is not None:
+            raise RuntimeError('Recorder exited during capture')
 
 
 def capture(audio):
@@ -179,7 +185,7 @@ def capture(audio):
         if process.poll() is not None:
             raise RuntimeError('Recorder did not start')
         notify('Recording', 'Press the shortcut again to stop; Super+Ctrl+I cancels.')
-        wait_for_stop()
+        wait_for_stop(process)
     finally:
         stopped_by_us = process.poll() is None
         if stopped_by_us:

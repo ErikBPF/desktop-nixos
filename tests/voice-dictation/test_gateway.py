@@ -115,6 +115,34 @@ class FailureBoundaries(unittest.TestCase):
                     self.assertFalse(any('wl-copy' in c.args[0] for c in commands.call_args_list))
 
 class Capture(unittest.TestCase):
+    def test_recording_wait_keeps_the_duration_limit(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with patch.object(voice.time, 'monotonic', side_effect=[0, 114.9, 115.1]), patch.object(voice.STOP, 'wait', return_value=False) as wait:
+            voice.wait_for_stop(process)
+        self.assertEqual(wait.call_count, 1)
+        self.assertGreater(wait.call_args.args[0], 0)
+        self.assertLessEqual(wait.call_args.args[0], .2)
+        process.poll.assert_called_once()
+
+    def test_recorder_death_fails_promptly_reaps_and_preserves_clipboard(self):
+        process = MagicMock()
+        process.poll.side_effect = [None, 7, 7]
+        def bounded_wait(seconds):
+            self.assertLessEqual(seconds, .2, 'Recorder death must not wait for the capture deadline')
+            return False
+        with tempfile.TemporaryDirectory() as directory:
+            audio = Path(directory) / 'capture.wav'
+            audio.write_bytes(b'partial private audio')
+            with patch.object(voice.subprocess, 'Popen', return_value=process), patch.object(voice.time, 'sleep'), patch.object(voice.STOP, 'wait', side_effect=bounded_wait), patch.object(voice, 'notify'), patch.object(voice, 'run') as commands, patch.object(voice, 'transcribe') as transcribe:
+                with self.assertRaisesRegex(RuntimeError, 'Recorder exited'):
+                    voice.dictate('plain', Path(directory))
+            process.wait.assert_called_once_with(timeout=3)
+            process.send_signal.assert_not_called()
+            transcribe.assert_not_called()
+            commands.assert_not_called()
+            self.assertFalse(audio.exists())
+
     def test_capture_closes_wav_before_transcribing(self):
         self.assertTrue(hasattr(voice, 'capture'), 'Capture must retain WAV for both backends')
         events = []
