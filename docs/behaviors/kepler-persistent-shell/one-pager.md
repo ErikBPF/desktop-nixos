@@ -212,3 +212,14 @@ generation 150 the existing `ol1` server caused the unit to skip without
 failure, the save service wrote a snapshot under
 `~/.local/share/tmux/resurrect-kepler`, and `sk` still lists `ol1`. A live
 reboot restore remains to be exercised.
+
+## Shared Erik profile and offline identity — 2026-11-23
+
+`profile-erik` now owns the shared non-GUI agent/editor toolchain on Endeavour
+and Kepler; `profile-desktop` adds GUI modules and `kepler-devtools` adds the
+compute paths and OpenCode backends. SSH private keys and the sops age key stay
+in `profile-base`: `~/.ssh/id_ed25519` and `id_rsa` remain sops-rendered mode
+0400 and are not Vault templates. SecretSpec remains the env path and the vault
+agent remains available for future file rendering, with Vault absent from the
+SSH key path. The `erik-profile` regression test asserts sops ownership and
+shared package coverage on both hosts.

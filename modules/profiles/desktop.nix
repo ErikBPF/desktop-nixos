@@ -11,9 +11,8 @@ in {
       m.nixos.vms
       m.nixos.containers
       m.nixos.file-systems
+      m.nixos.profile-erik
 
-      m.nixos.hermes-client
-      m.nixos.opencode-client
       m.nixos.stylix
       m.nixos.nix-index
       m.nixos.hyprland
@@ -24,13 +23,6 @@ in {
       m.nixos.audio
       m.nixos.bluetooth
       m.nixos.packages-desktop
-      m.nixos.dev-dotnet
-      m.nixos.dev-go
-      m.nixos.dev-java
-      m.nixos.dev-javascript
-      m.nixos.dev-python
-      m.nixos.dev-paths
-      m.nixos.dev-nix-ld
       m.nixos.firefox-policies
     ];
   };
@@ -66,16 +58,8 @@ in {
       m.home.github-fork-sync
       m.home.basalt
       m.home.vscode
-      m.home.nvim
-      m.home.claude-code
-      m.home.codex
-      m.home.tuicr
+      m.home.profile-erik
       m.home.buzz
-      m.home.opencode
-      m.home.pi
-      m.home.goose
-      m.home.hermes-agent
-      m.home.herdr
       m.home.tmux
       m.home.grafatui
       m.home.packages-desktop
