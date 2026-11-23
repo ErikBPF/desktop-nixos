@@ -1,0 +1,36 @@
+{config, ...}: let
+  m = config.flake.modules;
+in {
+  # Full non-GUI development tool set for ordinary Kepler. Endeavour is the
+  # thin client; commands and editors run here. The recovery host keeps the
+  # smaller shared kepler-development module for containment.
+  flake.modules.nixos.kepler-devtools = {pkgs, ...}: {
+    imports = [
+      m.nixos.dev-python
+      m.nixos.dev-javascript
+      m.nixos.dev-go
+      m.nixos.dev-java
+      m.nixos.dev-dotnet
+      m.nixos.dev-paths
+      m.nixos.dev-nix-ld
+      m.nixos.opencode-client
+    ];
+
+    environment.systemPackages = with pkgs; [
+      nvtopPackages.full # GPU monitoring for btop/nvtop
+      zellij
+    ];
+  };
+
+  flake.modules.home.kepler-devtools = {...}: {
+    imports = [
+      m.home.nvim
+      m.home.codex
+      m.home.opencode
+      m.home.claude-code
+      m.home.goose
+      m.home.herdr
+      m.home.tuicr
+    ];
+  };
+}
