@@ -31,6 +31,7 @@ in {
       m.nixos.containers
       m.nixos.kepler-containers
       m.nixos.kepler-compose
+      m.nixos.kepler-parakeet
       m.nixos.kepler-recovery-tooling
       m.nixos.kepler-k1-inventory-tooling
       m.nixos.kepler-k3s-cluster

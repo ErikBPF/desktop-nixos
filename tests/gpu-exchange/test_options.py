@@ -71,7 +71,10 @@ class GPUExchangeOptions(unittest.TestCase):
             self.assertFalse(kepler["persistence"])
             self.assertEqual(kepler["clocks"], "")
             self.assertFalse(kepler["autoUpgrade"])
-            self.assertFalse({"whisper-gpu", "qwen4b-gpu", "retrieval"} & set(kepler["stacks"]))
+            # qwen4b-gpu is enabled again on the AMD Vulkan path; the
+            # NVIDIA-only whisper and retrieval stacks stay paused.
+            self.assertIn("qwen4b-gpu", kepler["stacks"])
+            self.assertFalse({"whisper-gpu", "retrieval"} & set(kepler["stacks"]))
         with self.subTest(host="apollo"):
             self.assertEqual(apollo["bootEntries"], 6)
             self.assertTrue(apollo["openDriver"])

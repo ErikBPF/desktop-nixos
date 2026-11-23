@@ -17,10 +17,10 @@ _: {
         "monitoring"
         "security"
         "sync"
-        # Household inference paused for the Kepler/Apollo GPU exchange.
-        # Retain definitions and model data; resume only after backend acceptance.
+        # qwen4b-gpu serves on the AMD Vulkan path. whisper-gpu and retrieval
+        # stay paused (retained definitions and model data).
         # "whisper-gpu"
-        # "qwen4b-gpu"
+        "qwen4b-gpu"
         # "retrieval"
       ];
     };
