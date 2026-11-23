@@ -1,13 +1,13 @@
 _: {
-  flake.modules.nixos.parakeet = {pkgs, ...}: let
+  flake.modules.nixos.kepler-parakeet = {pkgs, ...}: let
     parakeet = pkgs.callPackage ../../packages/_parakeet-cpp.nix {};
   in {
     systemd.services.parakeet-server = {
       description = "Parakeet.cpp ASR server (Vulkan)";
       wantedBy = ["multi-user.target"];
-      after = ["local-fs.target"];
-      wants = ["local-fs.target"];
       environment.PARAKEET_DEVICE = "Vulkan0";
+      # /fast is a nofail ZFS dataset; order on the mount, not local-fs.
+      unitConfig.RequiresMountsFor = "/fast/ai-models";
       serviceConfig = {
         User = "erik";
         Group = "users";
