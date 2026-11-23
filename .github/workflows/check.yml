@@ -79,6 +79,9 @@ jobs:
       - name: Kepler tmux persistence
         run: python3 -m unittest discover -s tests/kepler-tmux-persistence -v
 
+      - name: Erik profile sops/SSH ownership
+        run: python3 -m unittest discover -s tests/erik-profile -v
+
       - name: Neovim opener and session recovery
         run: |
           python3 tests/nvim-opener/test_opener.py
