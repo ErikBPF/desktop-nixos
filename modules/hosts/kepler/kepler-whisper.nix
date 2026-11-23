@@ -1,6 +1,6 @@
 _: {
   flake.modules.nixos.kepler-whisper = {pkgs, ...}: let
-    whisper = pkgs.whisper-cpp;
+    whisper = pkgs.whisper-cpp.override {vulkanSupport = true;};
   in {
     systemd.services.whisper-server = {
       description = "whisper.cpp ASR server (Vulkan)";
