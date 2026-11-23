@@ -184,3 +184,12 @@ The unreachable interval during rollout was not caused by this switch.
 completion at 17:21:27, and the next boot at 17:29. The host returned on the
 same new generation with Home Manager active; no separate tracking issue is
 needed for the switch itself.
+
+## Kepler ol/ow backends — 2026-11-23
+
+Kepler imports the shared `desktop-workspaces` backend with its graphical
+windows disabled. `ol` and `ow` point at the two local three-level OpenCode
+servers, rooted at `/fast/compute/erik/Documents/erik/homelab` and
+`/fast/compute/erik/Documents/nstech/dataplatform`. Only the two backend
+services are enabled; desktop tmux and window units are not started. Live
+activation and provider request checks remain pending.

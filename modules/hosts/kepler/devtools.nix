@@ -23,11 +23,18 @@ in {
     ];
   };
 
-  flake.modules.home.kepler-devtools = {...}: {
+  flake.modules.home.kepler-devtools = {config, ...}: {
+    homelab.desktopWorkspaces = {
+      enable = false;
+      homelabDirectory = "/fast/compute/${config.home.username}/Documents/erik/homelab";
+      dataplatformDirectory = "/fast/compute/${config.home.username}/Documents/nstech/dataplatform";
+    };
+
     imports = [
       m.home.nvim
       m.home.codex
       m.home.opencode
+      m.home.desktop-workspaces
       m.home.claude-code
       m.home.goose
       m.home.herdr
