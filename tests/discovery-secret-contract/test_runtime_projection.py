@@ -262,7 +262,7 @@ class RuntimeProjectionTest(unittest.TestCase):
         self.assertIn('infra = ["shared-db" "infra"];', compose)
         self.assertIn("seed-infra-vault:", justfile)
         self.assertIn(
-            'secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "minio-tfstate"];',
+            'secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "seaweedfs-tfstate"];',
             compose,
         )
         self.assertIn("verify-infra-secret-render:", justfile)
