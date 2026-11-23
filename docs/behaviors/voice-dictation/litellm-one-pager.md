@@ -6,7 +6,7 @@
 
 ## Outcome and why
 
-Human seed: “lets try to move voice stack to use our litellm instance and first path and local models as fallback. We can deploy models on orion and route them via litellm”. Endeavour now tries the homelab gateway for transcription and contextual rewriting, with local Parakeet and Ollama fallback. Super+I dictates; Super+Shift+I snapshots copied context and rewrites the spoken instruction; Super+Ctrl+I cancels. Output is copied, never automatically pasted. URLs are not fetched.
+Human seed: “lets try to move voice stack to use our litellm instance and first path and local models as fallback. We can deploy models on orion and route them via litellm”. Endeavour now tries the homelab gateway for transcription and contextual rewriting, with local Parakeet and Ollama fallback. Super+U dictates; Super+I snapshots copied context and rewrites the spoken instruction; Super+Ctrl+I cancels. Output is copied, never automatically pasted. URLs are not fetched.
 
 ## Changes and boundaries
 
@@ -28,6 +28,10 @@ Both aliases have typed `no-log=true`; key metadata disables normal prompt stora
 
 Resolve Orion GPU availability and host scheduled-exec health separately; complete privacy observation before claiming zero-content logging. Client/IaC source is prepared for PR review; merge integration remains pending, and a later unrelated Home Manager activation can remove the scoped deployment. Migration paths and prior unit/config targets are recorded privately at `~/.local/state/voice-dictation/litellm-migration-paths.json`; restore those targets and reload services/Hyprland to recover the previous local flow. No archive, meeting capture or graph ingestion was added.
 
+## Shortcut revision — 2026-11-23
+
+User requested the two voice shortcuts on Super+U and Super+I. Plain dictation moved to Super+U and copied-context dictation to Super+I; Super+Ctrl+I still cancels. Removed the conflicting Super+U monitors-panel binding (the Super+I network-panel binding was already removed by the 2026-11-22 revision). Only declarative source changed; no activation or live keypress check was performed.
+
 ## Shortcut revision — 2026-11-22
 
 User requested Super+I for plain dictation, Super+Shift+I for copied-context dictation, and Super+Ctrl+I for cancellation. Removed the conflicting Super+I network-panel binding. Updated declarative bindings and the recording notification. Scoped activation preserves other live desktop settings. This key remapping does not establish a fix for the previously reported capture symptom; microphone selection remains unconfirmed.
@@ -45,3 +49,9 @@ Publication review (2026-11-22): rebased onto Orion wiring and current main. Add
 ## PR517 CI reconciliation — 2026-11-22
 
 The repository hygiene check rejected an unregistered `tests/voice-dictation` directory. Added its automated unit tests to the actual CI pytest invocation, rather than marking the suite manual. The synthetic live evaluators retain their explicit manual entry points and are not pytest-collected. The [existing failing assertion](receipts/cr-ci-red.txt) and [passing hygiene plus voice suite](receipts/cr-ci-green.txt) record RED/GREEN. No runtime capture or deployment changed; personal microphone qualification remains open.
+
+## Recorder reliability review correction — 2026-11-22
+
+`wait_for_stop(process)` now checks for recorder death every 200 ms while retaining the 115-second monotonic deadline. The existing finally block still reaps the child; `dictate` still deletes partial audio and never transcribes or writes the clipboard after this failure. [RED](receipts/recorder-death-red.txt) reproduced the previous 115-second blind wait; [GREEN](receipts/recorder-death-green.txt) passed 34 hygiene/voice tests, including prompt failure, cleanup and the duration limit. Independent reviewer `voice_research_review` inspected this diff and reported: “Recorder polling preserves the deadline and fails promptly on process death; 29 unit tests passed.” No live microphone was accessed by that review.
+
+A later read-only desktop check found the default NoiseTorch source muted. The user confirmed the built-in microphone is intended; unmuting and a physical capture check await the explicit response. This observation is not proof of the cause of the earlier report.

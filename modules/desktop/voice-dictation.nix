@@ -83,8 +83,8 @@ _: {
       };
     };
     wayland.windowManager.hyprland.settings.bind = [
-      (binding "SUPER + I" "plain")
-      (binding "SUPER + SHIFT + I" "context")
+      (binding "SUPER + U" "plain")
+      (binding "SUPER + I" "context")
       (binding "SUPER + CTRL + I" "cancel")
     ];
   };
