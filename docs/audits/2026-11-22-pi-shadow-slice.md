@@ -4,11 +4,11 @@
 
 ## Outcome
 
-desktop-nixos pins `earendil-works/pi` v1.6.0 as a flake input, installs it as
-`pi-agent` through `m.home.pi`, and imports that module from
+desktop-nixos pins `earendil-works/pi` v1.6.0 as a flake input, installs the
+`pi` package through `m.home.pi`, and imports that module from
 `profile-desktop` right after `m.home.opencode`. The same module installs the
-durable harness as `pi` and `pi-harness`. Pi sits beside OpenCode as a shadow;
-OpenCode stays the default harness.
+durable harness as `pi-harness`. Pi sits beside OpenCode as a shadow; OpenCode
+stays the default harness.
 
 The owner narrowed this slice to instructions, model credentials, plugins and
 MCP servers. Pi has no permission system, so the earlier `permission-gate.js`
@@ -84,11 +84,10 @@ rejects it, so the passing result is not vacuous.
 
 The built binary lists both providers and all four models. `HOME` pointed at a
 temporary directory with the emitted files and a dummy key value, so the run
-read no secret. The binary was installed as `pi` when this was recorded; it is
-now `pi-agent`, because `pi` runs the durable harness:
+read no secret:
 
 ```
-$ HOME=$TMP pi-agent --list-models
+$ HOME=$TMP pi --list-models
 provider  model                context  max-out  thinking  images
 litellm   deepseek-v4.1-flash  1M       384K     yes       yes
 litellm   glm-5.3-flash        1M       131.1K   yes       no
@@ -101,20 +100,21 @@ silently listed no models. A provider whose key expression does not resolve is
 dropped from the catalog; it is not reported as an error. The configured
 `!cat` expressions are unaffected but were not exercised.
 
-Re-checked on 2026-11-22 as `pi-agent` against the emitted `models.json` with a
-dummy key: the same four rows, exit 0.
+Re-checked on 2026-11-22 while the binary was briefly installed as `pi-agent`:
+the same four rows, exit 0. The command is `pi` again.
 
 The configured package pin resolves and installs from npm:
 
 ```
-$ HOME=$TMP pi-agent list
+$ HOME=$TMP pi list
 added 1 package in 797ms
 User packages:
   npm:@dietrichgebert/ponytail@4.8.4
     /tmp/.../.pi/agent/npm/node_modules/@dietrichgebert/ponytail
 ```
 
-Re-checked on 2026-11-22 as `pi-agent list`: the same pinned package resolves.
+Re-checked on 2026-11-22: the same pinned package resolves. The binary was
+briefly named `pi-agent` during the command experiment.
 
 ### Static gates
 
@@ -170,10 +170,10 @@ $ git diff --stat HEAD
 - **Duplicated derivations.** `graphify` and `donsetch` remain copied from
   `modules/dev/opencode.nix`, with the in-file sync comment. This slice may not
   edit that file.
-- **`pi` is the durable harness.** `m.home.pi` installs `pi-harness` and a `pi`
-  symlink to it; the upstream shadow agent is renamed to `pi-agent`. Its
-  `~/.pi/agent` configuration is unchanged and still belongs to the upstream
-  agent.
+- **`pi` stays the upstream agent.** `m.home.pi` installs the durable harness as
+  `pi-harness`. Reassigning `pi` to the harness was tried and reverted: the
+  harness has no interactive mode, so bare `pi` printed usage instead of
+  starting a session.
 
 ## Gaps
 

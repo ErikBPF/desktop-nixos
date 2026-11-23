@@ -16,9 +16,9 @@ subagents into one registry and exposes four CLI commands.
 
 The slice delivers a working local MVP: it builds under npm and Nix, passes
 offline tests, and answered one live LiteLLM request. `modules/dev/pi.nix`
-installs it as `pi` and `pi-harness`, and `profile-desktop` imports `m.home.pi`.
-No host was switched, so the command is not active on a machine yet. The
-upstream shadow agent is installed beside it as `pi-agent`.
+installs it as `pi-harness`, and `profile-desktop` imports `m.home.pi`. No host
+was switched, so the command is not active on a machine yet. The upstream `pi`
+agent is unchanged and keeps the interactive command.
 
 ## Changes
 
@@ -34,8 +34,8 @@ upstream shadow agent is installed beside it as `pi-agent`.
 - `src/cli.ts`: `ask`, `resume`, `status`, `watch`, plus `--project`,
   `--model`, `--thinking`, `--state-dir`, `--no-mcp`.
 - `default.nix`: flake-parts module exposing `packages.pi-harness`.
-- `modules/dev/pi.nix`: installs the harness as `pi` and `pi-harness`; the
-  upstream shadow agent remains available as `pi-agent`.
+- `modules/dev/pi.nix`: installs the harness as `pi-harness` beside the
+  upstream `pi` agent.
 - `_package.nix`: `buildNpmPackage`, with a hash obtained from the build.
 - `test/`: faux-provider conversation, subagent ownership and reuse, code-mode
   output filtering, in-memory MCP bridge.
@@ -49,8 +49,8 @@ upstream shadow agent is installed beside it as `pi-agent`.
 - `nix build .#pi-harness`:
   `/nix/store/m2zqglcfksvs93d80wdw5g601kjngb1d-pi-harness-0.1.0`.
 - `nix flake show` and `just lint`, `just fmt-check`, `just docs-check` pass.
-- Home Manager path for `endeavour`: `bin/pi` prints the harness USAGE,
-  `bin/pi-agent --version` prints `1.6.0`.
+- Home Manager path for `endeavour`: `bin/pi-harness` prints the harness USAGE
+  and `bin/pi` is the upstream agent.
 - Live `ask` through LiteLLM printed `ok`; usage was input 10,940, output 3,
   cost `$0.000821`. A plain `resume` kept `litellm/glm-5.3-flash`.
 - First live attempt failed with `400` because LiteLLM requires
