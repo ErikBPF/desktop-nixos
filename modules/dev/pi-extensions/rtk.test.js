@@ -7,11 +7,23 @@ import {registerHooks} from "node:module";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 
+const piStub = `
+globalThis.__piStub = {};
+export function createBashTool(cwd, options) {
+  globalThis.__piStub.options = options;
+  return {name: "bash", execute() {}};
+}
+export function createLocalBashOperations(options) {
+  globalThis.__piStub.operations = options;
+  return {exec() {}};
+}
+`;
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "@earendil-works/pi-coding-agent") {
       return {
-        url: "data:text/javascript,export function createBashTool(){return {name: 'bash', execute() {}};}",
+        url: "data:text/javascript," + encodeURIComponent(piStub),
         shortCircuit: true,
       };
     }
@@ -19,7 +31,7 @@ registerHooks({
   },
 });
 
-const {__test} = await import("./rtk.js");
+const {__test, default: register} = await import("./rtk.js");
 const {rewrite} = __test;
 const originalPath = process.env.PATH;
 
@@ -48,4 +60,13 @@ try {
   process.env.PATH = originalPath;
 }
 
-console.log("ok - rtk rewrite fallback checks");
+// The extension replaces pi's built-in bash tool, so it must forward the
+// shellPath setting itself -- read per command, because settings are not
+// available while extensions load.
+const settings = {shellPath: "/run/current-system/sw/bin/zsh"};
+register({getSettings: () => settings, registerTool() {}});
+assert.equal(globalThis.__piStub.operations.shellPath, settings.shellPath, "shellPath reaches the shell operations");
+settings.shellPath = "/bin/zsh";
+assert.equal(globalThis.__piStub.operations.shellPath, "/bin/zsh", "shellPath is read per command");
+
+console.log("ok - rtk rewrite fallback and shellPath forwarding checks");
