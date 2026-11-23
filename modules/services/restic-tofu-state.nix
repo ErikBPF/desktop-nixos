@@ -1,5 +1,5 @@
 # Versioned backup of the OpenTofu state mirror (homelab-iac). The mirror dir
-# (written by the minio-tfstate-mirror container) is one copy on discovery's
+# (written by the seaweedfs-tfstate-mirror container) is one copy on discovery's
 # primary SSD; this snapshots it with restic onto a separate physical disk
 # (vault / sdb) for point-in-time history + integrity. Off-host redundancy is
 # handled separately by Syncthing replicating the same dir to orion + kepler.
