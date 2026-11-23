@@ -109,7 +109,7 @@
         "xbwsp-zwvsr" = "/home/${u}/backup/kube/";
         # OpenTofu state mirror (ciphertext) — discovery is the source of
         # truth; orion + kepler hold off-host copies. Populated by the
-        # minio-tfstate-mirror container (servarr).
+        # seaweedfs-tfstate-mirror container (servarr).
         "tofu-state" = {
           path = "/home/${u}/tofu-state-export/";
           devices = ["orion" "kepler"];

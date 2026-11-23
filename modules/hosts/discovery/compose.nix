@@ -29,7 +29,7 @@
       secretSpecRuntimeProfiles.networking = "networking";
       secretSpecRuntimeHealthContainers.networking = ["swag" "adguard"];
       secretSpecRuntimeProfiles.infra = "infra";
-      secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "minio-tfstate"];
+      secretSpecRuntimeHealthContainers.infra = ["postgres" "redis" "vault" "vaultwarden" "seaweedfs-tfstate"];
       secretSpecRuntimeProfiles.ha-harness = "ha-harness";
       secretSpecRuntimeHealthContainers.ha-harness = ["ha-harness"];
       secretSpecRuntimeProfiles.homepage = "homepage";

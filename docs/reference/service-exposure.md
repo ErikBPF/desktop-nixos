@@ -24,7 +24,7 @@ it is unreachable from the network.
 | 80, 443 | tcp | 0.0.0.0 | `swag` | Reverse-proxy ingress (LE certs); the sanctioned edge for all internal UIs | ✅ (also allowlisted) |
 | 53 | tcp/udp | 192.168.10.210 | `adguard` | LAN DNS | ✅ (deliberately IP-bound) |
 | 3000, 8090 | tcp | 192.168.10.210 | `adguard` | AdGuard UI (3000) + alt HTTP (8090) | ✅ (IP-bound) |
-| 9000–9001 | tcp | 192.168.10.210 | `minio-tfstate` | tofu-state S3 + console | ✅ (IP-bound) |
+| 9000 | tcp | 192.168.10.210 | `seaweedfs-tfstate` | tofu-state S3 API (console port retired with MinIO) | ✅ (IP-bound) |
 | 9090 | tcp | 0.0.0.0 | `prometheus` | Fleet `remote_write` target (hosts push over Tailscale) | ⚠️ needed for tailnet push; LAN exposure is incidental |
 | 3100 | tcp | 0.0.0.0 | `loki` | Fleet log push (same pattern) | ⚠️ same as 9090 |
 | 6443 | tcp | 0.0.0.0 | `k8s-apiserver` | Proxy to kepler k3s apiserver (kubectl access) | ⚠️ apiserver has its own authn; LAN-wide reach is broad |

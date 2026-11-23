@@ -82,5 +82,5 @@ swag-token), adguard/filtering. A restored state parses as valid OpenTofu JSON
 with the pbkdf2 encryption envelope intact (values encrypted at rest,
 decryptable with `UNIFI_STATE_PASSPHRASE`). Temp wiped after. The
 `terragrunt plan` no-diff step is continuously exercised by the daily
-plan/apply runs against the live MinIO backend; the drill here proves the
+plan/apply runs against the live SeaweedFS backend; the drill here proves the
 **offsite copy is restorable, complete, current, and correctly encrypted**.
