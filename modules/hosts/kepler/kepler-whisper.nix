@@ -18,7 +18,7 @@ _: {
         Group = "users";
         StateDirectory = "whisper";
         StateDirectoryMode = "0700";
-        ExecStart = "${whisper}/bin/whisper-server --model /fast/ai-models/whisper-ggml/ggml-large-v3-turbo.bin --host 0.0.0.0 --port 9000 -l auto --inference-path /v1/audio/transcriptions";
+        ExecStart = "${whisper}/bin/whisper-server --model /fast/ai-models/whisper-ggml/ggml-large-v3-turbo.bin --host 0.0.0.0 --port 9000 -l pt --inference-path /v1/audio/transcriptions";
         Restart = "always";
         RestartSec = 3;
         SupplementaryGroups = [
