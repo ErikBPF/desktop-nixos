@@ -28,7 +28,8 @@ Identify sessions by tmux IDs, not names or folder basenames; optional folder
 filtering uses canonical full paths. No session registry, filesystem crawling,
 automatic agent launch or forwarding-policy change is needed. Kepler enables
 tmux and Ghostty terminfo. Existing lingering and `KillUserProcesses=false`
-support disconnect persistence; host reboot persistence remains out of scope.
+support disconnect persistence. Host reboot persistence is added separately by
+`kepler-tmux-persistence`; activation is tracked in the 2026-11-23 section.
 
 ## Evidence and revision
 
@@ -193,3 +194,11 @@ servers, rooted at `/fast/compute/erik/Documents/erik/homelab` and
 `/fast/compute/erik/Documents/nstech/dataplatform`. Only the two backend
 services are enabled; desktop tmux and window units are not started. Live
 activation and provider request checks remain pending.
+
+## Kepler tmux reboot persistence — 2026-11-23
+
+The `kepler-tmux-persistence` module adds a default-socket tmux server under
+the lingering user manager, restores the last resurrect snapshot before
+`sk`/`tmux-resume` lists sessions, and saves every five minutes and when the
+server stops. It uses the default socket, so `sk` behavior is unchanged. Activation
+and the create/reboot/list check remain pending.

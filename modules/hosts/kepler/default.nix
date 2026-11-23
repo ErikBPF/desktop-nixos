@@ -24,6 +24,7 @@ in {
       m.nixos.kepler-networking
       m.nixos.kepler-monitoring
       m.nixos.kepler-development
+      m.nixos.kepler-tmux-persistence
       m.nixos.kepler-devtools
       m.nixos.kepler-syncthing
       m.nixos.kepler-nas

@@ -76,6 +76,9 @@ jobs:
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
           PATH="$package/bin:$PATH" python3 tests/local-workspace-sessions/smoke.py
 
+      - name: Kepler tmux persistence
+        run: python3 -m unittest discover -s tests/kepler-tmux-persistence -v
+
       - name: Neovim opener and session recovery
         run: |
           python3 tests/nvim-opener/test_opener.py
