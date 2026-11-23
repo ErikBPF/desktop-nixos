@@ -14,9 +14,11 @@ in {
       ${pkgs.tmux}/bin/tmux -N run-shell ${resurrect}/scripts/restore.sh
     '';
   in {
-    # Kepler's default tmux server is the one sk/tmux-resume uses. Keep it
-    # alive without clients and restore the last snapshot before a client
-    # lists sessions.
+    # Kepler's default tmux server is the one sk/tmux-resume uses. The NixOS
+    # tmux module's secureSocket default exports TMUX_TMPDIR through
+    # /etc/set-environment, so `%t` in this unit is the same runtime directory
+    # the SSH clients resolve. Keep the server alive without clients and
+    # restore the last snapshot before a client lists sessions.
     programs.tmux = {
       plugins = [pkgs.tmuxPlugins.resurrect];
       extraConfig = ''
@@ -31,6 +33,10 @@ in {
       description = "Persistent Kepler tmux server";
       wantedBy = ["default.target"];
       serviceConfig = {
+        # A live tmux server means a client or an earlier boot already owns
+        # the socket; skip the unit instead of fighting it. Probe the server,
+        # not sessions: this module keeps a sessionless server alive.
+        ExecCondition = "${pkgs.bash}/bin/bash -c '! ${pkgs.tmux}/bin/tmux -N list-sessions >/dev/null 2>&1'";
         ExecStart = "${pkgs.tmux}/bin/tmux -D";
         ExecStartPost = "-${restore}";
         ExecStop = "-${pkgs.tmux}/bin/tmux -N run-shell ${resurrect}/scripts/save.sh";
