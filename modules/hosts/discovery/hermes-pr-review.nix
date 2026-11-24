@@ -99,7 +99,10 @@ _: {
           bot_login = entry.botLogin;
           ignore_authors = entry.ignoreAuthors;
           ignore_labels = entry.ignoreLabels;
-          ignore_title = entry.ignoreTitle;
+          ignore_title =
+            if entry.ignoreTitle != ""
+            then entry.ignoreTitle
+            else cfg.ignoreTitle;
         })
         cfg.repos;
     });
@@ -137,11 +140,17 @@ _: {
             ignoreTitle = lib.mkOption {
               type = lib.types.str;
               default = "";
-              description = "Python regular expression; PR titles that match are skipped. An invalid pattern is reported and ignored.";
+              description = "Python regular expression; PR titles that match are skipped. An invalid pattern is reported and ignored. A repository that sets its own pattern replaces the fleet-wide one.";
             };
           };
         });
         default = [];
+      };
+
+      ignoreTitle = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Python regular expression applied to every repository whose entry does not set its own. A matching head is not reviewed: it gets a neutral gate check, so the required check still passes.";
       };
 
       reviewDrafts = lib.mkOption {

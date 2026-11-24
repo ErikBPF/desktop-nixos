@@ -18,10 +18,14 @@ leases, and how new heads dispatch workers.
    PRs, then writes one immutable bundle per new `(repo, pr, head)` under
    `review-in/` and queues a ledger row. A filtered head gets a `neutral`
    `hackerman-cr/evaluation` check so the required check still passes; an
-   existing run for that head is never overwritten. Drafts get no check until
-   they are reviewed, because a draft is not mergeable. Bundles are created under `umask 022`
-   and hardened again before the rename, so the reviewing agent cannot rewrite
-   its own diff or evidence.
+   existing run for that head is never overwritten. `ignoreTitle` is a
+   fleet-wide default (a repository entry that sets its own pattern replaces
+   it); it currently skips version bumps — `chore(deps)`, `fix(deps)`,
+   `build(deps)`, and renovate's `chore: update packaged upstream` — which were
+   a third of the PR volume for nothing a reviewer can act on. Drafts get no
+   check until they are reviewed, because a draft is not mergeable. Bundles are
+   created under `umask 022` and hardened again before the rename, so the
+   reviewing agent cannot rewrite its own diff or evidence.
    A head the ledger has never seen waits for the settle window
    (`settleMinutes`, default 5): the collector remembers the head it saw on the
    previous pass and bundles it only once the head has been stable that long.
@@ -94,6 +98,10 @@ leases, and how new heads dispatch workers.
 6. `hermes-pr-review-publish.timer` runs every 30 seconds, posts the comment,
    review verdict, and gate check, writes a root-only publication marker under
    `/var/lib/hermes-pr-review/published/`, then marks the row `published`.
+   The comment carries the summary, the findings, and `limits`; the packet's
+   `validation` list stays in `review-done/<bundle>.json`. It used to be posted
+   too, and was 62% of the average comment — including on the majority of heads
+   with no finding to report.
 
 A new head is normally visible as a check within the settle window plus review
 time plus about one minute. An OCR-enabled deployment adds the serial candidate
