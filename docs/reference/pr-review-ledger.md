@@ -78,11 +78,12 @@ leases, and how new heads dispatch workers.
    `secret/home/ocr-review-litellm`, and it is fail-open — a missing credential
    or a failed run leaves the bundle reviewable without candidates.
 
-   `ocrTimeoutMinutes` (default 15) is the budget for one head's **whole pass**.
-   It is a run-wide concurrent-task budget, not a per-subtask one, and OCR
-   multiplies the value it receives by the effort preset's review rounds — so
-   the collector divides this budget by those rounds before handing it over,
-   and two minutes of slack stay above the result. Measured passes need about 2 minutes at the median and 7 minutes for a
+   `ocrTimeoutMinutes` (default 15) is the budget for one head's pass. OCR
+   scales the `--timeout` it receives by the effort preset (low 1, medium 2,
+   high 3), so the collector hands over this budget divided by those rounds and
+   keeps two minutes of slack above it. A pass that dispatches more groups than
+   OCR's concurrency can still outlast the allowance; whatever the CLI wrote is
+   then kept as a `partial` result rather than discarded. Measured passes need about 2 minutes at the median and 7 minutes for a
    13-file diff, so the earlier 5-minute value cut passes off mid-run and the
    CLI exited non-zero with a `partial` result. A truncated pass keeps its
    finished candidates (`status: partial` plus the reason) instead of being
