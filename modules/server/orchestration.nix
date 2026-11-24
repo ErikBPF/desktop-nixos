@@ -268,13 +268,6 @@ in {
               EnvironmentFile = lib.optional (secretSpecProfile == null) "-${cfg.composeDir}/.env";
               # Docker socket — rootless Podman by default, override for rootful Docker.
               Environment = "DOCKER_HOST=${cfg.dockerSocket}";
-              # Podman records the API client's OOM score on every container it
-              # creates, and a non-zero value makes crun fail detached execs with
-              # "write to /proc/self/oom_score_adj: permission denied" - which
-              # breaks every Ofelia backup job. Keep the client at 0; the
-              # user@.service floor is lowered in the containers module so this
-              # write is permitted.
-              OOMScoreAdjust = 0;
               ExecStart = "${secretSpecPrefix}/run/current-system/sw/bin/docker-compose --project-name ${name} --env-file ${composeEnv}${vaultEnvFlags} -f ${cfg.composeDir}/${name}.yml up -d --remove-orphans";
               ExecStartPost = lib.optional (secretSpecHealthContainers != []) secretSpecHealthGate;
               # Stop by Compose's project label so shutdown never depends on a
