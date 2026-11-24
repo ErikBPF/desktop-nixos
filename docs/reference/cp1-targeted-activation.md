@@ -13,8 +13,9 @@ post-health runner-persistence instructions remain superseded.
 ## Purpose and boundaries
 
 The recovery candidate preserves the guest kernel, initrd, interfaces, volumes and
-shares while joining cp-3 without `cluster-init`. K3s gets `Restart=no` and a
-five-minute startup timeout. Bootstrap service/timer are disabled in source; the
+shares while joining cp-3 without `cluster-init`. K3s keeps the stock unit
+defaults: `Restart=always`, no startup timeout and the `multi-user.target`
+boot edge, so the node rejoins on its own after a host reboot. Bootstrap service/timer are disabled in source; the
 manifest reconciler loses its K3s start dependency and gains an active-service
 condition. These are the only allowed unit changes.
 
@@ -84,10 +85,11 @@ This upstream dry activation does not switch services, but its user-management
 script may normalize `/root` and `/home` directory metadata; it is not promised
 to make zero filesystem writes. Include that bounded behavior in live approval.
 The existing activation implementation loads guest registration, selects
-the new guest profile and switches only that guest. The candidate has no K3s
-boot target edge. After the approved member removal and datastore quarantine,
-the helper switches configuration (120 seconds), then explicitly starts K3s
-once (330 seconds, enclosing its 300-second service timeout). The SSH operation
+the new guest profile and switches only that guest. The candidate carries the
+stock `multi-user.target` boot edge, so the helper masks K3s for the switch.
+After the approved member removal and datastore quarantine it masks the unit,
+switches configuration (120 seconds), verifies closure and boot ID, unmasks,
+verifies the loaded unit, then starts K3s once under a 330-second budget. The SSH operation
 has a 660-second outer budget covering preview (60 seconds), switch, start and
 cleanup. Signal/failure handling attempts a bounded stop and checks K3s PID zero;
 transport loss can prevent confirmation and must be treated as uncontained until
@@ -202,12 +204,15 @@ preflight and OR-list postcheck contexts; changed running or persistent host
 profiles fail even when the runner still matches. Both postcheck regressions
 failed before repair; no live activation had occurred.
 
-Before the explicit start, the helper verifies the selected guest closure and
-boot identity, loaded `Restart=no`, bootstrap masks, and loaded K3s command
-joining cp-3 without `--cluster-init`. A successful switch exit alone is not
-enough. Stale-closure and stale-command fixtures both failed before this ordering
-repair and now stop without invoking K3s start. Loaded command values are not
-printed. The final active, boot and closure checks still run after the one start.
+The helper masks K3s for the switch so the boot edge cannot start it inside the
+120-second transaction. It then verifies the selected guest closure and boot
+identity, unmasks, verifies the loaded `Restart=always`, bootstrap masks and the
+loaded K3s command joining cp-3 without `--cluster-init`, and starts K3s once
+under its own 330-second budget. A failure between the mask and the unmask
+leaves a runtime mask that clears on reboot. A successful switch exit alone is not enough.
+Stale-closure and stale-command fixtures both fail before that start. Loaded
+command values are not printed. The final active, boot and closure checks still
+run after the one start.
 
 ### Documentation hold correction — 2026-11-22
 

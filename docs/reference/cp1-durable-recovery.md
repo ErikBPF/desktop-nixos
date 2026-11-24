@@ -56,8 +56,9 @@ is **withdrawn and was never executed**. Its `deploy-rs-activate` runs
 exact safe default required here. This finding supersedes prior deploy-rs
 completion instructions; the host `492mc5…` artifact itself is unchanged.
 
-The reviewed guest artifacts are `9m1zvc…`
-and `s226dm…`; require full path equality with the published metadata. Verify
+Build the candidate guest artifacts with `just cp1-stage-artifacts` and bind
+the paths it publishes; the pre-change closure and runner hashes are history,
+not acceptance criteria. Verify
 unchanged host kernel, relevant hardware, Syncthing/credentials and five sibling
 guest closures before live approval. No invented pending closure paths.
 
@@ -142,8 +143,9 @@ Then run through the merged owner recipe, using the new actual remote filename:
 just cp1-activate "$REMOTE_MANIFEST" preview
 ```
 
-Source validation: the helper verifies both identities, exact built-unit delta,
-boot masks/no automatic K3s boot edge, and stopped recovery units, then calls only
+Source validation: the helper verifies both identities, the exact built-unit
+delta, bootstrap masks, the required `multi-user.target` boot edge and its single
+wants link, and stopped recovery units, then calls only
 `switch-to-configuration dry-activate` (60-second bound). Preview exits before
 registration loading, guest profile creation, switch or explicit K3s start.
 It may normalize `/root` and `/home` metadata. Inspect output and recheck stopped
@@ -217,10 +219,11 @@ just cp1-activate "$REMOTE_MANIFEST" activate
 
 The existing helper repeats its 60-second dry activation before loading
 registration/creating the first guest profile; the new approval must include
-that repetition after removal. It switches guest configuration (120 seconds),
-verifies new closure, unchanged boot ID, loaded Restart=no, bootstrap masks and
-exact cp-3 join command without cluster-init, then explicitly starts K3s ONCE
-(330 seconds enclosing the 300-second service timeout; outer SSH 660 seconds).
+that repetition after removal. It masks K3s for the switch (120 seconds) so the
+boot edge cannot start it mid-transaction, verifies new closure and unchanged
+boot ID, unmasks, verifies loaded Restart=always, bootstrap masks and the exact
+cp-3 join command without cluster-init, then starts K3s once under a 330-second
+budget (outer SSH 660 seconds).
 It checks active state/boot/closure and unchanged host/runner afterward.
 
 A failed start invokes bounded stop and checks PID zero. A pre-start failure

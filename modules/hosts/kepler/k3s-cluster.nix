@@ -401,14 +401,12 @@ in {
       # discovery's LAN IP (reached from the private subnet via kepler's NAT).
       networking.hosts."192.168.10.210" = ["harbor.homelab.${domain}"];
       services.k3s.extraFlags = ["--private-registry=/run/harbor-reader/registries.yaml"];
-      # Temporary cp-1 member replacement; retain s.clusterInit and its shares.
+      # cp-1 joins as an existing etcd member (clusterInit stays off) but runs
+      # the same unit defaults as cp-2/cp-3: enabled at boot, Restart=always.
+      # The earlier manual-start override left one node NotReady after every
+      # kepler reboot until an operator started k3s by hand.
       services.k3s.clusterInit = lib.mkIf (name == "cp-1") (lib.mkForce false);
       services.k3s.serverAddr = lib.mkIf (name == "cp-1") (lib.mkForce "https://10.250.0.13:6443");
-      systemd.services.k3s.wantedBy = lib.mkIf (name == "cp-1") (lib.mkForce []);
-      systemd.services.k3s.serviceConfig = lib.mkIf (name == "cp-1") {
-        Restart = lib.mkForce "no";
-        TimeoutStartSec = lib.mkForce "5min";
-      };
 
       # SSH for admin / kubectl over the bridge (ssh -A kepler; ssh root@<nodeIp>).
       services.openssh.enable = true;

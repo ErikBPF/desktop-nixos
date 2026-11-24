@@ -11,9 +11,9 @@ jq -e '
   (.candidate.stateDir == "/fast/microvms") and
   (.candidate.clusterInit == false) and
   (.candidate.serverAddr == "https://10.250.0.13:6443") and
-  (.candidate.restart == "no") and
-  (.candidate.wantedBy == []) and
-  (.candidate.timeoutStartSec == 300) and
+  (.candidate.restart == "always") and
+  (.candidate.wantedBy == ["multi-user.target"]) and
+  (.candidate.timeoutStartSec == 0) and
   (.candidate.bootstrapTimer == false and .candidate.bootstrapService == false) and
   (.baseline.guestProfile == "absent" or (.baseline.guestProfile | test("^/nix/store/[a-z0-9]{32}-[A-Za-z0-9+._-]+$"))) and
   (.baseline.guestBootId | test("^[a-f0-9-]{36}$")) and
@@ -59,9 +59,10 @@ for name in sorted({str(p.relative_to(root)) for root in (old,new) for p in root
     if not a.exists() or not b.exists() or a.read_bytes() != b.read_bytes():
         raise SystemExit('unrelated guest unit change: '+name)
 a,b = ((root/'k3s.service').read_text() for root in (old,new))
-assert '\nRestart=no\n' in b and any('\nTimeoutStartSec='+value+'\n' in b for value in ('300','300s','5min'))
-assert not re.search(r'^WantedBy=',b,re.M), 'candidate must not install a boot start edge'
-assert not any(p != new/'k3s.service' for p in new.rglob('k3s.service')), 'candidate boot/alias link remains'
+assert '\nRestart=always\n' in b and '\nTimeoutStartSec=0\n' in b
+assert re.search(r'^WantedBy=multi-user.target$', b, re.M), 'candidate must install the boot start edge'
+extra = {p.relative_to(new) for p in new.rglob('k3s.service')} - {Path('k3s.service'), Path('multi-user.target.wants/k3s.service')}
+assert not extra, 'candidate boot/alias link remains: ' + ', '.join(map(str, extra))
 assert '--cluster-init' not in b and re.search(r'--server(?:=|\s+)https://10\.250\.0\.13:6443(?:\s|$)',b)
 def stable(text):
     text = text.replace("\n[Install]\nWantedBy=multi-user.target\n", "")
@@ -125,10 +126,14 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "$nix/bin/nix-store" --load-db < "$registration"
 "$nix/bin/nix-env" -p /nix/var/nix/profiles/system --set "$new"
+# Hold K3s out of the switch transaction: the image carries the boot edge, but
+# the join must follow the loaded-unit checks and keep its own start budget.
+systemctl mask --runtime k3s.service
 timeout 120 "$new/bin/switch-to-configuration" switch
 [[ $(cat /proc/sys/kernel/random/boot_id) == "$boot" ]]
 [[ $(readlink -e /run/current-system) == "$new" ]]
-[[ $(timeout 10 systemctl show k3s.service --property=Restart --value) == no ]]
+systemctl unmask --runtime k3s.service
+[[ $(timeout 10 systemctl show k3s.service --property=Restart --value) == always ]]
 for unit in k3s-bootstrap-secrets.timer k3s-bootstrap-secrets.service; do
   [[ $(systemctl show "$unit" --property=LoadState --value) == masked ]]
   [[ $(systemctl is-active "$unit" || true) != active ]]
