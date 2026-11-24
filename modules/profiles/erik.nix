@@ -23,7 +23,9 @@ in {
     ];
   };
 
-  flake.modules.home.profile-erik = {...}: {
+  flake.modules.home.profile-erik = {config, ...}: {
+    home.sessionVariables.GH_CONFIG_DIR = "${config.xdg.configHome}/gh";
+
     imports = [
       m.home.nvim
       m.home.codex

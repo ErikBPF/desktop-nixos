@@ -304,6 +304,9 @@ in {
             unset OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT
             unset OPENCODE_LITELLM_KEY OPENCODE_WORK_KEY
             export OPENCODE_CONFIG_DIR=${lib.escapeShellArg "${config.xdg.configHome}/opencode"}
+            # gh children resolve this explicit path even when an agent rewrites
+            # XDG_CONFIG_HOME; the rendered multi-account hosts file lives here.
+            export GH_CONFIG_DIR=${lib.escapeShellArg "${config.xdg.configHome}/gh"}
             # Inline config wins over global/project config; project config is
             # disabled so a repository file cannot widen role permissions.
             export OPENCODE_CONFIG_CONTENT=${lib.escapeShellArg (builtins.toJSON profiles.${project.name})}
