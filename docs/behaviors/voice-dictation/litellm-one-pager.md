@@ -55,3 +55,7 @@ The repository hygiene check rejected an unregistered `tests/voice-dictation` di
 `wait_for_stop(process)` now checks for recorder death every 200 ms while retaining the 115-second monotonic deadline. The existing finally block still reaps the child; `dictate` still deletes partial audio and never transcribes or writes the clipboard after this failure. The RED run reproduced the previous 115-second blind wait; the green run passed 34 hygiene/voice tests, including prompt failure, cleanup and the duration limit. Independent reviewer `voice_research_review` inspected this diff and reported: “Recorder polling preserves the deadline and fails promptly on process death; 29 unit tests passed.” No live microphone was accessed by that review.
 
 A later read-only desktop check found the default NoiseTorch source muted. The user confirmed the built-in microphone is intended; unmuting and a physical capture check await the explicit response. This observation is not proof of the cause of the earlier report.
+
+## Alias cleanup — 2026-11-24
+
+The client asks for the gateway routes that already exist: `whisper-pt-br` for ASR (Kepler `:9000`) and `qwen3.8-flash-next` for contextual rewrite (Orion `:8080`, now served by Strata on Qwen3.8-Flash-Next Q2_0 at 120k context, two slots). The dedicated `voice-rewrite` alias was removed from the IaC, so the branch no longer calls it; `voice-transcribe` remains declared but unused by this client. Local fallback is unchanged: Parakeet for ASR and the loopback Ollama model for rewriting.
