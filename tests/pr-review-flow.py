@@ -340,7 +340,11 @@ def test_ocr_budget_is_a_whole_pass_budget():
     check(budget == 15 * 60 + 120, f"unexpected budget {budget}")
     check(
         collect.ocr_budget({"effort": "high", "timeout_minutes": 15}) == budget,
-        "the effort preset must not scale the budget",
+        "the effort preset must not scale the wrapper allowance",
+    )
+    check(
+        collect.ocr_cli_minutes({"effort": "high"}, budget) == (budget - 120) // 180,
+        "the CLI budget must be the allowance divided by the effort rounds",
     )
     check(
         collect.ocr_budget({"effort": "low", "timeout_minutes": 16})

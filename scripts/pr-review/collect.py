@@ -27,8 +27,9 @@ import tokens
 
 GH = "gh"
 # Keep the wrapper ceiling, the per-run cap and the unit start bound in one
-# budget. `--timeout` is absolute: the effort preset changes how much work fits
-# in it, not how long it may run.
+# budget. OCR applies the effort preset as review rounds, so the value handed to
+# `--timeout` is the wrapper allowance divided by these; see `ocr_cli_minutes`.
+OCR_EFFORT_ROUNDS = {"low": 1, "medium": 2, "high": 3}
 OCR_RUN_BUDGET_SECONDS = 26 * 60
 # Fetch, worktree add and process slack a head needs outside the model call.
 OCR_HEAD_OVERHEAD_SECONDS = 8 * 60
@@ -623,7 +624,7 @@ def ocr_settings(settings: dict | None, repo: str) -> dict | None:
 
 
 def ocr_invocation(
-    cfg: dict, worktree: Path, base: str, head: str, out: Path
+    cfg: dict, worktree: Path, base: str, head: str, out: Path, minutes: int
 ) -> list[str]:
     return [
         cfg.get("binary", "ocr"),
@@ -639,7 +640,7 @@ def ocr_invocation(
         "--effort",
         cfg.get("effort", "low"),
         "--timeout",
-        str(cfg.get("timeout_minutes", 5)),
+        str(minutes),
         "--format",
         "json",
         "--audience",
@@ -650,18 +651,31 @@ def ocr_invocation(
 
 
 def ocr_budget(cfg: dict, remaining: float | None = None) -> int:
-    """Seconds the CLI may use for one head, inside the run budget.
+    """Seconds this wrapper allows one head, inside the run budget.
 
-    ``--timeout`` is the CLI's whole-run task budget, not a per-subtask one, and
-    the effort preset does not extend it: it changes how many subtasks fit.
-    Two minutes of slack sit above it, so the CLI can write its partial or final
-    JSON before this wrapper's kill, which would lose the pass entirely.
+    Two minutes of slack sit above the CLI's own budget, so it can write its
+    partial or final JSON before the kill, which would otherwise lose the pass
+    entirely.
     """
     budget = int(cfg.get("timeout_minutes", 15)) * 60 + 120
     budget = min(budget, OCR_RUN_BUDGET_SECONDS - OCR_HEAD_OVERHEAD_SECONDS)
     if remaining is not None:
         budget = min(budget, int(remaining) - OCR_HEAD_OVERHEAD_SECONDS)
     return budget
+
+
+def ocr_cli_minutes(cfg: dict, budget: int) -> int:
+    """Minutes to pass as ``--timeout`` for a wrapper allowance of ``budget``.
+
+    OCR applies the effort preset as review rounds, and its own budget is
+    documented as ``--timeout`` times those rounds, so the value handed over is
+    the allowance divided by the rounds. Dividing also keeps the CLI inside the
+    kill if the flag turns out to be absolute, so both readings are safe. The
+    two clamped cases matter: whatever prunes ``budget`` (the run cap or the
+    remaining run time) prunes this value with it.
+    """
+    rounds = OCR_EFFORT_ROUNDS.get(str(cfg.get("effort", "low")), 1)
+    return max(1, (int(budget) - 120) // (60 * max(1, rounds)))
 
 
 def keep_partial(out: Path, reason: str, worktree: Path, started: float, timeout: int) -> bool:
@@ -696,9 +710,10 @@ def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path, time
     instead of replacing the result with an error stub.
     """
     started = time.time()
+    minutes = ocr_cli_minutes(cfg, timeout)
     try:
         proc = subprocess.run(
-            ocr_invocation(cfg, worktree, base, head, out),
+            ocr_invocation(cfg, worktree, base, head, out, minutes),
             capture_output=True,
             text=True,
             timeout=timeout,

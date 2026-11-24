@@ -249,12 +249,11 @@ _: {
       };
       ocrTimeoutMinutes = lib.mkOption {
         # 16 min + 2 min of slack is exactly the per-head cap the run budget
-        # leaves, so a larger value would let the wrapper kill the CLI before it
-        # writes its JSON — losing the whole pass. The effort preset does not
-        # scale this: `--timeout` is absolute.
+        # leaves, so a larger value would leave the wrapper nothing to hand the
+        # CLI after the effort rounds divide it.
         type = lib.types.ints.between 1 16;
         default = 15;
-        description = "Budget in minutes for one head's whole candidate pass, passed as `--timeout` to OCR. That flag is the run's concurrent-task budget, not a per-subtask one, so the value has to cover every subtask the pass dispatches: measured passes need about 7 minutes for a 13-file diff and 2 minutes at the median. The effort preset changes how much work fits in the budget, not the budget itself. The wrapper allows two minutes of slack above it so the CLI can write its JSON, clamped to a 26-minute OCR budget per collect run after a fixed fetch/worktree reserve. The unit keeps a 40-minute start bound.";
+        description = "Budget in minutes for one head's whole candidate pass. That pass is a run-wide concurrent-task budget, not a per-subtask one, so it has to cover every subtask OCR dispatches: measured passes need about 7 minutes for a 13-file diff and 2 minutes at the median. OCR multiplies the value it receives by the effort rounds (low 1, medium 2, high 3), so the collector divides this budget by those rounds before handing it over; two minutes of slack stay above it so the CLI can write its JSON before the wrapper kill. The wrapper allowance is clamped to a 26-minute OCR budget per collect run after a fixed fetch/worktree reserve, and the CLI budget is derived from that clamped value, so no clamp can kill the CLI before it writes. The unit keeps a 40-minute start bound.";
       };
       ocrBaseUrl = lib.mkOption {
         type = lib.types.str;
