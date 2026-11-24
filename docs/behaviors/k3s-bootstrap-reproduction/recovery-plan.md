@@ -78,7 +78,8 @@ restore old etcd, recreate the removed member, switch the old guest closure, or
 retry. Escalate for a fresh reviewed recovery choice.
 
 After live recovery is independently accepted, a separate source cleanup must
-restore the boot start edge, normal restart and bootstrap reconciliation policies using the PR505
-maintenance-safe dependency behavior. Review whether to retain a healthy join
-URL, then preview and activate that cleanup on cp1 only. Until then, the
-single-attempt/no-reconciliation state remains an explicit operational risk.
+restore the bootstrap service/timer and the manifest reconciliation policy using
+the PR505 maintenance-safe dependency behavior. The boot edge and the stock
+restart policy are already in place. Review whether to retain a healthy join URL,
+then preview and activate that cleanup on cp1 only. Until then, the
+no-reconciliation state remains an explicit operational risk.
