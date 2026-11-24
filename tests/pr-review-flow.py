@@ -339,9 +339,13 @@ def test_ocr_budget_is_a_whole_pass_budget():
     budget = collect.ocr_budget(cfg)
     check(budget == 15 * 60 + 120, f"unexpected budget {budget}")
     check(
-        collect.ocr_budget({"effort": "high", "timeout_minutes": 15}) 
+        collect.ocr_budget({"effort": "high", "timeout_minutes": 15}) == budget,
+        "the effort preset must not scale the budget",
+    )
+    check(
+        collect.ocr_budget({"effort": "low", "timeout_minutes": 16})
         == collect.OCR_RUN_BUDGET_SECONDS - collect.OCR_HEAD_OVERHEAD_SECONDS,
-        "a three-round pass must clamp to the run budget",
+        "the largest accepted value must still fit the run budget",
     )
     check(
         collect.ocr_budget(cfg, remaining=600) == 600 - collect.OCR_HEAD_OVERHEAD_SECONDS,

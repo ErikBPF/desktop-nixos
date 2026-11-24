@@ -112,11 +112,11 @@ leases, and how new heads dispatch workers.
 
 A new head is normally visible as a check within the settle window plus review
 time plus about one minute. An OCR-enabled deployment adds the serial candidate
-pass — up to
-`ocrTimeoutMinutes` × effort rounds per new head, capped at 20 minutes of OCR
-work per collect run — before the bundle is sealed. The collect unit carries a
-30-minute start bound for that reason. An idle worker prints the Hermes
-`{"wakeAgent": false}` gate and exits without invoking the model.
+pass — up to `ocrTimeoutMinutes` plus two minutes per head, inside a 26-minute
+OCR budget per collect run — before the bundle is sealed. The collect unit
+carries a 40-minute start bound for that reason, and the review also waits for
+the head's other checks, so the two delays add up. An idle worker prints the
+Hermes `{"wakeAgent": false}` gate and exits without invoking the model.
 
 ## Ledger
 

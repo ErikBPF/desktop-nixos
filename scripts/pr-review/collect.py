@@ -26,9 +26,9 @@ import ledger
 import tokens
 
 GH = "gh"
-# OCR scales its task budget by the effort rounds. Keep the wrapper ceiling,
-# the per-run cap and the unit start bound in one budget.
-OCR_EFFORT_ROUNDS = {"low": 1, "medium": 2, "high": 3}
+# Keep the wrapper ceiling, the per-run cap and the unit start bound in one
+# budget. `--timeout` is absolute: the effort preset changes how much work fits
+# in it, not how long it may run.
 OCR_RUN_BUDGET_SECONDS = 26 * 60
 # Fetch, worktree add and process slack a head needs outside the model call.
 OCR_HEAD_OVERHEAD_SECONDS = 8 * 60
@@ -652,13 +652,12 @@ def ocr_invocation(
 def ocr_budget(cfg: dict, remaining: float | None = None) -> int:
     """Seconds the CLI may use for one head, inside the run budget.
 
-    ``--timeout`` is the CLI's whole-run task budget, not a per-subtask one: the
-    value has to cover every subtask the pass dispatches. Two minutes of slack
-    sit above it, so the CLI can write its partial or final JSON before this
-    wrapper's kill, which would lose the pass entirely.
+    ``--timeout`` is the CLI's whole-run task budget, not a per-subtask one, and
+    the effort preset does not extend it: it changes how many subtasks fit.
+    Two minutes of slack sit above it, so the CLI can write its partial or final
+    JSON before this wrapper's kill, which would lose the pass entirely.
     """
-    rounds = OCR_EFFORT_ROUNDS.get(cfg.get("effort", "low"), 1)
-    budget = int(cfg.get("timeout_minutes", 15)) * rounds * 60 + 120
+    budget = int(cfg.get("timeout_minutes", 15)) * 60 + 120
     budget = min(budget, OCR_RUN_BUDGET_SECONDS - OCR_HEAD_OVERHEAD_SECONDS)
     if remaining is not None:
         budget = min(budget, int(remaining) - OCR_HEAD_OVERHEAD_SECONDS)

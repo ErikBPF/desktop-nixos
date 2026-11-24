@@ -33,18 +33,19 @@ class OcrCandidateTest(unittest.TestCase):
         self.assertEqual(argv[argv.index("--audience") + 1], "agent")
         self.assertEqual(argv[argv.index("--output") + 1], "/bundle/ocr.json")
 
-    def test_budget_scales_with_effort_and_stays_inside_the_run_cap(self):
+    def test_budget_is_the_pass_plus_slack_and_stays_inside_the_run_cap(self):
         cap = collect.OCR_RUN_BUDGET_SECONDS - collect.OCR_HEAD_OVERHEAD_SECONDS
         # A pass gets its own minutes plus two minutes of slack, so the CLI can
-        # write its JSON before this wrapper kills it.
+        # write its JSON before this wrapper kills it. `--timeout` is absolute:
+        # the effort preset changes how much work fits, not the budget.
+        for effort in ("low", "medium", "high"):
+            self.assertEqual(
+                collect.ocr_budget({"timeout_minutes": 15, "effort": effort}),
+                15 * 60 + 120,
+            )
+        self.assertEqual(collect.ocr_budget({"timeout_minutes": 16}), cap)
         self.assertEqual(
-            collect.ocr_budget({"timeout_minutes": 15, "effort": "low"}), 15 * 60 + 120
-        )
-        self.assertEqual(
-            collect.ocr_budget({"timeout_minutes": 15, "effort": "high"}), cap
-        )
-        self.assertEqual(
-            collect.ocr_budget({"timeout_minutes": 15, "effort": "low"}, remaining=700),
+            collect.ocr_budget({"timeout_minutes": 15}, remaining=700),
             700 - collect.OCR_HEAD_OVERHEAD_SECONDS,
         )
 
