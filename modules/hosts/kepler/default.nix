@@ -20,6 +20,7 @@ in {
       m.nixos.profile-base
       m.nixos.profile-server
       m.nixos.erik-vault-agent
+      m.nixos.erik-secretspec
       m.nixos.systemd-boot-counting
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
