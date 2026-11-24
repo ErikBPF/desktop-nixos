@@ -484,62 +484,51 @@ def test_ocr_budget_is_a_whole_pass_budget():
 
 
 def test_checks_gate_waits_for_the_other_checks():
-    class Proc:
-        def __init__(self, rows):
-            self.stdout = "" if rows is None else json.dumps(rows)
-            self.returncode = 0
+    def run_with(runs):
+        collect.gh_json = lambda args, token: {"check_runs": runs}
 
-    def run_with(rows):
-        collect.subprocess.run = lambda *a, **k: Proc(rows)
-
-    original = collect.subprocess.run
+    original = collect.gh_json
     try:
-        own = {"name": collect.CHECK_NAME, "bucket": "fail"}
+        own = {"name": collect.CHECK_NAME, "status": "completed", "conclusion": "failure"}
         run_with([own])
-        check(collect.checks_ready("r/a", 1, "a" * 40, "t")[0], "our own check only")
+        check(collect.checks_ready("r/a", "a" * 40, "t")[0], "our own check only")
 
-        run_with(None)
-        check(collect.checks_ready("r/a", 1, "a" * 40, "t")[0], "no checks reported")
+        run_with([])
+        check(collect.checks_ready("r/a", "a" * 40, "t")[0], "no checks")
 
         run_with(
             [
                 own,
-                {"name": "lint", "bucket": "fail"},
-                {"name": "eval (orion)", "bucket": "pass"},
+                {"name": "lint", "status": "completed", "conclusion": "failure"},
+                {"name": "eval (orion)", "status": "completed", "conclusion": "success"},
             ]
         )
-        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        ready, why = collect.checks_ready("r/a", "a" * 40, "t")
         check(not ready and why.startswith("failing: lint"), why)
 
-        run_with(
-            [{"name": "lint", "bucket": "pending"}, {"name": "eval", "bucket": "pass"}]
-        )
-        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        run_with([{"name": "lint", "status": "in_progress", "conclusion": None}])
+        ready, why = collect.checks_ready("r/a", "a" * 40, "t")
         check(not ready and why.startswith("pending: lint"), why)
 
         run_with(
             [
-                own,
-                {"name": "lint", "bucket": "pass"},
-                {"name": "notify", "bucket": "skipping"},
+                {"name": "lint", "status": "completed", "conclusion": "success"},
+                {"name": "notify", "status": "completed", "conclusion": "skipped"},
+                {"name": "docs", "status": "completed", "conclusion": "neutral"},
             ]
         )
-        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        ready, why = collect.checks_ready("r/a", "a" * 40, "t")
         check(ready, why)
 
         # A repository whose App token cannot read checks must not go dark.
-        collect.subprocess.run = lambda *a, **k: type(
-            "P",
-            (),
-            {
-                "stdout": "GraphQL: Resource not accessible by integration",
-                "returncode": 0,
-            },
-        )()
-        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        def boom(args, token):
+            raise RuntimeError("GraphQL: Resource not accessible by integration")
+
+        collect.gh_json = boom
+        ready, why = collect.checks_ready("r/a", "a" * 40, "t")
         check(ready, f"unreadable check data must fail open: {why}")
     finally:
-        collect.subprocess.run = original
+        collect.gh_json = original
 
 
 def test_request_bypasses_the_settle_window():
@@ -585,6 +574,43 @@ def test_request_bypasses_the_settle_window():
         check(
             collect_settle_ready(settle, "r/a#7", head, 5) is True,
             "the collector must bundle a requested head immediately",
+        )
+
+        # The same request for a head the ledger already knows must also carry
+        # the marker: this path is the common one.
+        db = ledger.connect(ledger_path)
+        try:
+            ledger.record(db, "r/a", 7, head, "b" * 40, ledger.bundle_id("r/a", 7, head))
+            ledger.finish(db, "r/a", 7, head, "published")
+        finally:
+            db.close()
+        (state / "settle.json").unlink()
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS / "request.py"),
+                "--ledger",
+                str(ledger_path),
+                "--data-dir",
+                str(data),
+                "--state-dir",
+                str(state),
+                "--repo",
+                "r/a",
+                "--pr",
+                "7",
+                "--head",
+                head,
+            ],
+            text=True,
+            capture_output=True,
+        )
+        check(proc.returncode == 0, proc.stderr)
+        check("REQUEUED" in proc.stdout, proc.stdout)
+        settle = json.loads((state / "settle.json").read_text())
+        check(
+            collect.settle_explicit(settle.get("r/a#7")),
+            f"a re-request must stay explicit, got {settle}",
         )
 
 

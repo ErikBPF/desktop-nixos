@@ -194,59 +194,65 @@ def settle_explicit(record) -> bool:
     )
 
 
-def checks_ready(repo: str, pr: int, head: str, token: str) -> tuple[bool, str]:
-    """Whether the head's other checks have all passed, and a short reason.
+CHECK_OK = ("success", "neutral", "skipped")
+CHECK_BAD = (
+    "failure",
+    "timed_out",
+    "cancelled",
+    "action_required",
+    "startup_failure",
+    "stale",
+)
 
-    A review of a head whose CI is red is a paid-for opinion nobody acts on: the
-    head cannot merge anyway. The gate check itself is excluded — it is the
-    verdict this gate is deciding not to produce yet. Unreadable check data is
-    fail-open: a repository whose App token cannot read workflow runs is
-    reviewed exactly as before, rather than never.
+
+def checks_ready(repo: str, head: str, token: str) -> tuple[bool, str]:
+    """Whether the other check runs on this head have all passed.
+
+    Pinned to ``head``, not to the pull request: the bundle is built for the
+    ``headRefOid`` a listing captured earlier, and a push during a pass would
+    otherwise let another commit's checks release this one. A review of a head
+    whose CI is red is a paid-for opinion nobody acts on — the head cannot
+    merge anyway — and the gate check itself is excluded, since it is the
+    verdict this gate is deciding not to produce yet.
+
+    Unreadable check data is fail-open: a repository whose App token cannot read
+    checks is reviewed exactly as before, rather than never. The REST endpoint
+    is used because the GraphQL rollup behind `gh pr checks` needs a permission
+    the reviews App does not have in every repository.
     """
     try:
-        proc = subprocess.run(
+        data = gh_json(
             [
-                GH,
-                "pr",
-                "checks",
-                str(pr),
-                "--repo",
-                repo,
-                "--json",
-                "name,state,bucket",
+                "api",
+                f"repos/{repo}/commits/{head}/check-runs?per_page=100",
             ],
-            capture_output=True,
-            text=True,
-            env=tokens.gh_env(token),
+            token,
         )
     except Exception as exc:
         return True, f"unreadable ({exc})"
-    raw = (proc.stdout or "").strip()
-    if not raw:
-        return True, "no checks reported"
-    try:
-        rows = json.loads(raw)
-    except ValueError:
-        return True, "no readable checks"
-    if not isinstance(rows, list) or not rows:
-        return True, "no checks reported"
-    others = [
-        row
-        for row in rows
-        if isinstance(row, dict) and str(row.get("name")) != CHECK_NAME
+    runs = [
+        run
+        for run in (data.get("check_runs") if isinstance(data, dict) else None) or []
+        if isinstance(run, dict) and str(run.get("name")) != CHECK_NAME
     ]
-    if not others:
+    if not runs:
         return True, "no other checks"
-    pending = [
-        str(row.get("name"))
-        for row in others
-        if str(row.get("bucket") or "") not in ("pass", "skipping")
+    failing = [
+        str(run.get("name"))
+        for run in runs
+        if str(run.get("conclusion") or "") in CHECK_BAD
     ]
-    if not pending:
-        return True, "all checks pass"
-    failing = any(str(row.get("bucket") or "") == "fail" for row in others)
-    label = "failing" if failing else "pending"
-    return False, f"{label}: {', '.join(sorted(pending)[:3])}"
+    if failing:
+        return False, f"failing: {', '.join(sorted(failing)[:3])}"
+    pending = [
+        str(run.get("name"))
+        for run in runs
+        if str(run.get("status") or "") != "completed"
+        or str(run.get("conclusion") or "") not in CHECK_OK
+    ]
+    if pending:
+        return False, f"pending: {', '.join(sorted(pending)[:3])}"
+    return True, "all checks pass"
 
 
 def save_settle(path: Path, settle: dict) -> None:
@@ -1577,7 +1583,7 @@ def main() -> int:
             explicit = settle_explicit(
                 settle_active.get(key) if row is None else settle.get(key)
             )
-            ready, why = checks_ready(repo, pr["number"], head, token)
+            ready, why = checks_ready(repo, head, token)
             if not ready and not explicit:
                 print(f"WAIT-CHECKS {key} ({why})")
                 waiting += 1

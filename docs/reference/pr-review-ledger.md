@@ -28,7 +28,9 @@ leases, and how new heads dispatch workers.
    reviewing agent cannot rewrite its own diff or evidence.
    A head is only bundled once its other checks have passed: a review of a head
    whose CI is red is a paid-for opinion nobody can act on, because the head
-   cannot merge. The check-run rollup comes from `gh pr checks --json`, our own
+   cannot merge. The rollup is read from the commit's check runs
+   (`repos/{repo}/commits/{head}/check-runs`), pinned to the head being bundled
+   rather than to the pull request's live head; our own
    `hackerman-cr/evaluation` is excluded from the decision, and unreadable check
    data is fail-open — a repository whose App token cannot read workflow runs is
    reviewed exactly as before rather than never. `WAIT-CHECKS <repo>#<pr>`
