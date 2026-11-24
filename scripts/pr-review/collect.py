@@ -765,6 +765,24 @@ def ocr_candidates(args, repo: str, base: str, head: str, bundle: Path, token: s
             shutil.rmtree(worktree, ignore_errors=True)
 
 
+def previous_review_packet(data_dir: Path, previous) -> Path | None:
+    """The published review JSON of the previously reviewed head, if it survives.
+
+    The publisher renders its JSON into a PR comment, so the finding text and
+    the stable ids only exist in that packet. A worker carrying open findings
+    forward needs them; retention keeps the newest published head of every PR
+    for exactly this reason.
+    """
+    try:
+        bundle = ledger.bundle_id(
+            str(previous["repo"]), int(previous["pr"]), str(previous["head"])
+        )
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+    path = data_dir / "review-done" / f"{bundle}.json"
+    return path if path.is_file() else None
+
+
 def reuse_bundle(
     args,
     db,
@@ -950,6 +968,9 @@ def build_bundle(
         (tmp / "diff.patch").write_bytes(diff)
         if delta is not None:
             (tmp / "delta.patch").write_text(delta)
+            packet = previous_review_packet(Path(args.data_dir), previous)
+            if packet is not None:
+                shutil.copyfile(packet, tmp / "previous-review.json")
         for name, endpoint in (
             ("reviews.json", "reviews"),
             ("review_comments.json", "comments"),
@@ -1007,12 +1028,17 @@ def build_bundle(
             request += [
                 "",
                 f"This head extends `{str(previous['head'])[:12]}`, which already has "
-                "a published review in `reviews.json` and `review_comments.json`.",
+                "a published review.",
                 "Review `delta.patch`: the changes since that reviewed head. Open "
                 "`diff.patch` only when a delta hunk is unintelligible without "
-                "surrounding code, and do not re-report what the published "
-                "review already covers.",
+                "surrounding code.",
             ]
+            if (tmp / "previous-review.json").exists():
+                request.append(
+                    "The prior review's findings with their stable ids are in "
+                    "`previous-review.json`: carry the still-open ones forward "
+                    "unless this delta fixes them."
+                )
         request += [
             "",
             f"Write the review JSON to `/opt/data/review-out/{bid}.json`.",

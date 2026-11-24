@@ -196,6 +196,39 @@ def test_build_delta_falls_back_to_the_full_diff():
         )
 
 
+def test_previous_review_packet_is_found_and_bounded():
+    with tempfile.TemporaryDirectory() as tmp:
+        data = Path(tmp)
+        done = data / "review-done"
+        done.mkdir()
+        previous = {
+            "repo": "r/a",
+            "pr": 1,
+            "head": "a" * 40,
+        }
+        check(
+            collect.previous_review_packet(data, previous) is None,
+            "a missing packet must not raise or return a path",
+        )
+        bundle = ledger.bundle_id("r/a", 1, "a" * 40)
+        (done / f"{bundle}.json").write_text(json.dumps({"findings": []}))
+        found = collect.previous_review_packet(data, previous)
+        check(
+            found == done / f"{bundle}.json",
+            "the published packet of the previous head must be found",
+        )
+        # The ledger is agent-writable: a hostile row must not become a path.
+        for hostile in (
+            {"repo": "r/a", "pr": 1, "head": "../../etc/passwd"},
+            {"repo": "r/a", "pr": "x", "head": "a" * 40},
+            {"head": "a" * 40},
+        ):
+            check(
+                collect.previous_review_packet(data, hostile) is None,
+                f"a row that cannot name a bundle must be refused: {hostile}",
+            )
+
+
 def test_request_bypasses_the_settle_window():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)

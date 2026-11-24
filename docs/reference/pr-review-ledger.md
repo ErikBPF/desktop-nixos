@@ -45,7 +45,11 @@ leases, and how new heads dispatch workers.
    has a published review. The delta is withheld (full diff reviewed instead)
    whenever it cannot be trusted: a force-push (`status` not
    `ahead`), a comparison at the 300-file ceiling, or a file whose patch GitHub
-   omitted. Evidence validation accepts a quote from either patch.
+   omitted. Evidence validation accepts a quote from either patch. The bundle
+   also carries `previous-review.json`, the published review JSON of that
+   earlier head: the publisher renders its packet into a PR comment, so the
+   finding text and the stable ids exist only there, and a worker cannot carry
+   an open finding forward without them.
 
    This depends on the `cr-pr` worker skill accepting `delta.patch`. The skill
    ships from `hermes-skills`, not from this repository, and
