@@ -76,11 +76,18 @@ leases, and how new heads dispatch workers.
    the worker keeps the verdict and must re-quote evidence from the diff. The
    pass reads `/run/vault-agent/hermes-ocr.env`, rendered from
    `secret/home/ocr-review-litellm`, and it is fail-open — a missing credential
-   or a failed run leaves the bundle reviewable without candidates. One head is
-   bounded by `ocrTimeoutMinutes` times the effort rounds (low 1, medium 2,
-   high 3), clamped to what remains of a 20-minute OCR budget per collect run
-   after a fixed fetch/worktree reserve; heads admitted without enough budget
-   left get `{"status":"skipped"}`. The collect unit keeps a 30-minute start
+   or a failed run leaves the bundle reviewable without candidates.
+
+   `ocrTimeoutMinutes` (default 15) is the budget for one head's **whole pass**:
+   OCR's `--timeout` is a run-wide concurrent-task budget, not a per-subtask
+   one. Measured passes need about 2 minutes at the median and 7 minutes for a
+   13-file diff, so the earlier 5-minute value cut passes off mid-run and the
+   CLI exited non-zero with a `partial` result. A truncated pass keeps its
+   finished candidates (`status: partial` plus the reason) instead of being
+   replaced by an error stub, and the CLI's last 20 stderr lines go to the
+   journal. The wrapper kills the CLI two minutes above its budget, one head is
+   clamped to what remains of a 26-minute OCR budget per collect run after a
+   fixed fetch/worktree reserve, and the collect unit keeps a 40-minute start
    bound.
 3. Each worker job carries the `schedule` (default `*/2 * * * *`) on the
    Hermes cron ticker. The ticker starts up to `parallelism`
