@@ -1,8 +1,0 @@
-case=1 seconds=7.06 result=I will fix the bug and run the tests today.
-case=2 seconds=7.49 result=Vou corrigir o erro e enviar a atualização amanhã.
-case=3 seconds=7.91 result=I will run pytest tomorrow.
-Traceback (most recent call last):
-  File "/home/erik/Documents/erik/desktop-nixos/worktrees/voice-dictation/tests/voice-dictation/evaluate_rewrite.py", line 25, in <module>
-    assert all(word in result.lower() for word in required), (index, result)
-           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: (4, 'Investigue a causa do erro ConnectionRefusedError ao tentar conectar ao localhost:5432.')

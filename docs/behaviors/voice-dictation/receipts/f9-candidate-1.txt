@@ -1,8 +1,0 @@
-case=1 seconds=8.36 result=I will fix the bug and run the tests today.
-case=2 seconds=10.15 result=Vou corrigir o erro e enviar a atualização amanhã.
-case=3 seconds=8.86 result=I will run pytest tomorrow.
-Traceback (most recent call last):
-  File "/home/erik/Documents/erik/desktop-nixos/worktrees/voice-dictation/tests/voice-dictation/evaluate_rewrite.py", line 25, in <module>
-    assert all(word in result.lower() for word in required), (index, result)
-           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: (4, 'Transforma isso num pedido para o OpenCode investigar a causa, sem alterar nada.')

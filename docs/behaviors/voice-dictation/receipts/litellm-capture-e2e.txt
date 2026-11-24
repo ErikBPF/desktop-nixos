@@ -1,4 +1,0 @@
-mode=plain forced_local=False fallback_notices=0 stop_to_check_seconds=10.39
-mode=context forced_local=False fallback_notices=1 stop_to_check_seconds=16.91
-mode=context forced_local=True fallback_notices=2 stop_to_check_seconds=5.99
-VOICE_GATEWAY_CAPTURE_E2E_OK
