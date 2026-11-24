@@ -256,14 +256,33 @@ def base_move_files(repo: str, old_base: str, base: str, token: str) -> list[str
     )
 
 
-def added_lines(patch: str) -> dict[str, list[str]]:
-    """Added lines per file, in order, without hunk headers or context."""
-    files: dict[str, list[str]] = {}
+def rebase_note_applies(previous, status: str, base: str) -> bool:
+    """True when the head is a rebase of the reviewed head onto a newer base.
+
+    ``diverged`` alone is not enough: a force-pushed amendment also diverges
+    while its base never moved, and the note would claim a rebase that did not
+    happen. Both conditions are cheap and already in hand.
+    """
+    return (
+        previous is not None
+        and status == "diverged"
+        and str(previous["base"] or "") != ""
+        and str(previous["base"]) != base
+    )
+
+
+def contributed_lines(patch: str) -> dict[str, dict[str, list[str]]]:
+    """Lines the PR contributes per file, in order, split by side.
+
+    Both sides matter: a head that only changes which lines it deletes still
+    changed the contribution, and the note must not call that unchanged.
+    """
+    files: dict[str, dict[str, list[str]]] = {}
     current = None
     for line in patch.splitlines():
         if line.startswith("diff --git "):
             current = line.split(" b/", 1)[-1]
-            files[current] = []
+            files[current] = {"added": [], "removed": []}
             continue
         if current is None or line.startswith(
             ("+++", "---", "@@", "index ", "new file", "deleted file",
@@ -271,7 +290,9 @@ def added_lines(patch: str) -> dict[str, list[str]]:
         ):
             continue
         if line.startswith("+"):
-            files[current].append(line[1:].rstrip())
+            files[current]["added"].append(line[1:].rstrip())
+        elif line.startswith("-"):
+            files[current]["removed"].append(line[1:].rstrip())
     return files
 
 
@@ -282,27 +303,32 @@ def rebase_note(
     previous_patch: str,
     patch: str,
     base_files: list[str],
-    limit: int = 60,
+    limit: int = 80,
 ) -> str:
     """What a rebase did, so the worker re-reads the change and not the base drift.
 
     A rebase cannot be expressed as ``previous_head..head``: that diff reverts
     the old base and reapplies it, so the worker gets the whole PR again. The
     honest substitute is to say which contributed lines actually changed and
-    which files the base moved through underneath it.
+    which files the base moved through underneath it. Both sides are compared:
+    a head that only changes what it deletes changed the contribution too.
     """
-    before = added_lines(previous_patch)
-    after = added_lines(patch)
+    before = contributed_lines(previous_patch)
+    after = contributed_lines(patch)
     changed: list[str] = []
     for name in sorted(set(before) | set(after)):
-        old = [line for line in before.get(name, []) if line not in after.get(name, [])]
-        new = [line for line in after.get(name, []) if line not in before.get(name, [])]
-        if old:
-            changed.append(f"--- {name} (dropped from the change)")
-            changed.extend(f"-{line}" for line in old)
-        if new:
-            changed.append(f"+++ {name} (added to the change)")
-            changed.extend(f"+{line}" for line in new)
+        empty = {"added": [], "removed": []}
+        old, new = before.get(name, empty), after.get(name, empty)
+        pairs: list[tuple[str, str]] = []
+        # An addition that left the change is gone; one that arrived is new.
+        pairs += [("-", line) for line in old["added"] if line not in new["added"]]
+        pairs += [("+", line) for line in new["added"] if line not in old["added"]]
+        # A deletion that left the change put the line back; a new one removes it.
+        pairs += [("+", line) for line in old["removed"] if line not in new["removed"]]
+        pairs += [("-", line) for line in new["removed"] if line not in old["removed"]]
+        if pairs:
+            changed.append(f"diff --git a/{name} b/{name}")
+            changed.extend(f"{marker}{line}" for marker, line in pairs)
     lines = [
         "# Rebase note",
         "",
@@ -315,14 +341,26 @@ def rebase_note(
         "head fixes them.",
         "",
     ]
-    if changed:
+    if not changed:
+        lines.extend(
+            [
+                "## Contributed lines are unchanged",
+                "",
+                "The PR adds and removes exactly the same lines as before; only the",
+                "base moved. Re-check the earlier findings against the new",
+                "surroundings and report only what this base change makes wrong.",
+                "",
+            ]
+        )
+    else:
         shown = changed[:limit]
         lines.extend(
             [
                 "## Contributed lines that changed",
                 "",
-                "Everything else in the change is byte-identical to what was "
-                "reviewed before. Read these first:",
+                "A patch of the change itself: `-` is a line the change no longer",
+                "contains, `+` one it now does. Everything else is byte-identical",
+                "to what was reviewed before, so read these lines first.",
                 "",
                 "~~~diff",
                 *shown,
@@ -334,23 +372,16 @@ def rebase_note(
             lines.extend(
                 [f"{len(changed) - limit} further changed line(s) not shown.", ""]
             )
-    else:
-        lines.extend(
-            [
-                "## Contributed lines are unchanged",
-                "",
-                "The PR adds and removes exactly the same lines as before; only the",
-                "base moved. Re-check the earlier findings against the new "
-                "surroundings and report only what this base change makes wrong.",
-                "",
-            ]
-        )
     if base_files:
         shown = base_files[:20]
         lines.extend(
             ["## Files the base moved through", ""]
             + [f"- `{name}`" for name in shown]
-            + ([f"- … {len(base_files) - len(shown)} more"] if len(base_files) > len(shown) else [])
+            + (
+                [f"- … {len(base_files) - len(shown)} more"]
+                if len(base_files) > len(shown)
+                else []
+            )
             + [""]
         )
     return "\n".join(lines)
@@ -1102,29 +1133,32 @@ def build_bundle(
         packet = previous_review_packet(Path(args.data_dir), previous)
         if delta is not None:
             (tmp / "delta.patch").write_text(delta)
-        elif previous is not None and compare_status == "diverged":
+        elif rebase_note_applies(previous, compare_status, base):
             # A rebase: no delta exists (the two commits diverge), but the
             # worker can still be told what actually changed. Without this it
-            # re-reads the whole PR because the base moved.
-            previous_patch = Path(
-                args.data_dir
-            ) / "review-done" / ledger.bundle_id(
-                repo, number, str(previous["head"])
-            ) / "diff.patch"
-            old_patch = ""
-            if previous_patch.is_file():
-                old_patch = previous_patch.read_text(errors="ignore")
-            (tmp / "rebase.md").write_text(
-                rebase_note(
-                    str(previous["head"]),
-                    str(previous["base"] or ""),
-                    base,
-                    old_patch,
-                    diff.decode(errors="ignore"),
-                    base_move_files(repo, str(previous["base"] or ""), base, token),
-                )
+            # re-reads the whole PR because the base moved. Without the earlier
+            # patch there is nothing to compare against, so say nothing rather
+            # than claim everything else is unchanged.
+            previous_patch = (
+                Path(args.data_dir)
+                / "review-done"
+                / ledger.bundle_id(repo, number, str(previous["head"]))
+                / "diff.patch"
             )
-        if (delta is not None or compare_status == "diverged") and packet is not None:
+            if previous_patch.is_file():
+                (tmp / "rebase.md").write_text(
+                    rebase_note(
+                        str(previous["head"]),
+                        str(previous["base"] or ""),
+                        base,
+                        previous_patch.read_text(errors="ignore"),
+                        diff.decode(errors="ignore"),
+                        base_move_files(
+                            repo, str(previous["base"] or ""), base, token
+                        ),
+                    )
+                )
+        if (delta is not None or (tmp / "rebase.md").exists()) and packet is not None:
             shutil.copyfile(packet, tmp / "previous-review.json")
         for name, endpoint in (
             ("reviews.json", "reviews"),
