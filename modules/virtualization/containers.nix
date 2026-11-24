@@ -1,5 +1,9 @@
 _: {
-  flake.modules.nixos.containers = {pkgs, lib, ...}: {
+  flake.modules.nixos.containers = {
+    pkgs,
+    lib,
+    ...
+  }: {
     virtualisation.docker.enable = false;
 
     virtualisation.podman = {
