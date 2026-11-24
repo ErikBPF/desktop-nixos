@@ -248,7 +248,10 @@ _: {
         default = "low";
       };
       ocrTimeoutMinutes = lib.mkOption {
-        type = lib.types.ints.between 1 20;
+        # 16 min + 2 min of slack is exactly the per-head cap the run budget
+        # leaves, so a larger value would let the wrapper kill the CLI before it
+        # writes its JSON — losing the whole pass.
+        type = lib.types.ints.between 1 16;
         default = 15;
         description = "Budget in minutes for one head's whole candidate pass, passed as `--timeout` to OCR. That flag is the run's concurrent-task budget, not a per-subtask one, so the value has to cover every subtask the pass dispatches: measured passes need about 7 minutes for a 13-file diff and 2 minutes at the median. One head may use this value times the effort rounds (low 1, medium 2, high 3) plus two minutes of slack, clamped to a 26-minute OCR budget per collect run after a fixed fetch/worktree reserve. The unit keeps a 40-minute start bound.";
       };

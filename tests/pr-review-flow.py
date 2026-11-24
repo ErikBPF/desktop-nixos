@@ -309,6 +309,23 @@ def test_ocr_keeps_a_partial_pass_and_logs_the_reason():
             check(stub["status"] == "error", stub)
             check("elapsed" in stub["message"] and "of 60s" in stub["message"], stub["message"])
 
+            # A wrapper timeout still keeps what the CLI wrote before the kill.
+            out.write_text(json.dumps({"status": "partial", "comments": [{"path": "y"}]}))
+
+            def boom(*a, **k):
+                raise collect.subprocess.TimeoutExpired("ocr", 60)
+
+            collect.subprocess.run = boom
+            collect.ocr_execute(
+                {"binary": "ocr", "effort": "low", "timeout_minutes": 15},
+                root, "b" * 40, "a" * 40, out, 60,
+            )
+            kept = json.loads(out.read_text())
+            check(
+                kept["status"] == "partial" and len(kept["comments"]) == 1,
+                f"a killed pass must keep its candidates: {kept}",
+            )
+
             # A hard failure with no file at all.
             out.unlink()
             run_with(Proc(1, ""))

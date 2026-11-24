@@ -665,6 +665,29 @@ def ocr_budget(cfg: dict, remaining: float | None = None) -> int:
     return budget
 
 
+def keep_partial(out: Path, reason: str, worktree: Path, started: float, timeout: int) -> bool:
+    """Keep the candidates a short pass wrote. True when there were any."""
+    if not out.exists():
+        return False
+    try:
+        partial = json.loads(out.read_text())
+    except ValueError:
+        return False
+    candidates = len((partial.get("comments") if isinstance(partial, dict) else None) or [])
+    if not candidates:
+        return False
+    partial["message"] = (
+        f"{reason} (kept {candidates} candidate(s) from a partial pass)"
+    )
+    out.write_text(json.dumps(partial, indent=2) + "\n")
+    print(
+        f"WARN ocr {worktree.name}: {reason} kept={candidates} "
+        f"elapsed={int(time.time() - started)}s/{timeout}s",
+        file=sys.stderr,
+    )
+    return True
+
+
 def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path, timeout: int) -> None:
     """Run the candidate pass. A broken pass must never block the review.
 
@@ -682,7 +705,9 @@ def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path, time
             timeout=timeout,
         )
         detail = [
-            line for line in (proc.stderr or "").strip().splitlines() if line.strip()
+            line
+            for line in (proc.stderr or proc.stdout or "").strip().splitlines()
+            if line.strip()
         ]
         if detail:
             # The per-subtask reasons live above the last line; keep enough of
@@ -691,30 +716,17 @@ def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path, time
                 print(f"OCR {worktree.name}: {line}", file=sys.stderr)
         if proc.returncode != 0:
             reason = detail[-1][:300] if detail else "non-zero exit"
-            partial = None
-            if out.exists():
-                try:
-                    partial = json.loads(out.read_text())
-                except ValueError:
-                    partial = None
-            candidates = len((partial or {}).get("comments") or [])
-            if candidates:
-                partial["message"] = (
-                    f"{reason} (kept {candidates} candidate(s) from a partial pass)"
-                )
-                out.write_text(json.dumps(partial, indent=2) + "\n")
-                print(
-                    f"WARN ocr {worktree.name}: {reason} "
-                    f"kept={candidates} elapsed={int(time.time() - started)}s"
-                    f"/{timeout}s",
-                    file=sys.stderr,
-                )
+            if keep_partial(out, reason, worktree, started, timeout):
                 return
             raise RuntimeError(reason)
         if not out.exists():
             raise RuntimeError("no output written")
         json.loads(out.read_text())
     except Exception as exc:
+        # A wrapper timeout kills the CLI, but whatever it wrote before the kill
+        # is still on disk: keep it for the same reason a non-zero exit is kept.
+        if keep_partial(out, str(exc), worktree, started, timeout):
+            return
         out.write_text(
             json.dumps(
                 {

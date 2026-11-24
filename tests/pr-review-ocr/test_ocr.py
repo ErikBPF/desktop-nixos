@@ -35,10 +35,17 @@ class OcrCandidateTest(unittest.TestCase):
 
     def test_budget_scales_with_effort_and_stays_inside_the_run_cap(self):
         cap = collect.OCR_RUN_BUDGET_SECONDS - collect.OCR_HEAD_OVERHEAD_SECONDS
-        self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "low"}), 360)
-        self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "high"}), cap)
+        # A pass gets its own minutes plus two minutes of slack, so the CLI can
+        # write its JSON before this wrapper kills it.
         self.assertEqual(
-            collect.ocr_budget({"timeout_minutes": 5, "effort": "low"}, remaining=700), 220
+            collect.ocr_budget({"timeout_minutes": 15, "effort": "low"}), 15 * 60 + 120
+        )
+        self.assertEqual(
+            collect.ocr_budget({"timeout_minutes": 15, "effort": "high"}), cap
+        )
+        self.assertEqual(
+            collect.ocr_budget({"timeout_minutes": 15, "effort": "low"}, remaining=700),
+            700 - collect.OCR_HEAD_OVERHEAD_SECONDS,
         )
 
     def test_run_budget_is_recorded_without_calling_ocr(self):
