@@ -187,13 +187,17 @@ def save_settle(path: Path, settle: dict) -> None:
     tmp.replace(path)
 
 
-def build_delta(repo: str, previous_head: str, head: str, token: str) -> str | None:
-    """Patch text for ``previous_head..head``, or None to review the full diff.
+def compare_delta(
+    repo: str, previous_head: str, head: str, token: str
+) -> tuple[str, str | None]:
+    """Compare ``previous_head...head`` and return ``(status, delta or None)``.
 
     A PR that already has a published review of an ancestor commit only needs
-    the delta re-read. The comparison is one GitHub call; anything ambiguous —
-    a force-push, a truncated file list, a file whose patch GitHub omitted
-    (binary or too large) — returns None so the worker reviews the whole diff.
+    the delta re-read. Anything ambiguous — a force-push, a truncated file
+    list, a file whose patch GitHub omitted (binary or too large) — yields no
+    delta, so the worker reviews the whole diff. The status is returned either
+    way: ``diverged`` is a rebase, which is worth telling the worker about even
+    when there is no delta to hand it.
     """
     try:
         compare = gh_json(
@@ -204,26 +208,152 @@ def build_delta(repo: str, previous_head: str, head: str, token: str) -> str | N
             f"WARN {repo}: compare {previous_head[:7]}...{head[:7]}: {exc}",
             file=sys.stderr,
         )
-        return None
-    if compare.get("status") != "ahead":
-        return None
+        return "", None
+    status = str(compare.get("status") or "")
+    if status != "ahead":
+        return status, None
     files = compare.get("files") or []
     # 300 is the comparison endpoint's file ceiling; anything at the cap is
     # likely truncated, and a partial delta is worse than the full diff.
     if not files or len(files) >= 300:
-        return None
+        return status, None
     chunks = []
     for item in files:
         patch = item.get("patch")
         if patch is None or not item.get("filename"):
-            return None
+            return status, None
         chunks.append(
             f"diff --git a/{item['filename']} b/{item['filename']}\n"
             f"# {item.get('status', 'modified')} "
             f"+{item.get('additions', 0)} -{item.get('deletions', 0)}\n"
             f"{patch.rstrip()}\n\n"
         )
-    return "".join(chunks)
+    return status, "".join(chunks)
+
+
+def base_move_files(repo: str, old_base: str, base: str, token: str) -> list[str]:
+    """Files the base moved through between the reviewed base and this one.
+
+    One comparison call, and a failure only costs the note a section: the
+    worker still has the full diff.
+    """
+    if not old_base or old_base == base:
+        return []
+    try:
+        compare = gh_json(
+            ["api", f"repos/{repo}/compare/{old_base}...{base}"], token
+        )
+    except Exception as exc:
+        print(
+            f"WARN {repo}: compare {old_base[:7]}...{base[:7]}: {exc}",
+            file=sys.stderr,
+        )
+        return []
+    return sorted(
+        str(item.get("filename"))
+        for item in compare.get("files") or []
+        if item.get("filename")
+    )
+
+
+def added_lines(patch: str) -> dict[str, list[str]]:
+    """Added lines per file, in order, without hunk headers or context."""
+    files: dict[str, list[str]] = {}
+    current = None
+    for line in patch.splitlines():
+        if line.startswith("diff --git "):
+            current = line.split(" b/", 1)[-1]
+            files[current] = []
+            continue
+        if current is None or line.startswith(
+            ("+++", "---", "@@", "index ", "new file", "deleted file",
+             "similarity ", "rename ")
+        ):
+            continue
+        if line.startswith("+"):
+            files[current].append(line[1:].rstrip())
+    return files
+
+
+def rebase_note(
+    previous_head: str,
+    previous_base: str,
+    base: str,
+    previous_patch: str,
+    patch: str,
+    base_files: list[str],
+    limit: int = 60,
+) -> str:
+    """What a rebase did, so the worker re-reads the change and not the base drift.
+
+    A rebase cannot be expressed as ``previous_head..head``: that diff reverts
+    the old base and reapplies it, so the worker gets the whole PR again. The
+    honest substitute is to say which contributed lines actually changed and
+    which files the base moved through underneath it.
+    """
+    before = added_lines(previous_patch)
+    after = added_lines(patch)
+    changed: list[str] = []
+    for name in sorted(set(before) | set(after)):
+        old = [line for line in before.get(name, []) if line not in after.get(name, [])]
+        new = [line for line in after.get(name, []) if line not in before.get(name, [])]
+        if old:
+            changed.append(f"--- {name} (dropped from the change)")
+            changed.extend(f"-{line}" for line in old)
+        if new:
+            changed.append(f"+++ {name} (added to the change)")
+            changed.extend(f"+{line}" for line in new)
+    lines = [
+        "# Rebase note",
+        "",
+        f"This head rebases the reviewed head `{previous_head[:12]}` onto "
+        f"`{base[:12]}`",
+        f"(the reviewed base was `{previous_base[:12]}`), so the two commits",
+        "diverge and there is no `delta.patch`. Review `diff.patch`: the full",
+        "base-to-head diff. The earlier review's findings and their ids are in",
+        "`previous-review.json`; carry the still-open ones forward unless this",
+        "head fixes them.",
+        "",
+    ]
+    if changed:
+        shown = changed[:limit]
+        lines.extend(
+            [
+                "## Contributed lines that changed",
+                "",
+                "Everything else in the change is byte-identical to what was "
+                "reviewed before. Read these first:",
+                "",
+                "~~~diff",
+                *shown,
+                "~~~",
+                "",
+            ]
+        )
+        if len(changed) > limit:
+            lines.extend(
+                [f"{len(changed) - limit} further changed line(s) not shown.", ""]
+            )
+    else:
+        lines.extend(
+            [
+                "## Contributed lines are unchanged",
+                "",
+                "The PR adds and removes exactly the same lines as before; only the",
+                "base moved. Re-check the earlier findings against the new "
+                "surroundings and report only what this base change makes wrong.",
+                "",
+            ]
+        )
+    if base_files:
+        shown = base_files[:20]
+        lines.extend(
+            ["## Files the base moved through", ""]
+            + [f"- `{name}`" for name in shown]
+            + ([f"- … {len(base_files) - len(shown)} more"] if len(base_files) > len(shown) else [])
+            + [""]
+        )
+    return "\n".join(lines)
 
 
 def ignore_reason(entry: dict, pr: dict) -> str | None:
@@ -943,8 +1073,11 @@ def build_bundle(
         if reused is not None:
             return reused
     delta = None
+    compare_status = ""
     if previous is not None and previous["diff_hash"] != digest:
-        delta = build_delta(repo, str(previous["head"]), head, token)
+        compare_status, delta = compare_delta(
+            repo, str(previous["head"]), head, token
+        )
 
     tmp = target.with_name(target.name + ".tmp")
     if tmp.exists():
@@ -966,11 +1099,33 @@ def build_bundle(
         )
         (tmp / "meta.json").write_text(json.dumps(view, indent=2) + "\n")
         (tmp / "diff.patch").write_bytes(diff)
+        packet = previous_review_packet(Path(args.data_dir), previous)
         if delta is not None:
             (tmp / "delta.patch").write_text(delta)
-            packet = previous_review_packet(Path(args.data_dir), previous)
-            if packet is not None:
-                shutil.copyfile(packet, tmp / "previous-review.json")
+        elif previous is not None and compare_status == "diverged":
+            # A rebase: no delta exists (the two commits diverge), but the
+            # worker can still be told what actually changed. Without this it
+            # re-reads the whole PR because the base moved.
+            previous_patch = Path(
+                args.data_dir
+            ) / "review-done" / ledger.bundle_id(
+                repo, number, str(previous["head"])
+            ) / "diff.patch"
+            old_patch = ""
+            if previous_patch.is_file():
+                old_patch = previous_patch.read_text(errors="ignore")
+            (tmp / "rebase.md").write_text(
+                rebase_note(
+                    str(previous["head"]),
+                    str(previous["base"] or ""),
+                    base,
+                    old_patch,
+                    diff.decode(errors="ignore"),
+                    base_move_files(repo, str(previous["base"] or ""), base, token),
+                )
+            )
+        if (delta is not None or compare_status == "diverged") and packet is not None:
+            shutil.copyfile(packet, tmp / "previous-review.json")
         for name, endpoint in (
             ("reviews.json", "reviews"),
             ("review_comments.json", "comments"),
@@ -1039,6 +1194,15 @@ def build_bundle(
                     "`previous-review.json`: carry the still-open ones forward "
                     "unless this delta fixes them."
                 )
+        if (tmp / "rebase.md").exists():
+            request += [
+                "",
+                "This head is a rebase. Read `rebase.md` first: it names the "
+                "contributed lines that changed and the files the base moved "
+                "through underneath them.",
+                "Do not re-report a finding the earlier review already made, and "
+                "do not report base drift as a defect in this change.",
+            ]
         request += [
             "",
             f"Write the review JSON to `/opt/data/review-out/{bid}.json`.",
