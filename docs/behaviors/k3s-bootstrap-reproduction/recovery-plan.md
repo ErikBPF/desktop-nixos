@@ -55,8 +55,12 @@ production recovery recipe.
    joins cp3 with cluster initialization disabled and the stock unit defaults
    (Restart=always, no startup timeout, `multi-user.target` boot edge). The
    helper masks K3s, switches the closure, verifies it, unmasks, then starts K3s
-   once under a 330-second budget; the outer bounds prevent an uncontrolled
-   loop. That explicit start cannot precede approved member removal/quarantine.
+   exactly once under a 330-second budget inside the 660-second SSH budget. The
+   stock `Restart=always` policy owns the unit afterwards: if K3s exits it
+   restarts on its own, and the helper's bounded stop only covers a failure the
+   helper still observes. During the membership window, watch the node and stop
+   k3s in the guest if it crash-loops. That explicit start cannot precede
+   approved member removal/quarantine.
 5. Require the original cluster and survivor IDs, a new cp1 member ID, three
    voting members, healthy endpoints, no alarms, converged storage versions, and
    equal hashes at the same requested revision/compact revision. Verify the same
