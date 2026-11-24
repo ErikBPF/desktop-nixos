@@ -2,7 +2,7 @@ _: {
   flake.modules.nixos.kepler-parakeet = {pkgs, ...}: let
     parakeet = pkgs.callPackage ../../packages/_parakeet-cpp.nix {};
   in {
-    # Kepler's single 8 GiB card: 8 176 MiB total, measured peak 6 389 MiB
+    # Kepler's single 8 GiB card: 8 176 MiB total, measured VRAM peak 6 389 MiB
     # with 1 787 MiB free while whisper (:9000), parakeet (:9001) and the 4B
     # stack are resident. Whisper and parakeet share compute queues, so an
     # overlapping ASR request measured parakeet at 933 ms instead of 272 ms;
