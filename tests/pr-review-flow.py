@@ -257,7 +257,7 @@ def test_rebase_note_names_the_changed_contributed_lines():
         "a" * 40, "b" * 40, "c" * 40, old, new, ["docs/AGENTS.md"]
     )
     check("# Rebase note" in note, note[:40])
-    check("`a" * 1 in note, "the reviewed head must be named")
+    check(f"`{'a' * 12}`" in note, "the reviewed head must be named")
     check(
         "## Contributed lines that changed" in note,
         "changed contributed lines must be reported",
@@ -289,6 +289,34 @@ def test_rebase_note_sees_a_deletion_only_change():
     )
     check("+removed-then" in note, "the restored line must be shown as +")
     check("-removed-now" in note, "the newly removed line must be shown as -")
+
+
+def test_contributed_lines_keeps_content_that_looks_like_a_header():
+    # A removed line whose content starts with "--" renders as "---…"; a
+    # separator in docs/ is exactly that.
+    patch = (
+        "diff --git a/docs/x.md b/docs/x.md\n"
+        "--- a/docs/x.md\n"
+        "+++ b/docs/x.md\n"
+        "@@ -1,3 +1,3 @@\n"
+        "----\n"
+        "+++\n"
+        "-+ not an addition\n"
+    )
+    files = collect.contributed_lines(patch)
+    # `----` is a removed `---` separator, `+++` an added `++`.
+    check(files == {"docs/x.md": {"added": ["++"], "removed": ["---", "+ not an addition"]}}, files)
+
+
+def test_rebase_note_counts_repeated_lines():
+    old = "diff --git a/x b/x\n@@ -1,3 +1,3 @@\n+}\n+}\n"
+    new = "diff --git a/x b/x\n@@ -1,3 +1,3 @@\n+}\n"
+    note = collect.rebase_note("a" * 40, "b" * 40, "c" * 40, old, new, [])
+    check(
+        "Contributed lines are unchanged" not in note,
+        "dropping one of two identical lines is a change",
+    )
+    check(note.count("-}") == 1, note)
 
 
 def test_rebase_note_only_for_a_moved_base():

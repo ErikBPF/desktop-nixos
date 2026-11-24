@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -275,19 +276,25 @@ def contributed_lines(patch: str) -> dict[str, dict[str, list[str]]]:
     """Lines the PR contributes per file, in order, split by side.
 
     Both sides matter: a head that only changes which lines it deletes still
-    changed the contribution, and the note must not call that unchanged.
+    changed the contribution, and the note must not call that unchanged. Header
+    skipping is stateful — after the first ``@@`` every line is content, so a
+    removed line that happens to render as ``---…`` is kept.
     """
     files: dict[str, dict[str, list[str]]] = {}
     current = None
+    in_hunk = False
     for line in patch.splitlines():
         if line.startswith("diff --git "):
             current = line.split(" b/", 1)[-1]
             files[current] = {"added": [], "removed": []}
+            in_hunk = False
             continue
-        if current is None or line.startswith(
-            ("+++", "---", "@@", "index ", "new file", "deleted file",
-             "similarity ", "rename ")
-        ):
+        if current is None:
+            continue
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk:
             continue
         if line.startswith("+"):
             files[current]["added"].append(line[1:].rstrip())
@@ -316,16 +323,19 @@ def rebase_note(
     before = contributed_lines(previous_patch)
     after = contributed_lines(patch)
     changed: list[str] = []
+    empty = {"added": [], "removed": []}
     for name in sorted(set(before) | set(after)):
-        empty = {"added": [], "removed": []}
         old, new = before.get(name, empty), after.get(name, empty)
+        old_add, new_add = Counter(old["added"]), Counter(new["added"])
+        old_del, new_del = Counter(old["removed"]), Counter(new["removed"])
         pairs: list[tuple[str, str]] = []
         # An addition that left the change is gone; one that arrived is new.
-        pairs += [("-", line) for line in old["added"] if line not in new["added"]]
-        pairs += [("+", line) for line in new["added"] if line not in old["added"]]
+        # Counters, so one of two identical lines still shows up as a change.
+        pairs += [("-", line) for line in (old_add - new_add).elements()]
+        pairs += [("+", line) for line in (new_add - old_add).elements()]
         # A deletion that left the change put the line back; a new one removes it.
-        pairs += [("+", line) for line in old["removed"] if line not in new["removed"]]
-        pairs += [("-", line) for line in new["removed"] if line not in old["removed"]]
+        pairs += [("+", line) for line in (old_del - new_del).elements()]
+        pairs += [("-", line) for line in (new_del - old_del).elements()]
         if pairs:
             changed.append(f"diff --git a/{name} b/{name}")
             changed.extend(f"{marker}{line}" for marker, line in pairs)
