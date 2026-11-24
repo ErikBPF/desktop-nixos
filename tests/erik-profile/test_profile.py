@@ -46,6 +46,13 @@ class ErikProfile(unittest.TestCase):
                 f"{host}: home.file must not compete with sops for SSH keys",
             )
 
+    def test_vault_agent_never_renders_ssh(self):
+        source = (ROOT / "modules/services/erik-vault-agent.nix").read_text()
+        self.assertNotIn(".ssh", source)
+        self.assertIn('secret/data/users/erik/github', source)
+        self.assertIn('destination = "${home}/.config/gh/hosts.yml"', source)
+        self.assertIn('perms = "0600"', source)
+
     def test_shared_agent_tooling_is_present_on_both_hosts(self):
         for host in ("endeavour", "kepler"):
             names = set(self.config[host]["packages"])

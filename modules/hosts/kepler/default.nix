@@ -19,6 +19,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-server
+      m.nixos.erik-vault-agent
       m.nixos.systemd-boot-counting
       m.nixos.kepler-hardware
       m.nixos.kepler-networking

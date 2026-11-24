@@ -24,10 +24,9 @@ in {
       printf '%s' "$LITELLM_OCR_API_KEY"
     '';
 
-    # Resolves the OpenBao-backed dev secrets into a 0600 env file at login.
-    # The shell sources that file, so every agent session inherits GH_TOKEN
-    # without depending on $XDG_CONFIG_HOME (opencode rewrites it for its
-    # children, which is what hid the gh keyring login).
+    # Resolves the OpenBao-backed review key into a 0600 env file at login.
+    # GitHub API credentials are rendered by erik-vault-agent; no GH_TOKEN is
+    # exported here, so gh's multi-account hosts file remains authoritative.
     resolveDevSecrets = pkgs.writeShellApplication {
       name = "resolve-dev-secrets";
       runtimeInputs = [pkgs.coreutils pkgs.secretspec];
@@ -56,6 +55,7 @@ in {
       inputs.sops-nix.nixosModules.sops
       m.nixos.profile-base
       m.nixos.profile-desktop
+      m.nixos.erik-vault-agent
       m.nixos.desktop-workspaces
       m.nixos.endeavour-hardware
       m.nixos.endeavour-networking
@@ -102,9 +102,9 @@ in {
       ];
       inherit (flakeConfig) colorScheme;
 
-      # Dev credentials come from OpenBao through SecretSpec, over the
-      # tailnet listener (plain HTTP inside WireGuard). The value lives only
-      # at secret/iac/github; sops carries just the read-only AppRole.
+      # The OCR review key comes from OpenBao through SecretSpec over the
+      # tailnet listener. GitHub CLI tokens come from erik-vault-agent; sops
+      # carries only the read-only AppRole bootstrap.
       xdg.configFile."secretspec/desktop.toml".text = ''
         [project]
         name = "endeavour-desktop"
@@ -114,7 +114,6 @@ in {
         uri = "openbao://100.103.52.100:8200/secret?auth=approle&tls=false"
 
         [profiles.desktop]
-        GH_TOKEN = { description = "GitHub CLI token maintained in OpenBao", ref = { item = "iac/github", field = "token" }, providers = ["bao_home"] }
         LITELLM_OCR_API_KEY = { description = "Open Code Review LiteLLM key maintained in OpenBao", ref = { item = "home/ocr-review-litellm", field = "LITELLM_OCR_API_KEY" }, providers = ["bao_home"], required = false }
       '';
 
@@ -160,7 +159,7 @@ in {
 
       programs.zsh.initContent = ''
         # A stale cache keeps working when OpenBao is unreachable; the login
-        # service replaces it. Break-glass: `gh auth login` (device flow).
+        # service replaces it. GitHub CLI auth is the rendered hosts file.
         if [[ -r /run/secrets/openbao/github-token-reader-endeavour-role-id ]]; then
           export BAO_ROLE_ID="$(</run/secrets/openbao/github-token-reader-endeavour-role-id)"
         fi
