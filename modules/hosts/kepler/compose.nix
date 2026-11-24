@@ -21,6 +21,7 @@ _: {
         # stay paused (retained definitions and model data).
         # "whisper-gpu"
         "qwen4b-gpu"
+        "retrieval-vulkan"
         # "retrieval"
       ];
     };
