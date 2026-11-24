@@ -170,19 +170,10 @@ in {
           };
           skills.external_dirs = ["/opt/skills-meta" "/opt/skills-research" "/opt/skills-development"];
           mcp_servers = {
-            docs_search = {
-              url = "http://kepler:8765/mcp";
-              headers.Authorization = "Bearer \${DOCS_SEARCH_API_KEY}";
-              connect_timeout = 30;
-              timeout = 120;
-              supports_parallel_tool_calls = true;
-              tools = {
-                include = ["search_docs" "fetch_chunk" "source_status"];
-                resources = false;
-                prompts = false;
-              };
-              sampling.enabled = false;
-            };
+            # docs_search (kepler:8765) is not deployed: nothing listens on that
+            # port, so every review session spent three connect attempts on a
+            # dead server before parking it. Re-add the block — with a short
+            # connect_timeout — when a docs-search server actually runs there.
             context7 = {
               url = "https://mcp.context7.com/mcp";
               connect_timeout = 30;

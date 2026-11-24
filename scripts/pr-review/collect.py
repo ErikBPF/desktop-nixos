@@ -152,6 +152,80 @@ def bundle_id(repo: str, pr: int, head: str) -> str:
     return ledger.bundle_id(repo, pr, head)
 
 
+def load_settle(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def settle_gate(
+    seen: dict, current: dict, key: str, head: str, minutes: int
+) -> bool:
+    """True when a head has been the PR's head for the whole settle window.
+
+    A branch that lands three commits in five minutes used to cost three full
+    reviews of heads nobody looks at. The collector now records the head it saw
+    last pass and bundles it only after ``minutes`` of stability, so the model
+    runs once on the head that survived.
+    """
+    previous = seen.get(key)
+    started = time.time()
+    if isinstance(previous, list) and len(previous) == 2 and previous[0] == head:
+        try:
+            started = float(previous[1])
+        except (TypeError, ValueError):
+            pass
+    current[key] = [head, started]
+    return minutes <= 0 or time.time() - started >= minutes * 60
+
+
+def save_settle(path: Path, settle: dict) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(settle, sort_keys=True) + "\n")
+    tmp.replace(path)
+
+
+def build_delta(repo: str, previous_head: str, head: str, token: str) -> str | None:
+    """Patch text for ``previous_head..head``, or None to review the full diff.
+
+    A PR that already has a published review of an ancestor commit only needs
+    the delta re-read. The comparison is one GitHub call; anything ambiguous —
+    a force-push, a truncated file list, a file whose patch GitHub omitted
+    (binary or too large) — returns None so the worker reviews the whole diff.
+    """
+    try:
+        compare = gh_json(
+            ["api", f"repos/{repo}/compare/{previous_head}...{head}"], token
+        )
+    except Exception as exc:
+        print(
+            f"WARN {repo}: compare {previous_head[:7]}...{head[:7]}: {exc}",
+            file=sys.stderr,
+        )
+        return None
+    if compare.get("status") != "ahead":
+        return None
+    files = compare.get("files") or []
+    # 300 is the comparison endpoint's file ceiling; anything at the cap is
+    # likely truncated, and a partial delta is worse than the full diff.
+    if not files or len(files) >= 300:
+        return None
+    chunks = []
+    for item in files:
+        patch = item.get("patch")
+        if patch is None or not item.get("filename"):
+            return None
+        chunks.append(
+            f"diff --git a/{item['filename']} b/{item['filename']}\n"
+            f"# {item.get('status', 'modified')} "
+            f"+{item.get('additions', 0)} -{item.get('deletions', 0)}\n"
+            f"{patch.rstrip()}\n\n"
+        )
+    return "".join(chunks)
+
+
 def ignore_reason(entry: dict, pr: dict) -> str | None:
     """Return why this PR is skipped, or None.
 
@@ -300,6 +374,47 @@ def prune_repo_bundles(
                 db, row["repo"], row["pr"], row["head"], "stale", "bundle pruned"
             )
         shutil.rmtree(bundle, ignore_errors=True)
+        removed += 1
+    return removed
+
+
+def prune_done_bundles(
+    done_dir: Path,
+    db,
+    repo: str,
+    retain: int,
+) -> int:
+    """Bound ``review-done``: keep ``retain`` heads plus every reusable one.
+
+    Nothing pruned this directory before: it grew by about 100 bundles a day
+    while only ``review-in`` was cleaned. Two readers depend on it —
+    ``repo_context`` (the newest reviews of a repository) and ``reuse_bundle``
+    (the newest published head of a PR) — so the newest head of every PR stays
+    whatever its age.
+    """
+    if not done_dir.is_dir():
+        return 0
+    owner, name = repo.split("/", 1)
+    prefix = f"{owner}__{name}__"
+    protected = ledger.latest_published_bundles(db, repo)
+    try:
+        bundles = [
+            path
+            for path in done_dir.iterdir()
+            if path.is_dir() and path.name.startswith(prefix)
+        ]
+    except OSError:
+        return 0
+    bundles.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    removed = 0
+    kept = 0
+    for path in bundles:
+        if path.name in protected or kept < retain:
+            if path.name not in protected:
+                kept += 1
+            continue
+        shutil.rmtree(path, ignore_errors=True)
+        (done_dir / f"{path.name}.json").unlink(missing_ok=True)
         removed += 1
     return removed
 
@@ -809,6 +924,9 @@ def build_bundle(
         )
         if reused is not None:
             return reused
+    delta = None
+    if previous is not None and previous["diff_hash"] != digest:
+        delta = build_delta(repo, str(previous["head"]), head, token)
 
     tmp = target.with_name(target.name + ".tmp")
     if tmp.exists():
@@ -830,6 +948,8 @@ def build_bundle(
         )
         (tmp / "meta.json").write_text(json.dumps(view, indent=2) + "\n")
         (tmp / "diff.patch").write_bytes(diff)
+        if delta is not None:
+            (tmp / "delta.patch").write_text(delta)
         for name, endpoint in (
             ("reviews.json", "reviews"),
             ("review_comments.json", "comments"),
@@ -869,27 +989,37 @@ def build_bundle(
 
         skills = fetch_skills(repo, base, tmp / "skills", token)
         docs = fetch_docs(repo, base, tmp / "docs", token)
-        (tmp / "request.md").write_text(
-            "\n".join(
-                [
-                    "# Review request",
-                    "",
-                    f"Bundle: `{bid}`",
-                    f"Repository: `{repo}`",
-                    f"PR: `{number}`",
-                    f"Base: `{base}`",
-                    f"Head: `{head}`",
-                    f"Skills fetched: {skills}",
-                    f"Docs fetched: {docs}",
-                    "",
-                    "Use the `cr-pr` skill.",
-                    "Read `repo-context.md` for earlier reviews of this repository only.",
-                    f"Write the review JSON to `/opt/data/review-out/{bid}.json`.",
-                    "Do not post to GitHub. Do not modify the PR or the bundle.",
-                    "",
-                ]
-            )
-        )
+        request = [
+            "# Review request",
+            "",
+            f"Bundle: `{bid}`",
+            f"Repository: `{repo}`",
+            f"PR: `{number}`",
+            f"Base: `{base}`",
+            f"Head: `{head}`",
+            f"Skills fetched: {skills}",
+            f"Docs fetched: {docs}",
+            "",
+            "Use the `cr-pr` skill.",
+            "Read `repo-context.md` for earlier reviews of this repository only.",
+        ]
+        if delta is not None:
+            request += [
+                "",
+                f"This head extends `{str(previous['head'])[:12]}`, which already has "
+                "a published review in `reviews.json` and `review_comments.json`.",
+                "Review `delta.patch`: the changes since that reviewed head. Open "
+                "`diff.patch` only when a delta hunk is unintelligible without "
+                "surrounding code, and do not re-report what the published "
+                "review already covers.",
+            ]
+        request += [
+            "",
+            f"Write the review JSON to `/opt/data/review-out/{bid}.json`.",
+            "Do not post to GitHub. Do not modify the PR or the bundle.",
+            "",
+        ]
+        (tmp / "request.md").write_text("\n".join(request))
         if (tmp / "diff.patch").stat().st_size > 0:
             ocr_candidates(args, repo, base, head, tmp, token)
         (tmp / ".ready").write_text(now() + "\n")
@@ -917,6 +1047,18 @@ def main() -> int:
     parser.add_argument("--ledger", default=None)
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--retry-after-minutes", type=int, default=45)
+    parser.add_argument(
+        "--settle-minutes",
+        type=int,
+        default=0,
+        help="Skip a new head until it has been stable this long (0 disables)",
+    )
+    parser.add_argument(
+        "--retain-bundles",
+        type=int,
+        default=0,
+        help="Heads kept per repository in review-done (0 keeps everything)",
+    )
     args = parser.parse_args()
 
     config = tokens.load_config(args.config)
@@ -948,10 +1090,16 @@ def main() -> int:
     markers = backfill_markers(db, marker_dir, state_path)
     in_dir.mkdir(parents=True, exist_ok=True)
     (Path(args.data_dir) / "review-out").mkdir(parents=True, exist_ok=True)
+    done_dir = Path(args.data_dir) / "review-done"
+    settle_path = state_dir / "settle.json"
+    settle = load_settle(settle_path)
+    settle_active: dict = {}
 
     requested = 0
     pruned = 0
     closed = 0
+    retained = 0
+    settled = 0
     for entry in config:
         repo = entry["repo"]
         try:
@@ -1046,16 +1194,29 @@ def main() -> int:
                     if age < args.retry_after_minutes * 60:
                         continue
                     ledger.requeue(db, repo, pr["number"], head)
+            elif not settle_gate(
+                settle, settle_active, key, head, args.settle_minutes
+            ):
+                print(f"SETTLE {key}")
+                settled += 1
+                continue
             try:
                 if build_bundle(args, entry, pr, db, token):
                     requested += 1
             except Exception as exc:  # keep the other PRs moving
                 print(f"ERROR {key}: {exc}", file=sys.stderr)
 
+        if args.retain_bundles > 0:
+            retained += prune_done_bundles(
+                done_dir, db, repo, args.retain_bundles
+            )
+
+    save_settle(settle_path, settle_active)
     db.close()
     lock.close()
     print(
         f"requested={requested} pruned={pruned} closed={closed} "
+        f"settled={settled} retained={retained} "
         f"markers={markers} moved={marker_moves} migrated={migrated}"
     )
     return 0

@@ -9,6 +9,7 @@ so a review is requested for exactly the commit the operator sees.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 import time
@@ -45,6 +46,20 @@ def main() -> int:
             else latest(db, args.repo, args.pr)
         )
         if row is None:
+            # An explicit request outranks the settle window: mark the head as
+            # long-settled so the next collect bundles it instead of waiting
+            # for the branch to look stable.
+            if args.head:
+                settle_path = Path(args.state_dir) / "settle.json"
+                try:
+                    settle = json.loads(settle_path.read_text())
+                except (OSError, ValueError):
+                    settle = {}
+                if isinstance(settle, dict):
+                    settle[f"{args.repo}#{args.pr}"] = [args.head, 0]
+                    tmp = settle_path.with_name(settle_path.name + ".tmp")
+                    tmp.write_text(json.dumps(settle, sort_keys=True) + "\n")
+                    tmp.replace(settle_path)
             print(
                 f"NO-REVIEW {args.repo}#{args.pr}: the collector will queue the "
                 "live head on its next run"

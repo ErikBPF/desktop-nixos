@@ -138,7 +138,7 @@ def evidence_in_bundle(evidence: str, bundle: Path) -> bool:
     needle = evidence.strip().strip("`").strip()
     if len(needle) < 8:
         return False
-    candidates = [bundle / "diff.patch"]
+    candidates = [bundle / "diff.patch", bundle / "delta.patch"]
     for directory in ("docs", "skills"):
         root = bundle / directory
         if root.exists():

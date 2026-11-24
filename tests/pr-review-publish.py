@@ -835,7 +835,16 @@ assert "refusing to mutate jobs" in bootstrap, "failed cron list must not create
 module = (ROOT / "modules/hosts/discovery/hermes-pr-review.nix").read_text()
 assert "pkgs.gawk" in module, "bootstrap parses cron list with awk; it must ship"
 assert "ledgerDir" in module, "reviews are leased in the ledger"
-assert 'ExecStartPost = "${dispatch}' in module, "new bundles dispatch workers immediately"
+assert 'ExecStartPost = "${dispatch}' not in module, (
+    "dispatch collides with the ticker: the ticker claim is lost and the "
+    "execution is recorded failed"
+)
+assert "hermes-pr-review-dispatch" not in module, (
+    "the Hermes ticker owns the worker schedule"
+)
+assert 'default = "*/2 * * * *";' in module, "worker jobs fire every collect interval"
+assert "--settle-minutes" in module and "--retain-bundles" in module
+assert "hermes-pr-review-metrics" in module, "queue depth must be scrapeable"
 assert "review-claims" not in module, "file claims are replaced by ledger leases"
 assert 'collectInterval = lib.mkOption {' in module and 'default = "2min";' in module
 assert 'max="$PARALLELISM"' in bootstrap
@@ -845,6 +854,7 @@ assert 'if [ -n "$old_id" ]; then' in bootstrap, "legacy job must be retired unc
 
 agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
 assert 'agent.disabled_toolsets = ["memory" "session_search"];' in agents
+assert "docs_search = {" not in agents, "the docs-search MCP server is not deployed"
 assert "memory_enabled = false;" in agents
 assert "user_profile_enabled = false;" in agents
 

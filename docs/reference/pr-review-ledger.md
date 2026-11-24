@@ -1,8 +1,9 @@
-# PR review ledger and dispatch
+# PR review ledger, schedule and queue metrics
 
 **Status:** Implemented and live on `discovery` (2026-10-30). Trigger filters,
-draft policy, unchanged-diff reuse, and the local request tool are in source and
-await deployment.
+draft policy, unchanged-diff reuse, and the local request tool are deployed.
+The ticker-owned schedule, settle window, delta reviews, bundle retention, WAL
+ledger and queue metrics are in source and await deployment.
 
 Hackerman reviews Erik's pull requests from host-collected bundles. The host
 collector owns GitHub credentials; the agent only reads a bundle and writes
@@ -21,6 +22,12 @@ leases, and how new heads dispatch workers.
    they are reviewed, because a draft is not mergeable. Bundles are created under `umask 022`
    and hardened again before the rename, so the reviewing agent cannot rewrite
    its own diff or evidence.
+   A head the ledger has never seen waits for the settle window
+   (`settleMinutes`, default 5): the collector remembers the head it saw on the
+   previous pass and bundles it only once the head has been stable that long.
+   A branch that lands three commits in five minutes then costs one review, not
+   three, of a head nobody looks at. `settleMinutes = 0` reviews every head
+   immediately; the cost is the missing required check until the review lands.
    A new head whose diff hash equals the newest published head of the same PR
    reuses that verdict: the collector copies the published bundle and packet,
    refetches `docs/` and `skills/` at the new base, updates the head, and
@@ -29,6 +36,21 @@ leases, and how new heads dispatch workers.
    requires both the diff and the base-pinned guidance to match byte for byte;
    a rebase that changed contributor guidance or review skills goes through a
    real review instead.
+
+   A head that differs from the newest published head of its PR also gets
+   `delta.patch`: the GitHub comparison `previous_head...head`, written in the
+   bundle beside the full `diff.patch`. The worker reviews the delta and leaves
+   the already-published findings alone, which is where most of the model spend
+   went — two thirds of all bundles are a second or later head of a PR that
+   already has a published review. The delta is withheld (full diff reviewed
+   instead) whenever it cannot be trusted: a force-push (`status` not
+   `ahead`), a comparison at the 300-file ceiling, or a file whose patch GitHub
+   omitted. Evidence validation accepts a quote from either patch.
+
+   Finished bundles accumulate in `review-done/`. The collector keeps
+   `retainBundles` heads per repository (default 20) plus the newest published
+   head of every PR, which is what verdict reuse reads; older directories and
+   their packets are deleted. `0` keeps everything.
 
    For a repository listed in `ocrRepos`, the collector also runs the Open Code
    Review candidate pass before the bundle is sealed. It fetches base and head
@@ -44,23 +66,29 @@ leases, and how new heads dispatch workers.
    after a fixed fetch/worktree reserve; heads admitted without enough budget
    left get `{"status":"skipped"}`. The collect unit keeps a 30-minute start
    bound.
-3. If any row is claimable, the collector's `ExecStartPost` runs
-   `hermes-pr-review-dispatch`.
-4. Dispatch starts up to `parallelism` transient `systemd-run` units, one per
-   claimable row (`hermes cron run hermes-pr-review-N`). Each worker's claim
-   script leases exactly one row.
-5. The agent writes `review-out/<bundle>.json`.
+3. Each worker job carries the `schedule` (default `*/2 * * * *`) on the
+   Hermes cron ticker. The ticker starts up to `parallelism`
+   of them when they are due, and each worker's claim script leases exactly one
+   row. There is no host-side dispatcher: an out-of-band `hermes cron run` for
+   a job the ticker already fired loses the fire claim, so the ticker recorded
+   the execution as failed (80 such rows in two days) while the review itself
+   ran fine. The failure count was the whole visible "throttle".
+
+   The `hermes-pr-review-dispatch` unit and its `systemd-run` workers were
+   removed for that reason. Pickup latency is now the tick
+   interval, not "immediately after collect" — up to two minutes on top of a
+   review that averages six.
+4. The agent writes `review-out/<bundle>.json`.
 6. `hermes-pr-review-publish.timer` runs every 30 seconds, posts the comment,
    review verdict, and gate check, writes a root-only publication marker under
    `/var/lib/hermes-pr-review/published/`, then marks the row `published`.
 
-A new head is normally visible as a check within review time plus about one
-minute. An OCR-enabled deployment adds the serial candidate pass — up to
+A new head is normally visible as a check within the settle window plus review
+time plus about one minute. An OCR-enabled deployment adds the serial candidate
+pass — up to
 `ocrTimeoutMinutes` × effort rounds per new head, capped at 20 minutes of OCR
 work per collect run — before the bundle is sealed. The collect unit carries a
-30-minute start bound for that reason. Workers still have their
-own 10-minute cron fallback; dispatch just removes the wait for the next shared
-tick. An idle worker prints the Hermes
+30-minute start bound for that reason. An idle worker prints the Hermes
 `{"wakeAgent": false}` gate and exits without invoking the model.
 
 ## Ledger
@@ -115,6 +143,12 @@ idle worker prints `{"wakeAgent": false}` as its last stdout line, which Hermes
 uses to skip the agent run entirely. File claims under `review-claims/` are no
 longer used.
 
+The database runs in WAL mode with `synchronous=NORMAL`. Five workers claim
+while the collector inserts and the publisher updates, and rollback-journal
+mode surfaced that contention as `sqlite3.OperationalError: database is
+locked` in the publisher. WAL lets readers proceed behind a writer; the
+`busy_timeout` remains as a backstop.
+
 ## Operations
 
 Inspect the queue on `discovery`:
@@ -130,13 +164,28 @@ Force a collect and dispatch now:
 sudo systemctl start hermes-pr-review-collect.service
 ```
 
-Inspect workers and dispatches:
+Inspect workers:
 
 ```bash
-systemctl list-units 'hermes-pr-review-trigger*'   # in-flight only
-journalctl -u 'hermes-pr-review-trigger*' --since '-15 min'
 docker exec hermes-daedalus /opt/hermes/.venv/bin/hermes cron list
+
 ```
+
+The queue is exported as textfile metrics every minute
+(`/var/lib/node-exporter-textfile/hermes-pr-review.prom`), so "are the workers
+throttled?" is a query, not an investigation:
+
+```bash
+curl -s localhost:9100/metrics | grep hermes_pr_review_
+```
+
+| Metric | Question it answers |
+|---|---|
+| `hermes_pr_review_queue_depth{state}` | Is work waiting, and in which state? `claimable` is what dispatch acts on. |
+| `hermes_pr_review_oldest_wait_seconds` | How long has the oldest claimable head waited? |
+| `hermes_pr_review_published{window}` | Throughput over 15m, 1h and 24h. Compare with `parallelism` ÷ mean review time. |
+| `hermes_pr_review_latency_seconds` | Mean request-to-publish over 24h. |
+| `hermes_pr_review_executions{source,status}` | Hermes execution outcomes. `source="builtin"` is the ticker; failed rows here are what used to look like throttling. |
 
 Publish promptly without waiting for the timer:
 
@@ -177,8 +226,18 @@ and no comment trigger.
   real; its bundle is discarded first.
 - A reuse candidate whose guidance at the new base differs from the copied
   bundle is reviewed for real, not published with the old verdict.
+- A delta that cannot be trusted (force-push, truncated comparison, omitted
+  file patch, GitHub error) falls back to the full diff; the collector logs a
+  warning for the error case only.
+- A head that never settles (a branch pushing more often than the settle
+  window) is reviewed at the head that survives; `SETTLE <repo>#<pr>` lines in
+  the collect log show each deferral.
+- A malformed `settle.json` is treated as empty, so the worst case is one extra
+  settle window, never a stuck head.
 - An on-demand request clears the head's publication marker before the
-  collector runs, so the recipe cannot report the previous verdict.
+  collector runs, so the recipe cannot report the previous verdict. A request
+  for a head the ledger has never seen also marks it settled, so the next
+  collect bundles it instead of waiting out the settle window.
 - An ignored head is never bundled. An existing `queued` or `published` row is
   not revoked by a later filter match. The neutral skip check is posted once;
   a check-run API error is reported and retried on the next collect.

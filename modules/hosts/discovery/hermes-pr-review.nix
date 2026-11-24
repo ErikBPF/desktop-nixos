@@ -72,38 +72,15 @@ _: {
         exec ${pkgs.bash}/bin/bash ${../../../scripts/pr-review/bootstrap-cron.sh}
       '';
     };
-    dispatch = pkgs.writeShellApplication {
-      name = "hermes-pr-review-dispatch";
-      runtimeInputs = [python pkgs.docker pkgs.systemd pkgs.coreutils];
+    metrics = pkgs.writeShellApplication {
+      name = "hermes-pr-review-metrics";
+      runtimeInputs = [python pkgs.coreutils];
       text = ''
-                export PYTHONPATH=${../../../scripts/pr-review}
-                ledger=${lib.escapeShellArg "${ledgerDir}/ledger.db"}
-                count="$(${python}/bin/python3 -c '
-        import sys
-        import ledger
-        db = ledger.connect(sys.argv[1])
-        print(ledger.claimable_count(db))
-        ' "$ledger")" || exit $?
-        [ "$count" -gt 0 ] || exit 0
-        [ "$count" -le ${toString cfg.parallelism} ] || count=${toString cfg.parallelism}
-        started=0
-        for i in $(${pkgs.coreutils}/bin/seq 1 ${toString cfg.parallelism}); do
-          [ "$started" -lt "$count" ] || break
-          unit="hermes-pr-review-trigger-$i"
-          if ${pkgs.systemd}/bin/systemctl is-active --quiet "$unit"; then
-            continue
-          fi
-          if ${pkgs.systemd}/bin/systemd-run --quiet --collect --unit="$unit" \
-            ${pkgs.docker}/bin/docker exec \
-            -u ${toString cfg.agentUid}:${toString cfg.agentGid} \
-            -e HOME=/opt/data ${lib.escapeShellArg cfg.containerName} \
-            ${lib.escapeShellArg cfg.hermesCli} \
-            cron run "${cfg.jobName}-$i"; then
-            started=$((started + 1))
-          else
-            echo "dispatch: worker $i did not start" >&2
-          fi
-        done
+        export PYTHONPATH=${../../../scripts/pr-review}
+        exec ${python}/bin/python3 ${../../../scripts/pr-review/metrics.py} \
+          --data-dir ${lib.escapeShellArg cfg.dataDir} \
+          --ledger ${lib.escapeShellArg "${ledgerDir}/ledger.db"} \
+          --executions ${lib.escapeShellArg "${cfg.dataDir}/cron/executions.db"}
       '';
     };
     configFile = pkgs.writeText "hermes-pr-review-repos.json" (builtins.toJSON {
@@ -219,11 +196,22 @@ _: {
       parallelism = lib.mkOption {
         type = lib.types.ints.positive;
         default = 1;
-        description = "Number of concurrent review workers; each claims one bundle atomically.";
+        description = "Number of concurrent review workers; each claims one bundle atomically. One Hermes cron job per worker.";
       };
       schedule = lib.mkOption {
         type = lib.types.str;
-        default = "*/10 * * * *";
+        default = "*/2 * * * *";
+        description = "Cron expression for each worker job. This is also the pickup latency for a new bundle; the Hermes ticker owns the schedule, so nothing dispatches workers out of band.";
+      };
+      settleMinutes = lib.mkOption {
+        type = lib.types.ints.between 0 60;
+        default = 5;
+        description = "Skip a new head until it has been the PR's head for this long. Collapses a burst of pushes into one review; 0 reviews every head immediately.";
+      };
+      retainBundles = lib.mkOption {
+        type = lib.types.ints.between 0 500;
+        default = 20;
+        description = "Finished bundles kept per repository in review-done. The newest published head of every PR is always kept because verdict reuse reads it; 0 keeps everything.";
       };
       collectInterval = lib.mkOption {
         type = lib.types.str;
@@ -329,8 +317,7 @@ _: {
             "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.dataDir}/ocr-home"
             "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.dataDir}/repo-cache"
           ];
-          ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache}";
-          ExecStartPost = "${dispatch}/bin/hermes-pr-review-dispatch";
+          ExecStart = "${collect}/bin/hermes-pr-review-collect --config ${configFile} --data-dir ${cfg.dataDir} --state-dir /var/lib/hermes-pr-review --ledger ${ledgerDir}/ledger.db --app-credential ${cfg.appCredentialFile} --app-token-cache ${cfg.appTokenCache} --settle-minutes ${toString cfg.settleMinutes} --retain-bundles ${toString cfg.retainBundles}";
           # OCR adds a bounded model run per new head; the collector stays
           # serial so the repo cache and the state lock never race.
           TimeoutStartSec =
@@ -380,6 +367,27 @@ _: {
           OnUnitActiveSec = cfg.publishInterval;
           Persistent = true;
           RandomizedDelaySec = "30s";
+        };
+      };
+
+      # Queue health as textfile metrics. Without these, "is Hackerman
+      # throttling?" costs a ledger dump, the Hermes execution table and a
+      # manual journal read; with them it is one Grafana panel.
+      systemd.services.hermes-pr-review-metrics = {
+        description = "Export PR review queue metrics";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${metrics}/bin/hermes-pr-review-metrics";
+        };
+      };
+
+      systemd.timers.hermes-pr-review-metrics = {
+        description = "Export PR review queue metrics periodically";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnBootSec = "2min";
+          OnUnitActiveSec = "60s";
+          RandomizedDelaySec = "10s";
         };
       };
     };
