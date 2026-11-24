@@ -48,6 +48,12 @@ def connect(path: str | Path) -> sqlite3.Connection:
     db = sqlite3.connect(path, timeout=10, isolation_level=None)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA busy_timeout=10000")
+    # WAL keeps the five claiming workers, the collector and the publisher from
+    # blocking each other: readers never wait behind a writer and a claim is a
+    # short write transaction. Rollback-journal mode surfaced as
+    # ``database is locked`` in the publisher under concurrency.
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("PRAGMA synchronous=NORMAL")
     db.executescript(SCHEMA)
     columns = {row["name"] for row in db.execute("PRAGMA table_info(reviews)")}
     if "diff_hash" not in columns:
@@ -211,6 +217,26 @@ def last_published(
         """,
         (repo, pr),
     ).fetchone()
+
+
+def latest_published_bundles(db: sqlite3.Connection, repo: str) -> set[str]:
+    """Bundle names of the newest published head per PR in this repository.
+
+    The collector retains these directory/packet pairs because reuse reads the
+    previous verdict from them; everything else in ``review-done`` is history.
+    """
+    rows = db.execute(
+        """
+        SELECT bundle FROM reviews r
+        WHERE repo = ? AND state = 'published' AND bundle != ''
+          AND updated_at = (
+            SELECT MAX(updated_at) FROM reviews o
+            WHERE o.repo = r.repo AND o.pr = r.pr AND o.state = 'published'
+          )
+        """,
+        (repo,),
+    )
+    return {row["bundle"] for row in rows}
 
 
 def mark_reusing(

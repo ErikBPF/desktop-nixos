@@ -24,7 +24,7 @@
           445 # Samba SMB (NetBIOS disabled — port 445 only)
           1514 # Wazuh agent events
           1515 # Wazuh agent enrollment
-          8765 # authenticated docs-search MCP (Daedalus via tailnet/LAN)
+          8765 # reserved for the docs-search MCP; no server runs here yet
           9000 # faster-whisper OpenAI API (LiteLLM on discovery)
         ];
         allowedUDPPorts = [

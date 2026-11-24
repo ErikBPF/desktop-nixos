@@ -97,6 +97,9 @@ jobs:
       - name: PR review publisher contract
         run: python3 tests/pr-review-publish.py
 
+      - name: PR review collector contract
+        run: python3 tests/pr-review-flow.py
+
       - name: Discovery secret contracts
         run: |
           python3 -m unittest discover -s tests/discovery-secret-contract -v
