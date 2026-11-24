@@ -483,6 +483,65 @@ def test_ocr_budget_is_a_whole_pass_budget():
     )
 
 
+def test_checks_gate_waits_for_the_other_checks():
+    class Proc:
+        def __init__(self, rows):
+            self.stdout = "" if rows is None else json.dumps(rows)
+            self.returncode = 0
+
+    def run_with(rows):
+        collect.subprocess.run = lambda *a, **k: Proc(rows)
+
+    original = collect.subprocess.run
+    try:
+        own = {"name": collect.CHECK_NAME, "bucket": "fail"}
+        run_with([own])
+        check(collect.checks_ready("r/a", 1, "a" * 40, "t")[0], "our own check only")
+
+        run_with(None)
+        check(collect.checks_ready("r/a", 1, "a" * 40, "t")[0], "no checks reported")
+
+        run_with(
+            [
+                own,
+                {"name": "lint", "bucket": "fail"},
+                {"name": "eval (orion)", "bucket": "pass"},
+            ]
+        )
+        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        check(not ready and why.startswith("failing: lint"), why)
+
+        run_with(
+            [{"name": "lint", "bucket": "pending"}, {"name": "eval", "bucket": "pass"}]
+        )
+        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        check(not ready and why.startswith("pending: lint"), why)
+
+        run_with(
+            [
+                own,
+                {"name": "lint", "bucket": "pass"},
+                {"name": "notify", "bucket": "skipping"},
+            ]
+        )
+        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        check(ready, why)
+
+        # A repository whose App token cannot read checks must not go dark.
+        collect.subprocess.run = lambda *a, **k: type(
+            "P",
+            (),
+            {
+                "stdout": "GraphQL: Resource not accessible by integration",
+                "returncode": 0,
+            },
+        )()
+        ready, why = collect.checks_ready("r/a", 1, "a" * 40, "t")
+        check(ready, f"unreadable check data must fail open: {why}")
+    finally:
+        collect.subprocess.run = original
+
+
 def test_request_bypasses_the_settle_window():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -516,8 +575,12 @@ def test_request_bypasses_the_settle_window():
         check("NO-REVIEW" in proc.stdout, proc.stdout)
         settle = json.loads((state / "settle.json").read_text())
         check(
-            settle == {"r/a#7": [head, 0]},
+            settle == {"r/a#7": [head, 0, "explicit"]},
             f"an explicit request must look settled, got {settle}",
+        )
+        check(
+            collect.settle_explicit(settle["r/a#7"]),
+            "an explicit request must be marked as one",
         )
         check(
             collect_settle_ready(settle, "r/a#7", head, 5) is True,

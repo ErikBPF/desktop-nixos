@@ -56,7 +56,9 @@ def main() -> int:
                 except (OSError, ValueError):
                     settle = {}
                 if isinstance(settle, dict):
-                    settle[f"{args.repo}#{args.pr}"] = [args.head, 0]
+                    # `explicit` also bypasses the wait for the head's other
+                    # checks: the operator asking for a review outranks CI.
+                    settle[f"{args.repo}#{args.pr}"] = [args.head, 0, "explicit"]
                     tmp = settle_path.with_name(settle_path.name + ".tmp")
                     tmp.write_text(json.dumps(settle, sort_keys=True) + "\n")
                     tmp.replace(settle_path)

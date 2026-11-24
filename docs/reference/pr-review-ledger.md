@@ -26,6 +26,15 @@ leases, and how new heads dispatch workers.
    check until they are reviewed, because a draft is not mergeable. Bundles are
    created under `umask 022` and hardened again before the rename, so the
    reviewing agent cannot rewrite its own diff or evidence.
+   A head is only bundled once its other checks have passed: a review of a head
+   whose CI is red is a paid-for opinion nobody can act on, because the head
+   cannot merge. The check-run rollup comes from `gh pr checks --json`, our own
+   `hackerman-cr/evaluation` is excluded from the decision, and unreadable check
+   data is fail-open — a repository whose App token cannot read workflow runs is
+   reviewed exactly as before rather than never. `WAIT-CHECKS <repo>#<pr>`
+   records each deferral, and `hermes-pr-review-request` bypasses the wait
+   because an operator asking for a review outranks CI.
+
    A head the ledger has never seen waits for the settle window
    (`settleMinutes`, default 5): the collector remembers the head it saw on the
    previous pass and bundles it only once the head has been stable that long.
