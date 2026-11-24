@@ -71,7 +71,7 @@ def rewrite(transcript, context):
     }
     try:
         result = gateway('chat/completions', {
-            'model': 'voice-rewrite', 'messages': payload['messages'],
+            'model': 'qwen3.8-flash-next', 'messages': payload['messages'],
             'temperature': 0, 'max_tokens': 2048, 'stream': False,
             'reasoning_effort': 'none', 'fallbacks': [], 'max_fallbacks': 0,
         })
@@ -141,7 +141,7 @@ def degraded(error):
 
 def transcribe(audio):
     try:
-        result = gateway('audio/transcriptions', {'model': 'voice-transcribe', 'response_format': 'json', 'max_fallbacks': '0'}, audio)
+        result = gateway('audio/transcriptions', {'model': 'whisper-pt-br', 'response_format': 'json', 'max_fallbacks': '0'}, audio)
         text = result['text']
         if not isinstance(text, str) or len(text) > 20000:
             raise ValueError('Invalid gateway transcript')

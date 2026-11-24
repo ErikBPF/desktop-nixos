@@ -35,7 +35,7 @@ class Gateway(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0].full_url, 'https://litellm.homelab.pastelariadev.com/v1/chat/completions')
         body = json.loads(calls[0].data)
-        self.assertEqual(body['model'], 'voice-rewrite')
+        self.assertEqual(body['model'], 'qwen3.8-flash-next')
         self.assertEqual(json.loads(body['messages'][1]['content']), {'dictation': 'ditado', 'copied_context': 'contexto'})
         self.assertEqual(calls[0].get_header('X-litellm-enable-message-redaction'), 'true')
         self.assertEqual(body['fallbacks'], [])
