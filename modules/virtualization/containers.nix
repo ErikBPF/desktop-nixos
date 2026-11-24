@@ -15,10 +15,12 @@ _: {
         dates = "weekly";
       };
     };
-    # The rootless API daemon must not carry a non-zero OOM score: containers
-    # created through the socket inherit it, and crun then rejects detached
-    # execs with "write to /proc/self/oom_score_adj: permission denied".
-    systemd.user.services.podman.serviceConfig.OOMScoreAdjust = lib.mkForce 0;
+    # Rootless Podman records the API client's OOM score on the containers it
+    # creates, and a non-zero value makes crun reject detached execs with
+    # "write to /proc/self/oom_score_adj: permission denied". User units cannot
+    # lower themselves below the floor their manager inherited, so the floor
+    # has to move first: user@.service is spawned by PID 1 with CAP_SYS_RESOURCE.
+    systemd.services."user@".serviceConfig.OOMScoreAdjust = 0;
 
     environment.systemPackages = with pkgs; [
       podman-compose
