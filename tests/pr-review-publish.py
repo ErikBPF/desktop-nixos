@@ -115,6 +115,18 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not errors, errors
     assert "No new P1/P2 findings" in pub.render(parsed, parsed["repo"])
 
+    # The comment is the human surface, not the audit trail: validation stays in
+    # the packet, limits are posted because they qualify the verdict.
+    parsed, errors = pub.validate(review())
+    assert not errors, errors
+    body = pub.render(parsed, parsed["repo"])
+    assert "Validation" not in body, "validation must not be posted"
+    assert "Compared the diff with the source." not in body
+    assert "**Limits:** No build." in body, "limits must still be posted"
+    approval = pub.render(dict(parsed, limits=[]), parsed["repo"])
+    assert "Limits" not in approval
+    assert len(approval) < 1200, f"an approval comment must stay terse: {len(approval)}"
+
     # Leases live in a ledger; the agent never needs write access to review-in.
     review_in = tmp / "in"
     review_out = tmp / "out"

@@ -81,6 +81,12 @@ in {
       # Five workers, each claiming one bundle atomically.
       parallelism = 5;
       publishInterval = "30s";
+      # A third of the PRs across these repositories are version bumps, and a
+      # lock or action-digest bump has nothing a reviewer can act on. Skipping
+      # them costs no coverage that the gate check would otherwise provide:
+      # a filtered head still gets a neutral hackerman-cr/evaluation run, so
+      # the required check passes and the PR can merge.
+      ignoreTitle = "^(chore|fix|build)\\(deps(-dev)?\\)|^chore: update packaged upstream";
       # Host-side OCR candidate list. One repo first: the collector clones it
       # with the App token, runs the cheap model, and the worker keeps the
       # verdict. Widen once the packets compare well.

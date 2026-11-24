@@ -196,16 +196,14 @@ def render(review: dict, repo: str, limit: int = MAX_FINDINGS) -> str:
                 f"{len(findings) - limit} further finding(s) omitted from this comment.",
             ]
         )
-    validation = [
-        clean(item, 500) for item in review.get("validation", []) if clean(item, 500)
-    ]
+    # Validation is the review's own audit trail: it stays in the packet
+    # (`review-done/<bundle>.json`) and out of the comment. Across 53 sampled
+    # reviews it was 62% of the posted bytes, and most comments carry no
+    # finding at all. Limits do get posted, because they are the one part a
+    # human needs: they say what the review could not check.
     limits = [clean(item, 500) for item in review.get("limits", []) if clean(item, 500)]
-    if validation or limits:
-        lines.extend(["", "---", "", "**Validation**"])
-        lines.extend(f"- {item}" for item in validation)
-        if limits:
-            lines.extend(["", "**Limits**"])
-            lines.extend(f"- {item}" for item in limits)
+    if limits:
+        lines.extend(["", "**Limits:** " + " ".join(limits)])
     digest = hashlib.sha256(
         json.dumps(
             {"head": head, "findings": shown, "summary": summary},

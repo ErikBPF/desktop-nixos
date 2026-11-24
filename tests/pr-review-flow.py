@@ -7,6 +7,7 @@ Synthetic only. No GitHub calls, tokens, or host state.
 import importlib.util
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -193,6 +194,44 @@ def test_build_delta_falls_back_to_the_full_diff():
         check(
             collect.build_delta("r/a", "a" * 40, "b" * 40, "t") is None,
             f"{label} must fall back to the full diff",
+        )
+
+
+def test_version_bumps_are_filtered_and_real_changes_are_not():
+    """The fleet-wide ignoreTitle is a contract, not config drift."""
+    module = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+    match = re.search(r'ignoreTitle = "((?:[^"\\]|\\.)*)";', module)
+    check(match is not None, "services.hermes-pr-review.ignoreTitle must be set")
+    # Nix escaping: a literal file "\\(" is the regex "\(".
+    pattern = match.group(1).replace("\\\\", "\\")
+    entry = {
+        "repo": "r/a",
+        "ignore_authors": [],
+        "ignore_labels": [],
+        "ignore_title": pattern,
+    }
+    skipped = [
+        "chore(deps): update determinate-nix-action digest to 96c5ee9",
+        "chore(deps-dev): bump vitest from 3.2.4 to 4.1.11",
+        "fix(deps): bump tinypool and vitest",
+        "build(deps): bump actions/checkout from 6 to 7",
+        "chore: update packaged upstream",
+    ]
+    kept = [
+        "chore: bump hermes image digest",
+        "fix(secrets): restore the endeavour dev-secret AppRole login",
+        "feat(hermes): stop the review pipeline from throttling itself",
+        "test: assert chore(deps) titles in a test name",
+    ]
+    for title in skipped:
+        check(
+            collect.ignore_reason(entry, {"title": title, "labels": []}) is not None,
+            f"a version bump must be skipped: {title}",
+        )
+    for title in kept:
+        check(
+            collect.ignore_reason(entry, {"title": title, "labels": []}) is None,
+            f"a real change must be reviewed: {title}",
         )
 
 
