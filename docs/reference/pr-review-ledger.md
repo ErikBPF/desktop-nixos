@@ -39,13 +39,21 @@ leases, and how new heads dispatch workers.
 
    A head that differs from the newest published head of its PR also gets
    `delta.patch`: the GitHub comparison `previous_head...head`, written in the
-   bundle beside the full `diff.patch`. The worker reviews the delta and leaves
-   the already-published findings alone, which is where most of the model spend
-   went — two thirds of all bundles are a second or later head of a PR that
-   already has a published review. The delta is withheld (full diff reviewed
-   instead) whenever it cannot be trusted: a force-push (`status` not
+   bundle beside the full `diff.patch`. The worker reviews the delta and carries
+   the still-open findings forward, which is where most of the model spend went
+   — two thirds of all bundles are a second or later head of a PR that already
+   has a published review. The delta is withheld (full diff reviewed instead)
+   whenever it cannot be trusted: a force-push (`status` not
    `ahead`), a comparison at the 300-file ceiling, or a file whose patch GitHub
    omitted. Evidence validation accepts a quote from either patch.
+
+   This depends on the `cr-pr` worker skill accepting `delta.patch`. The skill
+   ships from `hermes-skills`, not from this repository, and
+   `bootstrap-cron.sh` refuses to run without it: deploy the skill first
+   (`just sync-hermes-skills discovery`), because a worker running the older
+   skill treats a delta quote as unverifiable evidence and discards the
+   finding. Until the skill is deployed, the collector's `delta.patch` only
+   saves the worker a re-read; the full diff is still in the bundle.
 
    Finished bundles accumulate in `review-done/`. The collector keeps
    `retainBundles` heads per repository (default 20) plus the newest published

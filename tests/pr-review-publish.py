@@ -855,6 +855,8 @@ assert 'if [ -n "$old_id" ]; then' in bootstrap, "legacy job must be retired unc
 agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
 assert 'agent.disabled_toolsets = ["memory" "session_search"];' in agents
 assert "docs_search = {" not in agents, "the docs-search MCP server is not deployed"
+soul = (ROOT / "modules/hosts/discovery/daedalus-SOUL.md").read_text()
+assert "docs-search" not in soul, "the SOUL must not name a tool the config drops"
 assert "memory_enabled = false;" in agents
 assert "user_profile_enabled = false;" in agents
 
