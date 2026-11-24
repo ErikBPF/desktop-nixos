@@ -385,6 +385,14 @@ def test_metrics_describe_the_queue():
             'hermes_pr_review_executions{source="builtin",status="failed"} 1' in text,
             "execution outcomes missing",
         )
+        check(
+            "hermes_pr_review_executions_window_seconds " in text,
+            "the retained span must be published with the counts",
+        )
+        check(
+            "Hermes cron executions, 24h." not in text,
+            "the executions series must not claim a window the table cannot hold",
+        )
 
 
 def main():

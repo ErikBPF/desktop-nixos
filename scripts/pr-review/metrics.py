@@ -18,7 +18,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import ledger
@@ -91,20 +91,46 @@ def ledger_metrics(db, lines: list[str]) -> None:
 
 
 def execution_metrics(db, lines: list[str]) -> None:
-    lines.append("# HELP hermes_pr_review_executions Hermes cron executions, 24h.")
+    """Counts over the rows Hermes still retains, with that span exposed.
+
+    Hermes prunes terminal executions to the most recent 1000, and after the
+    ticker took over the schedule every worker fire writes a row whether or not
+    the agent ran — 150 an hour at `parallelism = 5` on a two-minute tick, so
+    the table covers hours, not a day. Claiming a 24-hour window here would
+    read a failure wave that ended overnight as a clean day.
+    """
+    oldest = db.execute("SELECT MIN(claimed_at) FROM executions").fetchone()[0]
+    span = 0
+    if oldest:
+        try:
+            span = int(
+                max(
+                    0,
+                    (
+                        datetime.now(timezone.utc) - datetime.fromisoformat(oldest)
+                    ).total_seconds(),
+                )
+            )
+        except ValueError:
+            span = 0
+    lines.append(
+        "# HELP hermes_pr_review_executions Retained Hermes cron executions "
+        "by source and status."
+    )
     lines.append("# TYPE hermes_pr_review_executions gauge")
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(days=1)
-    ).isoformat(timespec="microseconds")
     rows = db.execute(
-        "SELECT source, status, COUNT(*) FROM executions "
-        "WHERE claimed_at > ? GROUP BY source, status",
-        (cutoff,),
+        "SELECT source, status, COUNT(*) FROM executions GROUP BY source, status"
     ).fetchall()
     for row in rows:
         lines.append(
             f'hermes_pr_review_executions{{source="{row[0]}",status="{row[1]}"}} {row[2]}'
         )
+    lines.append(
+        "# HELP hermes_pr_review_executions_window_seconds Span the retained "
+        "execution rows cover."
+    )
+    lines.append("# TYPE hermes_pr_review_executions_window_seconds gauge")
+    lines.append(f"hermes_pr_review_executions_window_seconds {span}")
 
 
 def main() -> int:

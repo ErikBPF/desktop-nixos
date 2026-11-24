@@ -197,7 +197,7 @@ curl -s localhost:9100/metrics | grep hermes_pr_review_
 | `hermes_pr_review_oldest_wait_seconds` | How long has the oldest claimable head waited? |
 | `hermes_pr_review_published{window}` | Throughput over 15m, 1h and 24h. Compare with `parallelism` ÷ mean review time. |
 | `hermes_pr_review_latency_seconds` | Mean request-to-publish over 24h. |
-| `hermes_pr_review_executions{source,status}` | Hermes execution outcomes. `source="builtin"` is the ticker; failed rows here are what used to look like throttling. |
+| `hermes_pr_review_executions{source,status}` | Hermes execution outcomes. `source="builtin"` is the ticker; failed rows here are what used to look like throttling. Hermes keeps only the newest 1 000 terminal rows, so read `hermes_pr_review_executions_window_seconds` for the span these counts cover — hours, not a day. |
 
 Publish promptly without waiting for the timer:
 
