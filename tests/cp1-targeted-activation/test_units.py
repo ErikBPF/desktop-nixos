@@ -12,10 +12,11 @@ CONDITION_SYSTEMD = '/nix/store/'+'b'*32+'-systemd-262'
 def units(tmp_path, mutation=''):
     old=tmp_path/'old';new=tmp_path/'new'
     for directory in (old,new): (directory/'etc/systemd/system').mkdir(parents=True)
-    old_k3s='[Service]\nExecStart=/nix/store/k3s/bin/k3s server \\\n --cluster-init \\\n --token-file=/tokens/token\nRestart=always\nTimeoutStartSec=0\n'
-    new_k3s=old_k3s.replace('--cluster-init','--server https://10.250.0.13:6443').replace('Restart=always','Restart=no').replace('TimeoutStartSec=0','TimeoutStartSec=5min')
+    new_k3s='[Service]\nExecStart=/nix/store/k3s/bin/k3s server \\\n --server https://10.250.0.13:6443 \\\n --token-file=/tokens/token\nRestart=always\nTimeoutStartSec=0\n'
+    old_k3s=new_k3s.replace('--server https://10.250.0.13:6443','--cluster-init')
     old_k3s += '\n[Install]\nWantedBy=multi-user.target\n'
-    if mutation=='boot-install': new_k3s += '\n[Install]\nWantedBy=multi-user.target\n'
+    new_k3s += '\n[Install]\nWantedBy=multi-user.target\n'
+    if mutation=='boot-install': new_k3s=new_k3s.replace('\n[Install]\nWantedBy=multi-user.target\n','')
     before='[Unit]\nAfter=k3s.service\nWants=k3s.service\n[Service]\nEnvironment="PATH='+SYSTEMD+'/bin"\nExecStart=/nix/store/fixture/reconcile\nRemainAfterExit=true\n'
     after=before.replace('Wants=k3s.service\n','').replace('[Service]\n','[Service]\nExecCondition='+CONDITION_SYSTEMD+'/bin/systemctl is-active --quiet k3s.service\n')
     if mutation=='command': after=after.replace('/fixture/reconcile','/fixture/other')
@@ -25,10 +26,12 @@ def units(tmp_path, mutation=''):
         (directory/'etc/systemd/system/k3s-manifest-reconcile.service').write_text(manifest)
     wants=old/'etc/systemd/system/multi-user.target.wants';wants.mkdir()
     (wants/'k3s.service').symlink_to('../k3s.service')
+    wants=new/'etc/systemd/system/multi-user.target.wants';wants.mkdir()
+    (wants/'k3s.service').symlink_to('../k3s.service')
     if mutation=='boot-link':
-        wants=new/'etc/systemd/system/multi-user.target.wants';wants.mkdir()
-        (wants/'k3s.service').symlink_to('../k3s.service')
-    return subprocess.run([sys.executable,'-',str(old),str(new),'300',CONDITION_SYSTEMD],input=CHECK,text=True,capture_output=True)
+        extra=new/'etc/systemd/system/default.target.wants';extra.mkdir()
+        (extra/'k3s.service').symlink_to('../k3s.service')
+    return subprocess.run([sys.executable,'-',str(old),str(new),'0',CONDITION_SYSTEMD],input=CHECK,text=True,capture_output=True)
 
 
 def test_exact_reviewed_manifest_delta_allowed(tmp_path):
@@ -55,7 +58,7 @@ def test_unit_comparison_uses_declared_runtime_without_path_python(tmp_path):
 get() {
  case "$1" in
  .candidate.python) printf '%s' "$RUNTIME";;
- .candidate.timeoutStartSec) printf 300;;
+ .candidate.timeoutStartSec) printf 0;;
  .candidate.conditionSystemd) printf '%s' "$CONDITION";;
  *) exit 90;;
  esac

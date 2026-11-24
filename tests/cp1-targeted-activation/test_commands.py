@@ -22,7 +22,7 @@ def fixture(tmp_path, *, failure=False, active=False, wrong_host=False, retained
     current = tmp_path / 'current'; current.write_text(str(old))
     env = dict(os.environ, PATH=str(commands)+':'+os.environ['PATH'], LOG=str(log),
                CURRENT=str(current), NEW=str(new), OLD=str(old),
-               FAIL='1' if failure else '0', ACTIVE='1' if active else '0', PID='42' if retained_pid else '0', NO_K3S='1' if no_k3s else '0', SIGNAL='1' if signal else '0', START_FAIL='1' if start_failure else '0', STALE_CLOSURE='1' if stale_closure else '0', STALE_EXEC='1' if stale_exec else '0', TIMER_STATE=timer_state, STATE_ERROR='1' if state_error else '0', PID_ERROR='1' if pid_error else '0', PID_EMPTY='1' if pid_empty else '0')
+               FAIL='1' if failure else '0', ACTIVE='1' if active else '0', PID='42' if retained_pid else '0', NO_K3S='1' if no_k3s else '0', SIGNAL='1' if signal else '0', START_FAIL='1' if start_failure else '0', STALE_CLOSURE='1' if stale_closure else '0', STALE_EXEC='1' if stale_exec else '0', TIMER_STATE=timer_state, STATE_ERROR='1' if state_error else '0', PID_ERROR='1' if pid_error else '0', PID_EMPTY='1' if pid_empty else '0', MASKFILE=str(tmp_path/'masked'))
     executable(commands/'hostname', 'echo '+('other' if wrong_host else 'cp-1'))
     executable(commands/'readlink', 'cat "$CURRENT"')
     executable(commands/'systemctl', '''
@@ -42,9 +42,11 @@ case "$1" in
    # systemd timers have no MainPID property: successful lookup, empty output.
    [ "$2" != k3s-bootstrap-secrets.timer ] || exit 0
    [ "$PID_EMPTY" = 1 ] || echo "$PID"
-   [ "$PID_ERROR" = 0 ] || exit 1;; *Restart*) echo no;; *ExecStart*) if [ "$STALE_EXEC" = 1 ]; then echo "k3s server --cluster-init"; else echo "k3s server --server https://10.250.0.13:6443"; fi;; *) echo masked;; esac;;
+   [ "$PID_ERROR" = 0 ] || exit 1;; *Restart*) echo always;; *ExecStart*) if [ "$STALE_EXEC" = 1 ]; then echo "k3s server --cluster-init"; else echo "k3s server --server https://10.250.0.13:6443"; fi;; *) echo masked;; esac;;
  start) [ "$START_FAIL" = 0 ] || exit 43;;
  stop) exit 0;;
+ mask) touch "$MASKFILE";;
+ unmask) rm -f "$MASKFILE";;
  *) exit 90;;
 esac
 ''')
@@ -52,6 +54,7 @@ esac
     executable(new/'bin/switch-to-configuration', '''
 echo "switch $1" >> "$LOG"
 if [ "$1" = switch ]; then
+ [ -e "$MASKFILE" ] || echo "switch-start k3s.service" >> "$LOG"
  [ "$SIGNAL" = 0 ] || kill -TERM "$PPID"
  [ "$FAIL" = 0 ] || exit 42
  [ "$STALE_CLOSURE" = 1 ] || printf '%s' "$NEW" > "$CURRENT"
@@ -133,7 +136,10 @@ def test_single_explicit_start_follows_switch(tmp_path):
     result,calls=run(tmp_path)
     assert result.returncode == 0
     assert calls.count('systemctl start k3s.service') == 1
-    assert calls.index('switch switch') < calls.index('systemctl start k3s.service')
+    assert 'switch-start k3s.service' not in calls, 'switch started K3s before verification'
+    assert calls.index('systemctl mask --runtime k3s.service') < calls.index('switch switch')
+    assert calls.index('switch switch') < calls.index('systemctl unmask --runtime k3s.service')
+    assert calls.index('systemctl unmask --runtime k3s.service') < calls.index('systemctl start k3s.service')
 
 def test_explicit_start_failure_stops_without_retry(tmp_path):
     result,calls=run(tmp_path,start_failure=True)

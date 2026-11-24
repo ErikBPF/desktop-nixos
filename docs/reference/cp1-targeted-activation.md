@@ -13,8 +13,9 @@ post-health runner-persistence instructions remain superseded.
 ## Purpose and boundaries
 
 The recovery candidate preserves the guest kernel, initrd, interfaces, volumes and
-shares while joining cp-3 without `cluster-init`. K3s gets `Restart=no` and a
-five-minute startup timeout. Bootstrap service/timer are disabled in source; the
+shares while joining cp-3 without `cluster-init`. K3s keeps the stock unit
+defaults: `Restart=always`, no startup timeout and the `multi-user.target`
+boot edge, so the node rejoins on its own after a host reboot. Bootstrap service/timer are disabled in source; the
 manifest reconciler loses its K3s start dependency and gains an active-service
 condition. These are the only allowed unit changes.
 
@@ -202,12 +203,14 @@ preflight and OR-list postcheck contexts; changed running or persistent host
 profiles fail even when the runner still matches. Both postcheck regressions
 failed before repair; no live activation had occurred.
 
-Before the explicit start, the helper verifies the selected guest closure and
-boot identity, loaded `Restart=no`, bootstrap masks, and loaded K3s command
-joining cp-3 without `--cluster-init`. A successful switch exit alone is not
-enough. Stale-closure and stale-command fixtures both failed before this ordering
-repair and now stop without invoking K3s start. Loaded command values are not
-printed. The final active, boot and closure checks still run after the one start.
+The helper masks K3s for the switch so the boot edge cannot start it inside the
+120-second transaction, then verifies the selected guest closure and boot
+identity, loaded `Restart=always`, bootstrap masks, and the loaded K3s command
+joining cp-3 without `--cluster-init`, and only then unmasks and starts K3s under
+its own 330-second budget. A successful switch exit alone is not enough.
+Stale-closure and stale-command fixtures both fail before that start. Loaded
+command values are not printed. The final active, boot and closure checks still
+run after the one start.
 
 ### Documentation hold correction — 2026-11-22
 

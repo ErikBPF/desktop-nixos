@@ -69,9 +69,10 @@ stabilization period.
 
 ## Candidate and remaining gates
 
-The temporary Nix candidate overrides only cp1's effective K3s settings: no
-cluster initialization, join through cp3, Restart=no and a five-minute startup
-budget. Its boot start edge is removed; bootstrap service/timer are disabled. The original node specification
+The Nix candidate overrides only cp1's effective K3s settings: no cluster
+initialization and join through cp3. Unit defaults stay stock — Restart=always,
+no startup timeout, `multi-user.target` boot edge — so a reboot no longer leaves
+the node NotReady; bootstrap service/timer are disabled. The original node specification
 and bootstrap share remain unchanged. A Nix assertion failed before these edits
 and passed afterward. The maintenance suppression fix in PR505 is a prerequisite;
 the owning helper must permit its exact manifest-reconciler change as well.
@@ -80,12 +81,12 @@ runner `s226dm43kyklikzpbg64aj1vwhlgydhb`. Actual bootstrap units resolve to
 `/dev/null` and the built multi-user K3s symlink is absent; five sibling outputs and cp1 hardware match the PR505 baseline.
 Lint, formatting, docs links, Nix assertions and actual commit hooks passed.
 
-The helper explicitly starts K3s after switching: approved member removal and
+The helper starts K3s after switching, with the unit masked during the switch so
+the boot edge cannot start it mid-transaction: approved member removal and
 full-directory quarantine must happen first. The [ordered recovery plan](recovery-plan.md)
 defines that boundary. Do not deploy the whole host or activate siblings.
-The absent boot start edge, Restart=no and disabled reconciliation remain
-temporary reliability limitations
-until a separately reviewed cleanup restores them after recovery; a successful
+The disabled reconciliation remains a temporary reliability limitation until a
+separately reviewed cleanup restores it after recovery; a successful
 join alone does not close the incident.
 
 The process fixture has no agents, Kubernetes Node UID or node-password
@@ -98,8 +99,10 @@ stop behavior. No production candidate is declared ready by this document.
 
 Hosted review first corrected a historical source description. Its second
 finding exposed the retained boot start edge: Nix assertion RED preceded the
-cp1-only `wantedBy = []` fix. Immutable copy/GC roots never activate a runner;
-the guarded risk is later installation and boot of this temporary candidate.
+cp1-only `wantedBy = []` fix. That override was removed once the member
+replacement finished, so a normal boot now starts K3s. The targeted-activation
+helper masks the unit for the switch, verifies the loaded command, then unmasks
+and starts it under its own budget.
 No live action or new recovery-primitive run occurred.
 
 

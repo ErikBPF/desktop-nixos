@@ -8,9 +8,9 @@ in
   assert !cp1.services.k3s.clusterInit;
   assert cp1.services.k3s.serverAddr == "https://10.250.0.13:6443";
   assert cp1.services.k3s.tokenFile == "/tokens/token";
-  assert cp1.systemd.services.k3s.wantedBy == [];
-  assert cp1.systemd.services.k3s.serviceConfig.Restart == "no";
-  assert cp1.systemd.services.k3s.serviceConfig.TimeoutStartSec == "5min";
+  assert cp1.systemd.services.k3s.wantedBy == ["multi-user.target"];
+  assert cp1.systemd.services.k3s.serviceConfig.Restart == "always";
+  assert cp1.systemd.services.k3s.serviceConfig.TimeoutStartSec == 0;
   assert !cp1.systemd.services.k3s-bootstrap-secrets.enable;
   assert !cp1.systemd.timers.k3s-bootstrap-secrets.enable;
   assert builtins.all (name: !guests.${name}.restartIfChanged) (builtins.attrNames guests);
