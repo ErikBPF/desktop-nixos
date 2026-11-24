@@ -52,11 +52,11 @@ production recovery recipe.
    old etcd name into the new directory. K3s must assign the new member identity.
    Do not use cluster reset or remove any other member.
 4. Only now invoke the reviewed cp1-only activation helper once. The candidate
-   joins cp3 with cluster initialization disabled and Restart=no. It has no
-   multi-user boot start edge. The helper switches the closure, then explicitly
-   starts K3s once; its five-minute service startup budget and outer bounds
-   prevent an uncontrolled loop. That explicit start cannot precede approved
-   member removal/quarantine.
+   joins cp3 with cluster initialization disabled and the stock unit defaults
+   (Restart=always, no startup timeout, `multi-user.target` boot edge). The
+   helper masks K3s, switches the closure, verifies it, unmasks, then starts K3s
+   once under a 330-second budget; the outer bounds prevent an uncontrolled
+   loop. That explicit start cannot precede approved member removal/quarantine.
 5. Require the original cluster and survivor IDs, a new cp1 member ID, three
    voting members, healthy endpoints, no alarms, converged storage versions, and
    equal hashes at the same requested revision/compact revision. Verify the same

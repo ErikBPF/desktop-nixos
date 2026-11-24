@@ -218,10 +218,10 @@ just cp1-activate "$REMOTE_MANIFEST" activate
 The existing helper repeats its 60-second dry activation before loading
 registration/creating the first guest profile; the new approval must include
 that repetition after removal. It masks K3s for the switch (120 seconds) so the
-boot edge cannot start it mid-transaction, then verifies new closure, unchanged
-boot ID, loaded Restart=always, bootstrap masks and the exact cp-3 join command
-without cluster-init, unmasks, and starts K3s once under a 330-second budget
-(outer SSH 660 seconds).
+boot edge cannot start it mid-transaction, verifies new closure and unchanged
+boot ID, unmasks, verifies loaded Restart=always, bootstrap masks and the exact
+cp-3 join command without cluster-init, then starts K3s once under a 330-second
+budget (outer SSH 660 seconds).
 It checks active state/boot/closure and unchanged host/runner afterward.
 
 A failed start invokes bounded stop and checks PID zero. A pre-start failure
