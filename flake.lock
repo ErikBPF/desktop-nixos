@@ -1718,17 +1718,17 @@
     "homelab-iac": {
       "flake": false,
       "locked": {
-        "lastModified": 1795289169,
-        "narHash": "sha256-AeWVNosTTJxCX747qRNk/Q13QcqywlgPGY8f738SfD0=",
+        "lastModified": 1795541142,
+        "narHash": "sha256-ZCzosdLxTrZRWqxNIWumt2vLOEk3yxkEWTwNCKdoxew=",
         "owner": "ErikBPF",
         "repo": "homelab-iac",
-        "rev": "7c5d785420c794769cb2c4952fb9916e99788450",
+        "rev": "9065d0aab9227b6a4eed88200633dd3dc883fd18",
         "type": "github"
       },
       "original": {
         "owner": "ErikBPF",
         "repo": "homelab-iac",
-        "rev": "7c5d785420c794769cb2c4952fb9916e99788450",
+        "rev": "9065d0aab9227b6a4eed88200633dd3dc883fd18",
         "type": "github"
       }
     },
