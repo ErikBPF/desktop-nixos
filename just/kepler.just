@@ -276,7 +276,8 @@ verify-kepler-after-esp-migration:
         podman-compose-monitoring.service \
         podman-compose-sync.service \
         podman-compose-security.service \
-        podman-compose-qwen4b-gpu.service; do
+        podman-compose-qwen4b-gpu.service \
+        podman-compose-retrieval-vulkan.service; do
         systemctl --user is-active --quiet "$unit" || exit 1
       done
       ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub

@@ -20,6 +20,7 @@ def test_qwen4b_gpu_enabled_and_whisper_paused():
         line for line in stacks.splitlines() if not line.lstrip().startswith("#")
     )
     assert '"qwen4b-gpu"' in stacks
+    assert '"retrieval-vulkan"' in stacks
     assert '"whisper-gpu"' not in stacks
 
 
