@@ -85,6 +85,8 @@ developer-tool changes and preserved runtime boundaries.
 
 [Captive Wi-Fi login](behaviors/captive-portal/stage-one-pager.md) records automatic login windows once per connection and HTTP portal navigation.
 
+[Kindle automatic ejection](behaviors/kindle-auto-eject/one-pager.md) records Endeavour's safe USB storage ejection and transfer controls.
+
 [Bluetooth pairing prompts](behaviors/bluetooth-prompts/stage-one-pager.md) proposes visible approvals and supervised Blueman startup on Endeavour.
 
 | Doc | Purpose |

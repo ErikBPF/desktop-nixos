@@ -78,6 +78,10 @@ in {
     # poster owns the bot token; the agent never receives it.
     services.hermes-pr-review = {
       enable = true;
+      # Pinned, not inherited: an unpinned job that sees the container default
+      # change is skipped by Hermes ("drift_skip") and the pipeline stalls with
+      # leases expiring. This must name the same model as daedalus's default.
+      workerModel = "codex-gpt-6-astra";
       # Five workers, each claiming one bundle atomically.
       parallelism = 5;
       publishInterval = "30s";
