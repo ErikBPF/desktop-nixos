@@ -29,6 +29,28 @@
           '';
         });
 
+        # pqnld — typed decisions over an OpenAI-compatible endpoint (our fork
+        # branch: descriptor alphabets + certified partial readout). Consumed by
+        # modules/hosts/kepler/pqnld.nix.
+        pqnld = let
+          src = final.fetchFromGitHub {
+            owner = "ErikBPF";
+            repo = "pqnld";
+            rev = "16f6074df24f34dca1b690da1409e10ecd408077";
+            hash = "sha256-JLgx11OkdPnY7aSgO2PBK72opH/ercO7ksXHNcYFNDc=";
+          };
+        in
+          final.rustPlatform.buildRustPackage {
+            pname = "pqnld";
+            version = "0.4.0";
+            inherit src;
+            # Verified against this pin: the archive unpacks to `source/`, so the
+            # crate directory is `source/sidecar-rs`. Bare `sidecar-rs` fails
+            # unpackPhase with `chmod: cannot access 'sidecar-rs'`.
+            sourceRoot = "${src.name}/sidecar-rs";
+            cargoHash = "sha256-0v6goKH1QALRCkgkqbKniISByjlc2TYihtqXUYCe5+8=";
+          };
+
         # grafatui — Prometheus/Grafana metrics TUI (not in nixpkgs). Built from
         # the GitHub tag (v0.1.11 is GH-only; crates.io tops out at 0.1.9).
         # Consumed by modules/terminal/grafatui.nix.
