@@ -42,6 +42,9 @@ in {
       after = ["network-online.target" "tailscaled.service"];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
+        # ExecStartPre is bounded by TimeoutStartSec (90 s default), not by the
+        # script's own 10-minute loop: give the gate room to hold for the model.
+        TimeoutStartSec = "620s";
         ExecStartPre = "${waitForModel}";
         ExecStart = lib.concatStringsSep " " [
           "${pkgs.pqnld}/bin/pqnld-rs"
