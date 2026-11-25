@@ -55,6 +55,12 @@ leases, and how new heads dispatch workers.
    finding text and the stable ids exist only there, and a worker cannot carry
    an open finding forward without them.
 
+   A head whose previous published head is not an ancestor (a rebase) has no
+   delta — the comparison reverts the old base and reapplies it. Those heads get
+   `rebase.md` instead: the contributed lines that actually changed, and the
+   files the base moved through, so the worker re-reads the change rather than
+   the base drift. It still reads the full `diff.patch`; nothing is skipped.
+
    This depends on the `cr-pr` worker skill accepting `delta.patch`. The skill
    ships from `hermes-skills`, not from this repository, and
    `bootstrap-cron.sh` refuses to run without it: deploy the skill first
