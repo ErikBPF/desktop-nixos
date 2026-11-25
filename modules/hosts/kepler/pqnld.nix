@@ -21,6 +21,14 @@ in {
       letter_system_prompt = "You are a decision engine. Read the state, then answer the question by replying with exactly one option letter from the list. Do not explain.";
       engine_profile = "full";
     });
+    waitForModel = pkgs.writeShellScript "pqnld-wait-for-model" ''
+      for _ in $(seq 1 120); do
+        ${pkgs.curl}/bin/curl -sf -m 3 http://127.0.0.1:8088/v1/models >/dev/null && exit 0
+        sleep 5
+      done
+      echo "the qwen4b model did not answer on :8088" >&2
+      exit 1
+    '';
     modelsDir = pkgs.linkFarm "pqnld-models" [
       {
         name = "finetune.json";
@@ -30,10 +38,14 @@ in {
   in {
     systemd.services.pqnld-router = {
       description = "pqnld typed decisions over the Kepler qwen4b fine-tune";
-      wants = ["podman-compose-qwen4b-gpu.service"];
-      after = ["podman-compose-qwen4b-gpu.service"];
+      # The model stack is a home-manager *user* unit, so the system manager cannot
+      # order against it; gate on the endpoint instead. The tailnet bind also needs
+      # tailscaled to own the address before bind() runs.
+      wants = ["network-online.target" "tailscaled.service"];
+      after = ["network-online.target" "tailscaled.service"];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
+        ExecStartPre = "${waitForModel}";
         ExecStart = lib.concatStringsSep " " [
           "${pkgs.pqnld}/bin/pqnld-rs"
           "--vllm-url http://127.0.0.1:8088"
