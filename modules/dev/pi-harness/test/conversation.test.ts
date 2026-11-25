@@ -28,7 +28,11 @@ describe("durable conversation", () => {
 		expect(resolveDbPath("/work/foo", "/state")).not.toBe(resolveDbPath("/personal/foo", "/state"));
 	});
 
-	it("keeps a stored agent on reopen unless a flag is explicit", async () => {
+	it.each([
+		{ provider: "work", modelId: "glm-5.3-flash" },
+		{ provider: "openai-codex", modelId: "gpt-5.6-luna" },
+		{ provider: "anthropic", modelId: "claude-sonnet-5-5" },
+	] as const)("keeps a stored $provider agent on reopen unless a flag is explicit", async (model) => {
 		const root = await mkdtemp(join(tmpdir(), "pi-harness-agent-"));
 		const project = join(root, "project");
 		const dbPath = join(root, "session.db");
@@ -38,18 +42,18 @@ describe("durable conversation", () => {
 			projectDir: project,
 			dbPath,
 			mcpServers: false,
-			model: { provider: "work", modelId: "glm-5.3-flash" },
+			model,
 			thinkingLevel: "low",
 		});
 		try {
-			expect((await first.root.agent(CONTEXT)).model).toEqual({ provider: "work", modelId: "glm-5.3-flash" });
+			expect((await first.root.agent(CONTEXT)).model).toEqual(model);
 		} finally {
 			await first.close();
 		}
 
 		const reopened = await openHarness({ projectDir: project, dbPath, mcpServers: false });
 		try {
-			expect(reopened.model).toEqual({ provider: "work", modelId: "glm-5.3-flash" });
+			expect(reopened.model).toEqual(model);
 			expect((await reopened.root.agent(CONTEXT)).thinkingLevel).toBe("low");
 		} finally {
 			await reopened.close();
@@ -67,6 +71,36 @@ describe("durable conversation", () => {
 			expect((await explicit.root.agent(CONTEXT)).thinkingLevel).toBe("high");
 		} finally {
 			await explicit.close();
+		}
+	});
+
+	it("requires an explicit model choice to recover a removed saved model", async () => {
+		const project = await mkdtemp(join(tmpdir(), "pi-harness-legacy-"));
+		const dbPath = join(project, "session.db");
+		const config = { projectDir: project, dbPath, mcpServers: false as const };
+		const oldModel = { provider: "litellm", modelId: "glm-5.3-flash" };
+		const first = await openHarness(config);
+		try {
+			await first.root.configure({ model: oldModel, thinkingLevel: "low" }, CONTEXT);
+		} finally {
+			await first.close();
+		}
+		await expect(openHarness(config)).rejects.toThrow(
+			"saved model is no longer approved: litellm/glm-5.3-flash; reopen with --model litellm/glm-5.3",
+		);
+		const model = { provider: "litellm", modelId: "glm-5.3" } as const;
+		const recovered = await openHarness({ ...config, model });
+		try {
+			expect(recovered.model).toEqual(model);
+			expect((await recovered.root.agent(CONTEXT)).thinkingLevel).toBe("low");
+		} finally {
+			await recovered.close();
+		}
+		const reopened = await openHarness(config);
+		try {
+			expect(reopened.model).toEqual(model);
+		} finally {
+			await reopened.close();
 		}
 	});
 

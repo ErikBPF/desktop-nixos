@@ -22,7 +22,7 @@ buildNpmPackage {
   nodejs = nodejs_22;
 
   # Same lockfile as `_package.nix`; vitest and typescript are devDependencies.
-  npmDepsHash = "sha256-xs7PWtAE0e1TeN21l0BHbyT3cIMHb10uh10qYy5tbaM=";
+  npmDepsHash = "sha256-DvhpGKgTtMcsg6mU+Pe49X9y9UUo0HCWwL2uCy2Fsgw=";
 
   # `npm run build` is `tsc`, so the check typechecks before vitest runs; vitest
   # alone transpiles and would miss a type error.

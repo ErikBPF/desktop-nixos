@@ -16,7 +16,7 @@ def test_reasoning_controls_match_gateway_models():
         ["nix", "eval", "--impure", "--json", "--expr", expression], text=True
     ))
     # litellm routes through OpenCode Go, which accepts reasoning_effort.
-    for name in ("glm-5.3-flash", "deepseek-v4.1-flash"):
+    for name in ("glm-5.3", "deepseek-v4.1-flash"):
         model = providers["litellm"]["models"][name]
         assert model.get("reasoning") is True, name
         variants = model.get("variants", {})

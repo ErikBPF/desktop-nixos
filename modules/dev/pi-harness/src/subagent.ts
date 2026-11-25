@@ -116,12 +116,12 @@ function textOf(message: AssistantMessage | undefined): string {
 }
 
 export type SubagentOptions = {
-	/** Cheaper model for children. Defaults to litellm/glm-5.3-flash. */
+	/** Model for children. Defaults to litellm/glm-5.3. */
 	readonly childModel?: ModelRef;
 };
 
 export function createSubagentExtension(options: SubagentOptions = {}) {
-	const childModel: ModelRef = options.childModel ?? { provider: "litellm", modelId: "glm-5.3-flash" };
+	const childModel: ModelRef = options.childModel ?? { provider: "litellm", modelId: "glm-5.3" };
 
 	const subagentTool = defineTool({
 		name: SUBAGENT_TOOL_NAME,

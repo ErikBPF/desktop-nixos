@@ -83,6 +83,7 @@
     # Registered as a flake package too, but the home profile needs it on PATH.
     # It has no interactive mode, so the upstream agent keeps the `pi` command.
     piHarness = pkgs.callPackage ./pi-harness/_package.nix {};
+    approvedModels = builtins.fromJSON (builtins.readFile ./pi-harness/src/approved-models.json);
   in {
     home.packages = [pi piHarness];
 
@@ -90,9 +91,25 @@
     # modules/dev/opencode.nix; keys resolve at load time through `!cat`, so no
     # secret value lands in the store or in this repository.
     home.file = {
-      ".pi/agent/settings.json".text = ''
-        {"$schema":"https://pi.dev/schemas/settings.schema.json","defaultTools":["+codemode","+grep","+find","+ls"],"enableInstallTelemetry":false,"defaultProjectTrust":"never","packages":["npm:@dietrichgebert/ponytail@4.8.4"],"extensions":[],"shellPath":"/run/current-system/sw/bin/zsh"}
-      '';
+      ".pi/agent/settings.json".text = builtins.toJSON {
+        "$schema" = "https://pi.dev/schemas/settings.schema.json";
+        defaultTools = ["+codemode" "+grep" "+find" "+ls"];
+        enableInstallTelemetry = false;
+        defaultProjectTrust = "never";
+        packages = ["npm:@dietrichgebert/ponytail@4.8.4"];
+        extensions = [];
+        shellPath = "/run/current-system/sw/bin/zsh";
+        defaultProvider = "litellm";
+        defaultModel = "deepseek-v4.1-flash";
+        enabledModels = builtins.concatLists (builtins.attrValues (builtins.mapAttrs (provider: models:
+          map (model: "${
+            if provider == "openai"
+            then "openai-codex"
+            else provider
+          }/${model}")
+          models)
+        approvedModels));
+      };
 
       ".pi/agent/models.json".text = ''
         {
@@ -112,13 +129,17 @@
                   "reasoning": true
                 },
                 {
-                  "id": "glm-5.3-flash",
-                  "name": "GLM-5.3 Flash (LiteLLM → OpenCode Go)",
-                  "cost": {"input": 0.075, "output": 0.25, "cacheRead": 0, "cacheWrite": 0},
+                  "id": "glm-5.3",
+                  "name": "GLM-5.3 (LiteLLM → OpenCode Go)",
+                  "cost": {"input": 1.4, "output": 4.4, "cacheRead": 0.26, "cacheWrite": 0},
                   "contextWindow": 1000000,
                   "maxTokens": 131072,
                   "reasoning": true
-                }
+                },
+                {"id":"codex-gpt-6-astra","name":"Astra (Codex via LiteLLM)","api":"openai-responses","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
+                {"id":"codex-gpt-5.6-sol","name":"Sol (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
+                {"id":"codex-gpt-5.6-terra","name":"Terra (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
+                {"id":"codex-gpt-5.6-luna","name":"Luna (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true}
               ]
             },
             "work": {
@@ -144,8 +165,14 @@
                   "maxTokens": 131072,
                   "reasoning": false,
                   "compat": {"supportsReasoningEffort": false}
-                }
+                },
+                {"id":"chatgpt-5.6-luna","cost":{"input":0.2,"output":1.2,"cacheRead":0.02,"cacheWrite":0},"contextWindow":1050000,"maxTokens":128000,"input":["text","image"],"reasoning":false,"compat":{"supportsReasoningEffort":false}},
+                {"id":"chatgpt-5.6-sol","cost":{"input":4,"output":20,"cacheRead":0.5,"cacheWrite":0},"contextWindow":1050000,"maxTokens":128000,"input":["text","image"],"reasoning":false,"compat":{"supportsReasoningEffort":false}},
+                {"id":"chatgpt-5.6-terra","cost":{"input":2,"output":12,"cacheRead":0.2,"cacheWrite":0},"contextWindow":1050000,"maxTokens":128000,"input":["text","image"],"reasoning":false,"compat":{"supportsReasoningEffort":false}}
               ]
+            },
+            "opencode-go": {
+              "apiKey": "!cat /run/secrets/opencode/zen_key"
             }
           }
         }

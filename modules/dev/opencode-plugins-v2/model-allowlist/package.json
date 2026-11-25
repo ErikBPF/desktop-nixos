@@ -1,0 +1,6 @@
+{
+  "name": "homelab-model-allowlist",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "index.js"
+}

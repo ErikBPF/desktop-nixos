@@ -1,15 +1,16 @@
 # pi-harness
 
-A Pi-native, durable coding harness for the two home model gateways. It uses
+A Pi-native, durable coding harness for the home model gateways and subscription accounts. It uses
 `@earendil-works/pi-durable` for conversations, tasks, gates, restart recovery,
 and code mode. It does not recreate OpenCode's permission engine, role servers,
 ports, or backend wrapper.
 
 ## What it provides
 
-- Two providers: `litellm` (Orion) and `work`, both on the OpenAI completions
-  API, with `deepseek-v4.1-flash` and `glm-5.3-flash`. Costs and limits come from
-  `modules/dev/opencode.nix`.
+- Gateway providers `litellm` (Orion) and `work`, direct `opencode-go`, plus native `openai-codex`
+  and `anthropic` subscription providers. The approved model IDs live in
+  `src/approved-models.json`. Orion includes DeepSeek V4.1 Flash, full GLM-5.3,
+  and the Codex subscription aliases. Work keeps GLM-5.3 Flash.
 - Coding tools (`read`, `write`, `edit`, `bash`), image fitting, code mode
   (`createCodemodeExtension` with a 256 MiB QuickJS sandbox), tool search, one
   MCP extension per configured server with deferred tools, and background
@@ -48,7 +49,7 @@ Commands:
 Options:
 
 - `--project <dir>` (default: current directory)
-- `--model <provider/id>` (`litellm` or `work`; first creation defaults to
+- `--model <provider/id>` (`litellm`, `work`, `openai-codex`, `anthropic`, or `opencode-go`; first creation defaults to
   `litellm/deepseek-v4.1-flash`)
 - `--thinking <level>` (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`,
   `max`; first creation defaults to `high`)
@@ -73,8 +74,17 @@ printed:
 1. `/run/secrets/opencode/litellm_key` and `/run/secrets/opencode/work_key`
 2. `OPENCODE_LITELLM_KEY` and `OPENCODE_WORK_KEY`
 
+Direct Go reads `/run/secrets/opencode/zen_key`, then `OPENCODE_API_KEY`.
+
 LiteLLM also requires an `x-opencode-session` header. The harness sends a stable
 per-process value; it is a routing hint, not a credential.
+
+Native subscriptions share the upstream Pi account store at
+`${PI_CODING_AGENT_DIR:-~/.pi/agent}/auth.json`. Run `pi auth login openai-codex`
+or `pi auth login anthropic` once. The harness uses Pi's public `ModelRuntime`
+for credential reads, refresh, and cross-process locking. It does not copy
+tokens from Codex or Claude Code. Credential writes settle before a normal
+harness shutdown.
 
 ## Limits
 
@@ -91,7 +101,7 @@ per-process value; it is a routing hint, not a credential.
   harness logs the server name and reason and continues without that server.
   Servers start in the project directory.
 - **One live owner.** Do not open the same database from two writers.
-- **Subagent children** use `litellm/glm-5.3-flash` by default and cannot start
+- **Subagent children** use `litellm/glm-5.3` by default and cannot start
   subagents of their own.
 
 ## Layout

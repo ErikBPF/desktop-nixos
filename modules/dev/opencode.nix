@@ -168,6 +168,10 @@
         # token-tracking port is not verified; optional experiments are opt-in.
         "file://${./opencode-plugins-v2/rtk}"
         "file://${./opencode-plugins-v2/gateway-headers}"
+        {
+          package = "file://${./opencode-plugins-v2/model-allowlist}";
+          options.models = builtins.fromJSON (builtins.readFile ./pi-harness/src/approved-models.json);
+        }
         "${ponytailV2}"
       ];
       model = "litellm/deepseek-v4.1-flash";
@@ -187,7 +191,11 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
-            "codex-gpt-6-astra" = codexModel "Astra" "low";
+            "codex-gpt-6-astra" =
+              (codexModel "Astra" "low")
+              // {
+                provider.npm = "@opencode/ai/providers/openai-compatible/responses";
+              };
             "codex-gpt-5.6-sol" = codexModel "Sol" "low";
             "codex-gpt-5.6-terra" = codexModel "Terra" "medium";
             "codex-gpt-5.6-luna" = codexModel "Luna" "medium";
@@ -216,11 +224,12 @@
                 medium.disabled = true;
               };
             };
-            "glm-5.3-flash" = {
-              name = "GLM-5.3 Flash (LiteLLM → OpenCode Go)";
+            "glm-5.3" = {
+              name = "GLM-5.3 (LiteLLM → OpenCode Go)";
               cost = {
-                input = 0.075;
-                output = 0.25;
+                input = 1.4;
+                output = 4.4;
+                cache_read = 0.26;
               };
               limit = {
                 context = 1000000;
