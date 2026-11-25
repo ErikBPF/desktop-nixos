@@ -40,7 +40,9 @@ commands:
 
 options:
   --project <dir>     project directory (default: cwd)
-  --model <p/id>      litellm/<id> or work/<id> (default on first creation:
+  --model <p/id>      litellm/<id>, work/<id>, openai-codex/<id>, anthropic/<id>
+                      or opencode-go/<id>
+                      (default on first creation:
                       litellm/deepseek-v4.1-flash; the stored model wins on reopen
                       unless this flag is passed)
   --thinking <level>  off|minimal|low|medium|high|xhigh|max (default on first

@@ -12,7 +12,6 @@ import { basename, dirname, join, resolve } from "node:path";
 import type { Context } from "@earendil-works/chord/context";
 import type { JsonValue } from "@earendil-works/chord/json";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { createModels } from "@earendil-works/pi-ai";
 import { CodemodeSandbox } from "@earendil-works/pi-codemode";
 import {
 	createRegistry,
@@ -36,12 +35,13 @@ import {
 	StdioTransport,
 	toLlmContent,
 } from "@earendil-works/pi-mcp";
-import { createHarnessProviders, modelRefToString, type ModelRef } from "./providers.js";
+import { createHarnessModels, modelRefToString, parseModelRef, type ModelRef } from "./providers.js";
+import approvedModels from "./approved-models.json" with { type: "json" };
 import { createSubagentExtension } from "./subagent.js";
 
 export const CONTEXT = BACKGROUND_CONTEXT;
 export const DEFAULT_MODEL: ModelRef = { provider: "litellm", modelId: "deepseek-v4.1-flash" };
-export const DEFAULT_CHILD_MODEL: ModelRef = { provider: "litellm", modelId: "glm-5.3-flash" };
+export const DEFAULT_CHILD_MODEL: ModelRef = { provider: "litellm", modelId: "glm-5.3" };
 
 export type McpServerSpec = {
 	readonly name: string;
@@ -191,8 +191,7 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 	const modelRef = config.model ?? DEFAULT_MODEL;
 	const childModel = config.childModel ?? DEFAULT_CHILD_MODEL;
 
-	const models = createModels();
-	for (const provider of createHarnessProviders()) models.setProvider(provider);
+	const models = await createHarnessModels();
 	const model = models.getModel(modelRef.provider, modelRef.modelId);
 	if (model === undefined) {
 		throw new Error(`model not found in the harness catalog: ${modelRefToString(modelRef)}`);
@@ -246,9 +245,13 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 		if (current.instructions !== instructions) change.instructions = instructions;
 		if (Object.keys(change).length > 0) await root.configure(change, CONTEXT);
 		const stored = (await root.agent(CONTEXT)).model;
+		const approved: Readonly<Record<string, readonly string[]>> = approvedModels;
+		if (stored !== undefined && !approved[stored.provider === "openai-codex" ? "openai" : stored.provider]?.includes(stored.modelId)) {
+			throw new Error(`saved model is no longer approved: ${stored.provider}/${stored.modelId}; reopen with --model litellm/glm-5.3`);
+		}
 		const effective: ModelRef =
-			stored !== undefined && (stored.provider === "litellm" || stored.provider === "work")
-				? { provider: stored.provider, modelId: stored.modelId }
+			stored !== undefined
+				? parseModelRef(`${stored.provider}/${stored.modelId}`)
 				: modelRef;
 
 		return {
@@ -261,6 +264,7 @@ export async function openHarness(config: HarnessConfig): Promise<OpenedHarness>
 				try {
 					for (const client of clients) await client.close();
 					await harness!.close(CONTEXT);
+					await models.settleCredentialWrites();
 				} finally {
 					// The extension cannot own the sandbox: a script-left worker would outlive the CLI.
 					await sandbox.close().catch(() => {});
