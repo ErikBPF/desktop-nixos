@@ -92,7 +92,10 @@ leases, and how new heads dispatch workers.
    list, or `{"status":"error"}` when the pass fails. Candidates are advisory:
    the worker keeps the verdict and must re-quote evidence from the diff. The
    pass reads `/run/vault-agent/hermes-ocr.env`, rendered from
-   `secret/home/ocr-review-litellm`, and it is fail-open — a missing credential
+   `secret/home/ocr-review-litellm`, and it is fail-open. It reaches LiteLLM on
+   the loopback (`http://127.0.0.1:4000/v1`): the collector runs on the same
+   host as the proxy, and routing a local-only call through the public tunnel
+   made a tunnel flap look like a credential failure in every subtask. It is fail-open — a missing credential
    or a failed run leaves the bundle reviewable without candidates.
 
    `ocrTimeoutMinutes` (default 15) is the budget for one head's pass. OCR
