@@ -32,6 +32,8 @@ jobs:
         run: python3 tests/bluetooth-prompts/check.py
       - name: Captive Wi-Fi login contract
         run: python3 -m unittest discover -s tests/captive-portal -p 'test_*.py'
+      - name: Kindle safe ejection
+        run: python3 -m unittest discover -s tests/kindle-auto-eject -v
       - name: Graphify wheel-lock contract
         run: python3 -m unittest discover -s tests/graphify-lock -v
       - name: Authentik backup staging
