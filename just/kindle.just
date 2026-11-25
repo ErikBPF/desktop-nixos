@@ -78,7 +78,12 @@ seed-kindle-dash-vault:
     sops --decrypt --output-type json --extract '["kindle_dash"]' \
       secrets/sops/secrets.yaml |
       jq -e 'select(
-          (keys | length) == 4
+          keys == [
+            "KINDLE_DASH_CLAUDE_REFRESH_TOKEN",
+            "KINDLE_DASH_CODEX_REFRESH_TOKEN",
+            "KINDLE_DASH_HA_TOKEN",
+            "KINDLE_DASH_OPENCODE_AUTH_COOKIE"
+          ]
           and all(.[]; type == "string" and length > 0)
         )' > "$payload_file"
     token="$(
@@ -98,18 +103,27 @@ seed-kindle-dash-vault:
       full="$(mktemp)"
       current="$(mktemp)"
       add="$(mktemp)"
-      trap "rm -f \"$header\" \"$full\" \"$current\" \"$add\"" EXIT
-      chmod 600 "$header" "$full" "$current" "$add"
+      patch="$(mktemp)"
+      trap "rm -f \"$header\" \"$full\" \"$current\" \"$add\" \"$patch\"" EXIT
+      chmod 600 "$header" "$full" "$current" "$add" "$patch"
       printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
       unset token_b64
       printf "%s" "$payload_b64" | base64 --decode > "$full"
       unset payload_b64
-      exists=1
-      if ! curl --header @"$header" --silent --show-error --fail \
-        http://127.0.0.1:8200/v1/secret/data/home/kindle-dash > "$current" 2>/dev/null; then
-        exists=0
-        printf "{\"data\":{\"data\":{}}}" > "$current"
-      fi
+      http_code="$(curl --header @"$header" --silent --show-error \
+        --output "$current" --write-out "%{http_code}" \
+        http://127.0.0.1:8200/v1/secret/data/home/kindle-dash)"
+      case "$http_code" in
+        200) exists=1 ;;
+        404)
+          exists=0
+          printf "{\"data\":{\"data\":{}}}" > "$current"
+          ;;
+        *)
+          echo "kindle_dash_vault=error read_status=$http_code" >&2
+          exit 1
+          ;;
+      esac
       jq --slurpfile have "$current" \
         "with_entries(select(.key as \$k | (\$have[0].data.data | has(\$k)) | not))" \
         "$full" > "$add"
@@ -117,20 +131,19 @@ seed-kindle-dash-vault:
       if [ -z "$missing" ]; then
         echo "kindle_dash_vault=ready seeded_keys=none existing=4"
       elif [ "$exists" -eq 1 ]; then
-        jq -c "{data: .}" "$add" > "$add.patch"
+        jq -c "{data: .}" "$add" > "$patch"
         curl --header @"$header" --silent --show-error --fail --request PATCH \
           --header "Content-Type: application/merge-patch+json" \
-          --data-binary @"$add.patch" \
+          --data-binary @"$patch" \
           http://127.0.0.1:8200/v1/secret/data/home/kindle-dash >/dev/null
         echo "kindle_dash_vault=seeded keys=$missing"
       else
-        jq -c "{data: .}" "$full" > "$add.patch"
+        jq -c "{data: ., options: {cas: 0}}" "$full" > "$patch"
         curl --header @"$header" --silent --show-error --fail --request POST \
-          --data-binary @"$add.patch" \
+          --data-binary @"$patch" \
           http://127.0.0.1:8200/v1/secret/data/home/kindle-dash >/dev/null
         echo "kindle_dash_vault=created keys=$missing"
       fi
-      rm -f "$add.patch"
       curl --header @"$header" --silent --show-error --fail \
         http://127.0.0.1:8200/v1/secret/data/home/kindle-dash \
         | jq -e "
