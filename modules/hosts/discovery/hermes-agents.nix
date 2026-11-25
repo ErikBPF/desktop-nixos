@@ -78,6 +78,10 @@ in {
     # poster owns the bot token; the agent never receives it.
     services.hermes-pr-review = {
       enable = true;
+      # Pinned, not inherited: an unpinned job that sees the container default
+      # change is skipped by Hermes ("drift_skip") and the pipeline stalls with
+      # leases expiring. This must name the same model as daedalus's default.
+      workerModel = "codex-gpt-6-astra";
       # Five workers, each claiming one bundle atomically.
       parallelism = 5;
       publishInterval = "30s";
@@ -92,6 +96,13 @@ in {
       # verdict. Widen once the packets compare well.
       ocrEnable = true;
       ocrRepos = ["ErikBPF/desktop-nixos"];
+      # Same route as the worker. The pass is advisory and the worker keeps the
+      # verdict. Effort stays `low`: OCR's own `--effort` preset is the only
+      # reasoning dial its client exposes, it multiplies the review rounds, and
+      # the per-head budget is divided by those rounds — so `high` would hand
+      # the CLI a third of the time and truncate anything above a median diff.
+      ocrModel = "codex-gpt-6-astra";
+      ocrEffort = "low";
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;
@@ -162,6 +173,14 @@ in {
       settings =
         commonSettings
         // {
+          # The review worker runs on the ChatGPT/Codex subscription route the
+          # LiteLLM proxy already carries, at high reasoning: measured against
+          # deepseek it finds fewer findings (1 vs 2-3 per complex PR), so it is
+          # a deliberate cost/latency choice, not a quality one. `reasoning_effort`
+          # is global to this container; the cron jobs also pass
+          # `--reasoning-effort high`, which wins for review runs.
+          model = commonSettings.model // {default = "codex-gpt-6-astra";};
+          agent.reasoning_effort = "high";
           # Review isolation. A review must not see another PR's context:
           # memory persists across sessions and session_search reads the shared
           # session DB, so both are contamination channels between reviews.

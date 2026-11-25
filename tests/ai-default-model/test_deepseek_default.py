@@ -21,12 +21,22 @@ def test_qwen_chat_exposes_orion_context():
     assert "context = 98304;" in qwen_chat
 
 
-def test_all_hermes_brains_default_to_deepseek_v4_flash():
+def test_hermes_brains_default_to_their_documented_models():
+    """Pin the effective default per brain, not a string somewhere in the file.
+
+    The review worker (daedalus) overrides the shared default on purpose; a
+    bare substring check kept passing while covering no container's effective
+    model.
+    """
     primary = (ROOT / "modules/hosts/discovery/hermes-oci.nix").read_text()
     agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
 
+    # The shared block that argus and the primary agent inherit.
     assert f'default = "{MODEL}";' in primary
     assert f'default = "{MODEL}";' in agents
+    # Daedalus, the review worker, runs on the codex route.
+    assert 'model = commonSettings.model // {default = "codex-gpt-6-astra";};' in agents
+    assert 'agent.reasoning_effort = "high";' in agents
 
 
 def test_all_hermes_images_include_opencode_session_affinity():
