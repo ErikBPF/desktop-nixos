@@ -6,7 +6,8 @@ them. Run the listed command from the repository root on a suitable host.
 The incident fixtures whose recovery is closed and verified sit here too: they
 pin the host state, flake revisions and one-time repairs of that incident, so
 they are re-run when the referenced host is rebuilt rather than on every pull
-request.
+request. Contracts that drive a live script stay in CI: only fixtures pinned to a
+finished incident moved here.
 
 | Directory | Command | Prerequisite |
 |---|---|---|
@@ -21,11 +22,9 @@ request.
 | `tests/endeavour-home-backup.nix` | `nix eval --impure --raw --file tests/endeavour-home-backup.nix` | nix eval |
 | `tests/fail2ban-sshd-session` | `pytest -q tests/fail2ban-sshd-session` | nix eval |
 | `tests/fleet-dns-lan` | `pytest -q tests/fleet-dns-lan` | nix eval |
-| `tests/ha-harbor-reader` | `just test-ha-harbor-reader` | nix eval |
 | `tests/harbor-host-auth` | `pytest -q tests/harbor-host-auth` | docker |
 | `tests/harbor-iam-acceptance` | `pytest -q tests/harbor-iam-acceptance` | network |
 | `tests/harbor-iam-preflight` | `pytest -q tests/harbor-iam-preflight` | ssh host, docker, network, root |
-| `tests/harbor-publisher-bootstrap` | `pytest -q tests/harbor-publisher-bootstrap` | nix eval |
 | `tests/harbor-version-reconcile` | `pytest -q tests/harbor-version-reconcile` | docker |
 | `tests/herdr-worklab` | `pytest -q tests/herdr-worklab` | ssh host, nix eval, network |
 | `tests/hermes-go-credentials` | `pytest -q tests/hermes-go-credentials` | network |
@@ -35,7 +34,6 @@ request.
 | `tests/kepler-collision-recovery` | `bats tests/kepler-collision-recovery` | ssh host, docker |
 | `tests/kepler-cp1-host-containment` | `nix eval --impure --raw --file tests/kepler-cp1-host-containment/evaluate.nix` | nix eval, network |
 | `tests/kepler-reader-recovery` | `nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix` | nix eval |
-| `tests/openbao-offsite-restore` | `pytest -q tests/openbao-offsite-restore` | runtime state |
 | `tests/opencode-work-provider` | `pytest -q tests/opencode-work-provider` | network |
 | `tests/orion-audit` | `pytest -q tests/orion-audit` | nix eval |
 | `tests/orion-main-guardrails` | `pytest -q tests/orion-main-guardrails` | nix eval, network |

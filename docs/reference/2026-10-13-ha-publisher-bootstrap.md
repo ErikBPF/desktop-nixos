@@ -125,9 +125,7 @@ stubbed source checks, not live capture evidence.
 Local Sops help confirms `set --value-stdin`; no compatibility fallback is added.
 Run `nix develop -c python -m unittest discover -s tests/harbor-publisher-bootstrap -v`.
 The owner devshell explicitly provides Python/PyYAML, Sops, and age, so the
-contract runs both stubbed and native regressions, as a manual gate
-(`pytest -q tests/harbor-publisher-bootstrap`, see `tests/MANUAL.md`) rather
-than a per-pull-request step. PyYAML
+existing CI contract step runs both stubbed and native regressions. PyYAML
 parses encrypted YAML rather than inventing a partial YAML parser at this type
 boundary; the stdlib has no YAML parser. Missing native tools fail the gate,
 never silently skip it.
