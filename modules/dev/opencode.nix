@@ -91,6 +91,7 @@
     };
     permissionRules = action: effect: resources:
       map (resource: {inherit action effect resource;}) resources;
+    approvedModels = builtins.fromJSON (builtins.readFile ./pi-harness/src/approved-models.json);
     codexModel = name: reasoningEffort: {
       name = "${name} (Codex subscription)";
       cost = {
@@ -170,7 +171,7 @@
         "file://${./opencode-plugins-v2/gateway-headers}"
         {
           package = "file://${./opencode-plugins-v2/model-allowlist}";
-          options.models = builtins.fromJSON (builtins.readFile ./pi-harness/src/approved-models.json);
+          options.models = approvedModels;
         }
         "${ponytailV2}"
       ];
@@ -182,7 +183,20 @@
       enabled_providers = ["litellm" "work" "opencode-go" "openai"];
 
       # Gateway /model/info snapshot, 2026-09-10; costs per million tokens.
-      provider = {
+      # Explicit models are applied after plugin catalog transforms.
+      provider = builtins.mapAttrs (provider: settings:
+        if settings ? models
+        then
+          settings
+          // {
+            models =
+              builtins.intersectAttrs (builtins.listToAttrs (map (name: {
+                inherit name;
+                value = null;
+              }) (approvedModels.${provider} or [])))
+              settings.models;
+          }
+        else settings) {
         litellm = {
           npm = "@ai-sdk/openai-compatible";
           name = "Orion";
