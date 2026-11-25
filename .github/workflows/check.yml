@@ -59,7 +59,12 @@ jobs:
         run: |
           node tests/opencode-profiles/test_headers.mjs
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
-          ponytail=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in builtins.elemAt f.nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.settings.plugins 2')
+          ponytail=$(nix build --no-link --print-out-paths --impure --expr '
+            let
+              f = builtins.getFlake (toString ./.);
+              plugins = f.nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.settings.plugins;
+              adapters = builtins.filter (p: builtins.isString p && f.inputs.nixpkgs.lib.hasInfix "opencode-ponytail-v2-" p) plugins;
+            in assert builtins.length adapters == 1; builtins.head adapters')
           rtk_package=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in builtins.filter (p: (p.pname or "") == "rtk") f.nixosConfigurations.endeavour.config.home-manager.users.erik.home.packages')
           export PATH="$rtk_package/bin:$PATH"
           node tests/opencode-profiles/test_plugins.mjs "$ponytail"

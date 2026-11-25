@@ -1,6 +1,6 @@
 # Approved agent models and subscription accounts
 
-**Status:** Review repairs verified. Activation, browser authentication, and gateway rollout remain pending. Artifact revision 2.
+**Status:** Review repairs and CI selector repair verified. Merge and deployment are authorized, pending final-head checks and required review. Browser authentication and live gateway failures remain unresolved. Artifact revision 3.
 
 ## Human seed
 
@@ -36,12 +36,16 @@ LiteLLM advertises four Codex aliases and its server OAuth store is present and 
 
 ## Continuing work and recovery
 
-The built Home Manager candidate would remove the currently deployed, unrelated `secretspec-export.service`. Activation is therefore pending identification of the deployed configuration's owning checkout. The main checkout is older than its deployed Pi setup; all task edits are isolated from existing work. Complete Pi browser authentication, replace the invalid Go credential through the sanctioned secret store, and obtain scope-appropriate gateway rollout authorization. Recovery uses the previous Home Manager generation and bounded gateway grant revocation. No account was deleted or key reminted.
+The deployed-source blocker is resolved. [PR #554](https://github.com/ErikBPF/desktop-nixos/pull/554), commit `afa68344`, intentionally replaced the old Home Manager `secretspec-export.service` with the system-managed `erik-secretspec` user service. Deployment inspection found `/etc/systemd/user/erik-secretspec.service` loaded with a successful result and its environment cache present at mode 0600. The old unit was absent. Removing its obsolete Home Manager definition therefore matches accepted source. Complete Pi browser authentication and replace the invalid Go credential through the sanctioned secret store. Recovery uses the previous Home Manager generation and bounded gateway grant revocation. No account was deleted or key reminted.
 
 The final candidate built as `/nix/store/5fv9sa3hcch27b3w0ppd2ll6qfjpnhlp-home-manager-generation`; it was not activated. The installed generation remains `/nix/store/0s9l84g0j8naff31g5n9vl8i0kyahmjp-home-manager-generation`. The packaged harness status smoke passed with no live tasks or model usage. Final account inspection still found no saved Pi providers.
 
-Pending questions are bound to checkout `worktrees/approved-agent-models-20261124`, artifact revision 2: Q1 confirms whether to expand the Go catalog, with the two-model default recorded above; Q2 requests completion or status of Pi browser sign-ins; Q3 requests the checkout that owns the deployed Home Manager configuration. Q2 blocks account verification. Q3 blocks activation. No tuicr session is active. First-draft receipts are preserved in `~/.local/state/codex/approved-agent-models-20261124/`.
+Pending questions are bound to checkout `worktrees/approved-agent-models-20261124`, artifact revision 3: Q1 confirms whether to expand the Go catalog, with the two-model default recorded above; Q2 requests completion or status of Pi browser sign-ins. Q2 blocks account verification. Q3, deployed-source ownership, is resolved by the PR #554 evidence above. No tuicr session is active. First-draft receipts are preserved in `~/.local/state/codex/approved-agent-models-20261124/`.
+
+## CI repair
+
+[PR #563's lint job](https://github.com/ErikBPF/desktop-nixos/actions/runs/45521182364/job/138893129269) failed in the OpenCode gateway-profile checks. Its workflow selected Ponytail with fixed plugin index 2. The new model-allowlist plugin occupies that index, so `nix build` returned no package path and the adapter test rejected the empty argument. The workflow now selects the uniquely named Ponytail adapter from string-valued plugin entries. The exact selector realizes `/nix/store/wwvchj12ik9nm11mv5rxwdfy9l4l0sch-opencode-ponytail-v2-0.1.0`, and its RTK/Ponytail setup test passes. This changes CI package selection only. The task branch was rebased onto current `origin/main`, preserving its accepted model and account behavior. Local verification passed: gateway header checks, six dispatch tests, 21 profile tests, three project tests, authenticated-server smoke, `just lint`, `just fmt-check`, `just docs-check`, and `just dry endeavour`. The dry build emitted existing deprecation and temporary-directory warnings. Final-head CI and required review remain merge gates.
 
 ## Delivery
 
-The user requested `create pr` after reviewing the implementation report. This authorizes commits, branch publication, and linked draft PRs for Desktop, IaC, and Servarr. It does not authorize activation, applying infrastructure changes, merging, or restarting LiteLLM. Ship the Servarr forwarding prerequisite and IaC route before the Desktop consumer. Live authentication and deployed-source ownership remain unresolved.
+The user first requested `create pr` and then explicitly requested `merge and deploy`. The latter authorizes the linked Desktop, IaC, and Servarr merges and deployment after required checks and review pass. Ship the Servarr forwarding prerequisite and IaC route before the Desktop consumer. Live authentication remains unresolved. Deployment authorization does not establish successful account inference.
