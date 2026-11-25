@@ -248,9 +248,12 @@ _: {
         default = "low";
       };
       ocrTimeoutMinutes = lib.mkOption {
-        type = lib.types.ints.between 1 10;
-        default = 5;
-        description = "Per-subtask budget in minutes. One head may use this value times the effort rounds (low 1, medium 2, high 3), clamped to what remains of a 20-minute OCR budget per collect run after a fixed fetch/worktree reserve. The unit keeps a 30-minute start bound.";
+        # 16 min + 2 min of slack is exactly the per-head cap the run budget
+        # leaves, so a larger value would leave the wrapper nothing to hand the
+        # CLI once the effort rounds divide it.
+        type = lib.types.ints.between 1 16;
+        default = 15;
+        description = "Budget in minutes for one head's candidate pass. OCR's `--timeout` bounds that pass's tasks and is scaled by the effort preset (low 1, medium 2, high 3), so the collector hands over this budget divided by those rounds, with two minutes of slack kept above it for the CLI to write its JSON. Measured passes need about 2 minutes at the median and 7 for a 13-file diff; a pass with more groups than OCR's concurrency can still outlast the allowance, and whatever the CLI wrote is kept as a `partial` result instead of being discarded. The allowance is clamped to a 26-minute OCR budget per collect run after a fixed fetch/worktree reserve, and the unit keeps a 40-minute start bound.";
       };
       ocrBaseUrl = lib.mkOption {
         type = lib.types.str;
@@ -331,7 +334,7 @@ _: {
           # serial so the repo cache and the state lock never race.
           TimeoutStartSec =
             if cfg.ocrEnable
-            then "30min"
+            then "40min"
             else "15min";
         };
       };

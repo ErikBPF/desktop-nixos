@@ -26,20 +26,44 @@ class OcrCandidateTest(unittest.TestCase):
             "base-sha",
             "head-sha",
             Path("/bundle/ocr.json"),
+            15,
         )
         self.assertEqual(argv[0], "/bin/true")
+        self.assertEqual(argv[argv.index("--timeout") + 1], "15")
         self.assertEqual(argv[argv.index("--model") + 1], "deepseek-v4.1-flash")
         self.assertEqual(argv[argv.index("--effort") + 1], "low")
         self.assertEqual(argv[argv.index("--audience") + 1], "agent")
         self.assertEqual(argv[argv.index("--output") + 1], "/bundle/ocr.json")
 
-    def test_budget_scales_with_effort_and_stays_inside_the_run_cap(self):
+    def test_budget_is_the_pass_plus_slack_and_stays_inside_the_run_cap(self):
         cap = collect.OCR_RUN_BUDGET_SECONDS - collect.OCR_HEAD_OVERHEAD_SECONDS
-        self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "low"}), 360)
-        self.assertEqual(collect.ocr_budget({"timeout_minutes": 5, "effort": "high"}), cap)
+        # A pass gets its own minutes plus two minutes of slack, so the CLI can
+        # write its JSON before this wrapper kills it.
+        for effort in ("low", "medium", "high"):
+            self.assertEqual(
+                collect.ocr_budget({"timeout_minutes": 15, "effort": effort}),
+                15 * 60 + 120,
+            )
+        self.assertEqual(collect.ocr_budget({"timeout_minutes": 16}), cap)
         self.assertEqual(
-            collect.ocr_budget({"timeout_minutes": 5, "effort": "low"}, remaining=700), 220
+            collect.ocr_budget({"timeout_minutes": 15}, remaining=700),
+            700 - collect.OCR_HEAD_OVERHEAD_SECONDS,
         )
+
+    def test_cli_minutes_stay_under_the_wrapper_kill(self):
+        # OCR multiplies --timeout by the effort rounds, so the value handed
+        # over is the allowance divided by them.
+        budget = 15 * 60 + 120
+        for effort, rounds in (("low", 1), ("medium", 2), ("high", 3)):
+            minutes = collect.ocr_cli_minutes({"effort": effort}, budget)
+            self.assertEqual(minutes, (budget - 120) // (60 * rounds))
+            self.assertLessEqual(minutes * rounds * 60, budget - 120)
+        # A clamp on the wrapper prunes the CLI budget too, not just the kill.
+        clamped = 700 - collect.OCR_HEAD_OVERHEAD_SECONDS
+        minutes = collect.ocr_cli_minutes({"effort": "low"}, clamped)
+        self.assertEqual(minutes, (clamped - 120) // 60)
+        self.assertLessEqual(minutes * 60, clamped - 120)
+        self.assertGreaterEqual(collect.ocr_cli_minutes({"effort": "high"}, 200), 1)
 
     def test_run_budget_is_recorded_without_calling_ocr(self):
         from types import SimpleNamespace

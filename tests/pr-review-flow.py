@@ -394,6 +394,95 @@ def test_previous_review_packet_is_found_and_bounded():
             )
 
 
+def test_ocr_keeps_a_partial_pass_and_logs_the_reason():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        out = root / "ocr.json"
+
+        class Proc:
+            def __init__(self, rc, stderr):
+                self.returncode = rc
+                self.stderr = stderr
+                self.stdout = ""
+
+        def run_with(proc):
+            collect.subprocess.run = lambda *a, **k: proc
+            collect.ocr_execute(
+                {"binary": "ocr", "effort": "low", "timeout_minutes": 15},
+                root, "b" * 40, "a" * 40, out, 60,
+            )
+
+        original = collect.subprocess.run
+        try:
+            # A truncated pass: non-zero exit, usable candidates on disk.
+            out.write_text(json.dumps({"status": "partial", "comments": [{"path": "x"}]}))
+            run_with(Proc(1, "line one\nError: review incomplete: 10 of 11 failed\n"))
+            kept = json.loads(out.read_text())
+            check(
+                kept["status"] == "partial" and len(kept["comments"]) == 1,
+                f"a partial pass must keep its candidates: {kept}",
+            )
+            check(
+                "kept 1 candidate(s)" in kept["message"]
+                and "review incomplete" in kept["message"],
+                kept["message"],
+            )
+
+            # A pass with nothing usable still becomes an error stub, annotated.
+            out.write_text(json.dumps({"status": "partial", "comments": []}))
+            run_with(Proc(1, "Error: lookup failed\n"))
+            stub = json.loads(out.read_text())
+            check(stub["status"] == "error", stub)
+            check("elapsed" in stub["message"] and "of 60s" in stub["message"], stub["message"])
+
+            # A wrapper timeout still keeps what the CLI wrote before the kill.
+            out.write_text(json.dumps({"status": "partial", "comments": [{"path": "y"}]}))
+
+            def boom(*a, **k):
+                raise collect.subprocess.TimeoutExpired("ocr", 60)
+
+            collect.subprocess.run = boom
+            collect.ocr_execute(
+                {"binary": "ocr", "effort": "low", "timeout_minutes": 15},
+                root, "b" * 40, "a" * 40, out, 60,
+            )
+            kept = json.loads(out.read_text())
+            check(
+                kept["status"] == "partial" and len(kept["comments"]) == 1,
+                f"a killed pass must keep its candidates: {kept}",
+            )
+
+            # A hard failure with no file at all.
+            out.unlink()
+            run_with(Proc(1, ""))
+            check(json.loads(out.read_text())["status"] == "error", "missing output")
+        finally:
+            collect.subprocess.run = original
+
+
+def test_ocr_budget_is_a_whole_pass_budget():
+    cfg = {"effort": "low", "timeout_minutes": 15}
+    budget = collect.ocr_budget(cfg)
+    check(budget == 15 * 60 + 120, f"unexpected budget {budget}")
+    check(
+        collect.ocr_budget({"effort": "high", "timeout_minutes": 15}) == budget,
+        "the effort preset must not scale the wrapper allowance",
+    )
+    check(
+        collect.ocr_cli_minutes({"effort": "high"}, budget) == (budget - 120) // 180,
+        "the CLI budget must be the allowance divided by the effort rounds",
+    )
+    check(
+        collect.ocr_budget({"effort": "low", "timeout_minutes": 16})
+        == collect.OCR_RUN_BUDGET_SECONDS - collect.OCR_HEAD_OVERHEAD_SECONDS,
+        "the largest accepted value must still fit the run budget",
+    )
+    check(
+        collect.ocr_budget(cfg, remaining=600) == 600 - collect.OCR_HEAD_OVERHEAD_SECONDS,
+        "the remaining run budget must clamp the pass",
+    )
+
+
 def test_request_bypasses_the_settle_window():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)

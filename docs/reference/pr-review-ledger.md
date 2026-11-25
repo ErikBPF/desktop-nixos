@@ -82,12 +82,22 @@ leases, and how new heads dispatch workers.
    the worker keeps the verdict and must re-quote evidence from the diff. The
    pass reads `/run/vault-agent/hermes-ocr.env`, rendered from
    `secret/home/ocr-review-litellm`, and it is fail-open — a missing credential
-   or a failed run leaves the bundle reviewable without candidates. One head is
-   bounded by `ocrTimeoutMinutes` times the effort rounds (low 1, medium 2,
-   high 3), clamped to what remains of a 20-minute OCR budget per collect run
-   after a fixed fetch/worktree reserve; heads admitted without enough budget
-   left get `{"status":"skipped"}`. The collect unit keeps a 30-minute start
-   bound.
+   or a failed run leaves the bundle reviewable without candidates.
+
+   `ocrTimeoutMinutes` (default 15) is the budget for one head's pass. OCR
+   scales the `--timeout` it receives by the effort preset (low 1, medium 2,
+   high 3), so the collector hands over this budget divided by those rounds and
+   keeps two minutes of slack above it. A pass that dispatches more groups than
+   OCR's concurrency can still outlast the allowance; whatever the CLI wrote is
+   then kept as a `partial` result rather than discarded. Measured passes need about 2 minutes at the median and 7 minutes for a
+   13-file diff, so the earlier 5-minute value cut passes off mid-run and the
+   CLI exited non-zero with a `partial` result. A truncated pass keeps its
+   finished candidates (`status: partial` plus the reason) instead of being
+   replaced by an error stub, and the CLI's last 20 stderr lines go to the
+   journal. One head is clamped to what remains of a 26-minute OCR budget per
+   collect run after a fixed fetch/worktree reserve, the value passed to OCR is
+   derived from that clamped allowance, and the collect unit keeps a 40-minute
+   start bound.
 3. Each worker job carries the `schedule` (default `*/2 * * * *`) on the
    Hermes cron ticker. The ticker starts up to `parallelism`
    of them when they are due, and each worker's claim script leases exactly one
@@ -111,11 +121,11 @@ leases, and how new heads dispatch workers.
 
 A new head is normally visible as a check within the settle window plus review
 time plus about one minute. An OCR-enabled deployment adds the serial candidate
-pass — up to
-`ocrTimeoutMinutes` × effort rounds per new head, capped at 20 minutes of OCR
-work per collect run — before the bundle is sealed. The collect unit carries a
-30-minute start bound for that reason. An idle worker prints the Hermes
-`{"wakeAgent": false}` gate and exits without invoking the model.
+pass — up to `ocrTimeoutMinutes` plus two minutes per head, inside a 26-minute
+OCR budget per collect run — before the bundle is sealed. The collect unit
+carries a 40-minute start bound for that reason, and the review also waits for
+the head's other checks, so the two delays add up. An idle worker prints the
+Hermes `{"wakeAgent": false}` gate and exits without invoking the model.
 
 ## Ledger
 

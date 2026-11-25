@@ -27,10 +27,11 @@ import ledger
 import tokens
 
 GH = "gh"
-# OCR scales its task budget by the effort rounds. Keep the wrapper ceiling,
-# the per-run cap and the unit start bound in one budget.
+# Keep the wrapper ceiling, the per-run cap and the unit start bound in one
+# budget. OCR applies the effort preset as review rounds, so the value handed to
+# `--timeout` is the wrapper allowance divided by these; see `ocr_cli_minutes`.
 OCR_EFFORT_ROUNDS = {"low": 1, "medium": 2, "high": 3}
-OCR_RUN_BUDGET_SECONDS = 20 * 60
+OCR_RUN_BUDGET_SECONDS = 26 * 60
 # Fetch, worktree add and process slack a head needs outside the model call.
 OCR_HEAD_OVERHEAD_SECONDS = 8 * 60
 # The required check's name. `tests/pr-review-publish.py` asserts it matches
@@ -794,7 +795,7 @@ def ocr_settings(settings: dict | None, repo: str) -> dict | None:
 
 
 def ocr_invocation(
-    cfg: dict, worktree: Path, base: str, head: str, out: Path
+    cfg: dict, worktree: Path, base: str, head: str, out: Path, minutes: int
 ) -> list[str]:
     return [
         cfg.get("binary", "ocr"),
@@ -810,7 +811,7 @@ def ocr_invocation(
         "--effort",
         cfg.get("effort", "low"),
         "--timeout",
-        str(cfg.get("timeout_minutes", 5)),
+        str(minutes),
         "--format",
         "json",
         "--audience",
@@ -821,40 +822,111 @@ def ocr_invocation(
 
 
 def ocr_budget(cfg: dict, remaining: float | None = None) -> int:
-    """Seconds the CLI may use for one head, inside the run budget.
+    """Seconds this wrapper allows one head, inside the run budget.
 
-    The ceiling absorbs the effort rounds and never exceeds what is left of
-    the run after the fetch/worktree reserve, so the unit start bound holds.
+    Two minutes of slack sit above the CLI's own budget, so it can write its
+    partial or final JSON before the kill, which would otherwise lose the pass
+    entirely.
     """
-    rounds = OCR_EFFORT_ROUNDS.get(cfg.get("effort", "low"), 1)
-    budget = int(cfg.get("timeout_minutes", 5)) * rounds * 60 + 60
+    budget = int(cfg.get("timeout_minutes", 15)) * 60 + 120
     budget = min(budget, OCR_RUN_BUDGET_SECONDS - OCR_HEAD_OVERHEAD_SECONDS)
     if remaining is not None:
         budget = min(budget, int(remaining) - OCR_HEAD_OVERHEAD_SECONDS)
     return budget
 
 
+def ocr_cli_minutes(cfg: dict, budget: int) -> int:
+    """Minutes to pass as ``--timeout`` for a wrapper allowance of ``budget``.
+
+    OCR applies the effort preset as review rounds, and its own budget is
+    documented as ``--timeout`` times those rounds, so the value handed over is
+    the allowance divided by the rounds. Dividing also keeps the CLI inside the
+    kill if the flag turns out to be absolute, so both readings are safe. The
+    two clamped cases matter: whatever prunes ``budget`` (the run cap or the
+    remaining run time) prunes this value with it.
+    """
+    rounds = OCR_EFFORT_ROUNDS.get(str(cfg.get("effort", "low")), 1)
+    return max(1, (int(budget) - 120) // (60 * max(1, rounds)))
+
+
+def keep_partial(out: Path, reason: str, worktree: Path, started: float, timeout: int) -> bool:
+    """Keep the candidates a short pass wrote. True when there were any."""
+    if not out.exists():
+        return False
+    try:
+        partial = json.loads(out.read_text())
+    except ValueError:
+        return False
+    candidates = len((partial.get("comments") if isinstance(partial, dict) else None) or [])
+    if not candidates:
+        return False
+    partial["message"] = (
+        f"{reason} (kept {candidates} candidate(s) from a partial pass)"
+    )
+    out.write_text(json.dumps(partial, indent=2) + "\n")
+    print(
+        f"WARN ocr {worktree.name}: {reason} kept={candidates} "
+        f"elapsed={int(time.time() - started)}s/{timeout}s",
+        file=sys.stderr,
+    )
+    return True
+
+
 def ocr_execute(cfg: dict, worktree: Path, base: str, head: str, out: Path, timeout: int) -> None:
-    """Run the candidate pass. A broken pass must never block the review."""
+    """Run the candidate pass. A broken pass must never block the review.
+
+    A non-zero exit is not the same as no output: the CLI spends its budget on
+    per-file subtasks and writes what finished, so a truncated run usually
+    carries usable candidates. Keep them and record why the pass fell short
+    instead of replacing the result with an error stub.
+    """
+    started = time.time()
+    minutes = ocr_cli_minutes(cfg, timeout)
     try:
         proc = subprocess.run(
-            ocr_invocation(cfg, worktree, base, head, out),
+            ocr_invocation(cfg, worktree, base, head, out, minutes),
             capture_output=True,
             text=True,
             timeout=timeout,
         )
+        detail = [
+            line
+            for line in (proc.stderr or proc.stdout or "").strip().splitlines()
+            if line.strip()
+        ]
+        if detail:
+            # The per-subtask reasons live above the last line; keep enough of
+            # them that a failure can be diagnosed from the journal.
+            for line in detail[-20:]:
+                print(f"OCR {worktree.name}: {line}", file=sys.stderr)
         if proc.returncode != 0:
-            detail = (proc.stderr or proc.stdout or "").strip().splitlines()
-            raise RuntimeError(detail[-1][:500] if detail else "non-zero exit")
+            reason = detail[-1][:300] if detail else "non-zero exit"
+            if keep_partial(out, reason, worktree, started, timeout):
+                return
+            raise RuntimeError(reason)
         if not out.exists():
             raise RuntimeError("no output written")
         json.loads(out.read_text())
     except Exception as exc:
+        # A wrapper timeout kills the CLI, but whatever it wrote before the kill
+        # is still on disk: keep it for the same reason a non-zero exit is kept.
+        if keep_partial(out, str(exc), worktree, started, timeout):
+            return
         out.write_text(
-            json.dumps({"status": "error", "message": str(exc)[:500]}, indent=2)
+            json.dumps(
+                {
+                    "status": "error",
+                    "message": f"{exc} (elapsed {int(time.time() - started)}s of {timeout}s)",
+                },
+                indent=2,
+            )
             + "\n"
         )
-        print(f"WARN ocr {worktree.name}: {exc}", file=sys.stderr)
+        print(
+            f"WARN ocr {worktree.name}: {exc} "
+            f"elapsed={int(time.time() - started)}s/{timeout}s",
+            file=sys.stderr,
+        )
 
 
 def git_auth_env(token: str) -> dict:
