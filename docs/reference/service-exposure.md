@@ -45,9 +45,10 @@ it is unreachable from the network.
 | 12345 | 127.0.0.1 | alloy | |
 | 5432 | 127.0.0.1/::1 | host postgres | container `postgres` is compose-network only |
 | 1514 | 127.0.0.1 | `harbor-log` (syslog) | |
+| 4000 | 127.0.0.1 | `litellm` | host-side scrapers and the PR-review collector call it here; remote consumers use the swag vhost |
 | 32401, 32600, … | 127.0.0.1 | Plex internals | |
 
-Everything else (`litellm`, `vaultwarden`, `grafana`, `langfuse`, `homepage`,
+Everything else (`vaultwarden`, `grafana`, `langfuse`, `homepage`,
 `uptime-kuma`, *arr stack, `healthchecks`, `stirling-pdf`, …) publishes **no**
 host port — reachable only through the compose network, i.e. via swag vhosts.
 That is the target pattern: **reverse-proxy exposure over host port
