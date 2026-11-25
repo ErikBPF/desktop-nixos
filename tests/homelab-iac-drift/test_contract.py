@@ -15,16 +15,18 @@ def test_drift_exit_is_not_a_failed_unit():
     assert 'SuccessExitStatus = [2];' in module
 
 
-def test_github_app_token_is_refreshed_at_runtime():
+def test_github_app_auth_uses_the_private_key_at_runtime():
     module = (
         Path(__file__).parents[2] / "modules/services/homelab-iac-drift.nix"
     ).read_text()
 
-    assert "githubAppManagementEnvFile" in module
-    assert "refresh-github-app-token.sh" in module
-    assert "GITHUB_APP_MANAGEMENT_REFRESH_TOKEN=" in module
-    assert "bao kv get -field=GITHUB_APP_MANAGEMENT_REFRESH_TOKEN" in module
-    assert 'GITHUB_APP_MANAGEMENT_TOKEN="$(bash bin/refresh-github-app-token.sh)"' in module
+    # App auth mints short-lived installation tokens from the private key, so the
+    # eight-hour OAuth refresh token is no longer in the infrastructure path.
+    assert 'export GITHUB_APP_PEM_FILE="$STATE_DIRECTORY/github-app.pem"' in module
+    assert "KINDLE_RELEASE_PRIVATE_KEY_B64" in module
+    assert "base64 -d > \"$GITHUB_APP_PEM_FILE\"" in module
+    assert "refresh-github-app-token.sh" not in module
+    assert "GITHUB_APP_MANAGEMENT_REFRESH_TOKEN=" not in module
 
 
 def test_drift_executes_the_pinned_iac_artifact_without_git():
