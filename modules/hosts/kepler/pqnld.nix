@@ -38,9 +38,12 @@ in {
       # The model stack is a home-manager *user* unit, so the system manager cannot
       # order against it; gate on the endpoint instead. The tailnet bind also needs
       # tailscaled to own the address before bind() runs.
-      wants = ["network-online.target" "tailscaled.service"];
-      after = ["network-online.target" "tailscaled.service"];
-      wantedBy = ["multi-user.target"];
+      wants = ["network-online.target" "tailscaled-autoconnect.service"];
+      after = ["network-online.target" "tailscaled-autoconnect.service"];
+      # Pulled in through tailscaled, not multi-user.target: a start job wanted by
+      # the boot target holds it, and this unit's readiness gate may legitimately
+      # wait ten minutes for the model stack (harbor-reader uses the same shape).
+      wantedBy = ["tailscaled.service"];
       serviceConfig = {
         # ExecStartPre is bounded by TimeoutStartSec (90 s default), not by the
         # script's own 10-minute loop: give the gate room to hold for the model.
