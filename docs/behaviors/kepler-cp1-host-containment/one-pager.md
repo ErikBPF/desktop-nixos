@@ -17,7 +17,9 @@ rewrites `current` before boot; changing only that link cannot contain it.
 
 This change adds `nixosConfigurations.kepler-cp1-recovery`. Normal fleet definitions are not replaced. The existing configuration mapper
 also adds the supplemental host to the flake check set; full/check-remote
-validation will include it. CI uses a focused evaluation gate.
+validation will include it. The focused evaluation gate is manual
+(`nix eval --impure --raw --file tests/kepler-cp1-host-containment/evaluate.nix`,
+see `tests/MANUAL.md`); it no longer runs on every pull request.
 The supplemental host uses the native `microvm.vms.cp-1.evaluatedConfig` option
 so the normal installer durably selects the reviewed no-autostart guest. It
 uses the existing owner `deploy` recipe; the new `deploy-preview` recipe uses

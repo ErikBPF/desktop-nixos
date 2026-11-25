@@ -49,6 +49,9 @@ prior failure evidence and do not mask an incomplete snapshot as success.
 
 
 Hosted review found that the new exact-scope fixture was only documented as a
-manual command. It is now executed in the existing integrity stage CI step,
-alongside the staged pilot evaluation. The owner module and acceptance assertions
+manual command. It moved into the integrity stage CI step, alongside the staged
+pilot evaluation; both are manual gates now
+(`nix eval --impure --raw --file tests/endeavour-home-backup.nix` and
+`tests/host-integrity/pilot-evaluate.nix`, see `tests/MANUAL.md`), re-run when
+the host is rebuilt rather than on every pull request. The owner module and acceptance assertions
 are unchanged; the targeted fixture was rerun successfully before publication.

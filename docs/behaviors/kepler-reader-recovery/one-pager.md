@@ -43,7 +43,9 @@ The source-evaluated Nix assertion failed because guest units were absent from
 incorrectly assumed the effective autostart list had no duplicates; that harness
 assumption was corrected before recording the behavioral RED. The final fixture
 checks six unique guests, the retained Requires/Before boundary, reader restart
-policy and restart-on-configuration-change protection. CI runs that evaluation.
+policy and restart-on-configuration-change protection. That evaluation is a
+manual gate (`nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix`,
+see `tests/MANUAL.md`); it no longer runs on every pull request.
 
 The disposable local user-systemd test reads the actual evaluated reader Wants
 list, then reproduces its dependency topology with uniquely named harmless

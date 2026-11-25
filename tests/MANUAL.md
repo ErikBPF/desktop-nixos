@@ -3,6 +3,12 @@
 These suites need a live host, root, network, or a Nix evaluation. No gate runs
 them. Run the listed command from the repository root on a suitable host.
 
+The incident fixtures whose recovery is closed and verified sit here too: they
+pin the host state, flake revisions and one-time repairs of that incident, so
+they are re-run when the referenced host is rebuilt rather than on every pull
+request. Contracts that drive a live script stay in CI: only fixtures pinned to a
+finished incident moved here.
+
 | Directory | Command | Prerequisite |
 |---|---|---|
 | `tests/alloy` | `pytest -q tests/alloy` | docker |
@@ -13,6 +19,7 @@ them. Run the listed command from the repository root on a suitable host.
 | `tests/cognee-recovery` | `pytest -q tests/cognee-recovery` | docker |
 | `tests/dendritic-structure` | `pytest -q tests/dendritic-structure` | ssh host |
 | `tests/desktop-file-managers` | `pytest -q tests/desktop-file-managers` | runtime state |
+| `tests/endeavour-home-backup.nix` | `nix eval --impure --raw --file tests/endeavour-home-backup.nix` | nix eval |
 | `tests/fail2ban-sshd-session` | `pytest -q tests/fail2ban-sshd-session` | nix eval |
 | `tests/fleet-dns-lan` | `pytest -q tests/fleet-dns-lan` | nix eval |
 | `tests/harbor-host-auth` | `pytest -q tests/harbor-host-auth` | docker |
@@ -21,7 +28,12 @@ them. Run the listed command from the repository root on a suitable host.
 | `tests/harbor-version-reconcile` | `pytest -q tests/harbor-version-reconcile` | docker |
 | `tests/herdr-worklab` | `pytest -q tests/herdr-worklab` | ssh host, nix eval, network |
 | `tests/hermes-go-credentials` | `pytest -q tests/hermes-go-credentials` | network |
+| `tests/host-integrity` | `nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix` | nix eval |
+| `tests/k3s-bootstrap-reproduction` | `nix eval --impure --raw --file tests/k3s-bootstrap-reproduction/evaluate.nix` | nix eval |
+| `tests/kepler-bootstrap-maintenance` | `nix eval --impure --raw --file tests/kepler-bootstrap-maintenance/evaluate.nix` | nix eval |
 | `tests/kepler-collision-recovery` | `bats tests/kepler-collision-recovery` | ssh host, docker |
+| `tests/kepler-cp1-host-containment` | `nix eval --impure --raw --file tests/kepler-cp1-host-containment/evaluate.nix` | nix eval, network |
+| `tests/kepler-reader-recovery` | `nix eval --impure --raw --file tests/kepler-reader-recovery/evaluate.nix` | nix eval |
 | `tests/opencode-work-provider` | `pytest -q tests/opencode-work-provider` | network |
 | `tests/orion-audit` | `pytest -q tests/orion-audit` | nix eval |
 | `tests/orion-main-guardrails` | `pytest -q tests/orion-main-guardrails` | nix eval, network |
