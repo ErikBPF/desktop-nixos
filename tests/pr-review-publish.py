@@ -855,6 +855,11 @@ assert "hermes-pr-review-dispatch" not in module, (
     "the Hermes ticker owns the worker schedule"
 )
 assert 'default = "*/2 * * * *";' in module, "worker jobs fire every collect interval"
+assert "workerModel" in module and "WORKER_MODEL" in module, (
+    "hermes skips an unpinned job when the global model drifts; the worker must pin it"
+)
+assert "pin=(--model" in bootstrap, "the pin must reach cron create and cron edit"
+assert bootstrap.count('"${pin[@]}"') == 2, "create and edit must both pin the model"
 assert "--settle-minutes" in module and "--retain-bundles" in module
 assert "hermes-pr-review-metrics" in module, "queue depth must be scrapeable"
 assert "review-claims" not in module, "file claims are replaced by ledger leases"
