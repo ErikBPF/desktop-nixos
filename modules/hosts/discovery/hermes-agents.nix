@@ -93,10 +93,12 @@ in {
       ocrEnable = true;
       ocrRepos = ["ErikBPF/desktop-nixos"];
       # Same route as the worker. The pass is advisory and the worker keeps the
-      # verdict; OCR's own `--effort` preset (not `reasoning_effort`) is the
-      # only knob its client exposes.
+      # verdict. Effort stays `low`: OCR's own `--effort` preset is the only
+      # reasoning dial its client exposes, it multiplies the review rounds, and
+      # the per-head budget is divided by those rounds — so `high` would hand
+      # the CLI a third of the time and truncate anything above a median diff.
       ocrModel = "codex-gpt-6-astra";
-      ocrEffort = "high";
+      ocrEffort = "low";
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;
