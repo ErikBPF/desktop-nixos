@@ -1,6 +1,6 @@
 # Approved agent models and subscription accounts
 
-**Status:** Review repairs and CI selector repair verified. Merge and deployment are authorized, pending final-head checks and required review. Browser authentication and live gateway failures remain unresolved. Artifact revision 3.
+**Status:** Review repairs and both CI harness repairs verified. Merge and deployment are authorized, pending final-head checks and required review. Browser authentication and live gateway failures remain unresolved. Artifact revision 4.
 
 ## Human seed
 
@@ -40,11 +40,13 @@ The deployed-source blocker is resolved. [PR #554](https://github.com/ErikBPF/de
 
 The final candidate built as `/nix/store/5fv9sa3hcch27b3w0ppd2ll6qfjpnhlp-home-manager-generation`; it was not activated. The installed generation remains `/nix/store/0s9l84g0j8naff31g5n9vl8i0kyahmjp-home-manager-generation`. The packaged harness status smoke passed with no live tasks or model usage. Final account inspection still found no saved Pi providers.
 
-Pending questions are bound to checkout `worktrees/approved-agent-models-20261124`, artifact revision 3: Q1 confirms whether to expand the Go catalog, with the two-model default recorded above; Q2 requests completion or status of Pi browser sign-ins. Q2 blocks account verification. Q3, deployed-source ownership, is resolved by the PR #554 evidence above. No tuicr session is active. First-draft receipts are preserved in `~/.local/state/codex/approved-agent-models-20261124/`.
+Pending questions are bound to checkout `worktrees/approved-agent-models-20261124`, artifact revision 4: Q1 confirms whether to expand the Go catalog, with the two-model default recorded above; Q2 requests completion or status of Pi browser sign-ins. Q2 blocks account verification. Q3, deployed-source ownership, is resolved by the PR #554 evidence above. No tuicr session is active. First-draft receipts are preserved in `~/.local/state/codex/approved-agent-models-20261124/`.
 
 ## CI repair
 
 [PR #563's lint job](https://github.com/ErikBPF/desktop-nixos/actions/runs/45521182364/job/138893129269) failed in the OpenCode gateway-profile checks. Its workflow selected Ponytail with fixed plugin index 2. The new model-allowlist plugin occupies that index, so `nix build` returned no package path and the adapter test rejected the empty argument. The workflow now selects the uniquely named Ponytail adapter from string-valued plugin entries. The exact selector realizes `/nix/store/wwvchj12ik9nm11mv5rxwdfy9l4l0sch-opencode-ponytail-v2-0.1.0`, and its RTK/Ponytail setup test passes. This changes CI package selection only. The task branch was rebased onto current `origin/main`, preserving its accepted model and account behavior. Local verification passed: gateway header checks, six dispatch tests, 21 profile tests, three project tests, authenticated-server smoke, `just lint`, `just fmt-check`, `just docs-check`, and `just dry endeavour`. The dry build emitted existing deprecation and temporary-directory warnings. Final-head CI and required review remain merge gates.
+
+The [next fresh-head lint run](https://github.com/ErikBPF/desktop-nixos/actions/runs/45523682041/job/138901603601) passed the repaired selector and adapter checks, then exposed a separate test-environment defect. Two model-allowlist checks hardcoded `opencode` instead of honoring `OPENCODE_TEST_BINARY`. CI provides the realized binary through that variable and does not put it on `PATH`. Local reproduction without `opencode` on `PATH` produced the same two `FileNotFoundError` failures. Both checks now use the existing binary override convention. The full 21-test profile suite passes with `opencode` absent from `PATH`; assertions and application behavior are unchanged. Lint, formatting, and documentation checks also pass. This is the second bounded lint-gate repair.
 
 ## Delivery
 

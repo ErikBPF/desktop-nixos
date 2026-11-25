@@ -52,7 +52,7 @@ class ModelAllowlist(unittest.TestCase):
                    "OPENCODE_DISABLE_MODELS_FETCH": "1", "OPENCODE_DISABLE_CLAUDE_CODE": "1"}
             env.update({f"XDG_{name}_HOME": str(root / name.lower())
                         for name in ["CONFIG", "DATA", "CACHE", "STATE"]})
-            sources = json.loads(subprocess.check_output(["opencode", "debug", "config", "--standalone"],
+            sources = json.loads(subprocess.check_output([os.environ.get("OPENCODE_TEST_BINARY", "opencode"), "debug", "config", "--standalone"],
                                  cwd=directory, env=env, text=True, timeout=45))
         normalized = next(source["info"]["providers"]["litellm"] for source in sources
                           if source["type"] == "document")
@@ -88,7 +88,7 @@ class ModelAllowlist(unittest.TestCase):
                    "OPENCODE_DISABLE_MODELS_FETCH": "1", "OPENCODE_DISABLE_CLAUDE_CODE": "1"}
             env.update({f"XDG_{name}_HOME": str(root / name.lower())
                         for name in ["CONFIG", "DATA", "CACHE", "STATE"]})
-            result = subprocess.check_output(["opencode", "models", "--standalone"],
+            result = subprocess.check_output([os.environ.get("OPENCODE_TEST_BINARY", "opencode"), "models", "--standalone"],
                                              cwd=directory, env=env, text=True, timeout=45)
         self.assertEqual(set(result.splitlines()),
                          {f"{provider}/{model}" for provider, models in approved.items() for model in models})
