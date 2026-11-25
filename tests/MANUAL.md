@@ -18,8 +18,10 @@ request.
 | `tests/cognee-recovery` | `pytest -q tests/cognee-recovery` | docker |
 | `tests/dendritic-structure` | `pytest -q tests/dendritic-structure` | ssh host |
 | `tests/desktop-file-managers` | `pytest -q tests/desktop-file-managers` | runtime state |
+| `tests/endeavour-home-backup.nix` | `nix eval --impure --raw --file tests/endeavour-home-backup.nix` | nix eval |
 | `tests/fail2ban-sshd-session` | `pytest -q tests/fail2ban-sshd-session` | nix eval |
 | `tests/fleet-dns-lan` | `pytest -q tests/fleet-dns-lan` | nix eval |
+| `tests/ha-harbor-reader` | `just test-ha-harbor-reader` | nix eval |
 | `tests/harbor-host-auth` | `pytest -q tests/harbor-host-auth` | docker |
 | `tests/harbor-iam-acceptance` | `pytest -q tests/harbor-iam-acceptance` | network |
 | `tests/harbor-iam-preflight` | `pytest -q tests/harbor-iam-preflight` | ssh host, docker, network, root |
@@ -27,6 +29,7 @@ request.
 | `tests/harbor-version-reconcile` | `pytest -q tests/harbor-version-reconcile` | docker |
 | `tests/herdr-worklab` | `pytest -q tests/herdr-worklab` | ssh host, nix eval, network |
 | `tests/hermes-go-credentials` | `pytest -q tests/hermes-go-credentials` | network |
+| `tests/host-integrity` | `nix eval --impure --raw --file tests/host-integrity/pilot-evaluate.nix` | nix eval |
 | `tests/k3s-bootstrap-reproduction` | `nix eval --impure --raw --file tests/k3s-bootstrap-reproduction/evaluate.nix` | nix eval |
 | `tests/kepler-bootstrap-maintenance` | `nix eval --impure --raw --file tests/kepler-bootstrap-maintenance/evaluate.nix` | nix eval |
 | `tests/kepler-collision-recovery` | `bats tests/kepler-collision-recovery` | ssh host, docker |

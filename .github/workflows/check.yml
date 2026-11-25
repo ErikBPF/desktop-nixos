@@ -231,7 +231,7 @@ jobs:
         run: nix build .#checks.x86_64-linux.k3s-smoke -L
 
   notify-ci:
-    needs: [lint, eval, flake-lock, k3s-smoke]
+    needs: [lint, tooling, contracts, eval, flake-lock, k3s-smoke]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     steps:
