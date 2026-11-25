@@ -257,7 +257,8 @@ _: {
       };
       ocrBaseUrl = lib.mkOption {
         type = lib.types.str;
-        default = "https://litellm.homelab.pastelariadev.com/v1";
+        default = "http://127.0.0.1:4000/v1";
+        description = "LiteLLM endpoint for the candidate pass. The collector runs on the same host as the proxy, so it takes the loopback the compose stack publishes; the public tunnel is for remote consumers and has taken the pass down with it when it flapped (502, all subtasks failed).";
       };
       ocrEnvFile = lib.mkOption {
         type = lib.types.str;
