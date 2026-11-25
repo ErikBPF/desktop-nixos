@@ -85,7 +85,10 @@ Before claiming done: `just lint && just fmt-check`, then `just dry <host>`
 for touched hosts (or `nix build .#nixosConfigurations.<host>.config.system.build.toplevel --dry-run`
 without sudo). For doc edits, `just docs-check` verifies every in-repo markdown
 link resolves. `just check` runs the full pre-flight (docs-check + lint +
-fmt-check + dry-all). CI evaluates all five hosts on push/PR. After a remote
+fmt-check + dry-all). CI runs `lint` (fast gates), `tooling` (desktop
+packages), `contracts` (fleet and runtime contracts), a six-host `eval`
+matrix, `k3s-smoke` and `secrets` on push/PR; a suite whose incident is
+closed moves to `tests/MANUAL.md` instead of a per-PR step. After a remote
 `switch`, verify services per the rules below — a green rebuild is not proof
 the service came up.
 
