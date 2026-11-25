@@ -36,6 +36,7 @@ in {
       m.nixos.kepler-parakeet
       m.nixos.kepler-whisper
       m.nixos.kepler-recovery-tooling
+      m.nixos.kepler-pqnld
       m.nixos.kepler-k1-inventory-tooling
       m.nixos.kepler-k3s-cluster
       m.nixos.harbor-reader
