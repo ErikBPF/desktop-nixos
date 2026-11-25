@@ -69,6 +69,10 @@
       while IFS= read -r line; do
         case "$line" in ""|"#"*) continue ;; esac
         key="''${line%%=*}"
+        # When the container supplies the provider key above, the pinned
+        # .env.sops copy must not overwrite it: that copy goes stale on every
+        # rotation. Without a container, the dotenv value stays the fallback.
+        [ -n "''${LITELLM_API_KEY:-}" ] && [ "$key" = LITELLM_API_KEY ] && continue
         value="''${line#*=}"
         value="''${value%\"}"
         value="''${value#\"}"
