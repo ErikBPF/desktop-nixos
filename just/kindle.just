@@ -61,30 +61,31 @@ verify-kindle digest:
         "$expected" "$status"
     REMOTE
 
-# Seed the Kindle dashboard runtime credentials from the encrypted Servarr
-# source into OpenBao. Secret values travel only over stdin and never print.
+# Seed the Kindle dashboard runtime credentials into OpenBao from the sops
+# bootstrap record (`kindle_dash:` in secrets/sops/secrets.yaml). The live
+# values win after first boot because they rotate: the Claude and Codex refresh
+# tokens rotate on use, and the opencode console cookie rotates in a browser.
+# This writes only the keys the KV entry is missing, so re-running it never
+# overwrites a rotated value. Rotate one key deliberately by patching
+# secret/home/kindle-dash, then recreating the stack. Secret values travel only
+# over stdin and never print.
 seed-kindle-dash-vault:
     #!/usr/bin/env bash
     set -euo pipefail
-    servarr_repo="$(readlink -f references/repos/servarr)"
-    secret_json="$(mktemp)"
     payload_file="$(mktemp)"
-    trap 'rm -f "$secret_json" "$payload_file"' EXIT
-    chmod 600 "$secret_json" "$payload_file"
-    sops --decrypt --input-type dotenv --output-type json \
-      "$servarr_repo/machines/discovery/.env.sops" > "$secret_json"
-    jq -e '{
-      data: {
-        KINDLE_DASH_CLAUDE_REFRESH_TOKEN: .KINDLE_DASH_CLAUDE_REFRESH_TOKEN,
-        KINDLE_DASH_CODEX_REFRESH_TOKEN: .KINDLE_DASH_CODEX_REFRESH_TOKEN,
-        KINDLE_DASH_HA_TOKEN: .KINDLE_DASH_HA_TOKEN,
-        KINDLE_DASH_OPENCODE_AUTH_COOKIE: .KINDLE_DASH_OPENCODE_AUTH_COOKIE
-      }
-    }
-    | select(
-        (.data | keys | length) == 4
-        and all(.data[]; type == "string" and length > 0)
-      )' "$secret_json" > "$payload_file"
+    trap 'rm -f "$payload_file"' EXIT
+    chmod 600 "$payload_file"
+    sops --decrypt --output-type json --extract '["kindle_dash"]' \
+      secrets/sops/secrets.yaml |
+      jq -e 'select(
+          keys == [
+            "KINDLE_DASH_CLAUDE_REFRESH_TOKEN",
+            "KINDLE_DASH_CODEX_REFRESH_TOKEN",
+            "KINDLE_DASH_HA_TOKEN",
+            "KINDLE_DASH_OPENCODE_AUTH_COOKIE"
+          ]
+          and all(.[]; type == "string" and length > 0)
+        )' > "$payload_file"
     token="$(
       sops --decrypt --extract '["vault_root_token"]' secrets/sops/secrets.yaml
     )"
@@ -95,19 +96,54 @@ seed-kindle-dash-vault:
       printf '\n'
     } | ssh -p 2222 erik@{{ip_discovery}} '
       set -euo pipefail
+      umask 077
       IFS= read -r token_b64
       IFS= read -r payload_b64
       header="$(mktemp)"
-      body="$(mktemp)"
-      trap "rm -f \"$header\" \"$body\"" EXIT
-      chmod 600 "$header" "$body"
+      full="$(mktemp)"
+      current="$(mktemp)"
+      add="$(mktemp)"
+      patch="$(mktemp)"
+      trap "rm -f \"$header\" \"$full\" \"$current\" \"$add\" \"$patch\"" EXIT
+      chmod 600 "$header" "$full" "$current" "$add" "$patch"
       printf "X-Vault-Token: %s\n" "$(printf "%s" "$token_b64" | base64 --decode)" > "$header"
       unset token_b64
-      printf "%s" "$payload_b64" | base64 --decode > "$body"
+      printf "%s" "$payload_b64" | base64 --decode > "$full"
       unset payload_b64
-      curl --header @"$header" --silent --show-error --fail --request POST \
-        --data-binary @"$body" \
-        http://127.0.0.1:8200/v1/secret/data/home/kindle-dash >/dev/null
+      http_code="$(curl --header @"$header" --silent --show-error \
+        --output "$current" --write-out "%{http_code}" \
+        http://127.0.0.1:8200/v1/secret/data/home/kindle-dash)"
+      case "$http_code" in
+        200) exists=1 ;;
+        404)
+          exists=0
+          printf "{\"data\":{\"data\":{}}}" > "$current"
+          ;;
+        *)
+          echo "kindle_dash_vault=error read_status=$http_code" >&2
+          exit 1
+          ;;
+      esac
+      jq --slurpfile have "$current" \
+        "with_entries(select(.key as \$k | (\$have[0].data.data | has(\$k)) | not))" \
+        "$full" > "$add"
+      missing="$(jq -r "keys | join(\",\")" "$add")"
+      if [ -z "$missing" ]; then
+        echo "kindle_dash_vault=ready seeded_keys=none existing=4"
+      elif [ "$exists" -eq 1 ]; then
+        jq -c "{data: .}" "$add" > "$patch"
+        curl --header @"$header" --silent --show-error --fail --request PATCH \
+          --header "Content-Type: application/merge-patch+json" \
+          --data-binary @"$patch" \
+          http://127.0.0.1:8200/v1/secret/data/home/kindle-dash >/dev/null
+        echo "kindle_dash_vault=seeded keys=$missing"
+      else
+        jq -c "{data: ., options: {cas: 0}}" "$full" > "$patch"
+        curl --header @"$header" --silent --show-error --fail --request POST \
+          --data-binary @"$patch" \
+          http://127.0.0.1:8200/v1/secret/data/home/kindle-dash >/dev/null
+        echo "kindle_dash_vault=created keys=$missing"
+      fi
       curl --header @"$header" --silent --show-error --fail \
         http://127.0.0.1:8200/v1/secret/data/home/kindle-dash \
         | jq -e "
@@ -118,7 +154,6 @@ seed-kindle-dash-vault:
             \"KINDLE_DASH_OPENCODE_AUTH_COOKIE\"
           ]
         " >/dev/null
-      echo "kindle_dash_vault=seeded keys=4"
     '
 
 # Prove the Kindle dashboard render is fresh and least-privilege without
