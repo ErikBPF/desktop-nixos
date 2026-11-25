@@ -46,7 +46,7 @@ def test_drift_executes_the_pinned_iac_artifact_without_git():
 def test_pinned_iac_revision_matches_published_discovery_guard():
     root = Path(__file__).parents[2]
     flake = (root / "flake.nix").read_text()
-    revision = "9065d0aab9227b6a4eed88200633dd3dc883fd18"
+    revision = "163d0afcfbcbfb05b340e47874818312df34a5a6"
     pin = re.search(r"homelab-iac\s*=\s*\{([^}]+)\};", flake)
 
     assert pin is not None
