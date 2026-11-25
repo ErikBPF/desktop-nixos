@@ -20,6 +20,21 @@ import ledger
 ACTIVE = ("queued", "leased", "reusing")
 
 
+def mark_explicit(state_dir: Path, repo: str, pr: int, head: str) -> None:
+    """Record that an operator asked for this head, not the collector."""
+    settle_path = state_dir / "settle.json"
+    try:
+        settle = json.loads(settle_path.read_text())
+    except (OSError, ValueError):
+        settle = {}
+    if not isinstance(settle, dict):
+        return
+    settle[f"{repo}#{pr}"] = [head, 0, "explicit"]
+    tmp = settle_path.with_name(settle_path.name + ".tmp")
+    tmp.write_text(json.dumps(settle, sort_keys=True) + "\n")
+    tmp.replace(settle_path)
+
+
 def latest(db, repo: str, pr: int):
     return db.execute(
         "SELECT * FROM reviews WHERE repo = ? AND pr = ? "
@@ -56,7 +71,9 @@ def main() -> int:
                 except (OSError, ValueError):
                     settle = {}
                 if isinstance(settle, dict):
-                    settle[f"{args.repo}#{args.pr}"] = [args.head, 0]
+                    # `explicit` also bypasses the wait for the head's other
+                    # checks: the operator asking for a review outranks CI.
+                    settle[f"{args.repo}#{args.pr}"] = [args.head, 0, "explicit"]
                     tmp = settle_path.with_name(settle_path.name + ".tmp")
                     tmp.write_text(json.dumps(settle, sort_keys=True) + "\n")
                     tmp.replace(settle_path)
@@ -78,6 +95,10 @@ def main() -> int:
             print(f"ALREADY {row['state']} {row['head']}")
             return 0
 
+        # Mark the head an operator asked for, on this path too: a re-request of
+        # a known head is the common case, and without the marker the collector
+        # would hold it on a red CI instead of forcing the review.
+        mark_explicit(Path(args.state_dir), args.repo, args.pr, str(row["head"]))
         data_dir = Path(args.data_dir)
         bid = ledger.bundle_id(row["repo"], row["pr"], row["head"])
         shutil.rmtree(data_dir / "review-in" / bid, ignore_errors=True)

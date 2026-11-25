@@ -174,13 +174,85 @@ def settle_gate(
     """
     previous = seen.get(key)
     started = time.time()
-    if isinstance(previous, list) and len(previous) == 2 and previous[0] == head:
+    explicit = False
+    if isinstance(previous, list) and len(previous) >= 2 and previous[0] == head:
         try:
             started = float(previous[1])
         except (TypeError, ValueError):
             pass
-    current[key] = [head, started]
+        explicit = settle_explicit(previous)
+    current[key] = [head, started, "explicit"] if explicit else [head, started]
     return minutes <= 0 or time.time() - started >= minutes * 60
+
+
+def settle_explicit(record) -> bool:
+    """True when an operator asked for this head, not the collector."""
+    return (
+        isinstance(record, list)
+        and len(record) >= 3
+        and record[2] == "explicit"
+    )
+
+
+CHECK_OK = ("success", "neutral", "skipped")
+CHECK_BAD = (
+    "failure",
+    "timed_out",
+    "cancelled",
+    "action_required",
+    "startup_failure",
+    "stale",
+)
+
+
+def checks_ready(repo: str, head: str, token: str) -> tuple[bool, str]:
+    """Whether the other check runs on this head have all passed.
+
+    Pinned to ``head``, not to the pull request: the bundle is built for the
+    ``headRefOid`` a listing captured earlier, and a push during a pass would
+    otherwise let another commit's checks release this one. A review of a head
+    whose CI is red is a paid-for opinion nobody acts on — the head cannot
+    merge anyway — and the gate check itself is excluded, since it is the
+    verdict this gate is deciding not to produce yet.
+
+    Unreadable check data is fail-open: a repository whose App token cannot read
+    checks is reviewed exactly as before, rather than never. The REST endpoint
+    is used because the GraphQL rollup behind `gh pr checks` needs a permission
+    the reviews App does not have in every repository.
+    """
+    try:
+        data = gh_json(
+            [
+                "api",
+                f"repos/{repo}/commits/{head}/check-runs?per_page=100",
+            ],
+            token,
+        )
+    except Exception as exc:
+        return True, f"unreadable ({exc})"
+    runs = [
+        run
+        for run in (data.get("check_runs") if isinstance(data, dict) else None) or []
+        if isinstance(run, dict) and str(run.get("name")) != CHECK_NAME
+    ]
+    if not runs:
+        return True, "no other checks"
+    failing = [
+        str(run.get("name"))
+        for run in runs
+        if str(run.get("conclusion") or "") in CHECK_BAD
+    ]
+    if failing:
+        return False, f"failing: {', '.join(sorted(failing)[:3])}"
+    pending = [
+        str(run.get("name"))
+        for run in runs
+        if str(run.get("status") or "") != "completed"
+        or str(run.get("conclusion") or "") not in CHECK_OK
+    ]
+    if pending:
+        return False, f"pending: {', '.join(sorted(pending)[:3])}"
+    return True, "all checks pass"
 
 
 def save_settle(path: Path, settle: dict) -> None:
@@ -1406,6 +1478,7 @@ def main() -> int:
     closed = 0
     retained = 0
     settled = 0
+    waiting = 0
     for entry in config:
         repo = entry["repo"]
         try:
@@ -1500,11 +1573,20 @@ def main() -> int:
                     if age < args.retry_after_minutes * 60:
                         continue
                     ledger.requeue(db, repo, pr["number"], head)
-            elif not settle_gate(
-                settle, settle_active, key, head, args.settle_minutes
-            ):
-                print(f"SETTLE {key}")
-                settled += 1
+            else:
+                if not settle_gate(
+                    settle, settle_active, key, head, args.settle_minutes
+                ):
+                    print(f"SETTLE {key}")
+                    settled += 1
+                    continue
+            explicit = settle_explicit(
+                settle_active.get(key) if row is None else settle.get(key)
+            )
+            ready, why = checks_ready(repo, head, token)
+            if not ready and not explicit:
+                print(f"WAIT-CHECKS {key} ({why})")
+                waiting += 1
                 continue
             try:
                 if build_bundle(args, entry, pr, db, token):
@@ -1522,7 +1604,7 @@ def main() -> int:
     lock.close()
     print(
         f"requested={requested} pruned={pruned} closed={closed} "
-        f"settled={settled} retained={retained} "
+        f"settled={settled} waiting={waiting} retained={retained} "
         f"markers={markers} moved={marker_moves} migrated={migrated}"
     )
     return 0
