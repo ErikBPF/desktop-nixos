@@ -167,7 +167,8 @@ def delta_compare(status="ahead", files=None):
 
 def test_build_delta_renders_a_patch():
     collect.gh_json = lambda args, token: delta_compare()
-    patch = collect.build_delta("r/a", "a" * 40, "b" * 40, "t")
+    status, patch = collect.compare_delta("r/a", "a" * 40, "b" * 40, "t")
+    check(status == "ahead", status)
     check(patch is not None, "an ancestor comparison must produce a delta")
     check("diff --git a/src/app.py" in patch, "the file header must be present")
     check("+more" in patch, "the hunk body must be present")
@@ -191,10 +192,18 @@ def test_build_delta_falls_back_to_the_full_diff():
     }
     for label, payload in cases.items():
         collect.gh_json = lambda args, token, payload=payload: payload
-        check(
-            collect.build_delta("r/a", "a" * 40, "b" * 40, "t") is None,
-            f"{label} must fall back to the full diff",
-        )
+        _, patch = collect.compare_delta("r/a", "a" * 40, "b" * 40, "t")
+        check(patch is None, f"{label} must fall back to the full diff")
+
+
+def test_compare_delta_reports_a_rebase():
+    collect.gh_json = lambda args, token: delta_compare(status="diverged")
+    status, patch = collect.compare_delta("r/a", "a" * 40, "b" * 40, "t")
+    check(status == "diverged", status)
+    check(patch is None, "a rebase has no delta")
+    collect.gh_json = lambda args, token: (_ for _ in ()).throw(RuntimeError("boom"))
+    status, patch = collect.compare_delta("r/a", "a" * 40, "b" * 40, "t")
+    check(status == "" and patch is None, "a failed comparison must not raise")
 
 
 def test_version_bumps_are_filtered_and_real_changes_are_not():
@@ -233,6 +242,123 @@ def test_version_bumps_are_filtered_and_real_changes_are_not():
             collect.ignore_reason(entry, {"title": title, "labels": []}) is None,
             f"a real change must be reviewed: {title}",
         )
+
+
+def test_rebase_note_names_the_changed_contributed_lines():
+    old = (
+        "diff --git a/x.nix b/x.nix\n"
+        "@@ -1,2 +1,3 @@\n keep\n-removed-old\n+same\n+gone-later\n"
+    )
+    new = (
+        "diff --git a/x.nix b/x.nix\n"
+        "@@ -1,4 +1,4 @@\n moved-context\n-removed-old\n+same\n+added-now\n"
+    )
+    note = collect.rebase_note(
+        "a" * 40, "b" * 40, "c" * 40, old, new, ["docs/AGENTS.md"]
+    )
+    check("# Rebase note" in note, note[:40])
+    check(f"`{'a' * 12}`" in note, "the reviewed head must be named")
+    check(
+        "## Contributed lines that changed" in note,
+        "changed contributed lines must be reported",
+    )
+    check("+added-now" in note, "a newly contributed line must be shown as +")
+    check("-gone-later" in note, "a dropped contribution must be shown as -")
+    check("moved-context" not in note, "context must not appear in the delta")
+    check("keep" not in note, "unchanged added lines must not appear")
+    check("`docs/AGENTS.md`" in note, "the base move must be named")
+    check(
+        note.count("diff --git a/") == 1,
+        "one file must produce one section",
+    )
+
+
+def test_rebase_note_sees_a_deletion_only_change():
+    old = (
+        "diff --git a/x.nix b/x.nix\n"
+        "@@ -1,3 +1,3 @@\n context\n-removed-then\n+added-same\n"
+    )
+    new = (
+        "diff --git a/x.nix b/x.nix\n"
+        "@@ -1,3 +1,3 @@\n context\n-removed-now\n+added-same\n"
+    )
+    note = collect.rebase_note("a" * 40, "b" * 40, "c" * 40, old, new, [])
+    check(
+        "Contributed lines are unchanged" not in note,
+        "a deletion-only change must not be called unchanged",
+    )
+    check("+removed-then" in note, "the restored line must be shown as +")
+    check("-removed-now" in note, "the newly removed line must be shown as -")
+
+
+def test_contributed_lines_keeps_content_that_looks_like_a_header():
+    # A removed line whose content starts with "--" renders as "---…"; a
+    # separator in docs/ is exactly that.
+    patch = (
+        "diff --git a/docs/x.md b/docs/x.md\n"
+        "--- a/docs/x.md\n"
+        "+++ b/docs/x.md\n"
+        "@@ -1,3 +1,3 @@\n"
+        "----\n"
+        "+++\n"
+        "-+ not an addition\n"
+    )
+    files = collect.contributed_lines(patch)
+    # `----` is a removed `---` separator, `+++` an added `++`.
+    check(files == {"docs/x.md": {"added": ["++"], "removed": ["---", "+ not an addition"]}}, files)
+
+
+def test_rebase_note_counts_repeated_lines():
+    old = "diff --git a/x b/x\n@@ -1,3 +1,3 @@\n+}\n+}\n"
+    new = "diff --git a/x b/x\n@@ -1,3 +1,3 @@\n+}\n"
+    note = collect.rebase_note("a" * 40, "b" * 40, "c" * 40, old, new, [])
+    check(
+        "Contributed lines are unchanged" not in note,
+        "dropping one of two identical lines is a change",
+    )
+    check(note.count("-}") == 1, note)
+
+
+def test_rebase_note_only_for_a_moved_base():
+    check(
+        collect.rebase_note_applies({"base": "b" * 40}, "diverged", "c" * 40),
+        "a diverged head on a new base is a rebase",
+    )
+    check(
+        not collect.rebase_note_applies({"base": "b" * 40}, "diverged", "b" * 40),
+        "a force-push with the same base is not a rebase",
+    )
+    check(
+        not collect.rebase_note_applies({"base": ""}, "diverged", "c" * 40),
+        "an unknown previous base cannot be called a rebase",
+    )
+    check(
+        not collect.rebase_note_applies(None, "diverged", "c" * 40),
+        "there is nothing to compare without a previous head",
+    )
+    check(
+        not collect.rebase_note_applies({"base": "b" * 40}, "ahead", "c" * 40),
+        "an ancestor comparison is a delta, not a rebase",
+    )
+
+
+def test_rebase_note_handles_an_unchanged_change():
+    same = "diff --git a/x.nix b/x.nix\n@@ -1,2 +1,3 @@\n+one\n+two\n"
+    note = collect.rebase_note("a" * 40, "b" * 40, "c" * 40, same, same, [])
+    check("Contributed lines are unchanged" in note, note)
+    check("Files the base moved through" not in note, "no section without files")
+
+
+def test_contributed_lines_ignores_headers_and_context():
+    patch = (
+        "diff --git a/x b/x\n"
+        "@@ -10,3 +10,4 @@\n context\n+added 1\n-gone\n@@ -30,2 +31,2 @@\n+added 2\n"
+    )
+    files = collect.contributed_lines(patch)
+    check(
+        files == {"x": {"added": ["added 1", "added 2"], "removed": ["gone"]}},
+        files,
+    )
 
 
 def test_previous_review_packet_is_found_and_bounded():
