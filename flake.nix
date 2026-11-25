@@ -151,7 +151,7 @@
 
     # Runtime jobs execute this reviewed source revision, never a mutable checkout.
     homelab-iac = {
-      url = "github:ErikBPF/homelab-iac/7c5d785420c794769cb2c4952fb9916e99788450";
+      url = "github:ErikBPF/homelab-iac/163d0afcfbcbfb05b340e47874818312df34a5a6";
       flake = false;
     };
 
