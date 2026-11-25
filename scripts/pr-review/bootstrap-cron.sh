@@ -11,6 +11,17 @@ set -euo pipefail
 : "${JOB_NAME:=hermes-pr-review}"
 : "${SCHEDULE:=*/10 * * * *}"
 : "${PARALLELISM:=1}"
+# Hermes refuses to run an unpinned job whose global inference config drifted
+# since the job was created ("drift_skip", to prevent unintended spend), so a
+# model change silently stops every worker until each job is pinned. Pin the
+# worker explicitly: the pin is also what makes a future model change land
+# through this script instead of through a stall.
+: "${WORKER_MODEL:=}"
+: "${WORKER_PROVIDER:=opencode-go}"
+pin=()
+if [ -n "$WORKER_MODEL" ]; then
+  pin=(--model "$WORKER_MODEL" --provider "$WORKER_PROVIDER")
+fi
 
 install -d -o "$AGENT_UID" -g "$AGENT_GID" -m 0755 "$DATA_DIR/scripts"
 install -m 0755 -o "$AGENT_UID" -g "$AGENT_GID" "$CLAIM_SCRIPT" \
@@ -78,6 +89,8 @@ for i in $(seq 1 "$PARALLELISM"); do
       --schedule "$SCHEDULE" \
       --prompt "$prompt" \
       --script pr-review-claim.py \
+      --reasoning-effort high \
+      "${pin[@]}" \
       --no-continuity >/dev/null
     continue
   fi
@@ -87,7 +100,8 @@ for i in $(seq 1 "$PARALLELISM"); do
     --script pr-review-claim.py \
     --deliver local \
     --failure-deliver local \
-    --reasoning-effort high
+    --reasoning-effort high \
+    "${pin[@]}"
 done
 
 # Retire the single pre-parallel job whenever it exists: the new worker is

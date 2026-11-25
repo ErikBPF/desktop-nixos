@@ -69,6 +69,8 @@ _: {
         export JOB_NAME=${lib.escapeShellArg cfg.jobName}
         export SCHEDULE=${lib.escapeShellArg cfg.schedule}
         export PARALLELISM=${toString cfg.parallelism}
+        export WORKER_MODEL=${lib.escapeShellArg cfg.workerModel}
+        export WORKER_PROVIDER=${lib.escapeShellArg cfg.workerProvider}
         exec ${pkgs.bash}/bin/bash ${../../../scripts/pr-review/bootstrap-cron.sh}
       '';
     };
@@ -211,6 +213,16 @@ _: {
         type = lib.types.str;
         default = "*/2 * * * *";
         description = "Cron expression for each worker job. This is also the pickup latency for a new bundle; the Hermes ticker owns the schedule, so nothing dispatches workers out of band.";
+      };
+      workerModel = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Pin every worker job to this model with `--model`. Hermes skips an unpinned job whose global model drifted since the job was created (\"drift_skip\", to prevent unintended spend), so changing the container default without pinning here stops the workers silently. Empty follows the container default and accepts that risk.";
+      };
+      workerProvider = lib.mkOption {
+        type = lib.types.str;
+        default = "opencode-go";
+        description = "Provider paired with `workerModel` when it is set.";
       };
       settleMinutes = lib.mkOption {
         type = lib.types.ints.between 0 60;
