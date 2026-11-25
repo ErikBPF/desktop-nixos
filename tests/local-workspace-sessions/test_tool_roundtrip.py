@@ -28,7 +28,7 @@ class ToolRoundtrip(unittest.TestCase):
             }''',
         ], cwd=ROOT, text=True))
         binary = os.environ.get("OPENCODE_TEST_BINARY", managed["binary"])
-        plugins = [p for p in managed["plugins"] if p.startswith("file://") and p.endswith("-rtk")]
+        plugins = [p for p in managed["plugins"] if isinstance(p, str) and p.startswith("file://") and p.endswith("-rtk")]
         self.assertEqual(len(plugins), 1, "expected one evaluated managed native RTK plugin")
         self.assertEqual(len(managed["rtk"]), 1, "expected one exact managed RTK binary")
         self.assertTrue(Path(binary).is_file(), "realize the V2 package before this smoke")
