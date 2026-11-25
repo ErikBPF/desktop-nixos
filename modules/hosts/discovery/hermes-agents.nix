@@ -92,6 +92,11 @@ in {
       # verdict. Widen once the packets compare well.
       ocrEnable = true;
       ocrRepos = ["ErikBPF/desktop-nixos"];
+      # Same route as the worker. The pass is advisory and the worker keeps the
+      # verdict; OCR's own `--effort` preset (not `reasoning_effort`) is the
+      # only knob its client exposes.
+      ocrModel = "codex-gpt-6-astra";
+      ocrEffort = "high";
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
       allowPublish = true;
@@ -162,6 +167,14 @@ in {
       settings =
         commonSettings
         // {
+          # The review worker runs on the ChatGPT/Codex subscription route the
+          # LiteLLM proxy already carries, at high reasoning: measured against
+          # deepseek it finds fewer findings (1 vs 2-3 per complex PR), so it is
+          # a deliberate cost/latency choice, not a quality one. `reasoning_effort`
+          # is global to this container; the cron jobs also pass
+          # `--reasoning-effort high`, which wins for review runs.
+          model = commonSettings.model // {default = "codex-gpt-6-astra";};
+          agent.reasoning_effort = "high";
           # Review isolation. A review must not see another PR's context:
           # memory persists across sessions and session_search reads the shared
           # session DB, so both are contamination channels between reviews.
