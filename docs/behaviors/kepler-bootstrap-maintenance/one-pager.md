@@ -51,9 +51,11 @@ Run `python3 tests/kepler-bootstrap-maintenance/systemd-smoke.py` locally with a
 user systemd bus. All fixture units are stopped/unlinked in `finally`; no host
 system units, guest VMs, secrets or cluster endpoints are used. Session receipts:
 `/tmp/kepler-bootstrap-maintenance-red.log` and
-`/tmp/kepler-bootstrap-maintenance-green.log`. CI runs the companion Nix
-assertions, including retained boot ordering and cadence; it does not claim a
-user bus or live maintenance proof.
+`/tmp/kepler-bootstrap-maintenance-green.log`. The companion Nix assertions —
+retained boot ordering and cadence — are a manual gate
+(`nix eval --impure --raw --file tests/kepler-bootstrap-maintenance/evaluate.nix`,
+see `tests/MANUAL.md`); they no longer run on every pull request, and they do
+not claim a user bus or live maintenance proof.
 
 Independent coordinator review found no blocking source issue. Its suggested
 stronger timer-resume assertion was added and passed: the actual timer resumes
