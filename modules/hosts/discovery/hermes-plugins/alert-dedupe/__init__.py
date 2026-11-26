@@ -247,6 +247,7 @@ def classify(text: str, ledger: Ledger, *, thread_id: Optional[str] = None) -> V
             kinds.append("repeat")
             counts.append(int(ep.get("count", 0)) + 1)
             episode_counts.append(len(ledger.episodes(inst.family)))
+            prior_thread = prior_thread or ep.get("thread_id")
         elif ep is not None:
             kinds.append("new")  # same start after a resolve: Grafana restarted it
             counts.append(1)
@@ -323,18 +324,17 @@ def input_note(verdict: Verdict, prior_thread_id: Optional[str]) -> Optional[str
     return None
 
 
-def thread_key(text: str, ledger: Ledger) -> Optional[str]:
-    """Stable thread key for a repeat occurrence.
+def repeat_thread(text: str, ledger: Ledger) -> Optional[str]:
+    """Thread of the matched live episode, when this occurrence is a repeat.
 
-    The key is the existing alert family: the Grafana rule UID from the Rule URL,
-    the host/instance label, and the systemd unit when present. It never contains
-    the generated thread title, the message id, or the per-message ``since``
-    timestamp. Only a live repeat reuses a thread; a new episode opens its own.
+    The key is the episode the message's own ``since`` matches, not the newest
+    episode of the family. A delayed repeat of an older episode must not be
+    routed into a newer episode's thread.
     """
     verdict = classify(text, ledger)
     if verdict.kind != "repeat":
         return None
-    return verdict.family
+    return verdict.prior_thread
 
 
 def _usable_thread(thread: Any, parent_channel_id: str) -> bool:
@@ -379,15 +379,13 @@ def install_thread_reuse() -> bool:
             if _mode() != "off":
                 text = getattr(message, "content", "") or ""
                 ledger = Ledger.load()
-                key = thread_key(text, ledger)
+                prior = repeat_thread(text, ledger)
                 parent_id = str(getattr(getattr(message, "channel", None), "id", ""))
-                if key:
-                    prior = ledger.latest_thread(key)
-                    if prior:
-                        thread = await _fetch_thread(self, prior)
-                        if _usable_thread(thread, parent_id):
-                            logger.info("[alert-dedupe] reusing thread %s for %s", prior, key)
-                            return thread
+                if prior:
+                    thread = await _fetch_thread(self, prior)
+                    if _usable_thread(thread, parent_id):
+                        logger.info("[alert-dedupe] reusing thread %s", prior)
+                        return thread
         except Exception as exc:  # fail-open: never block the alert path
             logger.warning("[alert-dedupe] thread reuse lookup failed: %s", exc)
         return await original(self, message)

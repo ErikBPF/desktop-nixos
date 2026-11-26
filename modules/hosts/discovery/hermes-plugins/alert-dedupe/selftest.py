@@ -257,6 +257,26 @@ def test_archived_thread_is_not_reused():
     with_fake_adapter(lambda adapter, client: with_ledger(lambda: run(adapter, client)))
 
 
+def test_delayed_repeat_uses_matched_episode_thread():
+    def run(Adapter, Client):
+        mod = load_plugin()
+        assert mod.install_thread_reuse(), "thread reuse hook not installed"
+        adapter = Adapter(Client())
+        older = asyncio.run(adapter._auto_create_thread(_FakeMessage(FIRING)))
+        ledger = mod.Ledger.load()
+        ledger.commit(mod.classify(FIRING, ledger, thread_id=older.id), thread_id=older.id)
+
+        newer = asyncio.run(adapter._auto_create_thread(_FakeMessage(NEW_EPISODE)))
+        assert newer.id != older.id, (newer.id, older.id)
+        ledger = mod.Ledger.load()
+        ledger.commit(mod.classify(NEW_EPISODE, ledger, thread_id=newer.id), thread_id=newer.id)
+
+        delayed = asyncio.run(adapter._auto_create_thread(_FakeMessage(REPEAT)))
+        assert delayed.id == older.id, (delayed.id, older.id)
+        assert len(Adapter.created) == 2, Adapter.created
+    with_fake_adapter(lambda adapter, client: with_ledger(lambda: run(adapter, client)))
+
+
 def test_no_network_or_subprocess_imports():
     src = PLUGIN.read_text()
     for banned in ("import subprocess", "import socket", "urllib.request", "requests."):
