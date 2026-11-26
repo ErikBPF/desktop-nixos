@@ -306,8 +306,19 @@ class LocalStorage:
         self.capture_id = "wazuh-" + uuid.uuid4().hex
         self.snapshot_name = "fast-pool/data@" + self.capture_id
 
+    def reclaim_incomplete(self):
+        import shutil
+        managers = self.output / "managers"
+        if not managers.exists():
+            return
+        for entry in managers.iterdir():
+            if entry.name.startswith(".incomplete-") and entry.name != ".incomplete-" + self.capture_id:
+                shutil.rmtree(entry, ignore_errors=True)
+
     def prepare(self):
         import shutil
+        # Interrupted exports leave staging that no exception handler reclaimed.
+        self.reclaim_incomplete()
         # Whole-dataset snapshot COW and archive space must both have headroom.
         minimum = 24 * 1024**3
         if shutil.disk_usage("/fast").free < minimum or shutil.disk_usage(self.output).free < minimum:
@@ -362,6 +373,7 @@ class LocalStorage:
 
     def cleanup(self):
         import json
+        import os
         import re
         import subprocess
         path = self.state / "snapshot.json"
@@ -371,13 +383,19 @@ class LocalStorage:
         if not re.fullmatch(r"fast-pool/data@wazuh-[0-9a-f]{32}", name):
             raise ValueError("Refusing cleanup of an unowned snapshot name")
         exists = subprocess.run(["zfs", "list", "-H", "-t", "snapshot", "-o", "name", name],
-                                capture_output=True, timeout=10)
+                                capture_output=True, text=True, timeout=10)
         if exists.returncode == 0:
             subprocess.run(["zfs", "destroy", name], check=True, timeout=30,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
+        elif not any(token in (exists.stderr or "").lower() for token in ("does not exist", "no such")):
             raise RuntimeError("Cannot establish task snapshot existence; retain cleanup record")
+        # Absence is confirmed (or the destroy succeeded): drop the record durably.
         path.unlink()
+        directory = os.open(self.state, os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     def discard_incomplete(self):
         import shutil

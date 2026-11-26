@@ -341,6 +341,50 @@ def test_incomplete_staging_does_not_count_as_an_unconsumed_capture(tmp_path, mo
         storage.prepare()
 
 
+def test_prepare_reclaims_interrupted_export_staging(tmp_path, monkeypatch):
+    import shutil
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: type("Usage", (), {"free": 1 << 40})())
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    managers = tmp_path / "output" / "managers"
+    managers.mkdir(parents=True)
+    for index in range(2):
+        (managers / f".incomplete-orphan{index}").mkdir()
+    storage.prepare()
+    assert not any(entry.name.startswith(".incomplete-") for entry in managers.iterdir())
+
+
+def test_cleanup_clears_record_when_snapshot_absence_is_confirmed(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    storage.state.mkdir()
+    record = storage.state / "snapshot.json"
+    record.write_text(json.dumps({"name": storage.snapshot_name}))
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda args, **kwargs: subprocess.CompletedProcess(
+            args, 1, "", "cannot open 'fast-pool/data@wazuh-x': dataset does not exist\n"),
+    )
+    storage.cleanup()
+    assert not record.exists()
+
+
+def test_cleanup_keeps_record_when_the_query_fails(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    storage.state.mkdir()
+    record = storage.state / "snapshot.json"
+    record.write_text(json.dumps({"name": storage.snapshot_name}))
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda args, **kwargs: subprocess.CompletedProcess(args, 1, "", "permission denied\n"),
+    )
+    with pytest.raises(RuntimeError, match="Cannot establish task snapshot existence"):
+        storage.cleanup()
+    assert record.exists()
+
+
 def test_freshness_uses_completed_backup_source_time(tmp_path):
     path = tmp_path / "wazuh-recovery.prom"
     controller.write_freshness(path, {"source_started": 123})
