@@ -141,7 +141,7 @@ def degraded(error):
 
 def transcribe(audio):
     try:
-        result = gateway('audio/transcriptions', {'model': 'whisper-pt-br', 'response_format': 'json', 'max_fallbacks': '0'}, audio)
+        result = gateway('audio/transcriptions', {'model': 'voice-transcribe', 'response_format': 'json', 'max_fallbacks': '0'}, audio)
         text = result['text']
         if not isinstance(text, str) or len(text) > 20000:
             raise ValueError('Invalid gateway transcript')
