@@ -10,7 +10,7 @@ Human seed: “lets try to move voice stack to use our litellm instance and firs
 
 ## Changes and boundaries
 
-IaC created `voice-transcribe`, `voice-rewrite` and a key restricted to those aliases. OpenBao holds the runtime secret; Endeavour caches it in a mode-0600 file outside the Nix store. The sanctioned Sops bootstrap credential applied only the two voice policy paths, preserving the existing Cloudflare read permission. The normal AppRole then wrote the KV value; it still cannot edit its own policy. No paid-cloud route was added.
+IaC declares `voice-transcribe` and `qwen3.8-flash-next`, plus the key `svc-homelab-iac-voice-dictation-model-inference` scoped to exactly those two models (25 USD / 30 d, 2 parallel, 20 rpm, 1M tpm, `store_prompts_in_spend_logs=false`). The client reads `VOICE_LITELLM_API_KEY` from OpenBao `secret/home/voice-litellm`; Endeavour caches it in a mode-0600 file outside the Nix store. The sanctioned Sops bootstrap credential applied only the two voice policy paths, preserving the existing Cloudflare read permission. The normal AppRole then wrote the KV value; it still cannot edit its own policy. No paid-cloud route was added.
 
 Servarr PR363 merged with the explicitly approved merge-commit exception. Its temporary repository merge setting was restored to squash-only. Orion pins the isolated artifact `f991f2cfe84bfd43f14aa47c147439704ebcfa79`, excluding the unrelated backlog. CPU Whisper large-v3-turbo runs in the independent voice stack. Discovery reaches its health endpoint; direct Endeavour access is denied. Isolation depends on both host firewall and Tailscale policy.
 
@@ -22,7 +22,7 @@ The client sends a closed private WAV and reuses it on eligible fallback. Silenc
 
 Direct gateway English and Portuguese ASR passed in 14.4 and 12.43 seconds. Orion's existing GPU rewrite remained stuck loading after one owner-managed restart; no GPU reset or reboot was attempted. Scheduled Podman healthchecks report a conmon exec-pidfile failure affecting multiple existing containers; actual ASR health and inference pass. Container health metadata is therefore not green.
 
-Both aliases have typed `no-log=true`; key metadata disables normal prompt storage. A synthetic failed rewrite had one identifiable accounting row and no content marker in recent rows. Successful ASR had no identifiable accounting row, and Langfuse queries timed out. These observations do not prove universal content exclusion, especially diagnostic errors. Only synthetic speech/context was used for qualification.
+Only `voice-transcribe` carries `no-log=true`; `qwen3.8-flash-next` does not, so rewrite prompts rest on the key's `store_prompts_in_spend_logs=false` metadata alone. A synthetic failed rewrite had one identifiable accounting row and no content marker in recent rows. Successful ASR had no identifiable accounting row, and Langfuse queries timed out. These observations do not prove universal content exclusion, especially diagnostic errors. Only synthetic speech/context was used for qualification.
 
 ## Continuing work and recovery
 
@@ -58,4 +58,4 @@ A later read-only desktop check found the default NoiseTorch source muted. The u
 
 ## Alias cleanup — 2026-11-24
 
-The client asks for the gateway routes that already exist: `whisper-pt-br` for ASR (Kepler `:9000`) and `qwen3.8-flash-next` for contextual rewrite (Orion `:8080`, now served by Strata on Qwen3.8-Flash-Next Q2_0 at 120k context, two slots). The dedicated `voice-rewrite` alias was removed from the IaC, so the branch no longer calls it; `voice-transcribe` remains declared but unused by this client. Local fallback is unchanged: Parakeet for ASR and the loopback Ollama model for rewriting.
+The client asks for the gateway routes that already exist: `whisper-pt-br` for ASR (Kepler `:9000`) and `qwen3.8-flash-next` for contextual rewrite (Orion `:8080`, now served by Strata on Qwen3.8-Flash-Next Q2_0 at 120k context, two slots). The dedicated `voice-rewrite` alias was removed from the IaC, so the branch no longer calls it; `voice-transcribe` remains declared but unused by this client. The key stays scoped to `voice-transcribe` and `qwen3.8-flash-next`, and only the former is typed `no-log`. Local fallback is unchanged: Parakeet for ASR and the loopback Ollama model for rewriting.
