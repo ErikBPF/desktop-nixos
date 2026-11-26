@@ -2,7 +2,9 @@
 
 Annotate-only: the plugin never suppresses a reply. It parses the rendered
 Grafana Discord message, keeps a bounded JSON ledger, tells the model when an
-episode is a repeat, and prefixes the reply with a stable marker.
+episode is a repeat, and prefixes the reply with a stable marker. On a repeat
+occurrence it routes the answer into the open thread recorded for the same
+alert family instead of letting the Discord adapter open a new thread.
 
 No network, no subprocess, no tools. Every failure path returns None so a turn
 is never broken or silenced by this plugin.
@@ -321,6 +323,81 @@ def input_note(verdict: Verdict, prior_thread_id: Optional[str]) -> Optional[str
     return None
 
 
+def thread_key(text: str, ledger: Ledger) -> Optional[str]:
+    """Stable thread key for a repeat occurrence.
+
+    The key is the existing alert family: the Grafana rule UID from the Rule URL,
+    the host/instance label, and the systemd unit when present. It never contains
+    the generated thread title, the message id, or the per-message ``since``
+    timestamp. Only a live repeat reuses a thread; a new episode opens its own.
+    """
+    verdict = classify(text, ledger)
+    if verdict.kind != "repeat":
+        return None
+    return verdict.family
+
+
+def _usable_thread(thread: Any, parent_channel_id: str) -> bool:
+    """True when an existing thread belongs to the alert channel and is open."""
+    return (
+        thread is not None
+        and str(getattr(thread, "parent_id", "")) == str(parent_channel_id)
+        and not bool(getattr(thread, "archived", False))
+    )
+
+
+async def _fetch_thread(adapter: Any, thread_id: str) -> Any:
+    client = getattr(adapter, "_client", None)
+    if client is None or not str(thread_id).isdigit():
+        return None
+    thread = client.get_channel(int(thread_id))
+    if thread is None:
+        thread = await client.fetch_channel(int(thread_id))
+    return thread
+
+
+def install_thread_reuse() -> bool:
+    """Route a repeat into its recorded open thread before the adapter creates one.
+
+    Hermes has no plugin hook at the auto-thread creation site, so this wraps the
+    Discord adapter's private ``_auto_create_thread``. The wrapper is fail-open:
+    an import miss, ledger miss, archived thread, or any exception falls through
+    to the upstream implementation unchanged. No tool or network capability is
+    added; the adapter's own client fetches the thread.
+    """
+    try:
+        from plugins.platforms.discord.adapter import DiscordAdapter
+    except Exception as exc:
+        logger.debug("[alert-dedupe] thread reuse unavailable: %s", exc)
+        return False
+    original = getattr(DiscordAdapter, "_auto_create_thread", None)
+    if original is None or getattr(original, "_alert_dedupe_reuse", False):
+        return False
+
+    async def _auto_create_thread(self: Any, message: Any) -> Any:
+        try:
+            if _mode() != "off":
+                text = getattr(message, "content", "") or ""
+                ledger = Ledger.load()
+                key = thread_key(text, ledger)
+                parent_id = str(getattr(getattr(message, "channel", None), "id", ""))
+                if key:
+                    prior = ledger.latest_thread(key)
+                    if prior:
+                        thread = await _fetch_thread(self, prior)
+                        if _usable_thread(thread, parent_id):
+                            logger.info("[alert-dedupe] reusing thread %s for %s", prior, key)
+                            return thread
+        except Exception as exc:  # fail-open: never block the alert path
+            logger.warning("[alert-dedupe] thread reuse lookup failed: %s", exc)
+        return await original(self, message)
+
+    _auto_create_thread._alert_dedupe_reuse = True
+    DiscordAdapter._auto_create_thread = _auto_create_thread
+    logger.info("[alert-dedupe] thread reuse installed")
+    return True
+
+
 def _session_thread(session_id: str) -> Optional[str]:
     db = os.environ.get(DB_ENV) or DEFAULT_DB
     if not session_id or not os.path.exists(db):
@@ -395,3 +472,4 @@ def transform_llm_output(*, response_text: str = "", session_id: str = "",
 def register(ctx: Any) -> None:
     ctx.register_hook("pre_llm_call", pre_llm_call)
     ctx.register_hook("transform_llm_output", transform_llm_output)
+    install_thread_reuse()

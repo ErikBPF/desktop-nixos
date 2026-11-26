@@ -2,12 +2,14 @@
 """Stdlib self-check for the alert-dedupe plugin. No Hermes import, no network."""
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import os
 import pathlib
 import sys
 import tempfile
+import types
 
 HERE = pathlib.Path(__file__).resolve().parent
 PLUGIN = HERE / "__init__.py"
@@ -154,6 +156,105 @@ def test_hooks_annotate_once_and_fail_open():
         finally:
             os.environ["ALERT_DEDUPE_MODE"] = "annotate"
     with_ledger(run)
+
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+        self.channel = types.SimpleNamespace(id="1521191614846865568")
+
+
+def _adapter_classes():
+    class FakeThread:
+        def __init__(self, tid, parent_id):
+            self.id = str(tid)
+            self.parent_id = str(parent_id)
+            self.archived = False
+            self.name = f"thread-{tid}"
+
+    class FakeClient:
+        def __init__(self):
+            self.threads = {}
+
+        def get_channel(self, cid):
+            return self.threads.get(cid)
+
+        async def fetch_channel(self, cid):
+            return self.threads.get(cid)
+
+    class FakeAdapter:
+        created = []
+
+        def __init__(self, client):
+            self._client = client
+
+        async def _auto_create_thread(self, message):
+            tid = 900 + len(self.created) + 1
+            self.created.append(tid)
+            thread = FakeThread(tid, message.channel.id)
+            self._client.threads[int(tid)] = thread
+            return thread
+
+    return FakeAdapter, FakeClient
+
+
+def with_fake_adapter(fn):
+    adapter, client = _adapter_classes()
+    fake = types.ModuleType("plugins.platforms.discord.adapter")
+    fake.DiscordAdapter = adapter
+    names = ("plugins", "plugins.platforms", "plugins.platforms.discord",
+             "plugins.platforms.discord.adapter")
+    saved = {name: sys.modules.get(name) for name in names}
+    for name in names[:-1]:
+        mod = types.ModuleType(name)
+        mod.__path__ = []
+        sys.modules[name] = mod
+    sys.modules[names[-1]] = fake
+    try:
+        return fn(adapter, client)
+    finally:
+        for name, previous in saved.items():
+            if previous is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous
+
+
+def test_thread_reuse_same_fingerprint_and_changed_fingerprint():
+    def run(Adapter, Client):
+        mod = load_plugin()
+        assert mod.install_thread_reuse(), "thread reuse hook not installed"
+        adapter = Adapter(Client())
+        first = asyncio.run(adapter._auto_create_thread(_FakeMessage(FIRING)))
+        assert len(Adapter.created) == 1, Adapter.created
+        ledger = mod.Ledger.load()
+        ledger.commit(mod.classify(FIRING, ledger, thread_id=first.id), thread_id=first.id)
+
+        repeat = asyncio.run(adapter._auto_create_thread(_FakeMessage(REPEAT)))
+        assert repeat.id == first.id, (repeat.id, first.id)
+        assert len(Adapter.created) == 1, Adapter.created
+
+        changed = FIRING.replace("**orion**", "**kepler**")
+        other = asyncio.run(adapter._auto_create_thread(_FakeMessage(changed)))
+        assert other.id != first.id, (other.id, first.id)
+        assert len(Adapter.created) == 2, Adapter.created
+    with_fake_adapter(lambda adapter, client: with_ledger(lambda: run(adapter, client)))
+
+
+def test_archived_thread_is_not_reused():
+    def run(Adapter, Client):
+        mod = load_plugin()
+        assert mod.install_thread_reuse(), "thread reuse hook not installed"
+        adapter = Adapter(Client())
+        first = asyncio.run(adapter._auto_create_thread(_FakeMessage(FIRING)))
+        ledger = mod.Ledger.load()
+        ledger.commit(mod.classify(FIRING, ledger, thread_id=first.id), thread_id=first.id)
+        first.archived = True
+
+        second = asyncio.run(adapter._auto_create_thread(_FakeMessage(REPEAT)))
+        assert second.id != first.id, (second.id, first.id)
+        assert len(Adapter.created) == 2, Adapter.created
+    with_fake_adapter(lambda adapter, client: with_ledger(lambda: run(adapter, client)))
 
 
 def test_no_network_or_subprocess_imports():

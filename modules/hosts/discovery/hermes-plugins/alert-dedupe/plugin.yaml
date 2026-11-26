@@ -4,7 +4,9 @@ description: >-
   Deterministic recognition of repeated Grafana alert episodes in Discord
   threads. Parses the rendered alert message, keeps a small JSON ledger per
   family/episode, injects a repeat note into the prompt and prefixes the reply
-  with a repeat/new-episode/resolved marker. Annotates only; never suppresses.
+  with a repeat/new-episode/resolved marker. On a repeat it answers in the open
+  thread recorded for the same alert family instead of creating a new one.
+  Annotates only; never suppresses.
 license: MIT
 author: Erik
 kind: standalone
