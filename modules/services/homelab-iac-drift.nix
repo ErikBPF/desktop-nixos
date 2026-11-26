@@ -95,19 +95,6 @@
       unset bao_token
       export BAO_ADDR=http://127.0.0.1:8200
       export BAO_TOKEN="$(cat /run/vault-agent/token)"
-      # The GitHub provider authenticates installation-scoped resources with app
-      # auth: it mints short-lived installation tokens from the app private key,
-      # so no OAuth refresh token (and its eight-hour expiry) is in the apply path.
-      if [ -z "''${KINDLE_RELEASE_PRIVATE_KEY_B64:-}" ]; then
-        echo "homelab-iac: KINDLE_RELEASE_PRIVATE_KEY_B64 missing; the app-auth provider cannot run" >&2
-        exit 1
-      fi
-      export GITHUB_APP_PEM_FILE="$STATE_DIRECTORY/github-app.pem"
-      (
-        umask 077
-        printf '%s' "$KINDLE_RELEASE_PRIVATE_KEY_B64" | ${pkgs.coreutils}/bin/base64 -d > "$GITHUB_APP_PEM_FILE"
-      )
-      unset KINDLE_RELEASE_PRIVATE_KEY_B64
     '';
   in {
     options.services.homelabIacDrift = {
