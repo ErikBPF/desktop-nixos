@@ -271,8 +271,10 @@ def private_transport(tmp_path, monkeypatch):
         fields = list(original(fd)); fields[4] = 0
         return os.stat_result(fields)
     monkeypatch.setattr(os, "fstat", root_stat)
-    release = tmp_path / "transport" / ("a" * 40)
-    release.mkdir(parents=True, mode=0o700)
+    transport = tmp_path / "transport"
+    transport.mkdir(mode=0o700)
+    release = transport / ("a" * 40)
+    release.mkdir(mode=0o700)
     path = release / "wazuh-backup.py"
     path.write_text("VALUE = 42\n")
     path.chmod(0o500); release.chmod(0o500)
@@ -295,6 +297,48 @@ def test_writable_materialized_transport_is_rejected(private_transport, writable
     target.chmod(0o700)
     with pytest.raises(ValueError):
         controller.load_transport(private_transport, digest)
+
+
+def test_private_transport_parent_must_be_root_controlled(private_transport):
+    import hashlib
+    digest = hashlib.sha256(private_transport.read_bytes()).hexdigest()
+    private_transport.parent.parent.chmod(0o775)
+    with pytest.raises(ValueError, match="Transport parent is not root controlled"):
+        controller.load_transport(private_transport, digest)
+
+
+def test_rescue_keeps_a_fresh_same_boot_intent():
+    intent = {"boot_id": "boot", "monotonic": 1000.0}
+    assert not controller.rescue_is_stale(intent, "boot", 1000.0 + controller.RESCUE_STALE_SECONDS - 1)
+
+
+def test_rescue_treats_old_or_foreign_intent_as_stale():
+    intent = {"boot_id": "boot", "monotonic": 1000.0}
+    assert controller.rescue_is_stale(intent, "boot", 1000.0 + controller.RESCUE_STALE_SECONDS)
+    assert controller.rescue_is_stale(intent, "other-boot", 1000.0)
+
+
+def test_incomplete_export_staging_is_discarded(tmp_path):
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    staging = tmp_path / "output" / "managers" / (".incomplete-" + storage.capture_id)
+    staging.mkdir(parents=True)
+    storage.discard_incomplete()
+    assert not staging.exists()
+
+
+def test_incomplete_staging_does_not_count_as_an_unconsumed_capture(tmp_path, monkeypatch):
+    import shutil
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: type("Usage", (), {"free": 1 << 40})())
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    managers = tmp_path / "output" / "managers"
+    managers.mkdir(parents=True)
+    for index in range(3):
+        (managers / f".incomplete-capture{index}").mkdir()
+    storage.prepare()
+    for index in range(3):
+        (managers / f"wazuh-capture{index}").mkdir()
+    with pytest.raises(RuntimeError, match="Three unconsumed captures"):
+        storage.prepare()
 
 
 def test_freshness_uses_completed_backup_source_time(tmp_path):

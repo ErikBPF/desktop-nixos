@@ -5,6 +5,17 @@ requires a successful backup, only the intent durably written before scaling.
 """
 
 
+# A same-boot intent older than this is treated as abandoned. Cluster.wait
+# allows 120 s to terminate and 120 s to become ready, plus a 30 s snapshot and
+# two scale requests, so the watchdog sits above those deadlines and below the
+# unit's 40-minute budget.
+RESCUE_STALE_SECONDS = 30 * 60
+
+
+def rescue_is_stale(intent, boot_id, now):
+    return intent.get("boot_id") != boot_id or now - intent["monotonic"] >= RESCUE_STALE_SECONDS
+
+
 def recover(api, storage):
     if storage.read_intent() is not None:
         api.scale(1)
@@ -25,7 +36,13 @@ def capture(api, storage):
         storage.snapshot()
     finally:
         recover(api, storage)
-    storage.export(identities)
+    try:
+        storage.export(identities)
+    except BaseException:
+        # The partial directory is never consumable and counts against the
+        # three-capture budget, so a failure must not leave it behind.
+        storage.discard_incomplete()
+        raise
 
 
 def pipeline(api, storage, transport):
@@ -295,7 +312,11 @@ class LocalStorage:
         minimum = 24 * 1024**3
         if shutil.disk_usage("/fast").free < minimum or shutil.disk_usage(self.output).free < minimum:
             raise RuntimeError("Insufficient capture headroom")
-        if len(list((self.output / "managers").iterdir())) >= 3:
+        consumed = [
+            entry for entry in (self.output / "managers").iterdir()
+            if not entry.name.startswith(".incomplete-")
+        ]
+        if len(consumed) >= 3:
             raise RuntimeError("Three unconsumed captures; transport must drain them before capture")
         if (self.state / "snapshot.json").exists():
             raise RuntimeError("Previous task snapshot needs recovery cleanup")
@@ -357,6 +378,10 @@ class LocalStorage:
         else:
             raise RuntimeError("Cannot establish task snapshot existence; retain cleanup record")
         path.unlink()
+
+    def discard_incomplete(self):
+        import shutil
+        shutil.rmtree(self.output / "managers" / (".incomplete-" + self.capture_id), ignore_errors=True)
 
     def export(self, identities):
         import hashlib
@@ -442,7 +467,7 @@ def main():
         if intent is None:
             return
         boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-        if intent.get("boot_id") == boot_id and time.monotonic() - intent["monotonic"] < 180:
+        if not rescue_is_stale(intent, boot_id, time.monotonic()):
             return
         subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
                        check=True, timeout=15, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
