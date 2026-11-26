@@ -92,8 +92,12 @@ def test_host_mutation_restore_without_control_or_content(tmp_path):
         assert all('diff' not in event for event in events)
         readonly = subprocess.run([ENGINE, 'exec', name, '/bin/sh', '-c',
                                    'echo forbidden > /host-fim/write-probe'],
-                                  capture_output=True, timeout=5)
+                                  capture_output=True, text=True, timeout=5)
         assert readonly.returncode != 0, 'host directory mount allowed container writes'
+        # A dead container or a missing shell is also nonzero; require the
+        # kernel's read-only refusal so the fixture proves isolation.
+        assert 'read-only file system' in (readonly.stderr or '').lower(), (
+            f'write probe failed for another reason: {readonly.stderr!r}')
         assert not (watched / 'write-probe').exists()
     finally:
         subprocess.run([ENGINE, 'rm', '-f', name], capture_output=True, timeout=10)
