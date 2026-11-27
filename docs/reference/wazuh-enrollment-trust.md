@@ -88,16 +88,16 @@ steady RAM at most 5% of host RAM, sustained CPU at most 2%, no valueless
 duplicates. Workstation expansion needs its own selected identity and trust
 proof; no shared fleet module or new credential is introduced here.
 
-### Retention and restore decision still required
+### Accepted retention and remaining destination/restore gate
 
 Source inspection found no Wazuh-specific index retention policy or restore
-recipe. Do not describe an existing proven restore path. Proposed minimum:
-30 days of alert-index retention, daily encrypted index snapshots and manager
-state backup, then an isolated restore whose event counts/IDs and manager
-identity match the captured baseline. The coordinator must select the existing
-sanctioned backup destination and recovery budget before implementation.
-Applying retention to `wazuh-alerts-*` also affects existing SSH alerts, so that
-policy requires an explicit decision; no deletion policy is installed here.
+recipe. The user answered “do as recomendation”, accepting 30 days of alert-index
+retention, daily encrypted index snapshots, manager-state backup and an isolated
+restore. Restore event counts/IDs and manager identity must match the captured
+baseline. The coordinator is grounding an existing sanctioned backup destination
+and owner; no store or credential is inferred. Retention on `wazuh-alerts-*`
+also affects existing SSH alerts. This source preparation installs no deletion
+policy, and no proven restore path is claimed.
 
 A concrete first FIM slice, after deployed S06 verification, would add only the
 Orion directory bind and one syscheck rule: realtime on `/host-fim`, recursion
