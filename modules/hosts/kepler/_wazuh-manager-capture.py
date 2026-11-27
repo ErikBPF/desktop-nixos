@@ -7,9 +7,12 @@ requires a successful backup, only the intent durably written before scaling.
 
 # Recovery and rescue deadlines. The unit budget is 300 s: a 15 s service stop,
 # two 10 s scale requests, a 120 s readiness window plus one 20 s poll pair,
-# a 10 s snapshot existence check and a 30 s destroy.
+# a 10 s snapshot existence check and a 30 s destroy. Each API request has a
+# 10 s wall-clock deadline; the 10 s socket timeout is only an inner guard
+# because it bounds one wait, not a body that trickles.
 STOP_TIMEOUT_SECONDS = 15
-API_TIMEOUT_SECONDS = 10
+API_SOCKET_TIMEOUT_SECONDS = 10
+API_REQUEST_TIMEOUT_SECONDS = 10
 WAIT_TIMEOUT_SECONDS = 120
 ZFS_QUERY_TIMEOUT_SECONDS = 10
 ZFS_DESTROY_TIMEOUT_SECONDS = 30
@@ -205,6 +208,8 @@ def check_binding(role, claim, volume):
 class Cluster:
     """Only named GETs and the two scale PATCHes; token never reaches argv."""
 
+    endpoint = "https://192.168.10.245:6443"
+
     def __init__(self, token_file, ca_file):
         import ssl
         from pathlib import Path
@@ -213,6 +218,7 @@ class Cluster:
 
     def request(self, path, replicas=None):
         import json
+        import time
         import urllib.error
         import urllib.request
         token = self.token_file.read_text().strip()
@@ -220,17 +226,27 @@ class Cluster:
             raise ValueError("Missing or malformed runtime token")
         payload = None if replicas is None else json.dumps({"spec": {"replicas": replicas}}).encode()
         request = urllib.request.Request(
-            "https://192.168.10.245:6443" + path, data=payload,
+            self.endpoint + path, data=payload,
             method="GET" if replicas is None else "PATCH",
             headers={"Authorization": "Bearer " + token,
                      "Content-Type": "application/merge-patch+json"},
         )
+        deadline = time.monotonic() + API_REQUEST_TIMEOUT_SECONDS
         try:
-            with urllib.request.urlopen(request, context=self.context, timeout=API_TIMEOUT_SECONDS) as response:
-                data = response.read(1_048_577)
-                if len(data) > 1_048_576:
-                    raise ValueError("API response exceeds metadata bound")
-                return json.loads(data)
+            with urllib.request.urlopen(request, context=self.context,
+                                        timeout=API_SOCKET_TIMEOUT_SECONDS) as response:
+                body = bytearray()
+                while True:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(
+                            f"API request exceeded its {API_REQUEST_TIMEOUT_SECONDS} s deadline")
+                    chunk = response.read1(65_536)
+                    if not chunk:
+                        break
+                    body.extend(chunk)
+                    if len(body) > 1_048_576:
+                        raise ValueError("API response exceeds metadata bound")
+                return json.loads(body)
         except urllib.error.HTTPError as error:
             if error.code == 404 and replicas is None:
                 return None

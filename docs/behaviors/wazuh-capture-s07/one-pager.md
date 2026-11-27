@@ -64,6 +64,33 @@ encryption/readback/wrong-password tests. None proves deployed Kubernetes scale,
 real ZFS capture, Vault renewal, actual backup, or isolated Wazuh restore. No live
 stop, snapshot, installation, credential write, backup or enrollment occurred.
 
+## Repair evidence (P2 review at `00561bd1`)
+
+The review found that `urllib`'s socket timeout bounds one wait, not a whole
+response. A server that trickles bytes resets that timeout, so
+`response.read(1_048_577)` could hold the first manager scale-up past the 300 s
+recovery budget. Managers scale sequentially, so systemd could kill recovery
+before the worker request.
+
+`Cluster.request` now starts a monotonic deadline before `urlopen` and reads the
+body in 64 KiB `read1` chunks. It raises `TimeoutError` at the first chunk check
+at or after the deadline, and it still rejects a body over 1,048,576 bytes.
+`API_REQUEST_TIMEOUT_SECONDS` is 10 s per request; the existing 10 s socket
+timeout (`API_SOCKET_TIMEOUT_SECONDS`) remains an inner guard. A stalled read can
+overrun the deadline by at most one socket wait, so the recovery path stays
+inside the unit budget. The worst-case derivation is unchanged:
+15 s stop + 2 x 10 s scale + 120 s readiness + 2 x 10 s poll pair + 10 s snapshot
+query + 30 s destroy = 215 s, within the 300 s unit budget.
+
+Observed RED: the new trickling-server test was collected and then hung; the run
+was killed after 15 s with exit 124 and no verdict
+(`/tmp/opencode/wazuh-capture-trickle-red.log`). Observed GREEN: 51 focused tests
+pass in 1.2 s, including the deadline test
+(`/tmp/opencode/wazuh-capture-trickle-green.log`). The test uses a local
+threaded `http.server` with a 0.5 s configured deadline; no external network,
+cluster, ZFS, host or credential was used. Owner lint, formatting and docs checks
+pass. `ripsecrets` reports no finding on the changed files.
+
 ## Repair evidence (P2 review at `97e640c2`)
 
 The review found two P2 gaps. First, recovery clears the durable intent before

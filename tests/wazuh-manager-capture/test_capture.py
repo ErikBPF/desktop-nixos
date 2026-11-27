@@ -217,6 +217,50 @@ def test_recovery_attempts_both_managers_even_if_first_api_fails():
     assert len(calls) == 2 and all(replicas == 1 for _, replicas in calls)
 
 
+def test_request_deadline_aborts_a_trickling_response(monkeypatch, tmp_path):
+    import http.server
+    import threading
+    import time
+
+    stop = threading.Event()
+
+    class Trickle(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "10000")
+            self.end_headers()
+            self.wfile.write(b"{")
+            self.wfile.flush()
+            while not stop.wait(0.1):
+                try:
+                    self.wfile.write(b" ")
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Trickle)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        cluster = object.__new__(controller.Cluster)
+        cluster.endpoint = f"http://127.0.0.1:{server.server_address[1]}"
+        cluster.context = None
+        cluster.token_file = tmp_path / "token"
+        cluster.token_file.write_text("token")
+        monkeypatch.setattr(controller, "API_REQUEST_TIMEOUT_SECONDS", 0.5)
+        started = time.monotonic()
+        with pytest.raises(TimeoutError, match="deadline"):
+            cluster.request("/api/v1/namespaces/wazuh/pods/wazuh-manager-master-0")
+        assert time.monotonic() - started < 3, "trickling body outlived the deadline"
+    finally:
+        stop.set()
+        server.shutdown()
+        server.server_close()
+
+
 def test_atomic_state_is_private_and_replaces_complete_json(tmp_path):
     import json
     import stat
@@ -458,16 +502,16 @@ def test_slow_successful_recovery_fits_the_configured_unit_budget(monkeypatch):
     cluster = object.__new__(controller.Cluster)
 
     def request(path):
-        clock[0] += controller.API_TIMEOUT_SECONDS
+        clock[0] += controller.API_REQUEST_TIMEOUT_SECONDS
         ready = clock[0] >= controller.WAIT_TIMEOUT_SECONDS
         return {"status": {"conditions": [{"type": "Ready", "status": "True"}]}} if ready else {}
 
     cluster.request = request
     cluster.wait_ready()
-    worst = (controller.STOP_TIMEOUT_SECONDS + 2 * controller.API_TIMEOUT_SECONDS
-             + controller.WAIT_TIMEOUT_SECONDS + 2 * controller.API_TIMEOUT_SECONDS
+    worst = (controller.STOP_TIMEOUT_SECONDS + 2 * controller.API_REQUEST_TIMEOUT_SECONDS
+             + controller.WAIT_TIMEOUT_SECONDS + 2 * controller.API_REQUEST_TIMEOUT_SECONDS
              + controller.ZFS_QUERY_TIMEOUT_SECONDS + controller.ZFS_DESTROY_TIMEOUT_SECONDS)
-    assert clock[0] <= controller.WAIT_TIMEOUT_SECONDS + 2 * controller.API_TIMEOUT_SECONDS
+    assert clock[0] <= controller.WAIT_TIMEOUT_SECONDS + 2 * controller.API_REQUEST_TIMEOUT_SECONDS
     assert worst <= budget
 
 
