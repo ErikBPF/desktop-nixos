@@ -9,6 +9,7 @@ def test_nixos_fleet_hosts_default_to_hardened_ssh_port():
     fleet_hosts = {
         "apollo",
         "archinaut",
+        "challenger",
         "discovery",
         "endeavour",
         "kepler",

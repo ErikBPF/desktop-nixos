@@ -392,6 +392,7 @@ print(json.dumps({"args": sys.argv[1:], "password": bool(os.environ.get("OPENCOD
         users = {str(p.relative_to(ROOT)) for p in (ROOT / "modules").rglob("*.nix")
                  if "m.home.desktop-workspaces" in p.read_text() or "m.nixos.desktop-workspaces" in p.read_text()}
         self.assertEqual(users, {
+            "modules/hosts/challenger/default.nix",
             "modules/hosts/endeavour/default.nix",
             "modules/hosts/kepler/devtools.nix",
         })
