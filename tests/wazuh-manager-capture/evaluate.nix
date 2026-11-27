@@ -52,6 +52,17 @@ in
   assert builtins.elem credential recovery.after;
   assert !(builtins.elem credential rescue.requires);
   assert builtins.elem credential rescue.after;
+  # A reboot drops /run while the durable intent survives, and the credential
+  # agent has no boot activation of its own. Weak Wants on recovery and rescue
+  # requests the agent on boot and on every rescue tick; a failed agent still
+  # does not block because Requires stays empty.
+  assert recovery.requires == [];
+  assert rescue.requires == [];
+  assert builtins.elem "network-online.target" recovery.wants;
+  assert builtins.elem credential recovery.wants;
+  assert builtins.elem "network-online.target" rescue.wants;
+  assert builtins.elem credential rescue.wants;
+  assert enabled.systemd.timers.wazuh-manager-capture-rescue.timerConfig.OnBootSec == "1min";
   assert capture.unitConfig.RequiresMountsFor == ["/fast" "/bulk"];
   assert recovery.unitConfig.RequiresMountsFor == [];
   assert rescue.unitConfig.RequiresMountsFor == [];

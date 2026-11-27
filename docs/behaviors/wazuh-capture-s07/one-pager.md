@@ -177,6 +177,44 @@ Fifty focused tests pass. Owner lint, formatting and docs checks pass, and
 `ripsecrets` reports no finding on the changed files. The checks evaluate Nix
 only; no host activation, cluster, ZFS, credential or capture action occurred.
 
+## Repair evidence (P2 review at `46b88f56`)
+
+The review found that a reboot during scale-down leaves the durable capture
+intent in place but removes the token under `/run`. The credential agent has
+no `wantedBy` activation of its own. Recovery and rescue only ordered `After`
+the agent, so each boot recovery and each rescue tick waited for an agent that
+nothing started and then failed on the missing token. Both managers stayed
+offline.
+
+For `recover` and `rescue`, the unit helper now adds a weak `Wants` on
+`wazuh-manager-scale-credential.service`. Their `Requires` set stays empty, and
+`After` is unchanged. Capture keeps its hard `Requires` and its existing
+`Wants` set. A stopped agent is started at boot and on every rescue tick. A
+failed agent still cannot block recovery, which can read a token that a prior
+`RuntimeDirectoryPreserve=restart` preserved.
+
+The synthetic evaluation now asserts that recovery and rescue have an empty
+`Requires` set, that both `Wants` sets contain `network-online.target` and the
+credential service, and that the rescue timer has `OnBootSec = "1min"`. That
+models the boot path with surviving intent without a live host.
+
+Observed RED: `nix eval --offline --impure --raw --file
+tests/wazuh-manager-capture/evaluate.nix` failed at `assert builtins.elem
+credential recovery.wants` (`/tmp/opencode/wazuh-capture-boot-deps-red.log`).
+Observed GREEN: the same command prints `S07_CAPTURE_EVAL_OK`
+(`/tmp/opencode/wazuh-capture-boot-deps-green.log`) with these final sets:
+
+- capture: requires `wazuh-manager-scale-credential.service`; wants
+  `network-online.target`; after `network-online.target`, credential service.
+- recover: requires none; wants `network-online.target`, credential service;
+  after `network-online.target`, credential service.
+- rescue: requires none; wants `network-online.target`, credential service;
+  after `network-online.target`, credential service.
+
+Fifty focused tests pass. Owner lint, formatting and docs checks pass, and
+`ripsecrets` reports no finding on the changed files. No host activation,
+cluster, ZFS, credential or capture action occurred.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic

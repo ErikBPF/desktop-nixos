@@ -10,10 +10,15 @@ _: {
     command = mode: "${pkgs.python3}/bin/python3 ${./_wazuh-manager-capture.py} ${mode} --token-file ${token} --ca-file ${cfg.clusterCaFile} --transport-revision ${cfg.transportRevision} --transport-sha256 ${cfg.transportSha256}";
     service = mode: {
       after = ["network-online.target" "wazuh-manager-scale-credential.service"];
-      wants = ["network-online.target"];
+      # A reboot drops /run while a durable intent survives, and the credential
+      # agent has no boot activation of its own. Weak Wants requests it on boot
+      # and on every rescue tick, so a stopped agent is started.
+      wants =
+        ["network-online.target"]
+        ++ lib.optionals (mode != "capture") ["wazuh-manager-scale-credential.service"];
       # Capture must not run without the credential agent. Recovery and rescue
-      # keep ordering only, so a failed agent activation cannot block restoring
-      # managers from the token preserved by RuntimeDirectoryPreserve=restart.
+      # keep Requires empty, so a failed agent activation cannot block restoring
+      # managers from an existing token. Capture keeps the hard requirement.
       requires = lib.optionals (mode == "capture") ["wazuh-manager-scale-credential.service"];
       # Likewise, a missing /fast or /bulk mount must not block a manager
       # scale-up; recovery only needs the state directory and the token.
