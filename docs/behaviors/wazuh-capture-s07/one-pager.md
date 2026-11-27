@@ -112,11 +112,41 @@ focused tests pass (`/tmp/opencode/wazuh-capture-terminating-green.log`). The do
 states the rescue staleness threshold as 1800 seconds (30 minutes), matching
 `RESCUE_STALE_SECONDS`.
 
+## Repair evidence (P2 review at `07f1038d`)
+
+The review found that a normal service stop or deployment restart after
+scale-down sends SIGTERM, which bypasses Python's `finally` block, and a
+successful deactivation does not trigger `OnFailure`. Rescue then ignored the
+same-boot intent until `RESCUE_STALE_SECONDS`, leaving both managers at zero;
+a restarted capture refused the outstanding intent.
+
+Rescue no longer returns early on a fresh intent. When the intent is not stale,
+it still proceeds, and `run.lock` decides: a live capture holds the lock, so a
+non-blocking acquisition failure exits 0 without touching the cluster; an
+acquired lock means the capture is inactive, so rescue scales both managers to
+one, waits for healthy non-terminating Pods and clears the intent on that tick.
+The stale path is unchanged: rescue stops the parent first, then recovers. The
+no-intent reclamation path and `KillMode` are unchanged; there is one recovery
+path.
+
+Observed RED: `test_rescue_recovers_a_fresh_intent_immediately_when_capture_is_inactive`
+failed with `assert [] == ['scale:1', 'ready', 'clear', 'cleanup']`, showing
+rescue still returned before recovery (`/tmp/opencode/wazuh-capture-fresh-intent-red.log`;
+49 passed, 1 failed). Observed GREEN: 50 focused tests pass
+(`/tmp/opencode/wazuh-capture-fresh-intent-green.log`). The second test holds
+`run.lock` and proves a live capture is left alone. Tests use fake API, fake
+storage and a temporary lock file only; no cluster, ZFS, host or credential was
+accessed.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic
-time. Recovery intent older than 1800 seconds (30 minutes) stops the parent and
-restores both named managers. The forty-minute overall job budget includes encrypted transport;
+time. A fresh same-boot intent recovers immediately when the capture service is
+inactive: rescue takes `run.lock` non-blocking, exits quietly while a live
+capture holds it, and otherwise scales both managers back to one, waits for
+healthy non-terminating Pods and clears intent on that tick. Intent older than
+1800 seconds (30 minutes) is stale: rescue stops the parent first, then runs the
+same recovery. The forty-minute overall job budget includes encrypted transport;
 it does not extend the independent quiesce watchdog. Missing API credentials can
 still prevent recovery, so an operator route and actual credential cycle must be
 verified first. Keep capture and daily scheduling disabled until published

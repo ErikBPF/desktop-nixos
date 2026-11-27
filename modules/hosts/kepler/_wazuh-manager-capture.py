@@ -521,18 +521,26 @@ def main():
             reclaim_pending(storage)
             return
         boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-        if not rescue_is_stale(intent, boot_id, time.monotonic()):
-            return
-        subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
-                       check=True, timeout=STOP_TIMEOUT_SECONDS, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    with (state / "run.lock").open("a") as run_lock:
-        fcntl.flock(run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if rescue_is_stale(intent, boot_id, time.monotonic()):
+            subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
+                           check=True, timeout=STOP_TIMEOUT_SECONDS, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # A fresh intent can still need recovery: a stop, restart or deployment
+        # after scale-down kills Python before its finally block and does not
+        # fail the unit, so OnFailure never runs. The run lock below decides:
+        # busy means a live capture, free means an interrupted one.
+    with (storage.state / "run.lock").open("a") as run_lock:
+        try:
+            fcntl.flock(run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            if arguments.mode == "rescue":
+                return
+            raise
         cluster = Cluster(arguments.token_file, arguments.ca_file)
         if arguments.mode != "capture":
             recover(cluster, storage)
             storage.cleanup()
             return
-        with (output / "capture.lock").open("a") as bundle_lock:
+        with (storage.output / "capture.lock").open("a") as bundle_lock:
             fcntl.flock(bundle_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             try:
                 transport = load_transport(state / "transport" / arguments.transport_revision / "wazuh-backup.py",

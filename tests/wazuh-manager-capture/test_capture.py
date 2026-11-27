@@ -66,6 +66,9 @@ class Storage:
         self.events.append("clear")
         self.intent = None
 
+    def cleanup(self):
+        self.events.append("cleanup")
+
 
 def test_capture_restores_before_export_and_persists_before_stop():
     events = []
@@ -359,6 +362,49 @@ def test_rescue_treats_old_or_foreign_intent_as_stale():
     intent = {"boot_id": "boot", "monotonic": 1000.0}
     assert controller.rescue_is_stale(intent, "boot", 1000.0 + controller.RESCUE_STALE_SECONDS)
     assert controller.rescue_is_stale(intent, "other-boot", 1000.0)
+
+
+def run_rescue(tmp_path, monkeypatch, events, live_lock=False):
+    """Drive main()'s rescue tick against a fresh same-boot intent."""
+    import fcntl
+    import sys
+    import time
+    storage = Storage(events)
+    storage.state = tmp_path
+    storage.intent = {"boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+                      "monotonic": 1000.0, "capture_id": "wazuh-fixture"}
+    monkeypatch.setattr(controller, "LocalStorage", lambda state, output: storage)
+    monkeypatch.setattr(controller, "Cluster", lambda token, ca: API(events))
+    monkeypatch.setattr(time, "monotonic", lambda: 2000.0)
+    monkeypatch.setattr(sys, "argv", ["capture", "rescue", "--token-file", "token",
+                                      "--ca-file", "ca", "--transport-revision", "r",
+                                      "--transport-sha256", "s"])
+    lock = (tmp_path / "run.lock").open("a")
+    if live_lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        controller.main()
+    finally:
+        lock.close()
+    return storage
+
+
+def test_rescue_recovers_a_fresh_intent_immediately_when_capture_is_inactive(tmp_path, monkeypatch):
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("must not stop an inactive capture"))
+    events = []
+    storage = run_rescue(tmp_path, monkeypatch, events)
+    assert events == ["scale:1", "ready", "clear", "cleanup"]
+    assert storage.intent is None
+
+
+def test_rescue_leaves_a_live_capture_holding_the_lock_alone(tmp_path, monkeypatch):
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("must not stop a live capture"))
+    events = []
+    storage = run_rescue(tmp_path, monkeypatch, events, live_lock=True)
+    assert events == []
+    assert storage.intent is not None
 
 
 def test_rescue_reclaims_staging_and_owned_snapshot_after_intent_clear(tmp_path, monkeypatch):
