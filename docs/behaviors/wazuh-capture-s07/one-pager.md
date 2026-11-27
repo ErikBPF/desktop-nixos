@@ -128,9 +128,9 @@ replacements were healthy, so later rescue ticks reclaimed storage and never
 retried manager recovery.
 
 `Cluster.ready` now requires a Pod with no `metadata.deletionTimestamp` before
-it accepts the Ready condition. `preflight` and `wait_ready` both route through
-that predicate, so capture verification and recovery apply one rule; the
-duplicate deletion check in `preflight` is removed.
+it accepts the Ready condition. `wait()` is the only readiness consumer, so
+recovery and capture verification share one rule. `preflight` validates Argo
+delegation, PVC/PV bindings and identities; it performs no readiness check.
 
 Observed RED: `test_recovery_waits_for_a_replacement_after_a_terminating_ready_pod`
 failed with `assert [{'master': 1, 'worker': 1}] == [{'master': 2, 'worker': 2}]`,
