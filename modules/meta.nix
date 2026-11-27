@@ -90,6 +90,14 @@
           role = "server";
           tailscaleIp = "100.77.14.27";
         };
+        challenger = {
+          # Repurposed Tiger Lake laptop; wired LAN, desktop parity with
+          # endeavour. Tailnet address is assigned on first enrollment.
+          ip = "192.168.10.201";
+          mac = "64:1c:67:f5:65:e0";
+          role = "laptop";
+          tailscaleIp = "100.96.190.75";
+        };
         pathfinder = {
           ip = "192.168.10.215";
           mac = "54:bf:64:28:cb:2e";

@@ -150,6 +150,15 @@ in {
       magicRollback = true;
     };
 
+    # challenger: desktop-parity laptop, user-owned tailnet node. Reached via
+    # its stable tailnet address; the .201 LAN reservation is applied
+    # separately, so tailnet-only keeps deploys working before/after it.
+    challenger = mkNode {
+      host = "challenger";
+      tailnetOnly = true;
+      magicRollback = false;
+    };
+
     # archinaut: aarch64 RPi (activate.nixos resolves to aarch64-linux via
     # pkgs.system; closure still builds on orion through binfmt). Reached on its
     # WiFi LAN IP via sshd → magic rollback safe. WiFi can be slow to settle, so
