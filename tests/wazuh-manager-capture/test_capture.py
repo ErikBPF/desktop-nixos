@@ -110,6 +110,49 @@ def test_rescuer_without_intent_makes_no_cluster_changes():
     assert events == []
 
 
+def ready_pod(uid, deletion_timestamp=None):
+    metadata = {"uid": uid}
+    if deletion_timestamp is not None:
+        metadata["deletionTimestamp"] = deletion_timestamp
+    return {"metadata": metadata,
+            "status": {"conditions": [{"type": "Ready", "status": "True"}]}}
+
+
+def test_recovery_waits_for_a_replacement_after_a_terminating_ready_pod(monkeypatch):
+    import time
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    cluster = object.__new__(controller.Cluster)
+    served = {"master": 0, "worker": 0}
+
+    def request(path, replicas=None):
+        for role in controller.MANAGERS:
+            if path == cluster.scale_path(role):
+                return {}
+            if path == cluster.pod_path(role):
+                served[role] += 1
+                if served[role] == 1:
+                    return ready_pod("old-" + role, "2026-01-01T00:00:00Z")
+                return ready_pod("new-" + role)
+        raise AssertionError("unexpected API request " + path)
+
+    cluster.request = request
+    storage = Storage([])
+    storage.intent = {"master": "uid-master", "worker": "uid-worker"}
+    cleared = []
+
+    def clear_intent():
+        cleared.append(dict(served))
+        storage.intent = None
+
+    storage.clear_intent = clear_intent
+    controller.recover(cluster, storage)
+    assert cleared == [{"master": 2, "worker": 2}], "intent cleared before a healthy replacement"
+    assert clock[0] > 0, "wait did not continue past the terminating Ready pod"
+    assert storage.intent is None
+
+
 def delegation():
     return {"spec": {"syncPolicy": {"syncOptions": ["RespectIgnoreDifferences=true"]},
                      "ignoreDifferences": [

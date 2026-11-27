@@ -257,7 +257,6 @@ class Cluster:
             pod = self.request(self.pod_path(role)) or {}
             if (scale.get("spec", {}).get("replicas") != 1
                     or scale.get("status", {}).get("replicas") != 1
-                    or pod.get("metadata", {}).get("deletionTimestamp")
                     or not self.ready(pod)
                     or not any(c.get("image", "").endswith("@" + MANAGER_DIGEST)
                                for c in pod.get("spec", {}).get("containers", []))):
@@ -267,8 +266,10 @@ class Cluster:
 
     @staticmethod
     def ready(pod):
-        return bool(pod) and any(c.get("type") == "Ready" and c.get("status") == "True"
-                                for c in pod.get("status", {}).get("conditions", []))
+        return (bool(pod)
+                and not pod.get("metadata", {}).get("deletionTimestamp")
+                and any(c.get("type") == "Ready" and c.get("status") == "True"
+                        for c in pod.get("status", {}).get("conditions", [])))
 
     def scale(self, replicas):
         failures = []

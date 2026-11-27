@@ -90,11 +90,33 @@ Observed GREEN: 47 focused tests pass (`/tmp/wazuh-capture-rescue-green.log`).
 The checks use files and fake clocks only; no cluster, ZFS, host or credential
 was accessed. The remaining runtime gates below are unchanged.
 
+## Repair evidence (P2 review at `d594e93b`)
+
+The review found that `Cluster.ready` accepted a terminating Pod: a Ready
+condition with `metadata.deletionTimestamp` set. After an interrupted
+scale-down, an old manager Pod can stay Ready while it terminates; scaling back
+to one does not cancel deletion. `recover` then cleared `intent.json` before the
+replacements were healthy, so later rescue ticks reclaimed storage and never
+retried manager recovery.
+
+`Cluster.ready` now requires a Pod with no `metadata.deletionTimestamp` before
+it accepts the Ready condition. `preflight` and `wait_ready` both route through
+that predicate, so capture verification and recovery apply one rule; the
+duplicate deletion check in `preflight` is removed.
+
+Observed RED: `test_recovery_waits_for_a_replacement_after_a_terminating_ready_pod`
+failed with `assert [{'master': 1, 'worker': 1}] == [{'master': 2, 'worker': 2}]`,
+showing intent was cleared on the first poll while the terminating Pods were
+still served (`/tmp/opencode/wazuh-capture-terminating-red.log`). Observed GREEN: 48
+focused tests pass (`/tmp/opencode/wazuh-capture-terminating-green.log`). The doc now
+states the rescue staleness threshold as 1800 seconds (30 minutes), matching
+`RESCUE_STALE_SECONDS`.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic
-time. Recovery intent older than 180 seconds stops the parent and restores both
-named managers. The forty-minute overall job budget includes encrypted transport;
+time. Recovery intent older than 1800 seconds (30 minutes) stops the parent and
+restores both named managers. The forty-minute overall job budget includes encrypted transport;
 it does not extend the independent quiesce watchdog. Missing API credentials can
 still prevent recovery, so an operator route and actual credential cycle must be
 verified first. Keep capture and daily scheduling disabled until published
