@@ -138,6 +138,45 @@ rescue still returned before recovery (`/tmp/opencode/wazuh-capture-fresh-intent
 storage and a temporary lock file only; no cluster, ZFS, host or credential was
 accessed.
 
+## Repair evidence (P2 review at `06614979`)
+
+The review found that one shared `requires =
+["wazuh-manager-scale-credential.service"]` covered all three modes. When the
+credential agent failed activation, systemd also stopped or refused to start
+capture through failure, recovery and the minutely rescue, even though the token
+preserved at `/run/wazuh-manager-scale/token` by
+`RuntimeDirectoryPreserve=restart` may still be usable. After an interrupted
+scale-down, that left both managers at zero with every automatic restoration
+path blocked.
+
+Only capture now has a hard `Requires`. Recovery and rescue keep `After`
+ordering, so systemd prefers a starting agent but starts them when the agent has
+failed, and the mode reads the preserved token. The same rule now covers
+`RequiresMountsFor`: capture requires `/fast` and `/bulk`; recovery and rescue do
+not, because recovery only needs the state directory, token and API, and a
+missing data mount must not block a manager scale-up. The synthetic evaluation
+asserts the credential dependency and mount sets for all three modes and traces
+the resulting sets; recovery still cleans up storage after the scale-up, so a
+missing mount becomes a visible unit failure rather than a recovery block.
+
+Observed RED: `nix eval --offline --impure --raw --file
+tests/wazuh-manager-capture/evaluate.nix` failed at `assert !(builtins.elem
+credential recovery.requires)` (`/tmp/opencode/wazuh-capture-deps-red.log`).
+Observed GREEN: the same command prints
+`S07_CAPTURE_EVAL_OK` and the dependency report
+(`/tmp/opencode/wazuh-capture-deps-green.log`):
+
+- capture: requires `wazuh-manager-scale-credential.service`; after
+  `network-online.target`, credential service; mounts `/fast`, `/bulk`.
+- recover: requires none; after `network-online.target`, credential service;
+  wants `network-online.target`; no required mounts.
+- rescue: requires none; after `network-online.target`, credential service;
+  wants `network-online.target`; no required mounts.
+
+Fifty focused tests pass. Owner lint, formatting and docs checks pass, and
+`ripsecrets` reports no finding on the changed files. The checks evaluate Nix
+only; no host activation, cluster, ZFS, credential or capture action occurred.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic

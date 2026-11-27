@@ -11,8 +11,13 @@ _: {
     service = mode: {
       after = ["network-online.target" "wazuh-manager-scale-credential.service"];
       wants = ["network-online.target"];
-      requires = ["wazuh-manager-scale-credential.service"];
-      unitConfig.RequiresMountsFor = ["/fast" "/bulk"];
+      # Capture must not run without the credential agent. Recovery and rescue
+      # keep ordering only, so a failed agent activation cannot block restoring
+      # managers from the token preserved by RuntimeDirectoryPreserve=restart.
+      requires = lib.optionals (mode == "capture") ["wazuh-manager-scale-credential.service"];
+      # Likewise, a missing /fast or /bulk mount must not block a manager
+      # scale-up; recovery only needs the state directory and the token.
+      unitConfig.RequiresMountsFor = lib.optionals (mode == "capture") ["/fast" "/bulk"];
       path = [pkgs.zfs pkgs.gnutar pkgs.openssl pkgs.systemd pkgs.docker-client];
       serviceConfig = {
         Type = "oneshot";
