@@ -1,4 +1,5 @@
 {
+  "chat.disableAIFeatures": true,
   "workbench": {
     "iconTheme": "material-icon-theme",
     "colorTheme": "Tokyo Night",
@@ -139,46 +140,6 @@
       "!Split sequence"
     ]
   },
-  "auto-build": {
-    "defaultEnv": {
-      "name": "LPC1768"
-    },
-    "showOnStartup": false
-  },
-  "databricks": {
-    "connection": {
-      "default": {
-        "apiRootUrl": "https://adb-30323666291519.19.azuredatabricks.net",
-        "displayName": "adb",
-        "localSyncFolder": "/home/erik/databricks",
-        "personalAccessTokenSecure": {
-          "keyTarSettingName": "adb-API-Token"
-        }
-      }
-    },
-    "lastActiveConnection": "adb"
-  },
-  "gitlens": {
-    "defaultDateLocale": null
-  },
-  "jupyter": {
-    "interactiveWindow": {
-      "cellMarker": {
-        "codeRegex": "^(#\\s*COMMAND\\s*[-]*|#\\s*%%|#\\s*\\<codecell\\>|#\\s*In\\[\\d*?\\]|#\\s*In\\[ \\])"
-      }
-    },
-    "askForKernelRestart": false
-  },
-  "boot-java": {
-    "rewrite": {
-      "reconcile": true
-    }
-  },
-  "docker": {
-    "extension": {
-      "enableComposeLanguageServer": false
-    }
-  },
   "nix": {
     "enableLanguageServer": false,
     "serverPath": "nixd",
@@ -231,7 +192,5 @@
     "editor.defaultFormatter": "redhat.vscode-yaml"
   },
   "terminal.integrated.confirmOnKill": "never",
-  "jdk.telemetry.enabled": false,
-  "notebook.output.scrolling": true,
   "extensions.ignoreRecommendations": true
 }
