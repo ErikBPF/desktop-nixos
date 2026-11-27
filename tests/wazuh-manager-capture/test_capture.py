@@ -261,6 +261,156 @@ def test_request_deadline_aborts_a_trickling_response(monkeypatch, tmp_path):
         server.server_close()
 
 
+def local_cluster(server, tmp_path):
+    cluster = object.__new__(controller.Cluster)
+    cluster.endpoint = f"http://127.0.0.1:{server.server_address[1]}"
+    cluster.context = None
+    cluster.token_file = tmp_path / "token"
+    cluster.token_file.write_text("token")
+    return cluster
+
+
+def test_request_deadline_bounds_a_trickling_header(monkeypatch, tmp_path):
+    import http.server
+    import threading
+    import time
+
+    stop = threading.Event()
+    calls = []
+    slow = controller.Cluster.pod_path("master")
+
+    class TrickleHeader(http.server.BaseHTTPRequestHandler):
+        def respond(self):
+            length = int(self.headers.get("Content-Length", 0))
+            if length:
+                self.rfile.read(length)
+            calls.append(f"{self.command} {self.path}")
+            if self.path == slow:
+                # A complete status line, then header bytes one at a time with no
+                # terminating blank line: urllib's socket timeout never fires.
+                self.wfile.write(b"HTTP/1.1 200 OK\r\n")
+                self.wfile.flush()
+                while not stop.is_set():
+                    for byte in b"X-Slow: a\r\n":
+                        if stop.wait(0.02):
+                            return
+                        try:
+                            self.wfile.write(bytes((byte,)))
+                            self.wfile.flush()
+                        except OSError:
+                            return
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        do_GET = do_PATCH = respond
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), TrickleHeader)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        cluster = local_cluster(server, tmp_path)
+        monkeypatch.setattr(controller, "API_REQUEST_TIMEOUT_SECONDS", 0.5)
+        started = time.monotonic()
+        with pytest.raises(TimeoutError, match="deadline"):
+            cluster.request(slow)
+        elapsed = time.monotonic() - started
+        assert 0.4 <= elapsed < 3, f"trickling header outlived the deadline ({elapsed:.2f} s)"
+        cluster.scale(1)
+        assert calls[-2:] == [f"PATCH {controller.Cluster.scale_path(role)}"
+                              for role in controller.MANAGERS]
+    finally:
+        stop.set()
+        server.shutdown()
+        server.server_close()
+
+
+def test_request_deadline_bounds_a_trickling_tls_handshake(monkeypatch, tmp_path):
+    import socket
+    import ssl
+    import threading
+    import time
+
+    stop = threading.Event()
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+
+    def serve():
+        conn, _ = listener.accept()
+        with conn:
+            try:
+                conn.recv(4096)
+                # A valid 16 KiB TLS handshake record, then one body byte at a
+                # time. The handshake must be cut at the request deadline.
+                conn.sendall(b"\x16\x03\x03\x40\x00")
+                while not stop.wait(0.02):
+                    conn.sendall(b" ")
+            except OSError:
+                pass
+
+    threading.Thread(target=serve, daemon=True).start()
+    real_connect = socket.create_connection
+
+    def delayed_connect(address, timeout=None):
+        # Spend 0.4 s of the 0.5 s budget before the handshake. A fresh
+        # handshake timeout would then end near 0.9 s, not at the deadline.
+        sock = real_connect(address, timeout=timeout)
+        time.sleep(0.4)
+        return sock
+
+    monkeypatch.setattr(socket, "create_connection", delayed_connect)
+    try:
+        cluster = object.__new__(controller.Cluster)
+        cluster.endpoint = f"https://127.0.0.1:{listener.getsockname()[1]}"
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        cluster.context = context
+        cluster.token_file = tmp_path / "token"
+        cluster.token_file.write_text("token")
+        monkeypatch.setattr(controller, "API_REQUEST_TIMEOUT_SECONDS", 0.5)
+        started = time.monotonic()
+        with pytest.raises(TimeoutError, match="deadline"):
+            cluster.request(controller.Cluster.pod_path("master"))
+        elapsed = time.monotonic() - started
+        assert 0.4 <= elapsed < 0.8, f"handshake did not share the deadline ({elapsed:.2f} s)"
+    finally:
+        stop.set()
+        listener.close()
+
+
+def test_request_returns_parsed_json_within_the_deadline(tmp_path):
+    import http.server
+    import threading
+
+    class Normal(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b'{"spec": {"replicas": 1}}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Normal)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        cluster = local_cluster(server, tmp_path)
+        assert cluster.request(controller.Cluster.scale_path("master")) == {"spec": {"replicas": 1}}
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_atomic_state_is_private_and_replaces_complete_json(tmp_path):
     import json
     import stat

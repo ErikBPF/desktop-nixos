@@ -75,10 +75,11 @@ before the worker request.
 `Cluster.request` now starts a monotonic deadline before `urlopen` and reads the
 body in 64 KiB `read1` chunks. It raises `TimeoutError` at the first chunk check
 at or after the deadline, and it still rejects a body over 1,048,576 bytes.
-`API_REQUEST_TIMEOUT_SECONDS` is 10 s per request; the existing 10 s socket
-timeout (`API_SOCKET_TIMEOUT_SECONDS`) remains an inner guard. A stalled read can
-overrun the deadline by at most one socket wait, so the recovery path stays
-inside the unit budget. The worst-case derivation is unchanged:
+`API_REQUEST_TIMEOUT_SECONDS` is 10 s per request; the then-separate 10 s socket
+timeout (`API_SOCKET_TIMEOUT_SECONDS`) was an inner guard. A stalled read could
+overrun the deadline by at most one socket wait, so the recovery path stayed
+inside the unit budget. The third repair below removes that residual overrun.
+The worst-case derivation is unchanged:
 15 s stop + 2 x 10 s scale + 120 s readiness + 2 x 10 s poll pair + 10 s snapshot
 query + 30 s destroy = 215 s, within the 300 s unit budget.
 
@@ -241,6 +242,68 @@ Observed GREEN: the same command prints `S07_CAPTURE_EVAL_OK`
 Fifty focused tests pass. Owner lint, formatting and docs checks pass, and
 `ripsecrets` reports no finding on the changed files. No host activation,
 cluster, ZFS, credential or capture action occurred.
+
+## Repair evidence (P3 review at `4822b63e`)
+
+The review found that the deadline check started only after `urlopen` returned.
+A server that trickles response headers one byte at a time never completes the
+header block, so `urlopen` never returns and no check runs. Recovery could
+therefore exceed its 300 s systemd budget before the sequential worker scale-up.
+
+`Cluster.request` now uses `http.client` instead of `urllib`. It enforces one
+monotonic deadline over connect, TLS handshake, request send, `getresponse`
+(headers) and body read. It owns the connect. `socket.create_connection` creates
+the socket with the time left. `wrap_socket` with `do_handshake_on_connect=False`
+publishes the live TLS socket before the handshake. This matters because
+`HTTPSConnection.connect` detaches the raw socket before the handshake, so a
+watchdog cannot reach it and the handshake would get a fresh full timeout. The
+handshake now uses only the remaining budget.
+
+A `threading.Timer` is planned from the deadline. At expiry it closes the
+published socket with `shutdown(SHUT_RDWR)` then `close()`, which wakes a blocked
+connect, handshake, header read or body read. A connect or TLS wrap publishes its
+socket only when it returns, so the watchdog polls every 10 ms. A detached socket
+reports `EBADF`, so the watchdog keeps looking for its replacement. The `finally`
+block sets a finished flag, then cancels and joins the timer, closes the socket
+and closes the connection, so a completed or failed request leaves no timer or
+socket behind. Watchdog-forced socket errors, `HTTPException` failures and socket
+timeouts become one `TimeoutError` that names the 10 s deadline. A real body error
+is not relabelled: only the watchdog flag triggers that translation. A 404 GET
+still returns `None`, and a non-2xx response now raises the named-request error
+including 3xx, so a proxy redirect cannot be returned as manager metadata. The
+1 MiB body bound and chunked read are unchanged. `API_REQUEST_TIMEOUT_SECONDS`
+stays at 10 s. The unused `API_SOCKET_TIMEOUT_SECONDS` constant is removed. The
+215 s worst case is unchanged, so both scale calls, readiness and cleanup stay
+inside 300 s.
+
+Observed RED: the new slow-header test was collected and then hung in `urlopen`.
+The run was killed by `timeout 20` with exit 124
+(`/tmp/opencode/wazuh-capture-slow-header-red.log`, empty because the kill
+preceded pytest's flush). A standalone reproduction against the exact
+`4822b63e` module recorded `calling urlopen under a 0.5 s deadline`, then exit
+124 with no exception (`/tmp/opencode/wazuh-capture-slow-header-red-old.log`).
+
+Observed GREEN: 54 focused tests pass in 2.8 s
+(`/tmp/opencode/wazuh-capture-slow-header-green.log`). The slow-header test
+raises `TimeoutError` between 0.4 s and 3 s on a 0.5 s configured deadline, then
+runs `Cluster.scale(1)` and observes both PATCH paths. The trickling-body test
+still passes. A new TLS test spends 0.4 s of a 0.5 s budget in connect, sends a
+valid 16 KiB handshake record and then one body byte at a time, and requires the
+call to end before 0.8 s. A fresh handshake timeout would end near 0.9 s, so the
+test fails on that regression. A normal parsed-JSON test still passes. Each
+deadline test completes under 3 s including interpreter startup. Owner lint,
+formatting and docs checks pass.
+`ripsecrets --strict-ignore` reports no finding on the changed files.
+`nix eval --offline --impure --raw --file
+tests/wazuh-manager-capture/evaluate.nix` prints `S07_CAPTURE_EVAL_OK`. All
+servers are local `http.server` or `socket` instances. No external network,
+cluster, ZFS, host or credential was accessed.
+
+An independent review of the first draft found that `connection.connect()` still
+gave the TLS handshake a fresh timeout and that a late body error could be
+relabelled as a timeout. The connect is now owned and the translation is gated on
+the watchdog flag. The same review found that 3xx was accepted as success; it now
+fails closed.
 
 ## Recovery and activation gates
 

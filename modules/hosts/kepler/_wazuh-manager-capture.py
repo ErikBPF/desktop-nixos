@@ -7,11 +7,11 @@ requires a successful backup, only the intent durably written before scaling.
 
 # Recovery and rescue deadlines. The unit budget is 300 s: a 15 s service stop,
 # two 10 s scale requests, a 120 s readiness window plus one 20 s poll pair,
-# a 10 s snapshot existence check and a 30 s destroy. Each API request has a
-# 10 s wall-clock deadline; the 10 s socket timeout is only an inner guard
-# because it bounds one wait, not a body that trickles.
+# a 10 s snapshot existence check and a 30 s destroy. Each API request has one
+# 10 s wall-clock deadline that covers connect, request send, response headers
+# and body. A watchdog closes the socket at that deadline, because a socket
+# timeout bounds one wait, not a trickling header or body.
 STOP_TIMEOUT_SECONDS = 15
-API_SOCKET_TIMEOUT_SECONDS = 10
 API_REQUEST_TIMEOUT_SECONDS = 10
 WAIT_TIMEOUT_SECONDS = 120
 ZFS_QUERY_TIMEOUT_SECONDS = 10
@@ -217,40 +217,125 @@ class Cluster:
         self.context = ssl.create_default_context(cafile=ca_file)
 
     def request(self, path, replicas=None):
+        import http.client
         import json
+        import socket
+        import threading
         import time
-        import urllib.error
-        import urllib.request
+        import urllib.parse
         token = self.token_file.read_text().strip()
         if not token or "\n" in token:
             raise ValueError("Missing or malformed runtime token")
         payload = None if replicas is None else json.dumps({"spec": {"replicas": replicas}}).encode()
-        request = urllib.request.Request(
-            self.endpoint + path, data=payload,
-            method="GET" if replicas is None else "PATCH",
-            headers={"Authorization": "Bearer " + token,
-                     "Content-Type": "application/merge-patch+json"},
-        )
+        headers = {"Authorization": "Bearer " + token,
+                   "Content-Type": "application/merge-patch+json"}
+        endpoint = urllib.parse.urlsplit(self.endpoint)
         deadline = time.monotonic() + API_REQUEST_TIMEOUT_SECONDS
+        message = f"API request exceeded its {API_REQUEST_TIMEOUT_SECONDS} s deadline"
+        timed_out = threading.Event()
+        finished = threading.Event()
+        connection = None
+        sock = None
+        timer = None
         try:
-            with urllib.request.urlopen(request, context=self.context,
-                                        timeout=API_SOCKET_TIMEOUT_SECONDS) as response:
-                body = bytearray()
-                while True:
-                    if time.monotonic() >= deadline:
-                        raise TimeoutError(
-                            f"API request exceeded its {API_REQUEST_TIMEOUT_SECONDS} s deadline")
-                    chunk = response.read1(65_536)
-                    if not chunk:
-                        break
-                    body.extend(chunk)
-                    if len(body) > 1_048_576:
-                        raise ValueError("API response exceeds metadata bound")
-                return json.loads(body)
-        except urllib.error.HTTPError as error:
-            if error.code == 404 and replicas is None:
+            remaining = max(deadline - time.monotonic(), 0.001)
+            if endpoint.scheme == "https":
+                connection = http.client.HTTPSConnection(
+                    endpoint.hostname, endpoint.port, timeout=remaining, context=self.context)
+            else:
+                connection = http.client.HTTPConnection(
+                    endpoint.hostname, endpoint.port, timeout=remaining)
+
+            def expire():
+                timed_out.set()
+                # Close once a live socket exists. A connect or TLS wrap publishes
+                # it only when it returns, so poll briefly instead of closing
+                # nothing and letting the transport continue.
+                while not finished.is_set():
+                    current = sock if sock is not None else connection.sock
+                    if current is not None:
+                        # A close alone does not reliably interrupt a blocked
+                        # recv on Linux; shutdown does. A detached socket reports
+                        # EBADF, so keep looking for its replacement.
+                        try:
+                            current.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            current = None
+                        if current is not None:
+                            try:
+                                current.close()
+                            except OSError:
+                                pass
+                            return
+                    finished.wait(0.01)
+
+            # Planned from the deadline, and cancelled and joined in finally, so
+            # a finished request never leaves a timer behind.
+            timer = threading.Timer(max(deadline - time.monotonic(), 0), expire)
+            timer.daemon = True
+            timer.start()
+            # Own the connect: http.client's HTTPS connect detaches the raw socket
+            # before the handshake, so the watchdog could not reach it and the
+            # handshake would get a fresh timeout. Publish the live TLS socket
+            # first and give the handshake only the time that is left.
+            sock = socket.create_connection(
+                (endpoint.hostname, endpoint.port),
+                timeout=max(deadline - time.monotonic(), 0.001))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError
+            if endpoint.scheme == "https":
+                sock = self.context.wrap_socket(
+                    sock, server_hostname=endpoint.hostname, do_handshake_on_connect=False)
+                sock.settimeout(max(deadline - time.monotonic(), 0.001))
+                sock.do_handshake()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError
+            sock.settimeout(remaining)
+            # A non-None sock makes http.client skip its own unsafe connect.
+            connection.sock = sock
+            connection.request("GET" if replicas is None else "PATCH", path,
+                               body=payload, headers=headers)
+            response = connection.getresponse()
+            if response.status == 404 and replicas is None:
                 return None
-            raise RuntimeError(f"Kubernetes API rejected named request: HTTP {error.code}") from None
+            if not 200 <= response.status < 300:
+                raise RuntimeError(
+                    f"Kubernetes API rejected named request: HTTP {response.status}")
+            body = bytearray()
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError
+                # The watchdog interrupts a blocked read at the deadline; the
+                # connect timeout already bounds any single wait.
+                chunk = response.read1(65_536)
+                if not chunk:
+                    break
+                body.extend(chunk)
+                if len(body) > 1_048_576:
+                    raise ValueError("API response exceeds metadata bound")
+            return json.loads(body)
+        except TimeoutError:
+            raise TimeoutError(message) from None
+        except (OSError, http.client.HTTPException, ValueError):
+            # The watchdog forces socket/read failures; surface one deadline error.
+            if timed_out.is_set():
+                raise TimeoutError(message) from None
+            raise
+        finally:
+            finished.set()
+            if timer is not None:
+                timer.cancel()
+                timer.join()
+            if sock is not None:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+            if connection is not None:
+                connection.close()
 
     @staticmethod
     def pod_path(role):

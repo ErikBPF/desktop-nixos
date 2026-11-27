@@ -19,6 +19,9 @@ The explicit CI steps run the same focused suite and synthetic evaluation.
 - Require authoritative exact Argo replica delegation and the reviewed CSI
   server, share, subdirectory, PVC UID and PV claim binding.
 - Attempt recovery of the second manager when the first API operation fails.
+- Bound every API request by one wall-clock deadline that covers connect, headers
+  and body. A trickling header or body must raise `TimeoutError` at that deadline,
+  and a following scale request must still execute.
 - Atomically replace private state with mode0600 and reject unowned snapshot
   cleanup names before invoking ZFS.
 - Reject an old Pod UID, old/future timestamp, boolean timestamp, or failed
