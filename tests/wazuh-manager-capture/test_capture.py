@@ -318,6 +318,70 @@ def test_rescue_treats_old_or_foreign_intent_as_stale():
     assert controller.rescue_is_stale(intent, "other-boot", 1000.0)
 
 
+def test_rescue_reclaims_staging_and_owned_snapshot_after_intent_clear(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    storage.state.mkdir()
+    staging = tmp_path / "output" / "managers" / ".incomplete-interrupted"
+    staging.mkdir(parents=True)
+    record = storage.state / "snapshot.json"
+    record.write_text(json.dumps({"name": storage.snapshot_name}))
+    commands = []
+
+    def run(args, **kwargs):
+        commands.append(args)
+        if args[:2] == ["zfs", "list"]:
+            return subprocess.CompletedProcess(args, 0, storage.snapshot_name + "\n", "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    assert controller.reclaim_pending(storage) is True
+    assert not staging.exists() and not record.exists()
+    assert ["zfs", "destroy", storage.snapshot_name] in commands
+
+
+def test_rescue_does_not_disturb_an_export_holding_capture_lock(tmp_path, monkeypatch):
+    import fcntl
+    import json
+    import subprocess
+    storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    storage.state.mkdir()
+    staging = tmp_path / "output" / "managers" / ".incomplete-live"
+    staging.mkdir(parents=True)
+    record = storage.state / "snapshot.json"
+    record.write_text(json.dumps({"name": storage.snapshot_name}))
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("must not reclaim during export"))
+    with (tmp_path / "output" / "capture.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert controller.reclaim_pending(storage) is False
+    assert staging.exists() and record.exists()
+
+
+def test_slow_successful_recovery_fits_the_configured_unit_budget(monkeypatch):
+    import re
+    import time
+    source = (Path(__file__).parents[2] / "modules/hosts/kepler/wazuh-manager-capture.nix").read_text()
+    budget = int(re.search(r'else "(\d+)s"', source).group(1))
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    cluster = object.__new__(controller.Cluster)
+
+    def request(path):
+        clock[0] += controller.API_TIMEOUT_SECONDS
+        ready = clock[0] >= controller.WAIT_TIMEOUT_SECONDS
+        return {"status": {"conditions": [{"type": "Ready", "status": "True"}]}} if ready else {}
+
+    cluster.request = request
+    cluster.wait_ready()
+    worst = (controller.STOP_TIMEOUT_SECONDS + 2 * controller.API_TIMEOUT_SECONDS
+             + controller.WAIT_TIMEOUT_SECONDS + 2 * controller.API_TIMEOUT_SECONDS
+             + controller.ZFS_QUERY_TIMEOUT_SECONDS + controller.ZFS_DESTROY_TIMEOUT_SECONDS)
+    assert clock[0] <= controller.WAIT_TIMEOUT_SECONDS + 2 * controller.API_TIMEOUT_SECONDS
+    assert worst <= budget
+
+
 def test_incomplete_export_staging_is_discarded(tmp_path):
     storage = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
     staging = tmp_path / "output" / "managers" / (".incomplete-" + storage.capture_id)

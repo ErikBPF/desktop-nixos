@@ -21,10 +21,13 @@ _: {
         UMask = "0077";
         StateDirectory = "wazuh-manager-capture";
         StateDirectoryMode = "0700";
+        # Recovery/rescue worst case is 215s: 15s stop, 20s scale, 140s
+        # readiness (120s plus one 20s poll pair), 10s existence check and
+        # 30s destroy. 300s keeps margin for scheduling.
         TimeoutStartSec =
           if mode == "capture"
           then "40min"
-          else "150s";
+          else "300s";
         TimeoutStopSec = "5s";
         KillMode = "control-group";
         CPUQuota = "100%";

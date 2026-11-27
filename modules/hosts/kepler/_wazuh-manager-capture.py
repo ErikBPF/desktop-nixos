@@ -5,10 +5,18 @@ requires a successful backup, only the intent durably written before scaling.
 """
 
 
-# A same-boot intent older than this is treated as abandoned. Cluster.wait
-# allows 120 s to terminate and 120 s to become ready, plus a 30 s snapshot and
-# two scale requests, so the watchdog sits above those deadlines and below the
-# unit's 40-minute budget.
+# Recovery and rescue deadlines. The unit budget is 300 s: a 15 s service stop,
+# two 10 s scale requests, a 120 s readiness window plus one 20 s poll pair,
+# a 10 s snapshot existence check and a 30 s destroy.
+STOP_TIMEOUT_SECONDS = 15
+API_TIMEOUT_SECONDS = 10
+WAIT_TIMEOUT_SECONDS = 120
+ZFS_QUERY_TIMEOUT_SECONDS = 10
+ZFS_DESTROY_TIMEOUT_SECONDS = 30
+
+# A same-boot intent older than this is treated as abandoned. Rescue may stop
+# the unit and run the full recovery path above, so the watchdog sits above
+# those deadlines and below the unit's 40-minute capture budget.
 RESCUE_STALE_SECONDS = 30 * 60
 
 
@@ -21,6 +29,30 @@ def recover(api, storage):
         api.scale(1)
         api.wait_ready()
         storage.clear_intent()
+
+
+def reclaim_pending(storage):
+    """Reclaim interrupted storage when no capture intent survives.
+
+    An explicit stop during export bypasses Python cleanup, leaving staging and
+    a recorded snapshot with no intent to gate rescue. Both locks are taken
+    without blocking: a live export owns capture.lock and any active controller
+    owns run.lock, so a false result means "leave it alone".
+    """
+    import fcntl
+    with (storage.state / "run.lock").open("a") as run_lock:
+        try:
+            fcntl.flock(run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        with (storage.output / "capture.lock").open("a") as export_lock:
+            try:
+                fcntl.flock(export_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return False
+            storage.reclaim_incomplete()
+            storage.cleanup()
+            return True
 
 
 def capture(api, storage):
@@ -194,7 +226,7 @@ class Cluster:
                      "Content-Type": "application/merge-patch+json"},
         )
         try:
-            with urllib.request.urlopen(request, context=self.context, timeout=10) as response:
+            with urllib.request.urlopen(request, context=self.context, timeout=API_TIMEOUT_SECONDS) as response:
                 data = response.read(1_048_577)
                 if len(data) > 1_048_576:
                     raise ValueError("API response exceeds metadata bound")
@@ -250,7 +282,7 @@ class Cluster:
 
     def wait(self, ready):
         import time
-        deadline = time.monotonic() + 120
+        deadline = time.monotonic() + WAIT_TIMEOUT_SECONDS
         while time.monotonic() < deadline:
             pods = [self.request(self.pod_path(role)) for role in MANAGERS]
             if all(self.ready(pod) for pod in pods) if ready else all(pod is None for pod in pods):
@@ -306,19 +338,19 @@ class LocalStorage:
         self.capture_id = "wazuh-" + uuid.uuid4().hex
         self.snapshot_name = "fast-pool/data@" + self.capture_id
 
-    def reclaim_incomplete(self):
+    def reclaim_incomplete(self, keep=None):
         import shutil
         managers = self.output / "managers"
         if not managers.exists():
             return
         for entry in managers.iterdir():
-            if entry.name.startswith(".incomplete-") and entry.name != ".incomplete-" + self.capture_id:
+            if entry.name.startswith(".incomplete-") and entry.name != keep:
                 shutil.rmtree(entry, ignore_errors=True)
 
     def prepare(self):
         import shutil
         # Interrupted exports leave staging that no exception handler reclaimed.
-        self.reclaim_incomplete()
+        self.reclaim_incomplete(".incomplete-" + self.capture_id)
         # Whole-dataset snapshot COW and archive space must both have headroom.
         minimum = 24 * 1024**3
         if shutil.disk_usage("/fast").free < minimum or shutil.disk_usage(self.output).free < minimum:
@@ -383,9 +415,9 @@ class LocalStorage:
         if not re.fullmatch(r"fast-pool/data@wazuh-[0-9a-f]{32}", name):
             raise ValueError("Refusing cleanup of an unowned snapshot name")
         exists = subprocess.run(["zfs", "list", "-H", "-t", "snapshot", "-o", "name", name],
-                                capture_output=True, text=True, timeout=10)
+                                capture_output=True, text=True, timeout=ZFS_QUERY_TIMEOUT_SECONDS)
         if exists.returncode == 0:
-            subprocess.run(["zfs", "destroy", name], check=True, timeout=30,
+            subprocess.run(["zfs", "destroy", name], check=True, timeout=ZFS_DESTROY_TIMEOUT_SECONDS,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         elif not any(token in (exists.stderr or "").lower() for token in ("does not exist", "no such")):
             raise RuntimeError("Cannot establish task snapshot existence; retain cleanup record")
@@ -483,12 +515,15 @@ def main():
     if arguments.mode == "rescue":
         intent = storage.read_intent()
         if intent is None:
+            # Intent clears before archive export, so an interrupted export
+            # leaves reclaimable storage with no intent to gate this path.
+            reclaim_pending(storage)
             return
         boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
         if not rescue_is_stale(intent, boot_id, time.monotonic()):
             return
         subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
-                       check=True, timeout=15, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                       check=True, timeout=STOP_TIMEOUT_SECONDS, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     with (state / "run.lock").open("a") as run_lock:
         fcntl.flock(run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         cluster = Cluster(arguments.token_file, arguments.ca_file)

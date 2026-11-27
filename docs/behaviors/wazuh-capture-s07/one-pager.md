@@ -64,6 +64,32 @@ encryption/readback/wrong-password tests. None proves deployed Kubernetes scale,
 real ZFS capture, Vault renewal, actual backup, or isolated Wazuh restore. No live
 stop, snapshot, installation, credential write, backup or enrollment occurred.
 
+## Repair evidence (P2 review at `97e640c2`)
+
+The review found two P2 gaps. First, recovery clears the durable intent before
+archive export, so an explicit stop during export bypasses Python cleanup and
+leaves `snapshot.json` plus `.incomplete-*` staging with no intent. The minutely
+rescue then returned at the missing-intent guard forever, retaining snapshot COW
+storage without bound. Rescue now calls a reclaim path when no intent survives.
+That path takes `run.lock` and the export's `capture.lock` non-blocking, removes
+`.incomplete-*` staging, and reuses the existing cleanup, which destroys only a
+snapshot matching the owned-name regex and retains the record when ZFS existence
+cannot be established. A live export holding either lock makes the path leave
+storage untouched.
+
+Second, the 150 s recovery/rescue unit budget was below the sequential deadline
+path. The code deadlines are now named constants: 15 s stop, two 10 s API
+requests, a 120 s readiness window plus one 20 s poll pair, 10 s snapshot
+existence check and 30 s destroy, or 215 s worst case. The unit budget is 300 s,
+leaving scheduling margin; the slow-success check reads the configured value and
+drives `Cluster.wait` past its deadline with a fake clock.
+
+Observed RED: three failures, two `AttributeError` for the absent reclaim path
+and `assert 215 <= 150` for the budget (`/tmp/wazuh-capture-rescue-red.log`).
+Observed GREEN: 47 focused tests pass (`/tmp/wazuh-capture-rescue-green.log`).
+The checks use files and fake clocks only; no cluster, ZFS, host or credential
+was accessed. The remaining runtime gates below are unchanged.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic
