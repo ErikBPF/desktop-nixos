@@ -107,7 +107,9 @@ _: {
           RestartSec = "10s";
           RuntimeDirectory = "wazuh-manager-scale";
           RuntimeDirectoryMode = "0700";
-          RuntimeDirectoryPreserve = "restart";
+          # Keep the token across a plain stop, not only across a restart, so
+          # recovery still has one when OpenBao cannot re-issue it.
+          RuntimeDirectoryPreserve = "yes";
           UMask = "0077";
           NoNewPrivileges = true;
           PrivateTmp = true;

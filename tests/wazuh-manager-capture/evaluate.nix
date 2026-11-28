@@ -43,6 +43,8 @@ in
   assert lib.hasInfix enabled.services.wazuhManagerCapture.transportRevision enabled.systemd.services.wazuh-manager-capture.serviceConfig.ExecStart;
   assert lib.hasInfix enabled.services.wazuhManagerCapture.transportSha256 enabled.systemd.services.wazuh-manager-capture.serviceConfig.ExecStart;
   assert builtins.elem "d /bulk/k8s/wazuh-recovery-proof 0755 root root -" enabled.systemd.tmpfiles.rules;
+  # A plain stop must not discard the token an interrupted capture still needs.
+  assert enabled.systemd.services.wazuh-manager-scale-credential.serviceConfig.RuntimeDirectoryPreserve == "yes";
   # Capture must not run without a credential agent. Recovery and rescue keep
   # ordering only: a failed agent activation must not block restoring managers
   # from the token preserved at /run/wazuh-manager-scale/token.

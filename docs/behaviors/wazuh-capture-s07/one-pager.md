@@ -330,6 +330,21 @@ Observed RED: `test_rescue_skips_the_stop_when_a_replacement_capture_is_live`,
 tests failed before the change; the admission test reported `free` at the stop
 hook. Observed GREEN: 59 focused tests pass.
 
+## Repair evidence (P2 review at `e5921375`)
+
+The credential agent preserved its runtime directory only across a restart
+(`RuntimeDirectoryPreserve = "restart"`). A plain stop removed the token; if
+managers had already scaled down, the durable intent survived but recovery
+could not authenticate while OpenBao was unavailable.
+
+`RuntimeDirectoryPreserve` is now `"yes"`: the token survives stops until
+reboot, so recovery and rescue can restore the managers from the existing
+credential even when the agent cannot re-issue one. The evaluation assertion
+pins the setting.
+
+Observed RED: the new assertion failed with `string "restart" is not equal to
+string "yes"`. Observed GREEN: `S07_CAPTURE_EVAL_OK` and 59 focused tests pass.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic
