@@ -11,7 +11,8 @@
       firewall = {
         enable = true;
         checkReversePath = "loose";
-        interfaces.tailscale0.allowedTCPPorts = [8085 8087];
+        # 8085/8087 closed 2026-11-25 — retrieval stack retired, no consumer.
+        interfaces.tailscale0.allowedTCPPorts = [];
         # Discovery-only access also depends on the matching Tailscale ACL.
         extraCommands = ''
           iptables -A nixos-fw -i tailscale0 -s ${config.fleet.hosts.discovery.tailscaleIp}/32 -p tcp --dport 9000 -j nixos-fw-accept

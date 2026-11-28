@@ -1,15 +1,35 @@
 let
   flake = builtins.getFlake (toString ../..);
   base = flake.nixosConfigurations.endeavour;
-  collector = (base.extendModules {modules = [{services.hostIntegrity.pilot.enableJobs = lib.mkForce false;}];}).config;
-  manual = (base.extendModules {modules = [{services.hostIntegrity.pilot.enableJobs = true;}];}).config;
+  collector =
+    (base.extendModules {
+      modules = [
+        {
+          services.hostIntegrity.pilot = {
+            enableJobs = lib.mkForce false;
+            enableSchedules = lib.mkForce false;
+          };
+        }
+      ];
+    }).config;
+  manual =
+    (base.extendModules {
+      modules = [
+        {
+          services.hostIntegrity.pilot = {
+            enableJobs = lib.mkForce true;
+            enableSchedules = lib.mkForce false;
+          };
+        }
+      ];
+    }).config;
   scheduled =
     (base.extendModules {
       modules = [
         {
           services.hostIntegrity.pilot = {
-            enableJobs = true;
-            enableSchedules = true;
+            enableJobs = lib.mkForce true;
+            enableSchedules = lib.mkForce true;
           };
         }
       ];
@@ -19,7 +39,7 @@ let
   lib = flake.inputs.nixpkgs.lib;
 in
   assert base.config.services.hostIntegrity.pilot.enableJobs;
-  assert !base.config.services.hostIntegrity.pilot.enableSchedules;
+  assert base.config.services.hostIntegrity.pilot.enableSchedules;
   assert collector.services.hostIntegrity.enable;
   assert collector.services.hostIntegrity.checks == names;
   assert collector.services.hostIntegrity.jobs == {};
@@ -27,6 +47,16 @@ in
   assert lib.all (check: manual.systemd.timers."host-integrity-${check}".wantedBy == []) names;
   assert lib.all (check: scheduled.systemd.timers."host-integrity-${check}".wantedBy == ["timers.target"]) names;
   assert manual.services.hostIntegrity.jobs.av.paths == ["/home/erik/Downloads"];
+  # The shared coordination lock is nonblocking, so the weekly AV job must
+  # start after the store job's worst case: 03:40 + jitter + deadline.
+  assert 6
+  * 3600
+  + 30 * 60
+  > 3
+  * 3600
+  + 40 * 60
+  + manual.services.hostIntegrity.jobs.store.jitterSeconds
+  + manual.services.hostIntegrity.jobs.store.timeoutSeconds;
   assert manual.services.hostIntegrity.jobs.av.memoryMaxBytes == 2147483648;
   assert manual.services.hostIntegrity.jobs.av.maxTotalBytes == 268435456;
   assert manual.services.hostIntegrity.jobs.av.retentionDays == 30;

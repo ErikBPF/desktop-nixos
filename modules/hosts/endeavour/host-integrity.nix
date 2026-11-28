@@ -38,6 +38,9 @@ _: {
       services.hostIntegrity = {
         enable = true;
         pilot.enableJobs = true;
+        # The bounded jobs pass their drills; schedule them so persisted gauges
+        # cannot age out while the host is otherwise healthy.
+        pilot.enableSchedules = true;
         checks = ["signatures" "store" "av"];
         jobs = lib.optionalAttrs pilot.enableJobs {
           signatures =
@@ -52,16 +55,20 @@ _: {
             common
             // {
               scopeId = "endeavour-store-contents-v1";
+              # A full `nix store verify --all` read 138 GB and was killed at
+              # the 30-minute deadline under a 512 MiB cap, leaving no state.
               calendar = "*-*-* 03:40:00";
-              timeoutSeconds = 1800;
-              memoryMaxBytes = 536870912;
+              timeoutSeconds = 7200;
+              memoryMaxBytes = 2147483648;
             };
           av =
             common
             // {
               scopeId = "endeavour-downloads-bounded-v1";
               paths = ["/home/erik/Downloads"];
-              calendar = "Sun *-*-* 04:40:00";
+              # Starts after the store job's worst case (03:40 + 15m jitter
+              # + 2h deadline = 05:55); the shared lock is nonblocking.
+              calendar = "Sun *-*-* 06:30:00";
               timeoutSeconds = 900;
               memoryMaxBytes = 2147483648;
             };

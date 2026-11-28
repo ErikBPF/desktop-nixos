@@ -386,6 +386,10 @@
               {_args = ["SUPER + CTRL + k" (mkLuaInline "hl.dsp.window.resize({ x = 0, y = -20, relative = true })")];}
               {_args = ["SUPER + CTRL + j" (mkLuaInline "hl.dsp.window.resize({ x = 0, y = 20, relative = true })")];}
             ]
+            ++ lib.optionals (!(config.systemd.user.services ? "voice-dictation@")) [
+              {_args = ["SUPER + I" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle network")'')];}
+              {_args = ["SUPER + U" (mkLuaInline ''hl.dsp.exec_cmd("~/.config/quickshell/scripts/qs_manager.sh toggle monitors")'')];}
+            ]
             ++ workspaceBinds
             ++ [
               {_args = ["SUPER + a" (mkLuaInline "hl.dsp.focus({ workspace = 10 })")];}

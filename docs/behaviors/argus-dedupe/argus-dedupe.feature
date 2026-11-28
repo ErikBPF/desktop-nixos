@@ -18,6 +18,15 @@ Feature: Deterministic recognition of repeated Grafana alert episodes
     And the reply does not repeat the earlier investigation
     And the ledger count for that episode becomes 3
 
+  @thread-reuse
+  Scenario: A repeat occurrence answers in the existing open thread
+    Given the ledger records thread "900" for the family of an orion systemd alert
+    And that thread is open under the #incidents channel
+    When a repeat occurrence of the same family arrives
+    Then no new thread is created
+    And the reply is delivered into thread "900"
+    And a changed host in the same alert rule creates a second thread
+
   @new-episode
   Scenario: A resolved-then-firing cycle is a new episode, not a repeat
     Given a ledger episode for family "Host memory available < 5% for 15m|kepler|-|-"

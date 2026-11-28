@@ -41,7 +41,9 @@ jobs:
       - name: OpenCode project configuration
         run: python3 -m unittest discover -s tests/opencode-project -p 'test_*.py'
       - name: Kepler tmux persistence
-        run: python3 -m unittest discover -s tests/kepler-tmux-persistence -v
+        run: |
+          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
+          PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/kepler-tmux-persistence -v
       - name: Erik profile sops/SSH ownership
         run: python3 -m unittest discover -s tests/erik-profile -v
       - name: Manual desktop helpers
@@ -205,7 +207,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [pathfinder, endeavour, orion, discovery, kepler, apollo]
+        host: [pathfinder, endeavour, challenger, orion, discovery, kepler, apollo]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

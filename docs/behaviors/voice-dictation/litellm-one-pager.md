@@ -4,6 +4,8 @@
 **Status:** Orion ASR and Endeavour gateway-first capture deployed; remote rewrite degraded.
 **Owner / date:** desktop-nixos, Servarr, homelab-iac / 2026-11-21
 
+Current source review and merge gates: [PR #517 merge readiness](merge-readiness.md). The runtime evidence below remains historical.
+
 ## Outcome and why
 
 Human seed: “lets try to move voice stack to use our litellm instance and first path and local models as fallback. We can deploy models on orion and route them via litellm”. Endeavour now tries the homelab gateway for transcription and contextual rewriting, with local Parakeet and Ollama fallback. Super+U dictates; Super+I snapshots copied context and rewrites the spoken instruction; Super+Ctrl+I cancels. Output is copied, never automatically pasted. URLs are not fetched.

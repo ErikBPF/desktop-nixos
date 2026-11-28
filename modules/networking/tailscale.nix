@@ -22,7 +22,11 @@ in {
     # applies on their next (re-)enrollment.
     role = fleet.hosts.${config.networking.hostName}.role or null;
   in {
-    sops.secrets."tailscale_authkey" = {
+    # Only tagged server roles use the OAuth auth key. User-owned roles
+    # (workstation/laptop) enroll once interactively; re-running the tag-scoped
+    # OAuth key there fails with "oauth authkeys require --advertise-tags" and
+    # would reset the node on every boot.
+    sops.secrets."tailscale_authkey" = lib.mkIf (role == "server") {
       sopsFile = self + "/secrets/sops/secrets.yaml";
     };
 
@@ -30,7 +34,7 @@ in {
       enable = true;
       openFirewall = true;
       useRoutingFeatures = "client";
-      authKeyFile = config.sops.secrets."tailscale_authkey".path;
+      authKeyFile = lib.mkIf (role == "server") config.sops.secrets."tailscale_authkey".path;
       # Client prefs that must survive re-enrollment go in extraSetFlags (re-run
       # by `tailscale set` on every activation). extraUpFlags only apply on the
       # first `tailscale up`, so a node already enrolled without them never picks
@@ -49,6 +53,8 @@ in {
         ++ lib.optional (role == "server") "--advertise-tags=tag:server";
     };
 
-    systemd.services.tailscaled-autoconnect.serviceConfig.TimeoutStartSec = "5min";
+    systemd.services = lib.mkIf (role == "server") {
+      tailscaled-autoconnect.serviceConfig.TimeoutStartSec = "5min";
+    };
   };
 }

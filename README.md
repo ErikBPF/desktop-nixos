@@ -12,6 +12,7 @@ top-level module, options replace `specialArgs`, no aggregator boilerplate.
 |------|------|-----|-----|-----|---------|-----|
 | **pathfinder** | Desktop | i7-8750H | 32 GB | GTX 1060 Max-Q + UHD 630 (PRIME sync) | SATA · LUKS+btrfs | 192.168.10.215 |
 | **endeavour** | Laptop · primary workstation | Core Ultra 7 155H | 32 GB | Intel Arc | NVMe · LUKS+btrfs · FIDO2 | Tailscale (roaming) |
+| **challenger** | Laptop · desktop-parity workstation | i7-1165G7 | 32 GB | Iris Xe | NVMe · LUKS+btrfs | 192.168.10.201 |
 | **orion** | HTPC · build server · dev sandbox | Ryzen 9 5950X | 128 GB | Radeon RX 9070 XT | NVMe btrfs · 2×SATA SSD btrfs | 192.168.10.220 |
 | **discovery** | Home server | i5-4670 | 32 GB | Quadro P2000 | 2×SSD btrfs RAID1 · 3.6TB HDD | 192.168.10.210 |
 | **kepler** | NAS / lab cluster | Ryzen 5 3600 | 96 GB | RTX 3070 LHR | M.2 btrfs · ZFS RAIDZ1 | 192.168.10.230 |
