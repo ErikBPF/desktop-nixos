@@ -55,6 +55,9 @@ _: {
               "--max-filesize=${toString job.maxFileBytes}"
               "--max-scansize=${toString job.maxScanBytes}"
               "--max-files=${toString job.maxFiles}"
+              # Default per-file scan time is 120 s; a real Downloads archive hit
+              # it and turned the whole check partial with no findings.
+              "--max-scantime=300000"
               "--max-recursion=${toString job.maxRecursion}"
             ];
         }
