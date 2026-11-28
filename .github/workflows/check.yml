@@ -152,7 +152,7 @@ jobs:
             tests/kepler-k3s-identity tests/kepler-k3s-transport tests/kepler-k8s-capacity \
             tests/kepler-vault-lanes tests/kepler-wazuh-firewall tests/kepler-wazuh-k8s \
             tests/kepler-worker-control tests/cp1-targeted-activation tests/kepler-zfs-mount tests/login-startup \
-            tests/dead-mans-switch tests/kepler-fast-state tests/orchestration \
+            tests/dead-mans-switch tests/kepler-fast-state tests/kepler-goflow2 tests/orchestration \
             tests/discovery-esp-scratch-restore tests/kepler-compose tests/kepler-ai-services tests/grafana-alert-ops \
             tests/monitoring-hardening tests/orion-flash-next tests/nanokvm-route tests/openbao-audit-status \
             tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
