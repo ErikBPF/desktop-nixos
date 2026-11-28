@@ -37,6 +37,7 @@ class Gateway(unittest.TestCase):
         body = json.loads(calls[0].data)
         self.assertEqual(body['model'], 'qwen3.8-flash-next')
         self.assertEqual(json.loads(body['messages'][1]['content']), {'dictation': 'ditado', 'copied_context': 'contexto'})
+        self.assertIn('never translate English technical terms', body['messages'][0]['content'])
         self.assertEqual(calls[0].get_header('X-litellm-enable-message-redaction'), 'true')
         self.assertEqual(body['fallbacks'], [])
         self.assertEqual(body['max_fallbacks'], 0)

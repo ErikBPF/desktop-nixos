@@ -61,6 +61,8 @@ def rewrite(transcript, context):
                 'a coding prompt, compose that text using relevant facts from copied_context. '
                 'Preserve the dictated language, facts, identifiers, paths, commands, EVERY action '
                 'and deadline, and EVERY prohibition, negation and scope limit. '
+                'Keep the language mix exactly: never translate English technical terms into '
+                'Portuguese or Portuguese into English. '
                 'For example, a request to investigate without changing anything must explicitly '
                 'retain the no-changes restriction in the composed request. '
                 'Never carry out the requested actions yourself or invent facts or commitments. '
