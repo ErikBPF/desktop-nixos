@@ -118,6 +118,8 @@ New design work: add an RFC under `proposals/` named
 
 - [Wazuh enrollment trust](reference/wazuh-enrollment-trust.md) — pinned manager identity, isolated proof and FIM handoff.
 
+- [S07 Kepler manager capture](behaviors/wazuh-capture-s07/one-pager.md) — disabled source preparation and recovery gates.
+
 - [Kepler bootstrap maintenance](behaviors/kepler-bootstrap-maintenance/one-pager.md): preserve operator-stopped K3s while retaining healthy credential reconciliation.
 
 - [Durable cp1 host boot containment](behaviors/kepler-cp1-host-containment/one-pager.md) — held supplemental recovery output and exact baseline custody.
