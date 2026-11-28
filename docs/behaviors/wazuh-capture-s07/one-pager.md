@@ -305,6 +305,23 @@ relabelled as a timeout. The connect is now owned and the translation is gated o
 the watchdog flag. The same review found that 3xx was accepted as success; it now
 fails closed.
 
+## Repair evidence (P2 review at `6bfafaf1`)
+
+Rescue read the stale intent and then stopped the unit. A replacement capture
+that started between those operations could be killed, aborting its backup and
+possibly interrupting scale-down or recovery; the later lock check cannot
+prevent the stop.
+
+Capture now writes an atomic `run.json` marker under `run.lock` before any
+capture work and removes it on every exit path. Rescue stops the unit only when
+no marker exists or the marker names the same capture as the intent. A live
+marker for a different capture makes that tick return without cluster calls;
+liveness also requires the recorded pid to exist and the boot id to match.
+
+Observed RED: `test_rescue_skips_the_stop_when_a_replacement_capture_is_live`
+and the marker-lifetime tests failed before the change. Observed GREEN: 58
+focused tests pass.
+
 ## Recovery and activation gates
 
 Boot/minutely rescue survives parent failure; same-boot deadlines use monotonic

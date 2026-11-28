@@ -27,6 +27,21 @@ def rescue_is_stale(intent, boot_id, now):
     return intent.get("boot_id") != boot_id or now - intent["monotonic"] >= RESCUE_STALE_SECONDS
 
 
+def marker_is_live(marker, boot_id):
+    """Whether a run marker still describes a running capture invocation."""
+    import os
+    if marker.get("boot_id") not in (None, boot_id):
+        return False
+    pid = marker.get("pid")
+    if pid is None:
+        return True
+    try:
+        os.kill(int(pid), 0)
+    except OSError:
+        return False
+    return True
+
+
 def recover(api, storage):
     if storage.read_intent() is not None:
         api.scale(1)
@@ -489,6 +504,34 @@ class LocalStorage:
         finally:
             os.close(directory)
 
+    def write_run_marker(self):
+        import os
+        from pathlib import Path
+        atomic_json(self.state / "run.json", {
+            "schema": 1,
+            "capture_id": self.capture_id,
+            "started": self.started,
+            "pid": os.getpid(),
+            "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        })
+
+    def read_run_marker(self):
+        import json
+        path = self.state / "run.json"
+        return json.loads(path.read_text()) if path.exists() else None
+
+    def clear_run_marker(self):
+        import os
+        path = self.state / "run.json"
+        if not path.exists():
+            return
+        path.unlink()
+        directory = os.open(self.state, os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
     def verify_shutdown(self, identities):
         import json
         import time
@@ -623,6 +666,13 @@ def main():
             return
         boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
         if rescue_is_stale(intent, boot_id, time.monotonic()):
+            marker = storage.read_run_marker()
+            if (marker is not None
+                    and marker.get("capture_id") != intent.get("capture_id")
+                    and marker_is_live(marker, boot_id)):
+                # A replacement capture owns the unit now; the stale intent
+                # belongs to an invocation that is gone.
+                return
             subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
                            check=True, timeout=STOP_TIMEOUT_SECONDS, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # A fresh intent can still need recovery: a stop, restart or deployment
@@ -636,20 +686,28 @@ def main():
             if arguments.mode == "rescue":
                 return
             raise
-        cluster = Cluster(arguments.token_file, arguments.ca_file)
-        if arguments.mode != "capture":
-            recover(cluster, storage)
-            storage.cleanup()
-            return
-        with (storage.output / "capture.lock").open("a") as bundle_lock:
-            fcntl.flock(bundle_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            try:
-                transport = load_transport(state / "transport" / arguments.transport_revision / "wazuh-backup.py",
-                                           arguments.transport_sha256)
-                receipt = pipeline(cluster, storage, transport)
-                write_freshness(Path("/var/lib/node-exporter-textfile/wazuh-recovery.prom"), receipt)
-            finally:
+        if arguments.mode == "capture":
+            # Written under run.lock so rescue can tell this invocation from a
+            # replacement that starts after a stale intent is read.
+            storage.write_run_marker()
+        try:
+            cluster = Cluster(arguments.token_file, arguments.ca_file)
+            if arguments.mode != "capture":
+                recover(cluster, storage)
                 storage.cleanup()
+                return
+            with (storage.output / "capture.lock").open("a") as bundle_lock:
+                fcntl.flock(bundle_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                try:
+                    transport = load_transport(state / "transport" / arguments.transport_revision / "wazuh-backup.py",
+                                               arguments.transport_sha256)
+                    receipt = pipeline(cluster, storage, transport)
+                    write_freshness(Path("/var/lib/node-exporter-textfile/wazuh-recovery.prom"), receipt)
+                finally:
+                    storage.cleanup()
+        finally:
+            if arguments.mode == "capture":
+                storage.clear_run_marker()
 
 
 if __name__ == "__main__":

@@ -39,6 +39,7 @@ class Storage:
     def __init__(self, events):
         self.events = events
         self.intent = None
+        self.marker = None
         self.fail_snapshot = False
 
     def prepare(self):
@@ -50,6 +51,9 @@ class Storage:
 
     def read_intent(self):
         return self.intent
+
+    def read_run_marker(self):
+        return self.marker
 
     def verify_shutdown(self, identities):
         self.events.append("shutdown-proof")
@@ -558,15 +562,17 @@ def test_rescue_treats_old_or_foreign_intent_as_stale():
     assert controller.rescue_is_stale(intent, "other-boot", 1000.0)
 
 
-def run_rescue(tmp_path, monkeypatch, events, live_lock=False):
-    """Drive main()'s rescue tick against a fresh same-boot intent."""
+def run_rescue(tmp_path, monkeypatch, events, live_lock=False, marker=None, stale=False):
+    """Drive main()'s rescue tick against a same-boot intent."""
     import fcntl
     import sys
     import time
     storage = Storage(events)
     storage.state = tmp_path
+    storage.marker = marker
     storage.intent = {"boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
-                      "monotonic": 1000.0, "capture_id": "wazuh-fixture"}
+                      "monotonic": 1000.0 if not stale else 100.0,
+                      "capture_id": "wazuh-fixture"}
     monkeypatch.setattr(controller, "LocalStorage", lambda state, output: storage)
     monkeypatch.setattr(controller, "Cluster", lambda token, ca: API(events))
     monkeypatch.setattr(time, "monotonic", lambda: 2000.0)
@@ -599,6 +605,76 @@ def test_rescue_leaves_a_live_capture_holding_the_lock_alone(tmp_path, monkeypat
     storage = run_rescue(tmp_path, monkeypatch, events, live_lock=True)
     assert events == []
     assert storage.intent is not None
+
+
+def test_rescue_skips_the_stop_when_a_replacement_capture_is_live(tmp_path, monkeypatch):
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("must not stop a replacement capture"))
+    events = []
+    storage = run_rescue(tmp_path, monkeypatch, events, stale=True,
+                         marker={"capture_id": "wazuh-replacement"})
+    assert events == [], "rescue touched the cluster for a live replacement"
+    assert storage.intent is not None, "rescue changed the stale intent"
+
+
+def test_rescue_stops_and_recovers_a_hung_capture_with_matching_marker(tmp_path, monkeypatch):
+    import subprocess
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda args, **kwargs: calls.append(args))
+    events = []
+    storage = run_rescue(tmp_path, monkeypatch, events, stale=True,
+                         marker={"capture_id": "wazuh-fixture"})
+    assert calls == [["systemctl", "stop", "wazuh-manager-capture.service"]]
+    assert events == ["scale:1", "ready", "clear", "cleanup"]
+    assert storage.intent is None
+
+
+def run_capture(tmp_path, monkeypatch, events, fail=False):
+    """Drive main()'s capture tick with the pipeline replaced by a probe."""
+    import sys
+    store = controller.LocalStorage(tmp_path / "state", tmp_path / "output")
+    store.state.mkdir()
+    store.output.mkdir()
+    monkeypatch.setattr(controller, "LocalStorage", lambda state, output: store)
+    monkeypatch.setattr(controller, "Cluster", lambda token, ca: API(events))
+    monkeypatch.setattr(controller, "load_transport", lambda *a, **k: object())
+    monkeypatch.setattr(controller, "write_freshness",
+                        lambda path, receipt: events.append("freshness"))
+
+    def probe(api, storage, transport):
+        events.append(("marker", storage.read_run_marker()))
+        if fail:
+            raise RuntimeError("capture failed")
+        return {"source_started": 123}
+
+    monkeypatch.setattr(controller, "pipeline", probe)
+    monkeypatch.setattr(sys, "argv", ["capture", "capture", "--token-file", "token",
+                                      "--ca-file", "ca", "--transport-revision", "r",
+                                      "--transport-sha256", "s"])
+    controller.main()
+    return store
+
+
+def test_capture_run_marker_lives_only_for_the_invocation(tmp_path, monkeypatch):
+    import os
+    events = []
+    store = run_capture(tmp_path, monkeypatch, events)
+    kind, marker = events[0]
+    assert kind == "marker"
+    assert marker["capture_id"] == store.capture_id
+    assert marker["started"] == store.started
+    assert marker["pid"] == os.getpid()
+    assert marker["boot_id"]
+    assert events[1] == "freshness"
+    assert not (store.state / "run.json").exists()
+
+
+def test_capture_run_marker_is_removed_after_failure(tmp_path, monkeypatch):
+    events = []
+    with pytest.raises(RuntimeError, match="capture failed"):
+        run_capture(tmp_path, monkeypatch, events, fail=True)
+    assert events[0][1]["capture_id"]
+    assert not (tmp_path / "state" / "run.json").exists()
 
 
 def test_rescue_reclaims_staging_and_owned_snapshot_after_intent_clear(tmp_path, monkeypatch):
