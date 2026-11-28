@@ -1,8 +1,17 @@
 {config, ...}: let
   flakeConfig = config;
 in {
-  flake.modules.nixos.kepler-tmux-persistence = {pkgs, ...}: let
+  flake.modules.nixos.kepler-tmux-persistence = {
+    config,
+    lib,
+    pkgs,
+    ...
+  }: let
     home = "/home/${flakeConfig.username}";
+    runtime = "/run/user/${toString config.users.users.${flakeConfig.username}.uid}";
+    userManager = "user@${toString config.users.users.${flakeConfig.username}.uid}.service";
+    homelab = "/fast/compute/${flakeConfig.username}/Documents/erik/homelab";
+    dataplatform = "/fast/compute/${flakeConfig.username}/Documents/nstech/dataplatform";
     servicePath = "/run/wrappers/bin:${home}/.nix-profile/bin:/run/current-system/sw/bin";
     resurrect = "${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect";
     resurrectDir = "${home}/.local/share/tmux/resurrect-kepler";
@@ -31,7 +40,6 @@ in {
 
     systemd.user.services.kepler-tmux = {
       description = "Persistent Kepler tmux server";
-      wantedBy = ["default.target"];
       serviceConfig = {
         # A live tmux server means a client or an earlier boot already owns
         # the socket; skip the unit instead of fighting it. Probe the server,
@@ -47,6 +55,53 @@ in {
         Restart = "on-failure";
         RestartSec = 2;
       };
+    };
+
+    systemd.services.kepler-tmux-defaults = {
+      description = "Restore Kepler tmux and fill default project sessions";
+      wantedBy = ["multi-user.target"];
+      requires = [userManager];
+      after = ["local-fs.target" "zfs-mount.service" userManager];
+      unitConfig = {
+        RequiresMountsFor = [homelab dataplatform];
+        AssertPathIsMountPoint = "/fast";
+      };
+      path = [pkgs.tmux pkgs.systemd];
+      environment = {
+        HOME = home;
+        XDG_RUNTIME_DIR = runtime;
+        TMUX_TMPDIR = runtime;
+      };
+      serviceConfig = {
+        Type = "oneshot";
+        User = flakeConfig.username;
+        RemainAfterExit = true;
+      };
+      script = ''
+        homelab=${lib.escapeShellArg homelab}
+        dataplatform=${lib.escapeShellArg dataplatform}
+        for directory in "$homelab" "$dataplatform"; do
+          if [[ ! -d "$directory" ]]; then
+            echo "Project directory is unavailable: $directory" >&2
+            exit 1
+          fi
+        done
+        # This is the sole boot trigger: restoration must wait for /fast too.
+        systemctl --user start kepler-tmux.service
+        for prefix in l w; do
+          if [[ "$prefix" == l ]]; then
+            directory=$homelab
+          else
+            directory=$dataplatform
+          fi
+          for index in {1..10}; do
+            session="$prefix$index"
+            if ! tmux -N has-session -t "=$session" 2>/dev/null; then
+              tmux -N new-session -d -s "$session" -c "$directory"
+            fi
+          done
+        done
+      '';
     };
 
     systemd.user.services.kepler-tmux-save = {

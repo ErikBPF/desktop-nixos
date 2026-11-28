@@ -59,3 +59,33 @@ local Documents-relative paths. The remote picker shows only existing sessions
 started in the selected folder, and defaults new sessions to that folder.
 Explicit SSH commands, local editor/file-manager routing and the local terminal
 escape hatch remain unchanged. No local folder-presence check gates remote use.
+
+Boot defaults refinement (verbatim):
+
+> check our kepler persistent sessions model and lets explore how to always start ol1-ol10 and ow1-ow10 sessions by default on start
+
+> call l1-10 and w1-10 make l sessions auto start on homelab folder and w ones start on dataplatform
+
+Accepted startup answer:
+
+> Plain shells; launch agents manually (recommended)
+
+At Kepler boot, provide detached sessions `l1`–`l10` starting in
+`/fast/compute/erik/Documents/erik/homelab`, and `w1`–`w10` starting in
+`/fast/compute/erik/Documents/nstech/dataplatform`. New defaults run plain
+shells; agents are launched manually. Use the managed server and secure runtime
+socket already used by `sk`, independently of desktop login.
+
+Require the actual `/fast` mount and both existing project directories before
+starting the managed server's restoration attempt. Missing storage or folders
+fails visibly without creating project directories or choosing fallback paths.
+The mount-ordered boot service is the server's sole declarative boot trigger.
+
+Wait for the existing snapshot restoration attempt before filling missing exact
+names. Preserve existing names, starting folders, unrelated sessions and running
+panes. The existing policy for restoring selected commands remains unchanged;
+restoration reconstructs state rather than preserving original processes/PIDs
+across reboot. The seeder never starts a separate unmanaged server. Its stop or
+restart leaves the managed server running. Deletion remains effective until the
+next boot or explicit seeder restart. Local desktop sessions and the frozen
+recovery configuration remain separate.

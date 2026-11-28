@@ -1,6 +1,12 @@
 # Kepler session picker
 
-**Status:** PR #512 merged and activated; live listing regression found and fixed, follow-up rollout pending.
+**Status:** Picker and reboot-persistence history is recorded below. Boot defaults have a separate [current RV report](boot-defaults-rv.md); deployment remains pending.
+
+The current boot-default change provides `l1`–`l10` for homelab and `w1`–`w10`
+for dataplatform through the existing managed tmux server. The RV report records
+review findings, final validation and the distinction between new plain shells
+and existing snapshot restoration. Dated sections below retain their original
+evidence and rollout status.
 
 ## Outcome and decisions
 
