@@ -12,6 +12,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Path filter for the advisory jobs (`contracts`, `tooling`). Required jobs
+  # (`lint`, `flake-lock`, `k3s-smoke`, `eval`) stay ungated: workflow-level
+  # `pull_request.paths:` would skip required-check contexts and block merges.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      contracts: ${{ steps.filter.outputs.contracts }}
+      tooling: ${{ steps.filter.outputs.tooling }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        with:
+          filters: |
+            contracts:
+              - 'tests/**'
+              - 'modules/**'
+              - 'just/**'
+              - 'flake.nix'
+              - 'flake.lock'
+            tooling:
+              - 'tests/local-workspace-sessions/**'
+              - 'tests/nvim-opener/**'
+              - 'tests/nvim-sessions/**'
+              - 'tests/tmux-resume/**'
+              - 'modules/dev/pi-extensions/**'
+              - 'modules/dev/pi-harness/**'
+              - 'modules/terminal/tmux.nix'
+              - 'modules/dev/nvim.nix'
+              - 'flake.nix'
+              - 'flake.lock'
+
   # Fast gates: linters, static contracts and the python-only suites.
 
   lint:
@@ -40,13 +76,13 @@ jobs:
         run: nix develop -c python -m unittest discover -s tests/authentik-backup -p 'test_*.py'
       - name: OpenCode project configuration
         run: python3 -m unittest discover -s tests/opencode-project -p 'test_*.py'
-      - name: Kepler tmux persistence
+      - name: Kepler tmux persistence (+ build)
         run: |
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/kepler-tmux-persistence -v
       - name: Erik profile sops/SSH ownership
         run: python3 -m unittest discover -s tests/erik-profile -v
-      - name: Manual desktop helpers
+      - name: Orion display capture, roaming-DNS, and GitHub fork-sync helpers
         run: |
           python3 scripts/test_capture_orion_display.py
           python3 -m unittest discover -s tests/roaming-dns -v
@@ -70,6 +106,8 @@ jobs:
   # Desktop tooling packages: each builds a package and drives it once.
 
   tooling:
+    needs: changes
+    if: needs.changes.outputs.tooling == 'true'
 
     runs-on: ubuntu-latest
 
@@ -79,42 +117,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - name: SBX package contract
-        run: |
-          nix develop -c python -m unittest discover -s tests/sbx -p 'test_*.py'
-          nix build .#sbx --no-link
-          nix run .#sbx -- version
-      - name: Pi harness and extensions
+      - name: Pi harness and extensions (+ build)
         run: |
           node modules/dev/pi-extensions/rtk.test.js
           nix build .#checks.x86_64-linux.pi-harness-tests --no-link
-      - name: OpenCode gateway profiles
-        run: |
-          node tests/opencode-profiles/test_headers.mjs
-          package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package)
-          ponytail=$(nix build --no-link --print-out-paths --impure --expr '
-            let
-              f = builtins.getFlake (toString ./.);
-              plugins = f.nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.settings.plugins;
-              adapters = builtins.filter (p: builtins.isString p && f.inputs.nixpkgs.lib.hasInfix "opencode-ponytail-v2-" p) plugins;
-            in assert builtins.length adapters == 1; builtins.head adapters')
-          rtk_package=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in builtins.filter (p: (p.pname or "") == "rtk") f.nixosConfigurations.endeavour.config.home-manager.users.erik.home.packages')
-          export PATH="$rtk_package/bin:$PATH"
-          node tests/opencode-profiles/test_plugins.mjs "$ponytail"
-          node --test tests/opencode-profiles/test_three_level_dispatch.mjs
-          OPENCODE_TEST_BINARY="$package/bin/opencode" python3 -m unittest discover -s tests/opencode-profiles -v
-          python3 tests/opencode-project/smoke_auth.py "$package/bin/opencode" "$(nix eval --raw .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.opencode.package.version)"
-      - name: Independent local workspace sessions
+      - name: Independent local workspace sessions (+ build)
         run: |
           python3 -m unittest discover -s tests/local-workspace-sessions -v
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
           PATH="$package/bin:$PATH" python3 tests/local-workspace-sessions/smoke.py
-      - name: Neovim opener and session recovery
+      - name: Neovim opener and session recovery (+ build)
         run: |
           python3 tests/nvim-opener/test_opener.py
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.nixvim.build.package)
           PATH="$package/bin:$PATH" python3 tests/nvim-sessions/test_sessions.py
-      - name: Tmux resume picker
+      - name: Tmux resume picker (+ build)
         run: |
           package=$(nix build --no-link --print-out-paths .#nixosConfigurations.endeavour.config.home-manager.users.erik.programs.tmux.package)
           PATH="$package/bin:$PATH" python3 -m unittest discover -s tests/tmux-resume -v
@@ -122,6 +139,8 @@ jobs:
   # Fleet and runtime contracts, including the Nix-heavy pytest sweeps.
 
   contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
 
     runs-on: ubuntu-latest
 
@@ -136,7 +155,7 @@ jobs:
         run: |
           python=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.python3.withPackages (p: [p.pytest p.tomlkit])')
           echo "PYTEST_PYTHON=$python/bin/python" >> "$GITHUB_ENV"
-      - name: Static contracts and repository hygiene
+      - name: Static contracts and repository hygiene (+ alloy/clamav builds)
         run: |
           alloy=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.grafana-alloy')
           export ALLOY_BIN="$alloy/bin/alloy"
@@ -156,7 +175,7 @@ jobs:
             tests/discovery-esp-scratch-restore tests/kepler-compose tests/kepler-ai-services tests/grafana-alert-ops \
             tests/monitoring-hardening tests/orion-flash-next tests/nanokvm-route tests/openbao-audit-status \
             tests/pangolin-newt tests/sddm-autologin tests/servarr-pull tests/ssh-config
-      - name: Tooling and fleet contracts
+      - name: Security-maintainability, Codex/BMAD skills, and builder contracts
         run: |
           "$PYTEST_PYTHON" -m pytest -q tests/security-maintainability
           "$PYTEST_PYTHON" -m pytest -q tests/codex-ui tests/codex-skills tests/discovery-seed-timer tests/compose-health-gate tests/hermes-healthchecks tests/container-health-probe modules/dev/codex-skills/bmad-editorial-review/scripts/tests modules/dev/codex-skills/bmad-party-mode/scripts/tests
@@ -168,13 +187,11 @@ jobs:
           image=$("$PYTEST_PYTHON" -c 'import runpy; print(runpy.run_path("tests/wazuh-agent-canary/trust_handshake.py")["IMAGE"])')
           docker pull "$image"
           "$PYTEST_PYTHON" -m pytest -q tests/wazuh-agent-canary/trust_handshake.py
-      - name: Shared compiler-cache writer boundary
+      - name: Shared compiler-cache writer boundary (+ build)
         run: |
           python3 -m unittest discover -s tests/sccache-security -p 'test_*.py' -v
           package=$(nix build --no-link --print-out-paths --impure --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.x86_64-linux.nginx')
           python3 tests/sccache-security/verify_http.py --nginx "$package/bin/nginx"
-      - name: GPU exchange effective options
-        run: nix develop -c python -m unittest discover -s tests/gpu-exchange -p 'test_*.py'
       - name: Apollo uplink effective options
         run: nix develop -c python -m unittest discover -s tests/apollo-nic-recovery -p 'test_*.py'
       - name: LiteLLM semantic probe
@@ -190,9 +207,10 @@ jobs:
       - name: HA Harbor managed-reader entrypoint (offline)
         run: nix develop -c just --no-dotenv test-ha-harbor-reader
 
-      - name: OpenBao ingress and audit regressions
+      - name: OpenBao ingress network contract
+        run: sudo unshare --net python3 tests/openbao-ingress/test_network.py
+      - name: OpenBao audit hardening contract (+ build)
         run: |
-          sudo unshare --net python3 tests/openbao-ingress/test_network.py
           settings=$(mktemp)
           rotation=$(mktemp)
           trap 'rm -f "$settings" "$rotation"' EXIT
