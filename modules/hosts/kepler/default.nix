@@ -25,6 +25,7 @@ in {
       m.nixos.kepler-hardware
       m.nixos.kepler-networking
       m.nixos.kepler-monitoring
+      m.nixos.kepler-goflow2
       m.nixos.kepler-development
       m.nixos.kepler-tmux-persistence
       m.nixos.kepler-devtools

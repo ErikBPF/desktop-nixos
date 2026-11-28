@@ -56,6 +56,8 @@ developer-tool changes and preserved runtime boundaries.
 | [`reference/kepler-apollo-gpu-exchange.md`](reference/kepler-apollo-gpu-exchange.md) | GPU exchange, bounded CUDA correctness check and household inference suspension. |
 | [`reference/kepler-ai-serving.md`](reference/kepler-ai-serving.md) | Retired Kepler AI-serving topology, retained as historical routing and model context. |
 | [`reference/kepler-zfs-setup.md`](reference/kepler-zfs-setup.md) | Imperative ZFS pool creation on kepler (pools are *not* in disko). Needed when reprovisioning or adding bulk-pool. |
+[`reference/goflow2-ipfix-collector.md`](reference/goflow2-ipfix-collector.md) | Kepler IPFIX collection from the UDM gateway: source-restricted firewall, goflow2 unit, Alloy scrape, metric names and accounting limits. |
+[`behaviors/goflow2-ipfix/one-pager.md`](behaviors/goflow2-ipfix/one-pager.md) | goflow2 collector implementation record: seed, changes, build/test evidence, metrics-only decision, and the disabled gateway export. |
 | [`reference/kepler-k3s-platform-status.md`](reference/kepler-k3s-platform-status.md) | As-built status of the kepler k3s cluster + `homelab-gitops` workloads: topology, what's implemented/validated, next steps, cluster gotchas. |
 | [`reference/kepler-etcd-member-recovery.md`](reference/kepler-etcd-member-recovery.md) | Preserved divergent etcd evidence, failed bounded recovery, and the K3s bootstrap prerequisite. |
 | [`reference/cp1-targeted-activation.md`](reference/cp1-targeted-activation.md) | Guarded guest-only activation and the separate next-boot persistence boundary. |

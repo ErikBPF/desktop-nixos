@@ -13,6 +13,19 @@
       firewall = {
         enable = true;
         checkReversePath = "loose";
+        # IPFIX from the UDM LAN gateway only. extraInputRules is nftables-only;
+        # kepler uses the iptables backend, so the chain and INPUT jump live in
+        # extraCommands (same shape as apollo-qwen-litellm). extraCommands runs
+        # before the final `-A INPUT -j nixos-fw`, so the jump sees new packets.
+        # 2055 must NOT move to allowedUDPPorts: that would accept every source.
+        extraCommands = ''
+          iptables -N kepler-ipfix 2>/dev/null || true
+          iptables -F kepler-ipfix
+          iptables -A kepler-ipfix -s 192.168.10.1/32 -p udp -m udp --dport 2055 -j ACCEPT
+          iptables -A kepler-ipfix -j REJECT --reject-with icmp-port-unreachable
+          iptables -D INPUT -p udp -m udp --dport 2055 -j kepler-ipfix 2>/dev/null || true
+          iptables -A INPUT -p udp -m udp --dport 2055 -j kepler-ipfix
+        '';
         allowedTCPPorts = [
           22 # SSH (already open via openssh module, explicit for clarity)
           22000 # syncthing

@@ -11,6 +11,19 @@ _: {
         scrape_interval = "30s"
       }
 
+      // goflow2 IPFIX collector metrics. Flow records themselves are discarded;
+      // these counters are the only collector output.
+      prometheus.scrape "goflow2" {
+        targets = [{
+          "__address__" = "127.0.0.1:8081",
+          "job"         = "goflow2",
+          "host"        = "kepler",
+        }]
+        metrics_path    = "/metrics"
+        forward_to      = [prometheus.remote_write.prometheus.receiver]
+        scrape_interval = "30s"
+      }
+
     '';
   };
 }
