@@ -17,13 +17,26 @@ tailscale_voyager := `jq -r '.hosts.voyager.tailscaleIp' fleet.json`
 tailscale_vanguard := `jq -r '.hosts.vanguard.tailscaleIp' fleet.json`
 
 # Export the override so nested Just invocations retain the operator's builder.
-export orion_builder := env_var_or_default("orion_builder", "ssh-ng://erik@orion-builder:2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test")
+export orion_builder := env_var_or_default("orion_builder", "ssh-ng://erik@orion-builder:2222 i686-linux,x86_64-linux,aarch64-linux /home/erik/.ssh/id_ed25519 8 2 big-parallel,benchmark,nixos-test")
 
-# Orion is the only builder. Client hosts build nothing locally (max-jobs 0).
-# A recipe that targets Orion therefore builds through Orion's ssh-ng endpoint;
-# the ESP and restore recipes document that dependency.
+# Apollo is the second pool member: 28 threads and 220 GiB alongside Orion's
+# 32 and 125 GiB. It already serves the ssh-ng endpoint on the fleet key and
+# substitutes from Orion's cache. Its job count stays low because it also runs
+# the production inference stack. Set `apollo_builder=` for an Orion-only pool.
+export apollo_builder := env_var_or_default("apollo_builder", "ssh-ng://erik@apollo-builder:2222 i686-linux,x86_64-linux /home/erik/.ssh/id_ed25519 6 1 big-parallel,benchmark,kvm,nixos-test")
+
+# Orion targets build through Orion itself: a second builder would hide a
+# broken Orion store or daemon, and the ESP/restore recipes document that
+# dependency. Every other target may use the whole pool. Client hosts still
+# build nothing locally (max-jobs 0).
 _builders target:
-    @printf '%s\n' '{{orion_builder}}'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{target}}" = "orion" ] || [ -z "{{apollo_builder}}" ]; then
+      printf '%s\n' '{{orion_builder}}'
+    else
+      printf '%s;%s\n' '{{orion_builder}}' '{{apollo_builder}}'
+    fi
 
 default:
     @just --list

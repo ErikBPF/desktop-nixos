@@ -94,7 +94,7 @@ else:
                                   for h in sorted(hosts)])
                 builders = batch[batch.index("--builders") + 1]
                 self.assertIn("orion-builder:2222", builders)
-                self.assertNotIn("apollo-builder:2222", builders)
+                self.assertIn("apollo-builder:2222", builders)
                 self.assertNotIn("kepler", builders)
                 self.assertEqual(batch[batch.index("--max-jobs") + 1], "0")
                 for flag in ("--no-link", "--builders-use-substitutes", "--keep-going"):

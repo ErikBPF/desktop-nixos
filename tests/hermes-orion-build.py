@@ -17,10 +17,10 @@ def main():
                  f"ssh-ng://erik@{overlay}:2222 x86_64-linux /home/erik/.ssh/id_ed25519 16 2 big-parallel,benchmark,nixos-test"]
     cases = (
         ("discovery", overlay_overrides,
-         [f"ssh-ng://erik@{overlay}:2222"]),
-        ("discovery", [], [orion]),
+         [f"ssh-ng://erik@{overlay}:2222", apollo]),
+        ("discovery", [], [orion, apollo]),
         ("orion", [], [orion]),
-        ("apollo", [], [orion]),
+        ("apollo", [], [orion, apollo]),
     )
     for target, overrides, expected in cases:
         result = subprocess.run(
@@ -74,7 +74,7 @@ def main():
         assert argv[builders_index - 1] == "--option"
         builders = argv[builders_index + 1].strip(" ;")
         actual = [builder.split()[0] for builder in builders.split(";")]
-        expected = [f"ssh-ng://erik@{overlay}:2222"]
+        expected = [f"ssh-ng://erik@{overlay}:2222", apollo]
         assert actual == expected, f"{recipe}: expected {expected}, got {actual}"
         assert argv[:2] == ["run", "--builders"]
         assert argv[2].strip(" ;") == builders
