@@ -23,6 +23,7 @@ class Wire(unittest.TestCase):
             req=opener.open.call_args.args[0]
             self.assertEqual(req.full_url,voice.GATEWAY+'/audio/transcriptions')
             self.assertIn(b'name="max_fallbacks"\r\n\r\n0\r\n',req.data)
+            self.assertIn(b'name="model"\r\n\r\nwhisper-pt-br\r\n',req.data)
             self.assertIn(b'RIFF-test-audio',req.data)
             self.assertNotIn(b'no-log',req.data)
             self.assertEqual(req.get_header('X-litellm-enable-message-redaction'),'true')

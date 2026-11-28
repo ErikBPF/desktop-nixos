@@ -14,6 +14,9 @@ spec.loader.exec_module(voice)
 
 
 class Dictation(unittest.TestCase):
+    def setUp(self):
+        voice.STOP.clear()
+
     def exercise(self, mode, transcript='Olá mundo', rewrite='Resposta revisada', failure=None, clipboard='Mensagem copiada'):
         calls = []
         with tempfile.TemporaryDirectory() as directory:
@@ -119,6 +122,45 @@ class Dictation(unittest.TestCase):
             self.assertEqual(voice.run([sys.executable, '-c', child], discard=True, timeout=.3), '')
         except subprocess.TimeoutExpired:
             self.fail('Detached selection owner kept the controller output pipe open')
+
+
+class Control(unittest.TestCase):
+    """Second press must cancel a starting worker, not SIGKILL it."""
+
+    def exercise(self, state, ready):
+        calls = []
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = pathlib.Path(directory, 'voice-dictation')
+            runtime.mkdir()
+            if ready:
+                (runtime / 'ready').touch()
+            def run(args, **kwargs):
+                calls.append(args)
+                return state if 'show' in args else ''
+            with patch.dict(voice.os.environ, {'XDG_RUNTIME_DIR': directory}), patch.object(voice, 'run', side_effect=run):
+                voice.control('plain')
+            self.ready_left = (runtime / 'ready').exists()
+        return calls
+
+    def test_active_worker_with_ready_marker_gets_sigusr1(self):
+        calls = self.exercise('active', ready=True)
+        self.assertTrue(any('kill' in call and '--signal=SIGUSR1' in call for call in calls), calls)
+        self.assertFalse(any('stop' in call for call in calls), calls)
+
+    def test_active_worker_without_ready_marker_is_stopped(self):
+        calls = self.exercise('active', ready=False)
+        self.assertTrue(any('stop' in call for call in calls), calls)
+        self.assertFalse(any('kill' in call for call in calls), calls)
+
+    def test_activating_worker_is_stopped_before_it_can_die_on_the_signal(self):
+        calls = self.exercise('activating', ready=True)
+        self.assertTrue(any('stop' in call for call in calls), calls)
+        self.assertFalse(any('kill' in call for call in calls), calls)
+
+    def test_idle_start_clears_stale_ready_marker(self):
+        calls = self.exercise('inactive', ready=True)
+        self.assertTrue(any('start' in call for call in calls), calls)
+        self.assertFalse(self.ready_left)
 
 if __name__ == '__main__':
     unittest.main()
