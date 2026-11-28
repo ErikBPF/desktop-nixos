@@ -5,7 +5,6 @@ _: {
       stacks = [
         "shared" # scrutiny-collector
         "monitoring" # prometheus-podman-exporter
-        "ai-models" # llama-server (AMD Vulkan GPU)
         "sync" # restic backup
         "voice" # CPU transcription; independent of the active GPU chat stack
         # hermes-agent relocated to Discovery 2026-05-23 (always-on host)

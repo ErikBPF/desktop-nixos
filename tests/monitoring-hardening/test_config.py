@@ -40,10 +40,10 @@ def test_discovery_alloy_replaces_remote_federation_scrapes():
     assert "nvidia-gpu" not in config
 
 
-def test_discovery_exports_strata_chat_health():
+def test_discovery_exports_strata_flash_next_health():
     config = (ROOT / "modules/hosts/discovery/monitoring.nix").read_text()
 
-    assert "strata-chat-health-probe" in config
+    assert "strata-flash-next-health-probe" in config
     assert "http://100.72.85.73:8080/health" in config
     assert "strata_chat_health" in config
     assert "/var/lib/node-exporter-textfile" in config

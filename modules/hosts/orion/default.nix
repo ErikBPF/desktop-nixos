@@ -45,6 +45,7 @@ in {
       m.nixos.kepler-nfs
       m.nixos.orchestration
       m.nixos.orion-compose
+      m.nixos.orion-strata-flash-next
       m.nixos.power-desktop
       m.nixos.lact
       m.nixos.orion-lact

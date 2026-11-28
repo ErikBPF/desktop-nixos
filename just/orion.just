@@ -257,3 +257,11 @@ deploy-orion:
         --generate-hardware-config nixos-generate-config \
             ./modules/hosts/orion/_hw-generated.nix \
         nixos@192.168.10.220
+
+# Run before the first Flash Next deployment; stop only the retired stack.
+retire-orion-ai-models:
+    ssh -p 2222 erik@{{ip_orion}} 'set -eu; export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user stop podman-compose-ai-models.service; /run/current-system/sw/bin/podman stop --ignore strata-chat; running=$(podman ps --quiet --filter name=^strata-chat$); test -z "$running"'
+
+# Home Manager deliberately leaves user-service activation to the operator.
+restart-orion-flash-next:
+    ssh -p 2222 erik@{{ip_orion}} 'set -eu; export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user daemon-reload; systemctl --user restart strata-flash-next.service; systemctl --user is-active strata-flash-next.service'
