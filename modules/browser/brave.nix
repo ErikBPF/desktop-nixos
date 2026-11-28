@@ -1,9 +1,7 @@
 _: {
-  flake.modules.home.brave = {
-    pkgs,
-    lib,
-    ...
-  }: let
+  # Brave reads external extensions from its own profile dir. Brave itself is
+  # installed by modules/packages/desktop.nix.
+  flake.modules.home.brave = {lib, ...}: let
     extensions = [
       "eimadpbcbfnmbkopoojfekhnkhdbieeh" # Dark Reader
       "ponfpcnoihfmfllpaingbgckeeldkhle" # Enhancer for YouTube
@@ -14,13 +12,6 @@ _: {
     ];
     extJson = builtins.toJSON {external_update_url = "https://clients2.google.com/service/update2/crx";};
   in {
-    programs.chromium = {
-      enable = true;
-      package = pkgs.brave;
-      inherit extensions;
-    };
-
-    # Brave looks for extensions in its own profile dir, not chromium's
     xdg.configFile = lib.listToAttrs (map (id: {
         name = "BraveSoftware/Brave-Browser/External Extensions/${id}.json";
         value.text = extJson;

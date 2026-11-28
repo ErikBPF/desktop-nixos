@@ -4,10 +4,7 @@
     kepler-recovery-baseline.url = "github:ErikBPF/desktop-nixos/a3f290e015eacce61e718f8596cdb6acc3716c7c";
     kepler-recovery-guest.url = "github:ErikBPF/desktop-nixos/228bc67bf427fa1c4d33508f3f5967e2b1008d7a";
 
-    # Pinned to the master revision whose qutebrowser entry no longer carries
-    # the upstream-reverted insecure mark; nixos-unstable still lags it.
-    # Restore github:nixos/nixpkgs/nixos-unstable once the channel advances.
-    nixpkgs.url = "github:nixos/nixpkgs/5c3cda7610193a82ba555e178e80de6667ae03de";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Kepler imports this fixed revision because ZFS 2.4.4 supports kernels up
     # to 7.2 and the root input dropped that series. Apollo and the

@@ -61,7 +61,6 @@ in {
       gtk.enable = true;
       qt.enable = true;
       tmux.enable = true;
-      qutebrowser.enable = true;
     };
   };
 }

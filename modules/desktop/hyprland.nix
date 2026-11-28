@@ -500,10 +500,6 @@
               size = "1920 1080";
             }
             {
-              match.class = "^(chromium)$";
-              tile = true;
-            }
-            {
               match.class = "^(org.pulseaudio.pavucontrol|blueberry.py)$";
               float = true;
             }
@@ -536,7 +532,7 @@
               opacity = "0.90 0.80 override";
             }
             {
-              match.class = "^(brave-browser|chromium|google-chrome|google-chrome-unstable)$";
+              match.class = "^brave-browser$";
               opacity = "1 1";
             }
             {
@@ -552,7 +548,7 @@
               size = "1056 603";
             }
             {
-              match.class = "^(brave-browser|chromium|google-chrome|google-chrome-unstable)$";
+              match.class = "^brave-browser$";
               workspace = "1";
             }
             {

@@ -106,7 +106,6 @@ _: {
       dbx # database client (overlay in modules/overlays.nix)
       dbeaver-bin
       moonlight-qt
-      chromium
       vlc
       brave
       usbimager

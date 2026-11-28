@@ -23,7 +23,6 @@ in {
       m.nixos.audio
       m.nixos.bluetooth
       m.nixos.packages-desktop
-      m.nixos.firefox-policies
     ];
   };
 
@@ -52,7 +51,6 @@ in {
       m.home.kitty
       m.home.brave
       m.home.firefox
-      m.home.qutebrowser
       m.home.obsidian
       m.home.obsidian-sync
       m.home.github-fork-sync
