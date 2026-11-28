@@ -43,7 +43,7 @@ jobs:
               - 'tests/tmux-resume/**'
               - 'modules/dev/pi-extensions/**'
               - 'modules/dev/pi-harness/**'
-              - 'modules/terminal/tmux.nix'
+              - 'modules/terminal/**'
               - 'modules/dev/nvim.nix'
               - 'flake.nix'
               - 'flake.lock'
@@ -262,7 +262,7 @@ jobs:
         run: nix build .#checks.x86_64-linux.k3s-smoke -L
 
   notify-ci:
-    needs: [lint, tooling, contracts, eval, flake-lock, k3s-smoke]
+    needs: [changes, lint, tooling, contracts, eval, flake-lock, k3s-smoke]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     steps:
