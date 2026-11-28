@@ -1,4 +1,4 @@
-"""Voice shortcuts replace panel shortcuts only on the voice-enabled host."""
+"""Retired panel shortcuts stay absent; Endeavour keeps its voice shortcuts."""
 import json
 from pathlib import Path
 import subprocess
@@ -32,13 +32,7 @@ class Bindings(unittest.TestCase):
             self.assertEqual(len(actions), 1, key)
             self.assertIn(f'/bin/voice-dictation toggle {mode}', actions[0])
 
-    def test_other_desktops_keep_panel_shortcuts(self):
+    def test_other_desktops_have_no_retired_panel_shortcuts(self):
         for host in ('pathfinder', 'orion', 'challenger'):
             with self.subTest(host=host):
-                bindings = self.bindings[host]
-                self.assertEqual(len(bindings), 2, f'{host} lost panel shortcuts')
-                for key, panel in [('SUPER + I', 'network'), ('SUPER + U', 'monitors')]:
-                    actions = [json.dumps(binding['_args'][1]) for binding in bindings
-                               if binding['_args'][0] == key]
-                    self.assertEqual(len(actions), 1, (host, key))
-                    self.assertIn(f'qs_manager.sh toggle {panel}', actions[0])
+                self.assertEqual(self.bindings[host], [], f'{host} still has retired panel shortcuts')
