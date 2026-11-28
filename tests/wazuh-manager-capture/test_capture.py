@@ -629,6 +629,26 @@ def test_rescue_stops_and_recovers_a_hung_capture_with_matching_marker(tmp_path,
     assert storage.intent is None
 
 
+def test_rescue_holds_admission_across_the_stop_decision(tmp_path, monkeypatch):
+    import fcntl
+    import subprocess
+    seen = []
+
+    def stop(args, **kwargs):
+        lock = (tmp_path / "admission.lock").open("a")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            seen.append("free")
+        except BlockingIOError:
+            seen.append("busy")
+        finally:
+            lock.close()
+
+    monkeypatch.setattr(subprocess, "run", stop)
+    run_rescue(tmp_path, monkeypatch, [], stale=True, marker={"capture_id": "wazuh-fixture"})
+    assert seen == ["busy"], "a replacement could start between the marker read and the stop"
+
+
 def run_capture(tmp_path, monkeypatch, events, fail=False):
     """Drive main()'s capture tick with the pipeline replaced by a probe."""
     import sys

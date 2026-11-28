@@ -657,24 +657,38 @@ def main():
     state = Path("/var/lib/wazuh-manager-capture")
     output = Path("/bulk/backups/wazuh")
     storage = LocalStorage(state, output)
+    # Admission serializes capture startup with the rescue stop decision.
+    # Capture holds it until it owns run.lock; rescue holds it from the intent
+    # read through the stop, so a replacement cannot start in that interval.
+    admission = None
+    if arguments.mode == "capture":
+        admission = (storage.state / "admission.lock").open("a")
+        fcntl.flock(admission, fcntl.LOCK_EX)
     if arguments.mode == "rescue":
-        intent = storage.read_intent()
-        if intent is None:
-            # Intent clears before archive export, so an interrupted export
-            # leaves reclaimable storage with no intent to gate this path.
-            reclaim_pending(storage)
-            return
-        boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-        if rescue_is_stale(intent, boot_id, time.monotonic()):
-            marker = storage.read_run_marker()
-            if (marker is not None
-                    and marker.get("capture_id") != intent.get("capture_id")
-                    and marker_is_live(marker, boot_id)):
-                # A replacement capture owns the unit now; the stale intent
-                # belongs to an invocation that is gone.
+        admission = (storage.state / "admission.lock").open("a")
+        try:
+            fcntl.flock(admission, fcntl.LOCK_EX)
+            intent = storage.read_intent()
+            if intent is None:
+                # Intent clears before archive export, so an interrupted export
+                # leaves reclaimable storage with no intent to gate this path.
+                reclaim_pending(storage)
                 return
-            subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
-                           check=True, timeout=STOP_TIMEOUT_SECONDS, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+            if rescue_is_stale(intent, boot_id, time.monotonic()):
+                marker = storage.read_run_marker()
+                if (marker is not None
+                        and marker.get("capture_id") != intent.get("capture_id")
+                        and marker_is_live(marker, boot_id)):
+                    # A replacement capture owns the unit now; the stale intent
+                    # belongs to an invocation that is gone.
+                    return
+                subprocess.run(["systemctl", "stop", "wazuh-manager-capture.service"],
+                               check=True, timeout=STOP_TIMEOUT_SECONDS, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        finally:
+            fcntl.flock(admission, fcntl.LOCK_UN)
+            admission.close()
+            admission = None
         # A fresh intent can still need recovery: a stop, restart or deployment
         # after scale-down kills Python before its finally block and does not
         # fail the unit, so OnFailure never runs. The run lock below decides:
@@ -683,9 +697,17 @@ def main():
         try:
             fcntl.flock(run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
+            if admission is not None:
+                fcntl.flock(admission, fcntl.LOCK_UN)
+                admission.close()
+                admission = None
             if arguments.mode == "rescue":
                 return
             raise
+        if admission is not None:
+            fcntl.flock(admission, fcntl.LOCK_UN)
+            admission.close()
+            admission = None
         if arguments.mode == "capture":
             # Written under run.lock so rescue can tell this invocation from a
             # replacement that starts after a stale intent is read.

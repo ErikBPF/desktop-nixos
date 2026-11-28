@@ -318,9 +318,17 @@ no marker exists or the marker names the same capture as the intent. A live
 marker for a different capture makes that tick return without cluster calls;
 liveness also requires the recorded pid to exist and the boot id to match.
 
-Observed RED: `test_rescue_skips_the_stop_when_a_replacement_capture_is_live`
-and the marker-lifetime tests failed before the change. Observed GREEN: 58
-focused tests pass.
+Marker validation alone still left a window between the read and the stop.
+`state/admission.lock` now serializes the two decisions: capture takes it
+exclusively before touching state and holds it until it owns `run.lock`;
+rescue holds it from the intent read through the `systemctl stop`. A
+replacement capture therefore cannot start inside that interval, and a rescue
+that skips the stop releases the lock before any cluster call.
+
+Observed RED: `test_rescue_skips_the_stop_when_a_replacement_capture_is_live`,
+`test_rescue_holds_admission_across_the_stop_decision` and the marker-lifetime
+tests failed before the change; the admission test reported `free` at the stop
+hook. Observed GREEN: 59 focused tests pass.
 
 ## Recovery and activation gates
 
