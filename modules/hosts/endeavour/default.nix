@@ -88,7 +88,7 @@ in {
         provider = "litellm";
         providers.litellm = {
           url = "https://litellm.homelab.pastelariadev.com/v1";
-          model = "glm-5.3-flash";
+          model = "glm-5.3";
           api_key_cmd = "${ocrLitellmKey}/bin/ocr-litellm-key";
           # The gateway routes per session; the placeholder keeps one value
           # per OCR run, the same contract as opencode's gateway plugin.

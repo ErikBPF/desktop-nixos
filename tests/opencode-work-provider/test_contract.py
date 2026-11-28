@@ -28,7 +28,7 @@ def test_reasoning_controls_match_gateway_models():
             assert variants["medium"]["disabled"] is True
     # The Work gateway's OpenRouter route rejects reasoning_effort with 400
     # UnsupportedParamsError, so the client must never send it for these models.
-    for name in ("deepseek-v4.1-flash", "glm-5.3-flash"):
+    for name in ("deepseek-v4.1-flash", "glm-5.3"):
         model = providers["work"]["models"][name]
         assert model.get("reasoning") is False, name
         variants = model.get("variants", {})
@@ -52,7 +52,7 @@ def test_work_litellm_provider_uses_sops_token():
     assert 'resource = "work";' in opencode
     work = opencode.split("        work = {", 1)[1].split("        opencode = {", 1)[0]
     for model in ("chatgpt-5.6-luna", "chatgpt-5.6-sol", "chatgpt-5.6-terra",
-                  "deepseek-v4.1-flash", "glm-5.3-flash"):
+                  "deepseek-v4.1-flash", "glm-5.3"):
         assert f'"{model}" = {{' in work
     assert work.count('options.reasoningEffort = "none";') == 3
     assert work.count('input = 922000;') == 3

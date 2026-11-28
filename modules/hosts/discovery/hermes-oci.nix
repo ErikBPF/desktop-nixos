@@ -136,8 +136,8 @@ in {
           api_key = "\${OPENAI_API_KEY}";
         };
 
-        # Aux models — vision on DeepSeek V4.1 Flash, compression/session-search on
-        # MiMo (free) to keep the shared budget for actual responses.
+        # Aux models — vision, compression and session-search on DeepSeek V4.1
+        # Flash, the only surviving chat route.
         auxiliary = {
           vision = {
             provider = "opencode-go";
@@ -147,13 +147,13 @@ in {
           };
           compression = {
             provider = "opencode-go";
-            model = "mimo";
+            model = "deepseek-v4.1-flash";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
           session_search = {
             provider = "opencode-go";
-            model = "mimo";
+            model = "deepseek-v4.1-flash";
             base_url = litellmUrl;
             api_key = "\${OPENAI_API_KEY}";
           };
@@ -187,33 +187,9 @@ in {
             base_url = litellmUrl;
           };
           qwen = {
-            model = "qwen-chat";
+            # Kept as a `/model` alias name only; the Qwen chat route is retired.
+            model = "deepseek-v4.1-flash";
             provider = "custom";
-            base_url = litellmUrl;
-          };
-          kimi = {
-            model = "kimi-k2-code";
-            provider = "opencode-go";
-            base_url = litellmUrl;
-          };
-          qwen-max = {
-            model = "qwen3-max";
-            provider = "opencode-go";
-            base_url = litellmUrl;
-          };
-          minimax = {
-            model = "minimax-m2";
-            provider = "opencode-go";
-            base_url = litellmUrl;
-          };
-          mimo = {
-            model = "mimo";
-            provider = "opencode-go";
-            base_url = litellmUrl;
-          };
-          mimo-pro = {
-            model = "mimo-pro";
-            provider = "opencode-go";
             base_url = litellmUrl;
           };
         };

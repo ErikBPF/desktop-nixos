@@ -28,13 +28,13 @@ in {
       auxiliary = {
         compression = {
           provider = "opencode-go";
-          model = "mimo";
+          model = "deepseek-v4.1-flash";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
         };
         session_search = {
           provider = "opencode-go";
-          model = "mimo";
+          model = "deepseek-v4.1-flash";
           base_url = litellmUrl;
           api_key = "\${OPENAI_API_KEY}";
         };
@@ -48,21 +48,6 @@ in {
       model_aliases = {
         deepseek = {
           model = "deepseek-v4.1-flash";
-          provider = "opencode-go";
-          base_url = litellmUrl;
-        };
-        kimi = {
-          model = "kimi-k2-code";
-          provider = "opencode-go";
-          base_url = litellmUrl;
-        };
-        mimo = {
-          model = "mimo";
-          provider = "opencode-go";
-          base_url = litellmUrl;
-        };
-        mimo-pro = {
-          model = "mimo-pro";
           provider = "opencode-go";
           base_url = litellmUrl;
         };
@@ -81,7 +66,7 @@ in {
       # Pinned, not inherited: an unpinned job that sees the container default
       # change is skipped by Hermes ("drift_skip") and the pipeline stalls with
       # leases expiring. This must name the same model as daedalus's default.
-      workerModel = "codex-gpt-6-astra";
+      workerModel = "codex-gpt-6.2-astra";
       # Five workers, each claiming one bundle atomically.
       parallelism = 5;
       publishInterval = "30s";
@@ -101,7 +86,7 @@ in {
       # reasoning dial its client exposes, it multiplies the review rounds, and
       # the per-head budget is divided by those rounds — so `high` would hand
       # the CLI a third of the time and truncate anything above a median diff.
-      ocrModel = "codex-gpt-6-astra";
+      ocrModel = "codex-gpt-6.2-astra";
       ocrEffort = "low";
       # Human gate: review packets accumulate until this is flipped after a
       # dry-run packet is approved.
@@ -179,7 +164,7 @@ in {
           # a deliberate cost/latency choice, not a quality one. `reasoning_effort`
           # is global to this container; the cron jobs also pass
           # `--reasoning-effort high`, which wins for review runs.
-          model = commonSettings.model // {default = "codex-gpt-6-astra";};
+          model = commonSettings.model // {default = "codex-gpt-6.2-astra";};
           agent.reasoning_effort = "high";
           # Review isolation. A review must not see another PR's context:
           # memory persists across sessions and session_search reads the shared

@@ -1,4 +1,4 @@
-{config, ...}: {
+_: {
   flake.modules.nixos.orion-networking = {
     lib,
     pkgs,
@@ -13,10 +13,7 @@
         checkReversePath = "loose";
         # 8085/8087 closed 2026-11-25 — retrieval stack retired, no consumer.
         interfaces.tailscale0.allowedTCPPorts = [];
-        # Discovery-only access also depends on the matching Tailscale ACL.
-        extraCommands = ''
-          iptables -A nixos-fw -i tailscale0 -s ${config.fleet.hosts.discovery.tailscaleIp}/32 -p tcp --dport 9000 -j nixos-fw-accept
-        '';
+        # 9000 was Orion's ASR service; ASR stays on Kepler (2026-11-28).
         allowedTCPPorts = [
           8080 # llama.cpp (LiteLLM routes here)
           8081

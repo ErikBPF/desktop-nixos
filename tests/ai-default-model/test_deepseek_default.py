@@ -14,13 +14,6 @@ def test_opencode_defaults_to_deepseek_v4_flash_through_litellm():
     assert f'"{MODEL}" = {{' in source
 
 
-def test_qwen_chat_exposes_orion_context():
-    source = (ROOT / "modules/dev/opencode.nix").read_text()
-    qwen_chat = source.split("qwen-chat = {", 1)[1].split("qwen-embed = {", 1)[0]
-
-    assert "context = 98304;" in qwen_chat
-
-
 def test_hermes_brains_default_to_their_documented_models():
     """Pin the effective default per brain, not a string somewhere in the file.
 
@@ -35,7 +28,7 @@ def test_hermes_brains_default_to_their_documented_models():
     assert f'default = "{MODEL}";' in primary
     assert f'default = "{MODEL}";' in agents
     # Daedalus, the review worker, runs on the codex route.
-    assert 'model = commonSettings.model // {default = "codex-gpt-6-astra";};' in agents
+    assert 'model = commonSettings.model // {default = "codex-gpt-6.2-astra";};' in agents
     assert 'agent.reasoning_effort = "high";' in agents
 
 
@@ -52,7 +45,17 @@ def test_hermes_marks_litellm_opencode_routes_for_session_affinity():
     primary = (ROOT / "modules/hosts/discovery/hermes-oci.nix").read_text()
     agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
 
-    assert primary.count('provider = "opencode-go";') == 10
+    assert primary.count('provider = "opencode-go";') == 5
     assert primary.count('provider = "custom";') == 1
-    assert agents.count('provider = "opencode-go";') == 7
+    assert agents.count('provider = "opencode-go";') == 4
     assert 'provider = "custom";' not in agents
+
+
+def test_hermes_configs_do_not_reference_removed_litellm_aliases():
+    """The 2026-11 catalog contraction removed these routes from LiteLLM."""
+    primary = (ROOT / "modules/hosts/discovery/hermes-oci.nix").read_text()
+    agents = (ROOT / "modules/hosts/discovery/hermes-agents.nix").read_text()
+
+    for removed in ("qwen-chat", "mimo", "mimo-pro", "kimi-k2-code", "qwen3-max", "minimax-m2", "codex-gpt-6-astra"):
+        assert removed not in primary
+        assert removed not in agents

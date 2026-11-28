@@ -70,6 +70,16 @@ const MODELS: Readonly<Record<GatewayProviderId, Readonly<Record<string, ModelCo
 			contextWindow: 1_000_000,
 			maxTokens: 131_072,
 		},
+		"deepseek-flash-local": {
+			name: "DeepSeek V4.1 Flash (local)",
+			reasoning: true,
+			input: ["text"],
+			inputCost: 0,
+			outputCost: 0,
+			cacheReadCost: 0,
+			contextWindow: 262_144,
+			maxTokens: 8_192,
+		},
 	},
 	work: {
 		"deepseek-v4.1-flash": {
@@ -82,8 +92,8 @@ const MODELS: Readonly<Record<GatewayProviderId, Readonly<Record<string, ModelCo
 			contextWindow: 1_048_576,
 			maxTokens: 393_216,
 		},
-		"glm-5.3-flash": {
-			name: "GLM-5.3 Flash (Work)",
+		"glm-5.3": {
+			name: "GLM-5.3 (Work)",
 			reasoning: false,
 			input: ["text"],
 			inputCost: 0.075,
@@ -165,7 +175,7 @@ function buildProvider(provider: GatewayProviderId, baseUrl: string) {
 		if (!approvedModels[provider].includes(id)) return [];
 		return [{
 			...model, id, provider, baseUrl,
-			api: id === "codex-gpt-6-astra" ? "openai-responses" as const : "openai-completions" as const,
+			api: id === "codex-gpt-6.2-astra" ? "openai-responses" as const : "openai-completions" as const,
 			name: `${model.name} (${provider === "litellm" ? "Codex via Orion" : "Work"})`,
 			reasoning: provider === "litellm",
 			contextWindow: provider === "litellm" ? 272_000 : 1_050_000,
