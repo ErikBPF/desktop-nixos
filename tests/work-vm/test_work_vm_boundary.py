@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 
@@ -120,7 +121,11 @@ def test_ubuntu_work_browser_opens_from_endeavour():
     assert r'title = ".* on 192\\.168\\.122\\.74$";' in hyprland
     assert 'workspace = "8 silent";' in hyprland
     assert 'workspace = "9 silent";' in hyprland
-    remote_browser_rule = hyprland.split('class = "^(Brave-browser)$";', 1)[1].split('class = "^(chromium)$";', 1)[0]
+    remote_browser_rule = re.search(
+        r'class = "\^\(Brave-browser\)\$";.*?\n {12}\}',
+        hyprland,
+        re.DOTALL,
+    ).group(0)
     assert "float = true;" in remote_browser_rule
     assert 'size = "1920 1080";' in remote_browser_rule
 
