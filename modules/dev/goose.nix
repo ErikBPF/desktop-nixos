@@ -90,19 +90,19 @@ _: {
         apiKeyEnv = "OPENCODE_LITELLM_KEY";
         models = [
           {
-            name = "codex-gpt-6-astra";
+            name = "codex-gpt-6.2-astra";
             context_limit = 272000;
           }
           {
-            name = "codex-gpt-5.6-sol";
+            name = "codex-gpt-6.2-sol";
             context_limit = 272000;
           }
           {
-            name = "codex-gpt-5.6-terra";
+            name = "codex-gpt-6.1-terra";
             context_limit = 272000;
           }
           {
-            name = "codex-gpt-5.6-luna";
+            name = "codex-gpt-6-luna";
             context_limit = 272000;
           }
           {
@@ -110,19 +110,11 @@ _: {
             context_limit = 1000000;
           }
           {
-            name = "glm-5.3-flash";
-            context_limit = 1000000;
-          }
-          {
-            name = "qwen-chat";
-            context_limit = 98304;
-          }
-          {
-            name = "apollo-deepseek-v41-flash";
+            name = "deepseek-flash-local";
             context_limit = 262144;
           }
           {
-            name = "qwen3.8-flash";
+            name = "glm-5.3";
             context_limit = 1000000;
           }
         ];
@@ -162,7 +154,7 @@ _: {
           context_limit = 1048576;
         }
         {
-          name = "glm-5.3-flash";
+          name = "glm-5.3";
           context_limit = 1048576;
         }
       ];
@@ -227,7 +219,7 @@ _: {
         ---
         name: architect
         description: RFC, ADR, test-contract, and seed-integrity review. Never writes code.
-        model: codex-gpt-6-astra
+        model: codex-gpt-6.2-astra
         ---
 
         You are the architect reviewer. Ground every claim in current source,
@@ -238,7 +230,7 @@ _: {
         ---
         name: plan
         description: Turn accepted behavior into a grounded implementation plan.
-        model: codex-gpt-6-astra
+        model: codex-gpt-6.2-astra
         ---
 
         You are the planner. Produce vertical RED-GREEN slices with ownership,

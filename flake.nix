@@ -6,11 +6,14 @@
 
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    # Kepler imports this fixed revision because ZFS 2.4.4 supports kernels up
-    # to 7.2 and the root input dropped that series. Apollo and the
-    # `profile-server` hosts follow the root revision pin; endeavour and
-    # pathfinder pin `linuxPackages_zen` themselves.
-    # Revisit once ZFS supports 7.3: https://github.com/ErikBPF/desktop-nixos/issues/459
+    # Kepler imports this fixed revision because OpenZFS 2.4.4 declares
+    # `Linux-Maximum: 7.2` and the root input dropped that series. Every other
+    # host follows the root revision pin on `linuxPackages_7_3` — both
+    # `profile-server` and `profile-desktop` — and Orion pins that same series
+    # explicitly.
+    # OpenZFS master (2.4.99) declares `Linux-Maximum: 7.3`; drop this input
+    # and move Kepler with the fleet when the next release ships.
+    # Tracked in: https://github.com/ErikBPF/desktop-nixos/issues/459
     nixpkgs-gpu-kernel.url = "github:nixos/nixpkgs/d3b13ad75cc492690728f9307e443dec9ef9a20e";
 
     # Kepler recovery tooling is reviewed against SecretSpec 0.13.0.

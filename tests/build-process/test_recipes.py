@@ -73,12 +73,14 @@ def run_recipe(tmp_path, arguments, env=None):
 
 @pytest.mark.parametrize("target,expected", [
     ("orion", "ORION_OVERRIDE"),
-    ("apollo", "ORION_OVERRIDE"),
-    ("endeavour", "ORION_OVERRIDE"),
+    ("apollo", "ORION_OVERRIDE;APOLLO_OVERRIDE"),
+    ("endeavour", "ORION_OVERRIDE;APOLLO_OVERRIDE"),
 ])
 def test_cli_builder_overrides_survive_child_just(tmp_path, target, expected):
     calls = run_recipe(tmp_path, [
-        "orion_builder=ORION_OVERRIDE", "build", target,
+        "orion_builder=ORION_OVERRIDE",
+        "apollo_builder=APOLLO_OVERRIDE",
+        "build", target,
     ])
     assert calls[0][calls[0].index("--builders") + 1] == expected
     assert calls[0][calls[0].index("--max-jobs") + 1] == "0"
@@ -127,12 +129,12 @@ def test_x86_bootstrap_helpers_use_orion_only(tmp_path, name, overrides):
     ["home-switch", "endeavour"], ["deploy", "endeavour", "192.0.2.10"],
     ["deploy-boot", "endeavour", "192.0.2.10"],
 ])
-def test_ordinary_recipes_offer_orion_without_local_fallback(tmp_path, arguments):
+def test_ordinary_recipes_offer_the_builder_pool_without_local_fallback(tmp_path, arguments):
     calls = run_recipe(tmp_path, arguments)
     call = calls[0]
     assert call[call.index("--max-jobs") + 1] == "0"
     assert any("orion-builder:2222" in arg for arg in call)
-    assert not any("apollo-builder:2222" in arg for arg in call)
+    assert any("apollo-builder:2222" in arg for arg in call)
 
 
 @pytest.mark.parametrize("name", ["deploy-rs", "deploy-rs-preview", "deploy-rs-boot"])
@@ -161,7 +163,6 @@ def test_no_recipe_permits_a_local_build():
     text = justfile_text()
     assert "--max-jobs 1" not in text
     assert "max-jobs = 1" not in text
-    assert "apollo_builder" not in text
     assert "kepler_builder" not in text
 
 

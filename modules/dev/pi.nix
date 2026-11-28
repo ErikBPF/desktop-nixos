@@ -136,10 +136,11 @@
                   "maxTokens": 131072,
                   "reasoning": true
                 },
-                {"id":"codex-gpt-6-astra","name":"Astra (Codex via LiteLLM)","api":"openai-responses","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
-                {"id":"codex-gpt-5.6-sol","name":"Sol (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
-                {"id":"codex-gpt-5.6-terra","name":"Terra (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
-                {"id":"codex-gpt-5.6-luna","name":"Luna (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true}
+                {"id":"deepseek-flash-local","name":"DeepSeek V4.1 Flash (local)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":262144,"maxTokens":8192,"input":["text"],"reasoning":true},
+                {"id":"codex-gpt-6.2-astra","name":"Astra (Codex via LiteLLM)","api":"openai-responses","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
+                {"id":"codex-gpt-6.2-sol","name":"Sol (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
+                {"id":"codex-gpt-6.1-terra","name":"Terra (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true},
+                {"id":"codex-gpt-6-luna","name":"Luna (Codex via LiteLLM)","cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":272000,"maxTokens":32768,"input":["text","image"],"reasoning":true}
               ]
             },
             "work": {
@@ -158,8 +159,8 @@
                   "compat": {"supportsReasoningEffort": false}
                 },
                 {
-                  "id": "glm-5.3-flash",
-                  "name": "GLM-5.3 Flash (Work)",
+                  "id": "glm-5.3",
+                  "name": "GLM-5.3 (Work)",
                   "cost": {"input": 0.075, "output": 0.25, "cacheRead": 0.015, "cacheWrite": 0},
                   "contextWindow": 1048576,
                   "maxTokens": 131072,

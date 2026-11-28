@@ -40,7 +40,6 @@ in {
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.intel.updateMicrocode = true;
-    boot.kernelPackages = pkgs.linuxPackages_zen;
 
     # Bootloader: systemd-boot + boot-counting via the systemd-boot-counting
     # module imported above (it force-disables GRUB and adds panic/watchdog

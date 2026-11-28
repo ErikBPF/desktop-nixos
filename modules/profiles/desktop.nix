@@ -1,7 +1,13 @@
 {config, ...}: let
   m = config.flake.modules;
 in {
-  flake.modules.nixos.profile-desktop = {...}: {
+  flake.modules.nixos.profile-desktop = {pkgs, ...}: {
+    # One kernel series for the desktop group, matching profile-server. The
+    # stock 7.3 build is on cache.nixos.org; `linuxPackages_latest` moved the
+    # whole group to a new series on every nixpkgs bump and `linuxPackages_zen`
+    # built a second kernel per host. See issue #459 for the server side.
+    boot.kernelPackages = pkgs.linuxPackages_7_3;
+
     imports = [
       # moved out of profile-base: GUI/workstation-only concerns
       m.nixos.xserver
