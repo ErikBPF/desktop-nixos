@@ -16,6 +16,9 @@
     ];
 
     # --- Hardware detection (AMD Ryzen 5 3600, Radeon Tobago PRO (1002:665f)) ---
+    # Held on 7.2 while OpenZFS 2.4.4 is the newest release (Linux-Maximum 7.2).
+    # Upstream master (2.4.99) supports 7.3; move Kepler with the rest of the
+    # fleet once that release ships — see issue #459.
     boot.kernelPackages = lib.mkForce kernelPkgs.linuxPackages_7_2;
     boot.initrd.availableKernelModules = ["xhci_pci" "ahci" "usb_storage" "sd_mod" "usbhid"];
     boot.initrd.kernelModules = ["amdgpu"];

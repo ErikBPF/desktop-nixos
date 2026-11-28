@@ -107,7 +107,10 @@ in {
     system.stateVersion = "25.11";
     nixpkgs.hostPlatform = "x86_64-linux";
     hardware.cpu.amd.updateMicrocode = true;
-    boot.kernelPackages = pkgs.linuxPackages_latest;
+    # Desktop/HTPC group kernel. Was `linuxPackages_latest`, which forked a new
+    # kernel series on every nixpkgs bump; 7.3 is the same image today and is
+    # already built on cache.nixos.org.
+    boot.kernelPackages = pkgs.linuxPackages_7_3;
 
     # Build aarch64 (the `archinaut` RPi3 print host) under qemu so its closure
     # and SD image can be produced here and substituted to the Pi.
