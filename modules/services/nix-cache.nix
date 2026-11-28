@@ -69,11 +69,11 @@
         # remaining hosts were built). Build one host at a time so a slow
         # closure cannot consume the whole timeout without naming itself, and
         # fail the unit at the end so the failure still surfaces.
-        # 8 hosts x 40 min stays inside the 359 min unit ceiling in
+        # 9 hosts x 40 min stays inside the 359 min unit ceiling in
         # modules/hosts/orion/default.nix.
         echo ":: Building host closures..."
         failed=()
-        for host in archinaut discovery kepler orion pathfinder telstar vanguard voyager; do
+        for host in apollo archinaut discovery kepler orion pathfinder telstar vanguard voyager; do
           started=$(date -u +%FT%TZ)
           if timeout 2400 nix build --no-link --keep-going \
             ".#nixosConfigurations.$host.config.system.build.toplevel"; then

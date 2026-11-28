@@ -231,7 +231,7 @@ deploy-endeavour:
 switch-voyager user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
-    BUILDERS="$(just _builders voyager)"
+    BUILDERS="{{orion_builder}}"
     if [[ "{{user}}:{{port}}" == "root:22" ]]; then IP="{{ip_voyager}}"; else IP="{{tailscale_voyager}}"; fi
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
@@ -340,7 +340,7 @@ switch-telstar user="erik" port="2222":
 switch-vanguard user="erik" port="2222":
     #!/usr/bin/env bash
     set -euo pipefail
-    BUILDERS="$(just _builders vanguard)"
+    BUILDERS="{{orion_builder}}"
     if [[ "{{user}}:{{port}}" == "root:22" ]]; then IP="{{ip_vanguard}}"; else IP="{{tailscale_vanguard}}"; fi
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'sudo mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/tmp/age-keys.txt
@@ -384,7 +384,7 @@ test-vanguard-dead-mans-switch:
 boot-vanguard user="root" port="22":
     #!/usr/bin/env bash
     set -euo pipefail
-    BUILDERS="$(just _builders vanguard)"
+    BUILDERS="{{orion_builder}}"
     IP="{{ip_vanguard}}"
     ssh -p {{port}} -o StrictHostKeyChecking=accept-new {{user}}@"$IP" 'mkdir -p /var/lib/sops-staging'
     scp -P {{port}} ~/.config/sops/age/keys.txt {{user}}@"$IP":/var/lib/sops-staging/age-keys.txt
