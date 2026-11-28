@@ -69,13 +69,15 @@
         # remaining hosts were built). Build one host at a time so a slow
         # closure cannot consume the whole timeout without naming itself, and
         # fail the unit at the end so the failure still surfaces.
-        # 9 hosts x 40 min stays inside the 359 min unit ceiling in
-        # modules/hosts/orion/default.nix.
+        # 9 hosts x 35 min = 315 min of attempts, leaving 44 min under the
+        # 359 min unit ceiling in modules/hosts/orion/default.nix for the git
+        # sync, evaluation and unit start. tests/build-process/test_cache_warm_budget.py
+        # asserts the arithmetic.
         echo ":: Building host closures..."
         failed=()
         for host in apollo archinaut discovery kepler orion pathfinder telstar vanguard voyager; do
           started=$(date -u +%FT%TZ)
-          if timeout 2400 nix build --no-link --keep-going \
+          if timeout 2100 nix build --no-link --keep-going \
             ".#nixosConfigurations.$host.config.system.build.toplevel"; then
             echo ":: $host ok ($started -> $(date -u +%FT%TZ))"
           else
