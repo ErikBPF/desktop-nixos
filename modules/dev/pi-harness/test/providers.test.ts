@@ -102,10 +102,10 @@ describe("providers", () => {
 		const litellmModels = litellm.getModels();
 		const workModels = work.getModels();
 		expect(litellmModels.map((model) => model.id).sort()).toEqual([
-			"codex-gpt-5.6-luna", "codex-gpt-5.6-sol", "codex-gpt-5.6-terra", "codex-gpt-6-astra", "deepseek-v4.1-flash", "glm-5.3",
+			"codex-gpt-6-luna", "codex-gpt-6.1-terra", "codex-gpt-6.2-astra", "codex-gpt-6.2-sol", "deepseek-flash-local", "deepseek-v4.1-flash", "glm-5.3",
 		]);
 		expect(workModels.map((model) => model.id).sort()).toEqual([
-			"chatgpt-5.6-luna", "chatgpt-5.6-sol", "chatgpt-5.6-terra", "deepseek-v4.1-flash", "glm-5.3-flash",
+			"chatgpt-5.6-luna", "chatgpt-5.6-sol", "chatgpt-5.6-terra", "deepseek-v4.1-flash", "glm-5.3",
 		]);
 		expect(litellmModels.every((model) => model.reasoning)).toBe(true);
 		expect(workModels.every((model) => model.reasoning === false)).toBe(true);
@@ -115,7 +115,7 @@ describe("providers", () => {
 
 	it("keeps gateway alias endpoints, limits, and Work pricing", () => {
 		const [litellm, work] = createHarnessProviders();
-		expect(litellm.getModels().find(model => model.id === "codex-gpt-6-astra")?.api).toBe("openai-responses");
+		expect(litellm.getModels().find(model => model.id === "codex-gpt-6.2-astra")?.api).toBe("openai-responses");
 		const sol = work.getModels().find(model => model.id === "chatgpt-5.6-sol");
 		expect(sol?.cost).toEqual({ input: 4, output: 20, cacheRead: 0.5, cacheWrite: 0 });
 		expect(sol?.contextWindow).toBe(1_050_000);
@@ -143,7 +143,7 @@ describe("providers", () => {
 	});
 
 	it("parses model references and rejects other providers", () => {
-		expect(parseModelRef("work/glm-5.3-flash")).toEqual({ provider: "work", modelId: "glm-5.3-flash" });
+		expect(parseModelRef("work/glm-5.3")).toEqual({ provider: "work", modelId: "glm-5.3" });
 		expect(() => parseModelRef("openai/gpt")).toThrow();
 		expect(CREDENTIAL_SOURCES.litellm.file).toBe("/run/secrets/opencode/litellm_key");
 		expect(CREDENTIAL_SOURCES.work.env).toBe("OPENCODE_WORK_KEY");

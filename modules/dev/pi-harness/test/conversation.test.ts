@@ -29,7 +29,7 @@ describe("durable conversation", () => {
 	});
 
 	it.each([
-		{ provider: "work", modelId: "glm-5.3-flash" },
+		{ provider: "work", modelId: "glm-5.3" },
 		{ provider: "openai-codex", modelId: "gpt-5.6-luna" },
 		{ provider: "anthropic", modelId: "claude-sonnet-5-5" },
 	] as const)("keeps a stored $provider agent on reopen unless a flag is explicit", async (model) => {

@@ -205,14 +205,14 @@
             apiKey = "{env:OPENCODE_LITELLM_KEY}";
           };
           models = {
-            "codex-gpt-6-astra" =
+            "codex-gpt-6.2-astra" =
               (codexModel "Astra" "low")
               // {
                 provider.npm = "@opencode/ai/providers/openai-compatible/responses";
               };
-            "codex-gpt-5.6-sol" = codexModel "Sol" "low";
-            "codex-gpt-5.6-terra" = codexModel "Terra" "medium";
-            "codex-gpt-5.6-luna" = codexModel "Luna" "medium";
+            "codex-gpt-6.2-sol" = codexModel "Sol" "low";
+            "codex-gpt-6.1-terra" = codexModel "Terra" "medium";
+            "codex-gpt-6-luna" = codexModel "Luna" "medium";
             "deepseek-v4.1-flash" = {
               name = "DeepSeek V4.1 Flash (LiteLLM → OpenCode Go)";
               cost = {
@@ -257,19 +257,8 @@
                 max.reasoningEffort = "max";
               };
             };
-            qwen-chat = {
-              name = "Qwen Chat (Orion)";
-              cost = {
-                input = 0.25;
-                output = 0.75;
-              };
-              limit = {
-                context = 98304;
-                output = 32768;
-              };
-            };
-            "apollo-deepseek-v41-flash" = {
-              name = "DeepSeek V4.1 Flash (Apollo)";
+            "deepseek-flash-local" = {
+              name = "DeepSeek V4.1 Flash (local)";
               cost = {
                 input = 0.0;
                 output = 0.0;
@@ -277,17 +266,6 @@
               limit = {
                 context = 262144;
                 output = 8192;
-              };
-            };
-            "qwen3.8-flash" = {
-              name = "Qwen3.8 Flash (LiteLLM → OpenCode Go)";
-              cost = {
-                input = 0.15;
-                output = 0.47;
-              };
-              limit = {
-                context = 1000000;
-                output = 131072;
               };
             };
           };
@@ -364,7 +342,7 @@
               reasoning = false;
               tool_call = true;
             };
-            "glm-5.3-flash" = {
+            "glm-5.3" = {
               limit = {
                 context = 1048576;
                 output = 131072;

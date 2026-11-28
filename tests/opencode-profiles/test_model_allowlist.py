@@ -90,7 +90,7 @@ class ModelAllowlist(unittest.TestCase):
         self.assertEqual(normalized.get("settings", {}).get("baseURL"), "http://127.0.0.1:9/v1")
         self.assertEqual(normalized["settings"]["apiKey"], "***")
         self.assertIn("deepseek-v4.1-flash", normalized["models"])
-        self.assertEqual(normalized["models"]["codex-gpt-6-astra"]["package"],
+        self.assertEqual(normalized["models"]["codex-gpt-6.2-astra"]["package"],
                          "@opencode/ai/providers/openai-compatible/responses")
 
     def test_catalog_additions_stay_hidden(self):

@@ -14,13 +14,6 @@ def test_opencode_defaults_to_deepseek_v4_flash_through_litellm():
     assert f'"{MODEL}" = {{' in source
 
 
-def test_qwen_chat_exposes_orion_context():
-    source = (ROOT / "modules/dev/opencode.nix").read_text()
-    qwen_chat = source.split("qwen-chat = {", 1)[1].split("qwen-embed = {", 1)[0]
-
-    assert "context = 98304;" in qwen_chat
-
-
 def test_hermes_brains_default_to_their_documented_models():
     """Pin the effective default per brain, not a string somewhere in the file.
 
