@@ -5,11 +5,13 @@ _: {
     # Capture side of the filter-chain (where the real mic feeds in).
     filtIn = "effect_input.noisetorch";
 
-    # Hotplug daemon: keeps the RNNoise capture wired to whatever the active
-    # hardware mic is, and re-asserts the treated source as the default. The
-    # capture node has autoconnect=false (see filter-chain config) so it never
-    # auto-links to the default source — that would feed the virtual source back
-    # into itself. Only this script links it, deterministically.
+    # Hotplug daemon: keeps the RNNoise capture wired to the preferred hardware
+    # mic, and re-asserts the treated source as the default. Preference order is
+    # explicit (Hollyland wireless > Scarlett 2i2 > built-in > priority) so a
+    # newly plugged interface cannot silently take over dictation. The capture
+    # node has autoconnect=false (see filter-chain config) so it never auto-links
+    # to the default source — that would feed the virtual source back into
+    # itself. Only this script links it, deterministically.
     autobind = pkgs.writeShellApplication {
       name = "noisetorch-autobind";
       runtimeInputs = with pkgs; [pipewire wireplumber jq gnugrep coreutils];
@@ -37,12 +39,9 @@ _: {
             'first(.[]|select(.info.props["node.name"]==$n)|.id)//empty' <<< "$dump")"
           [ -z "$fid" ] && return 0 # filter graph not up yet
 
-          mic="$(jq -r '
-            [ .[]
-              | select(.info.props["media.class"]=="Audio/Source")
-              | select((.info.props["node.name"]//"")|startswith("alsa_input.")) ]
-            | sort_by(.info.props["priority.session"]//0) | reverse
-            | (.[0].info.props["node.name"])//empty' <<< "$dump")"
+          # Choice order lives in noisetorch-mic.jq so it stays readable and
+          # testable outside the shell loop.
+          mic="$(jq -r -f ${./noisetorch-mic.jq} <<< "$dump")"
           [ -z "$mic" ] && return 0 # no hardware mic present
 
           linked="$(jq -r --arg fid "$fid" '

@@ -11,6 +11,7 @@
         pkgs.alejandra
         pkgs.bats
         pkgs.shellcheck
+        pkgs.jq
         pkgs.sops
         pkgs.age
         (pkgs.python3.withPackages (p: [p.pyyaml p.pip]))

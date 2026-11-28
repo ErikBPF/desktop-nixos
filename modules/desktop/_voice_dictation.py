@@ -3,7 +3,6 @@ import fcntl
 import http.client
 import json
 import os
-import re
 from pathlib import Path
 import signal
 import subprocess
@@ -18,6 +17,7 @@ import wave
 
 STOP = threading.Event()
 MODEL = 'qwen3.5:4b'
+ASR_MODEL = 'whisper-pt-br'
 GATEWAY = 'https://litellm.homelab.pastelariadev.com/v1'
 NOTIFICATION_ID = '0'
 
@@ -141,7 +141,7 @@ def degraded(error):
 
 def transcribe(audio):
     try:
-        result = gateway('audio/transcriptions', {'model': 'whisper-pt-br', 'response_format': 'json', 'max_fallbacks': '0'}, audio)
+        result = gateway('audio/transcriptions', {'model': ASR_MODEL, 'response_format': 'json', 'max_fallbacks': '0'}, audio)
         text = result['text']
         if not isinstance(text, str) or len(text) > 20000:
             raise ValueError('Invalid gateway transcript')
@@ -155,15 +155,27 @@ def transcribe(audio):
 
 def local_transcribe(audio):
     output = run(['voxtype', '--quiet', 'transcribe', str(audio)], timeout=120)
-    preamble, separator, text = output.partition('\n\n')
-    pattern = (r'Loading audio file: [^\n]+\nAudio format: 16000 Hz, 1 channel\(s\), Int\n'
-               r'Processing [0-9]+ samples \([0-9.]+s\)\.\.\.'
-               r'(?:\nVAD: [0-9.]+s speech \([0-9.]+% of audio\))?')
-    if 'No speech detected, skipping transcription.' in preamble:
+    if 'No speech detected, skipping transcription.' in output:
         raise RuntimeError('No speech detected')
-    if not separator or not re.fullmatch(pattern, preamble) or not text.strip() or len(text) > 20000:
+    # Voxtype prints a three-line banner, an optional VAD line, a blank line,
+    # then the transcript. Anything before the Processing line is diagnostic.
+    # Parsing from that marker tolerates extra warnings that a full-match
+    # banner check discarded along with a good transcript.
+    lines = output.splitlines()
+    marker = next((index for index, line in enumerate(lines) if line.startswith('Processing ')), None)
+    if marker is None:
         raise RuntimeError('Local transcriber did not produce a valid result')
-    return text.strip()
+    rest = lines[marker + 1:]
+    if rest and rest[0].startswith('VAD: '):
+        rest = rest[1:]
+    # The banner block ends with a blank line. Without it, a runtime diagnostic
+    # would be copied as if it were the transcript.
+    if not rest or rest[0].strip():
+        raise RuntimeError('Local transcriber did not produce a valid result')
+    text = '\n'.join(rest[1:]).strip()
+    if not text or len(text) > 20000:
+        raise RuntimeError('Local transcriber did not produce a valid result')
+    return text
 
 
 def wait_for_stop(process):
@@ -184,6 +196,10 @@ def capture(audio):
         time.sleep(0.1)
         if process.poll() is not None:
             raise RuntimeError('Recorder did not start')
+        # A second shortcut press can arrive while the recorder is starting.
+        # Treat it as cancellation instead of recording an empty file.
+        if STOP.is_set():
+            raise Cancelled()
         notify('Recording', 'Press the shortcut again to stop; Super+Ctrl+I cancels.')
         wait_for_stop(process)
     finally:
@@ -207,6 +223,8 @@ def capture(audio):
 
 
 def dictate(mode, directory):
+    if STOP.is_set():
+        raise Cancelled()
     context = ''
     if mode == 'context':
         context = run(['wl-paste', '--no-newline', '--type', 'text'], timeout=3)
@@ -238,18 +256,28 @@ def dictate(mode, directory):
 def control(mode):
     runtime = Path(os.environ['XDG_RUNTIME_DIR']) / 'voice-dictation'
     runtime.mkdir(mode=0o700, exist_ok=True)
+    ready = runtime / 'ready'
     with (runtime / 'control.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         units = ['voice-dictation@plain.service', 'voice-dictation@context.service']
         if mode == 'cancel':
+            ready.unlink(missing_ok=True)
             run(['systemctl', '--user', 'stop', *units])
             return
         for unit in units:
             state = run(['systemctl', '--user', 'show', '-p', 'ActiveState', '--value', unit])
-            if state in ('active', 'activating'):
+            if state not in ('active', 'activating'):
+                continue
+            if state == 'active' and ready.exists():
                 # Signal only the Python worker; never its transcriber child.
                 run(['systemctl', '--user', 'kill', '--kill-whom=main', '--signal=SIGUSR1', unit])
-                return
+            else:
+                # The worker has not installed its SIGUSR1 handler yet, or is
+                # still activating. A signal now would kill it with the default
+                # disposition and trip the start limit; stop it instead.
+                run(['systemctl', '--user', 'stop', unit])
+            return
+        ready.unlink(missing_ok=True)
         run(['systemctl', '--user', 'start', f'voice-dictation@{mode}.service'])
 
 
@@ -267,10 +295,18 @@ def main():
     signal.signal(signal.SIGTERM, cancel)
     runtime = Path(os.environ['XDG_RUNTIME_DIR']) / 'voice-dictation'
     runtime.mkdir(mode=0o700, exist_ok=True)
+    ready = runtime / 'ready'
     with (runtime / 'capture.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        with tempfile.TemporaryDirectory(prefix='capture-', dir=runtime) as directory:
-            dictate(mode, Path(directory))
+        # Published only after the SIGUSR1 handler exists and this worker owns
+        # capture, so the controller can tell "safe to signal" from "starting".
+        # The capture lock is held until exit, so no successor can share it.
+        try:
+            ready.touch(mode=0o600)
+            with tempfile.TemporaryDirectory(prefix='capture-', dir=runtime) as directory:
+                dictate(mode, Path(directory))
+        finally:
+            ready.unlink(missing_ok=True)
 
 
 if __name__ == '__main__':

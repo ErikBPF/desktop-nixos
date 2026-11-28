@@ -74,9 +74,21 @@ class Gateway(unittest.TestCase):
         preamble = 'Loading audio file: "capture.wav"\nAudio format: 16000 Hz, 1 channel(s), Int\nProcessing 16000 samples (1.00s)...\n'
         with patch.object(voice, 'run', return_value=preamble + '\nlinha um\nlinha dois'):
             self.assertEqual(voice.local_transcribe(Path('capture.wav')), 'linha um\nlinha dois')
-        for output in (preamble, 'unexpected diagnostic\n\nnot transcript', preamble + 'No speech detected, skipping transcription.'):
+        for output in (preamble, 'unexpected diagnostic\n\nnot transcript', preamble + 'Error: model failed to load', preamble + 'No speech detected, skipping transcription.'):
             with self.subTest(output=output), patch.object(voice, 'run', return_value=output):
                 with self.assertRaises(RuntimeError): voice.local_transcribe(Path('capture.wav'))
+
+    def test_local_transcribe_tolerates_extra_banner_diagnostics(self):
+        # A warning before the banner used to discard a valid transcript. Only
+        # the Processing marker and the following transcript are contractual.
+        output = ('warning: runtime state already exists\n'
+                  + 'Loading audio file: "/tmp/capture.wav"\n'
+                  + 'Audio format: 16000 Hz, 1 channel(s), Int\n'
+                  + 'Processing 16000 samples (1.00s)...\n'
+                  + 'VAD: 0.90s speech (90.0% of audio)\n\n'
+                  + 'texto final')
+        with patch.object(voice, 'run', return_value=output):
+            self.assertEqual(voice.local_transcribe(Path('capture.wav')), 'texto final')
 
 class FailureBoundaries(unittest.TestCase):
     def test_malformed_primary_rewrite_uses_local(self):
